@@ -1,0 +1,381 @@
+@import 'tailwindcss';
+
+/* =====================================================================
+   DARK MODE STRATEGY
+   Pakai attribute `data-theme` di <html>, bukan media query murni.
+   Alasan: user harus bisa override preferensi OS (banyak mahasiswa baca
+   di perpus terang tapi OS-nya dark). Script anti-FOUC ada di layout.tsx.
+   ===================================================================== */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* =====================================================================
+   1. DESIGN TOKENS — SINGLE SOURCE OF TRUTH
+   Penamaan mengikuti Blueprint v3 §4 persis (--color-bg, --color-accent,
+   --color-deadline-*, dst) supaya dokumen desain & kode tidak drift.
+   Yang diubah HANYA nilai hue-nya, plus penambahan varian light mode.
+
+   KENAPA HUE DIGANTI dari Indigo #4F46E5:
+   - Indigo-600 di atas Zinc-950 adalah palet default de-facto setiap
+     dashboard hasil generate. Produk ini butuh identitas, bukan template.
+   - Accent tetap di keluarga BIRU secara sengaja: hijau/kuning/merah sudah
+     "dipesan" oleh semantic + deadline state. Kalau accent ikut masuk ke
+     hue itu, user tidak bisa lagi membedakan "tombol" vs "peringatan".
+     Biru adalah satu-satunya hue yang secara semantik masih kosong di
+     sistem ini — jadi ini keputusan teknis, bukan selera.
+   - Dipilih Cobalt (#2B50EC): lebih murni-biru & lebih dalam dari Indigo,
+     rasio kontras 5.5:1 di atas putih (lolos WCAG AA untuk teks normal),
+     dan tetap terbaca sebagai "tepercaya/institusional" — nada yang benar
+     untuk produk yang isinya beasiswa & lomba resmi.
+   - Netral diberi tint biru tipis (bukan zinc murni) supaya harmonis
+     dengan accent. Netral abu-abu steril + accent jenuh adalah kombinasi
+     yang bikin UI terasa "ditempel", bukan dirancang.
+   ===================================================================== */
+:root {
+  color-scheme: light;
+
+  /* ===== Base — Light (default) ===== */
+  --color-bg: #f7f8fa;              /* paper dingin, bukan #FFF murni: mengurangi glare */
+  --color-surface: #ffffff;         /* kartu naik 1 level di atas paper */
+  --color-surface-nested: #eff1f5;  /* panel bersarang; hindari tumpuk border */
+  --color-border: rgb(12 17 29 / 0.1);
+  --color-border-strong: rgb(12 17 29 / 0.16);
+  --color-text-primary: #0c111d;
+  --color-text-secondary: #363e52;
+  --color-text-muted: #5a6378;
+  --color-text-placeholder: #686f82; /* 4.72:1 di atas --color-bg — diukur, bukan ditaksir.
+                                        Placeholder & caption tetap teks; WCAG 1.4.3 berlaku. */
+
+  /* ===== Accent — Cobalt, satu warna aksen solid ===== */
+  --color-accent: #2b50ec;
+  --color-accent-hover: #2343ce;
+  --color-accent-pressed: #1b36a8;
+  --color-accent-soft: rgb(43 80 236 / 0.1);   /* bg chip/badge aktif */
+  --color-accent-text: #1f3fcb;                /* accent sebagai TEKS di atas bg terang */
+  --color-accent-foreground: #ffffff;          /* teks di ATAS accent */
+
+  /* ===== Semantic — toast, validasi form, alert admin ===== */
+  --color-success: #15803d;
+  --color-success-container: rgb(21 128 61 / 0.1);
+  --color-success-border: rgb(21 128 61 / 0.3);
+
+  --color-error: #c62828;
+  --color-error-container: rgb(198 40 40 / 0.1);
+  --color-error-border: rgb(198 40 40 / 0.3);
+
+  --color-warning: #a16207;
+  --color-warning-container: rgb(161 98 7 / 0.1);
+  --color-warning-border: rgb(161 98 7 / 0.3);
+
+  --color-info: #0369a1;
+  --color-info-container: rgb(3 105 161 / 0.1);
+  --color-info-border: rgb(3 105 161 / 0.3);
+
+  /* ===== Deadline degradation — namespace SENGAJA dipisah dari semantic.
+     "Urgent" di sini artinya WAKTU menipis, bukan aksi gagal. Jangan
+     ditukar-pakai; itu yang bikin user salah baca prioritas. ===== */
+  --color-deadline-safe: #5a6378;    /* > 7 hari */
+  --color-deadline-warning: #a16207; /* H-7 s/d H-3 */
+  --color-deadline-urgent: #c62828;  /* H-2 s/d H-0 */
+  --color-deadline-safe-soft: rgb(90 99 120 / 0.1);
+  --color-deadline-warning-soft: rgb(161 98 7 / 0.1);
+  --color-deadline-urgent-soft: rgb(198 40 40 / 0.1);
+
+  /* ===== Focus ring — wajib di SEMUA elemen interaktif (a11y §9) ===== */
+  --focus-ring: #2b50ec;
+  --focus-ring-offset: 2px;
+
+  /* ===== Elevation — light mode saja. Di dark mode shadow ~tidak terlihat,
+     jadi hierarki dark dibangun pakai border + surface step. ===== */
+  --shadow-card: 0 1px 2px rgb(12 17 29 / 0.04), 0 1px 3px rgb(12 17 29 / 0.06);
+  --shadow-raised: 0 4px 12px rgb(12 17 29 / 0.08), 0 1px 3px rgb(12 17 29 / 0.06);
+  --shadow-overlay: 0 16px 40px rgb(12 17 29 / 0.16);
+
+  /* ===== Typography scale (base 16px, rasio ~1.25) =====
+     Nilainya didaftarkan di blok `@theme` terpisah di bawah supaya utility
+     `text-3xl`/`text-4xl` ikut memakai skala ini, bukan default Tailwind. */
+
+  --tracking-heading: -0.02em;
+  --leading-heading: 1.2;
+  --leading-body: 1.55;
+
+  /* ===== Spacing scale (kelipatan 4/8) =====
+     Catatan mapping ke Tailwind: --space-5 (24px) = `p-6`, --space-6 (32px)
+     = `p-8`, --space-7 (48px) = `p-12`, --space-8 (64px) = `p-16`. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ===== Radius ===== */
+  --radius-sm: 6px;
+  --radius-card: 12px;
+  --radius-modal: 16px;
+  --radius-pill: 999px;
+
+  /* ===== Motion — snappy, 150-200ms. Tidak ada animasi melayang. ===== */
+  --duration-micro: 150ms;
+  --duration-transition: 200ms;
+  --easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ===== Layout ===== */
+  --spacing-card-padding: var(--space-5);
+  --layout-max: 1200px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg: #0a0c12;
+  --color-surface: #12151e;
+  --color-surface-nested: #1b1f2b;
+  --color-border: rgb(255 255 255 / 0.09);
+  --color-border-strong: rgb(255 255 255 / 0.16);
+  --color-text-primary: #f2f4f9;
+  --color-text-secondary: #c5cad8;
+  --color-text-muted: #969eb2;
+  --color-text-placeholder: #787f93; /* 4.89:1 di atas --color-bg, 4.56:1 di atas --color-surface */
+
+  /* Accent diangkat sedikit: warna yang sama persis terasa "mati" di atas
+     permukaan gelap karena kontras simultan. */
+  --color-accent: #3a5cf0;
+  --color-accent-hover: #4a6af5;
+  --color-accent-pressed: #2b50ec;
+  --color-accent-soft: rgb(58 92 240 / 0.18);
+  --color-accent-text: #93a8ff;
+  --color-accent-foreground: #ffffff;
+
+  --color-success: #4ade80;
+  --color-success-container: rgb(74 222 128 / 0.12);
+  --color-success-border: rgb(74 222 128 / 0.32);
+
+  --color-error: #f87171;
+  --color-error-container: rgb(248 113 113 / 0.12);
+  --color-error-border: rgb(248 113 113 / 0.32);
+
+  --color-warning: #facc15;
+  --color-warning-container: rgb(250 204 21 / 0.12);
+  --color-warning-border: rgb(250 204 21 / 0.32);
+
+  --color-info: #38bdf8;
+  --color-info-container: rgb(56 189 248 / 0.12);
+  --color-info-border: rgb(56 189 248 / 0.32);
+
+  --color-deadline-safe: #969eb2;
+  --color-deadline-warning: #facc15;
+  --color-deadline-urgent: #f87171;
+  --color-deadline-safe-soft: rgb(150 158 178 / 0.14);
+  --color-deadline-warning-soft: rgb(250 204 21 / 0.14);
+  --color-deadline-urgent-soft: rgb(248 113 113 / 0.14);
+
+  --focus-ring: #93a8ff;
+
+  --shadow-card: none;
+  --shadow-raised: none;
+  --shadow-overlay: 0 16px 40px rgb(0 0 0 / 0.5);
+}
+
+/* =====================================================================
+   2. JEMBATAN KE TAILWIND
+   `@theme inline` memetakan token di atas ke utility class. Nama utility
+   dibuat pendek & semantik (bg-canvas, text-ink, border-line) supaya
+   markup tetap enak dibaca, sementara SUMBER nilainya tetap token
+   bernama-blueprint di atas.
+   ===================================================================== */
+@theme inline {
+  --color-canvas: var(--color-bg);
+  --color-panel: var(--color-surface);
+  --color-panel-nested: var(--color-surface-nested);
+  --color-line: var(--color-border);
+  --color-line-strong: var(--color-border-strong);
+
+  --color-ink: var(--color-text-primary);
+  --color-ink-soft: var(--color-text-secondary);
+  --color-ink-muted: var(--color-text-muted);
+  --color-ink-faint: var(--color-text-placeholder);
+
+  --color-brand: var(--color-accent);
+  --color-brand-hover: var(--color-accent-hover);
+  --color-brand-pressed: var(--color-accent-pressed);
+  --color-brand-soft: var(--color-accent-soft);
+  --color-brand-text: var(--color-accent-text);
+  --color-on-brand: var(--color-accent-foreground);
+
+  --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-container);
+  --color-success-line: var(--color-success-border);
+  --color-danger: var(--color-error);
+  --color-danger-soft: var(--color-error-container);
+  --color-danger-line: var(--color-error-border);
+  --color-caution: var(--color-warning);
+  --color-caution-soft: var(--color-warning-container);
+  --color-caution-line: var(--color-warning-border);
+  --color-info: var(--color-info);
+  --color-info-soft: var(--color-info-container);
+  --color-info-line: var(--color-info-border);
+
+  --color-due-safe: var(--color-deadline-safe);
+  --color-due-warning: var(--color-deadline-warning);
+  --color-due-urgent: var(--color-deadline-urgent);
+  --color-due-safe-soft: var(--color-deadline-safe-soft);
+  --color-due-warning-soft: var(--color-deadline-warning-soft);
+  --color-due-urgent-soft: var(--color-deadline-urgent-soft);
+
+  --radius-sm: var(--radius-sm);
+  --radius-card: var(--radius-card);
+  --radius-modal: var(--radius-modal);
+  --radius-pill: var(--radius-pill);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+
+  --color-focus: var(--focus-ring);
+  --ease-snap: var(--easing);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --container-page: var(--layout-max);
+
+  /* Breakpoint terkecil Tailwind adalah `sm` (640px) — terlalu lebar untuk
+     menangani perangkat 320px dan tampilan yang diperbesar (zoom 200% di
+     layar 640px menghasilkan viewport efektif 320px, dan itu syarat WCAG
+     1.4.4). `xs` mengisi celah itu. */
+  --breakpoint-xs: 22.5rem;
+}
+
+/* Skala tipografi Blueprint §4. Ditulis literal di `@theme` (bukan
+   `@theme inline`) karena nama kunci tema dan nama tokennya identik —
+   `var(--text-3xl)` tetap bisa dipakai di CSS biasa, dan utility
+   `text-3xl` otomatis ikut nilai ini. */
+@theme {
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.5rem;
+}
+
+/* =====================================================================
+   3. BASE LAYER
+   ===================================================================== */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    line-height: var(--leading-body);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-heading);
+    line-height: var(--leading-heading);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Focus ring global: menempel di SEMUA elemen fokusable, bukan cuma
+     <button>. Ini syarat WCAG 2.4.7 dan paling sering kelewat. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+    border-radius: var(--radius-sm);
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
+  }
+
+  ::placeholder {
+    color: var(--color-text-placeholder);
+  }
+
+  /* Hormati user yang sensitif terhadap gerak (vestibular disorder). */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* =====================================================================
+   4. UTILITIES
+   ===================================================================== */
+@utility container-page {
+  width: 100%;
+  max-width: var(--layout-max);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+
+/* Skip-link: tersembunyi sampai di-Tab. Wajib untuk keyboard user supaya
+   tidak perlu tab lewat seluruh navigasi di tiap halaman. */
+@utility skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  z-index: 100;
+  transform: translateY(-200%);
+  transition: transform var(--duration-micro) var(--easing);
+
+  &:focus-visible {
+    transform: translateY(0);
+  }
+}
+
+@keyframes sf-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Staggered reveal RINGAN (blueprint §4: boleh diambil sedikit, bukan
+   identitas utama). 200ms, geser 6px — cukup untuk memberi arah baca,
+   tidak cukup untuk memperlambat scanning. */
+@utility reveal {
+  animation: sf-fade-up var(--duration-transition) var(--easing) both;
+}
+
+@utility shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-surface-nested) 0%,
+    color-mix(in oklab, var(--color-surface-nested) 60%, var(--color-border-strong)) 50%,
+    var(--color-surface-nested) 100%
+  );
+  background-size: 200% 100%;
+  animation: sf-shimmer 1.4s linear infinite;
+}
+
+@keyframes sf-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
