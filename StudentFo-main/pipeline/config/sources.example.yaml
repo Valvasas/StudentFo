@@ -1,0 +1,29 @@
+# Daftar sumber. Disimpan sebagai konfigurasi, BUKAN di-hardcode di kode
+# (Blueprint §7 langkah 2) — menambah sumber tidak boleh butuh deploy ulang.
+#
+# Sebelum menambahkan sumber, pastikan tiga hal:
+#   1. robots.txt situs itu mengizinkan path yang dituju (dicek otomatis,
+#      tapi lebih baik tahu sejak awal).
+#   2. Situsnya memang menerbitkan informasi untuk publik.
+#   3. Ada kontak yang bisa dihubungi kalau pemilik situs keberatan.
+
+defaults:
+  # Jeda antar-request ke domain yang SAMA. Diacak di rentang ini supaya
+  # polanya tidak seragam seperti serangan otomatis.
+  delay_seconds_min: 2.0
+  delay_seconds_max: 5.0
+  timeout_seconds: 30
+  max_pages_per_source: 20
+
+sources:
+  - id: contoh-kampus
+    name: Portal Kemahasiswaan Contoh
+    start_url: https://contoh.ac.id/pengumuman/kemahasiswaan
+    # Selector kasar untuk memangkas HTML sebelum dikirim ke LLM. Memangkas
+    # dulu memotong biaya token secara drastis dan mengurangi halusinasi
+    # dari isi menu/footer yang tidak relevan.
+    content_selector: "main"
+    # Playwright dipakai hanya kalau isinya dirender JavaScript. Kalau HTML
+    # statis sudah cukup, httpx jauh lebih murah dan lebih cepat.
+    requires_javascript: false
+    enabled: false
