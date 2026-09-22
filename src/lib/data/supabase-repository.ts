@@ -1,5 +1,6 @@
 import 'server-only';
 import { AppError, ERROR_CODES } from '@/lib/errors';
+import { rankEvents } from '@/lib/recommendation';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
 import type {
   Category,
@@ -20,6 +21,25 @@ import {
 
 const LISTING_COLUMNS =
   'id, slug, title, organizer, description, event_type, registration_link, source_url, education_levels, location, is_online, status, saved_count, created_at, primary_deadline_at, primary_deadline_label, category_slugs';
+
+/**
+ * Batas kandidat yang diberi skor untuk sort 'relevance'.
+ *
+ * `rankEvents()` (§6) berjalan di memori Node, bukan di SQL — jadi hanya
+ * sejumlah kandidat TERBARU ini yang diambil dan diberi skor per request,
+ * bukan seluruh tabel `events`. Untuk skala Phase 1/2 (target §8: ~100
+ * event aktif, lalu 500 DAU) ini jauh di atas cukup. Begitu jumlah event
+ * APPROVED mendekati angka ini, pindahkan skoring ke fungsi SQL/RPC —
+ * mengambil 500 baris ke memori pada setiap request beranda tidak akan
+ * lagi murah.
+ *
+ * PENTING kalau menambah pemanggil baru: jangan pakai sort default
+ * ('relevance') untuk kebutuhan yang harus menjangkau SEMUA baris (contoh:
+ * sitemap). Di atas limit ini, halaman relevance selanjutnya akan kosong
+ * meski `totalPages` bilang masih ada — pakai 'newest' atau 'deadline',
+ * yang keduanya tetap paginasi murni di sisi database tanpa batas ini.
+ */
+const RANKING_CANDIDATE_LIMIT = 500;
 
 function toSummary(row: EventListingRow): EventSummary {
   return {
@@ -87,26 +107,69 @@ export class SupabaseEventRepository implements EventRepository {
       builder = builder.or(`primary_deadline_at.gte.${new Date().toISOString()},primary_deadline_at.is.null`);
     }
 
-    builder =
-      query.sort === 'deadline'
-        ? builder.order('primary_deadline_at', { ascending: true, nullsFirst: false })
-        : builder.order('created_at', { ascending: false });
+    // 'deadline' dan 'newest' murni paginasi di sisi database — cepat di
+    // skala berapa pun, tidak ada baris yang perlu ditarik ke memori Node.
+    if (query.sort === 'deadline' || query.sort === 'newest') {
+      builder =
+        query.sort === 'deadline'
+          ? builder.order('primary_deadline_at', { ascending: true, nullsFirst: false })
+          : builder.order('created_at', { ascending: false });
 
-    const { data, error, count } = await builder.range(from, from + pageSize - 1).returns<EventListingRow[]>();
+      const { data, error, count } = await builder.range(from, from + pageSize - 1).returns<EventListingRow[]>();
+
+      if (error) {
+        throw new AppError(ERROR_CODES.UPSTREAM_FAILURE, 'Gagal memuat daftar event.', 502, {
+          cause: error,
+        });
+      }
+
+      const total = count ?? data.length;
+      return {
+        items: data.map(toSummary),
+        total,
+        page,
+        pageSize,
+        totalPages: Math.max(Math.ceil(total / pageSize), 1),
+      };
+    }
+
+    // 'relevance' (default): skoring §6 (category/education match + recency,
+    // dengan fallback cold-start recency+popularity) berjalan di app, bukan
+    // di SQL, jadi paginasinya juga harus di app — ambil kandidat TERBARU
+    // sebanyak RANKING_CANDIDATE_LIMIT, beri skor, baru potong sesuai halaman
+    // yang diminta. Sebelumnya kode ini malah cuma `order('created_at')`
+    // langsung, jadi "Paling relevan" tidak pernah berbeda dari "Terbaru" —
+    // seluruh algoritma rekomendasi ada tapi tidak pernah terpanggil.
+    const { data, error, count } = await builder
+      .order('created_at', { ascending: false })
+      .limit(RANKING_CANDIDATE_LIMIT)
+      .returns<EventListingRow[]>();
 
     if (error) {
-      throw new AppError(ERROR_CODES.UPSTREAM_FAILURE, 'Gagal memuat daftar event.', 502, {
-        cause: error,
-      });
+      throw new AppError(ERROR_CODES.UPSTREAM_FAILURE, 'Gagal memuat daftar event.', 502, { cause: error });
     }
 
     const total = count ?? data.length;
+    const candidatesTruncated = total > RANKING_CANDIDATE_LIMIT;
+
+    // Fase 1 belum punya sesi user di jalur baca publik (auth baru masuk di
+    // Fase 2) — profil selalu null di sini, yang membuat rankEvents otomatis
+    // memilih jalur cold-start (§6: recency + popularity). Begitu Fase 2
+    // aktif, ganti `null` dengan profil user yang sedang login.
+    const ranked = rankEvents(data.map(toSummary), null);
+    const items = ranked.slice(from, from + pageSize).map((scored) => scored.event);
+
     return {
-      items: data.map(toSummary),
+      items,
       total,
       page,
       pageSize,
-      totalPages: Math.max(Math.ceil(total / pageSize), 1),
+      // Dibatasi ke jendela kandidat yang benar-benar diberi skor. Tanpa
+      // ini, `totalPages` bisa menjanjikan halaman lebih jauh yang akan
+      // selalu kosong begitu jumlah event APPROVED melewati batas kandidat.
+      totalPages: candidatesTruncated
+        ? Math.max(Math.ceil(RANKING_CANDIDATE_LIMIT / pageSize), 1)
+        : Math.max(Math.ceil(total / pageSize), 1),
     };
   }
 
