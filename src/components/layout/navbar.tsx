@@ -25,14 +25,17 @@ const NAV_ITEMS: readonly NavItem[] = [
 export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-canvas/85 backdrop-blur-sm">
-      <div className="container-page flex h-16 items-center justify-between gap-4">
+      {/* Di bawah `md` tab pindah ke baris kedua. Satu baris berisi logo +
+          4 tab + lonceng + tema + tombol akun butuh ±570px — di ponsel 412px
+          seluruh halaman jadi bisa digeser ke samping (ditangkap
+          tests/a11y). Urutan DOM tetap logo → tab → aksi supaya urutan fokus
+          keyboard sama di semua lebar; hanya `order` visual yang berubah. */}
+      <div className="container-page flex flex-wrap items-center gap-x-4 md:h-16 md:flex-nowrap">
         {/* Di bawah 360px kata "StudentFo" disembunyikan dan menyisakan
-            lambangnya saja. Tanpa ini, logo + 3 tab + pengalih tema melebihi
-            lebar layar dan seluruh halaman bisa digeser ke samping — cacat
-            yang membuat teks terpotong di setiap halaman, bukan cuma di sini. */}
+            lambangnya saja supaya baris pertama tetap muat. */}
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2 font-display text-lg font-semibold tracking-tight"
+          className="order-1 flex h-14 shrink-0 items-center gap-2 font-display text-lg font-semibold tracking-tight md:h-auto"
         >
           <GraduationCap aria-hidden className="size-7 shrink-0 text-brand" />
           <span className="hidden xs:inline">
@@ -41,12 +44,18 @@ export function Navbar() {
           <span className="sr-only xs:hidden">StudentFo</span>
         </Link>
 
-        <nav aria-label="Navigasi utama" className="flex items-center gap-0.5 sm:gap-1">
+        <nav
+          aria-label="Navigasi utama"
+          className="order-3 -mx-2 flex w-full items-center gap-0.5 md:order-2 md:mx-0 md:ml-auto md:w-auto md:gap-1"
+        >
           <NavLinks items={NAV_ITEMS} />
+        </nav>
+
+        <div className="order-2 ml-auto flex items-center gap-0.5 sm:gap-1 md:order-3 md:ml-0">
           <NotificationMenu />
           <ThemeToggle />
           <AccountMenu />
-        </nav>
+        </div>
       </div>
     </header>
   );

@@ -16,7 +16,13 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
-  use: { baseURL: `http://localhost:${PORT}` },
+  use: {
+    baseURL: `http://localhost:${PORT}`,
+    // Kartu `.reveal` memudar masuk selama 200ms. Tanpa ini axe mengukur
+    // kontras di tengah animasi (opasitas < 1) dan melaporkan pelanggaran
+    // palsu. Keadaan akhirnya identik dengan mode gerak normal.
+    reducedMotion: 'reduce',
+  },
   projects: [
     { name: 'terang', use: { ...devices['Desktop Chrome'], colorScheme: 'light' } },
     { name: 'gelap', use: { ...devices['Desktop Chrome'], colorScheme: 'dark' } },

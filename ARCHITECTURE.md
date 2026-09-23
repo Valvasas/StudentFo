@@ -35,11 +35,12 @@ di `/admin` yang mengubah status jadi `APPROVED`/`REJECTED`.
 ## Struktur folder
 
 ```
-.github/workflows/              CI (verify + build + tes pipeline) dan job terjadwal:
+.github/workflows/              CI (verify + build + a11y + tes pipeline) dan job terjadwal:
                                 scraper 02:00, expiry 00:05, notifikasi 07:00 WIB
 scripts/                        check-contrast.mjs, verify-database.ts
+tests/a11y/                     Audit axe-core (Playwright) — `npm run test:a11y`, konfigurasi di playwright.config.ts
 supabase/
-├── migrations/                 9 file, berurutan (lihat SCHEMA.md)
+├── migrations/                 10 file, berurutan (lihat SCHEMA.md)
 └── DEVIATIONS.md               ← WAJIB dibaca sebelum mengubah skema
 pipeline/                       Proyek Python terpisah (scraper + ekstraksi LLM)
 

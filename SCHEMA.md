@@ -17,6 +17,7 @@ Urutan migration (harus dijalankan berurutan):
 7. `20260914100001_deadline_notifications.sql` — RPC `create_deadline_notifications()` + index dedupe
 8. `20260914100002_team_member_profiles.sql` — view `team_member_profiles` + index `teams(event_id)`
  9. `20260923100001_security_hardening.sql` — pengerasan hak akses (default privileges Supabase), kapasitas tim di DB, view `team_member_counts`, RPC `approve_submission()`, batas ukuran kolom, index tambahan
+10. `20260923110001_submission_rate_limit.sql` — trigger `enforce_submission_rate_limit()` pada `ugc_submissions` (3/jam per email, 100 PENDING/jam global; angka dicerminkan `SUBMISSION_RATE_LIMIT` di `src/lib/submission-schema.ts`) + index `lower(email), created_at`
 
 > ⚠️ **Default privileges Supabase.** Setiap tabel, view, dan fungsi baru di
 > `public` OTOMATIS memberi hak ke `anon` dan `authenticated` secara eksplisit.

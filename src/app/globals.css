@@ -41,8 +41,8 @@
   --color-border-strong: #c4c0b5;
   --color-text-primary: #2a2a32;
   --color-text-secondary: #57534a;
-  --color-text-muted: #767165;
-  --color-text-placeholder: #767165; /* 4.58:1 di atas --color-bg, 4.86:1 di atas --color-surface —
+  --color-text-muted: #6f6a5e;  /* 4.76:1 di atas --color-info-container, 4.86:1 di atas --color-surface-nested */
+  --color-text-placeholder: #6f6a5e; /* 5.08:1 di atas --color-bg, 5.39:1 di atas --color-surface —
                                         diukur, bukan ditaksir. Placeholder & caption tetap teks;
                                         WCAG 1.4.3 berlaku.
                                         #9C978B (neutral-400) dari kanvas desain TIDAK dipakai
@@ -83,7 +83,7 @@
   /* ===== Deadline degradation — namespace SENGAJA dipisah dari semantic.
      "Urgent" di sini artinya WAKTU menipis, bukan aksi gagal. Jangan
      ditukar-pakai; itu yang bikin user salah baca prioritas. ===== */
-  --color-deadline-safe: #767165;    /* > 7 hari — 4.58:1 */
+  --color-deadline-safe: #6f6a5e;    /* > 7 hari — 4.86:1 di atas softnya */
   /* H-7 s/d H-3 — amber, sinyal waktu. Nilai sama dengan --color-warning dan
      dengan alasan yang sama: amber mentah kanvas desain gagal 4.5:1.
      Token ini juga mewarnai titik `urgency-dot`; amber terang (#F4A340) cuma

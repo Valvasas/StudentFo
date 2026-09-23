@@ -136,7 +136,13 @@ const PAIRS = [
   ['Error / containernya', '--color-error', '--color-error-container', 4.5],
   ['Peringatan / containernya', '--color-warning', '--color-warning-container', 4.5],
   ['Info / containernya', '--color-info', '--color-info-container', 4.5],
+  // Tiga pasangan berikut lolos lewat audit token lama tapi gagal di axe
+  // (tests/a11y): teks redup dipakai di atas panel bersarang dan panel info
+  // beranda, dan label "aman" dipakai di atas latar softnya sendiri.
+  ['Teks redup / panel bersarang', '--color-text-muted', '--color-surface-nested', 4.5],
+  ['Teks redup / panel info', '--color-text-muted', '--color-info-container', 4.5],
   ['Tenggat aman / latar', '--color-deadline-safe', '--color-bg', 4.5],
+  ['Tenggat aman / softnya', '--color-deadline-safe', '--color-deadline-safe-soft', 4.5],
   ['Tenggat warning / latar', '--color-deadline-warning', '--color-bg', 4.5],
   ['Tenggat warning / softnya', '--color-deadline-warning', '--color-deadline-warning-soft', 4.5],
   ['Tenggat urgent / latar', '--color-deadline-urgent', '--color-bg', 4.5],

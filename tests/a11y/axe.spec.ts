@@ -28,7 +28,10 @@ const STATIC_ROUTES = [
 async function expectNoViolations(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
   const summary = results.violations.map(
-    (v) => `${v.id} (${v.impact}): ${v.help}\n  ${v.nodes.map((n) => n.target.join(' ')).join('\n  ')}`,
+    (v) =>
+      `${v.id} (${v.impact}): ${v.help}\n  ${v.nodes
+        .map((n) => `${n.target.join(' ')} — ${n.any[0]?.message ?? n.failureSummary ?? ''}`)
+        .join('\n  ')}`,
   );
   expect(summary, summary.join('\n\n')).toEqual([]);
 }

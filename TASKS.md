@@ -37,11 +37,12 @@ secara duplikat atau bertabrakan.
       terhadap instance Supabase sungguhan (test yang ada menguji logika
       murni & `MemoryEventRepository`). Pertimbangkan test terhadap
       Supabase local (`supabase start`) sebelum menambah query kompleks baru.
-- [ ] Audit aksesibilitas (kontras, fokus, overflow) di README didasarkan
+- [x] Audit aksesibilitas (kontras, fokus, overflow) di README didasarkan
       pada skrip Playwright manual yang "ada di riwayat pengembangan" tapi
       tidak berkas terpisah di repo saat ini — pertimbangkan menyimpan
       skrip auditnya sebagai file nyata (`scripts/` atau `tests/a11y/`)
       supaya bisa dijalankan ulang tanpa menulis ulang dari nol.
+      → Selesai: `tests/a11y/axe.spec.ts` (`npm run test:a11y`, job CI `a11y`). @claude
 
 ## Backlog — Phase 2
 
@@ -135,7 +136,7 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
       di kepala tiap workflow. @claude
 - [~] `pipeline/run.py` kini membaca `GEMINI_MODEL` (default `gemini-2.0-flash`).
       Tetap recheck id model sebelum deploy; mengganti cukup lewat secret CI.
-- [ ] Skrip audit aksesibilitas otomatis Playwright / axe-core (`tests/a11y/`)
+- [x] Skrip audit aksesibilitas otomatis Playwright / axe-core (`tests/a11y/`) @claude
       Konteks: Memastikan standar kontras warna WCAG 2.5.5, navigasi keyboard (target sentuh ≥44px),
       dan atribut ARIA selalu teruji otomatis sebelum rilis.
       Definisi selesai: File pengujian `tests/a11y/axe.spec.ts` yang dapat dijalankan
@@ -143,16 +144,16 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
 
 ## Backlog — hasil audit 2026-09-23 (belum selesai)
 
-- [ ] **Apply migration `20260923100001_security_hardening.sql`** ke Supabase
+- [ ] **Apply migration `20260923100001_security_hardening.sql`** dan
+      `20260923110001_submission_rate_limit.sql` ke Supabase
       lokal/staging dulu, jalankan `npm run db:verify`, uji manual alur tim
       (gabung saat penuh, tamu melihat jumlah anggota), simpan event, dan
       setujui kiriman `/submit`. Belum pernah dijalankan terhadap Postgres
       sungguhan (mesin pengerjaan tidak punya Postgres). Lihat ADR-020.
 - [ ] Jalankan `python pipeline/tests/test_models.py` — tidak bisa dijalankan
       di sesi audit (Python tidak terpasang). CI (`ci.yml`) kini menjalankannya.
-- [ ] Pembatasan laju untuk `/submit` (terbuka untuk tamu). Saat ini hanya
-      honeypot + CHECK ukuran di DB. Butuh penyimpanan bersama (lihat catatan
-      rate limit login di Phase 2) atau fitur rate limit di edge/hosting.
+- [x] Pembatasan laju untuk `/submit` — trigger Postgres (migration 0009,
+      ADR-023) + paritas di `MemoryEventRepository`. Kode `submission_rate_limited`. @claude
 - [ ] Notifikasi ke pengirim saat kiriman disetujui/ditolak (email tersimpan
       di `ugc_submissions.submitted_by_email`, belum dipakai).
 
@@ -166,6 +167,18 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
 ```
 
 ## Riwayat singkat (opsional, isi kalau berguna untuk sesi berikutnya)
+
+- **2026-09-23 (lanjutan) — Rate limit, audit a11y otomatis, dependency (@claude).**
+  1. `npm audit`: 1 high (postcss bawaan Next) + moderate (vitest). Ditutup
+     dengan `overrides.next.postcss` dan vitest 3 → 4.1.11; 0 kerentanan.
+     `engines.node` naik ke >=20.19 (syarat vite 8).
+  2. Batas laju `/submit` di Postgres (ADR-023).
+  3. `tests/a11y/axe.spec.ts` + job CI `a11y`. Audit pertama menemukan:
+     `aria-pressed` di tautan chip filter (→ `aria-current`), `--color-text-muted`/
+     `--color-deadline-safe` 4.3:1 di atas panel bersarang & info (→ `#6f6a5e`;
+     pasangan itu kini juga ada di `check-contrast.mjs`), dan navbar melebar
+     162px di ponsel sejak tab "Tim" ditambahkan (→ tab pindah ke baris kedua
+     di bawah `md`).
 
 - **2026-09-23 — Restrukturisasi, audit keamanan, kiriman komunitas (@claude).**
   1. **Struktur:** tiga salinan proyek bertumpuk diratakan jadi satu root;

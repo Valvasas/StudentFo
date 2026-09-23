@@ -47,7 +47,9 @@ function FilterChip({
   return (
     <Link
       href={href}
-      aria-pressed={active}
+      // aria-current, bukan aria-pressed: chip ini TAUTAN, dan aria-pressed
+      // hanya sah di tombol (axe: aria-allowed-attr, critical).
+      aria-current={active ? 'true' : undefined}
       scroll={false}
       className={cn(
         'inline-flex min-h-9 items-center rounded-pill border px-3 text-sm transition-colors duration-150 ease-snap',

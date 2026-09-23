@@ -148,6 +148,7 @@ interface ReviewSubmissionInput {
 `APPROVED` di Supabase = RPC `approve_submission()` (satu transaksi: insert
 `events` + tenggat utama + kategori + tandai kiriman). SQLSTATE dipetakan ke
 kode: `23505` → `submission_duplicate`, `P0002` → `submission_not_found`,
+`P0001` + `submission_rate_limited` (trigger migration 0009) → `submission_rate_limited` (HTTP 429),
 kegagalan cast/CHECK → `invalid_submission`. Implementasi Supabase menulis `reviewed_by`, `reviewed_at`, dan
 `rejection_reason` (di-null-kan kalau `decision !== 'REJECTED'`).
 
@@ -244,7 +245,7 @@ batas-batasnya mencerminkan kolomnya di migration 0001 (`title` VARCHAR(255),
 
 | Aksi | Field form | Sukses | Gagal |
 |---|---|---|---|
-| `submitEventAction` | `email`, `title`, `organizer`, `eventType`, `registrationLink`, `sourceUrl?`, `deadlineDate` (`YYYY-MM-DD`), `educationLevels[]`, `categorySlugs[]?`, `location?`, `isOnline?`, `description?`, `website` (honeypot) | `/submit?notice=submission_received` | `/submit?error=invalid_submission&fields=<nama field skema>` |
+| `submitEventAction` | `email`, `title`, `organizer`, `eventType`, `registrationLink`, `sourceUrl?`, `deadlineDate` (`YYYY-MM-DD`), `educationLevels[]`, `categorySlugs[]?`, `location?`, `isOnline?`, `description?`, `website` (honeypot) | `/submit?notice=submission_received` | `/submit?error=invalid_submission&fields=<nama field skema>`, atau `/submit?error=submission_rate_limited` (ADR-023) |
 
 Boleh dipanggil tamu. Validasi: `parseSubmissionForm()`
 (`src/lib/submission-schema.ts`) — tenggat tidak boleh lewat atau > 3 tahun

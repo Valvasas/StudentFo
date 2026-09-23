@@ -12,6 +12,31 @@ terdokumentasi.
 
 ---
 
+## ADR-023 — Batas laju `/submit` ditegakkan di Postgres, bukan di Next.js
+
+**Konteks:** `/submit` terbuka untuk tamu, dan policy `ugc_public_insert`
+membuat tabelnya bisa diisi lewat PostgREST langsung dengan anon key —
+melewati honeypot dan Server Action. Pembatas in-memory di Next.js tidak
+berlaku lintas instance serverless (alasan yang sama dengan rate limit login
+di TASKS.md Phase 2), dan tidak berlaku sama sekali untuk request langsung.
+
+**Keputusan:** Trigger `BEFORE INSERT` `enforce_submission_rate_limit()`
+(migration `20260923110001`, SECURITY DEFINER karena anon tidak bisa
+membaca tabelnya): maks 3 kiriman/jam per email (dikunci
+`pg_advisory_xact_lock` supaya kiriman bersamaan tidak sama-sama lolos) dan
+maks 100 kiriman PENDING/jam secara global. `MemoryEventRepository` memakai
+`isSubmissionRateLimited()` dengan angka yang sama.
+
+**Konsekuensi:** Tidak ada dependency baru (Redis, dsb). Batas per email
+lemah karena email bisa dikarang — yang benar-benar menahan banjir adalah
+batas global, dengan harga kiriman sah ikut tertolak selama banjir
+berlangsung. Batas per IP sengaja tidak dibuat: insert datang dari server
+Next.js, jadi IP yang terlihat Postgres adalah IP server. Kalau banjir
+berulang jadi masalah nyata, pindahkan ke rate limit di edge/hosting.
+Angka di SQL dan di `SUBMISSION_RATE_LIMIT` harus diubah bersamaan.
+
+---
+
 ## ADR-022 — Satu root proyek; logika listing & mapper dipisah dari implementasi repository
 
 **Konteks:** Per 2026-09-23 repo berisi tiga salinan proyek bertumpuk

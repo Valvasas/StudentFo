@@ -28,6 +28,7 @@ kode pun yang perlu diubah.
 | `npm run lint` | ESLint |
 | `npm test` | Unit test (Vitest) |
 | `npm run check:contrast` | Uji kontras token warna (WCAG) |
+| `npm run test:a11y` | Audit aksesibilitas axe-core di browser (Playwright; build produksi, mode seed) |
 | `npm run db:verify` | Verifikasi koneksi & kesiapan database Supabase |
 | `npm run verify` | typecheck + lint + test + kontras — jalankan sebelum commit (juga dijalankan CI) |
 
@@ -78,9 +79,11 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    supabase/migrations/20260914100001_deadline_notifications.sql
    supabase/migrations/20260914100002_team_member_profiles.sql
    supabase/migrations/20260923100001_security_hardening.sql
+   supabase/migrations/20260923110001_submission_rate_limit.sql
    ```
-   Ringkasan tiap migration ada di `SCHEMA.md`. Migration terakhir menutup
-   beberapa celah hak akses (ADR-020) — **wajib**, jangan dilewati.
+   Ringkasan tiap migration ada di `SCHEMA.md`. Dua migration terakhir menutup
+   beberapa celah hak akses (ADR-020) dan membatasi laju `/submit` (ADR-023) —
+   **wajib**, jangan dilewati.
 3. Salin `.env.example` ke `.env.local` dan isi URL + anon key.
 4. Uji koneksi dan kesiapan database dengan:
    ```bash
@@ -151,6 +154,21 @@ Prinsip yang dipegang:
 
 ## Aksesibilitas — yang sudah diukur, bukan diasumsikan
 
+### Audit halaman — axe-core di browser sungguhan
+
+```bash
+npx playwright install chromium   # sekali saja
+npm run test:a11y                 # juga dijalankan CI (job `a11y`)
+```
+
+`tests/a11y/axe.spec.ts` membangun build produksi (mode seed) lalu mengaudit
+setiap halaman publik dengan aturan WCAG 2.2 A/AA di tiga proyek: terang,
+gelap, dan ponsel. Juga memeriksa tautan lompat-ke-konten dan bahwa tidak ada
+halaman yang bisa digeser ke samping. Audit pertamanya (2026-09-23)
+menemukan tiga cacat nyata yang lolos dari audit token: `aria-pressed` di
+tautan filter, teks redup di atas panel bersarang/info (4.3:1), dan navbar
+yang melebar 162px di ponsel.
+
 ### Kontras token — otomatis, bisa dijalankan ulang
 
 ```bash
@@ -159,7 +177,7 @@ npm run check:contrast   # ikut dijalankan oleh `npm run verify`
 
 `scripts/check-contrast.mjs` membaca nilai token **langsung dari
 `globals.css`** (termasuk mengomposit warna semi-transparan ke latarnya),
-lalu menguji 24 pasangan di kedua tema terhadap ambang yang relevan — 4.5:1
+lalu menguji 27 pasangan di kedua tema terhadap ambang yang relevan — 4.5:1
 untuk teks (WCAG 1.4.3) dan 3:1 untuk komponen non-teks seperti focus ring
 dan titik urgensi (WCAG 1.4.11). Saat ini **48/48 lulus**; yang paling ketat
 `--color-text-placeholder` 4.58:1 (terang) dan teks putih di atas accent
