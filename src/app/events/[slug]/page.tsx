@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowUpRight, Building2, CalendarClock, ExternalLink, Globe, GraduationCap, MapPin } from 'lucide-react';
 import { DeadlineTag } from '@/components/event/deadline-tag';
+import { SaveButton } from '@/components/event/save-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId, getDeadlineState } from '@/lib/deadline';
 import { safeHostname, sanitizeExternalUrl } from '@/lib/utils';
@@ -44,8 +46,14 @@ export async function generateMetadata({
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const event = await loadEvent(slug);
+  const [event, user, repository] = await Promise.all([
+    loadEvent(slug),
+    getSessionUser(),
+    getEventRepository(),
+  ]);
   if (!event) notFound();
+
+  const isSaved = user ? await repository.isEventSaved(user.id, event.id) : false;
 
   const state = getDeadlineState(event.primaryDeadlineAt);
   const isClosed = state.urgency === 'closed' || event.status === 'EXPIRED';
@@ -169,6 +177,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                 Tautan pendaftaran belum tersedia atau tidak valid. Cek langsung ke situs penyelenggara.
               </p>
             )}
+
+            <SaveButton
+              eventId={event.id}
+              isSaved={isSaved}
+              returnTo={`/events/${event.slug}`}
+              variant="full"
+              className="mt-3"
+            />
 
             <p className="mt-4 text-xs text-ink-faint">
               StudentFo hanya mengumpulkan informasi. Pendaftaran, seleksi, dan keputusan sepenuhnya

@@ -51,6 +51,104 @@ export const DEADLINE_LABEL_TEXT: Record<DeadlineLabel, string> = {
   announcement: 'Pengumuman',
 };
 
+export const TRACKER_STATUSES = ['SAVED', 'APPLIED', 'INTERVIEW', 'ACCEPTED', 'REJECTED'] as const;
+export type TrackerStatus = (typeof TRACKER_STATUSES)[number];
+
+export const TRACKER_STATUS_LABEL: Record<TrackerStatus, string> = {
+  SAVED: 'Disimpan',
+  APPLIED: 'Sudah Daftar',
+  INTERVIEW: 'Wawancara',
+  ACCEPTED: 'Diterima',
+  REJECTED: 'Ditolak',
+};
+
+/**
+ * Peran anggota tim. Kolomnya VARCHAR(50) di Postgres (migration 0001),
+ * bukan enum — jadi seperti NotificationType, paritas tiga-tempat tidak
+ * berlaku. Hanya dua peran yang dikenal aplikasi; nilai lain diperlakukan
+ * sebagai 'member'.
+ */
+export const TEAM_ROLES = ['leader', 'member'] as const;
+export type TeamRole = (typeof TEAM_ROLES)[number];
+
+export function toTeamRole(value: string): TeamRole {
+  return value === 'leader' ? 'leader' : 'member';
+}
+
+export interface TeamMember {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly role: TeamRole;
+  readonly joinedAt: string;
+}
+
+export interface Team {
+  readonly id: string;
+  readonly eventId: string;
+  readonly createdBy: string | null;
+  readonly title: string;
+  readonly description: string | null;
+  /** Jumlah orang yang dicari, 1..50 (CHECK constraint di migration 0001). */
+  readonly slotsNeeded: number;
+  readonly createdAt: string;
+  /** null kalau event-nya sudah dihapus atau tidak lagi tayang. */
+  readonly event: EventSummary | null;
+  readonly members: readonly TeamMember[];
+}
+
+/** Sisa slot. Ketua ikut dihitung sebagai anggota, jadi tidak pernah negatif. */
+export function remainingSlots(team: Team): number {
+  return Math.max(team.slotsNeeded - team.members.length, 0);
+}
+
+export interface TrackerItem {
+  readonly id: string;
+  readonly eventId: string;
+  readonly status: TrackerStatus;
+  readonly notes: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly event: EventSummary;
+}
+
+/**
+ * Jenis notifikasi.
+ *
+ * Berbeda dari EVENT_TYPES dkk, daftar ini TIDAK punya pasangan enum di
+ * PostgreSQL: kolom `notifications.type` sengaja VARCHAR(50) di migration
+ * 0001. Jadi aturan paritas tiga-tempat (AGENTS.md §2) tidak berlaku di
+ * sini — menambah jenis baru cukup diubah di berkas ini, tanpa migration.
+ *
+ * Konsekuensinya: nilai tak dikenal bisa saja masuk dari penulis lain.
+ * Itu ditangani di `toNotificationType()`, bukan dengan cast diam-diam.
+ */
+export const NOTIFICATION_TYPES = ['DEADLINE_H3', 'DEADLINE_H1', 'SYSTEM'] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+/** Baris yang tidak dikenal diperlakukan sebagai pengumuman sistem, bukan dibuang. */
+export function toNotificationType(value: string): NotificationType {
+  return (NOTIFICATION_TYPES as readonly string[]).includes(value)
+    ? (value as NotificationType)
+    : 'SYSTEM';
+}
+
+/** Rujukan minimal ke event — cukup untuk judul & tautan di menu lonceng. */
+export interface NotificationEventRef {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+}
+
+export interface AppNotification {
+  readonly id: string;
+  readonly type: NotificationType;
+  readonly message: string;
+  readonly isRead: boolean;
+  readonly sentAt: string;
+  /** null kalau notifikasinya bukan tentang satu event tertentu. */
+  readonly event: NotificationEventRef | null;
+}
+
 export interface Category {
   readonly id: string;
   readonly name: string;
@@ -108,6 +206,7 @@ export interface EventQuery {
   readonly includeClosed?: boolean;
   readonly page?: number;
   readonly pageSize?: number;
+  readonly profile?: UserProfile | null;
 }
 
 export interface Paginated<T> {

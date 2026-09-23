@@ -4,20 +4,19 @@ import { siteUrl } from '@/lib/env';
 import { MAX_PAGE_SIZE } from '@/lib/data/repository';
 import type { EventSummary } from '@/types/domain';
 
-// Protokol sitemap membatasi 50.000 URL per berkas. Dipasang sebagai jaga-jaga
-// keras di loop paginasi di bawah — bukan supaya dicapai, tapi supaya satu bug
-// di `totalPages` (data korup, dsb.) tidak membuat loop ini jalan tanpa henti.
+// Protokol sitemap membatasi 50.000 URL per berkas. Dipasang sebagai batas
+// pengaman keras di loop paginasi di bawah, bukan supaya dicapai — supaya
+// `totalPages` yang korup tidak membuat loop ini jalan tanpa henti.
 const MAX_SITEMAP_ENTRIES = 50_000;
 
 /**
  * Sitemap dinamis.
  *
- * PENTING: paginasi di sini WAJIB `sort: 'newest'`, bukan default
- * ('relevance'). Sort relevance di SupabaseEventRepository membatasi diri ke
- * RANKING_CANDIDATE_LIMIT (500) baris kandidat karena skoringnya berjalan di
- * app, bukan di SQL — jadi memakainya di sini akan memotong sitemap lagi
- * persis seperti bug yang sedang diperbaiki, hanya lewat jalur berbeda.
- * 'newest' tetap paginasi murni di database, jadi aman di skala berapa pun.
+ * Paginasi di sini WAJIB `sort: 'newest'`. Sort 'relevance' di
+ * SupabaseEventRepository membatasi diri ke sejumlah kandidat terbaru saja
+ * (skoringnya berjalan di app, bukan di SQL) — memakainya di sini akan
+ * memotong sitemap begitu jumlah event melewati batas kandidat itu.
+ * 'newest' tetap paginasi murni di database, aman di skala berapa pun.
  *
  * Kegagalan di sini TIDAK boleh menjatuhkan build atau mengembalikan 500 —
  * crawler yang menerima error berulang akan menurunkan frekuensi kunjungan.
@@ -35,10 +34,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const repository = await getEventRepository();
     const events: EventSummary[] = [];
 
-    // Sebelumnya berhenti di halaman pertama (48 event) — begitu jumlah
-    // event APPROVED/EXPIRED lewat itu, sisanya diam-diam tidak pernah
-    // masuk sitemap dan tidak pernah ter-index Google. Sekarang ditarik
-    // sampai halaman terakhir yang dilaporkan `totalPages`.
     let page = 1;
     let totalPages = 1;
     do {

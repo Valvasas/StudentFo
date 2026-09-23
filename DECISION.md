@@ -12,6 +12,49 @@ terdokumentasi.
 
 ---
 
+## ADR-019 — Koreksi ADR-015: `rankEvents()` harus jalan sebelum paginasi dan tanpa syarat profil
+
+**Konteks:** ADR-015 menyambungkan `rankEvents()` ke `SupabaseEventRepository.listEvents()`,
+tapi implementasinya punya dua cacat yang baru ketahuan setelah diperiksa ulang.
+Pertama, skor dihitung SETELAH `.range()` memotong hasil ke satu halaman, jadi
+ranking hanya bisa mengurutkan ulang di dalam halaman itu sendiri — tidak pernah
+bisa menaikkan event relevan dari halaman berikutnya ke halaman pertama. Kedua,
+syarat `&& query.profile` membuat `rankEvents()` dilewati sama sekali untuk
+pengunjung anonim (`profile` null), padahal itu kondisi paling umum di Phase 1 dan
+awal Phase 2 — dan `rankEvents()` sendiri sudah punya jalur cold-start (recency +
+popularitas) khusus untuk kasus itu, persis seperti yang dipakai
+`MemoryEventRepository.sortSummaries()`.
+
+Terpisah tapi berkaitan: `sitemap.ts` masih menarik satu halaman saja
+(`pageSize: MAX_PAGE_SIZE`, tanpa loop) — begitu event `APPROVED`/`EXPIRED` lebih
+dari 48, sisanya tidak pernah masuk sitemap dan tidak ter-index.
+
+**Keputusan:**
+1. Untuk sort `relevance`, kandidat ditarik lewat `.limit(500)` (order by
+   `created_at DESC`, bukan `.range()`), diberi skor lewat `rankEvents()`, baru
+   dipotong sesuai halaman yang diminta di memori Node. `query.profile` diteruskan
+   apa adanya termasuk `null`/`undefined` — `rankEvents()` yang memilih jalur
+   cold-start. `totalPages` dibatasi ke jendela 500 kandidat itu supaya tidak
+   menjanjikan halaman yang pasti kosong.
+2. Sort `deadline`/`newest` tidak diubah — tetap paginasi murni di database lewat
+   `.range()`, tidak terpengaruh batas 500 kandidat.
+3. `sitemap.ts` sekarang loop sampai `totalPages`, memakai `sort: 'newest'` secara
+   eksplisit (bukan default `relevance`, yang kini dibatasi kandidat), dengan batas
+   pengaman 50.000 entri sesuai batas protokol sitemap.
+
+**Konsekuensi:** "Paling relevan" sekarang benar-benar berbeda dari "Terbaru" untuk
+semua pengunjung, bukan hanya yang sudah login dan mengisi profil — pengunjung
+anonim di beranda/halaman jelajah sekarang mendapat cold-start scoring
+(recency + popularitas), bukan sekadar `created_at DESC` yang menyamar sebagai
+"relevan". Trade-off yang diterima sadar: begitu jumlah event `APPROVED` melewati
+500, sort relevance tidak lagi menjangkau seluruh tabel — hanya 500 kandidat
+terbaru yang diberi skor (lihat komentar `RANKING_CANDIDATE_LIMIT` di
+`supabase-repository.ts` untuk titik migrasi ke skoring SQL/RPC). Sitemap sekarang
+menjangkau seluruh event tanpa batas praktis, dengan biaya query berulang (satu
+per halaman) tiap kali di-generate.
+
+---
+
 ## ADR-018 — View `team_member_profiles` sengaja `security_invoker = off`
 
 **Konteks:** Fitur cari rekan tim (Phase 3) harus menampilkan nama anggota.

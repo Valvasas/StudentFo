@@ -1,9 +1,0 @@
-# Pipeline data StudentFo — Python 3.11+
-playwright==1.49.1
-beautifulsoup4==4.12.3
-google-genai==0.8.0
-pydantic==2.10.4
-supabase==2.11.0
-httpx==0.28.1
-PyYAML==6.0.2
-tenacity==9.0.0

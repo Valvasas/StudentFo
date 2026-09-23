@@ -1,11 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-/**
- * Menguji logika paginasi sitemap secara terisolasi lewat mock repository —
- * bukan lewat Next.js `MetadataRoute` penuh, supaya tidak butuh koneksi
- * database atau context request untuk memverifikasi hal yang sebenarnya
- * mau dibuktikan di sini: SEMUA halaman ditarik, bukan cuma yang pertama.
- */
 vi.mock('@/lib/data', () => ({ getEventRepository: vi.fn() }));
 
 const { getEventRepository } = await import('@/lib/data');
@@ -32,7 +26,6 @@ function makeEvent(id: string) {
 
 describe('sitemap', () => {
   it('menarik SEMUA halaman, bukan cuma halaman pertama', async () => {
-    // 130 event dengan pageSize default (48/halaman) = 3 halaman.
     const totalEvents = 130;
     const pageSize = 48;
     const totalPages = Math.ceil(totalEvents / pageSize);
@@ -50,7 +43,6 @@ describe('sitemap', () => {
 
     const result = await sitemap();
 
-    // 3 rute statis + seluruh 130 event — bukan cuma 48 dari halaman pertama.
     const eventUrls = result.filter((entry) => entry.url.includes('/events/event-'));
     expect(eventUrls).toHaveLength(totalEvents);
     expect(listEvents).toHaveBeenCalledTimes(totalPages);
@@ -66,9 +58,6 @@ describe('sitemap', () => {
   });
 
   it('tidak berhenti sebelum waktunya kalau totalPages berubah di antara panggilan', async () => {
-    // Simulasi kondisi tepi: baris baru masuk di antara dua panggilan
-    // paginasi (totalPages naik dari 2 ke 3). Loop harus tetap mengikuti
-    // totalPages TERBARU yang dilaporkan, bukan nilai dari panggilan pertama.
     let call = 0;
     const listEvents = vi.fn(async ({ page }: { page: number }) => {
       call += 1;
@@ -91,9 +80,7 @@ describe('sitemap', () => {
     expect(result.every((entry) => !entry.url.includes('/events/event-'))).toBe(true);
   });
 
-  it('berhenti di batas pengaman kalau totalPages tidak masuk akal (jaga-jaga korupsi data)', async () => {
-    // totalPages absurd besar tidak boleh membuat loop ini jalan selamanya —
-    // MAX_SITEMAP_ENTRIES (50.000) harus menghentikannya lebih dulu.
+  it('berhenti di batas pengaman kalau totalPages tidak masuk akal', async () => {
     const listEvents = vi.fn(async ({ page }: { page: number }) => ({
       items: [makeEvent(`huge-${page}`)],
       total: Number.MAX_SAFE_INTEGER,

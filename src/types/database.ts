@@ -1,4 +1,4 @@
-import type { DeadlineLabel, EducationLevel, EventStatus, EventType } from './domain';
+import type { DeadlineLabel, EducationLevel, EventStatus, EventType, TrackerStatus } from './domain';
 
 /**
  * Bentuk baris sebagaimana dikembalikan PostgREST.
@@ -40,4 +40,63 @@ export interface CategoryRow {
   id: string;
   name: string;
   slug: string;
+}
+
+export interface UserProfileRow {
+  full_name: string;
+  role: 'USER' | 'ADMIN';
+  education_level: EducationLevel | null;
+  major: string | null;
+  interests: string[] | null;
+}
+
+export interface SavedEventRow {
+  user_id: string;
+  event_id: string;
+  saved_at: string;
+}
+
+export interface TrackerRow {
+  id: string;
+  user_id: string;
+  event_id: string;
+  status: TrackerStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamRow {
+  id: string;
+  event_id: string;
+  created_by: string | null;
+  title: string;
+  description: string | null;
+  slots_needed: number;
+  created_at: string;
+}
+
+/** Baris dari view `team_member_profiles` (migration 0007). */
+export interface TeamMemberProfileRow {
+  team_id: string;
+  user_id: string;
+  /** VARCHAR(50) tanpa enum — disempitkan lewat `toTeamRole()`. */
+  role: string;
+  joined_at: string;
+  full_name: string;
+}
+
+/**
+ * `type` sengaja `string`, bukan NotificationType: kolomnya VARCHAR(50) di
+ * Postgres, jadi database tidak menjamin nilainya ada di daftar yang dikenal
+ * aplikasi. Menyempitkannya di sini sama dengan berbohong pada type checker.
+ * Penyempitan dilakukan sekali lewat `toNotificationType()` saat memetakan.
+ */
+export interface NotificationRow {
+  id: string;
+  event_id: string | null;
+  type: string;
+  message: string;
+  is_read: boolean;
+  sent_at: string;
 }

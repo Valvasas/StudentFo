@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "npm run typecheck && npm run lint && npm run test"
+    "db:verify": "node --experimental-strip-types scripts/verify-database.ts",
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run check:contrast"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

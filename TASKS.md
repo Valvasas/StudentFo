@@ -199,3 +199,20 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
   dijalankan terhadap database sungguhan (keduanya baru diuji lewat
   `MemoryEventRepository`). Dua migration baru (`20260914100001`,
   `20260914100002`) belum pernah di-apply ke project mana pun.
+- **2026-09-23 — Koreksi `SupabaseEventRepository.listEvents()` sort
+  `relevance` dan paginasi `sitemap.ts` (ADR-019, @claude).** Sambungan
+  `rankEvents()` dari ADR-015 ternyata cacat di dua tempat: skor dihitung
+  SETELAH `.range()` memotong ke satu halaman (ranking cuma bisa
+  mengurutkan ulang di dalam halaman itu sendiri), dan syarat
+  `&& query.profile` membuat pengunjung anonim (kondisi paling umum)
+  tidak pernah di-ranking sama sekali — cold-start path di `rankEvents()`
+  tidak pernah tercapai. Diperbaiki: kandidat ditarik lewat `.limit(500)`
+  lalu diberi skor sebelum dipotong per halaman, `profile` diteruskan apa
+  adanya termasuk `null`. Terpisah tapi ditemukan bersamaan: `sitemap.ts`
+  cuma menarik 48 event pertama tanpa loop — event APPROVED/EXPIRED di
+  luar itu tidak pernah masuk sitemap. Test regresi:
+  `src/lib/data/supabase-repository.test.ts`,
+  `src/app/sitemap.test.ts`. `npm run verify` + build bersih (129 test).
+  Yang BELUM: masih belum ada test terhadap Supabase sungguhan (item
+  Phase 1 di atas); begitu jumlah event `APPROVED` melewati 500,
+  `RANKING_CANDIDATE_LIMIT` perlu dinaikkan atau skoring dipindah ke SQL/RPC.

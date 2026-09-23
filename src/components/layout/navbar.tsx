@@ -1,7 +1,9 @@
 import Link from 'next/link';
-import { Compass, LayoutDashboard, ListChecks, Lock } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
+import { AccountMenu } from '@/components/layout/account-menu';
+import { NavLinks, type NavItem } from '@/components/layout/nav-links';
+import { NotificationMenu } from '@/components/layout/notification-menu';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
-import { cn } from '@/lib/utils';
 
 /**
  * Navigasi utama.
@@ -13,11 +15,12 @@ import { cn } from '@/lib/utils';
  *
  * Kalau nanti diputuskan sebaliknya, ganti satu baris: `phase2: true`.
  */
-const NAV_ITEMS = [
-  { href: '/', label: 'Beranda', icon: Compass, locked: false },
-  { href: '/events', label: 'Jelajahi', icon: LayoutDashboard, locked: false },
-  { href: '/tracker', label: 'Tracker', icon: ListChecks, locked: true },
-] as const;
+const NAV_ITEMS: readonly NavItem[] = [
+  { href: '/', label: 'Beranda', locked: false },
+  { href: '/events', label: 'Jelajahi', locked: false },
+  { href: '/teams', label: 'Tim', locked: false },
+  { href: '/tracker', label: 'Tracker', locked: true },
+];
 
 export function Navbar() {
   return (
@@ -31,35 +34,18 @@ export function Navbar() {
           href="/"
           className="flex shrink-0 items-center gap-2 font-display text-lg font-semibold tracking-tight"
         >
-          <span
-            aria-hidden
-            className="flex size-8 items-center justify-center rounded-sm bg-brand text-sm font-bold text-on-brand"
-          >
-            SF
+          <GraduationCap aria-hidden className="size-7 shrink-0 text-brand" />
+          <span className="hidden xs:inline">
+            Student<span className="text-brand-text">Fo</span>
           </span>
-          <span className="hidden xs:inline">StudentFo</span>
           <span className="sr-only xs:hidden">StudentFo</span>
         </Link>
 
         <nav aria-label="Navigasi utama" className="flex items-center gap-0.5 sm:gap-1">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'inline-flex min-h-11 items-center gap-1.5 rounded-card px-2 text-sm font-medium sm:px-3',
-                'text-ink-soft transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink',
-              )}
-            >
-              <item.icon aria-hidden className="size-4" />
-              <span className="hidden sm:inline">{item.label}</span>
-              {item.locked && (
-                <Lock aria-hidden className="size-3 text-ink-faint" />
-              )}
-              {item.locked && <span className="sr-only">(perlu masuk)</span>}
-            </Link>
-          ))}
+          <NavLinks items={NAV_ITEMS} />
+          <NotificationMenu />
           <ThemeToggle />
+          <AccountMenu />
         </nav>
       </div>
     </header>
