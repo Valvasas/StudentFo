@@ -5,6 +5,7 @@ import { daysUntil } from '@/lib/deadline';
 import {
   EDUCATION_LEVELS,
   EVENT_TYPES,
+  type Submission,
   type SubmissionPayload,
 } from '@/types/domain';
 
@@ -99,6 +100,30 @@ export const HONEYPOT_FIELD = 'website';
 
 export function isLikelyBot(formData: FormData): boolean {
   return text(formData, HONEYPOT_FIELD).trim().length > 0;
+}
+
+/**
+ * Batas laju kiriman. Produksi menegakkannya lewat trigger
+ * `enforce_submission_rate_limit()` (migration 0009) — angkanya HARUS sama
+ * dengan di SQL. Alasan tiap angka ada di kepala migration itu.
+ */
+export const SUBMISSION_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000,
+  perEmail: 3,
+  globalPending: 100,
+} as const;
+
+export function isSubmissionRateLimited(
+  recent: readonly Pick<Submission, 'submittedByEmail' | 'status' | 'createdAt'>[],
+  email: string,
+  now: Date = new Date(),
+): boolean {
+  const windowStart = now.getTime() - SUBMISSION_RATE_LIMIT.windowMs;
+  const inWindow = recent.filter((s) => new Date(s.createdAt).getTime() >= windowStart);
+  const target = email.toLowerCase();
+  const byEmail = inWindow.filter((s) => s.submittedByEmail.toLowerCase() === target).length;
+  const pending = inWindow.filter((s) => s.status === 'PENDING').length;
+  return byEmail >= SUBMISSION_RATE_LIMIT.perEmail || pending >= SUBMISSION_RATE_LIMIT.globalPending;
 }
 
 export function parseSubmissionForm(formData: FormData, now: Date = new Date()) {

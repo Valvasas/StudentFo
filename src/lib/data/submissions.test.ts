@@ -128,3 +128,23 @@ describe('MemoryEventRepository — listing & pita minggu ini', () => {
     }
   });
 });
+
+describe('MemoryEventRepository — batas laju kiriman', () => {
+  it('kiriman keempat dari email yang sama dalam satu jam ditolak dengan kode yang aman', async () => {
+    const repo = new MemoryEventRepository();
+    for (let i = 0; i < 3; i += 1) {
+      await repo.createSubmission({ submittedByEmail: 'a@b.co', payload: payload({ title: `Lomba ${i}` }) });
+    }
+
+    const error = await repo
+      .createSubmission({ submittedByEmail: 'a@b.co', payload: payload() })
+      .catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(AppError);
+    expect((error as AppError).reason).toBe('submission_rate_limited');
+    expect((error as AppError).httpStatus).toBe(429);
+
+    await expect(
+      repo.createSubmission({ submittedByEmail: 'lain@b.co', payload: payload() }),
+    ).resolves.toBeUndefined();
+  });
+});

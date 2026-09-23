@@ -276,7 +276,13 @@ export class SupabaseEventRepository implements EventRepository {
       .from('ugc_submissions')
       .insert({ submitted_by_email: submittedByEmail, payload: toStoredPayload(payload) });
 
-    if (error) throw upstreamFailure('Gagal mengirim kegiatan.', error, 500);
+    if (error) {
+      // Trigger enforce_submission_rate_limit() (migration 0009).
+      if (sqlState(error) === 'P0001' && error.message.includes('submission_rate_limited')) {
+        throw actionError('submission_rate_limited');
+      }
+      throw upstreamFailure('Gagal mengirim kegiatan.', error, 500);
+    }
   }
 
   async listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]> {

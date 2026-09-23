@@ -29,3 +29,8 @@ pipeline/config/sources.yaml
 # Supabase CLI (cache lokal, bukan bagian skema)
 supabase/.temp/
 supabase/.branches/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/

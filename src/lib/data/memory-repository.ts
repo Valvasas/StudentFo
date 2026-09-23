@@ -1,6 +1,7 @@
 import { actionError } from '@/lib/action-feedback';
 import { buildDeadlineWeek, getDeadlineState } from '@/lib/deadline';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
+import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
   AppNotification,
   Category,
@@ -284,6 +285,9 @@ export class MemoryEventRepository implements EventRepository {
   // ------------------------------------------------------------------
 
   async createSubmission({ submittedByEmail, payload }: CreateSubmissionInput): Promise<void> {
+    if (isSubmissionRateLimited([...this.submissions.values()], submittedByEmail)) {
+      throw actionError('submission_rate_limited');
+    }
     const id = this.nextId();
     this.submissions.set(id, {
       id,

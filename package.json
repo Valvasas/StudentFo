@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "db:verify": "node --experimental-strip-types scripts/verify-database.ts",
     "check:contrast": "node scripts/check-contrast.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run test && npm run check:contrast"
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run check:contrast",
+    "test:a11y": "playwright test"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",
@@ -34,7 +35,9 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/eslintrc": "^3.3.7",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.0.6",
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.8",

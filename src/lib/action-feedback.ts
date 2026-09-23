@@ -22,6 +22,7 @@ export const ACTION_ERROR_CODES = [
   'invalid_submission',
   'submission_duplicate',
   'submission_not_found',
+  'submission_rate_limited',
   'invalid_request',
   'unknown',
 ] as const;
@@ -40,6 +41,8 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   invalid_submission: 'Ada isian yang belum benar. Periksa keterangan di tiap kolom lalu kirim ulang.',
   submission_duplicate: 'Kegiatan dengan judul dan penyelenggara yang sama sudah ada di katalog.',
   submission_not_found: 'Kiriman ini sudah tidak ada atau sudah ditinjau.',
+  submission_rate_limited:
+    'Terlalu banyak kiriman dalam satu jam terakhir. Coba lagi nanti — kiriman sebelumnya tetap ada di antrean.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -75,9 +78,18 @@ export function parseActionNoticeCode(value: string | string[] | undefined): Act
 
 /** Buat AppError yang alasannya bisa dioper ke URL sebagai kode. */
 export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError {
-  const status = code === 'team_forbidden' ? 403 : code.endsWith('not_found') ? 404 : 422;
+  const status =
+    code === 'team_forbidden'
+      ? 403
+      : code === 'submission_rate_limited'
+        ? 429
+        : code.endsWith('not_found')
+          ? 404
+          : 422;
   const errorCode =
-    status === 403
+    status === 429
+      ? ERROR_CODES.RATE_LIMITED
+      : status === 403
       ? ERROR_CODES.FORBIDDEN
       : status === 404
         ? ERROR_CODES.NOT_FOUND

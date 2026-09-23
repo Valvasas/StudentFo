@@ -4,7 +4,9 @@ import {
   fromStoredPayload,
   HONEYPOT_FIELD,
   isLikelyBot,
+  isSubmissionRateLimited,
   parseSubmissionForm,
+  SUBMISSION_RATE_LIMIT,
   toStoredPayload,
 } from './submission-schema';
 
@@ -97,5 +99,35 @@ describe('payload tersimpan', () => {
     expect(fromStoredPayload({ title: 'x' })).toBeNull();
     expect(fromStoredPayload('<script>')).toBeNull();
     expect(fromStoredPayload(null)).toBeNull();
+  });
+});
+
+describe('batas laju kiriman', () => {
+  const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000).toISOString();
+  const sent = (email: string, m: number, status: 'PENDING' | 'APPROVED' = 'PENDING') => ({
+    submittedByEmail: email,
+    status,
+    createdAt: minutesAgo(m),
+  });
+
+  it('email yang sama tertahan setelah 3 kiriman dalam satu jam, tanpa peduli huruf besar', () => {
+    const recent = [sent('a@b.co', 5), sent('A@B.co', 20), sent('a@b.co', 50)];
+    expect(isSubmissionRateLimited(recent, 'a@B.CO', NOW)).toBe(true);
+    expect(isSubmissionRateLimited(recent, 'lain@b.co', NOW)).toBe(false);
+  });
+
+  it('kiriman di luar jendela 60 menit tidak dihitung', () => {
+    const recent = [sent('a@b.co', 5), sent('a@b.co', 20), sent('a@b.co', 61)];
+    expect(isSubmissionRateLimited(recent, 'a@b.co', NOW)).toBe(false);
+  });
+
+  it('rem global hanya menghitung kiriman yang masih PENDING', () => {
+    const flood = Array.from({ length: SUBMISSION_RATE_LIMIT.globalPending }, (_, i) =>
+      sent(`bot${i}@spam.co`, 10),
+    );
+    expect(isSubmissionRateLimited(flood, 'jujur@kampus.ac.id', NOW)).toBe(true);
+
+    const reviewed = flood.map((s) => ({ ...s, status: 'APPROVED' as const }));
+    expect(isSubmissionRateLimited(reviewed, 'jujur@kampus.ac.id', NOW)).toBe(false);
   });
 });
