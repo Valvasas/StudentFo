@@ -24,3 +24,8 @@ pipeline/__pycache__/
 **/__pycache__/
 *.py[cod]
 pipeline/.env
+pipeline/config/sources.yaml
+
+# Supabase CLI (cache lokal, bukan bagian skema)
+supabase/.temp/
+supabase/.branches/

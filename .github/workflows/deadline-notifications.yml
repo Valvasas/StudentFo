@@ -1,0 +1,37 @@
+# Produsen notifikasi tenggat H-3/H-1 (DECISION.md ADR-017).
+#
+# Memanggil fungsi Postgres `create_deadline_notifications()` lewat RPC dengan
+# service_role. Idempoten (idx_notifications_dedupe), jadi menjalankan ulang
+# secara manual aman.
+#
+# Secret yang dibutuhkan: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+name: Deadline notifications
+
+on:
+  schedule:
+    # Cron GitHub Actions memakai UTC. 00:00 UTC = 07:00 WIB — pengingat
+    # tiba pagi hari, saat masih ada waktu menindaklanjutinya.
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call create_deadline_notifications()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        # --fail-with-body: tanpa ini curl keluar dengan kode 0 walau RPC
+        # menjawab 4xx/5xx, dan workflow tampak hijau padahal tidak ada
+        # notifikasi yang dibuat.
+        run: |
+          curl --silent --show-error --fail-with-body \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/create_deadline_notifications" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}'

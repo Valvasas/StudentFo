@@ -28,12 +28,23 @@ export interface ApiErrorBody {
 export class AppError extends Error {
   readonly code: ErrorCode;
   readonly httpStatus: number;
+  /**
+   * Kunci alasan yang bisa dioper lewat URL (lihat `action-feedback.ts`).
+   * Yang dioper ke URL selalu KUNCI ini, tidak pernah `message`.
+   */
+  readonly reason: string | undefined;
 
-  constructor(code: ErrorCode, message: string, httpStatus = 500, options?: { cause?: unknown }) {
-    super(message, options);
+  constructor(
+    code: ErrorCode,
+    message: string,
+    httpStatus = 500,
+    options?: { cause?: unknown; reason?: string },
+  ) {
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'AppError';
     this.code = code;
     this.httpStatus = httpStatus;
+    this.reason = options?.reason;
   }
 
   toBody(): ApiErrorBody {
@@ -52,6 +63,13 @@ export const unauthorized = (message = 'Kamu perlu masuk untuk melakukan ini.'):
 
 export const forbidden = (message = 'Kamu tidak punya akses ke tindakan ini.'): AppError =>
   new AppError(ERROR_CODES.FORBIDDEN, message, 403);
+
+/**
+ * Kegagalan dari layanan hulu (Supabase/PostgREST). Pesan driver asli hanya
+ * disimpan sebagai `cause` untuk log server — tidak pernah jadi `message`.
+ */
+export const upstreamFailure = (message: string, cause: unknown, httpStatus = 502): AppError =>
+  new AppError(ERROR_CODES.UPSTREAM_FAILURE, message, httpStatus, { cause });
 
 /**
  * Ubah error apa pun jadi bentuk yang aman dikirim ke klien.

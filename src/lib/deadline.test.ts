@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { daysUntil, getDeadlineState, urgencyFromDays } from './deadline';
+import {
+  buildDeadlineWeek,
+  daysUntil,
+  getDeadlineState,
+  jakartaDayWindow,
+  urgencyFromDays,
+} from './deadline';
 
 // 10 Jan 2026, 20:00 WIB = 13:00 UTC.
 const NOW = new Date('2026-01-10T13:00:00Z');
@@ -65,5 +71,52 @@ describe('getDeadlineState', () => {
 
   it('mengisi cincin separuh tepat di H-15', () => {
     expect(getDeadlineState('2026-01-25T16:00:00Z', NOW).ringProgress).toBeCloseTo(0.5, 5);
+  });
+});
+
+describe('buildDeadlineWeek', () => {
+  it('selalu mengembalikan 7 hari kalender WIB mulai hari ini', () => {
+    const week = buildDeadlineWeek([], NOW);
+    expect(week.map((day) => day.date)).toEqual([
+      '2026-01-10',
+      '2026-01-11',
+      '2026-01-12',
+      '2026-01-13',
+      '2026-01-14',
+      '2026-01-15',
+      '2026-01-16',
+    ]);
+    expect(week.every((day) => day.count === 0)).toBe(true);
+  });
+
+  it('mengelompokkan per hari WIB, bukan per hari UTC', () => {
+    const week = buildDeadlineWeek(
+      [
+        '2026-01-10T16:59:00Z', // 10 Jan 23:59 WIB -> hari ini
+        '2026-01-10T17:30:00Z', // 11 Jan 00:30 WIB -> besok, walau UTC masih 10 Jan
+        '2026-01-11T16:59:00Z', // 11 Jan 23:59 WIB -> besok
+      ],
+      NOW,
+    );
+    expect(week[0]).toEqual({ date: '2026-01-10', count: 1 });
+    expect(week[1]).toEqual({ date: '2026-01-11', count: 2 });
+  });
+
+  it('mengabaikan tenggat di luar jendela dan tanggal tidak valid', () => {
+    const week = buildDeadlineWeek(
+      ['2026-01-09T10:00:00Z', '2026-01-17T01:00:00Z', 'bukan-tanggal', '2026-01-16T16:59:00Z'],
+      NOW,
+    );
+    expect(week.reduce((sum, day) => sum + day.count, 0)).toBe(1);
+    expect(week[6]).toEqual({ date: '2026-01-16', count: 1 });
+  });
+});
+
+describe('jakartaDayWindow', () => {
+  it('batasnya tengah malam WIB, dinyatakan dalam UTC', () => {
+    const window = jakartaDayWindow(NOW, 7);
+    // 10 Jan 00:00 WIB = 9 Jan 17:00 UTC; 17 Jan 00:00 WIB = 16 Jan 17:00 UTC.
+    expect(window.startIso).toBe('2026-01-09T17:00:00.000Z');
+    expect(window.endIso).toBe('2026-01-16T17:00:00.000Z');
   });
 });

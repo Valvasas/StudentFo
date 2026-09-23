@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
-import { AlertTriangle, Check, Inbox, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, Check, Inbox, ShieldCheck, Users, X } from 'lucide-react';
+import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { DeadlineTag } from '@/components/event/deadline-tag';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { checkAdminAccess } from '@/lib/auth';
@@ -29,7 +31,10 @@ export default async function AdminPage({
 }) {
   const params = await searchParams;
   const statusKey = Array.isArray(params.status) ? params.status[0] : params.status;
-  const statusMessage = statusKey ? STATUS_MESSAGE[statusKey] : undefined;
+  // hasOwn, bukan akses indeks biasa: `?status=constructor` akan membaca
+  // properti prototype Object dan mencoba merender sebuah fungsi.
+  const statusMessage =
+    statusKey && Object.hasOwn(STATUS_MESSAGE, statusKey) ? STATUS_MESSAGE[statusKey] : undefined;
   const gate = await checkAdminAccess();
 
   if (!gate.allowed) {
@@ -47,7 +52,10 @@ export default async function AdminPage({
   }
 
   const repository = await getEventRepository();
-  const pending = await repository.listByStatus('PENDING', 50);
+  const [pending, submissions] = await Promise.all([
+    repository.listByStatus('PENDING', 50),
+    repository.listSubmissions('PENDING', 50),
+  ]);
 
   return (
     <div className="container-page py-8">
@@ -74,6 +82,8 @@ export default async function AdminPage({
           <p>{statusMessage}</p>
         </div>
       )}
+
+      <ActionFeedback params={params} className="mb-6" />
 
       {gate.reason === 'demo' && (
         <div
@@ -138,6 +148,29 @@ export default async function AdminPage({
           ))}
         </ul>
       )}
+
+      <section aria-labelledby="kiriman-komunitas" className="mt-12">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="kiriman-komunitas" className="flex items-center gap-2 text-2xl">
+            <Users aria-hidden className="size-5 text-ink-muted" />
+            Kiriman komunitas
+          </h2>
+          <Badge variant={submissions.length > 0 ? 'warning' : 'success'}>
+            {submissions.length} menunggu
+          </Badge>
+        </div>
+        {submissions.length === 0 ? (
+          <p className="rounded-card border border-dashed border-line bg-panel px-6 py-8 text-center text-sm text-ink-muted">
+            Tidak ada kiriman dari halaman /submit yang menunggu.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {submissions.map((submission) => (
+              <SubmissionReviewCard key={submission.id} submission={submission} />
+            ))}
+          </ul>
+        )}
+      </section>
 
       <p className="mt-8 text-xs text-ink-faint">
         Sumber data saat ini: <code>{dataMode === 'supabase' ? 'Supabase' : 'seed lokal'}</code>

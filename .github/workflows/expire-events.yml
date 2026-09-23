@@ -1,0 +1,31 @@
+# Geser event APPROVED yang tenggat utamanya sudah lewat menjadi EXPIRED.
+# Event tidak dihapus: halaman detailnya tetap tayang dengan penanda
+# "Pendaftaran ditutup" (lihat policy events_public_read, migration 0003).
+#
+# Secret yang dibutuhkan: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+name: Expire past events
+
+on:
+  schedule:
+    # 17:05 UTC = 00:05 WIB — segera setelah pergantian hari kalender WIB.
+    - cron: '5 17 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call expire_past_events()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl --silent --show-error --fail-with-body \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/expire_past_events" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}'

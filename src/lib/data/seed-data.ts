@@ -406,3 +406,39 @@ export const SEED_CATEGORIES = [
   { id: 'c11', name: 'Pendidikan & Keguruan', slug: 'pendidikan' },
   { id: 'c12', name: 'Hukum & Politik', slug: 'hukum' },
 ] as const;
+
+export interface SeedTeam {
+  readonly title: string;
+  readonly description: string;
+  readonly slotsNeeded: number;
+  readonly createdDaysAgo: number;
+  readonly leader: { readonly userId: string; readonly fullName: string };
+  readonly members: readonly { readonly userId: string; readonly fullName: string }[];
+}
+
+/**
+ * Dua tim contoh supaya /teams tidak tampil kosong di mode seed. Halaman
+ * daftar yang selalu kosong tidak bisa dipakai menilai apa pun — tata letak
+ * kartu, perilaku "tim penuh", maupun tombol gabung. Tim ke-N dipasangkan
+ * ke event APPROVED ke-N di SEED_EVENTS.
+ */
+export const SEED_TEAMS: readonly SeedTeam[] = [
+  {
+    title: 'Cari 2 anggota untuk tim hackathon',
+    description:
+      'Sudah ada 1 backend dan 1 desainer. Butuh satu orang frontend dan satu lagi yang kuat di analisis data. Rencana kerja: daring, dua kali seminggu.',
+    slotsNeeded: 4,
+    createdDaysAgo: 2,
+    leader: { userId: 'seed-user-1', fullName: 'Rani Prameswari' },
+    members: [{ userId: 'seed-user-2', fullName: 'Dimas Arya' }],
+  },
+  {
+    title: 'Tim karya tulis ilmiah — tema energi terbarukan',
+    description:
+      'Fokus ke potensi mikrohidro di Jawa Barat. Mencari rekan yang terbiasa menulis akademik dan satu orang untuk olah data lapangan.',
+    slotsNeeded: 3,
+    createdDaysAgo: 3,
+    leader: { userId: 'seed-user-3', fullName: 'Bagas Nugroho' },
+    members: [],
+  },
+];

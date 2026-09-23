@@ -1,12 +1,15 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { EmptyState } from '@/components/event/empty-state';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { EventGrid } from '@/components/event/event-grid';
 import { FilterBar } from '@/components/event/filter-bar';
 import { Pagination } from '@/components/event/pagination';
 import { EventGridSkeleton, Skeleton } from '@/components/ui/skeleton';
+import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import {
+  buildEventHref,
   hasActiveFilters,
   parseEventQuery,
   type ParsedEventQuery,
@@ -40,7 +43,8 @@ export default async function EventsPage({
 }: {
   searchParams: Promise<RawSearchParams>;
 }) {
-  const query = parseEventQuery(await searchParams);
+  const rawParams = await searchParams;
+  const query = parseEventQuery(rawParams);
   const repository = await getEventRepository();
   const categories = await repository.listCategories();
 
@@ -53,6 +57,8 @@ export default async function EventsPage({
           tinggal salin tautannya kalau mau dibagikan.
         </p>
       </header>
+
+      <ActionFeedback params={rawParams} className="mb-6 max-w-2xl" />
 
       {/* `key` dari query: tanpa ini React menganggap boundary-nya sama saat
           filter berubah, dan user melihat hasil lama membeku alih-alih
@@ -71,8 +77,18 @@ async function Results({
   query: ParsedEventQuery;
   categories: readonly Category[];
 }) {
-  const repository = await getEventRepository();
-  const result = await repository.listEvents(query);
+  const [repository, user] = await Promise.all([
+    getEventRepository(),
+    getSessionUser(),
+  ]);
+
+  const profile = user ? { educationLevel: user.educationLevel, interests: user.interests } : null;
+  const [result, savedEventIds] = await Promise.all([
+    repository.listEvents({ ...query, profile }),
+    user ? repository.listSavedEventIds(user.id) : Promise.resolve([]),
+  ]);
+
+  const currentHref = buildEventHref(query);
 
   return (
     <>
@@ -80,7 +96,11 @@ async function Results({
       <div className="mt-8">
         {result.items.length > 0 ? (
           <>
-            <EventGrid events={result.items} />
+            <EventGrid
+              events={result.items}
+              savedEventIds={savedEventIds}
+              returnTo={currentHref}
+            />
             <div className="mt-8">
               <Pagination query={query} totalPages={result.totalPages} />
             </div>

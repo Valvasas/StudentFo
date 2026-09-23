@@ -1,0 +1,53 @@
+# Pipeline scraping harian (pipeline/README.md). Hasilnya SELALU berstatus
+# PENDING — penerbitan tetap keputusan manusia di /admin (AGENTS.md §5).
+#
+# Secret yang dibutuhkan:
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY
+#   PIPELINE_SOURCES_YAML  — isi lengkap sources.yaml (tidak disimpan di repo,
+#                            lihat pipeline/config/sources.example.yaml)
+# Opsional: GEMINI_MODEL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+name: Scraper
+
+on:
+  schedule:
+    # 19:00 UTC = 02:00 WIB.
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scraper
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+      - run: pip install -r pipeline/requirements.txt
+      - name: Write sources.yaml from secret
+        env:
+          PIPELINE_SOURCES_YAML: ${{ secrets.PIPELINE_SOURCES_YAML }}
+        run: |
+          if [ -z "$PIPELINE_SOURCES_YAML" ]; then
+            echo "::error::Secret PIPELINE_SOURCES_YAML belum diisi."
+            exit 1
+          fi
+          printf '%s' "$PIPELINE_SOURCES_YAML" > pipeline/config/sources.yaml
+      - name: Run pipeline
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python pipeline/run.py --config pipeline/config/sources.yaml

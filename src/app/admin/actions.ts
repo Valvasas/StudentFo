@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { toActionErrorCode, type ActionErrorCode } from '@/lib/action-feedback';
 import { checkAdminAccess } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { toApiError } from '@/lib/errors';
+import { formText, formTrimmed } from '@/lib/form-data';
 
 /**
  * Aksi moderasi.
@@ -18,29 +20,41 @@ import { toApiError } from '@/lib/errors';
  * bukan lewat nilai balik: dengan begitu form tetap berfungsi penuh tanpa
  * JavaScript, dan pesan errornya tetap sampai ke user.
  */
+
+type Decision = 'APPROVED' | 'REJECTED';
+
+function parseDecision(formData: FormData): Decision | null {
+  const decision = formText(formData, 'decision');
+  return decision === 'APPROVED' || decision === 'REJECTED' ? decision : null;
+}
+
+function refreshPublicViews(): void {
+  revalidatePath('/admin');
+  revalidatePath('/events');
+  revalidatePath('/');
+}
+
 export async function reviewEventAction(formData: FormData): Promise<void> {
   let outcome: 'ok' | 'forbidden' | 'invalid' | 'failed' = 'ok';
 
   try {
     const gate = await checkAdminAccess();
+    const eventId = formTrimmed(formData, 'eventId');
+    const decision = parseDecision(formData);
+    const reason = formText(formData, 'reason').slice(0, 500);
+
     if (!gate.allowed) {
       outcome = 'forbidden';
+    } else if (!eventId || !decision) {
+      outcome = 'invalid';
     } else {
-      const eventId = String(formData.get('eventId') ?? '').trim();
-      const decision = String(formData.get('decision') ?? '');
-      const reason = String(formData.get('reason') ?? '').slice(0, 500);
-
-      if (!eventId || (decision !== 'APPROVED' && decision !== 'REJECTED')) {
-        outcome = 'invalid';
-      } else {
-        const repository = await getEventRepository();
-        await repository.reviewEvent({
-          eventId,
-          decision,
-          reviewerId: gate.userId,
-          ...(reason ? { reason } : {}),
-        });
-      }
+      const repository = await getEventRepository();
+      await repository.reviewEvent({
+        eventId,
+        decision,
+        reviewerId: gate.userId,
+        ...(reason ? { reason } : {}),
+      });
     }
   } catch (error) {
     // Detail teknis hanya ke log server; user cuma perlu tahu aksinya gagal.
@@ -54,7 +68,27 @@ export async function reviewEventAction(formData: FormData): Promise<void> {
     redirect(`/admin?status=${outcome}`);
   }
 
-  revalidatePath('/admin');
-  revalidatePath('/events');
-  revalidatePath('/');
+  refreshPublicViews();
+}
+
+export async function reviewSubmissionAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const submissionId = formTrimmed(formData, 'submissionId');
+  const decision = parseDecision(formData);
+  if (!submissionId || !decision) redirect('/admin?error=invalid_request');
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    await repository.reviewSubmission({ submissionId, decision, reviewerId: gate.userId });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(`/admin?error=${failure}`);
+
+  refreshPublicViews();
+  redirect(`/admin?notice=${decision === 'APPROVED' ? 'submission_approved' : 'submission_rejected'}`);
 }

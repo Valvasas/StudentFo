@@ -1,0 +1,46 @@
+# Gerbang kualitas untuk setiap push & pull request.
+# Aplikasi WAJIB lolos tanpa kredensial apa pun (mode seed) — karena itu job
+# ini sengaja tidak memakai secret Supabase sama sekali.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Next.js — verify & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run build
+
+  pipeline:
+    name: Pipeline Python — tests & dry-run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+      - run: pip install -r pipeline/requirements.txt
+      - run: python pipeline/tests/test_models.py
+      - run: python pipeline/run.py --config pipeline/config/sources.example.yaml --dry-run

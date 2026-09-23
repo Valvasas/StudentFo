@@ -121,6 +121,63 @@ export function getDeadlineState(
   return { daysLeft, urgency, shortLabel, longLabel, ringProgress };
 }
 
+const JAKARTA_OFFSET_MS = 7 * 3_600_000;
+
+/** `YYYY-MM-DD` hari kalender WIB tempat instan ini jatuh. */
+export function jakartaDateKey(date: Date): string {
+  return new Date(jakartaDayStart(date)).toISOString().slice(0, 10);
+}
+
+export interface JakartaDayWindow {
+  /** Instan UTC tengah malam WIB hari pertama (inklusif). */
+  readonly startIso: string;
+  /** Instan UTC tengah malam WIB setelah hari terakhir (eksklusif). */
+  readonly endIso: string;
+  readonly keys: readonly string[];
+}
+
+/**
+ * `days` hari kalender WIB berturut-turut, mulai hari ini.
+ *
+ * Batasnya tengah malam WIB, bukan `now + 7 × 24 jam`: tenggat pukul 23:59
+ * pada hari ketujuh harus ikut terhitung, dan tenggat tadi pagi (sudah
+ * lewat tapi masih "hari ini") pun begitu — kolom "hari ini" menampilkan
+ * seluruh hari, bukan sisa jamnya saja.
+ */
+export function jakartaDayWindow(now: Date, days: number): JakartaDayWindow {
+  // WIB tidak punya DST, jadi offset tetap +7 jam aman dipakai di sini.
+  const start = jakartaDayStart(now) - JAKARTA_OFFSET_MS;
+  const keys = Array.from({ length: days }, (_, index) =>
+    new Date(start + JAKARTA_OFFSET_MS + index * MS_PER_DAY).toISOString().slice(0, 10),
+  );
+  return {
+    startIso: new Date(start).toISOString(),
+    endIso: new Date(start + days * MS_PER_DAY).toISOString(),
+    keys,
+  };
+}
+
+export const DEADLINE_WEEK_DAYS = 7;
+
+/** Kelompokkan tenggat ke 7 hari kalender WIB mulai hari ini. Tenggat di luar jendela diabaikan. */
+export function buildDeadlineWeek(
+  deadlineIsos: readonly string[],
+  now: Date = new Date(),
+): { date: string; count: number }[] {
+  const { keys } = jakartaDayWindow(now, DEADLINE_WEEK_DAYS);
+  const counts = new Map<string, number>(keys.map((key) => [key, 0]));
+
+  for (const iso of deadlineIsos) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) continue;
+    const key = jakartaDateKey(date);
+    const current = counts.get(key);
+    if (current !== undefined) counts.set(key, current + 1);
+  }
+
+  return keys.map((key) => ({ date: key, count: counts.get(key) ?? 0 }));
+}
+
 const longDateFormatter = new Intl.DateTimeFormat('id-ID', {
   timeZone: JAKARTA_TZ,
   day: 'numeric',

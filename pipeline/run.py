@@ -120,13 +120,17 @@ async def main() -> int:
         from google import genai
 
         genai_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        # Id model pihak ketiga bisa dipensiunkan tanpa ada perubahan di repo
+        # ini. Diambil dari env supaya penggantiannya cukup lewat secret CI,
+        # bukan rilis kode.
+        gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
 
         from studentfo_pipeline.extractor import PROMPT, build_response_schema
 
         async def extract_fn(content: str, url: str, slugs: list[str]) -> str:
             response = await asyncio.to_thread(
                 genai_client.models.generate_content,
-                model="gemini-2.0-flash",
+                model=gemini_model,
                 contents=PROMPT.format(source_url=url, content=content),
                 config={
                     "response_mime_type": "application/json",

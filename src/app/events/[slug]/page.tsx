@@ -1,12 +1,17 @@
+import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowUpRight, Building2, CalendarClock, ExternalLink, Globe, GraduationCap, MapPin } from 'lucide-react';
 import { DeadlineTag } from '@/components/event/deadline-tag';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { SaveButton } from '@/components/event/save-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId, getDeadlineState } from '@/lib/deadline';
+import type { RawSearchParams } from '@/lib/search-params';
 import { safeHostname, sanitizeExternalUrl } from '@/lib/utils';
 import {
   DEADLINE_LABEL_TEXT,
@@ -17,10 +22,10 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-async function loadEvent(slug: string): Promise<EventDetail | null> {
-  const repository = await getEventRepository();
-  return repository.getEventBySlug(slug);
-}
+/** Dipanggil oleh generateMetadata DAN halaman; cache() membuatnya satu query per request. */
+const loadEvent = cache(async (slug: string): Promise<EventDetail | null> =>
+  (await getEventRepository()).getEventBySlug(slug),
+);
 
 export async function generateMetadata({
   params,
@@ -42,10 +47,22 @@ export async function generateMetadata({
   };
 }
 
-export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const event = await loadEvent(slug);
+export default async function EventDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<RawSearchParams>;
+}) {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
+  const [event, user, repository] = await Promise.all([
+    loadEvent(slug),
+    getSessionUser(),
+    getEventRepository(),
+  ]);
   if (!event) notFound();
+
+  const isSaved = user ? await repository.isEventSaved(user.id, event.id) : false;
 
   const state = getDeadlineState(event.primaryDeadlineAt);
   const isClosed = state.urgency === 'closed' || event.status === 'EXPIRED';
@@ -66,6 +83,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         </span>
         <span className="text-ink-soft">{EVENT_TYPE_LABEL[event.eventType]}</span>
       </nav>
+
+      <ActionFeedback params={query} className="mb-6 max-w-2xl" />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <article>
@@ -154,12 +173,18 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               <p className="mt-1 font-medium">{formatDateTimeId(event.primaryDeadlineAt)}</p>
             )}
 
-            {registrationUrl ? (
-              <Button asChild size="lg" className="mt-5 w-full" {...(isClosed ? { disabled: true } : {})}>
+            {isClosed ? (
+              // `disabled` tidak berefek pada <a>: tautannya tetap bisa diklik.
+              // Kegiatan yang sudah ditutup dirender sebagai tombol mati.
+              <Button size="lg" className="mt-5 w-full" disabled>
+                Pendaftaran sudah ditutup
+              </Button>
+            ) : registrationUrl ? (
+              <Button asChild size="lg" className="mt-5 w-full">
                 {/* rel="noopener": tanpa ini, halaman tujuan bisa mengakses
                     window.opener dan mengarahkan ulang tab kita. */}
                 <a href={registrationUrl} target="_blank" rel="noopener noreferrer nofollow">
-                  {isClosed ? 'Pendaftaran sudah ditutup' : 'Daftar sekarang'}
+                  Daftar sekarang
                   <ArrowUpRight aria-hidden />
                   <span className="sr-only">(membuka tab baru)</span>
                 </a>
@@ -169,6 +194,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                 Tautan pendaftaran belum tersedia atau tidak valid. Cek langsung ke situs penyelenggara.
               </p>
             )}
+
+            <SaveButton
+              eventId={event.id}
+              isSaved={isSaved}
+              returnTo={`/events/${event.slug}`}
+              variant="full"
+              className="mt-3"
+            />
 
             <p className="mt-4 text-xs text-ink-faint">
               StudentFo hanya mengumpulkan informasi. Pendaftaran, seleksi, dan keputusan sepenuhnya

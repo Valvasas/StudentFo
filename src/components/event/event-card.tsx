@@ -3,6 +3,7 @@ import { Building2, Globe, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DeadlineRing } from '@/components/event/deadline-ring';
 import { DeadlineTag } from '@/components/event/deadline-tag';
+import { SaveButton } from '@/components/event/save-button';
 import { cn } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
 
@@ -28,10 +29,18 @@ export interface EventCardProps {
   event: EventSummary;
   /** Varian unggulan memakai cincin tenggat, bukan tag. Dipakai terbatas. */
   featured?: boolean;
+  isSaved?: boolean;
+  returnTo?: string;
   className?: string;
 }
 
-export function EventCard({ event, featured = false, className }: EventCardProps) {
+export function EventCard({
+  event,
+  featured = false,
+  isSaved = false,
+  returnTo = '/events',
+  className,
+}: EventCardProps) {
   const extraCategories = Math.max(event.categorySlugs.length - 2, 0);
 
   return (
@@ -46,11 +55,14 @@ export function EventCard({ event, featured = false, className }: EventCardProps
     >
       <div className="flex items-start justify-between gap-3">
         <Badge variant="brand">{EVENT_TYPE_LABEL[event.eventType]}</Badge>
-        {featured ? (
-          <DeadlineRing deadlineAt={event.primaryDeadlineAt} size={48} />
-        ) : (
-          <DeadlineTag deadlineAt={event.primaryDeadlineAt} />
-        )}
+        <div className="flex items-center gap-2">
+          <SaveButton eventId={event.id} isSaved={isSaved} returnTo={returnTo} />
+          {featured ? (
+            <DeadlineRing deadlineAt={event.primaryDeadlineAt} size={48} />
+          ) : (
+            <DeadlineTag deadlineAt={event.primaryDeadlineAt} />
+          )}
+        </div>
       </div>
 
       <h3 className="text-base font-semibold leading-snug">
