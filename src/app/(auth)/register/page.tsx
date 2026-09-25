@@ -3,10 +3,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { signUpAction } from '@/app/auth/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
+import { DemoLogin } from '@/components/auth/demo-login';
 import { GoogleButton } from '@/components/auth/google-button';
 import { Button } from '@/components/ui/button';
 import { Field, TextInput } from '@/components/ui/field';
 import { getSessionUser } from '@/lib/auth';
+import { dataMode } from '@/lib/env';
 import { safeNextPath } from '@/lib/safe-redirect';
 import type { RawSearchParams } from '@/lib/search-params';
 
@@ -27,6 +29,20 @@ export default async function RegisterPage({
   const next = safeNextPath(params.next);
 
   if (await getSessionUser()) redirect(next);
+
+  // Mode demo: form email/Google tidak punya backend dan pasti gagal.
+  // Yang ditampilkan adalah jalur yang benar-benar berfungsi.
+  if (dataMode === 'seed') {
+    return (
+      <>
+        <header>
+          <h1 className="text-3xl">Daftar</h1>
+        </header>
+        <AuthFeedback params={params} />
+        <DemoLogin next={next} />
+      </>
+    );
+  }
 
   const email = typeof params.email === 'string' ? params.email.slice(0, 254) : '';
 

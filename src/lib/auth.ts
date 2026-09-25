@@ -1,6 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
+import { readDemoSession } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
 import { loginHref } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -32,7 +33,7 @@ export interface AuthUser {
  * hanya yang kedua yang boleh dijadikan dasar.
  */
 export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
-  if (dataMode === 'seed') return null;
+  if (dataMode === 'seed') return getDemoUser();
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -66,6 +67,27 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
   };
 });
 
+/**
+ * Pengguna demo (mode seed) dari cookie bertanda tangan. Bentuknya identik
+ * dengan AuthUser produksi, sehingga seluruh halaman dan Server Action
+ * berjalan lewat jalur yang sama — tidak ada cabang `if (demo)` di UI.
+ */
+async function getDemoUser(): Promise<AuthUser | null> {
+  const session = await readDemoSession();
+  if (!session) return null;
+
+  return {
+    id: session.uid,
+    email: `${session.persona}@demo.studentfo.local`,
+    fullName: session.fullName,
+    role: session.role,
+    educationLevel: session.educationLevel,
+    major: session.major,
+    interests: session.interests,
+    providers: ['demo'],
+  };
+}
+
 /** Profil dianggap lengkap kalau dua sinyal rekomendasi (§6) sudah terisi. */
 export function isProfileComplete(user: AuthUser | null): boolean {
   return Boolean(user && user.educationLevel !== null && user.interests.length > 0);
@@ -82,27 +104,22 @@ export async function requireUser(returnTo: string): Promise<AuthUser> {
 }
 
 export type AdminGate =
-  | { allowed: true; reason: 'demo' | 'admin'; userId: string | null }
+  | { allowed: true; reason: 'demo' | 'admin'; userId: string }
   | { allowed: false; reason: 'unauthenticated' | 'not-admin' };
 
 /**
  * Gerbang dasbor moderasi.
  *
- * CATATAN KONTRADIKSI BLUEPRINT: §8 menaruh dasbor admin di Phase 1,
- * sementara tabel `users` (satu-satunya tempat kolom `role` berada) baru
- * aktif di Phase 2. Sejak sistem akun aktif, jalur `admin` di bawah sudah
- * berlaku penuh; cabang `demo` tersisa khusus untuk mode data contoh, di
- * mana tidak ada data nyata yang bisa dirusak dan halamannya ditandai
- * terang-terangan sebagai pratinjau.
+ * Mode seed memakai aturan yang SAMA dengan produksi: harus masuk dan
+ * berperan ADMIN (persona "Admin moderator"). Sebelumnya mode seed
+ * membuka /admin untuk siapa pun; itu membuat alur otorisasi di demo
+ * berbeda dari produksi, dan pratinjau publik bisa dimoderasi pengunjung
+ * mana saja tanpa tahu sedang berperan sebagai admin.
  */
 export async function checkAdminAccess(): Promise<AdminGate> {
-  if (dataMode === 'seed') {
-    return { allowed: true, reason: 'demo', userId: null };
-  }
-
   const user = await getSessionUser();
   if (!user) return { allowed: false, reason: 'unauthenticated' };
   if (user.role !== 'ADMIN') return { allowed: false, reason: 'not-admin' };
 
-  return { allowed: true, reason: 'admin', userId: user.id };
+  return { allowed: true, reason: dataMode === 'seed' ? 'demo' : 'admin', userId: user.id };
 }

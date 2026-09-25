@@ -51,6 +51,7 @@ export const ACTION_NOTICE_CODES = [
   'submission_received',
   'submission_approved',
   'submission_rejected',
+  'demo_reset',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -60,6 +61,7 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
     'Terima kasih! Kiriman kamu masuk antrean verifikasi. Kegiatan baru tayang setelah dicek manual ke sumbernya.',
   submission_approved: 'Kiriman disetujui dan kini tayang di katalog.',
   submission_rejected: 'Kiriman ditolak.',
+  demo_reset: 'Data demo diatur ulang ke kondisi awal, dengan tenggat dihitung ulang dari hari ini.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

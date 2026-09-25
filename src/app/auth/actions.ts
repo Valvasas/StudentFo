@@ -10,6 +10,8 @@ import {
   signInSchema,
   signUpSchema,
 } from '@/lib/auth-schema';
+import { isDemoPersonaId } from '@/lib/demo/personas';
+import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -172,8 +174,30 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
   redirect(destination!);
 }
 
+/**
+ * Masuk sebagai persona demo — HANYA di mode seed.
+ *
+ * Di mode Supabase aksi ini sengaja menolak (bukan diam-diam lolos):
+ * Server Action bisa dipanggil langsung, jadi tombolnya disembunyikan saja
+ * tidak cukup untuk mencegah siapa pun membuat sesi admin palsu.
+ */
+export async function demoSignInAction(formData: FormData): Promise<void> {
+  const next = safeNextPath(field(formData, 'next'));
+  const persona = field(formData, 'persona');
+
+  if (dataMode !== 'seed' || !isDemoPersonaId(persona)) {
+    redirect(authHref('/login', { error: dataMode === 'seed' ? 'validation' : 'unknown' }));
+  }
+
+  await startDemoSession(persona);
+  revalidatePath('/', 'layout');
+  redirect(persona === 'admin' && next === '/' ? '/admin' : next);
+}
+
 export async function signOutAction(): Promise<void> {
-  if (dataMode !== 'seed') {
+  if (dataMode === 'seed') {
+    await endDemoSession();
+  } else {
     const supabase = await createSupabaseServerClient();
     await supabase.auth.signOut();
   }

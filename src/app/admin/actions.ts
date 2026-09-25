@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { toActionErrorCode, type ActionErrorCode } from '@/lib/action-feedback';
 import { checkAdminAccess } from '@/lib/auth';
-import { getEventRepository } from '@/lib/data';
+import { getEventRepository, resetDemoData } from '@/lib/data';
+import { dataMode } from '@/lib/env';
 import { toApiError } from '@/lib/errors';
 import { formText, formTrimmed } from '@/lib/form-data';
 
@@ -91,4 +92,18 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
 
   refreshPublicViews();
   redirect(`/admin?notice=${decision === 'APPROVED' ? 'submission_approved' : 'submission_rejected'}`);
+}
+
+/**
+ * Bangun ulang data demo dari seed. Hanya mode seed + admin demo; di mode
+ * Supabase aksi ini menolak, karena tidak ada "data contoh" untuk direset
+ * dan tombol hapus-semua di produksi tidak boleh ada sama sekali.
+ */
+export async function resetDemoDataAction(): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed || dataMode !== 'seed') redirect('/admin?status=forbidden');
+
+  resetDemoData();
+  revalidatePath('/', 'layout');
+  redirect('/admin?notice=demo_reset');
 }

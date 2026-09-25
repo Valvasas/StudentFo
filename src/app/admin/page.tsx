@@ -1,15 +1,17 @@
 import type { Metadata } from 'next';
-import { AlertTriangle, Check, Inbox, ShieldCheck, Users, X } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, Check, Inbox, RotateCcw, ShieldCheck, Users, X } from 'lucide-react';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { checkAdminAccess } from '@/lib/auth';
-import { getEventRepository } from '@/lib/data';
+import { demoDataCreatedAt, getEventRepository } from '@/lib/data';
+import { formatDateTimeId } from '@/lib/deadline';
 import { dataMode } from '@/lib/env';
 import { EVENT_TYPE_LABEL } from '@/types/domain';
-import { reviewEventAction } from './actions';
+import { resetDemoDataAction, reviewEventAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,11 +49,17 @@ export default async function AdminPage({
             ? 'Masuk dengan akun admin untuk membuka antrean moderasi.'
             : 'Akunmu tidak punya peran admin. Hubungi pengelola kalau ini keliru.'}
         </p>
+        {gate.reason === 'unauthenticated' && (
+          <Button asChild>
+            <Link href="/login?next=%2Fadmin">Masuk</Link>
+          </Button>
+        )}
       </div>
     );
   }
 
   const repository = await getEventRepository();
+  const demoCreatedAt = demoDataCreatedAt();
   const [pending, submissions] = await Promise.all([
     repository.listByStatus('PENDING', 50),
     repository.listSubmissions('PENDING', 50),
@@ -88,15 +96,24 @@ export default async function AdminPage({
       {gate.reason === 'demo' && (
         <div
           role="note"
-          className="mb-6 flex items-start gap-2 rounded-card border border-caution-line bg-caution-soft p-4 text-sm text-caution"
+          className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-card border border-caution-line bg-caution-soft p-4 text-sm text-caution"
         >
-          <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
-          <p>
-            <strong className="font-semibold">Pratinjau tanpa autentikasi.</strong> Mode data contoh
-            aktif, jadi halaman ini terbuka dan keputusanmu hanya bertahan sampai server dimuat ulang.
-            Begitu Supabase terhubung, halaman ini otomatis mensyaratkan akun dengan peran{' '}
-            <code className="rounded-sm bg-panel-nested px-1">ADMIN</code>.
+          <p className="flex max-w-2xl items-start gap-2">
+            <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span>
+              <strong className="font-semibold">Admin demo.</strong> Keputusanmu mengubah data contoh
+              yang dilihat semua pengunjung pratinjau, dan data itu diatur ulang otomatis setiap 6 jam
+              {demoCreatedAt ? ` (terakhir ${formatDateTimeId(demoCreatedAt.toISOString())})` : ''}.
+              Di produksi, halaman ini mensyaratkan akun berperan{' '}
+              <code className="rounded-sm bg-panel-nested px-1">ADMIN</code>.
+            </span>
           </p>
+          <form action={resetDemoDataAction}>
+            <Button type="submit" variant="secondary" size="sm">
+              <RotateCcw aria-hidden />
+              Atur ulang data demo
+            </Button>
+          </form>
         </div>
       )}
 

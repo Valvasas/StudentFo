@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { type AuthErrorCode } from '@/lib/auth-messages';
 import { profileSchema } from '@/lib/auth-schema';
+import { updateDemoProfile } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
 import { formList, formTrimmed as text } from '@/lib/form-data';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -12,21 +13,27 @@ import { EDUCATION_LEVELS, type EducationLevel } from '@/types/domain';
 export async function updateProfileAction(formData: FormData): Promise<void> {
   let failure: AuthErrorCode | null = null;
 
+  const level = text(formData, 'educationLevel');
+  const major = text(formData, 'major');
+
+  const parsed = profileSchema.safeParse({
+    fullName: text(formData, 'fullName'),
+    educationLevel: EDUCATION_LEVELS.includes(level as EducationLevel)
+      ? (level as EducationLevel)
+      : null,
+    major: major || null,
+    interests: formList(formData, 'interests'),
+  });
+
   if (dataMode === 'seed') {
-    failure = 'unavailable';
+    // Validasi yang sama dengan produksi; profil demo disimpan di cookie
+    // sesi bertanda tangan (lib/demo/session.ts), bukan di database.
+    if (!parsed.success) {
+      failure = 'validation';
+    } else if (!(await updateDemoProfile(parsed.data))) {
+      failure = 'session_missing';
+    }
   } else {
-    const level = text(formData, 'educationLevel');
-    const major = text(formData, 'major');
-
-    const parsed = profileSchema.safeParse({
-      fullName: text(formData, 'fullName'),
-      educationLevel: EDUCATION_LEVELS.includes(level as EducationLevel)
-        ? (level as EducationLevel)
-        : null,
-      major: major || null,
-      interests: formList(formData, 'interests'),
-    });
-
     if (!parsed.success) {
       failure = 'validation';
     } else {
