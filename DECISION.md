@@ -12,6 +12,68 @@ terdokumentasi.
 
 ---
 
+## ADR-026 — Skor rekomendasi memperhitungkan kedekatan tenggat
+
+**Konteks:** Rumus blueprint §6 (`0.5 kategori + 0.3 jenjang + 0.2 recency`,
+cold start `0.6 recency + 0.4 popularitas`) tidak punya sinyal tenggat. Nilai
+utama produk adalah "jangan sampai terlewat", tapi kegiatan yang tutup lusa
+bisa kalah dari kegiatan baru yang tutup tiga bulan lagi.
+
+**Keputusan:** Tambah komponen `deadlineFit` (0..1, hari kalender WIB):
+0 untuk ditutup, 0.6 untuk hari-H, 1 untuk 1–14 hari, lalu meluruh separuh
+per 14 hari; 0.3 untuk tanpa tenggat. Bobot menjadi personal
+`0.45/0.25/0.15/0.15` (kategori/jenjang/tenggat/recency) dan cold start
+`0.45/0.30/0.25` (recency/popularitas/tenggat). Bobot diekspor sebagai
+konstanta dan diuji berjumlah 1.
+
+**Konsekuensi:** Kecocokan minat tetap sinyal terkuat (diuji: kegiatan relevan
+dengan tenggat 60 hari mengalahkan kegiatan tak relevan yang tutup 3 hari lagi).
+Hari-H sengaja tidak diangkat, selaras dengan tidak adanya notifikasi H-0.
+Bobot adalah tebakan terdidik, bukan hasil pengukuran: begitu ada data klik
+atau simpan nyata, bobot ini wajib dikalibrasi ulang.
+
+---
+
+## ADR-025 — Produksi tanpa kredensial Supabase gagal keras, kecuali demo diminta eksplisit
+
+**Konteks:** `dataMode` jatuh ke `seed` setiap kali env Supabase kosong,
+termasuk di produksi. Deploy yang lupa mengisi env akan tayang dengan
+kegiatan fiktif tanpa satu pun log error.
+
+**Keputusan:** `resolveDataMode()` melempar error di runtime produksi tanpa
+kredensial, kecuali `ALLOW_DEMO_IN_PRODUCTION=true`. Fase `next build`
+dikecualikan karena build tidak memerlukan kredensial.
+
+**Konsekuensi:** Situs pratinjau dan job CI a11y (`next start`) harus
+menyetel flag tersebut secara eksplisit — itu disengaja.
+
+---
+
+## ADR-024 — Mode demo punya akun sungguhan: persona bertanda tangan, per pengunjung
+
+**Konteks:** Di mode seed, `getSessionUser()` selalu `null`, jadi separuh
+produk (profil, simpan, tracker, tim, notifikasi, rekomendasi personal) tidak
+bisa didemokan, walau `MemoryEventRepository` sudah mengimplementasikannya.
+Selain itu `/admin` terbuka untuk siapa pun di mode seed.
+
+**Keputusan:**
+- Tiga persona sekali klik (`lib/demo/personas.ts`). Sesi berupa cookie
+  HMAC-SHA256 (`lib/demo/session-token.ts`) berisi UUID acak per login dan
+  profil. Cookie yang diubah (mis. peran jadi ADMIN) ditolak.
+- `getSessionUser()` mengembalikan `AuthUser` demo dengan bentuk identik,
+  sehingga halaman dan Server Action tidak bercabang `if (demo)`.
+- `/admin` di mode seed memakai gerbang yang sama dengan produksi.
+- Data demo dibangun ulang tiap 6 jam (`DEMO_DATA_TTL_MS`) dan bisa direset
+  admin demo. Repository disimpan di `globalThis`.
+
+**Konsekuensi:** Data kegiatan dan moderasi tetap dibagi semua pengunjung
+demo (satu admin demo bisa menolak semua kegiatan sampai reset berikutnya);
+yang terisolasi hanya data per pengguna. Demo di >1 instance butuh
+`DEMO_SESSION_SECRET` yang sama, dan tiap instance tetap punya data memori
+sendiri — mode demo tidak dirancang untuk skala horizontal.
+
+---
+
 ## ADR-023 — Batas laju `/submit` ditegakkan di Postgres, bukan di Next.js
 
 **Konteks:** `/submit` terbuka untuk tamu, dan policy `ugc_public_insert`

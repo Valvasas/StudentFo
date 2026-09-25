@@ -1,8 +1,13 @@
 /**
- * Recommendation scoring — Blueprint §6.
+ * Recommendation scoring — Blueprint §6, direvisi (DECISION.md ADR-026).
  *
- *   score(event, user) = 0.5*category_match + 0.3*education_match + 0.2*recency
- *   cold start        = 0.6*recency + 0.4*popularity
+ *   personal   = 0.45*category + 0.25*education + 0.15*deadline_fit + 0.15*recency
+ *   cold start = 0.45*recency  + 0.30*popularity + 0.25*deadline_fit
+ *
+ * Revisi dari bobot blueprint (0.5/0.3/0.2 dan 0.6/0.4): blueprint tidak
+ * punya sinyal tenggat sama sekali, padahal nilai utama produk ini adalah
+ * "jangan sampai terlewat". Tanpa itu, kegiatan yang tutup lusa bisa kalah
+ * dari kegiatan baru yang tutup tiga bulan lagi.
  *
  * Blueprint hanya menetapkan BOBOT-nya; definisi tiap komponen dibiarkan
  * terbuka. Definisi yang dipakai di sini dijelaskan per fungsi, dan semuanya
@@ -10,7 +15,16 @@
  * bobot 0.5/0.3/0.2 kehilangan arti dan satu sinyal diam-diam mendominasi.
  */
 
+import { daysUntil } from '@/lib/deadline';
 import type { EducationLevel, EventSummary, UserProfile } from '@/types/domain';
+
+export const PERSONAL_WEIGHTS = { category: 0.45, education: 0.25, deadline: 0.15, recency: 0.15 } as const;
+export const COLD_START_WEIGHTS = { recency: 0.45, popularity: 0.3, deadline: 0.25 } as const;
+
+/** Jendela "masih sempat, tapi jangan ditunda": nilai penuh. */
+const DEADLINE_SWEET_SPOT_DAYS = 14;
+/** Di luar jendela, nilai turun separuh setiap 14 hari. */
+const DEADLINE_HALF_LIFE_DAYS = 14;
 
 /** Skor relevansi turun separuh setiap 14 hari. */
 const RECENCY_HALF_LIFE_DAYS = 14;
@@ -74,6 +88,30 @@ export function popularityBoost(savedCount: number, maxSavedCount: number): numb
 }
 
 /** Profil dianggap kosong kalau minat ATAU jenjang belum diisi (§6). */
+/**
+ * Seberapa "tepat waktu" sebuah kegiatan untuk dikerjakan sekarang.
+ *
+ *   ditutup (< 0)  -> 0     tidak bisa ditindaklanjuti
+ *   hari-H (0)     -> 0.6   sering sudah tak sempat menyiapkan berkas; tetap
+ *                           terlihat, tapi tidak memimpin (selaras dengan
+ *                           keputusan tanpa notifikasi H-0, lib/notifications)
+ *   1..14 hari     -> 1     masih sempat dan tidak boleh ditunda
+ *   > 14 hari      -> 2^-((n-14)/14)   28 hari = 0.5, 42 hari = 0.25
+ *   tanpa tenggat  -> 0.3   netral-rendah: tidak dihukum, tidak diangkat
+ *
+ * Hari dihitung kalender Asia/Jakarta (daysUntil), sama dengan label H-n
+ * yang dilihat pengguna — skor dan label tidak boleh berbeda pendapat.
+ */
+export function deadlineFit(deadlineIso: string | null, now: Date = new Date()): number {
+  if (!deadlineIso) return 0.3;
+  const daysLeft = daysUntil(deadlineIso, now);
+  if (daysLeft === null) return 0.3;
+  if (daysLeft < 0) return 0;
+  if (daysLeft === 0) return 0.6;
+  if (daysLeft <= DEADLINE_SWEET_SPOT_DAYS) return 1;
+  return clamp01(Math.pow(2, -(daysLeft - DEADLINE_SWEET_SPOT_DAYS) / DEADLINE_HALF_LIFE_DAYS));
+}
+
 export function isColdStart(profile: UserProfile | null): boolean {
   if (!profile) return true;
   return profile.interests.length === 0 || profile.educationLevel === null;
@@ -100,11 +138,16 @@ export function rankEvents(
 
   const scored = events.map((event) => {
     const recency = recencyBoost(event.createdAt, now);
+    const deadline = deadlineFit(event.primaryDeadlineAt, now);
     const score = coldStart
-      ? 0.6 * recency + 0.4 * popularityBoost(event.savedCount, maxSaved)
-      : 0.5 * categoryMatch(profile?.interests ?? [], event.categorySlugs) +
-        0.3 * educationMatch(profile?.educationLevel ?? null, event.educationLevels) +
-        0.2 * recency;
+      ? COLD_START_WEIGHTS.recency * recency +
+        COLD_START_WEIGHTS.popularity * popularityBoost(event.savedCount, maxSaved) +
+        COLD_START_WEIGHTS.deadline * deadline
+      : PERSONAL_WEIGHTS.category * categoryMatch(profile?.interests ?? [], event.categorySlugs) +
+        PERSONAL_WEIGHTS.education *
+          educationMatch(profile?.educationLevel ?? null, event.educationLevels) +
+        PERSONAL_WEIGHTS.deadline * deadline +
+        PERSONAL_WEIGHTS.recency * recency;
 
     return { event, score: clamp01(score), personalized: !coldStart };
   });
