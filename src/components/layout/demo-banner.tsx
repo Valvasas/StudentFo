@@ -20,8 +20,8 @@ export function DemoBanner() {
         <Info aria-hidden className="mt-0.5 size-4 shrink-0 sm:mt-0" />
         <p>
           <strong className="font-semibold">Mode data contoh.</strong> Seluruh kegiatan, penyelenggara,
-          dan tenggat di halaman ini fiktif — dipakai untuk pengembangan antarmuka. Hubungkan Supabase
-          untuk menampilkan data sungguhan.
+          dan tenggat di halaman ini fiktif — dipakai untuk pengembangan antarmuka. Fitur akun bisa
+          dicoba lewat akun demo di halaman Masuk.
         </p>
       </div>
     </div>

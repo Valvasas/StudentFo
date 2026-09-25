@@ -18,6 +18,25 @@ data contoh, dan menampilkan penanda "Mode data contoh" di setiap halaman.
 Menghubungkan backend sungguhan cukup mengisi `.env.local`; tidak ada satu baris
 kode pun yang perlu diubah.
 
+### Akun demo
+
+Semua fitur akun bisa dicoba tanpa database. Buka **Masuk**, lalu pilih persona:
+
+| Persona | Untuk mencoba |
+|---|---|
+| Mahasiswa | Rekomendasi personal (profil lengkap), simpan, tracker, tim, notifikasi |
+| Siswa baru | Urutan *cold start*, lalu lengkapi profil dan lihat urutannya berubah |
+| Admin moderator | Antrean `/admin`: setujui/tolak kegiatan & kiriman, atur ulang data demo |
+
+Setiap login membuat akun sementara terisolasi (cookie bertanda tangan HMAC,
+`src/lib/demo/`). Data demo diatur ulang otomatis setiap 6 jam. Detail: `DECISION.md`
+ADR-024.
+
+**Deploy situs demo** (mis. pratinjau Vercel tanpa Supabase): build produksi
+menolak jalan tanpa kredensial, supaya situs publik tidak diam-diam menampilkan
+data fiktif. Setel `ALLOW_DEMO_IN_PRODUCTION=true` dan `DEMO_SESSION_SECRET`
+(`openssl rand -hex 32`) secara eksplisit.
+
 ## Perintah
 
 | Perintah | Kegunaan |
@@ -30,6 +49,7 @@ kode pun yang perlu diubah.
 | `npm run check:contrast` | Uji kontras token warna (WCAG) |
 | `npm run test:a11y` | Audit aksesibilitas axe-core di browser (Playwright; build produksi, mode seed) |
 | `npm run db:verify` | Verifikasi koneksi & kesiapan database Supabase |
+| `npm run db:test` | Terapkan semua migration ke Postgres kosong + test SQL (butuh `DATABASE_URL`; juga dijalankan CI) |
 | `npm run verify` | typecheck + lint + test + kontras — jalankan sebelum commit (juga dijalankan CI) |
 
 ## Arsitektur
@@ -213,9 +233,15 @@ desain terakhir, dengan Chromium headless di 320/390/768/1440px:
 ## Uji
 
 ```bash
-npm test                                  # 161 uji: deadline & pita WIB, skoring, parsing URL, akun, tim, kiriman, listing
+npm test                                  # 195 uji: deadline & pita WIB, skoring, notifikasi, sesi demo, env, akun, tim, kiriman
 python pipeline/tests/test_models.py      # 12 uji: validasi & dedup pipeline
+python pipeline/tests/test_publisher.py   # 4 uji: payload RPC staging
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
+  npm run db:test                         # semua migration + RLS, FTS, staging, dedup, notifikasi
 ```
+
+Jalankan Postgres lokal untuk `db:test` dengan
+`docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:15`.
 
 Yang diuji adalah tempat bug paling mahal: perhitungan hari lintas zona waktu,
 ambang urgensi, bobot rekomendasi, parsing parameter URL dari pihak tak dipercaya,
