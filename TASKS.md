@@ -28,11 +28,10 @@ secara duplikat atau bertabrakan.
       `COUNT(DISTINCT organizer)` dibuat via migration
       `20260913110001_stats_and_saved_events.sql` dan dipanggil di
       `SupabaseEventRepository.getStats()`. Hasil identik dengan MemoryEventRepository @gemini
-- [ ] Pencarian FTS memakai konfigurasi `public.indonesian` yang sebenarnya
-      = `simple` tanpa stemming (lihat `SCHEMA.md` § Full-text search,
-      `supabase/DEVIATIONS.md` #1). Evaluasi pasang dictionary Snowball
-      Indonesia, ATAU jadikan pemicu resmi migrasi ke Meilisearch (§2
-      blueprint) kalau recall mulai jadi keluhan nyata (bukan spekulatif).
+- [x] Pencarian FTS tanpa stemming — ternyata akar masalahnya bug: migration
+      0001 gagal di Postgres modern karena salah membaca ketersediaan
+      `pg_catalog.indonesian`. Diperbaiki; stemming Snowball Indonesia kini aktif.
+      Dikunci oleh `npm run db:test` + job CI `database` (DEVIATIONS #1). @claude
 - [ ] Belum ada test end-to-end/integration untuk `SupabaseEventRepository`
       terhadap instance Supabase sungguhan (test yang ada menguji logika
       murni & `MemoryEventRepository`). Pertimbangkan test terhadap

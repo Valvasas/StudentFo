@@ -51,6 +51,30 @@ jobs:
           path: test-results/
           retention-days: 7
 
+  database:
+    name: Migration & test SQL (Postgres 15)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Versi mayor disamakan dengan Supabase. Menjalankan migration ke
+    # database kosong adalah satu-satunya cara membuktikan migration
+    # memang bisa di-deploy — lihat DEVIATIONS.md #1.
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/test-migrations.sh
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
   pipeline:
     name: Pipeline Python — tests & dry-run
     runs-on: ubuntu-latest

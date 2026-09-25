@@ -10,26 +10,33 @@ Urutannya dari yang paling berbahaya kalau tidak diperbaiki.
 
 ## 🔴 Menghentikan sistem — migration tidak akan jalan
 
-### 1. `to_tsvector('indonesian', ...)` — konfigurasi FTS itu tidak ada
+### 1. Konfigurasi FTS `indonesian` — diagnosis awal keliru, sudah dikoreksi
 
-**Di blueprint (§3.3):** kolom generated `search_vector` memakai konfigurasi
-full-text search bernama `'indonesian'`.
+**Di blueprint (§3.3):** kolom generated `search_vector` memakai
+`to_tsvector('indonesian', ...)`.
 
-**Masalahnya:** PostgreSQL tidak punya konfigurasi bawaan bernama `indonesian`.
-Yang tersedia hanya `simple`, `english`, dan belasan bahasa Eropa. Statement
-`CREATE TABLE events` akan gagal dengan
-`text search configuration "indonesian" does not exist`, dan seluruh migration
-berhenti di situ. Skema v3 apa adanya **tidak bisa di-deploy**.
+**Diagnosis awal (SALAH):** "PostgreSQL tidak punya konfigurasi `indonesian`".
+Faktanya sejak PostgreSQL 13 tersedia `pg_catalog.indonesian` (Snowball,
+lengkap dengan stemming), dan Supabase memakai PG 15/17. Blueprint aslinya
+justru benar.
 
-**Yang dilakukan:** membuat konfigurasi `public.indonesian` sendiri sebagai
-turunan `simple` sebelum tabel dibuat. Ekspresi generated column-nya tetap
-persis seperti di blueprint.
+**Akibat diagnosis itu (bug, ditemukan 2026-09-25):** migration 0001 mengecek
+`cfgname = 'indonesian'` tanpa melihat schema, menemukan milik `pg_catalog`,
+melewati pembuatan `public.indonesian`, lalu `CREATE TABLE events` merujuk
+`public.indonesian` yang tidak pernah ada. **Migration 0001 gagal di setiap
+Postgres modern**, sehingga tidak ada database yang pernah berhasil
+menerapkannya. Selain itu, query aplikasi (`config: 'indonesian'`) di-resolve
+ke `pg_catalog.indonesian` sementara index memakai config lain — seandainya
+migration lolos pun, token ber-stemming di query tidak akan cocok dengan index.
 
-**Konsekuensi yang harus kamu tahu:** `simple` tidak melakukan stemming, jadi
-pencarian "beasiswa" tidak otomatis menemukan "beasiswanya". Untuk MVP ini
-dapat diterima. Ketika recall mulai terasa kurang, dua jalan keluarnya:
-pasang dictionary Snowball Indonesia, atau migrasi ke Meilisearch — yang
-memang sudah jadi rencana di §2.
+**Perbaikan:** migration 0001 diedit langsung (aman karena belum pernah
+berhasil diterapkan di mana pun) agar memakai `'indonesian'` di index dan
+query, dengan fallback turunan `simple` hanya untuk Postgres < 13.
+"perlombaan" kini cocok dengan "lomba", "beasiswanya" dengan "beasiswa".
+
+**Pencegahan:** `npm run db:test` / job CI `database` menerapkan seluruh
+migration ke Postgres 15 kosong dan menjalankan `supabase/tests/*.test.sql`.
+Test `10_search_and_rls` mengunci perilaku stemming ini.
 
 ---
 

@@ -9,20 +9,30 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- digest() untuk dedup_hash sisi DB
 
 -- ---------------------------------------------------------------------
 -- TEXT SEARCH CONFIGURATION
--- KOREKSI BLUEPRINT: PostgreSQL TIDAK punya konfigurasi FTS bawaan
--- bernama 'indonesian'. `to_tsvector('indonesian', ...)` di §3.3 akan
--- gagal dengan "text search configuration ... does not exist" dan
--- menghentikan seluruh migration.
--- Solusi: bikin config 'indonesian' sendiri sebagai turunan 'simple'
--- (tokenisasi + lowercase, tanpa stemming). Trade-off yang disadari:
--- "beasiswa" tidak otomatis match "beasiswanya". Untuk skala MVP ini
--- jauh lebih aman daripada migration yang tidak bisa jalan; ketika data
--- > 10rb baris dan recall jadi masalah, ini titik migrasi ke Meilisearch
--- (sesuai §2) atau pasang dictionary Snowball Indonesia.
+-- PostgreSQL >= 13 (Supabase: 15/17) SUDAH punya `pg_catalog.indonesian`
+-- — konfigurasi Snowball dengan stemming ("beasiswanya" -> "beasiswa",
+-- "perlombaan" -> "lomba"). Itu yang dipakai.
+--
+-- RIWAYAT BUG (diperbaiki 2026-09-25, lihat DEVIATIONS.md #1): versi
+-- sebelumnya mengecek `cfgname = 'indonesian'` tanpa melihat schema,
+-- menemukan milik pg_catalog, melewati pembuatan `public.indonesian`,
+-- lalu CREATE TABLE events merujuk `public.indonesian` yang tidak ada ->
+-- migration ini GAGAL di setiap Postgres modern. Karena itu berkas ini
+-- aman diedit: tidak ada database yang pernah berhasil menerapkannya.
+--
+-- Fallback di bawah hanya untuk Postgres < 13 (tanpa Snowball Indonesia):
+-- dibuat turunan `simple` dengan NAMA yang sama, sehingga semua rujukan
+-- 'indonesian' (kolom generated DAN query dari aplikasi) tetap menunjuk
+-- ke konfigurasi yang SAMA. Index dan query wajib memakai config yang
+-- identik; kalau berbeda, token yang di-stem tidak akan pernah cocok.
 -- ---------------------------------------------------------------------
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = 'indonesian') THEN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_ts_config
+    WHERE cfgname = 'indonesian'
+      AND cfgnamespace IN ('pg_catalog'::regnamespace, 'public'::regnamespace)
+  ) THEN
     CREATE TEXT SEARCH CONFIGURATION public.indonesian (COPY = pg_catalog.simple);
   END IF;
 END$$;
@@ -105,9 +115,9 @@ CREATE TABLE events (
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   search_vector tsvector GENERATED ALWAYS AS (
-    setweight(to_tsvector('public.indonesian', coalesce(title, '')), 'A') ||
-    setweight(to_tsvector('public.indonesian', coalesce(organizer, '')), 'B') ||
-    setweight(to_tsvector('public.indonesian', coalesce(description, '')), 'C')
+    setweight(to_tsvector('indonesian', coalesce(title, '')), 'A') ||
+    setweight(to_tsvector('indonesian', coalesce(organizer, '')), 'B') ||
+    setweight(to_tsvector('indonesian', coalesce(description, '')), 'C')
   ) STORED,
 
   -- Integritas: status REJECTED/APPROVED harus punya jejak siapa & kapan.

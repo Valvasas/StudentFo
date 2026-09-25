@@ -226,10 +226,10 @@ berlaku.
 
 ## Full-text search
 
-Konfigurasi `public.indonesian` dibuat manual sebagai turunan `simple`
-(Postgres **tidak** punya config `'indonesian'` bawaan — blueprint asli akan
-gagal deploy, DEVIATIONS #1). Konsekuensi: tanpa stemming, "beasiswa" tidak
-otomatis match "beasiswanya". `search_vector` = weighted tsvector dari
+Konfigurasi `indonesian` = `pg_catalog.indonesian` bawaan PostgreSQL >= 13
+(Snowball, dengan stemming: "perlombaan" -> "lomba", "beasiswanya" -> "beasiswa").
+Index dan query aplikasi WAJIB memakai konfigurasi yang sama (DEVIATIONS #1).
+`search_vector` = weighted tsvector dari
 `title` (A), `organizer` (B), `description` (C). Query dari aplikasi lewat
 `sanitizeSearchQuery()` (`src/lib/data/supabase-mappers.ts`) sebelum
 `websearch_to_tsquery`.
