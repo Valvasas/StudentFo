@@ -88,4 +88,5 @@ jobs:
           cache-dependency-path: pipeline/requirements.txt
       - run: pip install -r pipeline/requirements.txt
       - run: python pipeline/tests/test_models.py
+      - run: python pipeline/tests/test_publisher.py
       - run: python pipeline/run.py --config pipeline/config/sources.example.yaml --dry-run

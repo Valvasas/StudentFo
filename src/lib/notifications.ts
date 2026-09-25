@@ -10,9 +10,9 @@ import type { NotificationType } from '@/types/domain';
  * hari. Dua titik memberi satu peringatan saat masih sempat menyiapkan
  * berkas (H-3) dan satu peringatan terakhir (H-1).
  *
- * KENAPA BUKAN H-0: pada hari-H notifikasi sering datang setelah jam
- * kerja penyelenggara. Peringatan yang tiba ketika sudah tidak bisa
- * ditindaklanjuti bukan bantuan, hanya rasa bersalah.
+ * KENAPA H-0 HANYA SUSULAN: pada hari-H notifikasi sering datang setelah
+ * jam kerja penyelenggara. H-0 hanya dipakai kalau H-1 terlewat (penjadwal
+ * telat), karena peringatan terlambat masih lebih baik daripada tidak ada.
  *
  * Fungsi di berkas ini murni dan menerima `now` sebagai parameter supaya
  * bisa diuji deterministik. Aturan yang sama DIDUPLIKASI di SQL (lihat
@@ -20,12 +20,21 @@ import type { NotificationType } from '@/types/domain';
  * di produksi berjalan di dalam database, bukan di Node — kalau salah satu
  * diubah, yang lain wajib ikut berubah di PR yang sama.
  */
-export const DEADLINE_NOTIFICATION_DAYS = [3, 1] as const;
+/**
+ * REVISI (migration 20260925100001, audit P4): rentang, bukan titik persis.
+ * Penjadwal bisa telat atau terlewat sehari; dengan titik persis, satu run
+ * yang terlewat berarti pengingat hilang permanen. Dalam operasi normal
+ * hasilnya tetap dua notifikasi (H-3 lalu H-1) karena dedupe per
+ * (pengguna, kegiatan, tipe); H-2 dan H-0 hanya menjadi jalur susulan.
+ */
+export const DEADLINE_H3_RANGE = { min: 2, max: 3 } as const;
+export const DEADLINE_H1_RANGE = { min: 0, max: 1 } as const;
 
-/** null artinya hari ini bukan titik pengingat untuk tenggat tersebut. */
+/** null artinya hari ini tidak ada pengingat untuk tenggat tersebut. */
 export function notificationTypeForDaysLeft(daysLeft: number | null): NotificationType | null {
-  if (daysLeft === 3) return 'DEADLINE_H3';
-  if (daysLeft === 1) return 'DEADLINE_H1';
+  if (daysLeft === null) return null;
+  if (daysLeft >= DEADLINE_H3_RANGE.min && daysLeft <= DEADLINE_H3_RANGE.max) return 'DEADLINE_H3';
+  if (daysLeft >= DEADLINE_H1_RANGE.min && daysLeft <= DEADLINE_H1_RANGE.max) return 'DEADLINE_H1';
   return null;
 }
 
@@ -41,13 +50,12 @@ export function notificationTypeForDeadline(
  * Pesan ditulis lengkap dengan judul kegiatan, bukan "Ada tenggat besok".
  * Notifikasi sering dibaca di daftar tanpa konteks; pesan yang tidak
  * menyebut kegiatannya memaksa pengguna membuka satu per satu.
+ *
+ * Menyebut sisa hari yang SEBENARNYA: notifikasi susulan H-2 yang berbunyi
+ * "3 hari lagi" adalah informasi salah. Teksnya identik dengan SQL.
  */
-export function buildDeadlineMessage(eventTitle: string, type: NotificationType): string {
-  if (type === 'DEADLINE_H1') {
-    return `Terakhir — pendaftaran ${eventTitle} ditutup besok.`;
-  }
-  if (type === 'DEADLINE_H3') {
-    return `Pendaftaran ${eventTitle} ditutup 3 hari lagi.`;
-  }
-  return eventTitle;
+export function buildDeadlineMessage(eventTitle: string, daysLeft: number): string {
+  if (daysLeft <= 0) return `Hari terakhir — pendaftaran ${eventTitle} ditutup hari ini.`;
+  if (daysLeft === 1) return `Terakhir — pendaftaran ${eventTitle} ditutup besok.`;
+  return `Pendaftaran ${eventTitle} ditutup ${daysLeft} hari lagi.`;
 }

@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-
-from supabase import Client
+from typing import TYPE_CHECKING, Any
 
 from .models import ValidatedEvent
+
+if TYPE_CHECKING:
+    from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -36,84 +38,69 @@ def fetch_category_slugs(client: Client) -> list[str]:
     return [row["slug"] for row in response.data]
 
 
-def existing_hashes(client: Client, hashes: list[str]) -> set[str]:
-    """Sekali query untuk semua hash, bukan satu query per event.
+def to_rpc_payload(event: ValidatedEvent) -> dict[str, Any]:
+    """Bentuk argumen `p` untuk `public.stage_scraped_event(p JSONB)`.
 
-    Dengan puluhan sumber per malam, pola satu-query-per-baris berubah jadi
-    ribuan round-trip dan membuat jendela cron meleset.
+    Sengaja TIDAK mengirim `status` maupun `dedup_hash`: fungsi SQL selalu
+    menulis PENDING dan menghitung hash-nya sendiri, jadi keduanya tidak
+    bisa dipalsukan atau berbeda versi dari sisi Python.
     """
-    if not hashes:
-        return set()
-    response = client.table("events").select("dedup_hash").in_("dedup_hash", hashes).execute()
-    return {row["dedup_hash"] for row in response.data}
+    return {
+        "title": event.title,
+        "organizer": event.organizer,
+        "description": event.description,
+        "event_type": event.event_type.value,
+        "registration_link": event.registration_link,
+        "source_url": event.source_url,
+        "education_levels": [level.value for level in event.education_levels],
+        "location": event.location,
+        "is_online": event.is_online,
+        "categories": list(event.categories),
+        "deadlines": [
+            {
+                "label": deadline.label.value,
+                "deadline_at": deadline.deadline_at.isoformat(),
+                "is_primary": deadline.is_primary,
+            }
+            for deadline in event.deadlines
+        ],
+    }
 
 
 def publish(client: Client, events: list[ValidatedEvent]) -> PublishResult:
+    """Stage setiap event lewat RPC transaksional (migration 20260925100001).
+
+    Sebelumnya: tiga request per event (events, event_deadlines,
+    event_categories) plus satu query kategori per event. Gagal di tengah
+    meninggalkan event PENDING tanpa tenggat. Sekarang satu event = satu
+    transaksi Postgres: tertulis utuh, atau tidak sama sekali.
+
+    Duplikat dideteksi oleh database (unik di antara event yang belum
+    EXPIRED), jadi edisi tahunan berikutnya tetap bisa masuk.
+    """
     result = PublishResult()
-    seen = existing_hashes(client, [event.dedup_hash for event in events])
 
     # Hash yang sama bisa muncul dua kali dalam satu batch (event yang sama
-    # ditemukan di dua sumber). Tanpa penjagaan ini, baris kedua akan ditolak
-    # oleh unique constraint dan terhitung sebagai kegagalan, bukan duplikat.
+    # di dua sumber). Disaring di sini hanya untuk menghemat satu round-trip;
+    # kebenarannya tetap dijamin unique index di database.
     batch_seen: set[str] = set()
 
     for event in events:
-        if event.dedup_hash in seen or event.dedup_hash in batch_seen:
+        if event.dedup_hash in batch_seen:
             result.duplicates += 1
             continue
         batch_seen.add(event.dedup_hash)
 
         try:
-            inserted = (
-                client.table("events")
-                .insert(
-                    {
-                        "title": event.title,
-                        "organizer": event.organizer,
-                        "description": event.description,
-                        "event_type": event.event_type.value,
-                        "registration_link": event.registration_link,
-                        "source_url": event.source_url,
-                        "dedup_hash": event.dedup_hash,
-                        "education_levels": [level.value for level in event.education_levels],
-                        "location": event.location,
-                        "is_online": event.is_online,
-                        "status": "PENDING",
-                    }
-                )
-                .execute()
-            )
-            event_id = inserted.data[0]["id"]
-
-            if event.deadlines:
-                client.table("event_deadlines").insert(
-                    [
-                        {
-                            "event_id": event_id,
-                            "label": deadline.label.value,
-                            "deadline_at": deadline.deadline_at.isoformat(),
-                            "is_primary": deadline.is_primary,
-                        }
-                        for deadline in event.deadlines
-                    ]
-                ).execute()
-
-            if event.categories:
-                category_rows = (
-                    client.table("categories").select("id, slug").in_("slug", event.categories).execute()
-                )
-                if category_rows.data:
-                    client.table("event_categories").insert(
-                        [{"event_id": event_id, "category_id": row["id"]} for row in category_rows.data]
-                    ).execute()
-
-            result.inserted += 1
-        except Exception as exc:
-            # Satu event gagal tidak boleh menghentikan batch. Event yang
-            # gagal di tengah jalan bisa meninggalkan baris `events` tanpa
-            # tenggat; itu tetap tampil di antrean moderasi sebagai entri
-            # cacat dan akan ditolak manusia — hasil yang benar.
+            response = client.rpc("stage_scraped_event", {"p": to_rpc_payload(event)}).execute()
+        except Exception as exc:  # noqa: BLE001 — satu event gagal tidak boleh menghentikan batch
             logger.error("Gagal menulis '%s': %s", event.title, exc)
             result.failed += 1
+            continue
+
+        if response.data:
+            result.inserted += 1
+        else:
+            result.duplicates += 1
 
     return result

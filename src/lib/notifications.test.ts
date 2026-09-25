@@ -11,13 +11,18 @@ function wibDeadline(year: number, month: number, day: number): string {
 }
 
 describe('notificationTypeForDaysLeft', () => {
-  it('mengirim pengingat tepat di H-3 dan H-1', () => {
+  it('mengirim pengingat di H-3 dan H-1', () => {
     expect(notificationTypeForDaysLeft(3)).toBe('DEADLINE_H3');
     expect(notificationTypeForDaysLeft(1)).toBe('DEADLINE_H1');
   });
 
-  it('diam di hari selain H-3 dan H-1', () => {
-    for (const days of [0, 2, 4, 5, 7, 30]) {
+  it('menyusulkan pengingat yang terlewat: H-2 -> H3, H-0 -> H1', () => {
+    expect(notificationTypeForDaysLeft(2)).toBe('DEADLINE_H3');
+    expect(notificationTypeForDaysLeft(0)).toBe('DEADLINE_H1');
+  });
+
+  it('diam di luar jendela H-3', () => {
+    for (const days of [4, 5, 7, 30]) {
       expect(notificationTypeForDaysLeft(days)).toBeNull();
     }
   });
@@ -46,7 +51,7 @@ describe('notificationTypeForDeadline', () => {
 
     expect(notificationTypeForDeadline(wibDeadline(2026, 10, 13), pagiWib)).toBe('DEADLINE_H1');
     expect(notificationTypeForDeadline(wibDeadline(2026, 10, 15), pagiWib)).toBe('DEADLINE_H3');
-    expect(notificationTypeForDeadline(wibDeadline(2026, 10, 14), pagiWib)).toBeNull();
+    expect(notificationTypeForDeadline(wibDeadline(2026, 10, 16), pagiWib)).toBeNull();
   });
 
   it('menghitung dari hari kalender Jakarta walau jam server larut malam UTC', () => {
@@ -58,12 +63,21 @@ describe('notificationTypeForDeadline', () => {
 
 describe('buildDeadlineMessage', () => {
   it('menyebut nama kegiatan, bukan pesan generik', () => {
-    expect(buildDeadlineMessage('Beasiswa LPDP', 'DEADLINE_H3')).toContain('Beasiswa LPDP');
-    expect(buildDeadlineMessage('Beasiswa LPDP', 'DEADLINE_H1')).toContain('Beasiswa LPDP');
+    expect(buildDeadlineMessage('Beasiswa LPDP', 3)).toContain('Beasiswa LPDP');
+    expect(buildDeadlineMessage('Beasiswa LPDP', 1)).toContain('Beasiswa LPDP');
   });
 
-  it('membedakan nada H-3 dan H-1', () => {
-    expect(buildDeadlineMessage('Lomba X', 'DEADLINE_H3')).toContain('3 hari lagi');
-    expect(buildDeadlineMessage('Lomba X', 'DEADLINE_H1')).toContain('besok');
+  it('menyebut sisa hari yang sebenarnya, termasuk susulan', () => {
+    expect(buildDeadlineMessage('Lomba X', 3)).toContain('3 hari lagi');
+    expect(buildDeadlineMessage('Lomba X', 2)).toContain('2 hari lagi');
+    expect(buildDeadlineMessage('Lomba X', 1)).toContain('besok');
+    expect(buildDeadlineMessage('Lomba X', 0)).toContain('hari ini');
+  });
+
+  it('teksnya identik dengan SQL create_deadline_notifications()', () => {
+    // Kalau salah satu diubah, test ini dan migration wajib ikut diubah.
+    expect(buildDeadlineMessage('Gemastik', 2)).toBe('Pendaftaran Gemastik ditutup 2 hari lagi.');
+    expect(buildDeadlineMessage('Gemastik', 1)).toBe('Terakhir — pendaftaran Gemastik ditutup besok.');
+    expect(buildDeadlineMessage('Gemastik', 0)).toBe('Hari terakhir — pendaftaran Gemastik ditutup hari ini.');
   });
 });

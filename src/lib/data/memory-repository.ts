@@ -1,5 +1,5 @@
 import { actionError } from '@/lib/action-feedback';
-import { buildDeadlineWeek, getDeadlineState } from '@/lib/deadline';
+import { buildDeadlineWeek, daysUntil, getDeadlineState } from '@/lib/deadline';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
@@ -459,7 +459,8 @@ export class MemoryEventRepository implements EventRepository {
       if (!event || event.status !== 'APPROVED') continue;
 
       const type = notificationTypeForDeadline(event.primaryDeadlineAt, now);
-      if (!type) continue;
+      const daysLeft = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
+      if (!type || daysLeft === null) continue;
 
       // Id deterministik: menandai "sudah dibaca" harus tetap menempel
       // walau daftarnya dihitung ulang di request berikutnya.
@@ -467,7 +468,7 @@ export class MemoryEventRepository implements EventRepository {
       notifications.push({
         id,
         type,
-        message: buildDeadlineMessage(event.title, type),
+        message: buildDeadlineMessage(event.title, daysLeft),
         isRead: readSet?.has(id) ?? false,
         sentAt: event.primaryDeadlineAt ?? event.createdAt,
         event: { id: event.id, slug: event.slug, title: event.title },
