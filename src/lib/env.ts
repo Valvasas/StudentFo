@@ -18,6 +18,13 @@ const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
   NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /** Opt-in eksplisit untuk menjalankan mode demo di build produksi (mis. situs pratinjau). */
+  ALLOW_DEMO_IN_PRODUCTION: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  /** Penanda tangan cookie sesi demo. Opsional; wajib kalau demo jalan di >1 instance. */
+  DEMO_SESSION_SECRET: z.string().min(32).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
@@ -32,6 +39,8 @@ function readEnv(): ServerEnv {
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || undefined,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || undefined,
     NODE_ENV: process.env.NODE_ENV,
+    ALLOW_DEMO_IN_PRODUCTION: process.env.ALLOW_DEMO_IN_PRODUCTION || undefined,
+    DEMO_SESSION_SECRET: process.env.DEMO_SESSION_SECRET || undefined,
   });
 
   if (!parsed.success) {
@@ -46,14 +55,53 @@ function readEnv(): ServerEnv {
 
 export const env: ServerEnv = readEnv();
 
+export type DataMode = 'supabase' | 'seed';
+
+export interface DataModeInput {
+  readonly supabaseUrl: string | undefined;
+  readonly anonKey: string | undefined;
+  readonly nodeEnv: ServerEnv['NODE_ENV'];
+  readonly allowDemoInProduction: boolean;
+  /** `process.env.NEXT_PHASE`; saat `next build` bernilai 'phase-production-build'. */
+  readonly nextPhase: string | undefined;
+}
+
 /**
  * 'supabase' hanya kalau URL + anon key dua-duanya ada. Setengah
  * terkonfigurasi lebih berbahaya daripada tidak terkonfigurasi: klien
  * terbentuk, lalu setiap query gagal dengan 401 yang membingungkan.
+ *
+ * PENGAMAN PRODUKSI: sebelumnya server produksi yang kehilangan env
+ * Supabase diam-diam jatuh ke mode seed — situs publik menampilkan
+ * kegiatan fiktif dengan tenggat fiktif, dan tidak ada log yang berteriak.
+ * Sekarang kondisi itu melempar error, kecuali mode demo memang diminta
+ * secara eksplisit lewat ALLOW_DEMO_IN_PRODUCTION=true (situs pratinjau,
+ * job CI aksesibilitas). Fase `next build` dikecualikan karena build
+ * memang berjalan dengan NODE_ENV=production tanpa perlu kredensial.
  */
-export type DataMode = 'supabase' | 'seed';
+export function resolveDataMode(input: DataModeInput): DataMode {
+  if (input.supabaseUrl && input.anonKey) return 'supabase';
 
-export const dataMode: DataMode =
-  env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'supabase' : 'seed';
+  const isRuntimeProduction =
+    input.nodeEnv === 'production' && input.nextPhase !== 'phase-production-build';
+
+  if (isRuntimeProduction && !input.allowDemoInProduction) {
+    throw new Error(
+      'Kredensial Supabase kosong di produksi. Isi NEXT_PUBLIC_SUPABASE_URL & ' +
+        'NEXT_PUBLIC_SUPABASE_ANON_KEY, atau set ALLOW_DEMO_IN_PRODUCTION=true ' +
+        'kalau deploy ini memang situs demo berdata fiktif.',
+    );
+  }
+
+  return 'seed';
+}
+
+export const dataMode: DataMode = resolveDataMode({
+  supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+  anonKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  nodeEnv: env.NODE_ENV,
+  allowDemoInProduction: env.ALLOW_DEMO_IN_PRODUCTION,
+  nextPhase: process.env.NEXT_PHASE,
+});
 
 export const siteUrl = env.NEXT_PUBLIC_SITE_URL;

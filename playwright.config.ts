@@ -34,6 +34,13 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
     // Kosongkan env Supabase supaya selalu mode seed, walau .env.local ada.
-    env: { NEXT_PUBLIC_SUPABASE_URL: '', NEXT_PUBLIC_SUPABASE_ANON_KEY: '', SUPABASE_SERVICE_ROLE_KEY: '' },
+    // `next start` = produksi, jadi mode demo harus diizinkan eksplisit
+    // (lihat resolveDataMode di src/lib/env.ts).
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: '',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: '',
+      SUPABASE_SERVICE_ROLE_KEY: '',
+      ALLOW_DEMO_IN_PRODUCTION: 'true',
+    },
   },
 });
