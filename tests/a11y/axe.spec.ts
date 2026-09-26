@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { signInAsDemo, type PersonaLabel } from '../e2e/helpers';
 
 /**
  * Setiap halaman publik diaudit axe-core dengan aturan WCAG 2.2 A/AA, di
@@ -75,4 +76,30 @@ test('halaman tidak menggulir ke samping', async ({ page }) => {
     );
     expect(overflow, `${route} melebar ${overflow}px`).toBeLessThanOrEqual(0);
   }
+});
+
+// Halaman di balik login demo — tidak pernah teraudit karena audit di atas
+// hanya melihat tampilan tamu (mis. /admin hanya "Akses terbatas").
+const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
+  ['Admin moderator', '/admin'],
+  ['Admin moderator', '/admin/riwayat'],
+  ['Admin moderator', '/admin/kalibrasi'],
+  ['Mahasiswa', '/'],
+  ['Mahasiswa', '/tracker'],
+  ['Mahasiswa', '/profile'],
+  ['Mahasiswa', '/teams'],
+  ['Siswa baru', '/profile'],
+];
+
+for (const [persona, route] of SIGNED_IN_ROUTES) {
+  test(`tanpa pelanggaran WCAG (${persona}): ${route}`, async ({ page }) => {
+    await signInAsDemo(page, persona, route);
+    await expectNoViolations(page);
+  });
+}
+
+test('menu akun & lonceng notifikasi terbuka tanpa pelanggaran WCAG', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa');
+  await page.locator('summary[aria-label^="Menu akun"]').click();
+  await expectNoViolations(page);
 });

@@ -31,7 +31,8 @@ export function TeamCard({
     <article className="flex h-full flex-col rounded-card border border-line bg-panel p-5 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-base font-semibold leading-snug">
-          <Link href={`/teams/${team.id}`} className="hover:text-brand-text">
+          {/* min-h-11 + margin negatif: target sentuh 44px tanpa menggeser tata letak kartu. */}
+          <Link href={`/teams/${team.id}`} className="-my-3 inline-flex min-h-11 items-center hover:text-brand-text">
             {team.title}
           </Link>
         </h3>
@@ -75,7 +76,10 @@ export function TeamCard({
           </form>
         ) : null}
 
-        <Link href={`/teams/${team.id}`} className="ml-auto text-sm font-medium text-brand-text hover:underline">
+        <Link
+          href={`/teams/${team.id}`}
+          className="ml-auto inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"
+        >
           Lihat tim
         </Link>
       </div>

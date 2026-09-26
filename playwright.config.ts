@@ -12,6 +12,10 @@ const PORT = 3100;
 
 export default defineConfig({
   testDir: 'tests',
+  // Hanya audit a11y & e2e mode seed. e2e-supabase punya config & stack
+  // sendiri; integration/*.test.ts adalah Vitest (pola bawaan Playwright
+  // ikut mencocokkan *.test.ts).
+  testMatch: ['a11y/**/*.spec.ts', 'e2e/**/*.spec.ts'],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

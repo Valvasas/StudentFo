@@ -61,7 +61,7 @@ export default async function TeamDetailPage({
   return (
     <div className="container-page py-8">
       <nav aria-label="Remah roti" className="mb-6 text-sm text-ink-muted">
-        <Link href="/teams" className="hover:text-ink">
+        <Link href="/teams" className="inline-flex min-h-11 items-center hover:text-ink">
           Cari rekan tim
         </Link>
         <span aria-hidden className="mx-2">
@@ -149,7 +149,10 @@ export default async function TeamDetailPage({
             <div className="rounded-card border border-line bg-panel p-5 shadow-card">
               <p className="text-xs uppercase tracking-wide text-ink-faint">Untuk kegiatan</p>
               <h2 className="mt-1 text-base font-semibold leading-snug">
-                <Link href={`/events/${team.event.slug}`} className="hover:text-brand-text">
+                <Link
+                  href={`/events/${team.event.slug}`}
+                  className="-my-1 inline-flex min-h-11 items-center hover:text-brand-text"
+                >
                   {team.event.title}
                 </Link>
               </h2>

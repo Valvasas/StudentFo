@@ -22,11 +22,11 @@ async function fillAndSubmit(page: Page, n: number): Promise<void> {
   await page.waitForURL(/\/submit\?/);
 }
 
-test('kiriman ke-6 dari IP yang sama ditolak walau emailnya selalu baru', async ({ browser }, testInfo) => {
-  // IP unik per proyek (dan per percobaan ulang) supaya proyek Playwright
-  // yang berjalan paralel tidak berbagi ember.
-  const projectIndex = testInfo.config.projects.findIndex((p) => p.name === testInfo.project.name);
-  const ip = `198.51.100.${10 + projectIndex * 20 + testInfo.retry}`;
+test('kiriman ke-6 dari IP yang sama ditolak walau emailnya selalu baru', async ({ browser }) => {
+  // IP acak per run (blok 10.0.0.0/8): ember IP hidup selama server hidup, jadi
+  // IP tetap membuat run kedua di server yang sama langsung ditolak.
+  const octet = () => Math.floor(Math.random() * 250) + 1;
+  const ip = `10.${octet()}.${octet()}.${octet()}`;
   const context = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': ip } });
   const page = await context.newPage();
 
@@ -39,7 +39,7 @@ test('kiriman ke-6 dari IP yang sama ditolak walau emailnya selalu baru', async 
   await expect(page.getByText(/Terlalu banyak kiriman/)).toBeVisible();
 
   // IP lain tidak ikut terkunci.
-  const other = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '203.0.113.99' } });
+  const other = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': `10.${octet()}.${octet()}.${octet()}` } });
   const otherPage = await other.newPage();
   await fillAndSubmit(otherPage, 7);
   await expect(otherPage).toHaveURL(/notice=submission_received/);
