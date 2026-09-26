@@ -136,3 +136,10 @@ export interface ModerationLogRow {
   created_at: string;
   actor: { full_name: string | null } | null;
 }
+
+export interface RecommendationSignalRow {
+  event_id: string;
+  created_at: string;
+  interests: string[] | null;
+  education_level: EducationLevel | null;
+}

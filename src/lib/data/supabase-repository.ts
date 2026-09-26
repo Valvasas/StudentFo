@@ -1,4 +1,5 @@
 import 'server-only';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { actionError } from '@/lib/action-feedback';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
 import { upstreamFailure } from '@/lib/errors';
@@ -27,6 +28,7 @@ import type {
   EventDeadlineWithEventRow,
   EventListingRow,
   ModerationLogRow,
+  RecommendationSignalRow,
   NotificationRow,
   SubmissionRow,
   TeamMemberCountRow,
@@ -43,7 +45,9 @@ import {
 } from './listing';
 import type {
   CreateSubmissionInput,
+  CalibrationData,
   CreateTeamRepositoryInput,
+  RecommendationSignalInput,
   EventRepository,
   RepositoryStats,
   ReviewEventInput,
@@ -65,6 +69,28 @@ export { sanitizeSearchQuery } from './supabase-mappers';
 
 const TEAM_COLUMNS = 'id, event_id, created_by, title, description, slots_needed, created_at';
 const MS_PER_DAY = 86_400_000;
+/** Supabase memotong setiap respons PostgREST di `max_rows` (bawaan 1000). */
+const PAGE_SIZE = 1000;
+/** Kalibrasi dijalankan manual dan jarang; batas ini hanya pengaman memori. */
+const CALIBRATION_ROW_LIMIT = 50_000;
+
+/**
+ * Baca semua baris per halaman `range()`. `.limit(50_000)` saja TIDAK cukup:
+ * PostgREST diam-diam memotong di max_rows, dan hasil terpotong terlihat
+ * persis seperti hasil lengkap.
+ */
+async function fetchAllPages<Row>(
+  page: (from: number, to: number) => PromiseLike<{ data: Row[] | null; error: PostgrestError | null }>,
+): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let from = 0; from < CALIBRATION_ROW_LIMIT; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw upstreamFailure('Gagal memuat data kalibrasi.', error);
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
 
 /** Implementasi produksi di atas PostgREST. */
 export class SupabaseEventRepository implements EventRepository {
@@ -844,5 +870,54 @@ export class SupabaseEventRepository implements EventRepository {
       console.error('[rate-limit] consume_rate_limit gagal, permintaan diloloskan:', error);
       return true;
     }
+  }
+
+  async recordRecommendationSignal(input: RecommendationSignalInput): Promise<void> {
+    if (!isUuid(input.eventId)) return;
+    // service_role: tabelnya sengaja tanpa jalur tulis dari browser (ADR-032).
+    const { error } = await createSupabaseAdminClient()
+      .from('recommendation_signals')
+      .insert({
+        event_id: input.eventId,
+        kind: input.kind,
+        user_id: input.userId,
+        interests: [...input.interests].slice(0, 20),
+        education_level: input.educationLevel,
+      });
+    if (error) throw upstreamFailure('Gagal mencatat sinyal rekomendasi.', error, 500);
+  }
+
+  async listCalibrationData(since: Date): Promise<CalibrationData> {
+    const supabase = createSupabaseAdminClient();
+    const [signals, events] = await Promise.all([
+      fetchAllPages<RecommendationSignalRow>((from, to) =>
+        supabase
+          .from('recommendation_signals')
+          .select('event_id, created_at, interests, education_level')
+          .gte('created_at', since.toISOString())
+          .order('id', { ascending: true })
+          .range(from, to)
+          .returns<RecommendationSignalRow[]>(),
+      ),
+      fetchAllPages<EventListingRow>((from, to) =>
+        supabase
+          .from('events_listing')
+          .select(LISTING_COLUMNS)
+          .in('status', [...PUBLIC_STATUSES])
+          .order('id', { ascending: true })
+          .range(from, to)
+          .returns<EventListingRow[]>(),
+      ),
+    ]);
+
+    return {
+      signals: signals.map((row) => ({
+        eventId: row.event_id,
+        createdAt: row.created_at,
+        interests: row.interests ?? [],
+        educationLevel: row.education_level,
+      })),
+      events: events.map(toSummary),
+    };
   }
 }

@@ -2,6 +2,7 @@ import type {
   AppNotification,
   Category,
   DeadlineDay,
+  EducationLevel,
   EventDetail,
   EventQuery,
   EventStatus,
@@ -14,6 +15,7 @@ import type {
   TrackerItem,
   TrackerStatus,
 } from '@/types/domain';
+import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 
 /**
  * Kontrak akses data. Seluruh UI berbicara HANYA lewat antarmuka ini —
@@ -123,6 +125,27 @@ export interface EventRepository {
    * implementasi tidak pernah melihat IP atau email mentah.
    */
   consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean>;
+
+  /**
+   * Catat sinyal niat untuk kalibrasi bobot rekomendasi (ADR-032). Hanya
+   * dipanggil server; profil disalin saat itu karena profil bisa berubah.
+   */
+  recordRecommendationSignal(input: RecommendationSignalInput): Promise<void>;
+  /** Bahan `calibrate()`: sinyal sejak `since` + semua event yang pernah tayang. Admin saja. */
+  listCalibrationData(since: Date): Promise<CalibrationData>;
+}
+
+export interface CalibrationData {
+  readonly signals: readonly CalibrationSignal[];
+  readonly events: readonly CalibrationEvent[];
+}
+
+export interface RecommendationSignalInput {
+  readonly eventId: string;
+  readonly kind: 'save' | 'register_click';
+  readonly userId: string | null;
+  readonly interests: readonly string[];
+  readonly educationLevel: EducationLevel | null;
 }
 
 export interface CreateSubmissionInput {

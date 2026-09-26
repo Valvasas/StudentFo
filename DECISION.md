@@ -12,6 +12,45 @@ terdokumentasi.
 
 ---
 
+## ADR-032 — Kalibrasi bobot rekomendasi: log niat + rekonstruksi kandidat, bukan log impression
+
+**Konteks:** ADR-026 menyatakan bobot `PERSONAL_WEIGHTS`/`COLD_START_WEIGHTS`
+tebakan terdidik yang wajib dikalibrasi begitu ada data. Belum ada satu pun
+data yang dicatat.
+
+**Keputusan:**
+- Catat hanya NIAT: `save` (Server Action simpan) dan `register_click`
+  (tombol "Daftar" kini keluar lewat `/events/<slug>/daftar`, 303 ke
+  `registration_link` dari database — bukan open redirect). Profil disalin saat
+  sinyal terjadi. Tabel `recommendation_signals`, tulis hanya service_role.
+- TIDAK mencatat impression: satu INSERT per kartu per tayangan terlalu mahal.
+  Kandidat negatif direkonstruksi saat analisis: event yang sudah terbit dan
+  belum tutup pada waktu sinyal.
+- Penyaring: agen bot/pratinjau tautan (WhatsApp, Telegram, Slack, crawler)
+  dibuang; >60 sinyal/jam per IP dibuang; `/events/*/daftar` di-Disallow
+  robots.txt dan ditautkan dengan `<a>` biasa (tanpa prefetch). Pencatatan
+  tidak pernah melempar — gagal mencatat tidak menahan pengguna.
+- Analisis `calibrate()` (`src/lib/recommendation-calibration.ts`): komponen
+  dihitung dengan fungsi yang sama dengan `rankEvents()`, regresi logistik,
+  koefisien positif dinormalisasi berjumlah 1; tidak ada saran di bawah 200
+  sinyal. Laporan di `/admin/kalibrasi`; bobot tetap diubah manual lewat
+  commit + ADR. Regresi memakai Newton-Raphson (IRLS, ±10 iterasi) dan tanggal
+  diurai sekali per event/sinyal: versi pertama (gradient descent + `Intl` per
+  pasangan sinyal×event) butuh 72 dtk untuk 5.000×2.000 — kini 1,25 dtk,
+  dikunci test skala.
+
+**Konsekuensi:** Saran bias posisi (menguatkan bobot yang berlaku) dan
+popularitas memakai `saved_count` kini — dicetak di halaman laporan. Kalau
+nanti butuh estimasi tak bias, jalurnya eksperimen acak kecil (mis. 5%
+tayangan diurutkan acak) — bukan log impression penuh. Dibuktikan: data
+sintetis di mana hanya minat (atau hanya tenggat) menentukan pilihan →
+`calibrate()` menemukan kembali komponen itu sebagai bobot terbesar; e2e mode
+demo: simpan dari browser tercatat di laporan, dari agen pratinjau WhatsApp
+tidak. Belum ada data nyata — laporan produksi baru bermakna setelah ±200
+sinyal per jalur.
+
+---
+
 ## ADR-031 — Log moderasi append-only diisi trigger, bukan halaman di atas `reviewed_by`
 
 **Konteks:** Permintaan awalnya "tampilkan `reviewed_by`/`reviewed_at` yang sudah

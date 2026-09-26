@@ -46,6 +46,9 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: '',
       SUPABASE_SERVICE_ROLE_KEY: '',
       ALLOW_DEMO_IN_PRODUCTION: 'true',
+      // Dibekukan saat build (NEXT_PUBLIC_); pengalihan internal, sitemap, dan
+      // callback OAuth memakainya, jadi harus menunjuk server uji ini.
+      NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
     },
   },
 });

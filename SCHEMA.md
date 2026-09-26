@@ -23,6 +23,7 @@ Urutan migration (harus dijalankan berurutan):
 13. `20260926110001_rate_limits.sql` — tabel `rate_limit_hits` + RPC `consume_rate_limit()` / `purge_rate_limit_hits()` (service_role saja, ADR-028)
 14. `20260926120001_pg_cron_jobs.sql` — pg_cron + 3 job harian (bersyarat; ADR-030, lihat § Job terjadwal)
 15. `20260926130001_moderation_log.sql` — tabel append-only `moderation_log` diisi trigger `log_moderation_change()` di `events`/`ugc_submissions`; kolom `ugc_submissions.reviewed_by/reviewed_at`; `approve_submission()` mengisi peninjau (ADR-031)
+16. `20260926140001_recommendation_signals.sql` — tabel `recommendation_signals` (simpan & klik "Daftar" + snapshot profil), tulis hanya service_role (ADR-032)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -168,6 +169,13 @@ aplikasi), `reason`, `created_at`. Diisi **hanya** oleh trigger
 `log_moderation_change()`; tidak ada hak INSERT/UPDATE/DELETE untuk role API
 mana pun, termasuk `service_role`. SELECT: admin (RLS). Dibaca di `/admin/riwayat`.
 
+### `recommendation_signals` (kalibrasi bobot, ADR-032)
+`event_id`, `user_id` (NULL = tamu; `ON DELETE SET NULL`), `kind`
+(`save` | `register_click`), snapshot `interests` + `education_level` saat itu,
+`created_at`. Ditulis **hanya** service_role dari server (tanpa jalur tulis
+dari browser — mencegah penggelembungan bobot). SELECT admin. Dibaca
+`/admin/kalibrasi`.
+
 ### `rate_limit_hits` (pembatas laju, ADR-028)
 `(bucket, hit_at)`. `bucket` = `<aturan>:<HMAC-SHA256 hex>` — tidak ada IP atau
 email mentah. RLS aktif **tanpa policy** dan semua hak dicabut dari
@@ -200,7 +208,7 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 
 ## Row Level Security
 
-RLS **aktif di semua 13 tabel publik**, deny-by-default (DEVIATIONS #2 —
+RLS **aktif di semua 14 tabel publik**, deny-by-default (DEVIATIONS #2 —
 blueprint asli hanya menyalakan 5 tabel, sisanya bisa ditulis publik lewat
 anon key). Ringkasan policy:
 

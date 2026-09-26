@@ -183,7 +183,9 @@ export default async function EventDetailPage({
               <Button asChild size="lg" className="mt-5 w-full">
                 {/* rel="noopener": tanpa ini, halaman tujuan bisa mengakses
                     window.opener dan mengarahkan ulang tab kita. */}
-                <a href={registrationUrl} target="_blank" rel="noopener noreferrer nofollow">
+                {/* Lewat /daftar supaya klik tercatat untuk kalibrasi (ADR-032);
+                    <a> biasa, bukan <Link>, supaya prefetch tidak ikut tercatat. */}
+                <a href={`/events/${event.slug}/daftar`} target="_blank" rel="noopener noreferrer nofollow">
                   Daftar sekarang
                   <ArrowUpRight aria-hidden />
                   <span className="sr-only">(membuka tab baru)</span>

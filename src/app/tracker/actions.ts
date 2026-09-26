@@ -6,6 +6,7 @@ import { toActionErrorCode, withQuery, type ActionErrorCode } from '@/lib/action
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formText, formTrimmed } from '@/lib/form-data';
+import { recordSignal } from '@/lib/recommendation-signals';
 import { safeNextPath } from '@/lib/safe-redirect';
 import { TRACKER_STATUSES, type TrackerStatus } from '@/types/domain';
 
@@ -43,6 +44,7 @@ export async function toggleSaveEventAction(formData: FormData): Promise<void> {
     } else {
       await repository.saveEvent(user.id, eventId);
       await repository.addTrackerItemIfAbsent(user.id, eventId);
+      await recordSignal('save', eventId, user);
     }
   } catch (error) {
     failure = toActionErrorCode(error);

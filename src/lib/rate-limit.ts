@@ -27,6 +27,8 @@ export const RATE_LIMITS = {
   signUpPerIp: { name: 'signup-ip', limit: 5, windowSeconds: 60 * 60 },
   passwordResetPerIp: { name: 'reset-ip', limit: 5, windowSeconds: 60 * 60 },
   submissionPerIp: { name: 'submit-ip', limit: 5, windowSeconds: 60 * 60 },
+  /** Sinyal rekomendasi: di atas ini, klik dianggap penggelembungan dan tidak dicatat (tetap dialihkan). */
+  signalPerIp: { name: 'signal-ip', limit: 60, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;
 
 /**

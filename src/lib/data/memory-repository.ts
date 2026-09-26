@@ -22,7 +22,9 @@ import type {
 import { isPubliclyVisible, paginate, resolvePaging, sortSummaries } from './listing';
 import type {
   CreateSubmissionInput,
+  CalibrationData,
   CreateTeamRepositoryInput,
+  RecommendationSignalInput,
   EventRepository,
   RepositoryStats,
   ReviewEventInput,
@@ -158,6 +160,8 @@ export class MemoryEventRepository implements EventRepository {
   private readonly submissions = new Map<string, Submission>();
   private readonly rateLimiter = new MemoryRateLimiter();
   private readonly moderationLog: ModerationLogEntry[] = [];
+  /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
+  readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
 
   constructor(base: Date = new Date()) {
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
@@ -656,5 +660,18 @@ export class MemoryEventRepository implements EventRepository {
 
   async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {
     return this.rateLimiter.consume(bucket, limit, windowSeconds);
+  }
+
+  async recordRecommendationSignal(input: RecommendationSignalInput): Promise<void> {
+    this.recommendationSignals.push({ ...input, createdAt: new Date().toISOString() });
+  }
+
+  async listCalibrationData(since: Date): Promise<CalibrationData> {
+    return {
+      signals: this.recommendationSignals
+        .filter((signal) => new Date(signal.createdAt) >= since)
+        .map(({ eventId, createdAt, interests, educationLevel }) => ({ eventId, createdAt, interests, educationLevel })),
+      events: this.events.filter(isPubliclyVisible),
+    };
   }
 }
