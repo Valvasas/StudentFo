@@ -52,3 +52,18 @@ test('halaman detail kegiatan: setiap target di <main> ≥ 44px', async ({ page 
   await page.goto(href!);
   expect(await smallTargets(page, 'main')).toEqual([]);
 });
+
+test('kartu tracker (ubah tahap, hapus): setiap target ≥ 44px', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/events');
+  const href = await page.locator('main a[href^="/events/"]').first().getAttribute('href');
+  await page.goto(href!);
+  await page.getByRole('button', { name: 'Simpan ke Tracker' }).click();
+  await expect(page.getByRole('button', { name: 'Tersimpan di Tracker' })).toBeVisible();
+  await page.goto('/tracker');
+  // <select> ikut diukur di sini: pemilih tahap adalah kontrol utama kartu.
+  const small = await page.locator('main select').evaluateAll((nodes) =>
+    nodes.map((node) => node.getBoundingClientRect().height).filter((height) => height < 44),
+  );
+  expect(small).toEqual([]);
+  expect(await smallTargets(page, 'main')).toEqual([]);
+});
