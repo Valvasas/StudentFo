@@ -97,3 +97,24 @@ test('pengguna yang masuk tidak pernah menerima halaman milik orang lain dari ca
     await context.close();
   }
 });
+
+test.describe('login dari browser dalam aplikasi (Instagram)', () => {
+  test.use({
+    userAgent:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 339.0.3.12.91 (iPhone14,5; iOS 17_5; id_ID)',
+  });
+
+  test('tombol Google (pasti 403 disallowed_useragent) diganti petunjuk "Buka di browser"; login email tetap ada', async ({ page }) => {
+    for (const route of ['/login', '/register']) {
+      await page.goto(route);
+      await expect(page.getByRole('button', { name: /dengan Google/ })).toHaveCount(0);
+      await expect(page.getByRole('note').filter({ hasText: 'tidak tersedia di dalam Instagram' })).toBeVisible();
+      await expect(page.getByLabel('Email')).toBeVisible();
+    }
+  });
+});
+
+test('browser biasa tetap melihat tombol Google', async ({ page }) => {
+  await page.goto('/login');
+  await expect(page.getByRole('button', { name: 'Masuk dengan Google' })).toBeVisible();
+});

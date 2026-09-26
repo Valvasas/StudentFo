@@ -12,6 +12,40 @@ terdokumentasi.
 
 ---
 
+## ADR-036 — Browser dalam aplikasi (Instagram/TikTok) & cookie sesi di Safari privat
+
+**Konteks:** Trafik utama kemungkinan dari tautan di Instagram/TikTok, yang
+membuka halaman di WebView aplikasi, dan dari Safari iOS (termasuk mode privat).
+
+**Analisis cookie (tanpa perubahan kode):** cookie sesi demo dan Supabase
+di-set SERVER lewat header HTTP, first-party, `httpOnly`, `SameSite=Lax`,
+`Secure` di produksi. Batas 7 hari ITP Safari hanya berlaku untuk cookie
+yang ditulis JavaScript (dan cookie server dari IP pihak ketiga/CNAME
+cloaking) — bukan kasus ini selama domain aplikasi = domain yang melayani
+HTML. Mode privat Safari: cookie bekerja normal dan dibuang saat tab ditutup
+(sesuai harapan untuk akun demo, ADR-029). WebView aplikasi: cookie
+first-party bekerja, tapi TERPISAH dari Safari/Chrome — sesi tidak terbawa
+saat pengguna pindah ke browser. Alur POST Server Action → redirect 303 tidak
+bergantung pada cookie pihak ketiga.
+
+**Masalah nyata yang ditemukan:** Google menolak OAuth dari WebView
+("Error 403: disallowed_useragent"). Tombol "Masuk dengan Google" pasti gagal
+di Instagram/TikTok/Facebook/LINE.
+
+**Keputusan:** `detectInAppBrowser()` (UA: Instagram, TikTok/musical_ly/trill/
+BytedanceWebview, FBAN/FBAV, LINE, Snapchat, LinkedIn, penanda WebView Android
+`; wv)`) — di sana tombol Google diganti petunjuk "Buka di browser"; login email
+tetap ada. Tanpa UA → tombol tetap tampil (tidak menyembunyikan berdasarkan
+tebakan).
+
+**Konsekuensi:** Diuji 13 UA nyata (unit) + e2e mode Supabase (UA Instagram:
+tombol hilang, petunjuk tampil, form email ada; UA biasa: tombol ada).
+**Belum** diverifikasi di perangkat fisik: Safari iOS privat, WebView Instagram/
+TikTok sungguhan, dan Chrome Custom Tabs — lingkungan pengerjaan hanya punya
+Chromium. Daftar UA perlu dirawat; aplikasi baru → tambahkan polanya.
+
+---
+
 ## ADR-035 — Diukur dulu: skor relevansi tetap di Node; `count` exact → planned otomatis di atas 20.000 event
 
 **Konteks:** ADR-021 menyarankan memindah skor relevansi ke SQL "kalau katalog
