@@ -2,7 +2,7 @@ import 'server-only';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { actionError } from '@/lib/action-feedback';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
-import { upstreamFailure } from '@/lib/errors';
+import { type AppError, upstreamFailure } from '@/lib/errors';
 import { toStoredPayload } from '@/lib/submission-schema';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
 import type {
@@ -90,6 +90,15 @@ async function fetchAllPages<Row>(
     if (!data || data.length < PAGE_SIZE) break;
   }
   return rows;
+}
+
+/**
+ * Policy saved_events/application_tracker menolak event yang tidak tayang
+ * (WITH CHECK, 42501). Itu keputusan untuk pengguna — "kegiatan tidak
+ * tersedia" — bukan kegagalan sistem 500 berpesan "terjadi kesalahan".
+ */
+function rejectedOrFailed(error: PostgrestError, message: string): AppError {
+  return sqlState(error) === '42501' ? actionError('event_unavailable') : upstreamFailure(message, error, 500);
 }
 
 /** Implementasi produksi di atas PostgREST. */
@@ -462,7 +471,7 @@ export class SupabaseEventRepository implements EventRepository {
       .from('saved_events')
       .upsert({ user_id: userId, event_id: eventId }, { onConflict: 'user_id,event_id', ignoreDuplicates: true });
 
-    if (error) throw upstreamFailure('Gagal menyimpan kegiatan.', error, 500);
+    if (error) throw rejectedOrFailed(error, 'Gagal menyimpan kegiatan.');
   }
 
   async unsaveEvent(userId: string, eventId: string): Promise<void> {
@@ -539,7 +548,7 @@ export class SupabaseEventRepository implements EventRepository {
         { onConflict: 'user_id,event_id' },
       );
 
-    if (error) throw upstreamFailure('Gagal memperbarui status tracker.', error, 500);
+    if (error) throw rejectedOrFailed(error, 'Gagal memperbarui status tracker.');
   }
 
   async addTrackerItemIfAbsent(userId: string, eventId: string): Promise<void> {
@@ -552,7 +561,7 @@ export class SupabaseEventRepository implements EventRepository {
         { onConflict: 'user_id,event_id', ignoreDuplicates: true },
       );
 
-    if (error) throw upstreamFailure('Gagal menambahkan ke tracker.', error, 500);
+    if (error) throw rejectedOrFailed(error, 'Gagal menambahkan ke tracker.');
   }
 
   async removeTrackerItem(userId: string, eventId: string): Promise<void> {

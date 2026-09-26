@@ -430,7 +430,14 @@ export class MemoryEventRepository implements EventRepository {
     return [...(this.savedEvents.get(userId) ?? [])];
   }
 
+  /** Cermin WITH CHECK policy saved_events_own / tracker_own (migration 0008). */
+  private requireVisibleEvent(eventId: string): void {
+    const event = this.findEvent(eventId);
+    if (!event || !isPubliclyVisible(event)) throw actionError('event_unavailable');
+  }
+
   async saveEvent(userId: string, eventId: string): Promise<void> {
+    this.requireVisibleEvent(eventId);
     const saved = getOrCreate(this.savedEvents, userId, () => new Set<string>());
     if (saved.has(eventId)) return;
     saved.add(eventId);
@@ -471,6 +478,7 @@ export class MemoryEventRepository implements EventRepository {
     status: TrackerStatus,
     notes?: string | null,
   ): Promise<void> {
+    this.requireVisibleEvent(eventId);
     const entries = getOrCreate(this.trackerEntries, userId, () => new Map<string, TrackerEntry>());
     const now = new Date().toISOString();
     const existing = entries.get(eventId);
