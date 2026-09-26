@@ -276,14 +276,19 @@ export class SupabaseEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, payload }: CreateSubmissionInput): Promise<void> {
+  async createSubmission({ submittedByEmail, submittedBy, payload }: CreateSubmissionInput): Promise<void> {
     // Klien pengguna/anon, bukan admin: policy `ugc_public_insert` yang
     // menegakkan status PENDING. Tanpa `.select()` — anon memang tidak boleh
     // membaca tabel ini, dan meminta baris balik akan ditolak RLS.
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase
       .from('ugc_submissions')
-      .insert({ submitted_by_email: submittedByEmail, payload: toStoredPayload(payload) });
+      .insert({
+        submitted_by_email: submittedByEmail,
+        payload: toStoredPayload(payload),
+        // Hanya dikirim bila ada: kolom ini tidak termasuk hak INSERT tamu.
+        ...(submittedBy ? { submitted_by: submittedBy } : {}),
+      });
 
     if (error) {
       // Trigger enforce_submission_rate_limit() (migration 0009).

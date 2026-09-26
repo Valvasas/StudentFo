@@ -160,6 +160,10 @@ export class MemoryEventRepository implements EventRepository {
   private readonly submissions = new Map<string, Submission>();
   private readonly rateLimiter = new MemoryRateLimiter();
   private readonly moderationLog: ModerationLogEntry[] = [];
+  /** submissionId → akun pengirim yang masuk (cermin ugc_submissions.submitted_by). */
+  private readonly submissionOwners = new Map<string, string>();
+  /** Notifikasi tersimpan (bukan turunan tenggat): kabar kiriman komunitas. */
+  private readonly storedNotifications = new Map<string, AppNotification[]>();
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
 
@@ -331,11 +335,12 @@ export class MemoryEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, payload }: CreateSubmissionInput): Promise<void> {
+  async createSubmission({ submittedByEmail, submittedBy, payload }: CreateSubmissionInput): Promise<void> {
     if (isSubmissionRateLimited([...this.submissions.values()], submittedByEmail)) {
       throw actionError('submission_rate_limited');
     }
     const id = this.nextId();
+    if (submittedBy) this.submissionOwners.set(id, submittedBy);
     this.submissions.set(id, {
       id,
       submittedByEmail,
@@ -407,6 +412,7 @@ export class MemoryEventRepository implements EventRepository {
     }
 
     this.submissions.set(submissionId, { ...submission, status: decision });
+    this.notifySubmitter(submissionId, submission.payload?.title ?? 'kegiatan', decision);
     this.logModeration({
       subjectType: 'submission',
       subjectId: submissionId,
@@ -517,15 +523,38 @@ export class MemoryEventRepository implements EventRepository {
    * Yang tetap disimpan hanyalah status "sudah dibaca" — itu keputusan
    * pengguna, bukan data turunan.
    */
+  /** Cermin trigger notify_submission_decision() (migration 20260926160001). */
+  private notifySubmitter(submissionId: string, title: string, decision: 'APPROVED' | 'REJECTED'): void {
+    const owner = this.submissionOwners.get(submissionId);
+    if (!owner) return;
+    const event = decision === 'APPROVED' ? this.events.find((candidate) => candidate.title === title) : undefined;
+    getOrCreate(this.storedNotifications, owner, () => []).push({
+      id: `notif-submission-${submissionId}`,
+      type: decision === 'APPROVED' ? 'SUBMISSION_APPROVED' : 'SUBMISSION_REJECTED',
+      message:
+        decision === 'APPROVED'
+          ? `Kirimanmu "${title}" sudah dicek dan kini tayang. Terima kasih!`
+          : `Kirimanmu "${title}" belum bisa ditayangkan setelah dicek moderator. Pastikan tautan resmi & tenggatnya benar, lalu kirim ulang.`,
+      isRead: false,
+      sentAt: new Date().toISOString(),
+      event: event ? { id: event.id, slug: event.slug, title: event.title } : null,
+    });
+  }
+
   private deriveNotifications(userId: string, now: Date): AppNotification[] {
+    const readSet = this.readNotifications.get(userId);
+    const stored = (this.storedNotifications.get(userId) ?? []).map((notification) => ({
+      ...notification,
+      isRead: readSet?.has(notification.id) ?? false,
+    }));
+
     const sources = new Set<string>(this.savedEvents.get(userId) ?? []);
     for (const eventId of this.trackerEntries.get(userId)?.keys() ?? []) {
       sources.add(eventId);
     }
-    if (sources.size === 0) return [];
+    if (sources.size === 0) return stored;
 
-    const readSet = this.readNotifications.get(userId);
-    const notifications: AppNotification[] = [];
+    const notifications: AppNotification[] = [...stored];
 
     for (const eventId of sources) {
       const event = this.findEvent(eventId);

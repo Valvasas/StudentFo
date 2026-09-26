@@ -150,6 +150,8 @@ export interface RecommendationSignalInput {
 
 export interface CreateSubmissionInput {
   readonly submittedByEmail: string;
+  /** Akun yang sedang masuk saat mengirim (dikabari saat ditinjau); null = tamu. */
+  readonly submittedBy: string | null;
   readonly payload: SubmissionPayload;
 }
 

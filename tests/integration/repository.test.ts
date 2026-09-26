@@ -62,7 +62,7 @@ describe('createSubmission / reviewSubmission', () => {
   it('tamu bisa mengirim (RLS ugc_public_insert), admin menyetujui → event tayang + tercatat', async () => {
     const admin = createUser({ role: 'ADMIN' });
     const data = payload();
-    await repo.createSubmission({ submittedByEmail: `kirim-${Date.now()}@uji.example`, payload: data });
+    await repo.createSubmission({ submittedByEmail: `kirim-${Date.now()}@uji.example`, submittedBy: null, payload: data });
 
     const [submission] = (await repo.listSubmissions('PENDING', 100)).filter((s) => s.payload?.title === data.title);
     expect(submission).toBeDefined();
@@ -81,8 +81,8 @@ describe('createSubmission / reviewSubmission', () => {
     const admin = createUser({ role: 'ADMIN' });
     const data = payload();
     const email = `dup-${Date.now()}@uji.example`;
-    await repo.createSubmission({ submittedByEmail: email, payload: data });
-    await repo.createSubmission({ submittedByEmail: `${email}.2`, payload: data });
+    await repo.createSubmission({ submittedByEmail: email, submittedBy: null, payload: data });
+    await repo.createSubmission({ submittedByEmail: `${email}.2`, submittedBy: null, payload: data });
     const mine = (await repo.listSubmissions('PENDING', 100)).filter((s) => s.payload?.title === data.title);
     await repo.reviewSubmission({ submissionId: mine[0]!.id, decision: 'APPROVED', reviewerId: admin });
     await expect(
@@ -92,8 +92,8 @@ describe('createSubmission / reviewSubmission', () => {
 
   it('kiriman ke-4 dari email yang sama dalam satu jam → submission_rate_limited (trigger Postgres)', async () => {
     const email = `banjir-${Date.now()}@uji.example`;
-    for (let i = 0; i < 3; i += 1) await repo.createSubmission({ submittedByEmail: email, payload: payload() });
-    await expect(repo.createSubmission({ submittedByEmail: email, payload: payload() })).rejects.toSatisfy(
+    for (let i = 0; i < 3; i += 1) await repo.createSubmission({ submittedByEmail: email, submittedBy: null, payload: payload() });
+    await expect(repo.createSubmission({ submittedByEmail: email, submittedBy: null, payload: payload() })).rejects.toSatisfy(
       (error) => reasonOf(error) === 'submission_rate_limited',
     );
   });
@@ -101,7 +101,7 @@ describe('createSubmission / reviewSubmission', () => {
   it('penolakan mengisi reviewed_by kiriman', async () => {
     const admin = createUser({ role: 'ADMIN' });
     const data = payload();
-    await repo.createSubmission({ submittedByEmail: `tolak-${Date.now()}@uji.example`, payload: data });
+    await repo.createSubmission({ submittedByEmail: `tolak-${Date.now()}@uji.example`, submittedBy: null, payload: data });
     const [submission] = (await repo.listSubmissions('PENDING', 100)).filter((s) => s.payload?.title === data.title);
     await repo.reviewSubmission({ submissionId: submission!.id, decision: 'REJECTED', reviewerId: admin });
     expect(sql(`SELECT reviewed_by FROM ugc_submissions WHERE id = '${submission!.id}'`)).toBe(admin);
@@ -181,5 +181,32 @@ describe('pembatas laju & sinyal rekomendasi (service_role)', () => {
     const data = await repo.listCalibrationData(since);
     expect(data.signals.find((s) => s.eventId === event.id)).toMatchObject({ interests: ['teknologi'], educationLevel: 'D4_S1' });
     expect(data.events.some((e) => e.id === event.id)).toBe(true);
+  });
+});
+
+describe('kabar ke pengirim kiriman (ADR-037)', () => {
+  it('pengguna yang masuk mengirim → disetujui → notifikasi bertaut ke event di lonceng', async () => {
+    const sender = createUser({ fullName: 'Pengirim Integrasi' });
+    const admin = createUser({ role: 'ADMIN' });
+    const data = payload();
+    actAs(sender);
+    await repo.createSubmission({ submittedByEmail: `pengirim-${Date.now()}@uji.example`, submittedBy: sender, payload: data });
+    actAs(null);
+
+    const [submission] = (await repo.listSubmissions('PENDING', 100)).filter((s) => s.payload?.title === data.title);
+    await repo.reviewSubmission({ submissionId: submission!.id, decision: 'APPROVED', reviewerId: admin });
+
+    actAs(sender);
+    const notification = (await repo.listNotifications(sender, 20)).find((n) => n.type === 'SUBMISSION_APPROVED');
+    expect(notification?.event?.title).toBe(data.title);
+    expect(notification?.message).toContain(data.title);
+  });
+
+  it('pengguna tidak bisa mengirim atas nama akun lain (policy + hak kolom)', async () => {
+    const [sender, victim] = [createUser(), createUser()];
+    actAs(sender);
+    await expect(
+      repo.createSubmission({ submittedByEmail: `palsu-${Date.now()}@uji.example`, submittedBy: victim, payload: payload() }),
+    ).rejects.toBeInstanceOf(AppError);
   });
 });

@@ -158,8 +158,8 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
       di sesi audit (Python tidak terpasang). CI (`ci.yml`) kini menjalankannya.
 - [x] Pembatasan laju untuk `/submit` — trigger Postgres (migration 0009,
       ADR-023) + paritas di `MemoryEventRepository`. Kode `submission_rate_limited`. @claude
-- [ ] Notifikasi ke pengirim saat kiriman disetujui/ditolak (email tersimpan
-      di `ugc_submissions.submitted_by_email`, belum dipakai).
+- [x] Notifikasi ke pengirim saat kiriman disetujui/ditolak — in-app ke akun
+      yang masuk saat mengirim (`submitted_by`), bukan email. ADR-037. @claude
 
 ## Template tugas baru
 

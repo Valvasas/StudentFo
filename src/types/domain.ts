@@ -129,7 +129,14 @@ export interface TrackerItem {
  * Konsekuensinya: nilai tak dikenal bisa saja masuk dari penulis lain.
  * Itu ditangani di `toNotificationType()`, bukan dengan cast diam-diam.
  */
-export const NOTIFICATION_TYPES = ['DEADLINE_H3', 'DEADLINE_H1', 'SYSTEM'] as const;
+export const NOTIFICATION_TYPES = [
+  'DEADLINE_H3',
+  'DEADLINE_H1',
+  'SYSTEM',
+  /** Kabar ke pengirim kiriman komunitas (trigger notify_submission_decision, ADR-037). */
+  'SUBMISSION_APPROVED',
+  'SUBMISSION_REJECTED',
+] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 /** Baris yang tidak dikenal diperlakukan sebagai pengumuman sistem, bukan dibuang. */

@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { toActionErrorCode, type ActionErrorCode } from '@/lib/action-feedback';
+import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
@@ -44,7 +45,9 @@ export async function submitEventAction(formData: FormData): Promise<void> {
   let failure: ActionErrorCode | null = null;
   try {
     const repository = await getEventRepository();
-    await repository.createSubmission({ submittedByEmail, payload });
+    // Pengirim yang sedang masuk dikabari saat kirimannya ditinjau (ADR-037).
+    const user = await getSessionUser();
+    await repository.createSubmission({ submittedByEmail, submittedBy: user?.id ?? null, payload });
   } catch (error) {
     failure = toActionErrorCode(error);
   }

@@ -46,8 +46,8 @@ describe('MemoryEventRepository — log moderasi (cermin trigger moderation_log)
 
   it('kiriman: disetujui mencatat kiriman + event terbit; ditolak mencatat kiriman', async () => {
     const repo = new MemoryEventRepository();
-    await repo.createSubmission({ submittedByEmail: 'p@contoh.org', payload });
-    await repo.createSubmission({ submittedByEmail: 'q@contoh.org', payload: { ...payload, title: 'Kiriman Spam Log' } });
+    await repo.createSubmission({ submittedByEmail: 'p@contoh.org', submittedBy: null, payload });
+    await repo.createSubmission({ submittedByEmail: 'q@contoh.org', submittedBy: null, payload: { ...payload, title: 'Kiriman Spam Log' } });
     const [first, second] = await repo.listSubmissions('PENDING', 10);
 
     await repo.reviewSubmission({ submissionId: first!.id, decision: 'APPROVED', ...ADMIN_A });

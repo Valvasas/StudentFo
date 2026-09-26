@@ -148,7 +148,7 @@ describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
     const email = `paritas-${randomUUID()}@uji.example`;
     const results = [];
     for (let i = 0; i < 4; i += 1) {
-      results.push(await outcome(() => world.repo.createSubmission({ submittedByEmail: email, payload: submission() })));
+      results.push(await outcome(() => world.repo.createSubmission({ submittedByEmail: email, submittedBy: null, payload: submission() })));
     }
     expect(results).toEqual(['ok', 'ok', 'ok', 'submission_rate_limited']);
   });

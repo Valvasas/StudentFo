@@ -12,6 +12,34 @@ terdokumentasi.
 
 ---
 
+## ADR-037 — Kabar ke pengirim kiriman komunitas: notifikasi in-app ke akun yang masuk, bukan email
+
+**Konteks:** `ugc_submissions.submitted_by_email` tersimpan tapi tidak pernah
+dipakai; pengirim tidak pernah tahu kirimannya tayang atau ditolak.
+
+**Keputusan:**
+- **In-app, bukan email.** Email transaksional butuh provider (Resend dsb.),
+  domain terverifikasi (SPF/DKIM), templat, dan kebijakan data — terlalu besar
+  sebelum produk online. Jalur email bisa ditambahkan kemudian di atas kolom
+  yang sama.
+- **Dikaitkan ke `submitted_by` (akun yang MASUK saat mengirim), bukan
+  dicocokkan dari email yang diketik.** Pencocokan email membuat siapa pun bisa
+  mengirim sampah atas nama alamat orang lain dan korbannya menerima kabar
+  "kiriman ditolak". Kolom baru, hak INSERT hanya untuk `authenticated`, policy
+  `ugc_public_insert` mensyaratkan `submitted_by = auth.uid()`.
+- Trigger `notify_submission_decision()` (migration `20260926160001`) membuat
+  notifikasi `SUBMISSION_APPROVED` (bertaut ke event yang baru tayang) atau
+  `SUBMISSION_REJECTED`. Tamu tetap boleh mengirim; form memberi tahu bahwa
+  mereka tidak akan dikabari kecuali masuk.
+
+**Konsekuensi:** Tamu tidak mendapat kabar apa pun. Paritas mode seed di
+`MemoryEventRepository` (notifikasi tersimpan digabung dengan turunan tenggat).
+Dibuktikan: SQL (anon/pengguna lain tidak bisa mengatasnamakan, tamu tanpa
+kabar, taut event benar), unit, integrasi PostgREST, dan e2e browser
+(mahasiswa mengirim → admin setuju → klik lonceng membuka halaman kegiatan).
+
+---
+
 ## ADR-036 — Browser dalam aplikasi (Instagram/TikTok) & cookie sesi di Safari privat
 
 **Konteks:** Trafik utama kemungkinan dari tautan di Instagram/TikTok, yang

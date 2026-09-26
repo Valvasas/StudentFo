@@ -25,6 +25,7 @@ Urutan migration (harus dijalankan berurutan):
 15. `20260926130001_moderation_log.sql` — tabel append-only `moderation_log` diisi trigger `log_moderation_change()` di `events`/`ugc_submissions`; kolom `ugc_submissions.reviewed_by/reviewed_at`; `approve_submission()` mengisi peninjau (ADR-031)
 16. `20260926140001_recommendation_signals.sql` — tabel `recommendation_signals` (simpan & klik "Daftar" + snapshot profil), tulis hanya service_role (ADR-032)
 17. `20260926150001_events_listing_search_vector.sql` — `events_listing` mengekspos `search_vector` (tanpanya setiap pencarian di mode Supabase gagal 42703)
+18. `20260926160001_submission_notifications.sql` — `ugc_submissions.submitted_by` + trigger `notify_submission_decision()` (notifikasi `SUBMISSION_APPROVED`/`SUBMISSION_REJECTED`, ADR-037)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di

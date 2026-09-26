@@ -171,7 +171,15 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           <TextArea id="description" name="description" rows={6} maxLength={5000} />
         </Field>
 
-        <Field id="email" label="Email kamu" hint="Untuk konfirmasi bila ada yang perlu dicek.">
+        <Field
+          id="email"
+          label="Email kamu"
+          hint={
+            user
+              ? 'Untuk konfirmasi bila ada yang perlu dicek. Hasil tinjauan dikabarkan lewat lonceng notifikasi akunmu.'
+              : 'Untuk konfirmasi bila ada yang perlu dicek. Masuk dulu kalau ingin dikabari lewat notifikasi saat kirimanmu disetujui atau ditolak.'
+          }
+        >
           <TextInput
             id="email"
             name="email"
