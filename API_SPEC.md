@@ -8,6 +8,15 @@ I/O pipeline Python. Semua ada di sini.
 
 ## 1. `EventRepository` — kontrak akses data
 
+> **Sejak 2026-09-26** `EventRepository` adalah gabungan interface per domain
+> (`EventCatalogRepository`, `ModerationRepository`, `SubmissionRepository`,
+> `SavedEventRepository`, `TrackerRepository`, `NotificationRepository`,
+> `TeamRepository`, `RateLimitRepository`, `RecommendationSignalRepository`) di
+> `src/lib/data/repository.ts` — sumber kebenaran tanda tangan method. Blok di
+> bawah adalah ringkasan historis; method baru sejak itu (antrean detail,
+> `listModerationLog`, `consumeRateLimit`, sinyal & kalibrasi) hanya tercatat
+> di berkas tersebut dan DECISION.md ADR-028/031/032.
+
 `src/lib/data/repository.ts`. Satu-satunya API yang boleh dipanggil UI.
 
 ```ts
