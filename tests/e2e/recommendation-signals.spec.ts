@@ -8,7 +8,7 @@ async function personalSignalCount(browser: Browser): Promise<number> {
   const admin = await browser.newContext();
   const page = await admin.newPage();
   await signInAsDemo(page, 'Admin moderator', '/admin/kalibrasi');
-  const text = await page.getByRole('region', { name: 'Profil lengkap (personal)' }).textContent();
+  const text = await page.getByRole('region', { name: 'Profil lengkap (personal)', exact: true }).textContent();
   await admin.close();
   return Number(/([\d.]+) sinyal/.exec(text ?? '')?.[1]?.replace(/\./g, '') ?? NaN);
 }

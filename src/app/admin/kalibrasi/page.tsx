@@ -29,15 +29,19 @@ function formatWeight(value: number | undefined): string {
 
 function SuggestionTable<K extends string>({ id, title, data }: { id: string; title: string; data: WeightSuggestion<K> }) {
   const keys = Object.keys(data.current) as K[];
+  // min-w-0: item grid tidak menyusut di bawah lebar tabel tanpanya, dan
+  // overflow-x-auto di dalamnya tidak pernah aktif (layar 320px melebar).
   return (
-    <section aria-labelledby={id} className="rounded-card border border-line bg-panel p-5 shadow-card">
+    <section aria-labelledby={id} className="min-w-0 rounded-card border border-line bg-panel p-5 shadow-card">
       <h2 id={id} className="text-xl">{title}</h2>
       <p className="mt-1 text-sm text-ink-muted">
         {data.signals.toLocaleString('id-ID')} sinyal
         {!data.sufficient &&
           ` — belum cukup (minimal ${MIN_SIGNALS_FOR_SUGGESTION}); saran bobot tidak ditampilkan.`}
       </p>
-      <div className="mt-4 overflow-x-auto">
+      {/* Bisa digulir ke samping di layar sempit → harus bisa difokus supaya
+          pengguna keyboard juga bisa menggulirnya (WCAG 2.1.1). */}
+      <div className="mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label={`Tabel bobot ${title}`}>
         <table className="w-full min-w-[420px] text-left text-sm">
           <caption className="sr-only">
             Bobot saat ini, saran bobot, dan selisih rata-rata komponen untuk {title}
