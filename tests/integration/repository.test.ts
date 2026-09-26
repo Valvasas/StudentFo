@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppError } from '@/lib/errors';
+import { noCache } from '@/lib/data/cache';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
 import type { SubmissionPayload } from '@/types/domain';
 import { actAs, createEvent, createUser, sql } from './harness';
 
-const repo = new SupabaseEventRepository();
+const repo = new SupabaseEventRepository(noCache);
 
 function reasonOf(error: unknown): string | undefined {
   return error instanceof AppError ? (error.reason as string | undefined) : undefined;

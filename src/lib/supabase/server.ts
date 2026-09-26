@@ -37,6 +37,23 @@ export async function createSupabaseServerClient() {
 }
 
 /**
+ * Klien anon TANPA cookie untuk data publik yang di-cache lintas pengunjung.
+ * Di dalam `unstable_cache` memanggil `cookies()` dilarang (dan hasilnya akan
+ * bocor antarpengguna), jadi query publik tidak boleh membawa sesi siapa pun.
+ * RLS untuk anon dan pengguna biasa identik di data katalog.
+ */
+export function createSupabasePublicClient() {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error('Supabase belum dikonfigurasi. Isi NEXT_PUBLIC_SUPABASE_URL & ANON_KEY.');
+  }
+
+  return createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    cookies: { getAll: () => [], setAll: () => undefined },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/**
  * Klien service_role — BYPASS RLS.
  *
  * Hanya untuk pipeline scraper dan aksi admin yang sudah diverifikasi di

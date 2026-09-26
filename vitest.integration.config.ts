@@ -4,7 +4,7 @@ import { signJwt } from './tests/integration/jwt';
 
 /**
  * Integration test repository Supabase (`npm run test:integration`), dijalankan
- * oleh scripts/test-integration.sh yang menyiapkan Postgres + PostgREST.
+ * oleh scripts/with-postgrest.sh yang menyiapkan Postgres + PostgREST.
  * Terpisah dari `npm test` karena butuh database sungguhan.
  */
 const secret = process.env.INTEGRATION_JWT_SECRET ?? 'belum-diset-jalankan-lewat-scripts-test-integration';

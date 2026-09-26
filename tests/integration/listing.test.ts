@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { noCache } from '@/lib/data/cache';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
 import { actAs, createEvent, createUser, sql } from './harness';
 
-const repo = new SupabaseEventRepository();
+const repo = new SupabaseEventRepository(noCache);
 // Token unik di judul memisahkan data uji ini dari berkas uji lain di database yang sama.
 const token = `zq${randomUUID().replace(/-/g, '').slice(0, 10)}`;
 

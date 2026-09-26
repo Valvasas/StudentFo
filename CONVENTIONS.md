@@ -53,7 +53,12 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   `theme-toggle.tsx`) — jangan jadikan default.
 - Halaman yang menampilkan hitungan waktu (`H-n`, status moderasi) memakai
   `export const dynamic = 'force-dynamic'`. Jangan hapus ini untuk "optimasi"
-  — hasilnya adalah H-n yang membeku di waktu build.
+  — hasilnya adalah H-n yang membeku di waktu build (dan CSP bernonce memang
+  mewajibkan render per request). Optimasi dilakukan di lapisan DATA:
+  query publik di `SupabaseEventRepository` dibungkus `unstable_cache` dengan
+  tag `events` (ADR-034). Mengubah data katalog dari aksi baru? Panggil
+  `revalidateTag(EVENTS_CACHE_TAG)` — `revalidatePath` saja tidak mencabut
+  halaman detail.
 - Filter/pencarian: **`<form>` + `<a>` + query string**, bukan
   `useState`/client-side filtering. Setiap kombinasi filter harus jadi URL
   yang bisa dibagikan dan berfungsi tanpa JavaScript. Lihat

@@ -1,10 +1,11 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { toActionErrorCode, type ActionErrorCode } from '@/lib/action-feedback';
 import { checkAdminAccess } from '@/lib/auth';
 import { getEventRepository, resetDemoData } from '@/lib/data';
+import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
 import { dataMode } from '@/lib/env';
 import { toApiError } from '@/lib/errors';
 import { formText, formTrimmed } from '@/lib/form-data';
@@ -30,6 +31,9 @@ function parseDecision(formData: FormData): Decision | null {
 }
 
 function refreshPublicViews(): void {
+  // Data Cache katalog publik (SupabaseEventRepository): tanpa ini event yang
+  // baru disetujui baru tampil setelah TTL 5 menit habis.
+  revalidateTag(EVENTS_CACHE_TAG);
   revalidatePath('/admin');
   revalidatePath('/admin/riwayat');
   revalidatePath('/events');

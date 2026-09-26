@@ -14,6 +14,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // e2e mode Supabase (scripts/e2e-supabase.sh) membangun ke folder terpisah
+  // supaya tidak menimpa build mode seed yang dipakai audit aksesibilitas.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
   poweredByHeader: false,
   // typedRoutes sengaja tidak diaktifkan: href dinamis di produk ini dibangun

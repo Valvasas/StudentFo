@@ -19,7 +19,8 @@
     "check:contrast": "node scripts/check-contrast.mjs",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run check:contrast",
     "test:a11y": "playwright test",
-    "test:integration": "bash scripts/test-integration.sh"
+    "test:integration": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true bash scripts/with-postgrest.sh npx vitest run --config vitest.integration.config.ts",
+    "test:e2e:supabase": "bash scripts/with-postgrest.sh bash scripts/e2e-supabase.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

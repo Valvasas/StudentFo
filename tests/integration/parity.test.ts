@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { AppError } from '@/lib/errors';
 import { MemoryEventRepository } from '@/lib/data/memory-repository';
 import type { EventRepository } from '@/lib/data/repository';
+import { noCache } from '@/lib/data/cache';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
 import type { SubmissionPayload } from '@/types/domain';
 import { actAs, createEvent, createUser } from './harness';
@@ -39,7 +40,7 @@ function memoryWorld(): World {
 function supabaseWorld(): World {
   return {
     name: 'supabase',
-    repo: new SupabaseEventRepository(),
+    repo: new SupabaseEventRepository(noCache),
     user: () => createUser(),
     as: async (userId, run) => {
       actAs(userId);

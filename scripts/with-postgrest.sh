@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Integration test SupabaseEventRepository terhadap Postgres + PostgREST
-# SUNGGUHAN (komponen yang sama yang dipanggil supabase-js di produksi).
+# Siapkan Postgres (database baru + semua migration) dan PostgREST
+# SUNGGUHAN, jalankan perintah yang diberikan, lalu bereskan. Dipakai oleh:
+#   npm run test:integration   (Vitest, SupabaseEventRepository)
+#   npm run test:e2e:supabase  (build produksi Next.js dalam mode Supabase)
 #
 # Kenapa bukan `supabase start`: repository hanya berbicara ke PostgREST
 # (tidak memanggil Auth API), dan Postgres + satu binary PostgREST jauh lebih
@@ -8,7 +10,7 @@
 # dengan Supabase (1000) supaya bug pemotongan diam-diam ikut tertangkap.
 #
 # Pakai:  DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
-#           npm run test:integration
+#           bash scripts/with-postgrest.sh <perintah…>
 # Butuh: psql, Postgres >= 15, curl + tar (unduh PostgREST sekali ke .cache/).
 set -euo pipefail
 
@@ -77,4 +79,4 @@ done
 
 export POSTGREST_URL="http://127.0.0.1:${PGRST_PORT}"
 export INTEGRATION_DATABASE_URL="$TEST_URL"
-VITE_CONFIG_NATIVE_IGNORE_WARNING=true npx vitest run --config vitest.integration.config.ts "$@"
+"$@"

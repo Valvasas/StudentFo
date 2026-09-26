@@ -12,12 +12,45 @@ terdokumentasi.
 
 ---
 
+## ADR-034 — Cache di lapisan data (`unstable_cache` + tag `events`), halaman tetap dinamis
+
+**Konteks:** Semua halaman publik `force-dynamic` sehingga setiap kunjungan
+menjalankan ulang query listing, detail, statistik, dan kategori.
+`revalidatePath` di aksi admin tidak berguna tanpa cache. ISR tidak mungkin:
+CSP bernonce (ADR-027) mewajibkan HTML per request, dan halaman membaca sesi.
+
+**Keputusan:** `SupabaseEventRepository` membungkus query publik (listing,
+detail, closing soon, kategori, statistik, pita minggu ini) dengan
+`unstable_cache` — tag `events`, TTL 300 detik (`src/lib/data/cache.ts`).
+Query publik memakai klien anon TANPA cookie (`createSupabasePublicClient`),
+karena `cookies()` dilarang di dalam cache dan hasilnya dibagi antarpengunjung.
+Peringkat relevansi berprofil dihitung SETELAH jendela kandidat diambil dari
+cache — profil tidak pernah jadi kunci cache. Aksi moderasi memanggil
+`revalidateTag('events')`. Lapisan cache di-inject (integration test memakai
+`noCache`). Mode seed tidak di-cache (datanya per proses dan berubah per pengguna).
+
+**Konsekuensi:** Dibuktikan di build produksi mode Supabase
+(`npm run test:e2e:supabase`: Next + PostgREST + stub auth): kunjungan kedua ke
+`/events` tidak menyentuh database (kode lama: +1 query setiap kunjungan);
+persetujuan admin langsung menayangkan event di listing DAN halaman detail.
+Temuan saat pembuktian: `revalidatePath('/events')` sudah mencabut entri
+listing (tag implisit per path), tapi TIDAK entri detail `/events/<slug>` —
+tanpa `revalidateTag`, tautan kegiatan yang tadinya 404 tetap 404 sampai TTL
+(dibuktikan: test gagal saat `revalidateTag` dimatikan). Perubahan tanpa
+revalidasi (expiry pg_cron, `saved_count`) basi ≤ 5 menit; label H-n tidak
+ikut basi karena dihitung saat render. Status simpan per pengguna TIDAK
+dipisah ke komponen streaming: itu satu lookup PK per request dan HTML-nya
+tetap per request karena nonce — pemisahan menambah kompleksitas tanpa
+menghemat query berarti.
+
+---
+
 ## ADR-033 — Integration test repository: Postgres + PostgREST sungguhan, bukan `supabase start`
 
 **Konteks:** `SupabaseEventRepository` (±900 baris) nol test — hanya
 `MemoryEventRepository` yang diuji. TASKS meminta `supabase start` di CI.
 
-**Keputusan:** `npm run test:integration` (`scripts/test-integration.sh`):
+**Keputusan:** `npm run test:integration` (`scripts/with-postgrest.sh`):
 database baru + semua migration + stub `auth`, PostgREST v12 (binary statis,
 di-cache di `.cache/`) dengan `max_rows = 1000` seperti Supabase, role
 `authenticator` pola Supabase. `createSupabaseServerClient/AdminClient`

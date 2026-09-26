@@ -108,6 +108,11 @@ jobs:
       - run: npm run test:integration
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      # Build produksi dalam mode Supabase: Data Cache + revalidateTag + alur admin.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:supabase
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
   pipeline:
     name: Pipeline Python — tests & dry-run

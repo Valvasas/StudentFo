@@ -41,3 +41,4 @@ playwright-report/
 
 # Binary PostgREST untuk npm run test:integration
 .cache/
+.next-supabase/
