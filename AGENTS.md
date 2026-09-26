@@ -28,6 +28,13 @@ npm run verify   # = typecheck && lint && test — jalankan sebelum menyatakan "
 Perintah individual: `npm run dev`, `npm run build`, `npm run typecheck`,
 `npm run lint`, `npm test` (Vitest, `src/**/*.test.ts`).
 
+Kalau perubahan menyentuh `supabase-repository.ts` atau migration, jalankan juga
+(butuh Postgres lokal, lihat README § Uji):
+```bash
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run db:test
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run test:integration
+```
+
 Pipeline Python (folder `pipeline/`, proyek terpisah dari Next.js — TIDAK
 di-lint/typecheck oleh perintah di atas):
 ```bash

@@ -16,8 +16,12 @@
 -- =====================================================================
 DO $migration$
 BEGIN
+  -- pg_cron hanya bisa dibuat di database `cron.database_name` (Supabase:
+  -- `postgres`). Database lain di server yang sama — mis. database uji
+  -- integrasi — dilewati, bukan menggagalkan migration.
   IF NOT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron')
-     OR current_setting('shared_preload_libraries', true) NOT LIKE '%pg_cron%' THEN
+     OR coalesce(current_setting('shared_preload_libraries', true), '') NOT LIKE '%pg_cron%'
+     OR coalesce(current_setting('cron.database_name', true), 'postgres') <> current_database() THEN
     RAISE NOTICE 'pg_cron tidak tersedia — jadwalkan expire_past_events(), create_deadline_notifications(), purge_rate_limit_hits() dari luar.';
     RETURN;
   END IF;

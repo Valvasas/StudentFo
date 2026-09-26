@@ -252,6 +252,9 @@ python pipeline/tests/test_models.py      # 12 uji: validasi & dedup pipeline
 python pipeline/tests/test_publisher.py   # 4 uji: payload RPC staging
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
   npm run db:test                         # semua migration + RLS, FTS, staging, dedup, notifikasi
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
+  npm run test:integration                # SupabaseEventRepository lewat PostgREST sungguhan + paritas demo↔produksi
+npm run test:a11y                         # Playwright: axe WCAG 2.2 + e2e mode demo (CSP, admin, submit, sinyal)
 ```
 
 Jalankan Postgres lokal untuk `db:test` dengan

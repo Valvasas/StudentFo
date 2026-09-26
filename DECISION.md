@@ -12,6 +12,34 @@ terdokumentasi.
 
 ---
 
+## ADR-033 — Integration test repository: Postgres + PostgREST sungguhan, bukan `supabase start`
+
+**Konteks:** `SupabaseEventRepository` (±900 baris) nol test — hanya
+`MemoryEventRepository` yang diuji. TASKS meminta `supabase start` di CI.
+
+**Keputusan:** `npm run test:integration` (`scripts/test-integration.sh`):
+database baru + semua migration + stub `auth`, PostgREST v12 (binary statis,
+di-cache di `.cache/`) dengan `max_rows = 1000` seperti Supabase, role
+`authenticator` pola Supabase. `createSupabaseServerClient/AdminClient`
+diganti klien supabase-js ASLI yang membawa JWT bertanda tangan (anon /
+authenticated+sub / service_role), jadi RLS, RPC, trigger, dan hak kolom
+berjalan sungguhan. `supabase start` tidak dipakai: repository tidak memanggil
+Auth API, Docker image Supabase berat (dan tidak bisa ditarik di lingkungan
+pengerjaan), sedangkan jalur ini jalan di mana pun `db:test` jalan. Stub
+`auth.uid()` disamakan dengan definisi Supabase (membaca `request.jwt.claims`).
+Test paritas (`tests/integration/parity.test.ts`) menjalankan skenario yang
+sama terhadap kedua implementasi.
+
+**Konsekuensi:** Pada percobaan pertama menemukan dua bug nyata:
+(1) SETIAP pencarian di produksi gagal — `events_listing` tanpa `search_vector`
+(migration `20260926150001`); (2) mode demo mengizinkan menyimpan/melacak
+event PENDING yang ditolak produksi. Yang TIDAK diuji jalur ini: GoTrue
+(login/daftar/OAuth sungguhan) dan Storage — tetap butuh project Supabase
+staging. Job CI `integration` baru ditambahkan tapi belum pernah berjalan di
+GitHub (hanya diverifikasi lokal).
+
+---
+
 ## ADR-032 — Kalibrasi bobot rekomendasi: log niat + rekonstruksi kandidat, bukan log impression
 
 **Konteks:** ADR-026 menyatakan bobot `PERSONAL_WEIGHTS`/`COLD_START_WEIGHTS`

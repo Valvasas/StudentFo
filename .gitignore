@@ -38,3 +38,6 @@ supabase/.branches/
 # Playwright
 test-results/
 playwright-report/
+
+# Binary PostgREST untuk npm run test:integration
+.cache/

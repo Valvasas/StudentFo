@@ -18,7 +18,8 @@
     "db:test": "bash scripts/test-migrations.sh",
     "check:contrast": "node scripts/check-contrast.mjs",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run check:contrast",
-    "test:a11y": "playwright test"
+    "test:a11y": "playwright test",
+    "test:integration": "bash scripts/test-integration.sh"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

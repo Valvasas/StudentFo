@@ -32,10 +32,9 @@ secara duplikat atau bertabrakan.
       0001 gagal di Postgres modern karena salah membaca ketersediaan
       `pg_catalog.indonesian`. Diperbaiki; stemming Snowball Indonesia kini aktif.
       Dikunci oleh `npm run db:test` + job CI `database` (DEVIATIONS #1). @claude
-- [ ] Belum ada test end-to-end/integration untuk `SupabaseEventRepository`
-      terhadap instance Supabase sungguhan (test yang ada menguji logika
-      murni & `MemoryEventRepository`). Pertimbangkan test terhadap
-      Supabase local (`supabase start`) sebelum menambah query kompleks baru.
+- [x] Integration test `SupabaseEventRepository` — Postgres + PostgREST
+      sungguhan (`npm run test:integration`, job CI `integration`), bukan
+      `supabase start`; termasuk test paritas memory ↔ Supabase. ADR-033. @claude
 - [x] Audit aksesibilitas (kontras, fokus, overflow) di README didasarkan
       pada skrip Playwright manual yang "ada di riwayat pengembangan" tapi
       tidak berkas terpisah di repo saat ini — pertimbangkan menyimpan
@@ -50,7 +49,6 @@ secara duplikat atau bertabrakan.
       - publisher memakai RPC transaksional `stage_scraped_event` (tanpa event yatim, tanpa N+1)
 - [x] Pindahkan `expire_past_events` & `create_deadline_notifications` ke
       `pg_cron` — migration `20260926120001`, ADR-030. Belum di-apply ke Supabase. @claude
-- [ ] Integration test `SupabaseEventRepository` terhadap Supabase lokal.
 
 ## Backlog — Phase 2
 
