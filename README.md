@@ -127,6 +127,16 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    - Tempel Client ID & Secret ke Supabase, lalu aktifkan providernya.
    - Tombolnya selalu tampil selama Supabase terkonfigurasi; kalau provider
      belum aktif, pengguna melihat pesan yang mengarahkannya ke pengelola.
+   - **Uji end-to-end (manual, belum pernah dijalankan — butuh project Google
+     Cloud sungguhan):** (1) buka `/login` di jendela penyamaran, klik
+     "Masuk dengan Google", **dengan JavaScript mati juga** (CSP `form-action`
+     harus mengizinkan redirect ke Supabase & Google); (2) setujui consent →
+     harus mendarat di `/` dalam keadaan masuk, bukan `/login?error=…`;
+     (3) SQL Editor: `select full_name, role from public.users where email = '<email>'`
+     → nama dari Google, peran `USER`; (4) `/profile` menampilkan nama itu dan
+     TIDAK menampilkan form ganti sandi (akun OAuth tanpa sandi); (5) batalkan
+     consent sekali → kembali ke `/login` tanpa pesan error. Sisi database
+     langkah (3) sudah dikunci `supabase/tests/50_oauth_profile_sync.test.sql`.
 7. **Menjadikan seseorang admin** — hanya lewat SQL Editor (service_role),
    tidak ada jalur dari aplikasi:
    ```sql
