@@ -3,6 +3,8 @@
 import { redirect } from 'next/navigation';
 import { toActionErrorCode, type ActionErrorCode } from '@/lib/action-feedback';
 import { getEventRepository } from '@/lib/data';
+import { RATE_LIMITS } from '@/lib/rate-limit';
+import { currentClientIp, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
 import { isLikelyBot, parseSubmissionForm } from '@/lib/submission-schema';
 
 /**
@@ -28,6 +30,15 @@ export async function submitEventAction(formData: FormData): Promise<void> {
       .join(',');
     redirect(`/submit?error=invalid_submission&fields=${encodeURIComponent(fields)}`);
   }
+
+  // Batas per email di Postgres (ADR-023) mudah diakali dengan mengarang
+  // email; batas per IP menutupnya, dan dihitung sebelum CAPTCHA supaya
+  // banjir dari satu mesin tidak menghabiskan kuota verifikasi Turnstile.
+  const ip = await currentClientIp();
+  if (await isRateLimited(ip, [[RATE_LIMITS.submissionPerIp]])) {
+    redirect('/submit?error=submission_rate_limited');
+  }
+  if (!(await passesCaptcha(formData, ip))) redirect('/submit?error=captcha_failed');
 
   const { submittedByEmail, ...payload } = parsed.data;
   let failure: ActionErrorCode | null = null;

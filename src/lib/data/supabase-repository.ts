@@ -807,4 +807,23 @@ export class SupabaseEventRepository implements EventRepository {
     const { error } = await supabase.from('teams').delete().eq('id', teamId).eq('created_by', actorId);
     if (error) throw upstreamFailure('Gagal membubarkan tim.', error, 500);
   }
+
+  async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {
+    try {
+      const { data, error } = await createSupabaseAdminClient().rpc('consume_rate_limit', {
+        p_bucket: bucket,
+        p_limit: limit,
+        p_window_seconds: windowSeconds,
+      });
+      if (error) throw error;
+      return data === true;
+    } catch (error) {
+      // Fail OPEN, dengan sadar: pembatas yang rusak (mis. service role key
+      // belum diisi) tidak boleh mengunci SEMUA orang dari halaman masuk.
+      // Lapisan lain tetap berjalan: batas bawaan Supabase Auth, CAPTCHA,
+      // dan trigger batas kiriman di Postgres. Log-nya wajib dipantau.
+      console.error('[rate-limit] consume_rate_limit gagal, permintaan diloloskan:', error);
+      return true;
+    }
+  }
 }

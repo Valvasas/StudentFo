@@ -12,6 +12,42 @@ terdokumentasi.
 
 ---
 
+## ADR-028 — Pembatas laju sendiri untuk masuk/daftar/lupa-sandi/`/submit` + Turnstile di `/submit`
+
+**Konteks:** TASKS Phase 2 menunda rate limit masuk dengan alasan "bersandar pada
+Supabase Auth". Asumsi itu keliru untuk arsitektur ini: semua panggilan auth
+berasal dari Server Action, jadi batas per-IP bawaan Supabase melihat **IP server
+Next.js** untuk semua pengguna. Satu penyerang yang menebak sandi menghabiskan
+kuota bersama — seluruh pengguna terkunci dari halaman masuk. `/submit` juga hanya
+dibatasi per email (bisa dikarang) dan plafon global.
+
+**Keputusan:**
+- Tabel `rate_limit_hits` + RPC `consume_rate_limit(bucket, limit, window)`
+  (migration `20260926110001`), jendela geser, `pg_advisory_xact_lock` per ember,
+  hanya `service_role`. Kunci ember = HMAC-SHA256(`RATE_LIMIT_SECRET`, IP[, email])
+  — tidak ada IP mentah di database. Mode seed: `MemoryRateLimiter` dengan aturan
+  yang sama.
+- Aturan (`RATE_LIMITS`): masuk 30/15 mnt per IP dan 5/15 mnt per IP+email;
+  daftar 5/jam per IP; lupa sandi 5/jam per IP; `/submit` 5/jam per IP. **Tidak
+  ada batas per email saja** — itu alat untuk mengunci akun orang lain.
+- IP tak terbaca → batas per-IP dilewati (kalau tidak, semua orang berbagi satu
+  ember "unknown"). RPC gagal → fail open + log: pembatas rusak tidak boleh
+  mengunci semua orang; lapisan Supabase Auth dan trigger ADR-023 tetap ada.
+- Turnstile di `/submit` saja, opsional lewat `TURNSTILE_SITE_KEY` +
+  `TURNSTILE_SECRET_KEY`, diverifikasi server-side, **fail closed**.
+
+**Konsekuensi:** Menggantikan catatan "bersandar penuh pada Supabase Auth" di
+TASKS Phase 2. Harga: `/submit` dengan CAPTCHA aktif butuh JavaScript —
+pengecualian sadar dari prinsip tanpa-JS (ADR-012), hanya untuk form tamu yang
+paling mudah disalahgunakan; halaman masuk tetap tanpa CAPTCHA dan tanpa JS.
+Batas per IP hanya berarti kalau proxy terdepan menimpa `x-forwarded-for`
+(Vercel/Cloudflare ya; hosting lain wajib dicek). Terbukti: 40 panggilan paralel
+batas 5 → tepat 5 lolos; e2e `/submit` kiriman ke-6 dengan email baru ditolak
+(gagal sebelum perubahan). Widget Turnstile asli belum diuji end-to-end (egress
+sandbox ke Cloudflare diblokir) — uji di staging dengan kunci uji resmi.
+
+---
+
 ## ADR-027 — CSP bernonce per request + HSTS; halaman tetap dinamis
 
 **Konteks:** Header keamanan hanya empat (nosniff, X-Frame-Options, Referrer,

@@ -1,6 +1,7 @@
 import { actionError } from '@/lib/action-feedback';
 import { buildDeadlineWeek, daysUntil, getDeadlineState } from '@/lib/deadline';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
+import { MemoryRateLimiter } from '@/lib/rate-limit';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
   AppNotification,
@@ -154,6 +155,7 @@ export class MemoryEventRepository implements EventRepository {
   private readonly readNotifications = new Map<string, Set<string>>();
   private readonly teams = new Map<string, TeamEntry>();
   private readonly submissions = new Map<string, Submission>();
+  private readonly rateLimiter = new MemoryRateLimiter();
 
   constructor(base: Date = new Date()) {
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
@@ -591,5 +593,9 @@ export class MemoryEventRepository implements EventRepository {
   async deleteTeam(actorId: string, teamId: string): Promise<void> {
     this.requireLeader(actorId, teamId);
     this.teams.delete(teamId);
+  }
+
+  async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {
+    return this.rateLimiter.consume(bucket, limit, windowSeconds);
   }
 }

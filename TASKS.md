@@ -86,11 +86,9 @@ secara duplikat atau bertabrakan.
       `.github/workflows/deadline-notifications.yml`. Lihat `DECISION.md` ADR-017.
       CATATAN: ambang H-3/H-1 sengaja diduplikasi di `src/lib/notifications.ts`
       dan di SQL — ubah keduanya bersamaan. @claude
-- [ ] Pertimbangkan pembatasan laju sendiri untuk percobaan masuk. Saat ini
-      bersandar penuh pada pembatasan bawaan Supabase Auth; pembatas
-      in-memory tidak dipakai karena tidak berlaku lintas instance di
-      lingkungan serverless. Butuh penyimpanan bersama (mis. Redis) kalau
-      mau ditambah.
+- [x] Pembatasan laju sendiri untuk masuk/daftar/lupa sandi — batas bawaan
+      Supabase Auth ternyata tidak cukup (melihat IP server, bukan IP
+      pengguna). Penyimpanan bersama = Postgres, bukan Redis. ADR-028. @claude
 
 ## Backlog — sisa dari kanvas desain (belum diimplementasikan)
 

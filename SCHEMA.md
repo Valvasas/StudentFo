@@ -20,6 +20,7 @@ Urutan migration (harus dijalankan berurutan):
 10. `20260923110001_submission_rate_limit.sql` — trigger `enforce_submission_rate_limit()` pada `ugc_submissions` (3/jam per email, 100 PENDING/jam global; angka dicerminkan `SUBMISSION_RATE_LIMIT` di `src/lib/submission-schema.ts`) + index `lower(email), created_at`
 11. `20260925100001_pipeline_and_notification_reliability.sql` — dedup edisi tahunan, notifikasi berbasis rentang, RPC `stage_scraped_event()`
 12. `20260926100001_rls_initplan.sql` — semua policy memanggil `(select auth.uid())` / `(select public.is_admin())` (InitPlan, sekali per query)
+13. `20260926110001_rate_limits.sql` — tabel `rate_limit_hits` + RPC `consume_rate_limit()` / `purge_rate_limit_hits()` (service_role saja, ADR-028)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -158,6 +159,12 @@ Policy INSERT `team_members` juga mensyaratkan `role = 'member'` kecuali ketua
 mendaftarkan dirinya sendiri di tim miliknya. Tim hanya bisa dibuat untuk
 event `APPROVED` (`teams_owner_insert`).
 
+### `rate_limit_hits` (pembatas laju, ADR-028)
+`(bucket, hit_at)`. `bucket` = `<aturan>:<HMAC-SHA256 hex>` — tidak ada IP atau
+email mentah. RLS aktif **tanpa policy** dan semua hak dicabut dari
+`anon`/`authenticated`; hanya `consume_rate_limit()` (SECURITY DEFINER) dan
+service_role yang menyentuhnya.
+
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat
 DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom
@@ -184,7 +191,7 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 
 ## Row Level Security
 
-RLS **aktif di semua 11 tabel publik**, deny-by-default (DEVIATIONS #2 —
+RLS **aktif di semua 12 tabel publik**, deny-by-default (DEVIATIONS #2 —
 blueprint asli hanya menyalakan 5 tabel, sisanya bisa ditulis publik lewat
 anon key). Ringkasan policy:
 

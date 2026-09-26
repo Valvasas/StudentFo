@@ -109,6 +109,13 @@ export interface EventRepository {
    */
   addTrackerItemIfAbsent(userId: string, eventId: string): Promise<void>;
   removeTrackerItem(userId: string, eventId: string): Promise<void>;
+
+  /**
+   * Catat satu percobaan di ember pembatas laju. `true` = diizinkan.
+   * `bucket` sudah di-HMAC oleh pemanggil (`rateLimitBucket()`), jadi
+   * implementasi tidak pernah melihat IP atau email mentah.
+   */
+  consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean>;
 }
 
 export interface CreateSubmissionInput {

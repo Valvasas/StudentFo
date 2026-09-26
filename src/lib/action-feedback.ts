@@ -23,6 +23,7 @@ export const ACTION_ERROR_CODES = [
   'submission_duplicate',
   'submission_not_found',
   'submission_rate_limited',
+  'captcha_failed',
   'invalid_request',
   'unknown',
 ] as const;
@@ -43,6 +44,8 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   submission_not_found: 'Kiriman ini sudah tidak ada atau sudah ditinjau.',
   submission_rate_limited:
     'Terlalu banyak kiriman dalam satu jam terakhir. Coba lagi nanti — kiriman sebelumnya tetap ada di antrean.',
+  captcha_failed:
+    'Verifikasi anti-bot belum selesai atau kedaluwarsa. Tunggu tanda centang muncul, lalu kirim ulang.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
