@@ -272,7 +272,7 @@ export class MemoryEventRepository implements EventRepository {
     return buildDeadlineWeek(deadlines, new Date());
   }
 
-  async listByStatus(status: EventStatus, limit: number): Promise<readonly EventSummary[]> {
+  async listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]> {
     return this.events.filter((event) => event.status === status).slice(0, limit);
   }
 

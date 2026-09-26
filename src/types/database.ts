@@ -36,6 +36,10 @@ export interface EventDeadlineRow {
   is_primary: boolean;
 }
 
+export interface EventDeadlineWithEventRow extends EventDeadlineRow {
+  event_id: string;
+}
+
 export interface CategoryRow {
   id: string;
   name: string;

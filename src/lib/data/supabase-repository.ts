@@ -23,6 +23,7 @@ import { toNotificationType } from '@/types/domain';
 import type {
   CategoryRow,
   EventDeadlineRow,
+  EventDeadlineWithEventRow,
   EventListingRow,
   NotificationRow,
   SubmissionRow,
@@ -230,7 +231,7 @@ export class SupabaseEventRepository implements EventRepository {
     );
   }
 
-  async listByStatus(status: EventStatus, limit: number): Promise<readonly EventSummary[]> {
+  async listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]> {
     // Antrean moderasi berisi baris PENDING yang menurut RLS TIDAK terbaca
     // oleh anon. Dibaca dengan klien admin; otorisasi siapa yang boleh
     // memanggil ini ditegakkan di lapisan rute (lihat src/app/admin).
@@ -244,7 +245,25 @@ export class SupabaseEventRepository implements EventRepository {
       .returns<EventListingRow[]>();
 
     if (error) throw upstreamFailure('Gagal memuat antrean moderasi.', error);
-    return data.map(toSummary);
+    if (data.length === 0) return [];
+
+    const { data: deadlineRows, error: deadlineError } = await supabase
+      .from('event_deadlines')
+      .select('id, event_id, label, deadline_at, is_primary')
+      .in(
+        'event_id',
+        data.map((row) => row.id),
+      )
+      .order('deadline_at', { ascending: true })
+      .returns<EventDeadlineWithEventRow[]>();
+
+    if (deadlineError) throw upstreamFailure('Gagal memuat tenggat antrean moderasi.', deadlineError);
+    return data.map((row) =>
+      toDetail(
+        row,
+        deadlineRows.filter((deadline) => deadline.event_id === row.id),
+      ),
+    );
   }
 
   async reviewEvent({ eventId, decision, reviewerId, reason }: ReviewEventInput): Promise<void> {

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlertTriangle, Check, Inbox, RotateCcw, ShieldCheck, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, Inbox, RotateCcw, ShieldCheck, Users } from 'lucide-react';
+import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
-import { DeadlineTag } from '@/components/event/deadline-tag';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,7 @@ import { checkAdminAccess } from '@/lib/auth';
 import { demoDataCreatedAt, getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
 import { dataMode } from '@/lib/env';
-import { EVENT_TYPE_LABEL } from '@/types/domain';
-import { resetDemoDataAction, reviewEventAction } from './actions';
+import { resetDemoDataAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -128,40 +127,7 @@ export default async function AdminPage({
       ) : (
         <ul className="flex flex-col gap-4">
           {pending.map((event) => (
-            <li
-              key={event.id}
-              className="flex flex-col gap-4 rounded-card border border-line bg-panel p-5 shadow-card sm:flex-row sm:items-start sm:justify-between"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="brand">{EVENT_TYPE_LABEL[event.eventType]}</Badge>
-                  <DeadlineTag deadlineAt={event.primaryDeadlineAt} />
-                </div>
-                <h2 className="mt-2 text-base font-semibold">{event.title}</h2>
-                <p className="mt-1 text-sm text-ink-muted">{event.organizer}</p>
-              </div>
-
-              {/* Dua <form> terpisah, masing-masing satu aksi. Menaruh dua
-                  tombol submit dengan nilai berbeda di satu form membuat
-                  tombol Enter di keyboard memilih aksi pertama — di sini itu
-                  berarti "Setujui" tanpa sengaja. */}
-              <div className="flex shrink-0 gap-2">
-                <form action={reviewEventAction}>
-                  <input type="hidden" name="eventId" value={event.id} />
-                  <input type="hidden" name="decision" value="APPROVED" />
-                  <Button type="submit" variant="success" size="sm">
-                    <Check aria-hidden /> Setujui
-                  </Button>
-                </form>
-                <form action={reviewEventAction}>
-                  <input type="hidden" name="eventId" value={event.id} />
-                  <input type="hidden" name="decision" value="REJECTED" />
-                  <Button type="submit" variant="danger" size="sm">
-                    <X aria-hidden /> Tolak
-                  </Button>
-                </form>
-              </div>
-            </li>
+            <EventReviewCard key={event.id} event={event} />
           ))}
         </ul>
       )}

@@ -34,8 +34,12 @@ export interface EventRepository {
   /** Pita "Minggu ini": 7 hari kalender WIB mulai hari ini, jumlah tenggat event tayang per hari. */
   getDeadlineWeek(): Promise<readonly DeadlineDay[]>;
 
-  /** Antrean moderasi (§7 langkah 7). Hanya dipanggil dari rute admin. */
-  listByStatus(status: EventStatus, limit: number): Promise<readonly EventSummary[]>;
+  /**
+   * Antrean moderasi (§7 langkah 7). Hanya dipanggil dari rute admin.
+   * Bentuk DETAIL, bukan ringkasan: moderator harus bisa mencocokkan hasil
+   * ekstraksi dengan `sourceUrl` dan `registrationLink` aslinya.
+   */
+  listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]>;
   reviewEvent(input: ReviewEventInput): Promise<void>;
 
   /**
