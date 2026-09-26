@@ -1,6 +1,7 @@
 import { actionError } from '@/lib/action-feedback';
 import { buildDeadlineWeek, daysUntil, getDeadlineState } from '@/lib/deadline';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
+import { MemoryRateLimiter } from '@/lib/rate-limit';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
   AppNotification,
@@ -10,6 +11,7 @@ import type {
   EventQuery,
   EventStatus,
   EventSummary,
+  ModerationLogEntry,
   Paginated,
   Submission,
   Team,
@@ -20,7 +22,9 @@ import type {
 import { isPubliclyVisible, paginate, resolvePaging, sortSummaries } from './listing';
 import type {
   CreateSubmissionInput,
+  CalibrationData,
   CreateTeamRepositoryInput,
+  RecommendationSignalInput,
   EventRepository,
   RepositoryStats,
   ReviewEventInput,
@@ -154,6 +158,14 @@ export class MemoryEventRepository implements EventRepository {
   private readonly readNotifications = new Map<string, Set<string>>();
   private readonly teams = new Map<string, TeamEntry>();
   private readonly submissions = new Map<string, Submission>();
+  private readonly rateLimiter = new MemoryRateLimiter();
+  private readonly moderationLog: ModerationLogEntry[] = [];
+  /** submissionId → akun pengirim yang masuk (cermin ugc_submissions.submitted_by). */
+  private readonly submissionOwners = new Map<string, string>();
+  /** Notifikasi tersimpan (bukan turunan tenggat): kabar kiriman komunitas. */
+  private readonly storedNotifications = new Map<string, AppNotification[]>();
+  /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
+  readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
 
   constructor(base: Date = new Date()) {
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
@@ -272,23 +284,63 @@ export class MemoryEventRepository implements EventRepository {
     return buildDeadlineWeek(deadlines, new Date());
   }
 
-  async listByStatus(status: EventStatus, limit: number): Promise<readonly EventSummary[]> {
+  async listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]> {
     return this.events.filter((event) => event.status === status).slice(0, limit);
   }
 
-  async reviewEvent({ eventId, decision }: ReviewEventInput): Promise<void> {
-    this.updateEvent(eventId, (event) => ({ ...event, status: decision }));
+  async reviewEvent({ eventId, decision, reviewerId, reviewerName, reason }: ReviewEventInput): Promise<void> {
+    const event = this.findEvent(eventId);
+    if (!event || event.status === decision) return;
+    this.updateEvent(eventId, (current) => ({ ...current, status: decision }));
+    this.logModeration({
+      subjectType: 'event',
+      subjectId: eventId,
+      title: event.title,
+      fromStatus: event.status,
+      toStatus: decision,
+      actor: { reviewerId, reviewerName },
+      reason: decision === 'REJECTED' ? (reason ?? null) : null,
+    });
+  }
+
+  /** Cermin trigger `log_moderation_change()` (migration 20260926130001). */
+  private logModeration(entry: {
+    subjectType: ModerationLogEntry['subjectType'];
+    subjectId: string;
+    title: string;
+    fromStatus: EventStatus | null;
+    toStatus: EventStatus;
+    actor: { reviewerId: string | null; reviewerName?: string | undefined };
+    reason: string | null;
+  }): void {
+    this.moderationLog.push({
+      id: String(this.moderationLog.length + 1),
+      subjectType: entry.subjectType,
+      subjectId: entry.subjectId,
+      title: entry.title,
+      fromStatus: entry.fromStatus,
+      toStatus: entry.toStatus,
+      actorId: entry.actor.reviewerId,
+      actorName: entry.actor.reviewerId ? (entry.actor.reviewerName ?? null) : null,
+      reason: entry.reason,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  async listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]> {
+    return [...this.moderationLog].reverse().slice(0, limit);
   }
 
   // ------------------------------------------------------------------
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, payload }: CreateSubmissionInput): Promise<void> {
+  async createSubmission({ submittedByEmail, submittedBy, payload }: CreateSubmissionInput): Promise<void> {
     if (isSubmissionRateLimited([...this.submissions.values()], submittedByEmail)) {
       throw actionError('submission_rate_limited');
     }
     const id = this.nextId();
+    if (submittedBy) this.submissionOwners.set(id, submittedBy);
     this.submissions.set(id, {
       id,
       submittedByEmail,
@@ -305,7 +357,7 @@ export class MemoryEventRepository implements EventRepository {
       .slice(0, limit);
   }
 
-  async reviewSubmission({ submissionId, decision }: ReviewSubmissionInput): Promise<void> {
+  async reviewSubmission({ submissionId, decision, reviewerId, reviewerName }: ReviewSubmissionInput): Promise<void> {
     const submission = this.submissions.get(submissionId);
     if (!submission || submission.status !== 'PENDING') throw actionError('submission_not_found');
 
@@ -348,9 +400,28 @@ export class MemoryEventRepository implements EventRepository {
           { id: `${id}-d0`, label: 'registration', deadlineAt: payload.deadlineAt, isPrimary: true },
         ],
       });
+      this.logModeration({
+        subjectType: 'event',
+        subjectId: id,
+        title: payload.title,
+        fromStatus: null,
+        toStatus: 'APPROVED',
+        actor: { reviewerId, reviewerName },
+        reason: null,
+      });
     }
 
     this.submissions.set(submissionId, { ...submission, status: decision });
+    this.notifySubmitter(submissionId, submission.payload?.title ?? 'kegiatan', decision);
+    this.logModeration({
+      subjectType: 'submission',
+      subjectId: submissionId,
+      title: submission.payload?.title ?? '(tanpa judul)',
+      fromStatus: 'PENDING',
+      toStatus: decision,
+      actor: { reviewerId, reviewerName },
+      reason: null,
+    });
   }
 
   // ------------------------------------------------------------------
@@ -365,7 +436,14 @@ export class MemoryEventRepository implements EventRepository {
     return [...(this.savedEvents.get(userId) ?? [])];
   }
 
+  /** Cermin WITH CHECK policy saved_events_own / tracker_own (migration 0008). */
+  private requireVisibleEvent(eventId: string): void {
+    const event = this.findEvent(eventId);
+    if (!event || !isPubliclyVisible(event)) throw actionError('event_unavailable');
+  }
+
   async saveEvent(userId: string, eventId: string): Promise<void> {
+    this.requireVisibleEvent(eventId);
     const saved = getOrCreate(this.savedEvents, userId, () => new Set<string>());
     if (saved.has(eventId)) return;
     saved.add(eventId);
@@ -406,6 +484,7 @@ export class MemoryEventRepository implements EventRepository {
     status: TrackerStatus,
     notes?: string | null,
   ): Promise<void> {
+    this.requireVisibleEvent(eventId);
     const entries = getOrCreate(this.trackerEntries, userId, () => new Map<string, TrackerEntry>());
     const now = new Date().toISOString();
     const existing = entries.get(eventId);
@@ -444,15 +523,38 @@ export class MemoryEventRepository implements EventRepository {
    * Yang tetap disimpan hanyalah status "sudah dibaca" — itu keputusan
    * pengguna, bukan data turunan.
    */
+  /** Cermin trigger notify_submission_decision() (migration 20260926160001). */
+  private notifySubmitter(submissionId: string, title: string, decision: 'APPROVED' | 'REJECTED'): void {
+    const owner = this.submissionOwners.get(submissionId);
+    if (!owner) return;
+    const event = decision === 'APPROVED' ? this.events.find((candidate) => candidate.title === title) : undefined;
+    getOrCreate(this.storedNotifications, owner, () => []).push({
+      id: `notif-submission-${submissionId}`,
+      type: decision === 'APPROVED' ? 'SUBMISSION_APPROVED' : 'SUBMISSION_REJECTED',
+      message:
+        decision === 'APPROVED'
+          ? `Kirimanmu "${title}" sudah dicek dan kini tayang. Terima kasih!`
+          : `Kirimanmu "${title}" belum bisa ditayangkan setelah dicek moderator. Pastikan tautan resmi & tenggatnya benar, lalu kirim ulang.`,
+      isRead: false,
+      sentAt: new Date().toISOString(),
+      event: event ? { id: event.id, slug: event.slug, title: event.title } : null,
+    });
+  }
+
   private deriveNotifications(userId: string, now: Date): AppNotification[] {
+    const readSet = this.readNotifications.get(userId);
+    const stored = (this.storedNotifications.get(userId) ?? []).map((notification) => ({
+      ...notification,
+      isRead: readSet?.has(notification.id) ?? false,
+    }));
+
     const sources = new Set<string>(this.savedEvents.get(userId) ?? []);
     for (const eventId of this.trackerEntries.get(userId)?.keys() ?? []) {
       sources.add(eventId);
     }
-    if (sources.size === 0) return [];
+    if (sources.size === 0) return stored;
 
-    const readSet = this.readNotifications.get(userId);
-    const notifications: AppNotification[] = [];
+    const notifications: AppNotification[] = [...stored];
 
     for (const eventId of sources) {
       const event = this.findEvent(eventId);
@@ -591,5 +693,22 @@ export class MemoryEventRepository implements EventRepository {
   async deleteTeam(actorId: string, teamId: string): Promise<void> {
     this.requireLeader(actorId, teamId);
     this.teams.delete(teamId);
+  }
+
+  async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {
+    return this.rateLimiter.consume(bucket, limit, windowSeconds);
+  }
+
+  async recordRecommendationSignal(input: RecommendationSignalInput): Promise<void> {
+    this.recommendationSignals.push({ ...input, createdAt: new Date().toISOString() });
+  }
+
+  async listCalibrationData(since: Date): Promise<CalibrationData> {
+    return {
+      signals: this.recommendationSignals
+        .filter((signal) => new Date(signal.createdAt) >= since)
+        .map(({ eventId, createdAt, interests, educationLevel }) => ({ eventId, createdAt, interests, educationLevel })),
+      events: this.events.filter(isPubliclyVisible),
+    };
   }
 }

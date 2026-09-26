@@ -44,6 +44,15 @@ function jakartaDayStart(date: Date): number {
   return Date.UTC(lookup('year'), lookup('month') - 1, lookup('day'));
 }
 
+/**
+ * Nomor hari kalender WIB (hari sejak epoch). Selisih dua nilai = selisih
+ * hari yang sama persis dengan `daysUntil`, tanpa memanggil Intl lagi —
+ * untuk perhitungan massal yang membandingkan ribuan tanggal.
+ */
+export function jakartaDayNumber(date: Date): number {
+  return Math.round(jakartaDayStart(date) / MS_PER_DAY);
+}
+
 /** Sisa hari kalender (WIB). 0 = jatuh tempo hari ini, negatif = lewat. */
 export function daysUntil(deadlineIso: string, now: Date = new Date()): number | null {
   const deadline = new Date(deadlineIso);
@@ -184,6 +193,18 @@ const longDateFormatter = new Intl.DateTimeFormat('id-ID', {
   month: 'long',
   year: 'numeric',
 });
+
+const timeFormatter = new Intl.DateTimeFormat('id-ID', {
+  timeZone: JAKARTA_TZ,
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/** "14.30 WIB" — jam saja, untuk kejadian dalam hitungan jam ke depan. */
+export function formatTimeId(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? 'waktu tidak valid' : `${timeFormatter.format(date)} WIB`;
+}
 
 const dateTimeFormatter = new Intl.DateTimeFormat('id-ID', {
   timeZone: JAKARTA_TZ,

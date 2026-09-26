@@ -22,7 +22,7 @@ export function TrackerCard({ item }: { item: TrackerItem }) {
 
       <div>
         <h3 className="text-sm font-semibold leading-snug">
-          <Link href={`/events/${event.slug}`} className="flex items-center gap-1 hover:text-brand-text">
+          <Link href={`/events/${event.slug}`} className="-my-1 flex min-h-11 items-center gap-1 hover:text-brand-text">
             <span>{event.title}</span>
             <ExternalLink aria-hidden className="size-3 shrink-0 text-ink-muted" />
           </Link>
@@ -34,18 +34,20 @@ export function TrackerCard({ item }: { item: TrackerItem }) {
         <p className="rounded-sm bg-panel-nested p-2 text-xs italic text-ink-soft">&ldquo;{item.notes}&rdquo;</p>
       )}
 
-      <div className="mt-2 flex items-center justify-between border-t border-line/60 pt-2 text-xs">
-        <form action={updateTrackerStatusAction} className="flex items-center gap-1.5">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-2 text-xs">
+        <form action={updateTrackerStatusAction} className="flex min-w-0 items-center gap-1.5">
           <input type="hidden" name="eventId" value={event.id} />
           <input type="hidden" name="returnTo" value="/tracker" />
+          {/* Nama unik per kartu: tanpa judul, pembaca layar mendengar deretan
+              "Ubah status" yang identik di seluruh papan. */}
           <label htmlFor={`status-${item.id}`} className="sr-only">
-            Ubah status
+            Tahap lamaran untuk {event.title}
           </label>
           <select
             id={`status-${item.id}`}
             name="status"
             defaultValue={item.status}
-            className="h-7 rounded-sm border border-line bg-panel px-2 text-xs text-ink-soft hover:border-line-strong focus:border-brand focus:outline-none"
+            className="h-11 rounded-sm border border-line bg-panel px-2 text-sm text-ink-soft hover:border-line-strong focus:border-brand focus:outline-none"
           >
             {TRACKER_STATUSES.map((status) => (
               <option key={status} value={status}>
@@ -55,7 +57,7 @@ export function TrackerCard({ item }: { item: TrackerItem }) {
           </select>
           <button
             type="submit"
-            className="h-7 rounded-sm border border-line bg-panel-nested px-2 text-xs font-medium text-ink hover:bg-panel-nested/80"
+            className="h-11 rounded-sm border border-line bg-panel-nested px-3 text-sm font-medium text-ink hover:bg-panel-nested/80"
           >
             Ubah
           </button>
@@ -67,8 +69,8 @@ export function TrackerCard({ item }: { item: TrackerItem }) {
           <button
             type="submit"
             title="Hapus dari tracker"
-            aria-label="Hapus dari tracker"
-            className="flex size-7 items-center justify-center rounded-sm text-ink-muted hover:bg-panel-nested hover:text-ink"
+            aria-label={`Hapus ${event.title} dari tracker`}
+            className="flex size-11 items-center justify-center rounded-sm text-ink-muted hover:bg-panel-nested hover:text-ink"
           >
             <Trash2 aria-hidden className="size-3.5" />
           </button>

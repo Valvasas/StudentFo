@@ -70,7 +70,7 @@ export function SubmissionReviewCard({ submission }: { submission: Submission })
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
-                  className="inline-flex items-center gap-1 text-brand-text hover:underline"
+                  className="inline-flex min-h-11 items-center gap-1 text-brand-text hover:underline"
                 >
                   {label} <ExternalLink aria-hidden className="size-3" />
                 </a>

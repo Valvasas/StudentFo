@@ -1,11 +1,9 @@
-import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { EmptyState } from '@/components/event/empty-state';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { EventGrid } from '@/components/event/event-grid';
 import { FilterBar } from '@/components/event/filter-bar';
 import { Pagination } from '@/components/event/pagination';
-import { EventGridSkeleton, Skeleton } from '@/components/ui/skeleton';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import {
@@ -37,6 +35,14 @@ export const metadata: Metadata = {
  * diindeks. Ini sudah pernah terjadi dan sudah diverifikasi ulang dengan
  * curl. Batas pemuatan di bawah ini sengaja dipasang MANUAL dan hanya
  * melingkupi bagian hasil pencarian.
+ *
+ * Dan JANGAN pula membungkus hasil dengan <Suspense> manual. Konten yang
+ * di-stream dikirim di dalam `<div hidden>` dan baru ditampilkan oleh
+ * JavaScript; tanpa JS (jaringan kampus yang memblokir skrip, ponsel lawas)
+ * halaman ini pernah hanya menampilkan "Memuat daftar kegiatan" — tanpa
+ * filter, tanpa hasil — padahal filter di sini dirancang berfungsi tanpa JS.
+ * Query listing sudah di-cache (ADR-034), jadi menunggu data sebelum
+ * mengirim HTML tidak mahal. Dikunci tests/e2e/demo-journey.spec.ts.
  */
 export default async function EventsPage({
   searchParams,
@@ -60,12 +66,7 @@ export default async function EventsPage({
 
       <ActionFeedback params={rawParams} className="mb-6 max-w-2xl" />
 
-      {/* `key` dari query: tanpa ini React menganggap boundary-nya sama saat
-          filter berubah, dan user melihat hasil lama membeku alih-alih
-          skeleton yang menandakan ada pencarian baru berjalan. */}
-      <Suspense key={JSON.stringify(query)} fallback={<ResultsFallback />}>
-        <Results query={query} categories={categories} />
-      </Suspense>
+      <Results query={query} categories={categories} />
     </div>
   );
 }
@@ -114,22 +115,6 @@ async function Results({
             }
           />
         )}
-      </div>
-    </>
-  );
-}
-
-function ResultsFallback() {
-  return (
-    <>
-      <Skeleton className="h-11 w-full" />
-      <div className="mt-4 flex gap-2">
-        {Array.from({ length: 5 }, (_, index) => (
-          <Skeleton key={index} className="h-9 w-24 rounded-pill" />
-        ))}
-      </div>
-      <div className="mt-8">
-        <EventGridSkeleton />
       </div>
     </>
   );

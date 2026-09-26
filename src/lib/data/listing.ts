@@ -92,3 +92,23 @@ export function sortSummaries<T extends EventSummary>(
  * request tidak berskala.
  */
 export const RELEVANCE_CANDIDATE_WINDOW = 240;
+
+/**
+ * Di atas jumlah event aktif ini, total listing memakai perkiraan planner
+ * (`count: 'planned'`), bukan COUNT(*) sungguhan. Diukur (ADR-035): count
+ * exact lewat PostgREST menambah ±100 ms di 50.000 event dan ±550 ms bila
+ * digabung urutan tenggat (join events × event_deadlines dua kali); di
+ * 20.000 event seluruh listing masih ≤ 130 ms. Total pasti lebih penting
+ * untuk paginasi selama murah, jadi ambangnya sengaja tinggi.
+ *
+ * Bukan `count: 'estimated'` bawaan PostgREST: ambang di sana = `max_rows`
+ * Supabase (1000), sehingga katalog 1.001 event sudah mendapat total
+ * perkiraan — dan perkiraan planner untuk kueri FTS bisa meleset jauh.
+ */
+export const EXACT_COUNT_MAX_ACTIVE = 20_000;
+
+export type ListingCountMode = 'exact' | 'planned';
+
+export function chooseCountMode(totalActive: number, threshold = EXACT_COUNT_MAX_ACTIVE): ListingCountMode {
+  return totalActive > threshold ? 'planned' : 'exact';
+}

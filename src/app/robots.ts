@@ -7,7 +7,9 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       // Antrean moderasi tidak pernah boleh masuk indeks pencarian.
-      disallow: ['/admin', '/profile', '/auth/'],
+      // /events/*/daftar: pengalih keluar yang mencatat klik (ADR-032) —
+      // crawler yang mengikutinya menggelembungkan sinyal rekomendasi.
+      disallow: ['/admin', '/profile', '/auth/', '/events/*/daftar'],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
   };

@@ -22,9 +22,17 @@ CREATE TABLE IF NOT EXISTS auth.users (
   raw_user_meta_data JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+-- Definisi yang sama dengan Supabase: PostgREST >= 9 hanya mengisi
+-- `request.jwt.claims` (JSON); `request.jwt.claim.sub` tetap dibaca untuk
+-- test SQL yang meniru pengguna dengan SET.
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID
 LANGUAGE sql STABLE
-AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+AS $$
+  SELECT COALESCE(
+    NULLIF(current_setting('request.jwt.claim.sub', true), ''),
+    NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
+  )::uuid
+$$;
 
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;

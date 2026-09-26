@@ -1,17 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlertTriangle, Check, Inbox, RotateCcw, ShieldCheck, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, History, Inbox, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react';
+import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
-import { DeadlineTag } from '@/components/event/deadline-tag';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { checkAdminAccess } from '@/lib/auth';
-import { demoDataCreatedAt, getEventRepository } from '@/lib/data';
-import { formatDateTimeId } from '@/lib/deadline';
+import { DEMO_DATA_TTL_MS, demoDataCreatedAt, getEventRepository } from '@/lib/data';
+import { formatDateTimeId, formatTimeId } from '@/lib/deadline';
 import { dataMode } from '@/lib/env';
-import { EVENT_TYPE_LABEL } from '@/types/domain';
-import { resetDemoDataAction, reviewEventAction } from './actions';
+import { resetDemoDataAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,10 +74,22 @@ export default async function AdminPage({
             pendaftaran dan tenggatnya dicek ke sumber aslinya.
           </p>
         </div>
-        <Badge variant={pending.length > 0 ? 'warning' : 'success'}>
-          <Inbox aria-hidden className="size-3.5" />
-          {pending.length} menunggu
-        </Badge>
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant={pending.length > 0 ? 'warning' : 'success'}>
+            <Inbox aria-hidden className="size-3.5" />
+            {pending.length} menunggu
+          </Badge>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/admin/riwayat">
+              <History aria-hidden /> Riwayat moderasi
+            </Link>
+          </Button>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/admin/kalibrasi">
+              <Scale aria-hidden /> Kalibrasi rekomendasi
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {statusMessage && (
@@ -103,7 +114,11 @@ export default async function AdminPage({
             <span>
               <strong className="font-semibold">Admin demo.</strong> Keputusanmu mengubah data contoh
               yang dilihat semua pengunjung pratinjau, dan data itu diatur ulang otomatis setiap 6 jam
-              {demoCreatedAt ? ` (terakhir ${formatDateTimeId(demoCreatedAt.toISOString())})` : ''}.
+              {demoCreatedAt
+                ? ` (terakhir ${formatDateTimeId(demoCreatedAt.toISOString())}, berikutnya pukul ${formatTimeId(
+                    new Date(demoCreatedAt.getTime() + DEMO_DATA_TTL_MS).toISOString(),
+                  )})`
+                : ''}.
               Di produksi, halaman ini mensyaratkan akun berperan{' '}
               <code className="rounded-sm bg-panel-nested px-1">ADMIN</code>.
             </span>
@@ -128,40 +143,7 @@ export default async function AdminPage({
       ) : (
         <ul className="flex flex-col gap-4">
           {pending.map((event) => (
-            <li
-              key={event.id}
-              className="flex flex-col gap-4 rounded-card border border-line bg-panel p-5 shadow-card sm:flex-row sm:items-start sm:justify-between"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="brand">{EVENT_TYPE_LABEL[event.eventType]}</Badge>
-                  <DeadlineTag deadlineAt={event.primaryDeadlineAt} />
-                </div>
-                <h2 className="mt-2 text-base font-semibold">{event.title}</h2>
-                <p className="mt-1 text-sm text-ink-muted">{event.organizer}</p>
-              </div>
-
-              {/* Dua <form> terpisah, masing-masing satu aksi. Menaruh dua
-                  tombol submit dengan nilai berbeda di satu form membuat
-                  tombol Enter di keyboard memilih aksi pertama — di sini itu
-                  berarti "Setujui" tanpa sengaja. */}
-              <div className="flex shrink-0 gap-2">
-                <form action={reviewEventAction}>
-                  <input type="hidden" name="eventId" value={event.id} />
-                  <input type="hidden" name="decision" value="APPROVED" />
-                  <Button type="submit" variant="success" size="sm">
-                    <Check aria-hidden /> Setujui
-                  </Button>
-                </form>
-                <form action={reviewEventAction}>
-                  <input type="hidden" name="eventId" value={event.id} />
-                  <input type="hidden" name="decision" value="REJECTED" />
-                  <Button type="submit" variant="danger" size="sm">
-                    <X aria-hidden /> Tolak
-                  </Button>
-                </form>
-              </div>
-            </li>
+            <EventReviewCard key={event.id} event={event} />
           ))}
         </ul>
       )}

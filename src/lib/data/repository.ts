@@ -2,10 +2,12 @@ import type {
   AppNotification,
   Category,
   DeadlineDay,
+  EducationLevel,
   EventDetail,
   EventQuery,
   EventStatus,
   EventSummary,
+  ModerationLogEntry,
   Paginated,
   Submission,
   SubmissionPayload,
@@ -13,6 +15,7 @@ import type {
   TrackerItem,
   TrackerStatus,
 } from '@/types/domain';
+import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 
 /**
  * Kontrak akses data. Seluruh UI berbicara HANYA lewat antarmuka ini —
@@ -23,8 +26,25 @@ import type {
  *  - Mengganti Postgres FTS ke Meilisearch (§2) = tulis satu implementasi
  *    baru, nol perubahan di komponen.
  *  - Logika query bisa diuji tanpa menyalakan database.
+ *
+ * Dipecah per domain supaya kode baru bisa bergantung hanya pada bagian
+ * yang dipakainya (mis. `SubmissionRepository` untuk alur /submit). Kedua
+ * implementasi tetap satu kelas yang memenuhi `EventRepository` penuh —
+ * pemecahan ini tidak mengubah perilaku apa pun.
  */
-export interface EventRepository {
+export interface EventRepository
+  extends EventCatalogRepository,
+    ModerationRepository,
+    SubmissionRepository,
+    SavedEventRepository,
+    TrackerRepository,
+    NotificationRepository,
+    TeamRepository,
+    RateLimitRepository,
+    RecommendationSignalRepository {}
+
+/** Katalog publik: listing, detail, statistik beranda. */
+export interface EventCatalogRepository {
   listEvents(query: EventQuery): Promise<Paginated<EventSummary>>;
   getEventBySlug(slug: string): Promise<EventDetail | null>;
   /** Kartu "Sorotan Minggu Ini": tenggat terdekat yang masih terbuka. */
@@ -33,11 +53,28 @@ export interface EventRepository {
   getStats(): Promise<RepositoryStats>;
   /** Pita "Minggu ini": 7 hari kalender WIB mulai hari ini, jumlah tenggat event tayang per hari. */
   getDeadlineWeek(): Promise<readonly DeadlineDay[]>;
+}
 
-  /** Antrean moderasi (§7 langkah 7). Hanya dipanggil dari rute admin. */
-  listByStatus(status: EventStatus, limit: number): Promise<readonly EventSummary[]>;
+/** Moderasi event hasil scraping + riwayat keputusan. Hanya rute admin. */
+export interface ModerationRepository {
+  /**
+   * Antrean moderasi (§7 langkah 7). Hanya dipanggil dari rute admin.
+   * Bentuk DETAIL, bukan ringkasan: moderator harus bisa mencocokkan hasil
+   * ekstraksi dengan `sourceUrl` dan `registrationLink` aslinya.
+   */
+  listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]>;
   reviewEvent(input: ReviewEventInput): Promise<void>;
 
+  /**
+   * Riwayat keputusan moderasi, terbaru di atas. Di produksi diisi TRIGGER
+   * (bukan oleh method review di atas), jadi perubahan dari jalur mana pun —
+   * job expiry, SQL editor — ikut tercatat. Hanya untuk rute admin.
+   */
+  listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]>;
+}
+
+/** Kiriman komunitas (/submit) dan peninjauannya. */
+export interface SubmissionRepository {
   /**
    * Kiriman komunitas (Phase 3). `createSubmission` boleh dipanggil tamu —
    * RLS `ugc_public_insert` memang mengizinkannya. Dua method lainnya hanya
@@ -47,14 +84,40 @@ export interface EventRepository {
   listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]>;
   /** Setujui = salin ke `events` berstatus APPROVED (atomik); tolak = tandai REJECTED. */
   reviewSubmission(input: ReviewSubmissionInput): Promise<void>;
+}
 
+/** Simpanan per pengguna. */
+export interface SavedEventRepository {
   /** Saved events — simpan/batal simpan kegiatan per pengguna (Phase 2) */
   isEventSaved(userId: string, eventId: string): Promise<boolean>;
   listSavedEventIds(userId: string): Promise<readonly string[]>;
   saveEvent(userId: string, eventId: string): Promise<void>;
   unsaveEvent(userId: string, eventId: string): Promise<void>;
   listSavedEvents(userId: string): Promise<readonly EventSummary[]>;
+}
 
+/** Papan tracker lamaran per pengguna. */
+export interface TrackerRepository {
+  /** Application tracker — lacak tahapan lamaran (Phase 2) */
+  listTrackerItems(userId: string): Promise<readonly TrackerItem[]>;
+  upsertTrackerItem(
+    userId: string,
+    eventId: string,
+    status: TrackerStatus,
+    notes?: string | null,
+  ): Promise<void>;
+  /**
+   * Masukkan event ke tracker berstatus SAVED HANYA kalau belum dilacak.
+   * Dipakai tombol "Simpan": memakai `upsertTrackerItem` di sana menimpa
+   * tahapan yang sudah maju (mis. WAWANCARA) kembali ke SAVED setiap kali
+   * pengguna menyimpan ulang kegiatan yang sama.
+   */
+  addTrackerItemIfAbsent(userId: string, eventId: string): Promise<void>;
+  removeTrackerItem(userId: string, eventId: string): Promise<void>;
+}
+
+/** Lonceng notifikasi per pengguna. */
+export interface NotificationRepository {
   /**
    * Notifikasi tenggat & sistem (Phase 2).
    *
@@ -68,7 +131,10 @@ export interface EventRepository {
   countUnreadNotifications(userId: string): Promise<number>;
   markNotificationAsRead(userId: string, notificationId: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
+}
 
+/** Tim lomba. */
+export interface TeamRepository {
   /**
    * Tim lomba (Phase 3).
    *
@@ -88,27 +154,47 @@ export interface EventRepository {
   removeTeamMember(actorId: string, teamId: string, memberId: string): Promise<void>;
   /** Hanya ketua tim yang boleh membubarkan timnya. */
   deleteTeam(actorId: string, teamId: string): Promise<void>;
+}
 
-  /** Application tracker — lacak tahapan lamaran (Phase 2) */
-  listTrackerItems(userId: string): Promise<readonly TrackerItem[]>;
-  upsertTrackerItem(
-    userId: string,
-    eventId: string,
-    status: TrackerStatus,
-    notes?: string | null,
-  ): Promise<void>;
+/** Penghitung pembatas laju (ADR-028). */
+export interface RateLimitRepository {
   /**
-   * Masukkan event ke tracker berstatus SAVED HANYA kalau belum dilacak.
-   * Dipakai tombol "Simpan": memakai `upsertTrackerItem` di sana menimpa
-   * tahapan yang sudah maju (mis. WAWANCARA) kembali ke SAVED setiap kali
-   * pengguna menyimpan ulang kegiatan yang sama.
+   * Catat satu percobaan di ember pembatas laju. `true` = diizinkan.
+   * `bucket` sudah di-HMAC oleh pemanggil (`rateLimitBucket()`), jadi
+   * implementasi tidak pernah melihat IP atau email mentah.
    */
-  addTrackerItemIfAbsent(userId: string, eventId: string): Promise<void>;
-  removeTrackerItem(userId: string, eventId: string): Promise<void>;
+  consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean>;
+}
+
+/** Sinyal & data kalibrasi rekomendasi (ADR-032). */
+export interface RecommendationSignalRepository {
+  /**
+   * Catat sinyal niat untuk kalibrasi bobot rekomendasi (ADR-032). Hanya
+   * dipanggil server; profil disalin saat itu karena profil bisa berubah.
+   */
+  recordRecommendationSignal(input: RecommendationSignalInput): Promise<void>;
+  /** Bahan `calibrate()`: sinyal sejak `since` + semua event yang pernah tayang. Admin saja. */
+  listCalibrationData(since: Date): Promise<CalibrationData>;
+}
+
+
+export interface CalibrationData {
+  readonly signals: readonly CalibrationSignal[];
+  readonly events: readonly CalibrationEvent[];
+}
+
+export interface RecommendationSignalInput {
+  readonly eventId: string;
+  readonly kind: 'save' | 'register_click';
+  readonly userId: string | null;
+  readonly interests: readonly string[];
+  readonly educationLevel: EducationLevel | null;
 }
 
 export interface CreateSubmissionInput {
   readonly submittedByEmail: string;
+  /** Akun yang sedang masuk saat mengirim (dikabari saat ditinjau); null = tamu. */
+  readonly submittedBy: string | null;
   readonly payload: SubmissionPayload;
 }
 
@@ -116,6 +202,8 @@ export interface ReviewSubmissionInput {
   readonly submissionId: string;
   readonly decision: Extract<EventStatus, 'APPROVED' | 'REJECTED'>;
   readonly reviewerId: string | null;
+  /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
+  readonly reviewerName?: string;
 }
 
 export interface RepositoryStats {
@@ -139,6 +227,8 @@ export interface ReviewEventInput {
   readonly eventId: string;
   readonly decision: Extract<EventStatus, 'APPROVED' | 'REJECTED'>;
   readonly reviewerId: string | null;
+  /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
+  readonly reviewerName?: string;
   readonly reason?: string;
 }
 

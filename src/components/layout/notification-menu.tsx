@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Bell, CalendarClock, CheckCheck, Megaphone } from 'lucide-react';
+import { Bell, CalendarClock, CheckCheck, CheckCircle2, Megaphone, XCircle } from 'lucide-react';
 import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
@@ -27,6 +27,8 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   DEADLINE_H3: CalendarClock,
   DEADLINE_H1: CalendarClock,
   SYSTEM: Megaphone,
+  SUBMISSION_APPROVED: CheckCircle2,
+  SUBMISSION_REJECTED: XCircle,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {

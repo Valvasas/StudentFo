@@ -25,7 +25,24 @@ const serverSchema = z.object({
     .transform((value) => value === 'true'),
   /** Penanda tangan cookie sesi demo. Opsional; wajib kalau demo jalan di >1 instance. */
   DEMO_SESSION_SECRET: z.string().min(32).optional(),
-});
+  /** Kunci HMAC untuk ember pembatas laju (IP tidak pernah disimpan mentah). */
+  RATE_LIMIT_SECRET: z.string().min(32).optional(),
+  /**
+   * Cloudflare Turnstile di /submit. Keduanya diisi, atau keduanya kosong (CAPTCHA mati).
+   * Sengaja TANPA awalan NEXT_PUBLIC_: nilai berawalan itu dibekukan saat build,
+   * padahal kunci ini hanya dibaca server dan harus bisa diganti tanpa build ulang.
+   */
+  TURNSTILE_SITE_KEY: z.string().min(1).optional(),
+  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+}).refine(
+  (value) => Boolean(value.TURNSTILE_SITE_KEY) === Boolean(value.TURNSTILE_SECRET_KEY),
+  {
+    // Setengah terkonfigurasi = widget tampil tapi server tidak bisa
+    // memverifikasi (semua kiriman ditolak), atau sebaliknya CAPTCHA diam-diam mati.
+    message: 'TURNSTILE_SITE_KEY dan TURNSTILE_SECRET_KEY harus diisi berpasangan.',
+    path: ['TURNSTILE_SECRET_KEY'],
+  },
+);
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 
@@ -41,6 +58,9 @@ function readEnv(): ServerEnv {
     NODE_ENV: process.env.NODE_ENV,
     ALLOW_DEMO_IN_PRODUCTION: process.env.ALLOW_DEMO_IN_PRODUCTION || undefined,
     DEMO_SESSION_SECRET: process.env.DEMO_SESSION_SECRET || undefined,
+    RATE_LIMIT_SECRET: process.env.RATE_LIMIT_SECRET || undefined,
+    TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY || undefined,
+    TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY || undefined,
   });
 
   if (!parsed.success) {

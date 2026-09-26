@@ -32,6 +32,10 @@ Setiap login membuat akun sementara terisolasi (cookie bertanda tangan HMAC,
 `src/lib/demo/`). Data demo diatur ulang otomatis setiap 6 jam. Detail: `DECISION.md`
 ADR-024.
 
+**Akun demo sengaja tidak bisa dipulihkan** — bukan bug. Identitasnya hanya ada
+di cookie; keluar, menghapus cookie, ganti browser, atau reset 6 jam = akun
+baru yang kosong. Jangan tambahkan "pulihkan akun demo" (ADR-029).
+
 **Deploy situs demo** (mis. pratinjau Vercel tanpa Supabase): build produksi
 menolak jalan tanpa kredensial, supaya situs publik tidak diam-diam menampilkan
 data fiktif. Setel `ALLOW_DEMO_IN_PRODUCTION=true` dan `DEMO_SESSION_SECRET`
@@ -127,6 +131,16 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    - Tempel Client ID & Secret ke Supabase, lalu aktifkan providernya.
    - Tombolnya selalu tampil selama Supabase terkonfigurasi; kalau provider
      belum aktif, pengguna melihat pesan yang mengarahkannya ke pengelola.
+   - **Uji end-to-end (manual, belum pernah dijalankan — butuh project Google
+     Cloud sungguhan):** (1) buka `/login` di jendela penyamaran, klik
+     "Masuk dengan Google", **dengan JavaScript mati juga** (CSP `form-action`
+     harus mengizinkan redirect ke Supabase & Google); (2) setujui consent →
+     harus mendarat di `/` dalam keadaan masuk, bukan `/login?error=…`;
+     (3) SQL Editor: `select full_name, role from public.users where email = '<email>'`
+     → nama dari Google, peran `USER`; (4) `/profile` menampilkan nama itu dan
+     TIDAK menampilkan form ganti sandi (akun OAuth tanpa sandi); (5) batalkan
+     consent sekali → kembali ke `/login` tanpa pesan error. Sisi database
+     langkah (3) sudah dikunci `supabase/tests/50_oauth_profile_sync.test.sql`.
 7. **Menjadikan seseorang admin** — hanya lewat SQL Editor (service_role),
    tidak ada jalur dari aplikasi:
    ```sql
@@ -233,15 +247,24 @@ desain terakhir, dengan Chromium headless di 320/390/768/1440px:
 ## Uji
 
 ```bash
-npm test                                  # 195 uji: deadline & pita WIB, skoring, notifikasi, sesi demo, env, akun, tim, kiriman
+npm test                                  # 260 uji unit: deadline WIB, skoring & kalibrasi, pembatas laju, CSP, sesi demo, tim, kiriman
 python pipeline/tests/test_models.py      # 12 uji: validasi & dedup pipeline
 python pipeline/tests/test_publisher.py   # 4 uji: payload RPC staging
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
   npm run db:test                         # semua migration + RLS, FTS, staging, dedup, notifikasi
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
+  npm run test:integration                # SupabaseEventRepository lewat PostgREST sungguhan + paritas demo↔produksi
+npm run test:a11y                         # Playwright mode seed: axe WCAG 2.2 (termasuk di balik login demo), CSP, target 44px,
+                                          #   320/375px, tanpa-JS, perjalanan demo (183 uji di 3 proyek)
+DATABASE_URL=… npm run test:e2e:supabase   # build produksi mode Supabase: Data Cache, revalidateTag, admin, in-app browser
 ```
 
 Jalankan Postgres lokal untuk `db:test` dengan
 `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:15`.
+Image polos itu tidak punya pg_cron, jadi `60_pg_cron_jobs` dilewati. Untuk
+menguji jalur pg_cron: pasang `postgresql-<ver>-cron`, lalu di `postgresql.conf`
+`shared_preload_libraries = 'pg_cron'`, `cron.database_name = 'studentfo_migration_test'`,
+`cron.use_background_workers = on`, dan restart.
 
 Yang diuji adalah tempat bug paling mahal: perhitungan hari lintas zona waktu,
 ambang urgensi, bobot rekomendasi, parsing parameter URL dari pihak tak dipercaya,

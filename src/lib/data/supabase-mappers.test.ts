@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid, sanitizeSearchQuery, sqlState, toSubmission } from './supabase-mappers';
+import { isUuid, sanitizeSearchQuery, sqlState, toModerationLogEntry, toSubmission } from './supabase-mappers';
 
 describe('isUuid', () => {
   it('menerima UUID dan menolak selainnya sebelum sampai ke Postgres', () => {
@@ -36,5 +36,29 @@ describe('toSubmission', () => {
     });
     expect(submission.id).toBe('s1');
     expect(submission.payload).toBeNull();
+  });
+});
+
+describe('toModerationLogEntry', () => {
+  const row = {
+    id: 42,
+    subject_type: 'event' as const,
+    subject_id: 'e1000000-0000-4000-8000-000000000001',
+    title: 'Lomba X',
+    from_status: 'PENDING' as const,
+    to_status: 'APPROVED' as const,
+    actor_id: 'a1000000-0000-4000-8000-000000000001',
+    reason: null,
+    created_at: '2026-09-26T01:00:00Z',
+    actor: { full_name: 'Admin A' },
+  };
+
+  it('memetakan nama aktor dari join users', () => {
+    expect(toModerationLogEntry(row)).toMatchObject({ id: '42', actorName: 'Admin A', fromStatus: 'PENDING' });
+  });
+
+  it('aktor yang akunnya dihapus / perubahan sistem → nama null', () => {
+    expect(toModerationLogEntry({ ...row, actor: null }).actorName).toBeNull();
+    expect(toModerationLogEntry({ ...row, actor_id: null, actor: null }).actorId).toBeNull();
   });
 });

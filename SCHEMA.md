@@ -18,6 +18,20 @@ Urutan migration (harus dijalankan berurutan):
 8. `20260914100002_team_member_profiles.sql` — view `team_member_profiles` + index `teams(event_id)`
  9. `20260923100001_security_hardening.sql` — pengerasan hak akses (default privileges Supabase), kapasitas tim di DB, view `team_member_counts`, RPC `approve_submission()`, batas ukuran kolom, index tambahan
 10. `20260923110001_submission_rate_limit.sql` — trigger `enforce_submission_rate_limit()` pada `ugc_submissions` (3/jam per email, 100 PENDING/jam global; angka dicerminkan `SUBMISSION_RATE_LIMIT` di `src/lib/submission-schema.ts`) + index `lower(email), created_at`
+11. `20260925100001_pipeline_and_notification_reliability.sql` — dedup edisi tahunan, notifikasi berbasis rentang, RPC `stage_scraped_event()`
+12. `20260926100001_rls_initplan.sql` — semua policy memanggil `(select auth.uid())` / `(select public.is_admin())` (InitPlan, sekali per query)
+13. `20260926110001_rate_limits.sql` — tabel `rate_limit_hits` + RPC `consume_rate_limit()` / `purge_rate_limit_hits()` (service_role saja, ADR-028)
+14. `20260926120001_pg_cron_jobs.sql` — pg_cron + 3 job harian (bersyarat; ADR-030, lihat § Job terjadwal)
+15. `20260926130001_moderation_log.sql` — tabel append-only `moderation_log` diisi trigger `log_moderation_change()` di `events`/`ugc_submissions`; kolom `ugc_submissions.reviewed_by/reviewed_at`; `approve_submission()` mengisi peninjau (ADR-031)
+16. `20260926140001_recommendation_signals.sql` — tabel `recommendation_signals` (simpan & klik "Daftar" + snapshot profil), tulis hanya service_role (ADR-032)
+17. `20260926150001_events_listing_search_vector.sql` — `events_listing` mengekspos `search_vector` (tanpanya setiap pencarian di mode Supabase gagal 42703)
+18. `20260926160001_submission_notifications.sql` — `ugc_submissions.submitted_by` + trigger `notify_submission_decision()` (notifikasi `SUBMISSION_APPROVED`/`SUBMISSION_REJECTED`, ADR-037)
+
+> ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
+> pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
+> seq scan 100k baris, `supabase/bench/rls_initplan.sql`).
+> `supabase/tests/30_rls_initplan.test.sql` menggagalkan `npm run db:test`
+> kalau ada policy yang melanggar.
 
 > ⚠️ **Default privileges Supabase.** Setiap tabel, view, dan fungsi baru di
 > `public` OTOMATIS memberi hak ke `anon` dan `authenticated` secara eksplisit.
@@ -150,6 +164,26 @@ Policy INSERT `team_members` juga mensyaratkan `role = 'member'` kecuali ketua
 mendaftarkan dirinya sendiri di tim miliknya. Tim hanya bisa dibuat untuk
 event `APPROVED` (`teams_owner_insert`).
 
+### `moderation_log` (riwayat moderasi, ADR-031)
+Append-only: `subject_type` (`event`/`submission`), `subject_id`, salinan
+`title`, `from_status` → `to_status`, `actor_id` (NULL = sistem/di luar
+aplikasi), `reason`, `created_at`. Diisi **hanya** oleh trigger
+`log_moderation_change()`; tidak ada hak INSERT/UPDATE/DELETE untuk role API
+mana pun, termasuk `service_role`. SELECT: admin (RLS). Dibaca di `/admin/riwayat`.
+
+### `recommendation_signals` (kalibrasi bobot, ADR-032)
+`event_id`, `user_id` (NULL = tamu; `ON DELETE SET NULL`), `kind`
+(`save` | `register_click`), snapshot `interests` + `education_level` saat itu,
+`created_at`. Ditulis **hanya** service_role dari server (tanpa jalur tulis
+dari browser — mencegah penggelembungan bobot). SELECT admin. Dibaca
+`/admin/kalibrasi`.
+
+### `rate_limit_hits` (pembatas laju, ADR-028)
+`(bucket, hit_at)`. `bucket` = `<aturan>:<HMAC-SHA256 hex>` — tidak ada IP atau
+email mentah. RLS aktif **tanpa policy** dan semua hak dicabut dari
+`anon`/`authenticated`; hanya `consume_rate_limit()` (SECURITY DEFINER) dan
+service_role yang menyentuhnya.
+
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat
 DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom
@@ -176,7 +210,7 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 
 ## Row Level Security
 
-RLS **aktif di semua 11 tabel publik**, deny-by-default (DEVIATIONS #2 —
+RLS **aktif di semua 14 tabel publik**, deny-by-default (DEVIATIONS #2 —
 blueprint asli hanya menyalakan 5 tabel, sisanya bisa ditulis publik lewat
 anon key). Ringkasan policy:
 
@@ -236,15 +270,21 @@ Index dan query aplikasi WAJIB memakai konfigurasi yang sama (DEVIATIONS #1).
 
 ## Job terjadwal
 
-| Fungsi | Workflow | Jadwal |
-|---|---|---|
-| `expire_past_events()` | `.github/workflows/expire-events.yml` | 00:05 WIB |
-| `create_deadline_notifications()` | `.github/workflows/deadline-notifications.yml` | 07:00 WIB |
-| pipeline scraper | `.github/workflows/scraper-cron.yml` | 02:00 WIB |
+Dijalankan **pg_cron di database** (migration `20260926120001_pg_cron_jobs.sql`,
+ADR-030), jadwal dalam UTC:
 
-Semuanya butuh GitHub Secrets `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY`
-(scraper juga `GEMINI_API_KEY` dan `PIPELINE_SOURCES_YAML`). Semua fungsi
-ini idempoten, jadi `workflow_dispatch` manual aman diulang.
+| Job pg_cron | Fungsi | Jadwal |
+|---|---|---|
+| `studentfo-expire-past-events` | `expire_past_events()` | `5 17 * * *` = 00:05 WIB |
+| `studentfo-deadline-notifications` | `create_deadline_notifications()` | `0 0 * * *` = 07:00 WIB |
+| `studentfo-purge-rate-limit-hits` | `purge_rate_limit_hits()` | `17 18 * * *` = 01:17 WIB |
+
+Periksa di Supabase: `select jobname, schedule, active from cron.job;` dan
+riwayat: `select * from cron.job_run_details order by start_time desc limit 20;`.
+Workflow `expire-events.yml` / `deadline-notifications.yml` tinggal jalur manual
+(`workflow_dispatch`, butuh secret `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`).
+Pipeline scraper tetap di `.github/workflows/scraper-cron.yml` (02:00 WIB) —
+ia butuh Python + Gemini, bukan SQL. Semua fungsi idempoten.
 
 ## Kolom TypeScript-only (tidak generated dari DB)
 

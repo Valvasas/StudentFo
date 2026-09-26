@@ -8,10 +8,9 @@
 name: Deadline notifications
 
 on:
-  schedule:
-    # Cron GitHub Actions memakai UTC. 00:00 UTC = 07:00 WIB — pengingat
-    # tiba pagi hari, saat masih ada waktu menindaklanjutinya.
-    - cron: '0 0 * * *'
+  # Jadwal harian kini dijalankan pg_cron di database (migration
+  # 20260926120001_pg_cron_jobs.sql, ADR-030). Workflow ini tinggal jalur
+  # manual/darurat — fungsinya idempoten, jadi aman dijalankan kapan saja.
   workflow_dispatch:
 
 permissions: {}

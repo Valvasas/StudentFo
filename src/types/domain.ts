@@ -129,7 +129,14 @@ export interface TrackerItem {
  * Konsekuensinya: nilai tak dikenal bisa saja masuk dari penulis lain.
  * Itu ditangani di `toNotificationType()`, bukan dengan cast diam-diam.
  */
-export const NOTIFICATION_TYPES = ['DEADLINE_H3', 'DEADLINE_H1', 'SYSTEM'] as const;
+export const NOTIFICATION_TYPES = [
+  'DEADLINE_H3',
+  'DEADLINE_H1',
+  'SYSTEM',
+  /** Kabar ke pengirim kiriman komunitas (trigger notify_submission_decision, ADR-037). */
+  'SUBMISSION_APPROVED',
+  'SUBMISSION_REJECTED',
+] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 /** Baris yang tidak dikenal diperlakukan sebagai pengumuman sistem, bukan dibuang. */
@@ -237,6 +244,23 @@ export interface Submission {
   readonly status: EventStatus;
   readonly createdAt: string;
   readonly payload: SubmissionPayload | null;
+}
+
+/** Satu baris log moderasi append-only (tabel `moderation_log`). */
+export interface ModerationLogEntry {
+  readonly id: string;
+  readonly subjectType: 'event' | 'submission';
+  readonly subjectId: string;
+  /** Judul saat keputusan dibuat — event bisa diganti judulnya kemudian. */
+  readonly title: string;
+  /** null = baris langsung terbit tanpa melewati antrean (mis. hasil kiriman). */
+  readonly fromStatus: EventStatus | null;
+  readonly toStatus: EventStatus;
+  /** null = perubahan di luar aplikasi (job expiry, SQL manual). */
+  readonly actorId: string | null;
+  readonly actorName: string | null;
+  readonly reason: string | null;
+  readonly createdAt: string;
 }
 
 export const SORT_OPTIONS = ['relevance', 'deadline', 'newest'] as const;

@@ -103,8 +103,11 @@ export function popularityBoost(savedCount: number, maxSavedCount: number): numb
  * yang dilihat pengguna — skor dan label tidak boleh berbeda pendapat.
  */
 export function deadlineFit(deadlineIso: string | null, now: Date = new Date()): number {
-  if (!deadlineIso) return 0.3;
-  const daysLeft = daysUntil(deadlineIso, now);
+  return deadlineFitForDays(deadlineIso ? daysUntil(deadlineIso, now) : null);
+}
+
+/** Sama dengan `deadlineFit`, dari sisa hari yang sudah dihitung (dipakai kalibrasi massal). */
+export function deadlineFitForDays(daysLeft: number | null): number {
   if (daysLeft === null) return 0.3;
   if (daysLeft < 0) return 0;
   if (daysLeft === 0) return 0.6;

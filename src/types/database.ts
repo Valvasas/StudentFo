@@ -36,6 +36,10 @@ export interface EventDeadlineRow {
   is_primary: boolean;
 }
 
+export interface EventDeadlineWithEventRow extends EventDeadlineRow {
+  event_id: string;
+}
+
 export interface CategoryRow {
   id: string;
   name: string;
@@ -118,4 +122,24 @@ export interface NotificationRow {
   message: string;
   is_read: boolean;
   sent_at: string;
+}
+
+export interface ModerationLogRow {
+  id: number;
+  subject_type: 'event' | 'submission';
+  subject_id: string;
+  title: string;
+  from_status: EventStatus | null;
+  to_status: EventStatus;
+  actor_id: string | null;
+  reason: string | null;
+  created_at: string;
+  actor: { full_name: string | null } | null;
+}
+
+export interface RecommendationSignalRow {
+  event_id: string;
+  created_at: string;
+  interests: string[] | null;
+  education_level: EducationLevel | null;
 }

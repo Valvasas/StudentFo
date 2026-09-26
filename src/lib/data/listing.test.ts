@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { EventSummary } from '@/types/domain';
-import { isPubliclyVisible, paginate, resolvePaging, sortSummaries } from './listing';
+import {
+  chooseCountMode,
+  EXACT_COUNT_MAX_ACTIVE,
+  isPubliclyVisible,
+  paginate,
+  resolvePaging,
+  sortSummaries,
+} from './listing';
 
 function summary(id: string, overrides: Partial<EventSummary> = {}): EventSummary {
   return {
@@ -84,5 +91,14 @@ describe('isPubliclyVisible', () => {
     expect(isPubliclyVisible({ status: 'EXPIRED' })).toBe(true);
     expect(isPubliclyVisible({ status: 'PENDING' })).toBe(false);
     expect(isPubliclyVisible({ status: 'REJECTED' })).toBe(false);
+  });
+});
+
+describe('chooseCountMode', () => {
+  it('exact sampai ambang (inklusif), planned di atasnya', () => {
+    expect(chooseCountMode(0)).toBe('exact');
+    expect(chooseCountMode(EXACT_COUNT_MAX_ACTIVE)).toBe('exact');
+    expect(chooseCountMode(EXACT_COUNT_MAX_ACTIVE + 1)).toBe('planned');
+    expect(chooseCountMode(50, 10)).toBe('planned');
   });
 });

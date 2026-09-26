@@ -11,7 +11,11 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 3100;
 
 export default defineConfig({
-  testDir: 'tests/a11y',
+  testDir: 'tests',
+  // Hanya audit a11y & e2e mode seed. e2e-supabase punya config & stack
+  // sendiri; integration/*.test.ts adalah Vitest (pola bawaan Playwright
+  // ikut mencocokkan *.test.ts).
+  testMatch: ['a11y/**/*.spec.ts', 'e2e/**/*.spec.ts'],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
@@ -22,6 +26,11 @@ export default defineConfig({
     // kontras di tengah animasi (opasitas < 1) dan melaporkan pelanggaran
     // palsu. Keadaan akhirnya identik dengan mode gerak normal.
     reducedMotion: 'reduce',
+    // Lingkungan yang sudah punya Chromium terpasang (mis. container CI
+    // khusus) bisa menunjuk ke sana tanpa `playwright install`.
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } }
+      : {}),
   },
   projects: [
     { name: 'terang', use: { ...devices['Desktop Chrome'], colorScheme: 'light' } },
@@ -41,6 +50,9 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: '',
       SUPABASE_SERVICE_ROLE_KEY: '',
       ALLOW_DEMO_IN_PRODUCTION: 'true',
+      // Dibekukan saat build (NEXT_PUBLIC_); pengalihan internal, sitemap, dan
+      // callback OAuth memakainya, jadi harus menunjuk server uji ini.
+      NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
     },
   },
 });

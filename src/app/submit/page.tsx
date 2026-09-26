@@ -1,12 +1,16 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { ShieldCheck } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { TurnstileWidget } from '@/components/submit/turnstile-widget';
 import { Button } from '@/components/ui/button';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { jakartaDateKey } from '@/lib/deadline';
+import { env } from '@/lib/env';
 import type { RawSearchParams } from '@/lib/search-params';
+import { NONCE_HEADER } from '@/lib/security-headers';
 import { HONEYPOT_FIELD } from '@/lib/submission-schema';
 import {
   EDUCATION_LEVEL_LABEL,
@@ -48,7 +52,14 @@ function invalidFieldLabels(raw: RawSearchParams['fields']): string[] {
 }
 
 export default async function SubmitPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
-  const [params, user, repository] = await Promise.all([searchParams, getSessionUser(), getEventRepository()]);
+  const [params, user, repository, requestHeaders] = await Promise.all([
+    searchParams,
+    getSessionUser(),
+    getEventRepository(),
+    headers(),
+  ]);
+  const nonce = requestHeaders.get(NONCE_HEADER) ?? undefined;
+  const turnstileSiteKey = env.TURNSTILE_SITE_KEY;
   const categories = await repository.listCategories();
   const invalidFields = invalidFieldLabels(params.fields);
   const today = jakartaDateKey(new Date());
@@ -160,7 +171,15 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           <TextArea id="description" name="description" rows={6} maxLength={5000} />
         </Field>
 
-        <Field id="email" label="Email kamu" hint="Untuk konfirmasi bila ada yang perlu dicek.">
+        <Field
+          id="email"
+          label="Email kamu"
+          hint={
+            user
+              ? 'Untuk konfirmasi bila ada yang perlu dicek. Hasil tinjauan dikabarkan lewat lonceng notifikasi akunmu.'
+              : 'Untuk konfirmasi bila ada yang perlu dicek. Masuk dulu kalau ingin dikabari lewat notifikasi saat kirimanmu disetujui atau ditolak.'
+          }
+        >
           <TextInput
             id="email"
             name="email"
@@ -171,6 +190,8 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             defaultValue={user?.email ?? ''}
           />
         </Field>
+
+        {turnstileSiteKey && <TurnstileWidget siteKey={turnstileSiteKey} nonce={nonce} />}
 
         <Button type="submit" size="lg" className="self-start">
           Kirim untuk diverifikasi

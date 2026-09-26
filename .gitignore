@@ -34,3 +34,11 @@ supabase/.branches/
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Binary PostgREST untuk npm run test:integration
+.cache/
+.next-supabase/

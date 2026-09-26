@@ -14,6 +14,8 @@ import { isDemoPersonaId } from '@/lib/demo/personas';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
+import { RATE_LIMITS } from '@/lib/rate-limit';
+import { currentClientIp, isRateLimited } from '@/lib/rate-limit-server';
 import { safeNextPath } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -49,6 +51,19 @@ function callbackUrl(next: string): string {
   return `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`;
 }
 
+/**
+ * Batas laju kita sendiri, SEBELUM memanggil Supabase Auth. Panggilan auth
+ * berasal dari server Next.js, jadi batas per-IP bawaan Supabase melihat satu
+ * IP untuk semua pengguna: tanpa lapisan ini, satu penyerang yang menebak
+ * sandi menghabiskan kuota masuk seluruh pengguna (ADR-028).
+ */
+async function signInRateLimited(email: string): Promise<boolean> {
+  return isRateLimited(await currentClientIp(), [
+    [RATE_LIMITS.signInPerIp],
+    [RATE_LIMITS.signInPerIpEmail, email.trim().toLowerCase()],
+  ]);
+}
+
 export async function signInAction(formData: FormData): Promise<void> {
   const next = safeNextPath(field(formData, 'next'));
   const email = field(formData, 'email');
@@ -65,6 +80,8 @@ export async function signInAction(formData: FormData): Promise<void> {
       // alamat yang dia coba setidaknya berformat benar — sinyal kecil yang
       // mempercepat penyusunan daftar target.
       failure = 'invalid_credentials';
+    } else if (await signInRateLimited(parsed.data.email)) {
+      failure = 'rate_limited';
     } else {
       const supabase = await createSupabaseServerClient();
       const { error } = await supabase.auth.signInWithPassword(parsed.data);
@@ -105,6 +122,8 @@ export async function signUpAction(formData: FormData): Promise<void> {
 
     if (!parsed.success) {
       failure = 'validation';
+    } else if (await isRateLimited(await currentClientIp(), [[RATE_LIMITS.signUpPerIp]])) {
+      failure = 'rate_limited';
     } else {
       const supabase = await createSupabaseServerClient();
       const { data, error } = await supabase.auth.signUp({
@@ -214,7 +233,11 @@ export async function requestPasswordResetAction(formData: FormData): Promise<vo
     failure = 'unavailable';
   } else {
     const parsed = resetRequestSchema.safeParse({ email });
-    if (parsed.success) {
+    // Dihitung per IP untuk SETIAP permintaan, valid atau tidak — kalau hanya
+    // email valid yang dihitung, lama respons membedakan keduanya.
+    if (await isRateLimited(await currentClientIp(), [[RATE_LIMITS.passwordResetPerIp]])) {
+      failure = 'rate_limited';
+    } else if (parsed.success) {
       const supabase = await createSupabaseServerClient();
       const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
         redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent('/reset-password')}`,

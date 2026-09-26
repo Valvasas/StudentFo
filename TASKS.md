@@ -32,10 +32,9 @@ secara duplikat atau bertabrakan.
       0001 gagal di Postgres modern karena salah membaca ketersediaan
       `pg_catalog.indonesian`. Diperbaiki; stemming Snowball Indonesia kini aktif.
       Dikunci oleh `npm run db:test` + job CI `database` (DEVIATIONS #1). @claude
-- [ ] Belum ada test end-to-end/integration untuk `SupabaseEventRepository`
-      terhadap instance Supabase sungguhan (test yang ada menguji logika
-      murni & `MemoryEventRepository`). Pertimbangkan test terhadap
-      Supabase local (`supabase start`) sebelum menambah query kompleks baru.
+- [x] Integration test `SupabaseEventRepository` — Postgres + PostgREST
+      sungguhan (`npm run test:integration`, job CI `integration`), bukan
+      `supabase start`; termasuk test paritas memory ↔ Supabase. ADR-033. @claude
 - [x] Audit aksesibilitas (kontras, fokus, overflow) di README didasarkan
       pada skrip Playwright manual yang "ada di riwayat pengembangan" tapi
       tidak berkas terpisah di repo saat ini — pertimbangkan menyimpan
@@ -48,10 +47,8 @@ secara duplikat atau bertabrakan.
       - dedup unik hanya di antara event yang belum EXPIRED (edisi tahunan bisa masuk)
       - notifikasi berbasis rentang H-3..H-2 / H-1..H-0 (tahan cron telat)
       - publisher memakai RPC transaksional `stage_scraped_event` (tanpa event yatim, tanpa N+1)
-- [ ] Pindahkan `expire_past_events` & `create_deadline_notifications` ke
-      `pg_cron` di Supabase: GitHub Actions `schedule` bisa telat dan otomatis
-      mati setelah 60 hari repo publik tanpa aktivitas.
-- [ ] Integration test `SupabaseEventRepository` terhadap Supabase lokal.
+- [x] Pindahkan `expire_past_events` & `create_deadline_notifications` ke
+      `pg_cron` — migration `20260926120001`, ADR-030. Belum di-apply ke Supabase. @claude
 
 ## Backlog — Phase 2
 
@@ -86,11 +83,9 @@ secara duplikat atau bertabrakan.
       `.github/workflows/deadline-notifications.yml`. Lihat `DECISION.md` ADR-017.
       CATATAN: ambang H-3/H-1 sengaja diduplikasi di `src/lib/notifications.ts`
       dan di SQL — ubah keduanya bersamaan. @claude
-- [ ] Pertimbangkan pembatasan laju sendiri untuk percobaan masuk. Saat ini
-      bersandar penuh pada pembatasan bawaan Supabase Auth; pembatas
-      in-memory tidak dipakai karena tidak berlaku lintas instance di
-      lingkungan serverless. Butuh penyimpanan bersama (mis. Redis) kalau
-      mau ditambah.
+- [x] Pembatasan laju sendiri untuk masuk/daftar/lupa sandi — batas bawaan
+      Supabase Auth ternyata tidak cukup (melihat IP server, bukan IP
+      pengguna). Penyimpanan bersama = Postgres, bukan Redis. ADR-028. @claude
 
 ## Backlog — sisa dari kanvas desain (belum diimplementasikan)
 
@@ -103,7 +98,7 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
       implementasi) + `DeadlineWeek` di beranda. Test lintas tengah malam WIB di
       `deadline.test.ts`. @claude
 
-- [ ] **Panel "Linimasa kamu"** — daftar langkah persiapan per kegiatan
+- [ ] **(DITUNDA — ADR-038: tunggu ±100 event nyata & data tracker) Panel "Linimasa kamu"** — daftar langkah persiapan per kegiatan
       (mis. "sertifikat bahasa", "surat rekomendasi") dengan status selesai
       dan bar kemajuan.
       Konteks: ini BUKAN `application_tracker` (yang melacak satu status per
@@ -153,18 +148,45 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
 
 ## Backlog — hasil audit 2026-09-23 (belum selesai)
 
-- [ ] **Apply migration `20260923100001_security_hardening.sql`** dan
+- [~] **Apply migration `20260923100001_security_hardening.sql`** dan
       `20260923110001_submission_rate_limit.sql` ke Supabase
       lokal/staging dulu, jalankan `npm run db:verify`, uji manual alur tim
       (gabung saat penuh, tamu melihat jumlah anggota), simpan event, dan
       setujui kiriman `/submit`. Belum pernah dijalankan terhadap Postgres
       sungguhan (mesin pengerjaan tidak punya Postgres). Lihat ADR-020.
-- [ ] Jalankan `python pipeline/tests/test_models.py` — tidak bisa dijalankan
-      di sesi audit (Python tidak terpasang). CI (`ci.yml`) kini menjalankannya.
+- [x] Jalankan `python pipeline/tests/test_models.py` — 12/12, `test_publisher.py`
+      4/4, dry-run OK (venv Python 3.11, 2026-09-26). @claude
 - [x] Pembatasan laju untuk `/submit` — trigger Postgres (migration 0009,
       ADR-023) + paritas di `MemoryEventRepository`. Kode `submission_rate_limited`. @claude
-- [ ] Notifikasi ke pengirim saat kiriman disetujui/ditolak (email tersimpan
-      di `ugc_submissions.submitted_by_email`, belum dipakai).
+- [x] Notifikasi ke pengirim saat kiriman disetujui/ditolak — in-app ke akun
+      yang masuk saat mengirim (`submitted_by`), bukan email. ADR-037. @claude
+
+## Hasil sesi 2026-09-26 (@claude) — keamanan, login, skalabilitas, demo
+
+Selesai (detail & bukti di commit + ADR):
+- [x] CSP bernonce + HSTS (ADR-027) · [x] kartu moderasi menampilkan sumber
+- [x] RLS `(select auth.uid())` — InitPlan, 8× di seq scan (migration 20260926100001)
+- [x] Pembatas laju masuk/daftar/lupa-sandi/submit per IP + Turnstile (ADR-028)
+- [x] Job harian ke pg_cron (ADR-030) · [x] log moderasi append-only + `/admin/riwayat` (ADR-031)
+- [x] Sinyal niat + `/admin/kalibrasi` (ADR-032) · [x] akun demo tidak dipulihkan — disengaja (ADR-029)
+- [x] Integration test PostgREST + paritas (ADR-033) — menemukan pencarian produksi gagal total (20260926150001)
+- [x] Cache lapisan data + `revalidateTag` (ADR-034) · [x] benchmark 5k–50k + count otomatis (ADR-035)
+- [x] Browser dalam aplikasi: tombol Google → "Buka di browser" (ADR-036)
+- [x] Kabar ke pengirim kiriman (ADR-037) · [x] indikator jam reset demo
+- [x] Target sentuh 44px, axe di balik login, 320/375px, `/events` tanpa JS diperbaiki
+- [x] `EventRepository` dipecah 9 interface
+
+Belum / butuh akses pemilik:
+- [ ] Apply SEMUA migration 20260926* ke Supabase staging, lalu `npm run db:verify`
+      (belum pernah di-apply ke project mana pun — jangan langsung produksi).
+- [ ] Google OAuth end-to-end sungguhan (runbook: README § Autentikasi).
+- [ ] Isi `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` + `RATE_LIMIT_SECRET` di hosting;
+      uji widget Turnstile asli (egress ke Cloudflare diblokir di lingkungan pengerjaan).
+- [ ] Scan securityheaders.com setelah staging publik (ADR-038 #3).
+- [ ] Uji di perangkat fisik: Safari iOS privat, WebView Instagram/TikTok (ADR-036).
+- [ ] 10+ sumber scraping nyata (keputusan pemilik per sumber, ADR-038 #2).
+- [ ] Bila katalog > 20.000 event: denormalisasi `primary_deadline_at` + index (ADR-035).
+- [ ] Job CI `integration` (PostgREST + e2e mode Supabase) belum pernah berjalan di GitHub.
 
 ## Template tugas baru
 

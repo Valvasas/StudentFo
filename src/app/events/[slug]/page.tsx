@@ -75,7 +75,7 @@ export default async function EventDetailPage({
   return (
     <div className="container-page py-8">
       <nav aria-label="Remah roti" className="mb-6 text-sm text-ink-muted">
-        <Link href="/events" className="hover:text-ink">
+        <Link href="/events" className="inline-flex min-h-11 items-center hover:text-ink">
           Jelajahi
         </Link>
         <span aria-hidden className="mx-2">
@@ -183,7 +183,9 @@ export default async function EventDetailPage({
               <Button asChild size="lg" className="mt-5 w-full">
                 {/* rel="noopener": tanpa ini, halaman tujuan bisa mengakses
                     window.opener dan mengarahkan ulang tab kita. */}
-                <a href={registrationUrl} target="_blank" rel="noopener noreferrer nofollow">
+                {/* Lewat /daftar supaya klik tercatat untuk kalibrasi (ADR-032);
+                    <a> biasa, bukan <Link>, supaya prefetch tidak ikut tercatat. */}
+                <a href={`/events/${event.slug}/daftar`} target="_blank" rel="noopener noreferrer nofollow">
                   Daftar sekarang
                   <ArrowUpRight aria-hidden />
                   <span className="sr-only">(membuka tab baru)</span>
@@ -215,7 +217,7 @@ export default async function EventDetailPage({
                   href={sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer nofollow"
-                  className="inline-flex items-center gap-1 text-brand-text hover:underline"
+                  className="-my-3 inline-flex min-h-11 items-center gap-1 text-brand-text hover:underline"
                 >
                   {safeHostname(sourceUrl) ?? 'tautan sumber'}
                   <ExternalLink aria-hidden className="size-3" />

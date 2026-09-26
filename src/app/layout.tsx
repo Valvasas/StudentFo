@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
+import { headers } from 'next/headers';
 import { DemoBanner } from '@/components/layout/demo-banner';
 import { Footer } from '@/components/layout/footer';
 import { Navbar } from '@/components/layout/navbar';
 import { ThemeScript } from '@/components/layout/theme-script';
 import { siteUrl } from '@/lib/env';
+import { NONCE_HEADER } from '@/lib/security-headers';
 import './globals.css';
 
 /**
@@ -54,14 +56,16 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
+
   return (
     // suppressHydrationWarning: atribut data-theme sengaja diubah oleh
     // ThemeScript sebelum React jalan, jadi ketidakcocokan di elemen INI
     // memang diharapkan dan hanya di sini.
     <html lang="id" suppressHydrationWarning className={`${inter.variable} ${jakarta.variable}`}>
       <head>
-        <ThemeScript />
+        <ThemeScript nonce={nonce} />
       </head>
       <body className="flex min-h-dvh flex-col">
         <a href="#konten" className="skip-link rounded-card bg-brand px-4 py-2 text-on-brand">

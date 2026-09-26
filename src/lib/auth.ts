@@ -104,7 +104,7 @@ export async function requireUser(returnTo: string): Promise<AuthUser> {
 }
 
 export type AdminGate =
-  | { allowed: true; reason: 'demo' | 'admin'; userId: string }
+  | { allowed: true; reason: 'demo' | 'admin'; userId: string; userName: string }
   | { allowed: false; reason: 'unauthenticated' | 'not-admin' };
 
 /**
@@ -121,5 +121,10 @@ export async function checkAdminAccess(): Promise<AdminGate> {
   if (!user) return { allowed: false, reason: 'unauthenticated' };
   if (user.role !== 'ADMIN') return { allowed: false, reason: 'not-admin' };
 
-  return { allowed: true, reason: dataMode === 'seed' ? 'demo' : 'admin', userId: user.id };
+  return {
+    allowed: true,
+    reason: dataMode === 'seed' ? 'demo' : 'admin',
+    userId: user.id,
+    userName: user.fullName,
+  };
 }

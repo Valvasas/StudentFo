@@ -28,7 +28,7 @@ async function pendingId(repo: MemoryEventRepository): Promise<string> {
 describe('MemoryEventRepository — kiriman komunitas', () => {
   it('kiriman baru masuk antrean PENDING dan belum tayang', async () => {
     const repo = new MemoryEventRepository();
-    await repo.createSubmission({ submittedByEmail: 'a@b.co', payload: payload() });
+    await repo.createSubmission({ submittedByEmail: 'a@b.co', submittedBy: null, payload: payload() });
 
     const pending = await repo.listSubmissions('PENDING', 10);
     expect(pending).toHaveLength(1);
@@ -40,7 +40,7 @@ describe('MemoryEventRepository — kiriman komunitas', () => {
 
   it('disetujui = tayang di katalog dengan tenggat utama, dan keluar dari antrean', async () => {
     const repo = new MemoryEventRepository();
-    await repo.createSubmission({ submittedByEmail: 'a@b.co', payload: payload() });
+    await repo.createSubmission({ submittedByEmail: 'a@b.co', submittedBy: null, payload: payload() });
     await repo.reviewSubmission({ submissionId: await pendingId(repo), decision: 'APPROVED', reviewerId: null });
 
     const listing = await repo.listEvents({ search: 'Poster Hari Lingkungan' });
@@ -54,9 +54,10 @@ describe('MemoryEventRepository — kiriman komunitas', () => {
 
   it('menolak duplikat judul + penyelenggara, cermin dedup_hash', async () => {
     const repo = new MemoryEventRepository();
-    await repo.createSubmission({ submittedByEmail: 'a@b.co', payload: payload() });
+    await repo.createSubmission({ submittedByEmail: 'a@b.co', submittedBy: null, payload: payload() });
     await repo.createSubmission({
       submittedByEmail: 'c@d.co',
+      submittedBy: null,
       payload: payload({ title: 'lomba poster  HARI lingkungan 2026' }),
     });
     const [first, second] = await repo.listSubmissions('PENDING', 10);
@@ -69,7 +70,7 @@ describe('MemoryEventRepository — kiriman komunitas', () => {
 
   it('kiriman yang sudah ditinjau tidak bisa ditinjau ulang', async () => {
     const repo = new MemoryEventRepository();
-    await repo.createSubmission({ submittedByEmail: 'a@b.co', payload: payload() });
+    await repo.createSubmission({ submittedByEmail: 'a@b.co', submittedBy: null, payload: payload() });
     const id = await pendingId(repo);
     await repo.reviewSubmission({ submissionId: id, decision: 'REJECTED', reviewerId: null });
 
@@ -133,18 +134,45 @@ describe('MemoryEventRepository — batas laju kiriman', () => {
   it('kiriman keempat dari email yang sama dalam satu jam ditolak dengan kode yang aman', async () => {
     const repo = new MemoryEventRepository();
     for (let i = 0; i < 3; i += 1) {
-      await repo.createSubmission({ submittedByEmail: 'a@b.co', payload: payload({ title: `Lomba ${i}` }) });
+      await repo.createSubmission({ submittedByEmail: 'a@b.co', submittedBy: null, payload: payload({ title: `Lomba ${i}` }) });
     }
 
     const error = await repo
-      .createSubmission({ submittedByEmail: 'a@b.co', payload: payload() })
+      .createSubmission({ submittedByEmail: 'a@b.co', submittedBy: null, payload: payload() })
       .catch((err: unknown) => err);
     expect(error).toBeInstanceOf(AppError);
     expect((error as AppError).reason).toBe('submission_rate_limited');
     expect((error as AppError).httpStatus).toBe(429);
 
     await expect(
-      repo.createSubmission({ submittedByEmail: 'lain@b.co', payload: payload() }),
+      repo.createSubmission({ submittedByEmail: 'lain@b.co', submittedBy: null, payload: payload() }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('MemoryEventRepository — kabar ke pengirim yang masuk (cermin trigger notify_submission_decision)', () => {
+  it('disetujui → notifikasi bertaut ke event baru; ditolak → notifikasi tanpa event; tamu → tidak ada', async () => {
+    const repo = new MemoryEventRepository();
+    const sender = 'a1111111-1111-4111-8111-111111111111';
+    await repo.createSubmission({ submittedByEmail: 's@b.co', submittedBy: sender, payload: payload({ title: 'Lomba Poster Dikabari 2026' }) });
+    await repo.createSubmission({ submittedByEmail: 's@b.co', submittedBy: sender, payload: payload({ title: 'Kiriman Ditolak Dikabari' }) });
+    await repo.createSubmission({ submittedByEmail: 'tamu@b.co', submittedBy: null, payload: payload({ title: 'Kiriman Tamu Tanpa Kabar' }) });
+
+    for (const submission of await repo.listSubmissions('PENDING', 10)) {
+      const approve = submission.payload?.title === 'Lomba Poster Dikabari 2026';
+      await repo.reviewSubmission({ submissionId: submission.id, decision: approve ? 'APPROVED' : 'REJECTED', reviewerId: null });
+    }
+
+    const notifications = await repo.listNotifications(sender, 10);
+    const approved = notifications.find((n) => n.type === 'SUBMISSION_APPROVED');
+    const rejected = notifications.find((n) => n.type === 'SUBMISSION_REJECTED');
+    expect(approved?.event?.title).toBe('Lomba Poster Dikabari 2026');
+    expect(rejected?.event).toBeNull();
+    expect(rejected?.message).toContain('Kiriman Ditolak Dikabari');
+    expect(notifications.filter((n) => n.type.startsWith('SUBMISSION_'))).toHaveLength(2);
+    expect(await repo.countUnreadNotifications(sender)).toBe(2);
+
+    await repo.markNotificationAsRead(sender, approved!.id);
+    expect(await repo.countUnreadNotifications(sender)).toBe(1);
   });
 });

@@ -1,9 +1,14 @@
 import 'server-only';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { actionError } from '@/lib/action-feedback';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
-import { upstreamFailure } from '@/lib/errors';
+import { type AppError, upstreamFailure } from '@/lib/errors';
 import { toStoredPayload } from '@/lib/submission-schema';
-import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
+import {
+  createSupabaseAdminClient,
+  createSupabasePublicClient,
+  createSupabaseServerClient,
+} from '@/lib/supabase/server';
 import type {
   AppNotification,
   Category,
@@ -12,6 +17,7 @@ import type {
   EventQuery,
   EventStatus,
   EventSummary,
+  ModerationLogEntry,
   Paginated,
   Submission,
   Team,
@@ -23,7 +29,10 @@ import { toNotificationType } from '@/types/domain';
 import type {
   CategoryRow,
   EventDeadlineRow,
+  EventDeadlineWithEventRow,
   EventListingRow,
+  ModerationLogRow,
+  RecommendationSignalRow,
   NotificationRow,
   SubmissionRow,
   TeamMemberCountRow,
@@ -32,15 +41,21 @@ import type {
   TrackerRow,
 } from '@/types/database';
 import {
+  chooseCountMode,
+  EXACT_COUNT_MAX_ACTIVE,
+  type ListingCountMode,
   PUBLIC_STATUSES,
   RELEVANCE_CANDIDATE_WINDOW,
   resolvePaging,
   sortSummaries,
   totalPagesFor,
 } from './listing';
+import { type CacheLayer, nextDataCache } from './cache';
 import type {
   CreateSubmissionInput,
+  CalibrationData,
   CreateTeamRepositoryInput,
+  RecommendationSignalInput,
   EventRepository,
   RepositoryStats,
   ReviewEventInput,
@@ -52,6 +67,7 @@ import {
   sanitizeSearchQuery,
   sqlState,
   toDetail,
+  toModerationLogEntry,
   toSubmission,
   toSummary,
   toTeamMember,
@@ -61,58 +77,116 @@ export { sanitizeSearchQuery } from './supabase-mappers';
 
 const TEAM_COLUMNS = 'id, event_id, created_by, title, description, slots_needed, created_at';
 const MS_PER_DAY = 86_400_000;
+/** Supabase memotong setiap respons PostgREST di `max_rows` (bawaan 1000). */
+const PAGE_SIZE = 1000;
+/** Kalibrasi dijalankan manual dan jarang; batas ini hanya pengaman memori. */
+const CALIBRATION_ROW_LIMIT = 50_000;
 
-/** Implementasi produksi di atas PostgREST. */
+/**
+ * Baca semua baris per halaman `range()`. `.limit(50_000)` saja TIDAK cukup:
+ * PostgREST diam-diam memotong di max_rows, dan hasil terpotong terlihat
+ * persis seperti hasil lengkap.
+ */
+async function fetchAllPages<Row>(
+  page: (from: number, to: number) => PromiseLike<{ data: Row[] | null; error: PostgrestError | null }>,
+): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let from = 0; from < CALIBRATION_ROW_LIMIT; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw upstreamFailure('Gagal memuat data kalibrasi.', error);
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+/**
+ * Policy saved_events/application_tracker menolak event yang tidak tayang
+ * (WITH CHECK, 42501). Itu keputusan untuk pengguna — "kegiatan tidak
+ * tersedia" — bukan kegagalan sistem 500 berpesan "terjadi kesalahan".
+ */
+function rejectedOrFailed(error: PostgrestError, message: string): AppError {
+  return sqlState(error) === '42501' ? actionError('event_unavailable') : upstreamFailure(message, error, 500);
+}
+
+/** Kunci cache listing: hanya parameter yang memengaruhi QUERY, dinormalisasi supaya URL berbeda urutan tetap berbagi entri. */
+interface ListingFetch {
+  readonly includeClosed: boolean;
+  readonly search: string;
+  readonly types: readonly string[];
+  readonly levels: readonly string[];
+  readonly categories: readonly string[];
+  readonly sort: 'deadline' | 'newest' | 'relevance';
+  readonly from: number;
+  readonly to: number;
+  readonly countMode: ListingCountMode;
+}
+
+interface ListingPage {
+  readonly rows: EventListingRow[];
+  readonly count: number | null;
+}
+
+const sortedCopy = (values: readonly string[] | undefined) => [...(values ?? [])].sort();
+
+/**
+ * Implementasi produksi di atas PostgREST.
+ *
+ * Data publik (listing, detail, statistik) dibaca lewat klien anon tanpa
+ * cookie dan dibungkus `cacheLayer` (Data Cache Next.js, tag `events`) —
+ * dibagi semua pengunjung, dicabut saat moderasi. Yang personal (profil
+ * untuk peringkat, simpanan, tracker) tidak pernah masuk cache: peringkat
+ * relevansi dihitung SETELAH jendela kandidat diambil dari cache.
+ */
 export class SupabaseEventRepository implements EventRepository {
+  private readonly fetchListingPage: (filters: ListingFetch) => Promise<ListingPage>;
+  private readonly fetchDetailBySlug: (slug: string) => Promise<EventDetail | null>;
+  private readonly fetchClosingSoon: (limit: number) => Promise<EventSummary[]>;
+  private readonly fetchCategories: () => Promise<Category[]>;
+  private readonly fetchStats: () => Promise<RepositoryStats>;
+  private readonly fetchDeadlineWeek: () => Promise<DeadlineDay[]>;
+
+  constructor(
+    cacheLayer: CacheLayer = nextDataCache,
+    private readonly exactCountMaxActive: number = EXACT_COUNT_MAX_ACTIVE,
+  ) {
+    this.fetchListingPage = cacheLayer(queryListingPage, ['events-listing-v1']);
+    this.fetchDetailBySlug = cacheLayer(queryDetailBySlug, ['events-detail-v1']);
+    this.fetchClosingSoon = cacheLayer(queryClosingSoon, ['events-closing-soon-v1']);
+    this.fetchCategories = cacheLayer(queryCategories, ['categories-v1']);
+    this.fetchStats = cacheLayer(queryStats, ['events-stats-v1']);
+    this.fetchDeadlineWeek = cacheLayer(queryDeadlineWeek, ['events-deadline-week-v1']);
+  }
+
   async listEvents(query: EventQuery): Promise<Paginated<EventSummary>> {
-    const supabase = await createSupabaseServerClient();
-    const now = new Date();
     const paging = resolvePaging(query);
     const sort = query.sort ?? 'relevance';
     // Lihat RELEVANCE_CANDIDATE_WINDOW: peringkat relevansi dihitung atas
     // satu jendela kandidat, bukan per halaman.
     const rankInApp = sort === 'relevance' && paging.offset + paging.pageSize <= RELEVANCE_CANDIDATE_WINDOW;
-
-    let builder = supabase.from('events_listing').select(LISTING_COLUMNS, { count: 'exact' });
-
-    if (query.includeClosed) {
-      // EXPIRED ikut: begitu job expiry harian berjalan, event yang tenggatnya
-      // lewat berpindah ke status itu. Menyaring `status = APPROVED` saja
-      // membuat "tampilkan yang sudah ditutup" tidak pernah menampilkan apa pun.
-      builder = builder.in('status', [...PUBLIC_STATUSES]);
-    } else {
-      // Tenggat yang sudah lewat disembunyikan. `or` dipakai supaya event
-      // yang tenggatnya belum diumumkan (NULL) tetap ikut tampil — kalau
-      // difilter dengan perbandingan biasa, seluruh baris NULL hilang diam-diam.
-      builder = builder
-        .eq('status', 'APPROVED')
-        .or(`primary_deadline_at.gte.${now.toISOString()},primary_deadline_at.is.null`);
-    }
-
-    const search = query.search ? sanitizeSearchQuery(query.search) : '';
-    if (search) {
-      builder = builder.textSearch('search_vector', search, { type: 'websearch', config: 'indonesian' });
-    }
-    if (query.types?.length) builder = builder.in('event_type', [...query.types]);
-    if (query.levels?.length) builder = builder.overlaps('education_levels', [...query.levels]);
-    if (query.categories?.length) builder = builder.overlaps('category_slugs', [...query.categories]);
-
-    builder =
-      sort === 'deadline'
-        ? builder.order('primary_deadline_at', { ascending: true, nullsFirst: false }).order('id')
-        : builder.order('created_at', { ascending: false }).order('id');
-
     const [from, to] = rankInApp
       ? [0, RELEVANCE_CANDIDATE_WINDOW - 1]
       : [paging.offset, paging.offset + paging.pageSize - 1];
 
-    const { data, error, count } = await builder.range(from, to).returns<EventListingRow[]>();
-    if (error) throw upstreamFailure('Gagal memuat daftar event.', error);
+    // Ukuran katalog dari statistik yang sudah di-cache — tanpa query tambahan
+    // di jalur panas. Lihat EXACT_COUNT_MAX_ACTIVE.
+    const countMode = chooseCountMode((await this.fetchStats()).totalActive, this.exactCountMaxActive);
+    const { rows, count } = await this.fetchListingPage({
+      includeClosed: query.includeClosed ?? false,
+      search: query.search ? sanitizeSearchQuery(query.search) : '',
+      types: sortedCopy(query.types),
+      levels: sortedCopy(query.levels),
+      categories: sortedCopy(query.categories),
+      sort,
+      from,
+      to,
+      countMode,
+    });
 
-    const total = count ?? data.length;
-    const summaries = data.map(toSummary);
+    const total = count ?? rows.length;
+    const summaries = rows.map(toSummary);
     const items = rankInApp
-      ? sortSummaries(summaries, 'relevance', now, query.profile).slice(
+      ? sortSummaries(summaries, 'relevance', new Date(), query.profile).slice(
           paging.offset,
           paging.offset + paging.pageSize,
         )
@@ -128,109 +202,26 @@ export class SupabaseEventRepository implements EventRepository {
   }
 
   async getEventBySlug(slug: string): Promise<EventDetail | null> {
-    const supabase = await createSupabaseServerClient();
-
-    const { data, error } = await supabase
-      .from('events_listing')
-      .select(LISTING_COLUMNS)
-      .eq('slug', slug)
-      .in('status', [...PUBLIC_STATUSES])
-      .maybeSingle<EventListingRow>();
-
-    if (error) throw upstreamFailure('Gagal memuat detail event.', error);
-    if (!data) return null;
-
-    const { data: deadlineRows, error: deadlineError } = await supabase
-      .from('event_deadlines')
-      .select('id, label, deadline_at, is_primary')
-      .eq('event_id', data.id)
-      .order('deadline_at', { ascending: true })
-      .returns<EventDeadlineRow[]>();
-
-    if (deadlineError) throw upstreamFailure('Gagal memuat tenggat event.', deadlineError);
-    return toDetail(data, deadlineRows);
+    return this.fetchDetailBySlug(slug);
   }
 
   async listClosingSoon(limit: number): Promise<readonly EventSummary[]> {
-    const supabase = await createSupabaseServerClient();
-    const now = new Date();
-    const horizon = new Date(now.getTime() + 30 * MS_PER_DAY);
-
-    const { data, error } = await supabase
-      .from('events_listing')
-      .select(LISTING_COLUMNS)
-      .eq('status', 'APPROVED')
-      .gte('primary_deadline_at', now.toISOString())
-      .lte('primary_deadline_at', horizon.toISOString())
-      .order('primary_deadline_at', { ascending: true })
-      .limit(limit)
-      .returns<EventListingRow[]>();
-
-    if (error) throw upstreamFailure('Gagal memuat sorotan.', error);
-    return data.map(toSummary);
+    return this.fetchClosingSoon(limit);
   }
 
   async listCategories(): Promise<readonly Category[]> {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from('categories')
-      .select('id, name, slug')
-      .order('name', { ascending: true })
-      .returns<CategoryRow[]>();
-
-    if (error) throw upstreamFailure('Gagal memuat kategori.', error);
-    return data;
+    return this.fetchCategories();
   }
 
   async getStats(): Promise<RepositoryStats> {
-    const supabase = await createSupabaseServerClient();
-    const now = new Date();
-    const weekAhead = new Date(now.getTime() + 7 * MS_PER_DAY).toISOString();
-    const weekAgo = new Date(now.getTime() - 7 * MS_PER_DAY).toISOString();
-    const approved = () =>
-      supabase.from('events_listing').select('id', { count: 'exact', head: true }).eq('status', 'APPROVED');
-
-    // head:true -> hanya minta jumlah baris, tidak menarik datanya.
-    const [active, closing, added, organizerRes] = await Promise.all([
-      approved(),
-      approved().gte('primary_deadline_at', now.toISOString()).lte('primary_deadline_at', weekAhead),
-      approved().gte('created_at', weekAgo),
-      supabase.rpc('get_distinct_organizer_count'),
-    ]);
-
-    return {
-      totalActive: active.count ?? 0,
-      closingThisWeek: closing.count ?? 0,
-      addedThisWeek: added.count ?? 0,
-      organizerCount: organizerRes.error ? 0 : ((organizerRes.data as number | null) ?? 0),
-    };
+    return this.fetchStats();
   }
 
   async getDeadlineWeek(): Promise<readonly DeadlineDay[]> {
-    const supabase = await createSupabaseServerClient();
-    const now = new Date();
-    const window = jakartaDayWindow(now, DEADLINE_WEEK_DAYS);
-
-    // Hanya kolom tanggal yang ditarik; pengelompokan per hari WIB dilakukan
-    // oleh fungsi yang sama dengan mode seed supaya aturannya tidak bercabang.
-    const { data, error } = await supabase
-      .from('events_listing')
-      .select('primary_deadline_at')
-      .eq('status', 'APPROVED')
-      .gte('primary_deadline_at', window.startIso)
-      .lt('primary_deadline_at', window.endIso)
-      .limit(2000)
-      .returns<Pick<EventListingRow, 'primary_deadline_at'>[]>();
-
-    // Pita ini hiasan beranda, bukan jalur kritis: gagal = pita kosong.
-    if (error) return buildDeadlineWeek([], now);
-    return buildDeadlineWeek(
-      data.map((row) => row.primary_deadline_at).filter((value): value is string => value !== null),
-      now,
-    );
+    return this.fetchDeadlineWeek();
   }
 
-  async listByStatus(status: EventStatus, limit: number): Promise<readonly EventSummary[]> {
+  async listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]> {
     // Antrean moderasi berisi baris PENDING yang menurut RLS TIDAK terbaca
     // oleh anon. Dibaca dengan klien admin; otorisasi siapa yang boleh
     // memanggil ini ditegakkan di lapisan rute (lihat src/app/admin).
@@ -244,7 +235,25 @@ export class SupabaseEventRepository implements EventRepository {
       .returns<EventListingRow[]>();
 
     if (error) throw upstreamFailure('Gagal memuat antrean moderasi.', error);
-    return data.map(toSummary);
+    if (data.length === 0) return [];
+
+    const { data: deadlineRows, error: deadlineError } = await supabase
+      .from('event_deadlines')
+      .select('id, event_id, label, deadline_at, is_primary')
+      .in(
+        'event_id',
+        data.map((row) => row.id),
+      )
+      .order('deadline_at', { ascending: true })
+      .returns<EventDeadlineWithEventRow[]>();
+
+    if (deadlineError) throw upstreamFailure('Gagal memuat tenggat antrean moderasi.', deadlineError);
+    return data.map((row) =>
+      toDetail(
+        row,
+        deadlineRows.filter((deadline) => deadline.event_id === row.id),
+      ),
+    );
   }
 
   async reviewEvent({ eventId, decision, reviewerId, reason }: ReviewEventInput): Promise<void> {
@@ -267,14 +276,19 @@ export class SupabaseEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, payload }: CreateSubmissionInput): Promise<void> {
+  async createSubmission({ submittedByEmail, submittedBy, payload }: CreateSubmissionInput): Promise<void> {
     // Klien pengguna/anon, bukan admin: policy `ugc_public_insert` yang
     // menegakkan status PENDING. Tanpa `.select()` — anon memang tidak boleh
     // membaca tabel ini, dan meminta baris balik akan ditolak RLS.
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase
       .from('ugc_submissions')
-      .insert({ submitted_by_email: submittedByEmail, payload: toStoredPayload(payload) });
+      .insert({
+        submitted_by_email: submittedByEmail,
+        payload: toStoredPayload(payload),
+        // Hanya dikirim bila ada: kolom ini tidak termasuk hak INSERT tamu.
+        ...(submittedBy ? { submitted_by: submittedBy } : {}),
+      });
 
     if (error) {
       // Trigger enforce_submission_rate_limit() (migration 0009).
@@ -306,7 +320,7 @@ export class SupabaseEventRepository implements EventRepository {
     if (decision === 'REJECTED') {
       const { data, error } = await supabase
         .from('ugc_submissions')
-        .update({ status: 'REJECTED' })
+        .update({ status: 'REJECTED', reviewed_by: reviewerId, reviewed_at: new Date().toISOString() })
         .eq('id', submissionId)
         .eq('status', 'PENDING')
         .select('id');
@@ -341,6 +355,22 @@ export class SupabaseEventRepository implements EventRepository {
           throw upstreamFailure('Gagal menyetujui kiriman.', error, 500);
       }
     }
+  }
+
+  async listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]> {
+    // Klien admin: tabelnya hanya terbaca admin (RLS) dan dipanggil dari
+    // rute yang sudah melewati checkAdminAccess().
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('moderation_log')
+      .select('id, subject_type, subject_id, title, from_status, to_status, actor_id, reason, created_at, actor:users(full_name)')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit)
+      .returns<ModerationLogRow[]>();
+
+    if (error) throw upstreamFailure('Gagal memuat riwayat moderasi.', error);
+    return data.map(toModerationLogEntry);
   }
 
   // ------------------------------------------------------------------
@@ -398,7 +428,7 @@ export class SupabaseEventRepository implements EventRepository {
       .from('saved_events')
       .upsert({ user_id: userId, event_id: eventId }, { onConflict: 'user_id,event_id', ignoreDuplicates: true });
 
-    if (error) throw upstreamFailure('Gagal menyimpan kegiatan.', error, 500);
+    if (error) throw rejectedOrFailed(error, 'Gagal menyimpan kegiatan.');
   }
 
   async unsaveEvent(userId: string, eventId: string): Promise<void> {
@@ -475,7 +505,7 @@ export class SupabaseEventRepository implements EventRepository {
         { onConflict: 'user_id,event_id' },
       );
 
-    if (error) throw upstreamFailure('Gagal memperbarui status tracker.', error, 500);
+    if (error) throw rejectedOrFailed(error, 'Gagal memperbarui status tracker.');
   }
 
   async addTrackerItemIfAbsent(userId: string, eventId: string): Promise<void> {
@@ -488,7 +518,7 @@ export class SupabaseEventRepository implements EventRepository {
         { onConflict: 'user_id,event_id', ignoreDuplicates: true },
       );
 
-    if (error) throw upstreamFailure('Gagal menambahkan ke tracker.', error, 500);
+    if (error) throw rejectedOrFailed(error, 'Gagal menambahkan ke tracker.');
   }
 
   async removeTrackerItem(userId: string, eventId: string): Promise<void> {
@@ -788,4 +818,215 @@ export class SupabaseEventRepository implements EventRepository {
     const { error } = await supabase.from('teams').delete().eq('id', teamId).eq('created_by', actorId);
     if (error) throw upstreamFailure('Gagal membubarkan tim.', error, 500);
   }
+
+  async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {
+    try {
+      const { data, error } = await createSupabaseAdminClient().rpc('consume_rate_limit', {
+        p_bucket: bucket,
+        p_limit: limit,
+        p_window_seconds: windowSeconds,
+      });
+      if (error) throw error;
+      return data === true;
+    } catch (error) {
+      // Fail OPEN, dengan sadar: pembatas yang rusak (mis. service role key
+      // belum diisi) tidak boleh mengunci SEMUA orang dari halaman masuk.
+      // Lapisan lain tetap berjalan: batas bawaan Supabase Auth, CAPTCHA,
+      // dan trigger batas kiriman di Postgres. Log-nya wajib dipantau.
+      console.error('[rate-limit] consume_rate_limit gagal, permintaan diloloskan:', error);
+      return true;
+    }
+  }
+
+  async recordRecommendationSignal(input: RecommendationSignalInput): Promise<void> {
+    if (!isUuid(input.eventId)) return;
+    // service_role: tabelnya sengaja tanpa jalur tulis dari browser (ADR-032).
+    const { error } = await createSupabaseAdminClient()
+      .from('recommendation_signals')
+      .insert({
+        event_id: input.eventId,
+        kind: input.kind,
+        user_id: input.userId,
+        interests: [...input.interests].slice(0, 20),
+        education_level: input.educationLevel,
+      });
+    if (error) throw upstreamFailure('Gagal mencatat sinyal rekomendasi.', error, 500);
+  }
+
+  async listCalibrationData(since: Date): Promise<CalibrationData> {
+    const supabase = createSupabaseAdminClient();
+    const [signals, events] = await Promise.all([
+      fetchAllPages<RecommendationSignalRow>((from, to) =>
+        supabase
+          .from('recommendation_signals')
+          .select('event_id, created_at, interests, education_level')
+          .gte('created_at', since.toISOString())
+          .order('id', { ascending: true })
+          .range(from, to)
+          .returns<RecommendationSignalRow[]>(),
+      ),
+      fetchAllPages<EventListingRow>((from, to) =>
+        supabase
+          .from('events_listing')
+          .select(LISTING_COLUMNS)
+          .in('status', [...PUBLIC_STATUSES])
+          .order('id', { ascending: true })
+          .range(from, to)
+          .returns<EventListingRow[]>(),
+      ),
+    ]);
+
+    return {
+      signals: signals.map((row) => ({
+        eventId: row.event_id,
+        createdAt: row.created_at,
+        interests: row.interests ?? [],
+        educationLevel: row.education_level,
+      })),
+      events: events.map(toSummary),
+    };
+  }
+}
+
+// ----------------------------------------------------------------------
+// Query data publik — fungsi modul (bukan method) supaya bisa dibungkus
+// Data Cache: tanpa `this`, tanpa cookie, hanya argumen yang bisa diserialkan.
+// ----------------------------------------------------------------------
+
+async function queryListingPage(filters: ListingFetch): Promise<ListingPage> {
+  const supabase = createSupabasePublicClient();
+  let builder = supabase.from('events_listing').select(LISTING_COLUMNS, { count: filters.countMode });
+
+  if (filters.includeClosed) {
+    // EXPIRED ikut: begitu job expiry harian berjalan, event yang tenggatnya
+    // lewat berpindah ke status itu. Menyaring `status = APPROVED` saja
+    // membuat "tampilkan yang sudah ditutup" tidak pernah menampilkan apa pun.
+    builder = builder.in('status', [...PUBLIC_STATUSES]);
+  } else {
+    // Tenggat yang sudah lewat disembunyikan. `or` dipakai supaya event
+    // yang tenggatnya belum diumumkan (NULL) tetap ikut tampil — kalau
+    // difilter dengan perbandingan biasa, seluruh baris NULL hilang diam-diam.
+    builder = builder
+      .eq('status', 'APPROVED')
+      .or(`primary_deadline_at.gte.${new Date().toISOString()},primary_deadline_at.is.null`);
+  }
+
+  if (filters.search) {
+    builder = builder.textSearch('search_vector', filters.search, { type: 'websearch', config: 'indonesian' });
+  }
+  if (filters.types.length) builder = builder.in('event_type', [...filters.types]);
+  if (filters.levels.length) builder = builder.overlaps('education_levels', [...filters.levels]);
+  if (filters.categories.length) builder = builder.overlaps('category_slugs', [...filters.categories]);
+
+  builder =
+    filters.sort === 'deadline'
+      ? builder.order('primary_deadline_at', { ascending: true, nullsFirst: false }).order('id')
+      : builder.order('created_at', { ascending: false }).order('id');
+
+  const { data, error, count } = await builder.range(filters.from, filters.to).returns<EventListingRow[]>();
+  if (error) throw upstreamFailure('Gagal memuat daftar event.', error);
+  return { rows: data, count };
+}
+
+async function queryDetailBySlug(slug: string): Promise<EventDetail | null> {
+  const supabase = createSupabasePublicClient();
+
+  const { data, error } = await supabase
+    .from('events_listing')
+    .select(LISTING_COLUMNS)
+    .eq('slug', slug)
+    .in('status', [...PUBLIC_STATUSES])
+    .maybeSingle<EventListingRow>();
+
+  if (error) throw upstreamFailure('Gagal memuat detail event.', error);
+  if (!data) return null;
+
+  const { data: deadlineRows, error: deadlineError } = await supabase
+    .from('event_deadlines')
+    .select('id, label, deadline_at, is_primary')
+    .eq('event_id', data.id)
+    .order('deadline_at', { ascending: true })
+    .returns<EventDeadlineRow[]>();
+
+  if (deadlineError) throw upstreamFailure('Gagal memuat tenggat event.', deadlineError);
+  return toDetail(data, deadlineRows);
+}
+
+async function queryClosingSoon(limit: number): Promise<EventSummary[]> {
+  const supabase = createSupabasePublicClient();
+  const now = new Date();
+  const horizon = new Date(now.getTime() + 30 * MS_PER_DAY);
+
+  const { data, error } = await supabase
+    .from('events_listing')
+    .select(LISTING_COLUMNS)
+    .eq('status', 'APPROVED')
+    .gte('primary_deadline_at', now.toISOString())
+    .lte('primary_deadline_at', horizon.toISOString())
+    .order('primary_deadline_at', { ascending: true })
+    .limit(limit)
+    .returns<EventListingRow[]>();
+
+  if (error) throw upstreamFailure('Gagal memuat sorotan.', error);
+  return data.map(toSummary);
+}
+
+async function queryCategories(): Promise<Category[]> {
+  const { data, error } = await createSupabasePublicClient()
+    .from('categories')
+    .select('id, name, slug')
+    .order('name', { ascending: true })
+    .returns<CategoryRow[]>();
+
+  if (error) throw upstreamFailure('Gagal memuat kategori.', error);
+  return data;
+}
+
+async function queryStats(): Promise<RepositoryStats> {
+  const supabase = createSupabasePublicClient();
+  const now = new Date();
+  const weekAhead = new Date(now.getTime() + 7 * MS_PER_DAY).toISOString();
+  const weekAgo = new Date(now.getTime() - 7 * MS_PER_DAY).toISOString();
+  const approved = () =>
+    supabase.from('events_listing').select('id', { count: 'exact', head: true }).eq('status', 'APPROVED');
+
+  // head:true -> hanya minta jumlah baris, tidak menarik datanya.
+  const [active, closing, added, organizerRes] = await Promise.all([
+    approved(),
+    approved().gte('primary_deadline_at', now.toISOString()).lte('primary_deadline_at', weekAhead),
+    approved().gte('created_at', weekAgo),
+    supabase.rpc('get_distinct_organizer_count'),
+  ]);
+
+  return {
+    totalActive: active.count ?? 0,
+    closingThisWeek: closing.count ?? 0,
+    addedThisWeek: added.count ?? 0,
+    organizerCount: organizerRes.error ? 0 : ((organizerRes.data as number | null) ?? 0),
+  };
+}
+
+async function queryDeadlineWeek(): Promise<DeadlineDay[]> {
+  const now = new Date();
+  const window = jakartaDayWindow(now, DEADLINE_WEEK_DAYS);
+
+  // Hanya kolom tanggal yang ditarik; pengelompokan per hari WIB dilakukan
+  // oleh fungsi yang sama dengan mode seed supaya aturannya tidak bercabang.
+  const { data, error } = await createSupabasePublicClient()
+    .from('events_listing')
+    .select('primary_deadline_at')
+    .eq('status', 'APPROVED')
+    .gte('primary_deadline_at', window.startIso)
+    .lt('primary_deadline_at', window.endIso)
+    .limit(2000)
+    .returns<Pick<EventListingRow, 'primary_deadline_at'>[]>();
+
+  // Pita ini hiasan beranda, bukan jalur kritis: gagal = pita kosong.
+  if (error) return [...buildDeadlineWeek([], now)];
+  return [
+    ...buildDeadlineWeek(
+      data.map((row) => row.primary_deadline_at).filter((value): value is string => value !== null),
+      now,
+    ),
+  ];
 }

@@ -24,7 +24,8 @@ export function DemoLogin({ next }: { next: string }) {
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
           Setiap pilihan membuat akun sementara khusus untukmu. Data yang kamu simpan tidak terlihat
-          pengunjung lain dan hilang saat data demo diatur ulang.
+          pengunjung lain, dan hilang saat kamu keluar, menghapus cookie, atau data demo diatur ulang
+          — akun demo tidak bisa dipulihkan.
         </p>
       </div>
 

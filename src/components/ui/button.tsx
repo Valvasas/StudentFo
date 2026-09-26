@@ -39,7 +39,9 @@ const buttonVariants = cva(
           'bg-success-soft text-success border border-success-line hover:bg-success hover:text-white active:opacity-90',
       },
       size: {
-        sm: 'h-9 min-h-9 px-3 text-sm',
+        // Tampil 36px (baris aksi yang padat), tapi area sentuh tetap 44px:
+        // ::after memperluas 4px ke atas & bawah dan ikut menerima klik.
+        sm: "relative h-9 min-h-9 px-3 text-sm after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']",
         md: 'h-11 min-h-11 px-4 text-sm',
         lg: 'h-12 min-h-12 px-6 text-base',
         icon: 'size-11 min-h-11 p-0',

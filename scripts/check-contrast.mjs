@@ -152,6 +152,13 @@ const PAIRS = [
   ['Titik urgensi / latar (1.4.11)', '--color-deadline-warning', '--color-surface', 3],
   ['Teks inverse / panel inverse', '--color-inverse-text', '--color-inverse-surface', 4.5],
   ['Teks inverse redup / panel', '--color-inverse-text-muted', '--color-inverse-surface', 4.5],
+  // Kartu persona demo (DemoLogin) & panel "Admin demo" di /admin, serta
+  // lencana riwayat moderasi — ditambahkan karena belum pernah diperiksa.
+  ['Teks redup / kartu (ringkasan persona)', '--color-text-muted', '--color-surface', 4.5],
+  ['Ikon persona / accent soft (1.4.11)', '--color-accent-text', '--color-accent-soft', 3],
+  ['Lencana brand / accent soft', '--color-accent-text', '--color-accent-soft', 4.5],
+  ['Teks sekunder / panel bersarang (lencana netral)', '--color-text-secondary', '--color-surface-nested', 4.5],
+  ['Peringatan / panel bersarang (<code> di panel admin demo)', '--color-warning', '--color-surface-nested', 4.5],
 ];
 
 let failures = 0;

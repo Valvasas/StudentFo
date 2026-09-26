@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryEventRepository } from './memory-repository';
+import type { AppError } from '@/lib/errors';
 
 describe('MemoryEventRepository — Saved Events & Application Tracker', () => {
   it('dapat menyimpan dan membatalkan simpanan kegiatan', async () => {
@@ -83,5 +84,21 @@ describe('MemoryEventRepository — Saved Events & Application Tracker', () => {
     const stats = await repo.getStats();
     expect(stats.organizerCount).toBeGreaterThan(0);
     expect(stats.totalActive).toBeGreaterThanOrEqual(stats.organizerCount);
+  });
+});
+
+describe('MemoryEventRepository — event yang tidak tayang (paritas policy saved_events_own/tracker_own)', () => {
+  it('menyimpan atau melacak event PENDING ditolak event_unavailable, seperti RLS produksi', async () => {
+    const repo = new MemoryEventRepository();
+    const [pending] = await repo.listByStatus('PENDING', 1);
+    const reasons = await Promise.all(
+      [
+        () => repo.saveEvent('u-paritas', pending!.id),
+        () => repo.upsertTrackerItem('u-paritas', pending!.id, 'APPLIED'),
+        () => repo.addTrackerItemIfAbsent('u-paritas', pending!.id),
+      ].map((run) => run().then(() => 'ok', (error: AppError) => error.reason)),
+    );
+    expect(reasons).toEqual(['event_unavailable', 'event_unavailable', 'event_unavailable']);
+    expect(await repo.isEventSaved('u-paritas', pending!.id)).toBe(false);
   });
 });
