@@ -41,6 +41,9 @@ import type {
   TrackerRow,
 } from '@/types/database';
 import {
+  chooseCountMode,
+  EXACT_COUNT_MAX_ACTIVE,
+  type ListingCountMode,
   PUBLIC_STATUSES,
   RELEVANCE_CANDIDATE_WINDOW,
   resolvePaging,
@@ -116,6 +119,7 @@ interface ListingFetch {
   readonly sort: 'deadline' | 'newest' | 'relevance';
   readonly from: number;
   readonly to: number;
+  readonly countMode: ListingCountMode;
 }
 
 interface ListingPage {
@@ -142,7 +146,10 @@ export class SupabaseEventRepository implements EventRepository {
   private readonly fetchStats: () => Promise<RepositoryStats>;
   private readonly fetchDeadlineWeek: () => Promise<DeadlineDay[]>;
 
-  constructor(cacheLayer: CacheLayer = nextDataCache) {
+  constructor(
+    cacheLayer: CacheLayer = nextDataCache,
+    private readonly exactCountMaxActive: number = EXACT_COUNT_MAX_ACTIVE,
+  ) {
     this.fetchListingPage = cacheLayer(queryListingPage, ['events-listing-v1']);
     this.fetchDetailBySlug = cacheLayer(queryDetailBySlug, ['events-detail-v1']);
     this.fetchClosingSoon = cacheLayer(queryClosingSoon, ['events-closing-soon-v1']);
@@ -161,6 +168,9 @@ export class SupabaseEventRepository implements EventRepository {
       ? [0, RELEVANCE_CANDIDATE_WINDOW - 1]
       : [paging.offset, paging.offset + paging.pageSize - 1];
 
+    // Ukuran katalog dari statistik yang sudah di-cache — tanpa query tambahan
+    // di jalur panas. Lihat EXACT_COUNT_MAX_ACTIVE.
+    const countMode = chooseCountMode((await this.fetchStats()).totalActive, this.exactCountMaxActive);
     const { rows, count } = await this.fetchListingPage({
       includeClosed: query.includeClosed ?? false,
       search: query.search ? sanitizeSearchQuery(query.search) : '',
@@ -170,6 +180,7 @@ export class SupabaseEventRepository implements EventRepository {
       sort,
       from,
       to,
+      countMode,
     });
 
     const total = count ?? rows.length;
@@ -879,7 +890,7 @@ export class SupabaseEventRepository implements EventRepository {
 
 async function queryListingPage(filters: ListingFetch): Promise<ListingPage> {
   const supabase = createSupabasePublicClient();
-  let builder = supabase.from('events_listing').select(LISTING_COLUMNS, { count: 'exact' });
+  let builder = supabase.from('events_listing').select(LISTING_COLUMNS, { count: filters.countMode });
 
   if (filters.includeClosed) {
     // EXPIRED ikut: begitu job expiry harian berjalan, event yang tenggatnya

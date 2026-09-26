@@ -7,16 +7,22 @@ import { actAs, createEvent, createUser } from './harness';
 /** Data Cache tiruan: kunci = keyParts + argumen (seperti unstable_cache), bisa dikosongkan seperti revalidateTag. */
 function recordingCache() {
   const store = new Map<string, unknown>();
-  let misses = 0;
+  const misses = new Map<string, number>();
   const layer: CacheLayer = (fn, keyParts) => async (...args) => {
     const key = JSON.stringify([keyParts, args]);
     if (!store.has(key)) {
-      misses += 1;
+      const name = keyParts.join('/');
+      misses.set(name, (misses.get(name) ?? 0) + 1);
       store.set(key, await fn(...args));
     }
     return store.get(key) as Awaited<ReturnType<typeof fn>>;
   };
-  return { layer, misses: () => misses, invalidate: () => store.clear() };
+  // Hitung miss per jenis query: listing juga membaca statistik (mode hitung, ADR-035).
+  return {
+    layer,
+    misses: (name = 'events-listing-v1') => misses.get(name) ?? 0,
+    invalidate: () => store.clear(),
+  };
 }
 
 describe('cache data publik SupabaseEventRepository', () => {
@@ -68,6 +74,6 @@ describe('cache data publik SupabaseEventRepository', () => {
     const asAdmin = await repo.getEventBySlug(event.slug);
     actAs(null);
     expect(asAdmin).toEqual(asGuest);
-    expect(cache.misses()).toBe(1);
+    expect(cache.misses('events-detail-v1')).toBe(1);
   });
 });

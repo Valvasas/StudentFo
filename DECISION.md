@@ -12,6 +12,46 @@ terdokumentasi.
 
 ---
 
+## ADR-035 — Diukur dulu: skor relevansi tetap di Node; `count` exact → planned otomatis di atas 20.000 event
+
+**Konteks:** ADR-021 menyarankan memindah skor relevansi ke SQL "kalau katalog
+> 1.000–2.000 event", dan `count: 'exact'` dicurigai mahal. Keduanya belum
+pernah diukur.
+
+**Pengukuran** (`tests/integration/listing-scale.test.ts`, PG16 + PostgREST
+v12 lokal, median 5×, katalog sintetis, `BENCH_SIZES=5000,20000,50000`),
+dalam ms per `listEvents` lewat supabase-js:
+
+| Event APPROVED | relevansi (240 + skor Node) | terbaru | tenggat hal. 20 | cari FTS | filter | statistik |
+|---|---|---|---|---|---|---|
+| 5.000  | 21  | 12  | 22  | 20  | 20  | 20  |
+| 20.000 | 106 | 81  | 127 | 46  | 69  | 72  |
+| 50.000 | 159 | 138 | 809 | 146 | 171 | 119 |
+
+Dibedah lewat log Postgres (SQL persis yang dikirim PostgREST): pada 50.000
+event, urutan tenggat + `Prefer: count=exact` = ±700 ms, tanpa count ±140 ms,
+`count=planned` ±135 ms (perkiraan 12.499 vs pasti 12.500 untuk filter jenis).
+Penyebab: tenggat utama ada di `event_deadlines`, sehingga halaman DAN count
+masing-masing men-join seluruh `events × event_deadlines` (plus subquery RLS);
+tidak ada index yang bisa membantu lintas join itu.
+
+**Keputusan:**
+1. Skor relevansi TETAP di Node — 159 ms di 50.000 event; pindah ke SQL/RPC
+   belum sebanding biayanya.
+2. `chooseCountMode()`: `exact` selama event aktif ≤ `EXACT_COUNT_MAX_ACTIVE`
+   (20.000), `planned` di atasnya. Ukuran katalog diambil dari `getStats()` yang
+   sudah di-cache (ADR-034) — tanpa query tambahan. Tidak memakai `estimated`
+   bawaan PostgREST karena ambangnya = `max_rows` Supabase (1000).
+
+**Konsekuensi / langkah berikutnya bila katalog > 20.000:** total paginasi
+menjadi perkiraan (halaman terakhir bisa kosong). Perbaikan yang sebenarnya
+untuk urutan tenggat adalah denormalisasi `primary_deadline_at` ke `events`
+(dijaga trigger) + index parsial `(primary_deadline_at) WHERE status =
+'APPROVED'` — belum dikerjakan karena katalog nyata masih nol. Ukur ulang dengan
+`BENCH_SIZES` sebelum memutuskan.
+
+---
+
 ## ADR-034 — Cache di lapisan data (`unstable_cache` + tag `events`), halaman tetap dinamis
 
 **Konteks:** Semua halaman publik `force-dynamic` sehingga setiap kunjungan
@@ -366,6 +406,7 @@ luar jendela jatuh ke urutan terbaru. `total` tetap dari `count: 'exact'`.
 satu query menarik ≤240 baris ringkas per request halaman relevansi. Kalau
 katalog aktif jauh melampaui itu dan halaman dalam mulai dipakai, pindahkan
 skor ke SQL (atau ke Meilisearch, §2 blueprint) — bukan menaikkan jendela.
+Diukur di ADR-035: 159 ms pada 50.000 event — belum perlu dipindah.
 
 ---
 

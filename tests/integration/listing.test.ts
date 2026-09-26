@@ -83,3 +83,13 @@ describe('batas max_rows PostgREST', () => {
     expect(data.signals.filter((signal) => signal.eventId === event.id)).toHaveLength(1205);
   });
 });
+
+describe('mode hitung otomatis', () => {
+  it('di atas ambang memakai perkiraan planner, total tetap angka yang masuk akal', async () => {
+    const planned = new SupabaseEventRepository(noCache, 0);
+    const exact = await repo.listEvents({ search: token, sort: 'newest' });
+    const estimate = await planned.listEvents({ search: token, sort: 'newest' });
+    expect(estimate.items.map((item) => item.id)).toEqual(exact.items.map((item) => item.id));
+    expect(estimate.total).toBeGreaterThan(0);
+  });
+});
