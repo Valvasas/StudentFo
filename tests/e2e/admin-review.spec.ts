@@ -23,3 +23,31 @@ test('setiap kartu antrean moderasi menampilkan domain & tautan sumber serta tau
     await expect(card.getByRole('link', { name: /^Tautan pendaftaran/ })).toHaveAttribute('href', /^https?:\/\//);
   }
 });
+
+test('keputusan moderasi tercatat di riwayat dengan nama admin', async ({ page }, testInfo) => {
+  // Data demo dibagi semua proyek yang berjalan paralel dan hanya punya dua
+  // kegiatan PENDING; menolaknya di tiap proyek menghabiskan antrean. Perilaku
+  // moderasi tidak bergantung pada tema/viewport, jadi cukup satu proyek.
+  test.skip(testInfo.project.name !== 'terang', 'mengubah data demo bersama');
+  await signInAsDemo(page, 'Admin moderator', '/admin');
+  const card = page
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('link', { name: /^Sumber asli/ }) })
+    .first();
+  const title = (await card.getByRole('heading').textContent())?.trim();
+  expect(title).toBeTruthy();
+  await card.getByRole('button', { name: /Tolak/ }).click();
+  await page.waitForLoadState('networkidle');
+
+  await page.getByRole('link', { name: 'Riwayat moderasi' }).click();
+  await expect(page).toHaveURL(/\/admin\/riwayat$/);
+  const entry = page.getByRole('listitem').filter({ hasText: title! }).first();
+  await expect(entry).toContainText('Ditolak');
+  await expect(entry).toContainText('Admin Moderator');
+});
+
+test('riwayat moderasi tertutup untuk non-admin', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa');
+  await page.goto('/admin/riwayat');
+  await expect(page.getByRole('heading', { name: 'Akses terbatas' })).toBeVisible();
+});

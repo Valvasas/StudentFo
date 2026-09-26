@@ -1,9 +1,10 @@
 import { fromStoredPayload } from '@/lib/submission-schema';
-import type { EventDetail, EventSummary, Submission, TeamMember } from '@/types/domain';
+import type { EventDetail, EventSummary, ModerationLogEntry, Submission, TeamMember } from '@/types/domain';
 import { toTeamRole } from '@/types/domain';
 import type {
   EventDeadlineRow,
   EventListingRow,
+  ModerationLogRow,
   SubmissionRow,
   TeamMemberProfileRow,
 } from '@/types/database';
@@ -103,4 +104,19 @@ export function sqlState(error: unknown): string | null {
   if (typeof error !== 'object' || error === null) return null;
   const code = (error as { code?: unknown }).code;
   return typeof code === 'string' ? code : null;
+}
+
+export function toModerationLogEntry(row: ModerationLogRow): ModerationLogEntry {
+  return {
+    id: String(row.id),
+    subjectType: row.subject_type,
+    subjectId: row.subject_id,
+    title: row.title,
+    fromStatus: row.from_status,
+    toStatus: row.to_status,
+    actorId: row.actor_id,
+    actorName: row.actor?.full_name ?? null,
+    reason: row.reason,
+    createdAt: row.created_at,
+  };
 }

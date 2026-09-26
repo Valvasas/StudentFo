@@ -31,6 +31,7 @@ function parseDecision(formData: FormData): Decision | null {
 
 function refreshPublicViews(): void {
   revalidatePath('/admin');
+  revalidatePath('/admin/riwayat');
   revalidatePath('/events');
   revalidatePath('/');
 }
@@ -54,6 +55,7 @@ export async function reviewEventAction(formData: FormData): Promise<void> {
         eventId,
         decision,
         reviewerId: gate.userId,
+        reviewerName: gate.userName,
         ...(reason ? { reason } : {}),
       });
     }
@@ -83,7 +85,12 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   let failure: ActionErrorCode | null = null;
   try {
     const repository = await getEventRepository();
-    await repository.reviewSubmission({ submissionId, decision, reviewerId: gate.userId });
+    await repository.reviewSubmission({
+      submissionId,
+      decision,
+      reviewerId: gate.userId,
+      reviewerName: gate.userName,
+    });
   } catch (error) {
     failure = toActionErrorCode(error);
   }

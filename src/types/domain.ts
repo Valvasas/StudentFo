@@ -239,6 +239,23 @@ export interface Submission {
   readonly payload: SubmissionPayload | null;
 }
 
+/** Satu baris log moderasi append-only (tabel `moderation_log`). */
+export interface ModerationLogEntry {
+  readonly id: string;
+  readonly subjectType: 'event' | 'submission';
+  readonly subjectId: string;
+  /** Judul saat keputusan dibuat — event bisa diganti judulnya kemudian. */
+  readonly title: string;
+  /** null = baris langsung terbit tanpa melewati antrean (mis. hasil kiriman). */
+  readonly fromStatus: EventStatus | null;
+  readonly toStatus: EventStatus;
+  /** null = perubahan di luar aplikasi (job expiry, SQL manual). */
+  readonly actorId: string | null;
+  readonly actorName: string | null;
+  readonly reason: string | null;
+  readonly createdAt: string;
+}
+
 export const SORT_OPTIONS = ['relevance', 'deadline', 'newest'] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
 

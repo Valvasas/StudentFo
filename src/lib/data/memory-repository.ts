@@ -11,6 +11,7 @@ import type {
   EventQuery,
   EventStatus,
   EventSummary,
+  ModerationLogEntry,
   Paginated,
   Submission,
   Team,
@@ -156,6 +157,7 @@ export class MemoryEventRepository implements EventRepository {
   private readonly teams = new Map<string, TeamEntry>();
   private readonly submissions = new Map<string, Submission>();
   private readonly rateLimiter = new MemoryRateLimiter();
+  private readonly moderationLog: ModerationLogEntry[] = [];
 
   constructor(base: Date = new Date()) {
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
@@ -278,8 +280,47 @@ export class MemoryEventRepository implements EventRepository {
     return this.events.filter((event) => event.status === status).slice(0, limit);
   }
 
-  async reviewEvent({ eventId, decision }: ReviewEventInput): Promise<void> {
-    this.updateEvent(eventId, (event) => ({ ...event, status: decision }));
+  async reviewEvent({ eventId, decision, reviewerId, reviewerName, reason }: ReviewEventInput): Promise<void> {
+    const event = this.findEvent(eventId);
+    if (!event || event.status === decision) return;
+    this.updateEvent(eventId, (current) => ({ ...current, status: decision }));
+    this.logModeration({
+      subjectType: 'event',
+      subjectId: eventId,
+      title: event.title,
+      fromStatus: event.status,
+      toStatus: decision,
+      actor: { reviewerId, reviewerName },
+      reason: decision === 'REJECTED' ? (reason ?? null) : null,
+    });
+  }
+
+  /** Cermin trigger `log_moderation_change()` (migration 20260926130001). */
+  private logModeration(entry: {
+    subjectType: ModerationLogEntry['subjectType'];
+    subjectId: string;
+    title: string;
+    fromStatus: EventStatus | null;
+    toStatus: EventStatus;
+    actor: { reviewerId: string | null; reviewerName?: string | undefined };
+    reason: string | null;
+  }): void {
+    this.moderationLog.push({
+      id: String(this.moderationLog.length + 1),
+      subjectType: entry.subjectType,
+      subjectId: entry.subjectId,
+      title: entry.title,
+      fromStatus: entry.fromStatus,
+      toStatus: entry.toStatus,
+      actorId: entry.actor.reviewerId,
+      actorName: entry.actor.reviewerId ? (entry.actor.reviewerName ?? null) : null,
+      reason: entry.reason,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  async listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]> {
+    return [...this.moderationLog].reverse().slice(0, limit);
   }
 
   // ------------------------------------------------------------------
@@ -307,7 +348,7 @@ export class MemoryEventRepository implements EventRepository {
       .slice(0, limit);
   }
 
-  async reviewSubmission({ submissionId, decision }: ReviewSubmissionInput): Promise<void> {
+  async reviewSubmission({ submissionId, decision, reviewerId, reviewerName }: ReviewSubmissionInput): Promise<void> {
     const submission = this.submissions.get(submissionId);
     if (!submission || submission.status !== 'PENDING') throw actionError('submission_not_found');
 
@@ -350,9 +391,27 @@ export class MemoryEventRepository implements EventRepository {
           { id: `${id}-d0`, label: 'registration', deadlineAt: payload.deadlineAt, isPrimary: true },
         ],
       });
+      this.logModeration({
+        subjectType: 'event',
+        subjectId: id,
+        title: payload.title,
+        fromStatus: null,
+        toStatus: 'APPROVED',
+        actor: { reviewerId, reviewerName },
+        reason: null,
+      });
     }
 
     this.submissions.set(submissionId, { ...submission, status: decision });
+    this.logModeration({
+      subjectType: 'submission',
+      subjectId: submissionId,
+      title: submission.payload?.title ?? '(tanpa judul)',
+      fromStatus: 'PENDING',
+      toStatus: decision,
+      actor: { reviewerId, reviewerName },
+      reason: null,
+    });
   }
 
   // ------------------------------------------------------------------

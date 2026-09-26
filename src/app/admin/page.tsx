@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlertTriangle, Check, Inbox, RotateCcw, ShieldCheck, Users } from 'lucide-react';
+import { AlertTriangle, Check, History, Inbox, RotateCcw, ShieldCheck, Users } from 'lucide-react';
 import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -74,10 +74,17 @@ export default async function AdminPage({
             pendaftaran dan tenggatnya dicek ke sumber aslinya.
           </p>
         </div>
-        <Badge variant={pending.length > 0 ? 'warning' : 'success'}>
-          <Inbox aria-hidden className="size-3.5" />
-          {pending.length} menunggu
-        </Badge>
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant={pending.length > 0 ? 'warning' : 'success'}>
+            <Inbox aria-hidden className="size-3.5" />
+            {pending.length} menunggu
+          </Badge>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/admin/riwayat">
+              <History aria-hidden /> Riwayat moderasi
+            </Link>
+          </Button>
+        </div>
       </header>
 
       {statusMessage && (

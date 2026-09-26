@@ -6,6 +6,7 @@ import type {
   EventQuery,
   EventStatus,
   EventSummary,
+  ModerationLogEntry,
   Paginated,
   Submission,
   SubmissionPayload,
@@ -51,6 +52,12 @@ export interface EventRepository {
   listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]>;
   /** Setujui = salin ke `events` berstatus APPROVED (atomik); tolak = tandai REJECTED. */
   reviewSubmission(input: ReviewSubmissionInput): Promise<void>;
+  /**
+   * Riwayat keputusan moderasi, terbaru di atas. Di produksi diisi TRIGGER
+   * (bukan oleh method review di atas), jadi perubahan dari jalur mana pun —
+   * job expiry, SQL editor — ikut tercatat. Hanya untuk rute admin.
+   */
+  listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]>;
 
   /** Saved events — simpan/batal simpan kegiatan per pengguna (Phase 2) */
   isEventSaved(userId: string, eventId: string): Promise<boolean>;
@@ -127,6 +134,8 @@ export interface ReviewSubmissionInput {
   readonly submissionId: string;
   readonly decision: Extract<EventStatus, 'APPROVED' | 'REJECTED'>;
   readonly reviewerId: string | null;
+  /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
+  readonly reviewerName?: string;
 }
 
 export interface RepositoryStats {
@@ -150,6 +159,8 @@ export interface ReviewEventInput {
   readonly eventId: string;
   readonly decision: Extract<EventStatus, 'APPROVED' | 'REJECTED'>;
   readonly reviewerId: string | null;
+  /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
+  readonly reviewerName?: string;
   readonly reason?: string;
 }
 

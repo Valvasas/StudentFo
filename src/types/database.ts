@@ -123,3 +123,16 @@ export interface NotificationRow {
   is_read: boolean;
   sent_at: string;
 }
+
+export interface ModerationLogRow {
+  id: number;
+  subject_type: 'event' | 'submission';
+  subject_id: string;
+  title: string;
+  from_status: EventStatus | null;
+  to_status: EventStatus;
+  actor_id: string | null;
+  reason: string | null;
+  created_at: string;
+  actor: { full_name: string | null } | null;
+}

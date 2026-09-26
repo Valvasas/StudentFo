@@ -12,6 +12,31 @@ terdokumentasi.
 
 ---
 
+## ADR-031 — Log moderasi append-only diisi trigger, bukan halaman di atas `reviewed_by`
+
+**Konteks:** Permintaan awalnya "tampilkan `reviewed_by`/`reviewed_at` yang sudah
+ada". Kolom itu hanya menyimpan keputusan TERAKHIR: admin B yang membalik
+keputusan admin A menghapus jejak A, dan job expiry / SQL editor tidak
+meninggalkan jejak sama sekali. `ugc_submissions` bahkan tidak punya kolom
+peninjau — penolakan kiriman anonim terhadap siapa pun.
+
+**Keputusan:** Migration `20260926130001_moderation_log.sql`: tabel
+`moderation_log` + trigger `log_moderation_change()` di `events` dan
+`ugc_submissions` (INSERT non-PENDING dan UPDATE OF status). Aktor = `reviewed_by`
+hanya bila `reviewed_at` ikut berubah di baris itu; selain itu NULL
+("sistem / di luar aplikasi") — tidak mengatribusikan perubahan otomatis ke
+peninjau sebelumnya. Tidak ada hak tulis bagi role API mana pun (termasuk
+service_role). `ugc_submissions` mendapat `reviewed_by/reviewed_at`;
+`approve_submission()` diisi ulang identik + jejak peninjau. Mode seed mencatat
+log yang sama di `MemoryEventRepository`. UI: `/admin/riwayat` (100 terakhir).
+
+**Konsekuensi:** Aplikasi tidak bisa lupa mencatat, karena aplikasi tidak
+mencatat. Log bisa dihapus hanya oleh pemilik database (postgres) — itu batas
+yang disadari, bukan jaminan forensik. Belum ada paginasi/filter per admin;
+tambahkan begitu log > 100 entri per minggu.
+
+---
+
 ## ADR-030 — Job harian di pg_cron, bukan GitHub Actions `schedule`
 
 **Konteks:** `expire_past_events()` dan `create_deadline_notifications()`

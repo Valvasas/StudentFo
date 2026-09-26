@@ -12,6 +12,7 @@ import type {
   EventQuery,
   EventStatus,
   EventSummary,
+  ModerationLogEntry,
   Paginated,
   Submission,
   Team,
@@ -25,6 +26,7 @@ import type {
   EventDeadlineRow,
   EventDeadlineWithEventRow,
   EventListingRow,
+  ModerationLogRow,
   NotificationRow,
   SubmissionRow,
   TeamMemberCountRow,
@@ -53,6 +55,7 @@ import {
   sanitizeSearchQuery,
   sqlState,
   toDetail,
+  toModerationLogEntry,
   toSubmission,
   toSummary,
   toTeamMember,
@@ -325,7 +328,7 @@ export class SupabaseEventRepository implements EventRepository {
     if (decision === 'REJECTED') {
       const { data, error } = await supabase
         .from('ugc_submissions')
-        .update({ status: 'REJECTED' })
+        .update({ status: 'REJECTED', reviewed_by: reviewerId, reviewed_at: new Date().toISOString() })
         .eq('id', submissionId)
         .eq('status', 'PENDING')
         .select('id');
@@ -360,6 +363,22 @@ export class SupabaseEventRepository implements EventRepository {
           throw upstreamFailure('Gagal menyetujui kiriman.', error, 500);
       }
     }
+  }
+
+  async listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]> {
+    // Klien admin: tabelnya hanya terbaca admin (RLS) dan dipanggil dari
+    // rute yang sudah melewati checkAdminAccess().
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('moderation_log')
+      .select('id, subject_type, subject_id, title, from_status, to_status, actor_id, reason, created_at, actor:users(full_name)')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit)
+      .returns<ModerationLogRow[]>();
+
+    if (error) throw upstreamFailure('Gagal memuat riwayat moderasi.', error);
+    return data.map(toModerationLogEntry);
   }
 
   // ------------------------------------------------------------------

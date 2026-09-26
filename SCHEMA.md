@@ -21,6 +21,8 @@ Urutan migration (harus dijalankan berurutan):
 11. `20260925100001_pipeline_and_notification_reliability.sql` — dedup edisi tahunan, notifikasi berbasis rentang, RPC `stage_scraped_event()`
 12. `20260926100001_rls_initplan.sql` — semua policy memanggil `(select auth.uid())` / `(select public.is_admin())` (InitPlan, sekali per query)
 13. `20260926110001_rate_limits.sql` — tabel `rate_limit_hits` + RPC `consume_rate_limit()` / `purge_rate_limit_hits()` (service_role saja, ADR-028)
+14. `20260926120001_pg_cron_jobs.sql` — pg_cron + 3 job harian (bersyarat; ADR-030, lihat § Job terjadwal)
+15. `20260926130001_moderation_log.sql` — tabel append-only `moderation_log` diisi trigger `log_moderation_change()` di `events`/`ugc_submissions`; kolom `ugc_submissions.reviewed_by/reviewed_at`; `approve_submission()` mengisi peninjau (ADR-031)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -159,6 +161,13 @@ Policy INSERT `team_members` juga mensyaratkan `role = 'member'` kecuali ketua
 mendaftarkan dirinya sendiri di tim miliknya. Tim hanya bisa dibuat untuk
 event `APPROVED` (`teams_owner_insert`).
 
+### `moderation_log` (riwayat moderasi, ADR-031)
+Append-only: `subject_type` (`event`/`submission`), `subject_id`, salinan
+`title`, `from_status` → `to_status`, `actor_id` (NULL = sistem/di luar
+aplikasi), `reason`, `created_at`. Diisi **hanya** oleh trigger
+`log_moderation_change()`; tidak ada hak INSERT/UPDATE/DELETE untuk role API
+mana pun, termasuk `service_role`. SELECT: admin (RLS). Dibaca di `/admin/riwayat`.
+
 ### `rate_limit_hits` (pembatas laju, ADR-028)
 `(bucket, hit_at)`. `bucket` = `<aturan>:<HMAC-SHA256 hex>` — tidak ada IP atau
 email mentah. RLS aktif **tanpa policy** dan semua hak dicabut dari
@@ -191,7 +200,7 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 
 ## Row Level Security
 
-RLS **aktif di semua 12 tabel publik**, deny-by-default (DEVIATIONS #2 —
+RLS **aktif di semua 13 tabel publik**, deny-by-default (DEVIATIONS #2 —
 blueprint asli hanya menyalakan 5 tabel, sisanya bisa ditulis publik lewat
 anon key). Ringkasan policy:
 
