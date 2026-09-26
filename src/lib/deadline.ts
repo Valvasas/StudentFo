@@ -194,6 +194,18 @@ const longDateFormatter = new Intl.DateTimeFormat('id-ID', {
   year: 'numeric',
 });
 
+const timeFormatter = new Intl.DateTimeFormat('id-ID', {
+  timeZone: JAKARTA_TZ,
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/** "14.30 WIB" — jam saja, untuk kejadian dalam hitungan jam ke depan. */
+export function formatTimeId(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? 'waktu tidak valid' : `${timeFormatter.format(date)} WIB`;
+}
+
 const dateTimeFormatter = new Intl.DateTimeFormat('id-ID', {
   timeZone: JAKARTA_TZ,
   day: 'numeric',

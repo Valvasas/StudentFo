@@ -7,8 +7,8 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { checkAdminAccess } from '@/lib/auth';
-import { demoDataCreatedAt, getEventRepository } from '@/lib/data';
-import { formatDateTimeId } from '@/lib/deadline';
+import { DEMO_DATA_TTL_MS, demoDataCreatedAt, getEventRepository } from '@/lib/data';
+import { formatDateTimeId, formatTimeId } from '@/lib/deadline';
 import { dataMode } from '@/lib/env';
 import { resetDemoDataAction } from './actions';
 
@@ -114,7 +114,11 @@ export default async function AdminPage({
             <span>
               <strong className="font-semibold">Admin demo.</strong> Keputusanmu mengubah data contoh
               yang dilihat semua pengunjung pratinjau, dan data itu diatur ulang otomatis setiap 6 jam
-              {demoCreatedAt ? ` (terakhir ${formatDateTimeId(demoCreatedAt.toISOString())})` : ''}.
+              {demoCreatedAt
+                ? ` (terakhir ${formatDateTimeId(demoCreatedAt.toISOString())}, berikutnya pukul ${formatTimeId(
+                    new Date(demoCreatedAt.getTime() + DEMO_DATA_TTL_MS).toISOString(),
+                  )})`
+                : ''}.
               Di produksi, halaman ini mensyaratkan akun berperan{' '}
               <code className="rounded-sm bg-panel-nested px-1">ADMIN</code>.
             </span>

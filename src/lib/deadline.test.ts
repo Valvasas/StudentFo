@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatTimeId,
   buildDeadlineWeek,
   daysUntil,
   getDeadlineState,
@@ -118,5 +119,12 @@ describe('jakartaDayWindow', () => {
     // 10 Jan 00:00 WIB = 9 Jan 17:00 UTC; 17 Jan 00:00 WIB = 16 Jan 17:00 UTC.
     expect(window.startIso).toBe('2026-01-09T17:00:00.000Z');
     expect(window.endIso).toBe('2026-01-16T17:00:00.000Z');
+  });
+});
+
+describe('formatTimeId', () => {
+  it('jam WIB, bukan jam server', () => {
+    expect(formatTimeId('2026-09-26T07:30:00Z')).toBe('14.30 WIB');
+    expect(formatTimeId('bukan tanggal')).toBe('waktu tidak valid');
   });
 });
