@@ -12,6 +12,46 @@ terdokumentasi.
 
 ---
 
+## ADR-038 — Yang sengaja ditunda: Linimasa, sumber scraping nyata, scan header publik
+
+**1. Panel "Linimasa kamu" (checklist persiapan per kegiatan) — DITUNDA sampai
+ada ±100 event nyata tayang dan data pemakaian tracker.** Fitur ini butuh tabel
+baru, RLS, kontrak repository, dan UI, untuk kebutuhan yang belum divalidasi
+(kanvas desain memakainya sebagai contoh tampilan, TASKS menyebutnya
+eksplisit). Produk saat ini punya nol event nyata; setiap fitur yang dibangun
+sebelum data nyata masuk menambah permukaan yang harus dirawat tanpa sinyal
+apakah dipakai. Pemicu untuk mengerjakannya: `/admin/kalibrasi` menunjukkan
+cukup sinyal simpan/daftar, dan tracker dipakai lebih dari tahap SAVED.
+
+**2. 10+ sumber scraping nyata & satu siklus penuh pipeline — TIDAK dikerjakan
+dari lingkungan ini.** Butuh `GEMINI_API_KEY`, secret `PIPELINE_SOURCES_YAML`,
+project Supabase sungguhan, dan — yang terpenting — keputusan manusia per
+sumber (izin/ToS situs, robots.txt, apakah halaman itu memang sumber resmi).
+Memilih situs untuk di-scrape atas nama produk adalah keputusan pemilik, bukan
+agent. Yang terverifikasi: `test_models.py` 12/12, `test_publisher.py` 4/4,
+`run.py --dry-run` (venv Python 3.11, 2026-09-26).
+
+**3. Scan securityheaders.com / Mozilla Observatory — menunggu deploy staging
+publik.** Pengganti sementara: header build produksi dicatat & dikunci test
+(`tests/e2e/security-headers.spec.ts`), per 2026-09-26:
+
+```
+Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-…' 'strict-dynamic' https:
+  https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;
+  font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; frame-src
+  https://challenges.cloudflare.com; form-action 'self' <supabase> https://accounts.google.com;
+  frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-Frame-Options: DENY · X-Content-Type-Options: nosniff · COOP: same-origin
+Referrer-Policy: strict-origin-when-cross-origin · Permissions-Policy: camera=(), microphone=(), geolocation=()
+```
+
+Perkiraan jujur: scanner akan menandai `style-src 'unsafe-inline'` (disengaja,
+ADR-027) dan tidak ada `Cross-Origin-Embedder-Policy` (sengaja — akan memblokir
+iframe Turnstile). Setelah staging ada: jalankan scan, tempel hasilnya di sini.
+
+---
+
 ## ADR-037 — Kabar ke pengirim kiriman komunitas: notifikasi in-app ke akun yang masuk, bukan email
 
 **Konteks:** `ugc_submissions.submitted_by_email` tersimpan tapi tidak pernah

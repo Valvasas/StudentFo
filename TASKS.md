@@ -98,7 +98,7 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
       implementasi) + `DeadlineWeek` di beranda. Test lintas tengah malam WIB di
       `deadline.test.ts`. @claude
 
-- [ ] **Panel "Linimasa kamu"** — daftar langkah persiapan per kegiatan
+- [ ] **(DITUNDA — ADR-038: tunggu ±100 event nyata & data tracker) Panel "Linimasa kamu"** — daftar langkah persiapan per kegiatan
       (mis. "sertifikat bahasa", "surat rekomendasi") dengan status selesai
       dan bar kemajuan.
       Konteks: ini BUKAN `application_tracker` (yang melacak satu status per
@@ -148,18 +148,45 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
 
 ## Backlog — hasil audit 2026-09-23 (belum selesai)
 
-- [ ] **Apply migration `20260923100001_security_hardening.sql`** dan
+- [~] **Apply migration `20260923100001_security_hardening.sql`** dan
       `20260923110001_submission_rate_limit.sql` ke Supabase
       lokal/staging dulu, jalankan `npm run db:verify`, uji manual alur tim
       (gabung saat penuh, tamu melihat jumlah anggota), simpan event, dan
       setujui kiriman `/submit`. Belum pernah dijalankan terhadap Postgres
       sungguhan (mesin pengerjaan tidak punya Postgres). Lihat ADR-020.
-- [ ] Jalankan `python pipeline/tests/test_models.py` — tidak bisa dijalankan
-      di sesi audit (Python tidak terpasang). CI (`ci.yml`) kini menjalankannya.
+- [x] Jalankan `python pipeline/tests/test_models.py` — 12/12, `test_publisher.py`
+      4/4, dry-run OK (venv Python 3.11, 2026-09-26). @claude
 - [x] Pembatasan laju untuk `/submit` — trigger Postgres (migration 0009,
       ADR-023) + paritas di `MemoryEventRepository`. Kode `submission_rate_limited`. @claude
 - [x] Notifikasi ke pengirim saat kiriman disetujui/ditolak — in-app ke akun
       yang masuk saat mengirim (`submitted_by`), bukan email. ADR-037. @claude
+
+## Hasil sesi 2026-09-26 (@claude) — keamanan, login, skalabilitas, demo
+
+Selesai (detail & bukti di commit + ADR):
+- [x] CSP bernonce + HSTS (ADR-027) · [x] kartu moderasi menampilkan sumber
+- [x] RLS `(select auth.uid())` — InitPlan, 8× di seq scan (migration 20260926100001)
+- [x] Pembatas laju masuk/daftar/lupa-sandi/submit per IP + Turnstile (ADR-028)
+- [x] Job harian ke pg_cron (ADR-030) · [x] log moderasi append-only + `/admin/riwayat` (ADR-031)
+- [x] Sinyal niat + `/admin/kalibrasi` (ADR-032) · [x] akun demo tidak dipulihkan — disengaja (ADR-029)
+- [x] Integration test PostgREST + paritas (ADR-033) — menemukan pencarian produksi gagal total (20260926150001)
+- [x] Cache lapisan data + `revalidateTag` (ADR-034) · [x] benchmark 5k–50k + count otomatis (ADR-035)
+- [x] Browser dalam aplikasi: tombol Google → "Buka di browser" (ADR-036)
+- [x] Kabar ke pengirim kiriman (ADR-037) · [x] indikator jam reset demo
+- [x] Target sentuh 44px, axe di balik login, 320/375px, `/events` tanpa JS diperbaiki
+- [x] `EventRepository` dipecah 9 interface
+
+Belum / butuh akses pemilik:
+- [ ] Apply SEMUA migration 20260926* ke Supabase staging, lalu `npm run db:verify`
+      (belum pernah di-apply ke project mana pun — jangan langsung produksi).
+- [ ] Google OAuth end-to-end sungguhan (runbook: README § Autentikasi).
+- [ ] Isi `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` + `RATE_LIMIT_SECRET` di hosting;
+      uji widget Turnstile asli (egress ke Cloudflare diblokir di lingkungan pengerjaan).
+- [ ] Scan securityheaders.com setelah staging publik (ADR-038 #3).
+- [ ] Uji di perangkat fisik: Safari iOS privat, WebView Instagram/TikTok (ADR-036).
+- [ ] 10+ sumber scraping nyata (keputusan pemilik per sumber, ADR-038 #2).
+- [ ] Bila katalog > 20.000 event: denormalisasi `primary_deadline_at` + index (ADR-035).
+- [ ] Job CI `integration` (PostgREST + e2e mode Supabase) belum pernah berjalan di GitHub.
 
 ## Template tugas baru
 

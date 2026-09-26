@@ -247,14 +247,16 @@ desain terakhir, dengan Chromium headless di 320/390/768/1440px:
 ## Uji
 
 ```bash
-npm test                                  # 195 uji: deadline & pita WIB, skoring, notifikasi, sesi demo, env, akun, tim, kiriman
+npm test                                  # 260 uji unit: deadline WIB, skoring & kalibrasi, pembatas laju, CSP, sesi demo, tim, kiriman
 python pipeline/tests/test_models.py      # 12 uji: validasi & dedup pipeline
 python pipeline/tests/test_publisher.py   # 4 uji: payload RPC staging
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
   npm run db:test                         # semua migration + RLS, FTS, staging, dedup, notifikasi
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
   npm run test:integration                # SupabaseEventRepository lewat PostgREST sungguhan + paritas demo↔produksi
-npm run test:a11y                         # Playwright: axe WCAG 2.2 + e2e mode demo (CSP, admin, submit, sinyal)
+npm run test:a11y                         # Playwright mode seed: axe WCAG 2.2 (termasuk di balik login demo), CSP, target 44px,
+                                          #   320/375px, tanpa-JS, perjalanan demo (183 uji di 3 proyek)
+DATABASE_URL=… npm run test:e2e:supabase   # build produksi mode Supabase: Data Cache, revalidateTag, admin, in-app browser
 ```
 
 Jalankan Postgres lokal untuk `db:test` dengan
