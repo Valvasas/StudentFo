@@ -256,6 +256,10 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
 
 Jalankan Postgres lokal untuk `db:test` dengan
 `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:15`.
+Image polos itu tidak punya pg_cron, jadi `60_pg_cron_jobs` dilewati. Untuk
+menguji jalur pg_cron: pasang `postgresql-<ver>-cron`, lalu di `postgresql.conf`
+`shared_preload_libraries = 'pg_cron'`, `cron.database_name = 'studentfo_migration_test'`,
+`cron.use_background_workers = on`, dan restart.
 
 Yang diuji adalah tempat bug paling mahal: perhitungan hari lintas zona waktu,
 ambang urgensi, bobot rekomendasi, parsing parameter URL dari pihak tak dipercaya,

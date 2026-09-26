@@ -9,6 +9,7 @@
 #           npm run db:test
 # Butuh `psql` dan Postgres >= 15 (samakan dengan versi Supabase).
 # KEEP_DB=1 → database uji tidak dihapus, untuk diperiksa manual dengan psql.
+# WITH (FORCE): worker pg_cron (kalau dimuat) memegang koneksi ke database uji.
 set -euo pipefail
 
 ADMIN_URL="${DATABASE_URL:?Set DATABASE_URL ke server Postgres (database apa saja).}"
@@ -23,7 +24,7 @@ query=""
 [[ "$ADMIN_URL" == *\?* ]] && query="?${ADMIN_URL#*\?}"
 TEST_URL="${base%/*}/${TEST_DB}${query}"
 
-"${PSQL[@]}" "$ADMIN_URL" -c "DROP DATABASE IF EXISTS ${TEST_DB}" -c "CREATE DATABASE ${TEST_DB}" >/dev/null
+"${PSQL[@]}" "$ADMIN_URL" -c "DROP DATABASE IF EXISTS ${TEST_DB} WITH (FORCE)" -c "CREATE DATABASE ${TEST_DB}" >/dev/null
 
 run() {
   local file="$1"
@@ -41,6 +42,6 @@ for test in "$ROOT"/supabase/tests/[1-9]*.test.sql; do
 done
 
 if [[ "${KEEP_DB:-0}" != "1" ]]; then
-  "${PSQL[@]}" "$ADMIN_URL" -c "DROP DATABASE IF EXISTS ${TEST_DB}" >/dev/null
+  "${PSQL[@]}" "$ADMIN_URL" -c "DROP DATABASE IF EXISTS ${TEST_DB} WITH (FORCE)" >/dev/null
 fi
 echo "Semua migration & test SQL lolos."

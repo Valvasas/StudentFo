@@ -48,9 +48,8 @@ secara duplikat atau bertabrakan.
       - dedup unik hanya di antara event yang belum EXPIRED (edisi tahunan bisa masuk)
       - notifikasi berbasis rentang H-3..H-2 / H-1..H-0 (tahan cron telat)
       - publisher memakai RPC transaksional `stage_scraped_event` (tanpa event yatim, tanpa N+1)
-- [ ] Pindahkan `expire_past_events` & `create_deadline_notifications` ke
-      `pg_cron` di Supabase: GitHub Actions `schedule` bisa telat dan otomatis
-      mati setelah 60 hari repo publik tanpa aktivitas.
+- [x] Pindahkan `expire_past_events` & `create_deadline_notifications` ke
+      `pg_cron` — migration `20260926120001`, ADR-030. Belum di-apply ke Supabase. @claude
 - [ ] Integration test `SupabaseEventRepository` terhadap Supabase lokal.
 
 ## Backlog — Phase 2

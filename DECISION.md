@@ -12,6 +12,29 @@ terdokumentasi.
 
 ---
 
+## ADR-030 — Job harian di pg_cron, bukan GitHub Actions `schedule`
+
+**Konteks:** `expire_past_events()` dan `create_deadline_notifications()`
+dijadwalkan GitHub Actions. `schedule` di sana bisa telat/dilewati saat antrean
+padat dan dinonaktifkan otomatis setelah 60 hari repo publik tanpa commit —
+job expiry & notifikasi berhenti tanpa satu pun alarm.
+
+**Keputusan:** Migration `20260926120001_pg_cron_jobs.sql` membuat extension
+pg_cron dan tiga job bernama (`cron.schedule` meng-upsert per nama, aman diulang),
+termasuk `purge_rate_limit_hits()` (ADR-028). Bersyarat: tanpa pg_cron (CI
+postgres:15 polos) hanya NOTICE. Workflow GitHub tetap ada sebagai jalur manual.
+`scripts/test-migrations.sh` kini `DROP DATABASE … WITH (FORCE)` karena worker
+pg_cron memegang koneksi ke database uji.
+
+**Konsekuensi:** Dibuktikan di PG16 lokal dengan pg_cron 1.6: test
+`60_pg_cron_jobs` gagal sebelum migration, lolos sesudahnya; job uji 2 detik
+benar-benar mengubah event bertenggat lewat jadi EXPIRED
+(`cron.job_run_details.status = succeeded`). Belum di-apply ke project Supabase
+mana pun. Setelah apply, pantau `cron.job_run_details` — kegagalan job kini ada
+di database, bukan di tab Actions.
+
+---
+
 ## ADR-029 — Akun demo tidak bisa dipulihkan, dengan sengaja
 
 **Konteks:** Sesi demo (ADR-024) hanya hidup di cookie bertanda tangan. Hapus

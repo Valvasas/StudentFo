@@ -251,15 +251,21 @@ Index dan query aplikasi WAJIB memakai konfigurasi yang sama (DEVIATIONS #1).
 
 ## Job terjadwal
 
-| Fungsi | Workflow | Jadwal |
-|---|---|---|
-| `expire_past_events()` | `.github/workflows/expire-events.yml` | 00:05 WIB |
-| `create_deadline_notifications()` | `.github/workflows/deadline-notifications.yml` | 07:00 WIB |
-| pipeline scraper | `.github/workflows/scraper-cron.yml` | 02:00 WIB |
+Dijalankan **pg_cron di database** (migration `20260926120001_pg_cron_jobs.sql`,
+ADR-030), jadwal dalam UTC:
 
-Semuanya butuh GitHub Secrets `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY`
-(scraper juga `GEMINI_API_KEY` dan `PIPELINE_SOURCES_YAML`). Semua fungsi
-ini idempoten, jadi `workflow_dispatch` manual aman diulang.
+| Job pg_cron | Fungsi | Jadwal |
+|---|---|---|
+| `studentfo-expire-past-events` | `expire_past_events()` | `5 17 * * *` = 00:05 WIB |
+| `studentfo-deadline-notifications` | `create_deadline_notifications()` | `0 0 * * *` = 07:00 WIB |
+| `studentfo-purge-rate-limit-hits` | `purge_rate_limit_hits()` | `17 18 * * *` = 01:17 WIB |
+
+Periksa di Supabase: `select jobname, schedule, active from cron.job;` dan
+riwayat: `select * from cron.job_run_details order by start_time desc limit 20;`.
+Workflow `expire-events.yml` / `deadline-notifications.yml` tinggal jalur manual
+(`workflow_dispatch`, butuh secret `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`).
+Pipeline scraper tetap di `.github/workflows/scraper-cron.yml` (02:00 WIB) —
+ia butuh Python + Gemini, bukan SQL. Semua fungsi idempoten.
 
 ## Kolom TypeScript-only (tidak generated dari DB)
 
