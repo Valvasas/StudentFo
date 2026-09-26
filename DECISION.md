@@ -12,6 +12,30 @@ terdokumentasi.
 
 ---
 
+## ADR-027 — CSP bernonce per request + HSTS; halaman tetap dinamis
+
+**Konteks:** Header keamanan hanya empat (nosniff, X-Frame-Options, Referrer,
+Permissions). Tanpa CSP, satu celah XSS (mis. deskripsi event hasil LLM yang
+suatu hari dirender sebagai HTML) langsung jadi eksekusi skrip penuh.
+
+**Keputusan:** `src/middleware.ts` membuat nonce 128-bit per request dan
+mengirim CSP `script-src 'nonce-…' 'strict-dynamic'` (tanpa `unsafe-inline`,
+`unsafe-eval` hanya di dev), `frame-ancestors 'none'`, `object-src 'none'`,
+`base-uri 'self'`, `form-action` yang mengizinkan redirect OAuth
+(origin Supabase + accounts.google.com). Middleware kini berjalan di mode seed
+juga. HSTS `max-age=63072000; includeSubDomains; preload` hanya di build
+produksi. Aturan dirakit di `src/lib/security-headers.ts` (fungsi murni, diuji).
+
+**Konsekuensi:** Nonce mewajibkan render dinamis per request — HTML tidak boleh
+di-cache statis. Cache ditaruh di lapisan data (ADR-030). `style-src` tetap
+`'unsafe-inline'` karena atribut `style=` tidak bisa bernonce. Dibuktikan di
+browser oleh `tests/e2e/security-headers.spec.ts` (gagal 7/8 sebelum perubahan,
+lolos 24/24 sesudahnya; axe 48/48 tetap lolos). **Pendaftaran preload di
+hstspreload.org sengaja belum dilakukan** — tidak bisa dibatalkan cepat, tunggu
+domain produksi final dan semua subdomain HTTPS.
+
+---
+
 ## ADR-026 — Skor rekomendasi memperhitungkan kedekatan tenggat
 
 **Konteks:** Rumus blueprint §6 (`0.5 kategori + 0.3 jenjang + 0.2 recency`,

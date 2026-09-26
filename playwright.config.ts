@@ -11,7 +11,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 3100;
 
 export default defineConfig({
-  testDir: 'tests/a11y',
+  testDir: 'tests',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
@@ -22,6 +22,11 @@ export default defineConfig({
     // kontras di tengah animasi (opasitas < 1) dan melaporkan pelanggaran
     // palsu. Keadaan akhirnya identik dengan mode gerak normal.
     reducedMotion: 'reduce',
+    // Lingkungan yang sudah punya Chromium terpasang (mis. container CI
+    // khusus) bisa menunjuk ke sana tanpa `playwright install`.
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } }
+      : {}),
   },
   projects: [
     { name: 'terang', use: { ...devices['Desktop Chrome'], colorScheme: 'light' } },

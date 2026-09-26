@@ -17,8 +17,8 @@ import { env } from '@/lib/env';
  * ditandai `server-only`, sementara middleware berjalan di runtime terpisah
  * yang tidak memakai kondisi resolusi `react-server`.
  */
-export async function updateSession(request: NextRequest): Promise<NextResponse> {
-  let response = NextResponse.next({ request });
+export async function updateSession(request: NextRequest, requestHeaders: Headers): Promise<NextResponse> {
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +35,10 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
           // Response dibangun ULANG dari request yang cookie-nya sudah
           // diperbarui, supaya Server Component di request yang sama ikut
           // membaca token baru — bukan token lama yang sudah dicabut.
-          response = NextResponse.next({ request });
+          // Header `cookie` disalin ke requestHeaders karena salinan itulah
+          // (bersama nonce CSP) yang diteruskan ke halaman.
+          requestHeaders.set('cookie', request.headers.get('cookie') ?? '');
+          response = NextResponse.next({ request: { headers: requestHeaders } });
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }
