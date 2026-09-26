@@ -226,10 +226,13 @@ export class MemoryEventRepository implements EventRepository {
     const search = query.search?.trim();
     if (search) results = results.filter((event) => matchesSearch(event, search));
 
-    const { types, categories, levels } = query;
+    const { types, categories, levels, locations, mode } = query;
     if (types?.length) results = results.filter((event) => types.includes(event.eventType));
     if (categories?.length) results = results.filter((event) => hasOverlap(categories, event.categorySlugs));
     if (levels?.length) results = results.filter((event) => hasOverlap(levels, event.educationLevels));
+    // Cocok persis, sama seperti `.in('location', …)` di SupabaseEventRepository.
+    if (locations?.length) results = results.filter((event) => event.location !== null && locations.includes(event.location));
+    if (mode) results = results.filter((event) => event.isOnline === (mode === 'online'));
 
     return paginate(sortSummaries(results, query.sort ?? 'relevance', now, query.profile), resolvePaging(query));
   }

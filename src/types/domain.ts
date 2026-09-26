@@ -263,6 +263,9 @@ export interface ModerationLogEntry {
   readonly createdAt: string;
 }
 
+export const EVENT_MODES = ['online', 'onsite'] as const;
+export type EventMode = (typeof EVENT_MODES)[number];
+
 export const SORT_OPTIONS = ['relevance', 'deadline', 'newest'] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
 
@@ -271,6 +274,10 @@ export interface EventQuery {
   readonly types?: readonly EventType[];
   readonly categories?: readonly string[];
   readonly levels?: readonly EducationLevel[];
+  /** Nama kota persis seperti kolom `location` (dipilih dari pemilih lokasi). */
+  readonly locations?: readonly string[];
+  /** `online` = hanya daring, `onsite` = hanya tatap muka; kosong = keduanya. */
+  readonly mode?: EventMode;
   readonly sort?: SortOption;
   readonly includeClosed?: boolean;
   readonly page?: number;

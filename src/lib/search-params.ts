@@ -3,6 +3,7 @@ import {
   EVENT_TYPES,
   SORT_OPTIONS,
   type EducationLevel,
+  type EventMode,
   type EventQuery,
   type EventType,
   type SortOption,
@@ -40,6 +41,8 @@ export interface ParsedEventQuery extends EventQuery {
   readonly types: readonly EventType[];
   readonly categories: readonly string[];
   readonly levels: readonly EducationLevel[];
+  readonly locations: readonly string[];
+  readonly mode: EventMode | undefined;
   readonly sort: SortOption;
   readonly includeClosed: boolean;
   readonly page: number;
@@ -58,6 +61,16 @@ export function parseEventQuery(params: RawSearchParams): ParsedEventQuery {
       .filter((slug) => /^[a-z0-9-]{1,50}$/.test(slug))
       .slice(0, 12),
     levels: pickAllowed(toArray(params.jenjang), EDUCATION_LEVELS),
+    // Nama kota bebas-teks dari URL: hanya huruf, spasi, titik, tanda hubung,
+    // dan dibatasi jumlahnya — satu provinsi paling banyak ±40 kota.
+    locations: [
+      ...new Set(
+        toArray(params.lokasi)
+          .map((value) => value.replace(/\s+/g, ' '))
+          .filter((value) => /^[\p{L} .'-]{2,60}$/u.test(value)),
+      ),
+    ].slice(0, 40),
+    mode: params.mode === 'daring' ? 'online' : params.mode === 'luring' ? 'onsite' : undefined,
     sort: SORT_OPTIONS.includes(sortCandidate as SortOption)
       ? (sortCandidate as SortOption)
       : 'relevance',
@@ -79,6 +92,8 @@ export function buildEventHref(
   for (const type of merged.types ?? []) params.append('type', type);
   for (const category of merged.categories ?? []) params.append('kategori', category);
   for (const level of merged.levels ?? []) params.append('jenjang', level);
+  for (const location of merged.locations ?? []) params.append('lokasi', location);
+  if (merged.mode) params.set('mode', merged.mode === 'online' ? 'daring' : 'luring');
   if (merged.sort && merged.sort !== 'relevance') params.set('sort', merged.sort);
   if (merged.includeClosed) params.set('tampilkan', 'semua');
   if (merged.page && merged.page > 1) params.set('page', String(merged.page));
@@ -107,6 +122,8 @@ export function hasActiveFilters(query: ParsedEventQuery): boolean {
     query.types.length > 0 ||
     query.categories.length > 0 ||
     query.levels.length > 0 ||
+    query.locations.length > 0 ||
+    query.mode !== undefined ||
     query.includeClosed
   );
 }

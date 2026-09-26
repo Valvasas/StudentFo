@@ -1,6 +1,5 @@
 import { Bookmark } from 'lucide-react';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export interface SaveButtonProps {
@@ -23,18 +22,16 @@ export function SaveButton({
       <form action={toggleSaveEventAction} className={className}>
         <input type="hidden" name="eventId" value={eventId} />
         <input type="hidden" name="returnTo" value={returnTo} />
-        <Button
+        <button
           type="submit"
-          variant={isSaved ? 'secondary' : 'ghost'}
-          size="lg"
-          className="w-full justify-center gap-2 border border-line"
+          className={cn(
+            'flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-card px-3 text-sm font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested',
+            isSaved && 'bg-panel-nested',
+          )}
         >
-          <Bookmark
-            aria-hidden
-            className={cn('size-4', isSaved ? 'fill-brand text-brand' : 'text-ink-muted')}
-          />
+          <Bookmark aria-hidden className={cn('size-4', isSaved && 'fill-current')} />
           <span>{isSaved ? 'Tersimpan di Tracker' : 'Simpan ke Tracker'}</span>
-        </Button>
+        </button>
       </form>
     );
   }

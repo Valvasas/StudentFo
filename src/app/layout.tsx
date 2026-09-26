@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import { headers } from 'next/headers';
 import { DemoBanner } from '@/components/layout/demo-banner';
 import { Footer } from '@/components/layout/footer';
@@ -10,25 +10,22 @@ import { NONCE_HEADER } from '@/lib/security-headers';
 import './globals.css';
 
 /**
- * Pasangan huruf:
- * - Plus Jakarta Sans untuk judul. Dirancang oleh perancang huruf Indonesia
- *   (Tokotype) untuk identitas kota Jakarta — relevansi kultural yang nyata,
- *   bukan tempelan, dan karakternya lebih tegas daripada geometrik generik.
- * - Inter untuk teks isi. Dioptimalkan untuk ukuran kecil di layar, punya
- *   angka tabular — penting karena halaman ini penuh hitungan hari.
- * `display: swap` supaya teks langsung terbaca dengan huruf cadangan
- * alih-alih menampilkan area kosong sambil menunggu unduhan huruf.
+ * Geist untuk seluruh teks (kanvas desain ADR-039): tegas seperti Notion
+ * tapi tidak kaku, dan punya angka tabular — penting karena halaman ini
+ * penuh hitungan hari. Geist Mono untuk angka tahun, kode, dan label kecil
+ * berhuruf kapital. `display: swap` supaya teks langsung terbaca dengan huruf
+ * cadangan alih-alih area kosong sambil menunggu unduhan huruf.
  */
-const inter = Inter({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-geist',
   display: 'swap',
 });
 
-const jakarta = Plus_Jakarta_Sans({
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  weight: ['600', '700'],
-  variable: '--font-jakarta',
+  weight: ['400', '500'],
+  variable: '--font-geist-mono',
   display: 'swap',
 });
 
@@ -51,8 +48,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#faf8f4' },
-    { media: '(prefers-color-scheme: dark)', color: '#1c1c22' },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#111110' },
   ],
 };
 
@@ -63,7 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // suppressHydrationWarning: atribut data-theme sengaja diubah oleh
     // ThemeScript sebelum React jalan, jadi ketidakcocokan di elemen INI
     // memang diharapkan dan hanya di sini.
-    <html lang="id" suppressHydrationWarning className={`${inter.variable} ${jakarta.variable}`}>
+    <html lang="id" suppressHydrationWarning className={`${geist.variable} ${geistMono.variable}`}>
       <head>
         <ThemeScript nonce={nonce} />
       </head>

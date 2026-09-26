@@ -64,7 +64,7 @@ function FilterChip({
 }
 
 /** Field tersembunyi supaya filter aktif tidak hilang saat form dikirim. */
-function HiddenFilters({ query }: { query: ParsedEventQuery }) {
+export function HiddenFilters({ query, omit = [] }: { query: ParsedEventQuery; omit?: readonly string[] }) {
   return (
     <>
       {query.types.map((value) => (
@@ -76,6 +76,10 @@ function HiddenFilters({ query }: { query: ParsedEventQuery }) {
       {query.levels.map((value) => (
         <input key={`l-${value}`} type="hidden" name="jenjang" value={value} />
       ))}
+      {query.locations.map((value) => (
+        <input key={`k-${value}`} type="hidden" name="lokasi" value={value} />
+      ))}
+      {query.mode && !omit.includes('mode') && <input type="hidden" name="mode" value={query.mode === 'online' ? 'daring' : 'luring'} />}
       {query.sort !== 'relevance' && <input type="hidden" name="sort" value={query.sort} />}
       {query.includeClosed && <input type="hidden" name="tampilkan" value="semua" />}
     </>

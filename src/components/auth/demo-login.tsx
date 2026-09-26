@@ -19,7 +19,7 @@ export function DemoLogin({ next }: { next: string }) {
   return (
     <section aria-labelledby="demo-login-title" className="flex flex-col gap-3">
       <div>
-        <h2 id="demo-login-title" className="text-lg font-semibold">
+        <h2 id="demo-login-title" className="text-base font-semibold">
           Coba sebagai akun demo
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
@@ -45,7 +45,7 @@ export function DemoLogin({ next }: { next: string }) {
                 >
                   <span
                     aria-hidden
-                    className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand-soft text-brand-text"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand text-on-brand"
                   >
                     <Icon className="size-4" />
                   </span>

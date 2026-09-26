@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { signUpAction } from '@/app/auth/actions';
+import { AuthDivider, AuthField, AuthHeading, AuthInput } from '@/components/auth/auth-field';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
+import { AuthModeSwitch } from '@/components/auth/auth-mode-switch';
 import { DemoLogin } from '@/components/auth/demo-login';
 import { GoogleButton } from '@/components/auth/google-button';
-import { Button } from '@/components/ui/button';
-import { Field, TextInput } from '@/components/ui/field';
+import { PasswordInput } from '@/components/auth/password-input';
 import { getSessionUser } from '@/lib/auth';
 import { dataMode } from '@/lib/env';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -20,24 +21,21 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default async function RegisterPage({
-  searchParams,
-}: {
-  searchParams: Promise<RawSearchParams>;
-}) {
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
   const next = safeNextPath(params.next);
 
   if (await getSessionUser()) redirect(next);
+
+  const heading = <AuthHeading title="Buat akun StudentFo" subtitle="Gratis untuk pelajar. Butuh kurang dari satu menit." />;
 
   // Mode demo: form email/Google tidak punya backend dan pasti gagal.
   // Yang ditampilkan adalah jalur yang benar-benar berfungsi.
   if (dataMode === 'seed') {
     return (
       <>
-        <header>
-          <h1 className="text-3xl">Daftar</h1>
-        </header>
+        {heading}
+        <AuthModeSwitch mode="register" next={next} />
         <AuthFeedback params={params} />
         <DemoLogin next={next} />
       </>
@@ -48,84 +46,46 @@ export default async function RegisterPage({
 
   return (
     <>
-      <header>
-        <h1 className="text-3xl">Buat akun</h1>
-        <p className="mt-2 text-ink-soft">
-          Gratis, dan cukup satu menit. Akun dipakai untuk menyimpan peluang dan menyesuaikan
-          urutan kegiatan dengan jenjang serta bidang minatmu.
-        </p>
-      </header>
-
+      {heading}
+      <AuthModeSwitch mode="register" next={next} />
       <AuthFeedback params={params} />
-
       <GoogleButton next={next} label="Daftar dengan Google" />
-
-      <div className="flex items-center gap-3">
-        <span aria-hidden className="h-px flex-1 bg-line" />
-        <span className="text-xs text-ink-muted">atau pakai email</span>
-        <span aria-hidden className="h-px flex-1 bg-line" />
-      </div>
+      <AuthDivider />
 
       <form action={signUpAction} className="flex flex-col gap-4">
         <input type="hidden" name="next" value={next} />
-
-        <Field id="fullName" label="Nama lengkap">
-          <TextInput
-            id="fullName"
-            name="fullName"
-            type="text"
-            autoComplete="name"
-            required
-            minLength={2}
-            maxLength={120}
-            placeholder="Nama seperti di dokumen resmi"
-          />
-        </Field>
-
-        <Field id="email" label="Email">
-          <TextInput
-            id="email"
-            name="email"
-            type="email"
-            defaultValue={email}
-            autoComplete="email"
-            required
-            maxLength={254}
-            placeholder="nama@kampus.ac.id"
-          />
-        </Field>
-
-        <Field
-          id="password"
-          label="Kata sandi"
-          hint="Minimal 8 karakter, memuat huruf dan angka. Maksimal 72 karakter."
-        >
-          <TextInput
+        <AuthField id="fullName" label="Nama lengkap">
+          <AuthInput id="fullName" name="fullName" type="text" autoComplete="name" required minLength={2} maxLength={120} placeholder="Nama seperti di dokumen resmi" />
+        </AuthField>
+        <AuthField id="email" label="Email">
+          <AuthInput id="email" name="email" type="email" defaultValue={email} autoComplete="email" required maxLength={254} placeholder="nama@kampus.ac.id" />
+        </AuthField>
+        <AuthField id="password" label="Kata sandi" hint="Minimal 8 karakter, memuat huruf dan angka. Maksimal 72 karakter.">
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={8}
             maxLength={72}
+            placeholder="Minimal 8 karakter"
             aria-describedby="password-hint"
           />
-        </Field>
-
-        <Button type="submit" size="lg" className="w-full">
-          Daftar
-        </Button>
-      </form>
-
-      <p className="text-sm text-ink-muted">
-        Sudah punya akun?{' '}
-        <Link
-          href={next === '/' ? '/login' : `/login?next=${encodeURIComponent(next)}`}
-          className="font-medium text-brand-text hover:underline"
+        </AuthField>
+        <button
+          type="submit"
+          className="mt-2 flex h-[46px] items-center justify-center rounded-sm bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
         >
-          Masuk
-        </Link>
-      </p>
+          Buat akun
+        </button>
+        <p className="text-[12.5px] leading-normal text-ink-muted">
+          Dengan mendaftar, kamu menyetujui{' '}
+          <Link href="/privacy-policy" className="text-ink underline underline-offset-[3px]">
+            Kebijakan privasi
+          </Link>{' '}
+          StudentFo.
+        </p>
+      </form>
     </>
   );
 }

@@ -64,3 +64,28 @@ describe('hasActiveFilters', () => {
     expect(hasActiveFilters(parseEventQuery({ jenjang: 'S2' }))).toBe(true);
   });
 });
+
+describe('filter lokasi & mode', () => {
+  it('membaca kota dari URL, membuang nilai berbahaya & duplikat', () => {
+    const query = parseEventQuery({ lokasi: ['Bandung', 'Bandung', '<script>', 'Jakarta  Selatan'] });
+    expect(query.locations).toEqual(['Bandung', 'Jakarta Selatan']);
+  });
+
+  it('membatasi jumlah kota', () => {
+    const many = Array.from({ length: 60 }, (_, index) => `Kota ${String.fromCharCode(65 + (index % 26))}${'a'.repeat(index % 5)}`);
+    expect(parseEventQuery({ lokasi: many }).locations.length).toBeLessThanOrEqual(40);
+  });
+
+  it('mode daring/luring bolak-balik lewat URL kanonik', () => {
+    const online = parseEventQuery({ mode: 'daring', type: 'MAGANG' });
+    expect(online.mode).toBe('online');
+    expect(buildEventHref(online)).toBe('/events?type=MAGANG&mode=daring');
+    expect(parseEventQuery({ mode: 'luring' }).mode).toBe('onsite');
+    expect(parseEventQuery({ mode: 'hybrid' }).mode).toBeUndefined();
+  });
+
+  it('lokasi & mode dihitung sebagai filter aktif', () => {
+    expect(hasActiveFilters(parseEventQuery({ lokasi: 'Bandung' }))).toBe(true);
+    expect(hasActiveFilters(parseEventQuery({ mode: 'daring' }))).toBe(true);
+  });
+});
