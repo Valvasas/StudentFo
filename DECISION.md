@@ -12,6 +12,25 @@ terdokumentasi.
 
 ---
 
+## ADR-029 — Akun demo tidak bisa dipulihkan, dengan sengaja
+
+**Konteks:** Sesi demo (ADR-024) hanya hidup di cookie bertanda tangan. Hapus
+cookie, keluar, atau pindah browser → UUID baru, data lama yatim sampai reset
+6 jam. Pertanyaan yang muncul: perlu fitur "pulihkan akun demo saya"?
+
+**Keputusan:** Tidak. Pemulihan butuh pengenal yang bertahan di luar cookie
+(email, kode pemulihan, sidik perangkat) — tiga-tiganya menambah data pribadi
+atau permukaan serangan untuk data yang fiktif dan akan terhapus paling lama
+6 jam lagi. Perilaku ini dinyatakan di kartu login demo dan README.
+
+**Konsekuensi:** Kontributor jangan melaporkan/memperbaiki ini sebagai bug.
+Data yatim dibatasi oleh reset 6 jam (memori tidak tumbuh tanpa batas).
+Keputusan ditinjau ulang hanya kalau mode demo dipakai untuk sesi panjang
+(mis. workshop berhari-hari), dan jalurnya adalah `DEMO_DATA_TTL_MS`, bukan
+akun yang bisa dipulihkan.
+
+---
+
 ## ADR-028 — Pembatas laju sendiri untuk masuk/daftar/lupa-sandi/`/submit` + Turnstile di `/submit`
 
 **Konteks:** TASKS Phase 2 menunda rate limit masuk dengan alasan "bersandar pada

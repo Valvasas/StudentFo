@@ -32,6 +32,10 @@ Setiap login membuat akun sementara terisolasi (cookie bertanda tangan HMAC,
 `src/lib/demo/`). Data demo diatur ulang otomatis setiap 6 jam. Detail: `DECISION.md`
 ADR-024.
 
+**Akun demo sengaja tidak bisa dipulihkan** — bukan bug. Identitasnya hanya ada
+di cookie; keluar, menghapus cookie, ganti browser, atau reset 6 jam = akun
+baru yang kosong. Jangan tambahkan "pulihkan akun demo" (ADR-029).
+
 **Deploy situs demo** (mis. pratinjau Vercel tanpa Supabase): build produksi
 menolak jalan tanpa kredensial, supaya situs publik tidak diam-diam menampilkan
 data fiktif. Setel `ALLOW_DEMO_IN_PRODUCTION=true` dan `DEMO_SESSION_SECRET`
