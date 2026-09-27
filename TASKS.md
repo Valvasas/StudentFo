@@ -123,10 +123,18 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
 - [x] Halaman Tentang (`/about`) & Koneksi (`/connections`) dengan tema StudentHub —
       backend nyata (migration `20260927100001_network.sql`, RLS + view sempit +
       notifikasi + batas laju), peta koneksi ala Obsidian, saran berperingkat. ADR-040. @claude
-- [ ] Apply migration `20260927100001_network.sql` ke Supabase staging lalu uji alur
-      dua akun sungguhan (ajak → terima → notifikasi). Belum pernah di-apply.
-- [ ] Koneksi: blokir & laporkan (tabel `connection_blocks` + cek di policy INSERT) — lihat ADR-040.
+- [ ] Apply migration `20260927100001_network.sql` & `20260928100001_connection_blocks.sql`
+      ke Supabase staging lalu uji alur dua akun sungguhan (ajak → terima →
+      notifikasi → blokir). Belum pernah di-apply.
+- [x] Koneksi: blokir (tabel `connection_blocks`, RPC `is_blocked()`, policy
+      INSERT/UPDATE `connections` diganti untuk mengecek dua arah, trigger
+      putus koneksi saat diblokir). ADR-041. @claude
+      CATATAN: "laporkan" (report abuse ke antrean moderasi) masih belum ada —
+      blokir hanya memutus hubungan, tidak memberi tahu siapa pun.
 - [ ] Koneksi: `pg_trgm` untuk pencarian nama bila profil opt-in > ±50k (ADR-040).
+      DITUNDA — belum ada data pengguna nyata, pola sama dengan ADR-038 #1.
+- [ ] Koneksi: paginasi `listConnections` (kedua repository dibatasi 1000
+      baris sekaligus — cukup untuk sekarang, bukan kontrak jangka panjang).
 
 ## Backlog — Phase 3 (skema DB sudah ada, tidak ada UI sama sekali)
 

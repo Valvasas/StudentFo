@@ -32,6 +32,7 @@ export const ACTION_ERROR_CODES = [
   'person_unavailable',
   'invalid_network_profile',
   'invalid_connection_message',
+  'block_self',
   'invalid_request',
   'unknown',
 ] as const;
@@ -63,6 +64,7 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   person_unavailable: 'Orang ini tidak bisa diajak terhubung saat ini. Profilnya mungkin sudah disembunyikan.',
   invalid_network_profile: 'Headline maksimal 140 karakter.',
   invalid_connection_message: 'Pesan pengantar maksimal 280 karakter.',
+  block_self: 'Kamu tidak bisa memblokir dirimu sendiri.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -79,6 +81,8 @@ export const ACTION_NOTICE_CODES = [
   'connection_cancelled',
   'connection_removed',
   'network_profile_saved',
+  'person_blocked',
+  'person_unblocked',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -96,6 +100,8 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   connection_cancelled: 'Ajakan dibatalkan.',
   connection_removed: 'Koneksi diputus.',
   network_profile_saved: 'Pengaturan jaringan disimpan.',
+  person_blocked: 'Orang ini diblokir. Koneksi atau ajakan yang ada di antara kalian sudah diputus, dan dia tidak bisa mengajakmu lagi.',
+  person_unblocked: 'Blokir dibuka. Kalian bisa saling mengajak lagi.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

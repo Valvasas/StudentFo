@@ -91,10 +91,21 @@ test('peta: kanvas tergambar, navigasi keyboard membuka panel detail', async ({ 
   const panel = page.locator('section[aria-label^="Detail:"]');
   await expect(panel).toBeVisible();
   // Tombol aksi panel tidak boleh kolaps di wadah flex-col (target sentuh 44px).
-  for (const control of await panel.locator('form button, a').all()) {
-    const box = await control.boundingBox();
-    expect(box?.height ?? 0, await control.innerText()).toBeGreaterThanOrEqual(43.5);
-  }
+  // getBoundingClientRect() in-page, BUKAN boundingBox() via CDP: yang kedua
+  // bisa membulatkan device-pixel-ratio dan meleset ~0,6px dari nilai CSS
+  // sesungguhnya (pola sama dengan tests/e2e/touch-targets.spec.ts). Dibungkus
+  // expect.poll: panel baru masuk lewat animasi `.pop`, jadi frame pertama
+  // bisa masih di keyframe awal (scale 0.985) walau durasinya nyaris nol di
+  // bawah reduced-motion — bukan target yang sungguhan kolaps.
+  await expect
+    .poll(() =>
+      panel.locator('form button, a').evaluateAll((nodes) =>
+        nodes
+          .map((node) => ({ label: (node.textContent ?? node.tagName).trim(), height: node.getBoundingClientRect().height }))
+          .filter((target) => target.height < 44),
+      ),
+    )
+    .toEqual([]);
   await canvas.focus();
   await page.keyboard.press('Escape');
   await expect(page.locator('section[aria-label^="Detail:"]')).toHaveCount(0);
@@ -105,4 +116,57 @@ test('tamu melihat peta contoh tanpa nama & ajakan masuk', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Temukan rekan satu minat');
   await expect(page.getByRole('img', { name: /Contoh peta koneksi/ })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Masuk untuk mulai' })).toHaveAttribute('href', /next=%2Fconnections/);
+});
+
+test('blokir (ADR-041): memutus koneksi, mencegah ajakan baru, dan bisa dibuka lagi', async ({ browser }) => {
+  const aContext = await browser.newContext();
+  const bContext = await browser.newContext();
+  const a = await aContext.newPage();
+  const b = await bContext.newPage();
+
+  await signInAsDemo(b, 'Siswa baru', '/connections');
+  await b.getByRole('switch', { name: /Tampilkan aku di Cari Koneksi/ }).check();
+  const headline = `Uji blokir ${Date.now()}`;
+  await b.getByLabel('Headline').fill(headline);
+  await b.getByRole('button', { name: 'Simpan pengaturan' }).click();
+  await expect(b).toHaveURL(/notice=network_profile_saved/);
+
+  await signInAsDemo(a, 'Mahasiswa', '/connections');
+  await a.getByRole('searchbox', { name: /Cari nama, jurusan/ }).fill('Raka');
+  await a.getByRole('searchbox', { name: /Cari nama, jurusan/ }).press('Enter');
+  const raka = a.locator('section[aria-labelledby="cari-koneksi"] article').filter({ hasText: headline });
+  await raka.getByRole('button', { name: /Hubungkan/ }).click();
+  await expect(a).toHaveURL(/notice=connection_requested/);
+
+  // Budi (Siswa baru) menerima, lalu memblokir dari daftar koneksi.
+  await b.goto('/connections');
+  await b.getByRole('button', { name: /Terima ajakan Dinda Pratiwi/ }).click();
+  await expect(b.locator('section[aria-labelledby="koneksimu"]').getByText('Dinda Pratiwi', { exact: true })).toBeVisible();
+
+  await b.locator('section[aria-labelledby="koneksimu"] summary[aria-label^="Opsi untuk Dinda Pratiwi"]').click();
+  await b.getByRole('button', { name: 'Blokir', exact: true }).click();
+  await expect(b).toHaveURL(/notice=person_blocked/);
+  await expect(b.locator('section[aria-labelledby="koneksimu"]').getByText('Dinda Pratiwi', { exact: true })).toHaveCount(0);
+  await expect(b.locator('#kelola-blokir').getByText('Dinda Pratiwi', { exact: true })).toBeVisible();
+
+  // Ana melihat koneksinya putus, dan tidak bisa mengajak lagi.
+  await a.goto('/connections');
+  await expect(a.locator('section[aria-labelledby="koneksimu"]').getByText('Raka Aditya', { exact: true })).toHaveCount(0);
+  await a.getByRole('searchbox', { name: /Cari nama, jurusan/ }).fill('Raka');
+  await a.getByRole('searchbox', { name: /Cari nama, jurusan/ }).press('Enter');
+  await expect(a.locator('section[aria-labelledby="cari-koneksi"] article').filter({ hasText: headline })).toHaveCount(0);
+
+  // Budi membuka blokir → Ana bisa menemukannya & mengajak lagi.
+  await b.goto('/connections');
+  await b.locator('#kelola-blokir').getByRole('button', { name: /Buka blokir untuk Dinda Pratiwi/ }).click();
+  await expect(b).toHaveURL(/notice=person_unblocked/);
+  await expect(b.locator('#kelola-blokir')).toHaveCount(0);
+
+  await a.goto('/connections');
+  await a.getByRole('searchbox', { name: /Cari nama, jurusan/ }).fill('Raka');
+  await a.getByRole('searchbox', { name: /Cari nama, jurusan/ }).press('Enter');
+  await expect(a.locator('section[aria-labelledby="cari-koneksi"] article').filter({ hasText: headline })).toHaveCount(1);
+
+  await aContext.close();
+  await bContext.close();
 });

@@ -96,3 +96,38 @@ export async function updateNetworkProfileAction(formData: FormData): Promise<vo
   }
   done(returnTo, 'network_profile_saved');
 }
+
+/**
+ * Blokir (ADR-041). Memutus koneksi/ajakan yang ada di antara kedua pihak
+ * dan mencegah ajakan baru dari kedua arah — bukan cuma dari yang diblokir.
+ */
+export async function blockPersonAction(formData: FormData): Promise<void> {
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), FALLBACK);
+  const user = await requireUser(returnTo);
+
+  const targetId = formTrimmed(formData, 'targetId');
+  if (!targetId) redirect(withQuery(returnTo, { error: 'invalid_request' }));
+  if (targetId === user.id) redirect(withQuery(returnTo, { error: 'block_self' }));
+
+  try {
+    await (await getEventRepository()).blockPerson(user.id, targetId);
+  } catch (error) {
+    failed(returnTo, error);
+  }
+  done(returnTo, 'person_blocked');
+}
+
+export async function unblockPersonAction(formData: FormData): Promise<void> {
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), FALLBACK);
+  const user = await requireUser(returnTo);
+
+  const targetId = formTrimmed(formData, 'targetId');
+  if (!targetId) redirect(withQuery(returnTo, { error: 'invalid_request' }));
+
+  try {
+    await (await getEventRepository()).unblockPerson(user.id, targetId);
+  } catch (error) {
+    failed(returnTo, error);
+  }
+  done(returnTo, 'person_unblocked');
+}

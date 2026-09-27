@@ -1,8 +1,15 @@
-import { Check, UserMinus, UserPlus } from 'lucide-react';
-import { removeConnectionAction, requestConnectionAction, respondConnectionAction } from '@/app/connections/actions';
+import { Check, ShieldOff, UserMinus, UserPlus } from 'lucide-react';
+import {
+  blockPersonAction,
+  removeConnectionAction,
+  requestConnectionAction,
+  respondConnectionAction,
+  unblockPersonAction,
+} from '@/app/connections/actions';
 import { initialsOf } from '@/lib/initials';
 import { daysAgoLabel, personMeta } from '@/lib/network';
 import { cn } from '@/lib/utils';
+import type { BlockedPerson } from '@/lib/data/repository';
 import type { Connection, NetworkPerson } from '@/types/domain';
 import { ConnectionMessageField } from './connection-message-field';
 
@@ -150,6 +157,25 @@ export function IncomingRequestCard({
             Tolak<span className="sr-only"> ajakan {person.fullName}</span>
           </button>
         </form>
+        {/* Tolak dulu (menyembunyikan ajakan), blokir untuk mencegah dia mengajak lagi. */}
+        <details className="group relative shrink-0">
+          <summary
+            aria-label={`Opsi lain untuk ajakan ${person.fullName}`}
+            className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-card border border-line-strong/70 text-ink-muted hover:bg-panel-nested hover:text-ink [&::-webkit-details-marker]:hidden"
+          >
+            <ShieldOff aria-hidden className="size-4" />
+          </summary>
+          <div className="pop absolute bottom-[calc(100%+4px)] right-0 z-10 flex w-64 flex-col gap-2 rounded-modal border border-line bg-panel p-3 shadow-overlay">
+            <p className="text-[13px] leading-snug">Blokir {person.fullName}? Ajakan ini ikut ditolak, dan dia tidak bisa mengajakmu lagi.</p>
+            <form action={blockPersonAction}>
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <input type="hidden" name="targetId" value={person.userId} />
+              <button type="submit" className="flex h-11 w-full items-center justify-center rounded-card border border-danger-line bg-danger-soft text-[13.5px] font-semibold text-danger">
+                Blokir
+              </button>
+            </form>
+          </div>
+        </details>
       </div>
     </article>
   );
@@ -174,18 +200,46 @@ export function ConnectionRow({ connection, returnTo, now }: { connection: Conne
         >
           <UserMinus aria-hidden className="size-4" />
         </summary>
-        <div className="pop absolute right-0 top-[calc(100%+4px)] z-10 flex w-60 flex-col gap-2 rounded-modal border border-line bg-panel p-3 shadow-overlay">
+        <div className="pop absolute right-0 top-[calc(100%+4px)] z-10 flex w-64 flex-col gap-2 rounded-modal border border-line bg-panel p-3 shadow-overlay">
           <p className="text-[13px] leading-snug">Putuskan koneksi dengan {person.fullName}? Dia tidak diberi tahu.</p>
           <form action={removeConnectionAction}>
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="connectionId" value={connection.id} />
             <input type="hidden" name="kind" value="remove" />
+            <button type="submit" className="flex h-11 w-full items-center justify-center rounded-card border border-line-strong/70 text-[13.5px] font-semibold hover:bg-panel-nested">
+              Putuskan koneksi
+            </button>
+          </form>
+          <p className="text-[13px] leading-snug">Atau blokir — koneksi ikut putus, dan dia tidak bisa mengajakmu lagi.</p>
+          <form action={blockPersonAction}>
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="targetId" value={person.userId} />
             <button type="submit" className="flex h-11 w-full items-center justify-center rounded-card border border-danger-line bg-danger-soft text-[13.5px] font-semibold text-danger">
-              Ya, putuskan
+              Blokir
             </button>
           </form>
         </div>
       </details>
+    </li>
+  );
+}
+
+/** Baris di panel "Kelola blokir" — satu-satunya tempat blokir dibatalkan. */
+export function BlockedPersonRow({ blocked, returnTo, now }: { blocked: BlockedPerson; returnTo: string; now: Date }) {
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <PersonAvatar name={blocked.fullName} solid={false} size="sm" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-semibold">{blocked.fullName}</span>
+        <span className="truncate text-[12px] text-ink-muted">Diblokir {daysAgoLabel(blocked.createdAt, now)}</span>
+      </span>
+      <form action={unblockPersonAction}>
+        <input type="hidden" name="returnTo" value={returnTo} />
+        <input type="hidden" name="targetId" value={blocked.userId} />
+        <button type="submit" className="flex min-h-11 items-center rounded-sm px-2.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink">
+          Buka blokir<span className="sr-only"> untuk {blocked.fullName}</span>
+        </button>
+      </form>
     </li>
   );
 }

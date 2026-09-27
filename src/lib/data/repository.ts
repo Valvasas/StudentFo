@@ -195,6 +195,22 @@ export interface NetworkRepository {
   removeConnection(actorId: string, connectionId: string): Promise<void>;
   /** Keanggotaan tim orang-orang ini (maks. `limit` baris) — simpul "kegiatan" di peta. */
   listTeamLinks(userIds: readonly string[], limit: number): Promise<readonly TeamLink[]>;
+
+  /**
+   * Blokir (ADR-041). Satu arah saat disimpan, tapi dicek DUA arah:
+   * `blockPerson` memutus koneksi/ajakan yang ada di antara kedua pihak dan
+   * mencegah ajakan baru dari SIAPA PUN di antara keduanya, tidak cuma dari
+   * yang diblokir.
+   */
+  blockPerson(actorId: string, targetId: string): Promise<void>;
+  unblockPerson(actorId: string, targetId: string): Promise<void>;
+  listBlockedPeople(userId: string): Promise<readonly BlockedPerson[]>;
+}
+
+export interface BlockedPerson {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly createdAt: string;
 }
 
 export interface PeopleFilter {

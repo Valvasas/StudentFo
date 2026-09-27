@@ -12,6 +12,57 @@ terdokumentasi.
 
 ---
 
+## ADR-041 — Blokir antar pengguna di fitur Koneksi (menutup celah dari ADR-040)
+
+**Konteks:** ADR-040 mencatat bahwa orang yang ditolak/diputus masih bisa
+mengajak lagi berkali-kali, dibatasi hanya 30 ajakan/24 jam — celah paling
+nyata sebelum `/connections` dibuka ke publik.
+
+**Keputusan:**
+
+1. **Tabel `connection_blocks`, satu arah saat disimpan, dicek DUA arah**
+   lewat RPC `is_blocked(a, b)` (SECURITY DEFINER). Pihak yang diblokir
+   tidak bisa mengajak balik — kalau hanya dicek satu arah, blokir jadi
+   percuma untuk melindungi diri dari orang yang justru lebih dulu diblokir.
+2. **Memblokir memutus koneksi/ajakan yang ada** (trigger AFTER INSERT
+   `sever_connection_on_block`). Tanpa ini, koneksi ACCEPTED lama tetap
+   tampil di kedua sisi walau salah satu pihak sudah memblokir.
+3. **Policy INSERT & UPDATE `connections` yang sudah ada (migration
+   20260927100001) DIGANTI, bukan ditambah policy baru** — Postgres
+   mengevaluasi semua policy yang cocok dengan OR, jadi policy tambahan
+   yang lebih longgar akan membuka kembali celah yang baru ditutup. UPDATE
+   (menerima ajakan) juga ikut dicek untuk menutup celah balapan: blokir
+   terjadi tepat di antara ajakan dikirim dan diterima.
+4. **Daftar blokir privat, bahkan dari yang diblokir.** RLS `connection_blocks`
+   hanya membuka SELECT untuk `blocker_id = auth.uid()` — orang yang
+   diblokir tidak bisa tahu siapa saja yang memblokirnya (mencegah
+   pembalasan). Konsekuensinya: `suggestPeople` di kedua repository hanya
+   bisa mengecualikan orang yang BENAR-BENAR diblokir pembaca sendiri,
+   bukan orang yang memblokir pembaca — kalau pembaca mencoba mengajak
+   salah satu dari mereka, RLS menolak INSERT dan tampil sebagai
+   `person_unavailable`, kode yang sama dengan "tidak bisa ditemukan"
+   (tidak membocorkan informasi baru).
+5. **Bug yang ketemu SAAT menulis migration ini, sebelum sempat merambat ke
+   kode aplikasi:** view `connection_blocks_with_names` awalnya ditulis
+   tanpa `WHERE blocker_id = (select auth.uid())` di dalam SQL-nya.
+   Karena `security_invoker = off` (pola ADR-018/ADR-040) membuat view
+   menembus RLS `connection_blocks` sepenuhnya, versi itu membocorkan
+   daftar blokir SEMUA orang ke siapa pun yang punya `GRANT SELECT` ke
+   view. Ketahuan dari `supabase/tests/96_connection_blocks.test.sql`
+   (skenario "pihak ketiga") sebelum sempat dipakai `SupabaseEventRepository`.
+   Pelajarannya sama dengan `connection_peers`: view `security_invoker = off`
+   WAJIB memfilter viewer di dalam SQL-nya sendiri, RLS tabel dasar di sana
+   tidak berlaku apa-apa.
+
+**Konsekuensi:**
+- Belum ada "laporkan" (report abuse) — blokir hanya memutus hubungan,
+  tidak memberi tahu moderator. Kalau penyalahgunaan jadi nyata, ini
+  butuh antrean moderasi baru, bukan sekadar tabel.
+- Migration belum di-apply ke Supabase mana pun (bersama migration
+  20260927100001, lihat ADR-040 § Konsekuensi).
+
+---
+
 ## ADR-040 — Koneksi antar pengguna + "Peta koneksi" ala Obsidian + halaman Tentang (menutup "Tentang & Cari Koneksi" dari ADR-039)
 
 **Konteks:** ADR-039 menunda halaman Tentang & Cari Koneksi karena tidak ada

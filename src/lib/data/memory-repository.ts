@@ -35,6 +35,7 @@ import type {
 } from '@/types/domain';
 import { isPubliclyVisible, paginate, resolvePaging, sortSummaries } from './listing';
 import type {
+  BlockedPerson,
   CreateSubmissionInput,
   CalibrationData,
   CreateTeamRepositoryInput,
@@ -206,6 +207,8 @@ export class MemoryEventRepository implements EventRepository {
   /** Cermin `users` + `network_profiles`: orang contoh dan pengguna demo yang pernah bertindak. */
   private readonly people = new Map<string, NetworkMember>();
   private readonly connections = new Map<string, ConnectionEntry>();
+  /** userId → (userId yang DIA blokir → kapan). Arah tersimpan; dicek dua arah lewat isBlockedPair(). */
+  private readonly blocks = new Map<string, Map<string, string>>();
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
 
@@ -779,6 +782,12 @@ export class MemoryEventRepository implements EventRepository {
     return member;
   }
 
+  /** Dicek DUA arah: blokir siapa pun di antara keduanya menutup jalur ke keduanya. */
+  private isBlockedPair(a: string, b: string): boolean {
+    return Boolean(this.blocks.get(a)?.has(b) || this.blocks.get(b)?.has(a));
+  }
+
+
   private findPair(a: string, b: string): ConnectionEntry | undefined {
     for (const entry of this.connections.values()) {
       if ((entry.requesterId === a && entry.addresseeId === b) || (entry.requesterId === b && entry.addresseeId === a)) {
@@ -883,6 +892,7 @@ export class MemoryEventRepository implements EventRepository {
 
     const candidates = [...this.people.values()]
       .filter((member) => member.discoverable && !related.has(member.person.userId))
+      .filter((member) => !this.isBlockedPair(viewer.id, member.person.userId))
       .filter((member) => !filter.interest || member.person.interests.includes(filter.interest))
       .filter((member) => matchesPeopleSearch(member.person, filter.search))
       .map((member) => {
@@ -898,6 +908,7 @@ export class MemoryEventRepository implements EventRepository {
 
   async requestConnection(actor: NetworkViewer, targetId: string, message: string | null): Promise<'requested' | 'accepted'> {
     if (actor.id === targetId) throw actionError('connection_self');
+    if (this.isBlockedPair(actor.id, targetId)) throw actionError('person_unavailable');
     const actorMember = this.rememberActor(actor);
 
     const existing = this.findPair(actor.id, targetId);
@@ -926,7 +937,7 @@ export class MemoryEventRepository implements EventRepository {
     if (entry.addresseeId !== actorId) throw actionError('connection_forbidden');
     if (entry.status !== 'PENDING') return;
 
-    if (decision === 'decline') {
+    if (decision === 'decline' || this.isBlockedPair(entry.requesterId, entry.addresseeId)) {
       this.connections.delete(connectionId);
       return;
     }
@@ -954,6 +965,33 @@ export class MemoryEventRepository implements EventRepository {
       }
     }
     return links.slice(0, limit);
+  }
+
+  async blockPerson(actorId: string, targetId: string): Promise<void> {
+    if (actorId === targetId) throw actionError('connection_self');
+    getOrCreate(this.blocks, actorId, () => new Map<string, string>()).set(targetId, new Date().toISOString());
+    // Memblokir memutus koneksi/ajakan yang ada di antara keduanya — kalau
+    // tidak, orang yang sudah ACCEPTED tetap tampil di kedua sisi.
+    for (const [id, entry] of this.connections) {
+      if ((entry.requesterId === actorId && entry.addresseeId === targetId) || (entry.requesterId === targetId && entry.addresseeId === actorId)) {
+        this.connections.delete(id);
+      }
+    }
+  }
+
+  async unblockPerson(actorId: string, targetId: string): Promise<void> {
+    this.blocks.get(actorId)?.delete(targetId);
+  }
+
+  async listBlockedPeople(userId: string): Promise<readonly BlockedPerson[]> {
+    const blocked = this.blocks.get(userId);
+    if (!blocked || blocked.size === 0) return [];
+    return [...blocked.entries()]
+      .flatMap(([targetId, createdAt]) => {
+        const member = this.people.get(targetId);
+        return member ? [{ userId: member.person.userId, fullName: member.person.fullName, createdAt }] : [];
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {

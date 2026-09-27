@@ -27,6 +27,7 @@ Urutan migration (harus dijalankan berurutan):
 17. `20260926150001_events_listing_search_vector.sql` — `events_listing` mengekspos `search_vector` (tanpanya setiap pencarian di mode Supabase gagal 42703)
 18. `20260926160001_submission_notifications.sql` — `ugc_submissions.submitted_by` + trigger `notify_submission_decision()` (notifikasi `SUBMISSION_APPROVED`/`SUBMISSION_REJECTED`, ADR-037)
 19. `20260927100001_network.sql` — `network_profiles` + `connections`, view `network_directory` & `connection_peers`, RPC `mutual_connection_counts()` / `is_discoverable()`, trigger batas laju & notifikasi koneksi (ADR-040)
+20. `20260928100001_connection_blocks.sql` — tabel `connection_blocks`, RPC `is_blocked()`, view `connection_blocks_with_names`, trigger yang memutus koneksi saat diblokir; policy INSERT/UPDATE `connections` diperluas mengecek blokir dua arah (ADR-041)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -204,6 +205,26 @@ View `network_directory` (hanya opt-in) dan `connection_peers` (pihak lawan
 dari koneksi pemanggil) — keduanya `security_invoker = off`, tanpa email,
 `authenticated` saja. **Jangan tambah kolom** (alasan sama dengan
 `team_member_profiles`). Uji: `supabase/tests/95_network.test.sql`.
+
+### `connection_blocks` (Blokir — UI di `/connections` § Diblokir, ADR-041)
+`(blocker_id, blocked_id)` PK komposit, CHECK bukan diri sendiri. Satu arah
+saat disimpan, tapi dicek DUA arah lewat RPC `is_blocked()` (SECURITY
+DEFINER) — pihak yang diblokir tidak bisa mengajak balik. RLS: pemilik
+(`blocker_id`) saja untuk SELECT/INSERT/DELETE; tidak ada policy UPDATE
+(blokir hanya dibuat/dibatalkan). Trigger `sever_connection_on_block`
+(AFTER INSERT) menghapus baris `connections` yang ada di antara kedua
+pihak. Policy `connections_insert_requester` & `connections_accept_addressee`
+(migration 20260927100001) DIGANTI di migration ini untuk ikut memanggil
+`is_blocked()`.
+
+View `connection_blocks_with_names` (`security_invoker = off`, pola
+ADR-018/ADR-040) menambahkan nama ke daftar blokir. **Beda dengan
+`network_directory`/`connection_peers`**: karena `security_invoker = off`
+membuatnya menembus RLS `connection_blocks` sepenuhnya, view ini WAJIB
+memfilter `WHERE blocker_id = (select auth.uid())` langsung di SQL-nya
+sendiri — mengandalkan RLS tabel dasar di sini percuma dan pernah jadi bug
+nyata saat fitur ini ditulis (lihat DECISION.md ADR-041). Jangan tambah
+kolom; tidak boleh memuat email.
 
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat

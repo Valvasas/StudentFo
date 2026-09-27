@@ -1,8 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, Check, UserPlus, Users, X } from 'lucide-react';
-import { removeConnectionAction, requestConnectionAction, respondConnectionAction } from '@/app/connections/actions';
+import { ArrowUpRight, Check, ShieldOff, UserPlus, Users, X } from 'lucide-react';
+import {
+  blockPersonAction,
+  removeConnectionAction,
+  requestConnectionAction,
+  respondConnectionAction,
+} from '@/app/connections/actions';
 import { initialsOf } from '@/lib/initials';
 import type { GraphNode } from '@/lib/network-graph';
 import { cn } from '@/lib/utils';
@@ -113,6 +118,10 @@ export function GraphDetail({
         </form>
       )}
 
+      {(node.kind === 'suggestion' || node.kind === 'connection') && person && (
+        <BlockOption userId={person.userId} name={node.label} returnTo={returnTo} />
+      )}
+
       {node.kind === 'outgoing' && person?.connectionId && (
         <form action={removeConnectionAction}>
           <input type="hidden" name="returnTo" value={returnTo} />
@@ -166,5 +175,29 @@ export function GraphDetail({
         </div>
       )}
     </section>
+  );
+}
+
+/** Opsi blokir, dibungkus konfirmasi satu langkah karena tidak bisa dibatalkan diam-diam. */
+function BlockOption({ userId, name, returnTo }: { userId: string; name: string; returnTo: string }) {
+  return (
+    <details className="group relative self-start">
+      <summary
+        aria-label={`Opsi lain untuk ${name}`}
+        className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-sm px-1 text-[12.5px] font-medium text-ink-muted hover:text-ink [&::-webkit-details-marker]:hidden"
+      >
+        <ShieldOff aria-hidden className="size-3.5" /> Blokir
+      </summary>
+      <div className="pop absolute left-0 top-[calc(100%+4px)] z-10 flex w-60 flex-col gap-2 rounded-modal border border-line bg-panel p-3 shadow-overlay">
+        <p className="text-[13px] leading-snug">Blokir {name}? Koneksi atau ajakan yang ada ikut putus, dan dia tidak bisa mengajakmu lagi.</p>
+        <form action={blockPersonAction}>
+          <input type="hidden" name="returnTo" value={returnTo} />
+          <input type="hidden" name="targetId" value={userId} />
+          <button type="submit" className="flex h-11 w-full items-center justify-center rounded-card border border-danger-line bg-danger-soft text-[13.5px] font-semibold text-danger">
+            Blokir
+          </button>
+        </form>
+      </div>
+    </details>
   );
 }

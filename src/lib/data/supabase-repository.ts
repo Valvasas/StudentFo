@@ -69,6 +69,7 @@ import {
 } from './listing';
 import { type CacheLayer, nextDataCache } from './cache';
 import type {
+  BlockedPerson,
   CreateSubmissionInput,
   CalibrationData,
   CreateTeamRepositoryInput,
@@ -909,6 +910,13 @@ export class SupabaseEventRepository implements EventRepository {
     return data.map(toConnection);
   }
 
+  private async blockedByMe(userId: string): Promise<Set<string>> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from('connection_blocks').select('blocked_id').eq('blocker_id', userId).returns<{ blocked_id: string }[]>();
+    if (error) throw upstreamFailure('Gagal memuat daftar blokir.', error);
+    return new Set(data.map((row) => row.blocked_id));
+  }
+
   private async relatedUserIds(userId: string): Promise<Set<string>> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
@@ -948,9 +956,18 @@ export class SupabaseEventRepository implements EventRepository {
   }
 
   async suggestPeople(viewer: NetworkViewer, filter: PeopleFilter): Promise<readonly PeopleSuggestion[]> {
-    const [rows, related] = await Promise.all([this.directoryWindow(viewer, filter), this.relatedUserIds(viewer.id)]);
+    const [rows, related, blocked] = await Promise.all([
+      this.directoryWindow(viewer, filter),
+      this.relatedUserIds(viewer.id),
+      this.blockedByMe(viewer.id),
+    ]);
+    // Orang yang memblokir PEMBACA tidak bisa disaring di sini — RLS
+    // `connection_blocks_select_own` sengaja tidak membiarkan siapa pun
+    // membaca siapa yang memblokir dirinya (mencegah pembalasan). Kalau
+    // pembaca mencoba mengajak mereka, INSERT ditolak RLS dan tampil
+    // sebagai `person_unavailable` — sama seperti "tidak bisa ditemukan".
     const people = rows
-      .filter((row) => !related.has(row.user_id))
+      .filter((row) => !related.has(row.user_id) && !blocked.has(row.user_id))
       .map(toNetworkPerson)
       .filter((person) => matchesPeopleSearch(person, filter.search));
     if (people.length === 0) return [];
@@ -1048,7 +1065,40 @@ export class SupabaseEventRepository implements EventRepository {
       decision === 'accept'
         ? await supabase.from('connections').update({ status: 'ACCEPTED' }).eq('id', connectionId)
         : await supabase.from('connections').delete().eq('id', connectionId);
-    if (result.error) throw upstreamFailure('Gagal menjawab ajakan.', result.error, 500);
+    if (result.error) {
+      // 42501 di sini nyaris selalu berarti salah satu pihak memblokir yang
+      // lain tepat di antara ajakan dibuat dan diterima (race condition kecil).
+      if (sqlState(result.error) === '42501') throw actionError('person_unavailable');
+      throw upstreamFailure('Gagal menjawab ajakan.', result.error, 500);
+    }
+  }
+
+  async blockPerson(actorId: string, targetId: string): Promise<void> {
+    if (actorId === targetId) throw actionError('connection_self');
+    if (!isUuid(targetId)) throw actionError('person_unavailable');
+    const supabase = await createSupabaseServerClient();
+    // Upsert manual (bukan .upsert()): tidak ada UPDATE yang berarti di sini
+    // — blokir yang sudah ada cukup diam-diam berhasil lagi (idempoten).
+    const { error } = await supabase.from('connection_blocks').insert({ blocker_id: actorId, blocked_id: targetId });
+    if (error && sqlState(error) !== '23505') throw upstreamFailure('Gagal memblokir.', error, 500);
+  }
+
+  async unblockPerson(actorId: string, targetId: string): Promise<void> {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('connection_blocks').delete().eq('blocker_id', actorId).eq('blocked_id', targetId);
+    if (error) throw upstreamFailure('Gagal membuka blokir.', error, 500);
+  }
+
+  async listBlockedPeople(userId: string): Promise<readonly BlockedPerson[]> {
+    void userId; // RLS `connection_blocks_select_own` sudah menyaring ke pemanggil.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('connection_blocks_with_names')
+      .select('blocked_id, blocked_full_name, created_at')
+      .order('created_at', { ascending: false })
+      .returns<{ blocked_id: string; blocked_full_name: string; created_at: string }[]>();
+    if (error) throw upstreamFailure('Gagal memuat daftar blokir.', error);
+    return data.map((row) => ({ userId: row.blocked_id, fullName: row.blocked_full_name, createdAt: row.created_at }));
   }
 
   async removeConnection(actorId: string, connectionId: string): Promise<void> {

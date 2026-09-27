@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CONNECTION_RATE_LIMIT, NETWORK_LIMITS, type NetworkViewer } from '@/lib/network';
 import { AppError } from '@/lib/errors';
 import { MemoryEventRepository } from './memory-repository';
@@ -151,5 +151,62 @@ describe('MemoryEventRepository — koneksi', () => {
     expect(links.length).toBeGreaterThan(0);
     expect(links.every((link) => link.event.slug.length > 0)).toBe(true);
     expect(await repository.listTeamLinks(['bukan-anggota'], 50)).toEqual([]);
+  });
+
+  describe('blokir', () => {
+    it('memutus koneksi yang ada dan mencegah ajakan baru dari kedua arah', async () => {
+      await repository.requestConnection(ana, 'budi', null);
+      const [pending] = await repository.listConnections('ana');
+      await repository.respondToConnection('budi', pending!.id, 'accept');
+
+      await repository.blockPerson('budi', 'ana');
+      expect(await repository.listConnections('ana')).toEqual([]);
+      expect(await repository.listConnections('budi')).toEqual([]);
+
+      expect(await reason(repository.requestConnection(ana, 'budi', null))).toBe('person_unavailable');
+      expect(await reason(repository.requestConnection(budi, 'ana', null))).toBe('person_unavailable');
+    });
+
+    it('memblokir ajakan yang sedang menunggu ikut menyingkirkannya dari kedua sisi', async () => {
+      await repository.requestConnection(ana, 'budi', 'Halo');
+      await repository.blockPerson('budi', 'ana');
+      expect(await repository.listConnections('ana')).toEqual([]);
+      expect(await repository.listConnections('budi')).toEqual([]);
+    });
+
+    it('tidak bisa memblokir diri sendiri', async () => {
+      expect(await reason(repository.blockPerson('ana', 'ana'))).toBe('connection_self');
+    });
+
+    it('orang yang diblokir tidak muncul di saran; membuka blokir mengembalikannya', async () => {
+      await repository.blockPerson('ana', 'budi');
+      const suggestions = await repository.suggestPeople(ana, filter());
+      expect(suggestions.map((item) => item.person.userId)).not.toContain('budi');
+
+      await repository.unblockPerson('ana', 'budi');
+      const after = await repository.suggestPeople(ana, filter());
+      expect(after.map((item) => item.person.userId)).toContain('budi');
+    });
+
+    it('daftar blokir hanya berisi milik sendiri, terbaru dulu', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-27T03:00:00Z'));
+      try {
+        await repository.updateNetworkProfile(ana, { discoverable: true, headline: null });
+        await repository.blockPerson('ana', 'budi');
+        vi.setSystemTime(new Date('2026-09-27T03:00:01Z'));
+        await repository.blockPerson('ana', 'seed-user-1');
+      } finally {
+        vi.useRealTimers();
+      }
+
+      const blocked = await repository.listBlockedPeople('ana');
+      expect(blocked.map((item) => item.userId)).toEqual(['seed-user-1', 'budi']);
+      expect(await repository.listBlockedPeople('budi')).toEqual([]);
+    });
+
+    it('membuka blokir yang tidak pernah ada tidak melempar (idempoten)', async () => {
+      await expect(repository.unblockPerson('ana', 'budi')).resolves.toBeUndefined();
+    });
   });
 });

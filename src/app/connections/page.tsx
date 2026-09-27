@@ -4,7 +4,7 @@ import { Heart, Search, ShieldCheck, Sparkles, UserPlus, Users, X } from 'lucide
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { NetworkGraphView } from '@/components/network/network-graph';
 import { HiddenProfileBanner, NetworkSettings } from '@/components/network/network-settings';
-import { ConnectionRow, IncomingRequestCard, OutgoingRow, SuggestionCard } from '@/components/network/person-cards';
+import { BlockedPersonRow, ConnectionRow, IncomingRequestCard, OutgoingRow, SuggestionCard } from '@/components/network/person-cards';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { NETWORK_LIMITS, suggestionReasons } from '@/lib/network';
@@ -43,10 +43,11 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
   const query = new URLSearchParams({ ...(search ? { q: search } : {}), ...(interest ? { minat: interest } : {}) }).toString();
   const returnTo = query ? `/connections?${query}` : '/connections';
 
-  const [profile, connections, trackerItems] = await Promise.all([
+  const [profile, connections, trackerItems, blockedPeople] = await Promise.all([
     repository.getNetworkProfile(user.id),
     repository.listConnections(user.id),
     repository.listTrackerItems(user.id),
+    repository.listBlockedPeople(user.id),
   ]);
   const viewerEvents: NetworkEventRef[] = trackerItems
     .slice(0, VIEWER_EVENT_LIMIT)
@@ -239,6 +240,19 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
               <ul className="mt-1 flex flex-col divide-y divide-line">
                 {outgoing.map((connection) => (
                   <OutgoingRow key={connection.id} connection={connection} returnTo={returnTo} now={now} />
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {blockedPeople.length > 0 && (
+            <section id="kelola-blokir" aria-labelledby="kelola-blokir-title" className="flex scroll-mt-28 flex-col rounded-[18px] border border-line p-5">
+              <h2 id="kelola-blokir-title" className="flex items-baseline gap-2 text-base font-semibold">
+                Diblokir <span className="font-mono text-[13px] font-normal text-ink-muted">{blockedPeople.length}</span>
+              </h2>
+              <ul className="mt-1 flex flex-col divide-y divide-line">
+                {blockedPeople.map((blocked) => (
+                  <BlockedPersonRow key={blocked.userId} blocked={blocked} returnTo={returnTo} now={now} />
                 ))}
               </ul>
             </section>
