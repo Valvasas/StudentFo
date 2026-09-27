@@ -88,7 +88,14 @@ test('peta: kanvas tergambar, navigasi keyboard membuka panel detail', async ({ 
   await page.keyboard.press('ArrowRight');
   await expect(page.locator('p[aria-live="polite"]')).not.toBeEmpty();
   await page.keyboard.press('Enter');
-  await expect(page.locator('section[aria-label^="Detail:"]').first()).toBeVisible();
+  const panel = page.locator('section[aria-label^="Detail:"]');
+  await expect(panel).toBeVisible();
+  // Tombol aksi panel tidak boleh kolaps di wadah flex-col (target sentuh 44px).
+  for (const control of await panel.locator('form button, a').all()) {
+    const box = await control.boundingBox();
+    expect(box?.height ?? 0, await control.innerText()).toBeGreaterThanOrEqual(43.5);
+  }
+  await canvas.focus();
   await page.keyboard.press('Escape');
   await expect(page.locator('section[aria-label^="Detail:"]')).toHaveCount(0);
 });

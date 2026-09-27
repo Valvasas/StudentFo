@@ -10,9 +10,9 @@ import { ConnectionMessageField } from './connection-message-field';
 import { KIND_LABEL, NodeGlyph } from './node-glyph';
 
 const primary =
-  'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-card bg-brand px-3 text-[13.5px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover';
+  'flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-card bg-brand px-3 text-[13.5px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover';
 const secondary =
-  'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-card border border-line-strong/70 px-3 text-[13.5px] font-semibold transition-colors duration-150 ease-snap hover:bg-panel-nested';
+  'flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-card border border-line-strong/70 px-3 text-[13.5px] font-semibold transition-colors duration-150 ease-snap hover:bg-panel-nested';
 
 /**
  * Panel detail simpul terpilih. Aksinya `<form>` Server Action yang sama
@@ -87,7 +87,7 @@ export function GraphDetail({
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="connectionId" value={person.connectionId} />
             <input type="hidden" name="decision" value="accept" />
-            <button type="submit" className={primary}>
+            <button type="submit" className={cn(primary, 'flex-1')}>
               <Check aria-hidden className="size-4" /> Terima
             </button>
           </form>
@@ -95,7 +95,7 @@ export function GraphDetail({
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="connectionId" value={person.connectionId} />
             <input type="hidden" name="decision" value="decline" />
-            <button type="submit" className={secondary}>
+            <button type="submit" className={cn(secondary, 'flex-1')}>
               Tolak
             </button>
           </form>
@@ -155,7 +155,7 @@ export function GraphDetail({
                 <button
                   type="button"
                   onClick={() => onSelect(item.id)}
-                  className="flex min-h-9 max-w-[200px] items-center gap-1.5 rounded-pill border border-line px-2.5 text-[12.5px] font-medium transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested"
+                  className="flex min-h-11 max-w-[200px] items-center gap-1.5 rounded-pill border sm:min-h-9 border-line px-2.5 text-[12.5px] font-medium transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested"
                 >
                   <NodeGlyph kind={item.kind} className="size-2.5 shrink-0" />
                   <span className="truncate">{item.kind === 'me' ? 'Kamu' : item.kind === 'interest' ? `#${item.label}` : item.label || KIND_LABEL[item.kind]}</span>
