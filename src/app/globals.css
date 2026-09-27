@@ -347,8 +347,11 @@
   /* Hormati user yang sensitif terhadap gerak (vestibular disorder). */
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
+    /* Delay ikut dinolkan: kartu bertahap (`animationDelay` inline) memakai
+       fill-mode `both`, jadi tanpa ini tetap tak terlihat hingga ~400ms. */
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
+      animation-delay: 0s !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
