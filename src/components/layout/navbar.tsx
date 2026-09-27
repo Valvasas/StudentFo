@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { Bookmark, MessageCircle } from 'lucide-react';
+import { Bookmark, MessageCircle, Users } from 'lucide-react';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
 import { AccountMenu } from '@/components/layout/account-menu';
 import { NavLinkList, NavLinks } from '@/components/layout/nav-links';
@@ -68,6 +68,14 @@ export async function Navbar() {
                   />
                 </Link>
               )}
+              <Link
+                href="/connections"
+                aria-label="Koneksi"
+                aria-current={requestUrl.pathname === '/connections' ? 'page' : undefined}
+                className="hidden size-11 items-center justify-center rounded-sm text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested aria-[current=page]:bg-panel-nested sm:flex"
+              >
+                <Users aria-hidden className="size-[18px]" />
+              </Link>
               <NotificationMenu />
               <Link
                 href="/profile?tab=tersimpan"

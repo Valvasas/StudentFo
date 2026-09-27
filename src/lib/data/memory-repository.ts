@@ -1,4 +1,11 @@
 import { actionError } from '@/lib/action-feedback';
+import {
+  CONNECTION_RATE_LIMIT,
+  matchesPeopleSearch,
+  rankSuggestions,
+  type NetworkProfileInput,
+  type NetworkViewer,
+} from '@/lib/network';
 import { buildDeadlineWeek, daysUntil, getDeadlineState } from '@/lib/deadline';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
@@ -6,15 +13,22 @@ import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
   AppNotification,
   Category,
+  Connection,
+  ConnectionStatus,
   DeadlineDay,
   EventDetail,
   EventQuery,
   EventStatus,
   EventSummary,
   ModerationLogEntry,
+  NetworkEventRef,
+  NetworkPerson,
+  NetworkProfile,
   Paginated,
+  PeopleSuggestion,
   Submission,
   Team,
+  TeamLink,
   TeamMember,
   TrackerItem,
   TrackerStatus,
@@ -26,11 +40,20 @@ import type {
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
   EventRepository,
+  PeopleFilter,
   RepositoryStats,
   ReviewEventInput,
   ReviewSubmissionInput,
 } from './repository';
-import { SEED_CATEGORIES, SEED_EVENTS, SEED_TEAMS, type SeedEvent } from './seed-data';
+import {
+  DEMO_STARTER_NETWORK,
+  SEED_CATEGORIES,
+  SEED_EVENTS,
+  SEED_PEOPLE,
+  SEED_PERSON_CONNECTIONS,
+  SEED_TEAMS,
+  type SeedEvent,
+} from './seed-data';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -131,6 +154,22 @@ interface TrackerEntry {
   updatedAt: string;
 }
 
+interface NetworkMember {
+  person: NetworkPerson;
+  discoverable: boolean;
+  updatedAt: string;
+}
+
+interface ConnectionEntry {
+  id: string;
+  requesterId: string;
+  addresseeId: string;
+  status: ConnectionStatus;
+  message: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+}
+
 interface TeamEntry {
   id: string;
   eventId: string;
@@ -164,12 +203,16 @@ export class MemoryEventRepository implements EventRepository {
   private readonly submissionOwners = new Map<string, string>();
   /** Notifikasi tersimpan (bukan turunan tenggat): kabar kiriman komunitas. */
   private readonly storedNotifications = new Map<string, AppNotification[]>();
+  /** Cermin `users` + `network_profiles`: orang contoh dan pengguna demo yang pernah bertindak. */
+  private readonly people = new Map<string, NetworkMember>();
+  private readonly connections = new Map<string, ConnectionEntry>();
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
 
   constructor(base: Date = new Date()) {
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
     this.seedTeams(base);
+    this.seedPeople(base);
   }
 
   /** UUID, bukan penghitung: skema form (mis. `createTeamSchema`) memvalidasi id sebagai UUID, sama seperti produksi. */
@@ -198,6 +241,17 @@ export class MemoryEventRepository implements EventRepository {
           ...sample.members.map((member) => ({ ...member, role: 'member' as const, joinedAt: createdAt })),
         ],
       });
+    });
+  }
+
+  private seedPeople(base: Date): void {
+    for (const { discoverable, ...person } of SEED_PEOPLE) {
+      this.people.set(person.userId, { person, discoverable, updatedAt: base.toISOString() });
+    }
+    SEED_PERSON_CONNECTIONS.forEach(([requesterId, addresseeId], index) => {
+      const at = isoOffsetDays(-(index + 3), base);
+      const id = this.nextId();
+      this.connections.set(id, { id, requesterId, addresseeId, status: 'ACCEPTED', message: null, createdAt: at, respondedAt: at });
     });
   }
 
@@ -696,6 +750,210 @@ export class MemoryEventRepository implements EventRepository {
   async deleteTeam(actorId: string, teamId: string): Promise<void> {
     this.requireLeader(actorId, teamId);
     this.teams.delete(teamId);
+  }
+
+  // ------------------------------------------------------------------
+  // Koneksi (ADR-040)
+  //
+  // Aturan di sini mencerminkan RLS + trigger migration 20260927100001:
+  // target harus bisa ditemukan, satu baris per pasangan, hanya yang diajak
+  // boleh menjawab, kedua pihak boleh memutus, batas 30 ajakan/24 jam.
+  // ------------------------------------------------------------------
+
+  /** Catat profil pelaku: mode seed tidak punya tabel `users` untuk dibaca pihak lain. */
+  private rememberActor(actor: NetworkViewer): NetworkMember {
+    const existing = this.people.get(actor.id);
+    const member: NetworkMember = {
+      person: {
+        userId: actor.id,
+        fullName: actor.fullName,
+        headline: existing?.person.headline ?? null,
+        educationLevel: actor.educationLevel,
+        major: actor.major,
+        interests: [...actor.interests],
+      },
+      discoverable: existing?.discoverable ?? false,
+      updatedAt: existing?.updatedAt ?? new Date().toISOString(),
+    };
+    this.people.set(actor.id, member);
+    return member;
+  }
+
+  private findPair(a: string, b: string): ConnectionEntry | undefined {
+    for (const entry of this.connections.values()) {
+      if ((entry.requesterId === a && entry.addresseeId === b) || (entry.requesterId === b && entry.addresseeId === a)) {
+        return entry;
+      }
+    }
+    return undefined;
+  }
+
+  private notify(userId: string, notification: Omit<AppNotification, 'isRead' | 'sentAt' | 'event'>): void {
+    getOrCreate(this.storedNotifications, userId, () => []).push({
+      ...notification,
+      isRead: false,
+      sentAt: new Date().toISOString(),
+      event: null,
+    });
+  }
+
+  private acceptedPeers(userId: string): Set<string> {
+    const peers = new Set<string>();
+    for (const entry of this.connections.values()) {
+      if (entry.status !== 'ACCEPTED') continue;
+      if (entry.requesterId === userId) peers.add(entry.addresseeId);
+      else if (entry.addresseeId === userId) peers.add(entry.requesterId);
+    }
+    return peers;
+  }
+
+  private teamEventsOf(userId: string): NetworkEventRef[] {
+    const refs = new Map<string, NetworkEventRef>();
+    for (const team of this.teams.values()) {
+      if (!team.members.some((member) => member.userId === userId)) continue;
+      const event = this.findEvent(team.eventId);
+      if (event && isPubliclyVisible(event)) {
+        refs.set(event.id, { id: event.id, slug: event.slug, title: event.title, eventType: event.eventType });
+      }
+    }
+    return [...refs.values()];
+  }
+
+  /** Jaringan awal persona demo "Mahasiswa". Hanya mode seed — tidak ada padanannya di produksi. */
+  seedDemoNetwork(userId: string, now: Date = new Date()): void {
+    const stamp = (daysAgo: number) => isoOffsetDays(-daysAgo, now);
+    DEMO_STARTER_NETWORK.accepted.forEach((peerId, index) => {
+      const id = this.nextId();
+      this.connections.set(id, { id, requesterId: peerId, addresseeId: userId, status: 'ACCEPTED', message: null, createdAt: stamp(index + 8), respondedAt: stamp(index + 6) });
+    });
+    DEMO_STARTER_NETWORK.incoming.forEach(({ userId: peerId, message }, index) => {
+      const id = this.nextId();
+      this.connections.set(id, { id, requesterId: peerId, addresseeId: userId, status: 'PENDING', message, createdAt: stamp(index), respondedAt: null });
+      const name = this.people.get(peerId)?.person.fullName ?? 'Seseorang';
+      this.notify(userId, { id: `notif-connection-${id}`, type: 'CONNECTION_REQUEST', message: `${name} ingin terhubung denganmu.` });
+    });
+    DEMO_STARTER_NETWORK.outgoing.forEach((peerId, index) => {
+      const id = this.nextId();
+      this.connections.set(id, { id, requesterId: userId, addresseeId: peerId, status: 'PENDING', message: null, createdAt: stamp(index + 1), respondedAt: null });
+    });
+  }
+
+  async getNetworkProfile(userId: string): Promise<NetworkProfile> {
+    const member = this.people.get(userId);
+    return { discoverable: member?.discoverable ?? false, headline: member?.person.headline ?? null };
+  }
+
+  async updateNetworkProfile(actor: NetworkViewer, input: NetworkProfileInput): Promise<void> {
+    const member = this.rememberActor(actor);
+    this.people.set(actor.id, {
+      person: { ...member.person, headline: input.headline },
+      discoverable: input.discoverable,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  async listConnections(userId: string): Promise<readonly Connection[]> {
+    const result: Connection[] = [];
+    for (const entry of this.connections.values()) {
+      const outgoing = entry.requesterId === userId;
+      if (!outgoing && entry.addresseeId !== userId) continue;
+      const peer = this.people.get(outgoing ? entry.addresseeId : entry.requesterId);
+      if (!peer) continue;
+      result.push({
+        id: entry.id,
+        person: peer.person,
+        status: entry.status,
+        direction: outgoing ? 'outgoing' : 'incoming',
+        message: entry.message,
+        createdAt: entry.createdAt,
+        respondedAt: entry.respondedAt,
+      });
+    }
+    return result.sort((a, b) => (b.respondedAt ?? b.createdAt).localeCompare(a.respondedAt ?? a.createdAt));
+  }
+
+  async suggestPeople(viewer: NetworkViewer, filter: PeopleFilter): Promise<readonly PeopleSuggestion[]> {
+    const related = new Set<string>([viewer.id]);
+    for (const entry of this.connections.values()) {
+      if (entry.requesterId === viewer.id) related.add(entry.addresseeId);
+      if (entry.addresseeId === viewer.id) related.add(entry.requesterId);
+    }
+    const viewerPeers = this.acceptedPeers(viewer.id);
+    const viewerEventIds = new Set(filter.viewerEvents.map((event) => event.id));
+
+    const candidates = [...this.people.values()]
+      .filter((member) => member.discoverable && !related.has(member.person.userId))
+      .filter((member) => !filter.interest || member.person.interests.includes(filter.interest))
+      .filter((member) => matchesPeopleSearch(member.person, filter.search))
+      .map((member) => {
+        const peers = this.acceptedPeers(member.person.userId);
+        return {
+          person: member.person,
+          mutualCount: [...peers].filter((peer) => viewerPeers.has(peer)).length,
+          sharedEvents: this.teamEventsOf(member.person.userId).filter((event) => viewerEventIds.has(event.id)),
+        };
+      });
+    return rankSuggestions(viewer, candidates, filter.limit);
+  }
+
+  async requestConnection(actor: NetworkViewer, targetId: string, message: string | null): Promise<'requested' | 'accepted'> {
+    if (actor.id === targetId) throw actionError('connection_self');
+    const actorMember = this.rememberActor(actor);
+
+    const existing = this.findPair(actor.id, targetId);
+    if (existing) {
+      if (existing.status === 'PENDING' && existing.addresseeId === actor.id) {
+        await this.respondToConnection(actor.id, existing.id, 'accept');
+        return 'accepted';
+      }
+      throw actionError('connection_exists');
+    }
+    const target = this.people.get(targetId);
+    if (!target?.discoverable) throw actionError('person_unavailable');
+    if (!this.rateLimiter.consume(`connection:${actor.id}`, CONNECTION_RATE_LIMIT.perDay, 86_400)) {
+      throw actionError('connection_rate_limited');
+    }
+
+    const id = this.nextId();
+    this.connections.set(id, { id, requesterId: actor.id, addresseeId: targetId, status: 'PENDING', message, createdAt: new Date().toISOString(), respondedAt: null });
+    this.notify(targetId, { id: `notif-connection-${id}`, type: 'CONNECTION_REQUEST', message: `${actorMember.person.fullName} ingin terhubung denganmu.` });
+    return 'requested';
+  }
+
+  async respondToConnection(actorId: string, connectionId: string, decision: 'accept' | 'decline'): Promise<void> {
+    const entry = this.connections.get(connectionId);
+    if (!entry || (entry.requesterId !== actorId && entry.addresseeId !== actorId)) throw actionError('connection_not_found');
+    if (entry.addresseeId !== actorId) throw actionError('connection_forbidden');
+    if (entry.status !== 'PENDING') return;
+
+    if (decision === 'decline') {
+      this.connections.delete(connectionId);
+      return;
+    }
+    entry.status = 'ACCEPTED';
+    entry.respondedAt = new Date().toISOString();
+    const name = this.people.get(actorId)?.person.fullName ?? 'Seseorang';
+    this.notify(entry.requesterId, { id: `notif-connection-accepted-${entry.id}`, type: 'CONNECTION_ACCEPTED', message: `${name} menerima ajakan koneksimu.` });
+  }
+
+  async removeConnection(actorId: string, connectionId: string): Promise<void> {
+    const entry = this.connections.get(connectionId);
+    if (!entry || (entry.requesterId !== actorId && entry.addresseeId !== actorId)) throw actionError('connection_not_found');
+    this.connections.delete(connectionId);
+  }
+
+  async listTeamLinks(userIds: readonly string[], limit: number): Promise<readonly TeamLink[]> {
+    const wanted = new Set(userIds);
+    const links: TeamLink[] = [];
+    for (const team of this.teams.values()) {
+      const event = this.findEvent(team.eventId);
+      if (!event || !isPubliclyVisible(event)) continue;
+      for (const member of team.members) {
+        if (!wanted.has(member.userId)) continue;
+        links.push({ userId: member.userId, teamId: team.id, event: { id: event.id, slug: event.slug, title: event.title, eventType: event.eventType } });
+      }
+    }
+    return links.slice(0, limit);
   }
 
   async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {

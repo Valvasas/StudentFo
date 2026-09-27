@@ -10,6 +10,7 @@ import {
   signInSchema,
   signUpSchema,
 } from '@/lib/auth-schema';
+import { seedDemoNetwork } from '@/lib/data';
 import { isDemoPersonaId } from '@/lib/demo/personas';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
@@ -208,7 +209,8 @@ export async function demoSignInAction(formData: FormData): Promise<void> {
     redirect(authHref('/login', { error: dataMode === 'seed' ? 'validation' : 'unknown' }));
   }
 
-  await startDemoSession(persona);
+  const uid = await startDemoSession(persona);
+  if (persona === 'mahasiswa') seedDemoNetwork(uid);
   revalidatePath('/', 'layout');
   redirect(persona === 'admin' && next === '/' ? '/admin' : next);
 }

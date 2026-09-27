@@ -26,6 +26,7 @@ Urutan migration (harus dijalankan berurutan):
 16. `20260926140001_recommendation_signals.sql` — tabel `recommendation_signals` (simpan & klik "Daftar" + snapshot profil), tulis hanya service_role (ADR-032)
 17. `20260926150001_events_listing_search_vector.sql` — `events_listing` mengekspos `search_vector` (tanpanya setiap pencarian di mode Supabase gagal 42703)
 18. `20260926160001_submission_notifications.sql` — `ugc_submissions.submitted_by` + trigger `notify_submission_decision()` (notifikasi `SUBMISSION_APPROVED`/`SUBMISSION_REJECTED`, ADR-037)
+19. `20260927100001_network.sql` — `network_profiles` + `connections`, view `network_directory` & `connection_peers`, RPC `mutual_connection_counts()` / `is_discoverable()`, trigger batas laju & notifikasi koneksi (ADR-040)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -184,6 +185,26 @@ email mentah. RLS aktif **tanpa policy** dan semua hak dicabut dari
 `anon`/`authenticated`; hanya `consume_rate_limit()` (SECURITY DEFINER) dan
 service_role yang menyentuhnya.
 
+### `network_profiles`, `connections` (Koneksi — UI di `/connections`, ADR-040)
+`network_profiles`: `user_id` PK, `is_discoverable` (bawaan **false** — opt-in),
+`headline` ≤140. RLS pemilik saja; hak kolom INSERT `(user_id, is_discoverable,
+headline)`, UPDATE `(is_discoverable, headline)`.
+
+`connections`: satu baris per PASANGAN (`UNIQUE (LEAST(a,b), GREATEST(a,b))`),
+`status` VARCHAR+CHECK `PENDING|ACCEPTED` (paritas `CONNECTION_STATUSES`, bukan
+enum Postgres), `message` ≤280, `responded_at` wajib terisi kalau ACCEPTED
+(diisi trigger). Menolak = DELETE. RLS: SELECT/DELETE kedua pihak; INSERT
+hanya sebagai `requester` ke orang yang `is_discoverable()`; UPDATE hanya
+`addressee`, hanya PENDING→ACCEPTED. Hak kolom: INSERT `(requester_id,
+addressee_id, message)`, UPDATE `(status)`. Trigger BEFORE INSERT memanggil
+`consume_rate_limit('connection:<uid>', 30, 86400)` (percobaan, bukan baris);
+AFTER INSERT/UPDATE menulis notifikasi `CONNECTION_REQUEST`/`CONNECTION_ACCEPTED`.
+
+View `network_directory` (hanya opt-in) dan `connection_peers` (pihak lawan
+dari koneksi pemanggil) — keduanya `security_invoker = off`, tanpa email,
+`authenticated` saja. **Jangan tambah kolom** (alasan sama dengan
+`team_member_profiles`). Uji: `supabase/tests/95_network.test.sql`.
+
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat
 DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom
@@ -210,7 +231,7 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 
 ## Row Level Security
 
-RLS **aktif di semua 14 tabel publik**, deny-by-default (DEVIATIONS #2 —
+RLS **aktif di semua tabel publik** (termasuk `network_profiles` & `connections`, ADR-040), deny-by-default (DEVIATIONS #2 —
 blueprint asli hanya menyalakan 5 tabel, sisanya bisa ditulis publik lewat
 anon key). Ringkasan policy:
 

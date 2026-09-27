@@ -1,10 +1,20 @@
 import { fromStoredPayload } from '@/lib/submission-schema';
-import type { EventDetail, EventSummary, ModerationLogEntry, Submission, TeamMember } from '@/types/domain';
+import type {
+  Connection,
+  EventDetail,
+  EventSummary,
+  ModerationLogEntry,
+  NetworkPerson,
+  Submission,
+  TeamMember,
+} from '@/types/domain';
 import { toTeamRole } from '@/types/domain';
 import type {
+  ConnectionPeerRow,
   EventDeadlineRow,
   EventListingRow,
   ModerationLogRow,
+  NetworkDirectoryRow,
   SubmissionRow,
   TeamMemberProfileRow,
 } from '@/types/database';
@@ -119,4 +129,70 @@ export function toModerationLogEntry(row: ModerationLogRow): ModerationLogEntry 
     reason: row.reason,
     createdAt: row.created_at,
   };
+}
+
+export const DIRECTORY_COLUMNS = 'user_id, full_name, headline, education_level, major, interests, updated_at';
+
+export function toNetworkPerson(row: NetworkDirectoryRow): NetworkPerson {
+  return {
+    userId: row.user_id,
+    fullName: row.full_name,
+    headline: row.headline,
+    educationLevel: row.education_level,
+    major: row.major,
+    interests: row.interests ?? [],
+  };
+}
+
+export function toConnection(row: ConnectionPeerRow): Connection {
+  return {
+    id: row.connection_id,
+    person: {
+      userId: row.peer_id,
+      fullName: row.full_name,
+      headline: row.headline,
+      educationLevel: row.education_level,
+      major: row.major,
+      interests: row.interests ?? [],
+    },
+    status: row.status === 'ACCEPTED' ? 'ACCEPTED' : 'PENDING',
+    direction: row.is_outgoing ? 'outgoing' : 'incoming',
+    message: row.message,
+    createdAt: row.created_at,
+    respondedAt: row.responded_at,
+  };
+}
+
+/**
+ * Kata kunci pencarian orang untuk filter `ilike` di dalam `or=(…)`
+ * PostgREST. Hanya huruf/angka/tanda hubung: koma dan kurung memecah
+ * sintaks `or`, dan `%`/`_` adalah wildcard `ilike`. Hanya kata PERTAMA yang
+ * dikirim ke database — kata lainnya disaring `matchesPeopleSearch()` di
+ * atas jendela kandidat, jadi hasilnya tetap "semua kata cocok".
+ */
+export function peopleSearchTerm(search: string): string | null {
+  const first = sanitizeSearchQuery(search)
+    .split(' ')
+    .map((word) => word.replace(/[^\p{L}\p{N}-]/gu, ''))
+    .find((word) => word.length >= 2);
+  return first ?? null;
+}
+
+/**
+ * Hasil RPC `mutual_connection_counts` → peta userId → jumlah. Diperiksa
+ * bentuknya saat runtime: klien Supabase di repo ini tidak diberi tipe
+ * skema, jadi `data` RPC tidak punya jaminan bentuk apa pun.
+ */
+export function toMutualCounts(data: unknown): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (!Array.isArray(data)) return counts;
+  for (const row of data) {
+    if (typeof row !== 'object' || row === null) continue;
+    const { user_id: userId, mutual_count: count } = row as Record<string, unknown>;
+    if (typeof userId === 'string' && (typeof count === 'number' || typeof count === 'string')) {
+      const value = Number(count);
+      if (Number.isFinite(value)) counts.set(userId, value);
+    }
+  }
+  return counts;
 }

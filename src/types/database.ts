@@ -1,4 +1,4 @@
-import type { DeadlineLabel, EducationLevel, EventStatus, EventType, TrackerStatus } from './domain';
+import type { ConnectionStatus, DeadlineLabel, EducationLevel, EventStatus, EventType, TrackerStatus } from './domain';
 
 /**
  * Bentuk baris sebagaimana dikembalikan PostgREST.
@@ -142,4 +142,43 @@ export interface RecommendationSignalRow {
   created_at: string;
   interests: string[] | null;
   education_level: EducationLevel | null;
+}
+
+/** View `network_directory` (ADR-040) — sengaja tanpa email. */
+export interface NetworkDirectoryRow {
+  user_id: string;
+  full_name: string;
+  headline: string | null;
+  education_level: EducationLevel | null;
+  major: string | null;
+  interests: string[] | null;
+  updated_at: string;
+}
+
+/** View `connection_peers` — pihak lawan dari koneksi milik pemanggil. */
+export interface ConnectionPeerRow {
+  connection_id: string;
+  status: ConnectionStatus;
+  message: string | null;
+  created_at: string;
+  responded_at: string | null;
+  is_outgoing: boolean;
+  peer_id: string;
+  full_name: string;
+  headline: string | null;
+  education_level: EducationLevel | null;
+  major: string | null;
+  interests: string[] | null;
+}
+
+export interface NetworkProfileRow {
+  is_discoverable: boolean;
+  headline: string | null;
+}
+
+export interface ConnectionPairRow {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: ConnectionStatus;
 }

@@ -1,8 +1,10 @@
 import Link from 'next/link';
 
 const FOOTER_LINKS = [
+  { href: '/about', label: 'Tentang' },
   { href: '/#verifikasi', label: 'Cara verifikasi' },
   { href: '/events', label: 'Semua kegiatan' },
+  { href: '/connections', label: 'Koneksi' },
   { href: '/submit', label: 'Untuk penyelenggara' },
   { href: '/privacy-policy', label: 'Kebijakan privasi' },
 ] as const;

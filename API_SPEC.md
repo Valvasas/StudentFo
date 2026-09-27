@@ -11,7 +11,7 @@ I/O pipeline Python. Semua ada di sini.
 > **Sejak 2026-09-26** `EventRepository` adalah gabungan interface per domain
 > (`EventCatalogRepository`, `ModerationRepository`, `SubmissionRepository`,
 > `SavedEventRepository`, `TrackerRepository`, `NotificationRepository`,
-> `TeamRepository`, `RateLimitRepository`, `RecommendationSignalRepository`) di
+> `TeamRepository`, `NetworkRepository`, `RateLimitRepository`, `RecommendationSignalRepository`) di
 > `src/lib/data/repository.ts` — sumber kebenaran tanda tangan method. Blok di
 > bawah adalah ringkasan historis; method baru sejak itu (antrean detail,
 > `listModerationLog`, `consumeRateLimit`, sinyal & kalibrasi) hanya tercatat
@@ -168,6 +168,19 @@ Semua Server Action di proyek ini mengikuti pola yang sama: menerima
 `redirect()` berparameter. Konsekuensinya disengaja — seluruh alur tetap
 berfungsi tanpa JavaScript. `redirect()` melempar secara internal, jadi ia
 **selalu** dipanggil di luar `try/catch`.
+
+### Aksi koneksi — `src/app/connections/actions.ts` (ADR-040)
+
+| Aksi | Field form | Sukses (`?notice=`) | Gagal (`?error=`) |
+|---|---|---|---|
+| `requestConnectionAction` | `targetId`, `message?` (≤280), `returnTo` | `connection_requested`, atau `connection_matched` kalau target sudah lebih dulu mengajak | `connection_self`, `connection_exists`, `person_unavailable`, `connection_rate_limited`, `invalid_connection_message` |
+| `respondConnectionAction` | `connectionId`, `decision` (`accept`\|`decline`), `returnTo` | `connection_accepted` / `connection_declined` | `connection_not_found`, `connection_forbidden` |
+| `removeConnectionAction` | `connectionId`, `kind` (`cancel`\|`remove`), `returnTo` | `connection_cancelled` / `connection_removed` | `connection_not_found` |
+| `updateNetworkProfileAction` | `discoverable` (checkbox), `headline?` (≤140), `returnTo` | `network_profile_saved` | `invalid_network_profile` |
+
+Semua memanggil `requireUser()` sendiri; siapa yang boleh menjawab/memutus
+diperiksa di repository, RLS migration `20260927100001` penjaga terakhirnya.
+`returnTo` lewat `safeNextPath()` dan mempertahankan saringan `?q=`/`?minat=`.
 
 ### Aksi akun — `src/app/auth/actions.ts`
 

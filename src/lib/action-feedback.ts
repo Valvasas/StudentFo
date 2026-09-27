@@ -24,6 +24,14 @@ export const ACTION_ERROR_CODES = [
   'submission_not_found',
   'submission_rate_limited',
   'captcha_failed',
+  'connection_not_found',
+  'connection_forbidden',
+  'connection_exists',
+  'connection_self',
+  'connection_rate_limited',
+  'person_unavailable',
+  'invalid_network_profile',
+  'invalid_connection_message',
   'invalid_request',
   'unknown',
 ] as const;
@@ -46,6 +54,15 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
     'Terlalu banyak kiriman dalam satu jam terakhir. Coba lagi nanti — kiriman sebelumnya tetap ada di antrean.',
   captcha_failed:
     'Verifikasi anti-bot belum selesai atau kedaluwarsa. Tunggu tanda centang muncul, lalu kirim ulang.',
+  connection_not_found: 'Ajakan itu sudah tidak ada — mungkin sudah dibatalkan atau dijawab.',
+  connection_forbidden: 'Hanya orang yang diajak yang bisa menjawab ajakan ini.',
+  connection_exists: 'Kalian sudah terhubung atau masih ada ajakan yang menunggu jawaban.',
+  connection_self: 'Kamu tidak bisa mengajak dirimu sendiri.',
+  connection_rate_limited:
+    'Kamu sudah mengirim banyak ajakan dalam 24 jam terakhir. Tunggu ajakan sebelumnya dijawab dulu, lalu coba lagi besok.',
+  person_unavailable: 'Orang ini tidak bisa diajak terhubung saat ini. Profilnya mungkin sudah disembunyikan.',
+  invalid_network_profile: 'Headline maksimal 140 karakter.',
+  invalid_connection_message: 'Pesan pengantar maksimal 280 karakter.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -55,6 +72,13 @@ export const ACTION_NOTICE_CODES = [
   'submission_approved',
   'submission_rejected',
   'demo_reset',
+  'connection_requested',
+  'connection_matched',
+  'connection_accepted',
+  'connection_declined',
+  'connection_cancelled',
+  'connection_removed',
+  'network_profile_saved',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -65,6 +89,13 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   submission_approved: 'Kiriman disetujui dan kini tayang di katalog.',
   submission_rejected: 'Kiriman ditolak.',
   demo_reset: 'Data demo diatur ulang ke kondisi awal, dengan tenggat dihitung ulang dari hari ini.',
+  connection_requested: 'Ajakan terkirim. Kamu akan dapat notifikasi begitu dijawab.',
+  connection_matched: 'Ternyata dia sudah lebih dulu mengajakmu — sekarang kalian terhubung.',
+  connection_accepted: 'Ajakan diterima. Kalian sekarang terhubung.',
+  connection_declined: 'Ajakan ditolak. Pengirimnya tidak diberi tahu alasannya.',
+  connection_cancelled: 'Ajakan dibatalkan.',
+  connection_removed: 'Koneksi diputus.',
+  network_profile_saved: 'Pengaturan jaringan disimpan.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {
@@ -84,9 +115,9 @@ export function parseActionNoticeCode(value: string | string[] | undefined): Act
 /** Buat AppError yang alasannya bisa dioper ke URL sebagai kode. */
 export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError {
   const status =
-    code === 'team_forbidden'
+    code === 'team_forbidden' || code === 'connection_forbidden'
       ? 403
-      : code === 'submission_rate_limited'
+      : code === 'submission_rate_limited' || code === 'connection_rate_limited'
         ? 429
         : code.endsWith('not_found')
           ? 404

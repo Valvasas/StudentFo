@@ -3,6 +3,14 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { actionError } from '@/lib/action-feedback';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
 import { type AppError, upstreamFailure } from '@/lib/errors';
+import {
+  matchesPeopleSearch,
+  NETWORK_LIMITS,
+  rankSuggestions,
+  type NetworkProfileInput,
+  type NetworkViewer,
+  type SuggestionCandidate,
+} from '@/lib/network';
 import { toStoredPayload } from '@/lib/submission-schema';
 import {
   createSupabaseAdminClient,
@@ -12,15 +20,20 @@ import {
 import type {
   AppNotification,
   Category,
+  Connection,
   DeadlineDay,
   EventDetail,
   EventQuery,
   EventStatus,
   EventSummary,
   ModerationLogEntry,
+  NetworkEventRef,
+  NetworkProfile,
   Paginated,
+  PeopleSuggestion,
   Submission,
   Team,
+  TeamLink,
   TeamMember,
   TrackerItem,
   TrackerStatus,
@@ -28,10 +41,14 @@ import type {
 import { toNotificationType } from '@/types/domain';
 import type {
   CategoryRow,
+  ConnectionPairRow,
+  ConnectionPeerRow,
   EventDeadlineRow,
   EventDeadlineWithEventRow,
   EventListingRow,
   ModerationLogRow,
+  NetworkDirectoryRow,
+  NetworkProfileRow,
   RecommendationSignalRow,
   NotificationRow,
   SubmissionRow,
@@ -57,19 +74,25 @@ import type {
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
   EventRepository,
+  PeopleFilter,
   RepositoryStats,
   ReviewEventInput,
   ReviewSubmissionInput,
 } from './repository';
 import {
+  DIRECTORY_COLUMNS,
   isUuid,
   LISTING_COLUMNS,
+  peopleSearchTerm,
   sanitizeSearchQuery,
   sqlState,
   toDetail,
   toModerationLogEntry,
   toSubmission,
   toSummary,
+  toConnection,
+  toMutualCounts,
+  toNetworkPerson,
   toTeamMember,
 } from './supabase-mappers';
 
@@ -79,6 +102,13 @@ const TEAM_COLUMNS = 'id, event_id, created_by, title, description, slots_needed
 const MS_PER_DAY = 86_400_000;
 /** Supabase memotong setiap respons PostgREST di `max_rows` (bawaan 1000). */
 const PAGE_SIZE = 1000;
+/**
+ * Ukuran potongan `.in()`. Filter `in` dikirim di URL GET; 60 UUID ≈ 2,3 KB,
+ * jauh di bawah batas panjang URL proxy/CDN di depan PostgREST.
+ */
+const IN_CHUNK = 60;
+/** Batas baca koneksi per pengguna; di atasnya halaman butuh paginasi (ADR-040). */
+const CONNECTION_READ_LIMIT = 1000;
 /** Kalibrasi dijalankan manual dan jarang; batas ini hanya pengaman memori. */
 const CALIBRATION_ROW_LIMIT = 50_000;
 
@@ -98,6 +128,12 @@ async function fetchAllPages<Row>(
     if (!data || data.length < PAGE_SIZE) break;
   }
   return rows;
+}
+
+function chunks<T>(values: readonly T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
+  return result;
 }
 
 /**
@@ -821,6 +857,254 @@ export class SupabaseEventRepository implements EventRepository {
     // `team_members` ikut terhapus lewat ON DELETE CASCADE (migration 0001).
     const { error } = await supabase.from('teams').delete().eq('id', teamId).eq('created_by', actorId);
     if (error) throw upstreamFailure('Gagal membubarkan tim.', error, 500);
+  }
+
+  // ------------------------------------------------------------------
+  // Koneksi (ADR-040). RLS + trigger migration 20260927100001 adalah
+  // penjaga terakhirnya; pemeriksaan di sini ada supaya pelanggaran
+  // muncul sebagai kode yang bisa dijelaskan ke pengguna, bukan 42501.
+  // ------------------------------------------------------------------
+
+  async getNetworkProfile(userId: string): Promise<NetworkProfile> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('network_profiles')
+      .select('is_discoverable, headline')
+      .eq('user_id', userId)
+      .maybeSingle<NetworkProfileRow>();
+    if (error) throw upstreamFailure('Gagal memuat pengaturan jaringan.', error);
+    return { discoverable: data?.is_discoverable ?? false, headline: data?.headline ?? null };
+  }
+
+  async updateNetworkProfile(actor: NetworkViewer, input: NetworkProfileInput): Promise<void> {
+    const supabase = await createSupabaseServerClient();
+    const values = { is_discoverable: input.discoverable, headline: input.headline };
+    // UPDATE lalu INSERT, bukan upsert: upsert PostgREST menulis ulang SEMUA
+    // kolom payload (termasuk user_id) di ON CONFLICT, dan hak UPDATE
+    // sengaja hanya diberikan untuk dua kolom.
+    const updated = await supabase.from('network_profiles').update(values).eq('user_id', actor.id).select('user_id');
+    if (updated.error) throw upstreamFailure('Gagal menyimpan pengaturan jaringan.', updated.error, 500);
+    if (updated.data.length > 0) return;
+
+    const inserted = await supabase.from('network_profiles').insert({ user_id: actor.id, ...values });
+    if (!inserted.error) return;
+    if (sqlState(inserted.error) === '23505') {
+      const retry = await supabase.from('network_profiles').update(values).eq('user_id', actor.id);
+      if (!retry.error) return;
+    }
+    throw upstreamFailure('Gagal menyimpan pengaturan jaringan.', inserted.error, 500);
+  }
+
+  async listConnections(_userId: string): Promise<readonly Connection[]> {
+    // `connection_peers` sudah memfilter ke auth.uid() pemanggil; parameter
+    // userId ada untuk kontrak yang sama dengan mode seed.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('connection_peers')
+      .select('connection_id, status, message, created_at, responded_at, is_outgoing, peer_id, full_name, headline, education_level, major, interests')
+      .order('created_at', { ascending: false })
+      .limit(CONNECTION_READ_LIMIT)
+      .returns<ConnectionPeerRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat koneksi.', error);
+    return data.map(toConnection);
+  }
+
+  private async relatedUserIds(userId: string): Promise<Set<string>> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('connections')
+      .select('id, requester_id, addressee_id, status')
+      .limit(CONNECTION_READ_LIMIT)
+      .returns<ConnectionPairRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat koneksi.', error);
+    const related = new Set<string>([userId]);
+    for (const row of data) related.add(row.requester_id === userId ? row.addressee_id : row.requester_id);
+    return related;
+  }
+
+  private async directoryWindow(viewer: NetworkViewer, filter: PeopleFilter): Promise<NetworkDirectoryRow[]> {
+    const supabase = await createSupabaseServerClient();
+    const window = NETWORK_LIMITS.candidateWindow;
+    const base = () =>
+      supabase.from('network_directory').select(DIRECTORY_COLUMNS).neq('user_id', viewer.id).order('updated_at', { ascending: false }).limit(window);
+
+    let query = base();
+    if (filter.interest) query = query.contains('interests', [filter.interest]);
+    const term = peopleSearchTerm(filter.search);
+    if (term) query = query.or(`full_name.ilike.*${term}*,major.ilike.*${term}*,headline.ilike.*${term}*`);
+    const narrowed = Boolean(filter.interest || term);
+    // Tanpa saringan: utamakan orang dengan minat yang sama supaya jendela
+    // 200 baris tidak habis oleh orang yang sekadar paling baru aktif.
+    if (!narrowed && viewer.interests.length > 0) query = query.overlaps('interests', [...viewer.interests]);
+
+    const { data, error } = await query.returns<NetworkDirectoryRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat saran koneksi.', error);
+    if (narrowed || viewer.interests.length === 0 || data.length >= filter.limit) return data;
+
+    const fallback = await base().returns<NetworkDirectoryRow[]>();
+    if (fallback.error) throw upstreamFailure('Gagal memuat saran koneksi.', fallback.error);
+    const seen = new Set(data.map((row) => row.user_id));
+    return [...data, ...fallback.data.filter((row) => !seen.has(row.user_id))];
+  }
+
+  async suggestPeople(viewer: NetworkViewer, filter: PeopleFilter): Promise<readonly PeopleSuggestion[]> {
+    const [rows, related] = await Promise.all([this.directoryWindow(viewer, filter), this.relatedUserIds(viewer.id)]);
+    const people = rows
+      .filter((row) => !related.has(row.user_id))
+      .map(toNetworkPerson)
+      .filter((person) => matchesPeopleSearch(person, filter.search));
+    if (people.length === 0) return [];
+
+    const supabase = await createSupabaseServerClient();
+    const candidateIds = people.map((person) => person.userId);
+    const [mutualResult, sharedByPerson] = await Promise.all([
+      supabase.rpc('mutual_connection_counts', { p_candidates: candidateIds }),
+      this.sharedTeamEvents(filter.viewerEvents, new Set(candidateIds)),
+    ]);
+    // Koneksi bersama hanya menambah bobot; kegagalannya tidak boleh
+    // menghapus seluruh daftar saran.
+    if (mutualResult.error) console.error('[network] mutual_connection_counts gagal:', mutualResult.error);
+    const mutual = toMutualCounts(mutualResult.error ? null : mutualResult.data);
+
+    const candidates: SuggestionCandidate[] = people.map((person) => ({
+      person,
+      mutualCount: mutual.get(person.userId) ?? 0,
+      sharedEvents: sharedByPerson.get(person.userId) ?? [],
+    }));
+    return rankSuggestions(viewer, candidates, filter.limit);
+  }
+
+  /** Mulai dari kegiatan pembaca (jumlahnya kecil), bukan dari kandidat (bisa 200). */
+  private async sharedTeamEvents(
+    viewerEvents: readonly NetworkEventRef[],
+    candidates: ReadonlySet<string>,
+  ): Promise<Map<string, NetworkEventRef[]>> {
+    const result = new Map<string, NetworkEventRef[]>();
+    const eventIds = viewerEvents.map((event) => event.id).filter(isUuid).slice(0, IN_CHUNK);
+    if (eventIds.length === 0) return result;
+
+    const supabase = await createSupabaseServerClient();
+    const teams = await supabase.from('teams').select('id, event_id').in('event_id', eventIds).limit(500).returns<{ id: string; event_id: string }[]>();
+    if (teams.error || teams.data.length === 0) return result;
+    const eventByTeam = new Map(teams.data.map((row) => [row.id, row.event_id]));
+    const eventRefs = new Map(viewerEvents.map((event) => [event.id, event]));
+
+    for (const teamIds of chunks([...eventByTeam.keys()], IN_CHUNK)) {
+      const members = await supabase.from('team_member_profiles').select('team_id, user_id').in('team_id', teamIds).returns<{ team_id: string; user_id: string }[]>();
+      if (members.error) return result;
+      for (const row of members.data) {
+        const event = eventRefs.get(eventByTeam.get(row.team_id) ?? '');
+        if (!event || !candidates.has(row.user_id)) continue;
+        const list = result.get(row.user_id) ?? [];
+        if (!list.some((known) => known.id === event.id)) list.push(event);
+        result.set(row.user_id, list);
+      }
+    }
+    return result;
+  }
+
+  async requestConnection(actor: NetworkViewer, targetId: string, message: string | null): Promise<'requested' | 'accepted'> {
+    if (actor.id === targetId) throw actionError('connection_self');
+    if (!isUuid(targetId)) throw actionError('person_unavailable');
+    const supabase = await createSupabaseServerClient();
+
+    const existing = await supabase
+      .from('connections')
+      .select('id, requester_id, addressee_id, status')
+      .or(`and(requester_id.eq.${actor.id},addressee_id.eq.${targetId}),and(requester_id.eq.${targetId},addressee_id.eq.${actor.id})`)
+      .maybeSingle<ConnectionPairRow>();
+    if (existing.error) throw upstreamFailure('Gagal memeriksa koneksi.', existing.error);
+    if (existing.data) {
+      if (existing.data.status === 'PENDING' && existing.data.addressee_id === actor.id) {
+        await this.respondToConnection(actor.id, existing.data.id, 'accept');
+        return 'accepted';
+      }
+      throw actionError('connection_exists');
+    }
+
+    const { error } = await supabase.from('connections').insert({ requester_id: actor.id, addressee_id: targetId, message });
+    if (!error) return 'requested';
+    if (sqlState(error) === '23505') throw actionError('connection_exists');
+    // 42501 = policy insert menolak: target tidak (lagi) bisa ditemukan.
+    if (sqlState(error) === '42501') throw actionError('person_unavailable');
+    if (error.message?.includes('connection_rate_limited')) throw actionError('connection_rate_limited');
+    throw upstreamFailure('Gagal mengirim ajakan.', error, 500);
+  }
+
+  async respondToConnection(actorId: string, connectionId: string, decision: 'accept' | 'decline'): Promise<void> {
+    if (!isUuid(connectionId)) throw actionError('connection_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('connections')
+      .select('id, requester_id, addressee_id, status')
+      .eq('id', connectionId)
+      .maybeSingle<ConnectionPairRow>();
+    if (error) throw upstreamFailure('Gagal memuat ajakan.', error);
+    if (!data) throw actionError('connection_not_found');
+    if (data.addressee_id !== actorId) throw actionError('connection_forbidden');
+    if (data.status !== 'PENDING') return;
+
+    const result =
+      decision === 'accept'
+        ? await supabase.from('connections').update({ status: 'ACCEPTED' }).eq('id', connectionId)
+        : await supabase.from('connections').delete().eq('id', connectionId);
+    if (result.error) throw upstreamFailure('Gagal menjawab ajakan.', result.error, 500);
+  }
+
+  async removeConnection(actorId: string, connectionId: string): Promise<void> {
+    if (!isUuid(connectionId)) throw actionError('connection_not_found');
+    const supabase = await createSupabaseServerClient();
+    // RLS menyembunyikan baris orang lain, jadi "bukan pihaknya" dan "tidak
+    // ada" sama-sama 0 baris — sengaja tidak dibedakan (tidak membocorkan id).
+    // Kolom di filter `or` WAJIB ikut di `select`: PostgREST 12 menolak
+    // DELETE…RETURNING yang memfilter kolom di luar daftar select (42703) —
+    // tertangkap integration test, tidak oleh mode seed.
+    const { data, error } = await supabase
+      .from('connections')
+      .delete()
+      .eq('id', connectionId)
+      .or(`requester_id.eq.${actorId},addressee_id.eq.${actorId}`)
+      .select('id, requester_id, addressee_id');
+    if (error) throw upstreamFailure('Gagal memutus koneksi.', error, 500);
+    if (data.length === 0) throw actionError('connection_not_found');
+  }
+
+  async listTeamLinks(userIds: readonly string[], limit: number): Promise<readonly TeamLink[]> {
+    const ids = [...new Set(userIds)].filter(isUuid);
+    if (ids.length === 0) return [];
+    const supabase = await createSupabaseServerClient();
+
+    const memberships: { team_id: string; user_id: string }[] = [];
+    for (const part of chunks(ids, IN_CHUNK)) {
+      const { data, error } = await supabase
+        .from('team_member_profiles')
+        .select('team_id, user_id')
+        .in('user_id', part)
+        .limit(limit)
+        .returns<{ team_id: string; user_id: string }[]>();
+      // Tamu tidak punya hak baca view ini; peta tetap jalan tanpa simpul kegiatan.
+      if (error) return [];
+      memberships.push(...data);
+      if (memberships.length >= limit) break;
+    }
+    const kept = memberships.slice(0, limit);
+    if (kept.length === 0) return [];
+
+    const teamIds = [...new Set(kept.map((row) => row.team_id))];
+    const eventByTeam = new Map<string, string>();
+    for (const part of chunks(teamIds, IN_CHUNK)) {
+      const { data, error } = await supabase.from('teams').select('id, event_id').in('id', part).returns<{ id: string; event_id: string }[]>();
+      if (error) throw upstreamFailure('Gagal memuat tim.', error);
+      for (const row of data) eventByTeam.set(row.id, row.event_id);
+    }
+    const events = await this.fetchSummariesByIds([...eventByTeam.values()]);
+
+    return kept.flatMap((row) => {
+      const event = events.get(eventByTeam.get(row.team_id) ?? '');
+      return event
+        ? [{ userId: row.user_id, teamId: row.team_id, event: { id: event.id, slug: event.slug, title: event.title, eventType: event.eventType } }]
+        : [];
+    });
   }
 
   async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {

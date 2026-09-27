@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Hash, Heart, IdCard, Lock, LogOut, MessageCircle, Settings, Ticket, UserRound, type LucideIcon } from 'lucide-react';
+import { Hash, Heart, IdCard, Lock, LogOut, MessageCircle, Settings, Ticket, UserRound, Users, type LucideIcon } from 'lucide-react';
 import { signOutAction } from '@/app/auth/actions';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
 import type { AuthUser } from '@/lib/auth';
@@ -10,7 +10,7 @@ import { profileCompleteness } from '@/lib/profile-completeness';
 import { cn } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL } from '@/types/domain';
 
-export type AccountSection = 'profil' | 'data' | 'minat' | 'pesan' | 'diskusi' | 'daftar' | 'pengaturan' | 'privasi';
+export type AccountSection = 'profil' | 'data' | 'minat' | 'pesan' | 'diskusi' | 'daftar' | 'koneksi' | 'pengaturan' | 'privasi';
 
 interface Item {
   readonly key: AccountSection;
@@ -47,6 +47,7 @@ export function AccountShell({ user, active, children }: { user: AuthUser; activ
             ]
           : []),
         { key: 'daftar', label: 'Pendaftaran', href: '/tracker', icon: Ticket },
+        { key: 'koneksi', label: 'Koneksi', href: '/connections', icon: Users },
       ],
     },
     {

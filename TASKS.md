@@ -120,7 +120,13 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
 - [ ] Kolom kegiatan dari kanvas yang belum ada: hadiah, stipendium, kuota, pembicara, poster — butuh perubahan pipeline & `models.py` (paritas enum/kolom).
 - [ ] Riwayat tahap tracker (tabel event per perubahan) supaya halaman status bisa menampilkan tanggal tiap tahap, bukan hanya `updated_at` terakhir.
 - [ ] Kebijakan privasi: pemilik mengisi alamat kontak resmi & meninjau draf bersama penasihat hukum sebelum rilis publik.
-- [ ] Halaman Tentang & Cari Koneksi — tidak ada di bundel desain; butuh desain dulu.
+- [x] Halaman Tentang (`/about`) & Koneksi (`/connections`) dengan tema StudentHub —
+      backend nyata (migration `20260927100001_network.sql`, RLS + view sempit +
+      notifikasi + batas laju), peta koneksi ala Obsidian, saran berperingkat. ADR-040. @claude
+- [ ] Apply migration `20260927100001_network.sql` ke Supabase staging lalu uji alur
+      dua akun sungguhan (ajak → terima → notifikasi). Belum pernah di-apply.
+- [ ] Koneksi: blokir & laporkan (tabel `connection_blocks` + cek di policy INSERT) — lihat ADR-040.
+- [ ] Koneksi: `pg_trgm` untuk pencarian nama bila profil opt-in > ±50k (ADR-040).
 
 ## Backlog — Phase 3 (skema DB sudah ada, tidak ada UI sama sekali)
 
