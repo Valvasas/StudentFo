@@ -10,8 +10,17 @@ import { formList, formTrimmed as text } from '@/lib/form-data';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/domain';
 
+/**
+ * Tiga halaman menyimpan lewat aksi yang sama (Profil dipecah jadi Data
+ * diri & Peminatan, ADR-039). Tujuan kembali dipilih dari daftar tertutup,
+ * bukan diambil mentah dari form — isian tersembunyi tetap bisa dipalsukan.
+ */
+const PROFILE_RETURN_PATHS = ['/profile', '/profile/details', '/profile/interests'] as const;
+
 export async function updateProfileAction(formData: FormData): Promise<void> {
   let failure: AuthErrorCode | null = null;
+  const requested = text(formData, 'returnTo');
+  const returnTo = PROFILE_RETURN_PATHS.find((path) => path === requested) ?? '/profile';
 
   const level = text(formData, 'educationLevel');
   const major = text(formData, 'major');
@@ -65,9 +74,9 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
   }
 
   if (failure) {
-    redirect(`/profile?error=${failure}`);
+    redirect(`${returnTo}?error=${failure}`);
   }
 
   revalidatePath('/', 'layout');
-  redirect('/profile?notice=profile_saved');
+  redirect(`${returnTo}?notice=profile_saved`);
 }

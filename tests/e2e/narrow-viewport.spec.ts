@@ -28,13 +28,32 @@ async function overflowOf(page: Page): Promise<{ page: number; offenders: string
   });
 }
 
-const GUEST_ROUTES = ['/', '/events', '/login', '/register', '/submit', '/teams'];
+// Tiap tab jenis punya tata letak sendiri (ADR-039), jadi diuji satu per satu.
+const GUEST_ROUTES = [
+  '/',
+  '/events',
+  '/events?type=LOMBA',
+  '/events?type=BEASISWA',
+  '/events?type=MAGANG',
+  '/events?type=WORKSHOP&type=PELATIHAN',
+  '/events?type=KONFERENSI',
+  '/login',
+  '/register',
+  '/submit',
+  '/teams',
+  '/privacy-policy',
+];
 const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],
   ['Admin moderator', '/admin/riwayat'],
   ['Admin moderator', '/admin/kalibrasi'],
   ['Mahasiswa', '/tracker'],
   ['Mahasiswa', '/profile'],
+  ['Mahasiswa', '/profile/details'],
+  ['Mahasiswa', '/profile/settings'],
+  ['Mahasiswa', '/profile/privacy'],
+  ['Mahasiswa', '/messages'],
+  ['Mahasiswa', '/discussions'],
 ];
 
 for (const width of WIDTHS) {

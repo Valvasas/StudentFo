@@ -102,7 +102,7 @@ export function SegmentLinks({
   stretch?: boolean;
 }) {
   return (
-    <nav aria-label={label} className={cn('flex gap-0.5 rounded-sm p-[3px]', inverse ? 'bg-inverse-nested' : 'bg-panel-nested', className)}>
+    <nav aria-label={label} className={cn('flex max-w-full gap-0.5 overflow-x-auto rounded-sm p-[3px] [scrollbar-width:none]', inverse ? 'bg-inverse-nested' : 'bg-panel-nested', className)}>
       {items.map((item) => (
         <Link
           key={item.label}
@@ -110,7 +110,7 @@ export function SegmentLinks({
           scroll={false}
           aria-current={item.active ? 'true' : undefined}
           className={cn(
-            'flex min-h-11 items-center justify-center whitespace-nowrap rounded-[6px] px-3 text-[13.5px] font-medium transition-colors duration-150 ease-snap sm:min-h-9',
+            'flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-[6px] px-3 text-[13.5px] font-medium transition-colors duration-150 ease-snap sm:min-h-9',
             'relative sm:after:absolute sm:after:inset-x-0 sm:after:-inset-y-1 sm:after:content-[""]',
             stretch && 'flex-1',
             item.active

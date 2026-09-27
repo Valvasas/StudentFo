@@ -299,7 +299,7 @@ export async function updatePasswordAction(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/', 'layout');
-  redirect(authHref('/profile', { notice: 'password_updated' }));
+  redirect(authHref('/profile/settings', { notice: 'password_updated' }));
 }
 
 export async function changePasswordAction(formData: FormData): Promise<void> {
@@ -346,9 +346,9 @@ export async function changePasswordAction(formData: FormData): Promise<void> {
   }
 
   if (failure) {
-    redirect(authHref('/profile', { error: failure }));
+    redirect(authHref('/profile/settings', { error: failure }));
   }
 
   revalidatePath('/', 'layout');
-  redirect(authHref('/profile', { notice: 'password_updated' }));
+  redirect(authHref('/profile/settings', { notice: 'password_updated' }));
 }

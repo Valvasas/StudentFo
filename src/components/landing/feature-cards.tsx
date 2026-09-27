@@ -87,7 +87,7 @@ export function FeatureCards() {
           })}
           <span
             className="flex h-8 items-center self-end rounded-sm px-3.5 text-[12.5px] font-semibold text-on-brand"
-            style={{ background: phase >= 3 ? 'var(--color-accent)' : 'var(--color-border-strong)', transition: 'background 300ms ease' }}
+            style={{ background: phase >= 3 ? 'var(--color-accent)' : 'var(--color-text-muted)', transition: 'background 300ms ease' }}
           >
             Tandai siap
           </span>

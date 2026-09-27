@@ -81,7 +81,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
             <section
               key={key}
               aria-label={parts ? `Tutup ${parts.weekday}, ${parts.day} ${parts.month}` : 'Tanggal belum diumumkan'}
-              className="enter grid gap-4 border-b border-line py-8 [animation-duration:800ms] md:grid-cols-[180px_minmax(0,1fr)] md:gap-8"
+              className="enter grid grid-cols-[minmax(0,1fr)] gap-4 border-b border-line py-8 [animation-duration:800ms] md:grid-cols-[180px_minmax(0,1fr)] md:gap-8"
               style={{ animationDelay: `${groupIndex * 90}ms` }}
             >
               <div className="flex flex-row items-baseline gap-3 self-start md:sticky md:top-[84px] md:flex-col md:items-start md:gap-1">
@@ -121,7 +121,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                           <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-panel-nested text-[11.5px] font-semibold">
                             {initialsOf(event.organizer)}
                           </span>
-                          <span className="flex flex-col gap-px">
+                          <span className="flex min-w-0 flex-col gap-px">
                             <span className="text-sm font-semibold">{event.organizer}</span>
                             <span className="text-[12.5px] text-ink-muted">Penyelenggara</span>
                           </span>
@@ -139,7 +139,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                           )}
                         </ul>
                       </div>
-                      <SaveToggle eventId={event.id} isSaved={savedIds.includes(event.id)} returnTo={currentHref} className="row-start-2 sm:row-start-auto" />
+                      <SaveToggle eventId={event.id} isSaved={savedIds.includes(event.id)} returnTo={currentHref} className="col-start-2 row-start-2 sm:col-start-auto sm:row-start-auto" />
                     </li>
                   );
                 })}

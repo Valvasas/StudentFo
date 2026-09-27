@@ -180,7 +180,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
                   <p className="text-[12.5px] text-ink-soft">
                     Untuk {event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(', ') || 'semua jenjang'}
                   </p>
-                  <div className="flex items-center justify-between gap-3 border-t border-line pt-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-base font-bold tracking-[-0.02em]">{daysLeftLabel(days)}</span>
                       <span className="text-xs text-ink-muted">{event.savedCount.toLocaleString('id-ID')} orang menyimpan</span>

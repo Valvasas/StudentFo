@@ -479,7 +479,7 @@ export function LandingTour() {
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, border: '1px solid', ...selected(Boolean(state.mhs)), fontSize: 14, fontWeight: 600, transition: 'background 220ms ease,color 220ms ease' }}>Mahasiswa</span>
                 </div>
                 <span style={abs(218, 434, { fontSize: 12.5, color: '#77766F' })}>Langkah 1 dari 2</span>
-                <span style={abs(542, 420, { width: 120, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, background: state.desain && state.mhs ? INK : '#BDBDB8', color: '#fff', fontSize: 14, fontWeight: 600, transition: 'background 220ms ease' })}>Lanjut</span>
+                <span style={abs(542, 420, { width: 120, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, background: state.desain && state.mhs ? INK : '#77766F', color: '#fff', fontSize: 14, fontWeight: 600, transition: 'background 220ms ease' })}>Lanjut</span>
               </div>
 
               {/* 2 — Cari dan filter */}

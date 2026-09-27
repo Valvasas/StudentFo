@@ -13,7 +13,7 @@ test('profil: mengisi minat mengubah urutan beranda dari cold start ke personal'
   await signInAsDemo(page, 'Siswa baru', '/events');
   const before = await page.locator('main a[href^="/events/"]').evaluateAll((links) => links.slice(0, 6).map((a) => a.getAttribute('href')));
 
-  await page.goto('/profile');
+  await page.goto('/profile/interests');
   await page.getByLabel('Jenjang pendidikan').selectOption('SMA_SMK');
   await page.getByRole('checkbox', { name: /Kesehatan/ }).check();
   await page.getByRole('checkbox', { name: /Seni/ }).check();
@@ -92,8 +92,10 @@ test('tema gelap bertahan setelah reload & pindah halaman (localStorage + skrip 
 
 test('keluar lewat menu akun menghapus sesi demo', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/tracker');
-  await page.locator('summary[aria-label^="Menu akun"]').click();
-  await page.getByRole('button', { name: 'Keluar' }).click();
+  const menu = page.locator('details:has(> summary[aria-label^="Menu akun"])');
+  await menu.locator('summary').click();
+  // Dicari di dalam menu: halaman akun punya tombol "Keluar" kedua di sidebar.
+  await menu.getByRole('button', { name: 'Keluar' }).click();
   await expect(page.locator('summary[aria-label^="Menu akun"]')).toHaveCount(0);
   // Tamu di /tracker melihat ajakan masuk, bukan papan milik sesi sebelumnya.
   await page.goto('/tracker');

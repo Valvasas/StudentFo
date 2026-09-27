@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { Bookmark, MessageCircle } from 'lucide-react';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
 import { AccountMenu } from '@/components/layout/account-menu';
@@ -9,6 +10,9 @@ import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { eventTypeNavFor } from '@/lib/event-type-nav';
+import { REQUEST_PATH_HEADER } from '@/lib/security-headers';
+import type { EventType } from '@/types/domain';
 
 /**
  * Navigasi utama (kanvas desain `StudentHubNav` + nav Landing v2).
@@ -22,6 +26,12 @@ import { demoFeaturesEnabled } from '@/lib/demo-features';
 export async function Navbar() {
   const user = await getSessionUser();
   const savedCount = user ? (await (await getEventRepository()).listSavedEventIds(user.id)).length : 0;
+  // Tanpa JavaScript, tab aktif hanya terlihat dari fallback Suspense di
+  // bawah (NavLinks memakai useSearchParams dan ter-stream). Jadi penanda
+  // aktifnya dihitung di server dari path yang dititipkan middleware.
+  const requestUrl = new URL((await headers()).get(REQUEST_PATH_HEADER) ?? '/', 'http://localhost');
+  const activeKey =
+    requestUrl.pathname === '/events' ? (eventTypeNavFor(requestUrl.searchParams.getAll('type') as EventType[])?.key ?? null) : null;
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-canvas/95 backdrop-blur-sm">
@@ -37,7 +47,7 @@ export async function Navbar() {
           aria-label="Navigasi utama"
           className="order-3 -mx-4 flex w-[calc(100%+2rem)] items-center overflow-x-auto border-t border-line px-1 [scrollbar-width:none] md:order-2 md:mx-0 md:w-auto md:border-t-0 md:px-0"
         >
-          <Suspense fallback={<NavLinkList pathname={null} activeKey={null} />}>
+          <Suspense fallback={<NavLinkList pathname={requestUrl.pathname} activeKey={activeKey} />}>
             <NavLinks />
           </Suspense>
         </nav>
