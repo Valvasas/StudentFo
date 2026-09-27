@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 const LANDING_LINKS = [
   { href: '/#cara-kerja', label: 'Cara pakai' },
   { href: '/#fitur', label: 'Fitur' },
+  { href: '/about', label: 'Tentang' },
 ] as const;
 
 /**
@@ -16,7 +17,7 @@ const LANDING_LINKS = [
  *
  * Satu-satunya bagian navbar yang jadi Client Component, dan hanya karena
  * penanda "halaman aktif" butuh `usePathname()` + query `type`. Di beranda
- * ada dua tautan jangkar tambahan (Cara pakai, Fitur) seperti kanvas desain.
+ * ada tiga tautan tambahan (Cara pakai, Fitur, Tentang) seperti kanvas desain.
  *
  * Penanda aktif = garis bawah + warna + `aria-current`, bukan warna saja.
  */

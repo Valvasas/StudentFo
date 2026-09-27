@@ -442,3 +442,66 @@ export const SEED_TEAMS: readonly SeedTeam[] = [
     members: [],
   },
 ];
+
+export interface SeedPerson {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly headline: string | null;
+  readonly educationLevel: EducationLevel | null;
+  readonly major: string | null;
+  readonly interests: readonly string[];
+  /** false = tidak muncul di Cari Koneksi, tapi tetap bisa terlihat oleh yang sudah terhubung. */
+  readonly discoverable: boolean;
+}
+
+/**
+ * Orang contoh untuk fitur Koneksi (ADR-040) — semuanya fiktif. Tiga yang
+ * pertama adalah anggota SEED_TEAMS, jadi simpul "kegiatan" di peta koneksi
+ * lahir dari data tim yang sama dengan /teams, bukan dari daftar terpisah.
+ */
+export const SEED_PEOPLE: readonly SeedPerson[] = [
+  { userId: 'seed-user-1', fullName: 'Rani Prameswari', headline: 'Frontend & aksesibilitas. Sedang menyiapkan hackathon.', educationLevel: 'D4_S1', major: 'Teknik Informatika', interests: ['teknologi', 'desain'], discoverable: true },
+  { userId: 'seed-user-2', fullName: 'Dimas Arya', headline: 'Backend Go, suka merapikan data.', educationLevel: 'D4_S1', major: 'Rekayasa Perangkat Lunak', interests: ['teknologi', 'sains'], discoverable: true },
+  { userId: 'seed-user-3', fullName: 'Bagas Nugroho', headline: 'Penulis ilmiah, fokus energi terbarukan.', educationLevel: 'D4_S1', major: 'Teknik Elektro', interests: ['karya-tulis', 'sains', 'sosial'], discoverable: true },
+  { userId: 'seed-user-4', fullName: 'Salsabila Putri', headline: 'Riset pengguna & desain layanan.', educationLevel: 'D4_S1', major: 'Desain Komunikasi Visual', interests: ['desain', 'bisnis'], discoverable: true },
+  { userId: 'seed-user-5', fullName: 'Fajar Ramadhan', headline: 'Pitch deck dan model bisnis.', educationLevel: 'D4_S1', major: 'Manajemen', interests: ['bisnis', 'debat'], discoverable: true },
+  { userId: 'seed-user-6', fullName: 'Nadia Kusuma', headline: 'Data analyst, sering jadi juri lomba data.', educationLevel: 'S2', major: 'Statistika', interests: ['sains', 'teknologi'], discoverable: true },
+  { userId: 'seed-user-7', fullName: 'Yoga Pratama', headline: null, educationLevel: 'SMA_SMK', major: null, interests: ['olahraga', 'seni'], discoverable: true },
+  { userId: 'seed-user-8', fullName: 'Intan Maharani', headline: 'Debat bahasa Inggris & public speaking.', educationLevel: 'D4_S1', major: 'Hubungan Internasional', interests: ['debat', 'hukum', 'sosial'], discoverable: true },
+  { userId: 'seed-user-9', fullName: 'Arif Setiawan', headline: 'Mobile developer, Flutter.', educationLevel: 'D3', major: 'Teknik Informatika', interests: ['teknologi'], discoverable: true },
+  { userId: 'seed-user-10', fullName: 'Citra Lestari', headline: 'Ilustrator dan motion designer.', educationLevel: 'D4_S1', major: 'Desain Komunikasi Visual', interests: ['desain', 'seni'], discoverable: true },
+  { userId: 'seed-user-11', fullName: 'Hendra Wijaya', headline: 'Kesehatan masyarakat, relawan puskesmas.', educationLevel: 'D4_S1', major: 'Kesehatan Masyarakat', interests: ['kesehatan', 'sosial'], discoverable: true },
+  { userId: 'seed-user-12', fullName: 'Maya Anggraini', headline: 'Calon guru, penggiat literasi.', educationLevel: 'D4_S1', major: 'Pendidikan Bahasa Indonesia', interests: ['pendidikan', 'karya-tulis'], discoverable: true },
+  { userId: 'seed-user-13', fullName: 'Rizky Hidayat', headline: 'Product manager magang, suka hackathon.', educationLevel: 'D4_S1', major: 'Sistem Informasi', interests: ['teknologi', 'bisnis', 'desain'], discoverable: true },
+  { userId: 'seed-user-14', fullName: 'Putri Ayu', headline: null, educationLevel: 'D4_S1', major: 'Rekayasa Perangkat Lunak', interests: ['teknologi'], discoverable: false },
+];
+
+/** Koneksi yang sudah ada ANTAR orang contoh — sumber "koneksi bersama". */
+export const SEED_PERSON_CONNECTIONS: readonly (readonly [string, string])[] = [
+  ['seed-user-1', 'seed-user-2'],
+  ['seed-user-1', 'seed-user-4'],
+  ['seed-user-1', 'seed-user-13'],
+  ['seed-user-2', 'seed-user-6'],
+  ['seed-user-2', 'seed-user-9'],
+  ['seed-user-4', 'seed-user-10'],
+  ['seed-user-4', 'seed-user-13'],
+  ['seed-user-5', 'seed-user-13'],
+  ['seed-user-5', 'seed-user-8'],
+  ['seed-user-3', 'seed-user-12'],
+  ['seed-user-11', 'seed-user-3'],
+  ['seed-user-14', 'seed-user-1'],
+];
+
+/**
+ * Jaringan awal persona "Mahasiswa" (dipasang saat masuk demo). Persona
+ * "Siswa baru" sengaja tidak mendapatkannya supaya keadaan kosong & saran
+ * pertama ikut bisa dinilai.
+ */
+export const DEMO_STARTER_NETWORK = {
+  accepted: ['seed-user-1', 'seed-user-4', 'seed-user-14'],
+  incoming: [
+    { userId: 'seed-user-13', message: 'Halo! Aku lihat kita sama-sama suka hackathon. Mau satu tim di kompetisi berikutnya?' },
+    { userId: 'seed-user-6', message: null },
+  ],
+  outgoing: ['seed-user-5'],
+} as const;

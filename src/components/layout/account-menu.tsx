@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Ticket,
   UserRound,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { signOutAction } from '@/app/auth/actions';
@@ -48,6 +49,7 @@ export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: 
     ],
     [
       { href: '/tracker', label: 'Pendaftaran saya', icon: Ticket },
+      { href: '/connections', label: 'Koneksi', icon: Users },
       { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, badge: 'saved' },
       ...(demoFeaturesEnabled
         ? [

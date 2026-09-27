@@ -75,5 +75,15 @@ export function resetDemoData(): void {
   memoryRepository();
 }
 
+/**
+ * Pasang jaringan awal contoh untuk pengguna demo (persona "Mahasiswa").
+ * Tidak ada padanannya di produksi — di sana jaringan hanya tumbuh dari
+ * ajakan sungguhan.
+ */
+export function seedDemoNetwork(userId: string): void {
+  if (dataMode !== 'seed') throw new Error('seedDemoNetwork hanya berlaku di mode seed.');
+  memoryRepository().seedDemoNetwork(userId);
+}
+
 export { dataMode };
 export type { EventRepository };

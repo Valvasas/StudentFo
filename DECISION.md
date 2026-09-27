@@ -12,6 +12,82 @@ terdokumentasi.
 
 ---
 
+## ADR-040 — Koneksi antar pengguna + "Peta koneksi" ala Obsidian + halaman Tentang (menutup "Tentang & Cari Koneksi" dari ADR-039)
+
+**Konteks:** ADR-039 menunda halaman Tentang & Cari Koneksi karena tidak ada
+di bundel desain. Pemilik produk meminta keduanya dibangun dengan tema yang
+sama, termasuk graf koneksi bergaya Obsidian (simpul & benang), dengan
+backend sungguhan — bukan fitur demo-saja seperti Pesan/Ruang diskusi.
+
+**Keputusan:**
+
+1. **Backend nyata, bukan localStorage.** Migration `20260927100001_network.sql`:
+   `network_profiles` (opt-in `is_discoverable` + `headline`) dan
+   `connections` (satu baris per PASANGAN, indeks unik `LEAST/GREATEST`).
+   Kontrak `NetworkRepository` di kedua repository, logika peringkat bersama
+   di `lib/network.ts` (pola `listing.ts`), diuji di memori
+   (`lib/data/network.test.ts`) dan di Postgres (`supabase/tests/95_network.test.sql`).
+2. **Privasi: tersembunyi secara bawaan.** Tidak ada orang di direktori
+   tanpa memilih sendiri. `users_select_own` TIDAK dilonggarkan; profil orang
+   lain dibaca lewat dua view sempit `security_invoker = off` (pola ADR-018):
+   `network_directory` (hanya yang opt-in) dan `connection_peers` (hanya pihak
+   lawan dari koneksi pemanggil). Tanpa email; kegiatan tersimpan & status
+   pendaftaran tidak pernah ikut. Hanya `authenticated`, `anon` dicabut (ADR-020).
+3. **Aturan ajakan ditegakkan database:** hanya bisa mengajak orang yang
+   bisa ditemukan (`is_discoverable()` di policy INSERT); klien tidak bisa
+   mengisi `status`/`id`/`responded_at` (hak per kolom, AGENTS §14); hanya
+   yang diajak boleh PENDING → ACCEPTED; kedua pihak boleh menghapus;
+   pihak ketiga tidak melihat apa pun. **Menolak = menghapus baris**, jadi
+   tidak ada status "ditolak" yang harus disembunyikan dari pengirim.
+   Ajakan dua arah otomatis jadi koneksi (repository menerima ajakan lawan
+   alih-alih menyisipkan baris kedua).
+4. **Batas laju 30 ajakan/24 jam dihitung dari PERCOBAAN** (`consume_rate_limit`
+   dipanggil trigger BEFORE INSERT), bukan jumlah baris — menghitung baris bisa
+   diakali kirim → batal → kirim, dan tiap putaran mengirim notifikasi ke target.
+   Angka dicerminkan `CONNECTION_RATE_LIMIT` di `lib/network.ts`.
+5. **Notifikasi in-app** `CONNECTION_REQUEST` / `CONNECTION_ACCEPTED` lewat
+   trigger (pola ADR-037); lonceng membuka `/connections`.
+6. **Saran = jendela kandidat 200 baris + peringkat di aplikasi** (ADR-021):
+   minat sama (×3, maks 3), koneksi bersama (×2, maks 5, hanya JUMLAH lewat
+   RPC `mutual_connection_counts`), ikut tim di kegiatan yang disimpan
+   pembaca (×4, maks 2), jurusan (+2), jenjang (+1). Setiap kartu menampilkan
+   alasannya — saran tanpa alasan terasa seperti pengintaian.
+7. **Peta = kanvas 2D + simulasi gaya sendiri** (`lib/graph-layout.ts`,
+   tanpa d3 — daftar dependency sengaja minim). Graf dibangun di SERVER
+   (`lib/network-graph.ts`) dari data yang sama dengan daftar di halaman,
+   dibatasi 150 orang / 16 saran / 12 kegiatan. Simulasi deterministik,
+   berhenti total setelah dingin, tidak menggambar saat di luar layar atau
+   tab tersembunyi. Jenis simpul dibedakan BENTUK (palet monokrom).
+   Label ditempatkan rakus berdasarkan prioritas (orang > minat) supaya tidak
+   bertumpuk. Aksesibilitas: kanvas punya navigasi panah/Enter/Escape +
+   wilayah live, dan seluruh isinya juga ada sebagai daftar biasa. Zoom
+   roda hanya dengan Ctrl/⌘ supaya halaman tidak "tersangkut" saat digulir.
+8. **Saringan saran tetap `<form method="get">` + URL** (AGENTS §9). Kontrol
+   lapisan/zoom/pencarian DI DALAM peta adalah state klien — itu kontrol
+   visualisasi, bukan saringan daftar, dan tidak mengubah data apa pun.
+9. **Mode demo:** 14 orang contoh fiktif (tiga di antaranya anggota tim
+   contoh, jadi simpul "kegiatan" lahir dari data `/teams`), dan persona
+   "Mahasiswa" mendapat jaringan awal (3 koneksi, 2 ajakan masuk, 1 terkirim)
+   lewat `seedDemoNetwork()` saat masuk. "Siswa baru" sengaja kosong supaya
+   keadaan kosong ikut bisa dinilai.
+10. **Tentang (`/about`)**: setiap klaim menunjuk ke perilaku sistem
+    sungguhan; angka dari `getStats()` (berlabel "data contoh" di mode
+    seed); ada bagian "Yang belum kami lakukan" (bukan penyelenggara, belum
+    ada email pengingat, cakupan masih tumbuh, kebijakan privasi masih draf).
+
+**Konsekuensi / batas yang disadari:**
+- Belum ada **blokir/laporkan**. Orang yang ditolak bisa mengajak lagi
+  (dibatasi 30/hari). Kalau penyalahgunaan muncul: tabel `connection_blocks`
+  + cek di policy INSERT.
+- Pencarian nama memakai `ilike` di jendela 200 baris; di atas ±50k profil
+  opt-in butuh `pg_trgm` + indeks trigram.
+- `listConnections` membaca maks. 1000 baris; di atas itu butuh paginasi.
+- Peta O(n²) per langkah; kalau batas simpul dinaikkan jauh di atas 200,
+  ganti tolakan ke Barnes–Hut atau pindahkan simulasi ke Web Worker.
+- Migration belum di-apply ke Supabase mana pun (seperti migration 20260926*).
+
+---
+
 ## ADR-039 — Desain StudentHub monokrom diterapkan ke seluruh halaman; fitur tanpa backend hanya di mode demo (menggantikan ADR-016, memperbarui ADR-009)
 
 **Konteks:** Pemilik produk menyerahkan desain final dari Claude Design
@@ -76,7 +152,7 @@ daftar perangkat/sesi di Pengaturan (Supabase tidak memberi daftar sesi ke
 klien), log "data dibagikan ke penyelenggara" (kita tidak meneruskan data),
 tab "Peserta solo" di Cari Tim, testimoni/angka pemakaian di beranda.
 Halaman Tentang dan Cari Koneksi tidak ada di bundel desain, jadi tidak
-dibuat.
+dibuat. → Dibangun kemudian di ADR-040.
 
 ---
 

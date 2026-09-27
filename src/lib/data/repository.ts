@@ -1,6 +1,7 @@
 import type {
   AppNotification,
   Category,
+  Connection,
   DeadlineDay,
   EducationLevel,
   EventDetail,
@@ -8,13 +9,18 @@ import type {
   EventStatus,
   EventSummary,
   ModerationLogEntry,
+  NetworkEventRef,
+  NetworkProfile,
   Paginated,
+  PeopleSuggestion,
   Submission,
   SubmissionPayload,
   Team,
+  TeamLink,
   TrackerItem,
   TrackerStatus,
 } from '@/types/domain';
+import type { NetworkProfileInput, NetworkViewer } from '@/lib/network';
 import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 
 /**
@@ -40,6 +46,7 @@ export interface EventRepository
     TrackerRepository,
     NotificationRepository,
     TeamRepository,
+    NetworkRepository,
     RateLimitRepository,
     RecommendationSignalRepository {}
 
@@ -154,6 +161,49 @@ export interface TeamRepository {
   removeTeamMember(actorId: string, teamId: string, memberId: string): Promise<void>;
   /** Hanya ketua tim yang boleh membubarkan timnya. */
   deleteTeam(actorId: string, teamId: string): Promise<void>;
+}
+
+/**
+ * Koneksi antar pengguna (ADR-040).
+ *
+ * Seperti `TeamRepository`, pelaku (`actor`/`actorId`) diteruskan eksplisit
+ * dan otorisasinya diperiksa DI DALAM implementasi. `NetworkViewer` dibawa
+ * utuh (bukan hanya id) karena mode seed tidak punya tabel `users`: nama dan
+ * profil pelaku harus dicatat saat ia bertindak supaya pihak lain bisa
+ * melihatnya. Implementasi Supabase membaca profil dari database dan
+ * mengabaikan salinan ini.
+ */
+export interface NetworkRepository {
+  getNetworkProfile(userId: string): Promise<NetworkProfile>;
+  updateNetworkProfile(actor: NetworkViewer, input: NetworkProfileInput): Promise<void>;
+  /** Semua koneksi pembaca: diterima, masuk, dan terkirim. */
+  listConnections(userId: string): Promise<readonly Connection[]>;
+  /**
+   * Orang yang BISA ditemukan (opt-in) dan belum punya hubungan apa pun
+   * dengan pembaca, sudah diperingkat `rankSuggestions()`.
+   */
+  suggestPeople(viewer: NetworkViewer, filter: PeopleFilter): Promise<readonly PeopleSuggestion[]>;
+  /**
+   * Kirim ajakan. Kalau target ternyata sudah lebih dulu mengajak pembaca,
+   * ajakan itu yang diterima (`'accepted'`) — dua orang yang sama-sama mau
+   * terhubung tidak perlu saling menunggu.
+   */
+  requestConnection(actor: NetworkViewer, targetId: string, message: string | null): Promise<'requested' | 'accepted'>;
+  /** Hanya pihak yang diajak. Menolak = menghapus ajakan. */
+  respondToConnection(actorId: string, connectionId: string, decision: 'accept' | 'decline'): Promise<void>;
+  /** Membatalkan ajakan terkirim atau memutus koneksi — kedua pihak boleh. */
+  removeConnection(actorId: string, connectionId: string): Promise<void>;
+  /** Keanggotaan tim orang-orang ini (maks. `limit` baris) — simpul "kegiatan" di peta. */
+  listTeamLinks(userIds: readonly string[], limit: number): Promise<readonly TeamLink[]>;
+}
+
+export interface PeopleFilter {
+  readonly search: string;
+  /** Slug kategori; null = semua. */
+  readonly interest: string | null;
+  readonly limit: number;
+  /** Kegiatan yang disimpan/dilacak pembaca — sumber alasan "ikut tim di …". */
+  readonly viewerEvents: readonly NetworkEventRef[];
 }
 
 /** Penghitung pembatas laju (ADR-028). */

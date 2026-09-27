@@ -30,7 +30,7 @@ export const DEMO_PERSONAS: Readonly<Record<DemoPersonaId, DemoPersona>> = {
   mahasiswa: {
     id: 'mahasiswa',
     label: 'Mahasiswa',
-    summary: 'Profil lengkap (D4/S1, teknologi & desain) — rekomendasi personal aktif.',
+    summary: 'Profil lengkap (D4/S1, teknologi & desain) — rekomendasi personal & jaringan contoh aktif.',
     fullName: 'Dinda Pratiwi',
     role: 'USER',
     educationLevel: 'D4_S1',

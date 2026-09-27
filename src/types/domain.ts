@@ -136,6 +136,9 @@ export const NOTIFICATION_TYPES = [
   /** Kabar ke pengirim kiriman komunitas (trigger notify_submission_decision, ADR-037). */
   'SUBMISSION_APPROVED',
   'SUBMISSION_REJECTED',
+  /** Jaringan (trigger notify_connection_change, ADR-040). */
+  'CONNECTION_REQUEST',
+  'CONNECTION_ACCEPTED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -291,4 +294,67 @@ export interface Paginated<T> {
   readonly page: number;
   readonly pageSize: number;
   readonly totalPages: number;
+}
+
+/**
+ * Status koneksi antar pengguna (tabel `connections`, ADR-040). Kolomnya
+ * VARCHAR + CHECK, bukan enum Postgres — paritasnya hanya dengan migration
+ * `20260927100001_network.sql`, tidak dengan pipeline. Menolak permintaan
+ * MENGHAPUS barisnya, jadi tidak ada status "ditolak".
+ */
+export const CONNECTION_STATUSES = ['PENDING', 'ACCEPTED'] as const;
+export type ConnectionStatus = (typeof CONNECTION_STATUSES)[number];
+
+/** Profil yang terlihat oleh orang lain di fitur Koneksi — tidak pernah memuat email. */
+export interface NetworkPerson {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly headline: string | null;
+  readonly educationLevel: EducationLevel | null;
+  readonly major: string | null;
+  /** Slug kategori, sama dengan `users.interests`. */
+  readonly interests: readonly string[];
+}
+
+export interface Connection {
+  readonly id: string;
+  /** Pihak lawan dari sudut pandang pembaca. */
+  readonly person: NetworkPerson;
+  readonly status: ConnectionStatus;
+  /** `incoming` = pembaca yang diajak; `outgoing` = pembaca yang mengajak. */
+  readonly direction: 'incoming' | 'outgoing';
+  readonly message: string | null;
+  readonly createdAt: string;
+  readonly respondedAt: string | null;
+}
+
+/** Pengaturan jaringan milik pengguna sendiri. Bawaan: tidak bisa ditemukan (opt-in). */
+export interface NetworkProfile {
+  readonly discoverable: boolean;
+  readonly headline: string | null;
+}
+
+/** Kegiatan yang timnya diikuti seseorang — dipakai alasan saran & simpul graf. */
+export interface NetworkEventRef {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly eventType: EventType;
+}
+
+export interface TeamLink {
+  readonly userId: string;
+  readonly teamId: string;
+  readonly event: NetworkEventRef;
+}
+
+export interface PeopleSuggestion {
+  readonly person: NetworkPerson;
+  readonly score: number;
+  readonly sharedInterests: readonly string[];
+  readonly mutualCount: number;
+  /** Kegiatan yang disimpan/dilacak pembaca DAN timnya diikuti orang ini. */
+  readonly sharedEvents: readonly NetworkEventRef[];
+  readonly sameMajor: boolean;
+  readonly sameLevel: boolean;
 }

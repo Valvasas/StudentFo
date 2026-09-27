@@ -24,6 +24,8 @@ const STATIC_ROUTES = [
   '/tracker',
   '/profile',
   '/privacy-policy',
+  '/about',
+  '/connections',
   '/halaman-yang-tidak-ada',
 ];
 
@@ -70,7 +72,7 @@ test('tautan lompat-ke-konten adalah fokus pertama dan membawa ke <main>', async
 });
 
 test('halaman tidak menggulir ke samping', async ({ page }) => {
-  for (const route of ['/', '/events', '/submit', '/teams']) {
+  for (const route of ['/', '/events', '/submit', '/teams', '/about', '/connections']) {
     await page.goto(route);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -96,7 +98,10 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/profile/privacy'],
   ['Mahasiswa', '/messages'],
   ['Mahasiswa', '/discussions'],
+  ['Mahasiswa', '/connections'],
+  ['Mahasiswa', '/connections?minat=desain&q=a'],
   ['Siswa baru', '/profile'],
+  ['Siswa baru', '/connections'],
 ];
 
 test('tanpa pelanggaran WCAG: status pendaftaran & persiapan', async ({ page }) => {

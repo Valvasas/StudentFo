@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Bell, CalendarClock, CheckCheck, CheckCircle2, Megaphone, XCircle } from 'lucide-react';
+import { Bell, CalendarClock, CheckCheck, CheckCircle2, Megaphone, UserPlus, Users, XCircle } from 'lucide-react';
 import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
@@ -29,6 +29,8 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   SYSTEM: Megaphone,
   SUBMISSION_APPROVED: CheckCircle2,
   SUBMISSION_REJECTED: XCircle,
+  CONNECTION_REQUEST: UserPlus,
+  CONNECTION_ACCEPTED: Users,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {
@@ -94,7 +96,11 @@ export async function NotificationMenu() {
           <ul className="mt-1 flex flex-col">
             {notifications.map((notification) => {
               const Icon = TYPE_ICON[notification.type];
-              const target = notification.event ? `/events/${notification.event.slug}` : '/';
+              const target = notification.event
+                ? `/events/${notification.event.slug}`
+                : notification.type.startsWith('CONNECTION_')
+                  ? '/connections'
+                  : '/';
 
               return (
                 <li key={notification.id}>

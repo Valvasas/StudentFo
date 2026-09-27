@@ -45,12 +45,13 @@ async function writeDemoSession(session: DemoSession): Promise<void> {
   });
 }
 
-/** Masuk sebagai persona: setiap login mendapat identitas baru yang terisolasi. */
-export async function startDemoSession(personaId: DemoPersonaId): Promise<void> {
+/** Masuk sebagai persona: setiap login mendapat identitas baru yang terisolasi. Mengembalikan uid barunya. */
+export async function startDemoSession(personaId: DemoPersonaId): Promise<string> {
   const persona = DEMO_PERSONAS[personaId];
+  const uid = randomUUID();
   await writeDemoSession({
     v: 1,
-    uid: randomUUID(),
+    uid,
     persona: persona.id,
     role: persona.role,
     fullName: persona.fullName,
@@ -59,6 +60,7 @@ export async function startDemoSession(personaId: DemoPersonaId): Promise<void> 
     interests: [...persona.interests],
     iat: Math.floor(Date.now() / 1000),
   });
+  return uid;
 }
 
 /** Perbarui profil tanpa mengganti identitas (uid) maupun peran. */
