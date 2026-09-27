@@ -12,6 +12,82 @@ terdokumentasi.
 
 ---
 
+## ADR-041 — Blokir koneksi + paginasi `listConnections` (menutup dua celah ADR-040)
+
+**Konteks:** ADR-040 mencatat dua batas sebelum `/connections` dibuka publik:
+(1) tidak ada blokir — orang yang ditolak/diputus bisa mengajak lagi hingga
+30×/hari, dan setiap ajakan mengirim notifikasi; (2) `listConnections`
+membaca maks. 1000 baris sekaligus, dan semua angka di halaman dihitung dari
+daftar itu.
+
+**Keputusan:**
+
+1. **Tabel `connection_blocks` (migration `20260928100001`)**, bukan kolom
+   status di `connections`: blokir harus bertahan setelah barisnya dihapus,
+   dan harus bisa ada tanpa pernah ada koneksi (ajakan masuk dari orang
+   tersembunyi yang sudah ditolak). RLS pemilik saja; yang diblokir tidak
+   bisa membaca apa pun dan **tidak diberi tahu**.
+2. **Blokir memutus** (trigger AFTER INSERT menghapus koneksi/ajakan di
+   antara keduanya) dan **berlaku dua arah**: `is_blocked(a, b)` di policy
+   INSERT & UPDATE `connections` (di-DROP + CREATE, migration 040 tidak
+   disentuh), serta di `network_directory` — arah "dia memblokirku" tidak
+   terlihat lewat RLS, jadi penyaringannya harus di view, bukan di aplikasi.
+   Memory repository mencerminkan aturan yang sama (`isBlocked`).
+3. **Kondisi balapan ditutup di database.** Policy `WITH CHECK` memakai
+   snapshot awal statement, jadi blokir & ajakan yang bersamaan bisa
+   sama-sama lolos. Kedua trigger mengambil `pg_advisory_xact_lock` per
+   pasangan lalu memeriksa ulang dengan snapshot baru. Dibuktikan manual
+   dengan dua sesi psql bersamaan (kedua urutan); tidak ada uji otomatisnya
+   karena `db:test` berjalan dalam satu sesi.
+4. **Tidak membocorkan blokir.** Mengajak orang yang memblokirmu gagal dengan
+   `person_unavailable` — kode yang sama dengan "profil disembunyikan".
+   `is_blocked()` hanya menjawab kalau pemanggil salah satu pihak; tanpa itu
+   siapa pun bisa menanyakan "apakah A memblokir B?" untuk pasangan mana pun.
+   Yang diblokir TETAP bisa menduga (pemblokir menghilang dari direktori) —
+   itu tidak terhindarkan dan sama dengan platform lain.
+5. **Hanya orang yang pernah terlihat yang bisa diblokir**: bisa ditemukan,
+   atau ada koneksi/ajakan dengannya. View `blocked_people` menampilkan nama;
+   tanpa syarat ini, memblokir UUID sembarang = membaca nama siapa pun.
+   Konsekuensinya: orang tersembunyi yang ajakannya sudah ditolak baru bisa
+   diblokir kalau ia mengajak lagi — dan saat itulah blokir dibutuhkan.
+6. **UI**: opsi Blokir di menu opsi baris koneksi (bersama "Putuskan"), di
+   kartu ajakan masuk (kasus pelecehan paling nyata), dan di panel peta
+   untuk simpul koneksi/ajakan masuk/saran — semuanya `<form>` di balik
+   `<details>` (satu langkah konfirmasi, jalan tanpa JavaScript). Kelola di
+   bagian "Diblokir" di dasar halaman — SENGAJA di luar `<aside>` lengket,
+   yang sudah lebih tinggi dari layar sehingga bagian bawahnya baru terjangkau
+   di ujung halaman. Opsi di baris koneksi dibuka sebagai akordeon inline,
+   bukan panel melayang: daftarnya wadah gulir ber-`max-h`, dan panel absolut
+   di baris bawah terpotong di dalamnya (bug lama yang makin parah begitu
+   konfirmasi blokir ditambahkan). "Putuskan" turun ke gaya sekunder supaya
+   hanya tindakan terberat (blokir) yang berwarna bahaya.
+7. **Paginasi = kursor keyset**, bukan offset: urutan
+   `(status DESC, created_at DESC, id DESC)` — ajakan menunggu selalu di
+   halaman pertama, koneksi baru di antara dua permintaan tidak menggeser
+   halaman. Kursor divalidasi ketat sebelum dirakit ke filter PostgREST
+   (`decodeConnectionCursor`), `limit` maks. 500 supaya `limit + 1` tidak
+   terpotong `max_rows`. Angka di halaman dari `countConnections()` (tiga
+   hitungan `head` ber-indeks), bukan panjang daftar.
+8. **"Muat lebih banyak" = `?tampil=N`** (N halaman × 50 dari awal, maks. 10).
+   Tanpa state klien (AGENTS §9) halaman server tidak bisa "menambahkan"
+   hasil kursor ke daftar yang sudah ada; memuat ulang dari awal menjaga yang
+   sudah terlihat tetap terlihat. Kursornya tetap di kontrak dan diuji
+   berantai melewati `max_rows` (1.200 baris, `tests/integration/network.test.ts`).
+
+**Konsekuensi / batas yang disadari:**
+- Belum ada **laporkan** (blokir hanya melindungi diri sendiri; tidak ada
+  antrean moderasi). Butuh desain moderasi bersama Pesan/Ruang diskusi.
+- Halaman menampilkan maks. 500 koneksi & ajakan; di atasnya ada catatan
+  jujur, bukan tautan. Peta tetap dibatasi 150 orang (ADR-040 #7).
+- Saran masih mengecualikan orang yang sudah terhubung dari maks. 1000 baris
+  `connections`; di atasnya saran bisa memuat orang yang sudah terhubung dan
+  mengajaknya berakhir `connection_exists` — gagal yang aman.
+- Blokir tidak menyembunyikan nama di `team_member_profiles` (tim publik
+  tetap publik, ADR-018).
+- Migration belum di-apply ke Supabase mana pun.
+
+---
+
 ## ADR-040 — Koneksi antar pengguna + "Peta koneksi" ala Obsidian + halaman Tentang (menutup "Tentang & Cari Koneksi" dari ADR-039)
 
 **Konteks:** ADR-039 menunda halaman Tentang & Cari Koneksi karena tidak ada
@@ -76,12 +152,10 @@ backend sungguhan — bukan fitur demo-saja seperti Pesan/Ruang diskusi.
     ada email pengingat, cakupan masih tumbuh, kebijakan privasi masih draf).
 
 **Konsekuensi / batas yang disadari:**
-- Belum ada **blokir/laporkan**. Orang yang ditolak bisa mengajak lagi
-  (dibatasi 30/hari). Kalau penyalahgunaan muncul: tabel `connection_blocks`
-  + cek di policy INSERT.
+- ~~Belum ada **blokir/laporkan**.~~ Blokir → ADR-041. Laporkan belum ada.
 - Pencarian nama memakai `ilike` di jendela 200 baris; di atas ±50k profil
   opt-in butuh `pg_trgm` + indeks trigram.
-- `listConnections` membaca maks. 1000 baris; di atas itu butuh paginasi.
+- ~~`listConnections` membaca maks. 1000 baris.~~ Berhalaman sejak ADR-041.
 - Peta O(n²) per langkah; kalau batas simpul dinaikkan jauh di atas 200,
   ganti tolakan ke Barnes–Hut atau pindahkan simulasi ke Web Worker.
 - Migration belum di-apply ke Supabase mana pun (seperti migration 20260926*).

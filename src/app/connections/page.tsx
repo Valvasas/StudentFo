@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Heart, Search, ShieldCheck, Sparkles, UserPlus, Users, X } from 'lucide-react';
+import { ChevronDown, Heart, Search, ShieldCheck, Sparkles, UserPlus, Users, X } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { NetworkGraphView } from '@/components/network/network-graph';
 import { HiddenProfileBanner, NetworkSettings } from '@/components/network/network-settings';
-import { ConnectionRow, IncomingRequestCard, OutgoingRow, SuggestionCard } from '@/components/network/person-cards';
+import { BlockedRow, ConnectionRow, IncomingRequestCard, OutgoingRow, SuggestionCard } from '@/components/network/person-cards';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
-import { NETWORK_LIMITS, suggestionReasons } from '@/lib/network';
+import { CONNECTION_PAGE, NETWORK_LIMITS, suggestionReasons } from '@/lib/network';
 import { buildNetworkGraph, buildPreviewGraph } from '@/lib/network-graph';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,18 @@ export const metadata: Metadata = {
 
 const VIEWER_EVENT_LIMIT = 50;
 const TEAM_LINK_LIMIT = 400;
+const MAX_CONNECTION_PAGES = CONNECTION_PAGE.maxLimit / CONNECTION_PAGE.size;
+
+/**
+ * "Muat lebih banyak" tanpa JavaScript (AGENTS.md §9): `?tampil=N` memuat N
+ * halaman sekaligus dari awal, jadi yang sudah terlihat tetap terlihat.
+ * Kursor keyset di kontrak repository tidak bisa "menambahkan" ke halaman
+ * yang dirender server tanpa state klien.
+ */
+function parseConnectionPages(raw: string | undefined): number {
+  const value = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(value) ? Math.min(Math.max(value, 1), MAX_CONNECTION_PAGES) : 1;
+}
 
 export default async function ConnectionsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const [params, user, repository] = await Promise.all([searchParams, getSessionUser(), getEventRepository()]);
@@ -40,14 +52,20 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
   const search = (firstParam(params.q) ?? '').slice(0, 80);
   const rawInterest = firstParam(params.minat) ?? null;
   const interest = categories.some((category) => category.slug === rawInterest) ? rawInterest : null;
-  const query = new URLSearchParams({ ...(search ? { q: search } : {}), ...(interest ? { minat: interest } : {}) }).toString();
+  const pages = parseConnectionPages(firstParam(params.tampil));
+  const filters = { ...(search ? { q: search } : {}), ...(interest ? { minat: interest } : {}) };
+  const query = new URLSearchParams({ ...filters, ...(pages > 1 ? { tampil: String(pages) } : {}) }).toString();
   const returnTo = query ? `/connections?${query}` : '/connections';
+  const moreHref = `/connections?${new URLSearchParams({ ...filters, tampil: String(pages + 1) }).toString()}#koneksimu`;
 
-  const [profile, connections, trackerItems] = await Promise.all([
+  const [profile, connectionPage, counts, trackerItems, blocked] = await Promise.all([
     repository.getNetworkProfile(user.id),
-    repository.listConnections(user.id),
+    repository.listConnections(user.id, { limit: pages * CONNECTION_PAGE.size, cursor: null }),
+    repository.countConnections(user.id),
     repository.listTrackerItems(user.id),
+    repository.listBlockedPeople(user.id),
   ]);
+  const connections = connectionPage.items;
   const viewerEvents: NetworkEventRef[] = trackerItems
     .slice(0, VIEWER_EVENT_LIMIT)
     .map(({ event }) => ({ id: event.id, slug: event.slug, title: event.title, eventType: event.eventType }));
@@ -65,9 +83,9 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
   const filtered = Boolean(search || interest);
   const now = new Date();
   const summary = [
-    `${accepted.length} koneksi`,
-    `${incoming.length} ajakan masuk`,
-    `${outgoing.length} ajakan terkirim`,
+    `${counts.accepted} koneksi`,
+    `${counts.incoming} ajakan masuk`,
+    `${counts.outgoing} ajakan terkirim`,
     `${suggestions.length} saran`,
   ].join(', ');
 
@@ -84,9 +102,9 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
         </header>
         <dl className="enter grid grid-cols-3 gap-px overflow-hidden rounded-[18px] bg-inverse-nested text-on-inverse [animation-delay:120ms] [animation-duration:900ms] min-[720px]:justify-self-end">
           {[
-            { label: 'Koneksi', value: accepted.length },
-            { label: 'Ajakan masuk', value: incoming.length },
-            { label: 'Terkirim', value: outgoing.length },
+            { label: 'Koneksi', value: counts.accepted },
+            { label: 'Ajakan masuk', value: counts.incoming },
+            { label: 'Terkirim', value: counts.outgoing },
           ].map((stat) => (
             <div key={stat.label} className="flex min-w-[96px] flex-col-reverse gap-1 bg-inverse px-5 py-4">
               <dt className="text-[12.5px] text-on-inverse-muted">{stat.label}</dt>
@@ -105,7 +123,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
 
       {incoming.length > 0 && (
         <section aria-labelledby="ajakan-masuk" className="mt-10 flex flex-col gap-4">
-          <SectionTitle id="ajakan-masuk" title="Menunggu jawabanmu" count={incoming.length} hint="Terima atau tolak — pengirim tidak diberi tahu alasannya" />
+          <SectionTitle id="ajakan-masuk" title="Menunggu jawabanmu" count={counts.incoming} hint="Terima atau tolak — pengirim tidak diberi tahu alasannya" />
           <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr))]">
             {incoming.map((connection, index) => (
               <li key={connection.id} className="enter [animation-duration:600ms]" style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}>
@@ -125,7 +143,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
         <div className="enter [animation-delay:150ms] [animation-duration:900ms]">
           <NetworkGraphView graph={graph} returnTo={returnTo} summary={summary} />
         </div>
-        {accepted.length === 0 && incoming.length === 0 && (
+        {counts.accepted === 0 && counts.incoming === 0 && (
           <p className="flex items-start gap-2 text-[13.5px] leading-relaxed text-ink-muted">
             <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0" />
             {user.interests.length > 0
@@ -217,10 +235,10 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
 
         <aside className="flex flex-col gap-4 lg:sticky lg:top-[92px]">
           <section aria-labelledby="koneksimu" className="flex flex-col rounded-[18px] border border-line p-5">
-            <h2 id="koneksimu" className="flex items-baseline gap-2 text-base font-semibold">
-              Koneksimu <span className="font-mono text-[13px] font-normal text-ink-muted">{accepted.length}</span>
+            <h2 id="koneksimu" className="flex scroll-mt-28 items-baseline gap-2 text-base font-semibold">
+              Koneksimu <span className="font-mono text-[13px] font-normal text-ink-muted">{counts.accepted}</span>
             </h2>
-            {accepted.length === 0 ? (
+            {counts.accepted === 0 ? (
               <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">Belum ada. Orang yang menerima ajakanmu akan muncul di sini.</p>
             ) : (
               <ul className="mt-1 flex max-h-[420px] flex-col divide-y divide-line overflow-y-auto overscroll-contain">
@@ -229,12 +247,28 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
                 ))}
               </ul>
             )}
+            {connectionPage.nextCursor && (
+              <div className="mt-2 flex flex-col gap-1 border-t border-line pt-3">
+                <p className="text-[12px] text-ink-muted">
+                  Menampilkan {accepted.length} dari {counts.accepted} koneksi
+                </p>
+                {pages < MAX_CONNECTION_PAGES ? (
+                  <Link href={moreHref} className="flex min-h-11 items-center gap-1.5 self-start text-[13.5px] font-semibold underline underline-offset-[3px]">
+                    <ChevronDown aria-hidden className="size-4" /> Muat lebih banyak<span className="sr-only"> koneksi</span>
+                  </Link>
+                ) : (
+                  <p className="text-[12px] leading-relaxed text-ink-muted">
+                    Halaman ini menampilkan paling banyak {CONNECTION_PAGE.maxLimit} koneksi & ajakan terbaru.
+                  </p>
+                )}
+              </div>
+            )}
           </section>
 
           {outgoing.length > 0 && (
             <section aria-labelledby="terkirim" className="flex flex-col rounded-[18px] border border-line p-5">
               <h2 id="terkirim" className="flex items-baseline gap-2 text-base font-semibold">
-                Ajakan terkirim <span className="font-mono text-[13px] font-normal text-ink-muted">{outgoing.length}</span>
+                Ajakan terkirim <span className="font-mono text-[13px] font-normal text-ink-muted">{counts.outgoing}</span>
               </h2>
               <ul className="mt-1 flex flex-col divide-y divide-line">
                 {outgoing.map((connection) => (
@@ -247,6 +281,22 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
           <NetworkSettings viewer={user} profile={profile} categoryName={categoryName} returnTo={returnTo} />
         </aside>
       </div>
+
+      {/* Di luar <aside> yang lengket: aside sudah lebih tinggi dari layar, dan bagian bawahnya baru terjangkau di ujung halaman. */}
+      <section id="diblokir" aria-labelledby="diblokir-title" className="mt-12 flex scroll-mt-28 flex-col gap-4">
+        <SectionTitle id="diblokir-title" title="Diblokir" count={blocked.length} hint="Mereka tidak bisa menemukan atau mengajakmu, dan tidak diberi tahu" />
+        {blocked.length === 0 ? (
+          <p className="text-[13.5px] leading-relaxed text-ink-muted">
+            Belum ada. Blokir lewat menu opsi di daftar koneksi, kartu ajakan, atau panel peta.
+          </p>
+        ) : (
+          <ul className="flex max-w-2xl flex-col divide-y divide-line rounded-[18px] border border-line px-5">
+            {blocked.map((person) => (
+              <BlockedRow key={person.userId} person={person} returnTo={returnTo} now={now} />
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

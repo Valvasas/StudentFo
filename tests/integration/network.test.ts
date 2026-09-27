@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AppError } from '@/lib/errors';
 import { noCache } from '@/lib/data/cache';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
-import type { NetworkViewer } from '@/lib/network';
+import { CONNECTION_PAGE, type NetworkViewer } from '@/lib/network';
 import { actAs, createEvent, createUser, sql } from './harness';
 
 /**
@@ -11,6 +11,7 @@ import { actAs, createEvent, createUser, sql } from './harness';
  * hal-hal yang tidak bisa dibuktikan oleh MemoryEventRepository.
  */
 const repo = new SupabaseEventRepository(noCache);
+const connectionsOf = async (userId: string) => (await repo.listConnections(userId, { limit: CONNECTION_PAGE.maxLimit, cursor: null })).items;
 
 const reasonOf = (error: unknown) => (error instanceof AppError ? (error.reason ?? `tanpa-reason: ${error.message}`) : String(error));
 async function reason(promise: Promise<unknown>): Promise<string | undefined> {
@@ -42,18 +43,18 @@ describe('SupabaseEventRepository — koneksi', () => {
     actAs(ana.id);
     expect(await repo.requestConnection(ana, budi.id, 'Halo Budi')).toBe('requested');
     expect(await reason(repo.requestConnection(ana, budi.id, null))).toBe('connection_exists');
-    const [outgoing] = await repo.listConnections(ana.id);
+    const [outgoing] = await connectionsOf(ana.id);
     expect(outgoing).toMatchObject({ direction: 'outgoing', status: 'PENDING', person: { fullName: 'Budi Integrasi', headline: 'Backend Go' } });
     expect(await reason(repo.respondToConnection(ana.id, outgoing!.id, 'accept'))).toBe('connection_forbidden');
 
     actAs(budi.id);
-    const [incoming] = await repo.listConnections(budi.id);
+    const [incoming] = await connectionsOf(budi.id);
     expect(incoming).toMatchObject({ direction: 'incoming', message: 'Halo Budi', person: { fullName: 'Ana Integrasi' } });
     expect((await repo.listNotifications(budi.id, 10)).some((n) => n.type === 'CONNECTION_REQUEST')).toBe(true);
     await repo.respondToConnection(budi.id, incoming!.id, 'accept');
 
     actAs(ana.id);
-    const [accepted] = await repo.listConnections(ana.id);
+    const [accepted] = await connectionsOf(ana.id);
     expect(accepted!.status).toBe('ACCEPTED');
     expect(accepted!.respondedAt).not.toBeNull();
     expect((await repo.listNotifications(ana.id, 10)).some((n) => n.message === 'Budi Integrasi menerima ajakan koneksimu.')).toBe(true);
@@ -80,7 +81,7 @@ describe('SupabaseEventRepository — koneksi', () => {
 
     actAs(ana.id);
     expect(await repo.requestConnection(ana, cici.id, null)).toBe('accepted');
-    expect((await repo.listConnections(ana.id)).filter((c) => c.status === 'ACCEPTED')).toHaveLength(1);
+    expect((await connectionsOf(ana.id)).filter((c) => c.status === 'ACCEPTED')).toHaveLength(1);
     const after = await repo.suggestPeople(ana, { search: 'Dua Arah', interest: null, limit: 24, viewerEvents: [] });
     expect(after.map((s) => s.person.userId)).not.toContain(cici.id);
   });
@@ -98,7 +99,7 @@ describe('SupabaseEventRepository — koneksi', () => {
     actAs(target.id);
     await repo.requestConnection(target, friend.id, null);
     actAs(friend.id);
-    for (const connection of await repo.listConnections(friend.id)) await repo.respondToConnection(friend.id, connection.id, 'accept');
+    for (const connection of await connectionsOf(friend.id)) await repo.respondToConnection(friend.id, connection.id, 'accept');
 
     const event = createEvent({ title: 'Lomba Tim Bersama' });
     const teamId = sql(`INSERT INTO public.teams (event_id, created_by, title, slots_needed) VALUES ('${event.id}', '${target.id}', 'Tim Bersama', 4) RETURNING id`).split('\n')[0]!;
@@ -126,16 +127,16 @@ describe('SupabaseEventRepository — koneksi', () => {
     await repo.updateNetworkProfile(b, { discoverable: true, headline: null });
     actAs(a.id);
     await repo.requestConnection(a, b.id, null);
-    const [pending] = await repo.listConnections(a.id);
+    const [pending] = await connectionsOf(a.id);
 
     actAs(c.id);
     expect(await reason(repo.removeConnection(c.id, pending!.id))).toBe('connection_not_found');
-    expect(await repo.listConnections(c.id)).toEqual([]);
+    expect(await connectionsOf(c.id)).toEqual([]);
 
     actAs(b.id);
     await repo.respondToConnection(b.id, pending!.id, 'decline');
     actAs(a.id);
-    expect(await repo.listConnections(a.id)).toEqual([]);
+    expect(await connectionsOf(a.id)).toEqual([]);
 
     // Memutus koneksi yang sudah diterima — dari sisi pengirim.
     actAs(b.id);
@@ -143,11 +144,11 @@ describe('SupabaseEventRepository — koneksi', () => {
     actAs(a.id);
     await repo.requestConnection(a, b.id, null);
     actAs(b.id);
-    const [again] = await repo.listConnections(b.id);
+    const [again] = await connectionsOf(b.id);
     await repo.respondToConnection(b.id, again!.id, 'accept');
     actAs(a.id);
     await repo.removeConnection(a.id, again!.id);
-    expect(await repo.listConnections(a.id)).toEqual([]);
+    expect(await connectionsOf(a.id)).toEqual([]);
   });
 
   it('batas laju: ajakan ke-31 dalam 24 jam ditolak dengan kode yang jelas', async () => {
@@ -158,5 +159,89 @@ describe('SupabaseEventRepository — koneksi', () => {
     sql(`INSERT INTO public.rate_limit_hits (bucket) SELECT 'connection:${spammer.id}' FROM generate_series(1, 30)`);
     actAs(spammer.id);
     expect(await reason(repo.requestConnection(spammer, target.id, null))).toBe('connection_rate_limited');
+  });
+
+  it('blokir (ADR-041): lewat view — nama di daftar blokir, saling hilang dari saran, pihak ketiga tidak terpengaruh', async () => {
+    const a = viewer(createUser({ fullName: 'Ana Blokir' }), 'Ana Blokir', ['teknologi']);
+    const b = viewer(createUser({ fullName: 'Budi Blokir' }), 'Budi Blokir', ['teknologi']);
+    const c = viewer(createUser({ fullName: 'Cici Blokir' }), 'Cici Blokir', ['teknologi']);
+    for (const person of [a, b, c]) {
+      actAs(person.id);
+      await repo.updateNetworkProfile(person, { discoverable: true, headline: null });
+    }
+    actAs(a.id);
+    await repo.requestConnection(a, b.id, null);
+    actAs(b.id);
+    const [incoming] = await connectionsOf(b.id);
+    await repo.respondToConnection(b.id, incoming!.id, 'accept');
+
+    actAs(a.id);
+    await repo.blockPerson(a.id, b.id);
+    expect(await connectionsOf(a.id)).toEqual([]);
+    expect(await repo.listBlockedPeople(a.id)).toMatchObject([{ userId: b.id, fullName: 'Budi Blokir' }]);
+    const search = { search: 'Blokir', interest: null, limit: 24, viewerEvents: [] };
+    const forA = (await repo.suggestPeople(a, search)).map((s) => s.person.userId);
+    expect(forA).not.toContain(b.id);
+    expect(forA).toContain(c.id);
+
+    actAs(b.id);
+    expect(await connectionsOf(b.id)).toEqual([]);
+    expect(await repo.listBlockedPeople(b.id)).toEqual([]);
+    // Arah "dia memblokirku" hanya bisa disaring view — RLS menyembunyikan barisnya dari B.
+    const forB = (await repo.suggestPeople(b, search)).map((s) => s.person.userId);
+    expect(forB).not.toContain(a.id);
+    expect(forB).toContain(c.id);
+
+    actAs(c.id);
+    expect(await repo.listBlockedPeople(c.id)).toEqual([]);
+    const forC = (await repo.suggestPeople(c, search)).map((s) => s.person.userId);
+    expect(forC).toEqual(expect.arrayContaining([a.id, b.id]));
+  });
+
+  it('blokir: ajakan masuk dari orang tersembunyi bisa diblokir; orang yang tak pernah terlihat tidak', async () => {
+    const me = viewer(createUser({ fullName: 'Aku Target' }), 'Aku Target');
+    const stalker = viewer(createUser({ fullName: 'Pengirim Tersembunyi' }), 'Pengirim Tersembunyi');
+    const stranger = viewer(createUser({ fullName: 'Orang Asing' }), 'Orang Asing');
+    actAs(me.id);
+    await repo.updateNetworkProfile(me, { discoverable: true, headline: null });
+    actAs(stalker.id);
+    await repo.requestConnection(stalker, me.id, 'halo');
+
+    actAs(me.id);
+    expect(await reason(repo.blockPerson(me.id, stranger.id))).toBe('block_unavailable');
+    expect(await reason(repo.blockPerson(me.id, 'bukan-uuid'))).toBe('block_unavailable');
+    expect(await reason(repo.blockPerson(me.id, '00000000-0000-4000-8000-00000000dead'))).toBe('block_unavailable');
+    expect(await repo.listBlockedPeople(me.id)).toEqual([]);
+
+    await repo.blockPerson(me.id, stalker.id);
+    expect(await repo.countConnections(me.id)).toEqual({ accepted: 0, incoming: 0, outgoing: 0 });
+    expect(await repo.listBlockedPeople(me.id)).toMatchObject([{ userId: stalker.id, fullName: 'Pengirim Tersembunyi' }]);
+    actAs(stalker.id);
+    expect(await reason(repo.requestConnection(stalker, me.id, null))).toBe('person_unavailable');
+  });
+
+  it('paginasi melewati batas max_rows tanpa kehilangan baris', async () => {
+    const me = viewer(createUser({ fullName: 'Aku Banyak Koneksi' }), 'Aku Banyak Koneksi');
+    // Disiapkan langsung di SQL: 1.200 koneksi diterima — di atas max_rows
+    // (1000). Trigger memaksa created_at = now() untuk semuanya, jadi urutan
+    // antarhalaman sepenuhnya bergantung pada pemecah seri `connection_id`.
+    sql(`INSERT INTO auth.users (id, email) SELECT gen_random_uuid(), 'massal-' || g || '-${me.id}@uji.example' FROM generate_series(1, 1200) g`);
+    sql(`INSERT INTO public.connections (requester_id, addressee_id)
+         SELECT id, '${me.id}' FROM auth.users WHERE email LIKE 'massal-%-${me.id}@uji.example'`);
+    sql(`UPDATE public.connections SET status = 'ACCEPTED' WHERE addressee_id = '${me.id}'`);
+
+    actAs(me.id);
+    expect(await repo.countConnections(me.id)).toEqual({ accepted: 1200, incoming: 0, outgoing: 0 });
+    const seen = new Set<string>();
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page = await repo.listConnections(me.id, { limit: CONNECTION_PAGE.maxLimit, cursor });
+      for (const item of page.items) seen.add(item.id);
+      cursor = page.nextCursor;
+      pages += 1;
+    } while (cursor);
+    expect(pages).toBe(3);
+    expect(seen.size).toBe(1200);
   });
 });

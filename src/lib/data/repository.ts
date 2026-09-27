@@ -1,7 +1,9 @@
 import type {
   AppNotification,
+  BlockedPerson,
   Category,
-  Connection,
+  ConnectionCounts,
+  ConnectionPage,
   DeadlineDay,
   EducationLevel,
   EventDetail,
@@ -20,7 +22,7 @@ import type {
   TrackerItem,
   TrackerStatus,
 } from '@/types/domain';
-import type { NetworkProfileInput, NetworkViewer } from '@/lib/network';
+import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
 import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 
 /**
@@ -176,11 +178,18 @@ export interface TeamRepository {
 export interface NetworkRepository {
   getNetworkProfile(userId: string): Promise<NetworkProfile>;
   updateNetworkProfile(actor: NetworkViewer, input: NetworkProfileInput): Promise<void>;
-  /** Semua koneksi pembaca: diterima, masuk, dan terkirim. */
-  listConnections(userId: string): Promise<readonly Connection[]>;
   /**
-   * Orang yang BISA ditemukan (opt-in) dan belum punya hubungan apa pun
-   * dengan pembaca, sudah diperingkat `rankSuggestions()`.
+   * Koneksi pembaca (diterima, masuk, terkirim) per halaman, urut
+   * `compareConnections()`: ajakan menunggu dulu, lalu terbaru. `limit`
+   * dipotong ke `CONNECTION_PAGE.maxLimit`; kursor tidak valid → `invalid_request`.
+   */
+  listConnections(userId: string, page: ConnectionPageRequest): Promise<ConnectionPage>;
+  /** Jumlah per kelompok — angka di halaman tidak boleh bergantung pada halaman yang sedang dimuat. */
+  countConnections(userId: string): Promise<ConnectionCounts>;
+  /**
+   * Orang yang BISA ditemukan (opt-in), belum punya hubungan apa pun dengan
+   * pembaca, dan tidak memblokir/diblokir pembaca — sudah diperingkat
+   * `rankSuggestions()`.
    */
   suggestPeople(viewer: NetworkViewer, filter: PeopleFilter): Promise<readonly PeopleSuggestion[]>;
   /**
@@ -193,6 +202,16 @@ export interface NetworkRepository {
   respondToConnection(actorId: string, connectionId: string, decision: 'accept' | 'decline'): Promise<void>;
   /** Membatalkan ajakan terkirim atau memutus koneksi — kedua pihak boleh. */
   removeConnection(actorId: string, connectionId: string): Promise<void>;
+  /**
+   * Blokir (ADR-041): menghapus koneksi/ajakan di antara keduanya, dan sejak
+   * itu tidak ada pihak yang bisa mengajak atau menemukan yang lain. Yang
+   * diblokir tidak diberi tahu. Target harus pernah terlihat oleh pelaku
+   * (bisa ditemukan, atau punya koneksi/ajakan dengannya). Idempoten.
+   */
+  blockPerson(actorId: string, targetId: string): Promise<void>;
+  unblockPerson(actorId: string, targetId: string): Promise<void>;
+  /** Orang yang diblokir pembaca, terbaru dulu (maks. `BLOCK_LIST_LIMIT`). */
+  listBlockedPeople(userId: string): Promise<readonly BlockedPerson[]>;
   /** Keanggotaan tim orang-orang ini (maks. `limit` baris) — simpul "kegiatan" di peta. */
   listTeamLinks(userIds: readonly string[], limit: number): Promise<readonly TeamLink[]>;
 }

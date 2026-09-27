@@ -123,10 +123,22 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
 - [x] Halaman Tentang (`/about`) & Koneksi (`/connections`) dengan tema StudentHub —
       backend nyata (migration `20260927100001_network.sql`, RLS + view sempit +
       notifikasi + batas laju), peta koneksi ala Obsidian, saran berperingkat. ADR-040. @claude
-- [ ] Apply migration `20260927100001_network.sql` ke Supabase staging lalu uji alur
-      dua akun sungguhan (ajak → terima → notifikasi). Belum pernah di-apply.
-- [ ] Koneksi: blokir & laporkan (tabel `connection_blocks` + cek di policy INSERT) — lihat ADR-040.
-- [ ] Koneksi: `pg_trgm` untuk pencarian nama bila profil opt-in > ±50k (ADR-040).
+- [ ] **BUTUH KONFIRMASI PEMILIK.** Apply migration `20260927100001_network.sql` dan
+      `20260928100001_connection_blocks.sql` ke Supabase staging, `npm run db:verify`,
+      lalu uji alur dua akun sungguhan (opt-in → cari → ajak → terima → notifikasi →
+      blokir → buka blokir). Belum pernah di-apply ke Supabase mana pun.
+- [x] Koneksi: blokir — tabel `connection_blocks` + `is_blocked()` di policy INSERT/UPDATE
+      `connections`, trigger pemutus, kunci pasangan (balapan blokir vs ajakan),
+      direktori tersaring dua arah, view `blocked_people`, UI di baris koneksi / kartu
+      ajakan / panel peta + bagian "Diblokir". Uji: `96_connection_blocks.test.sql`,
+      `lib/data/network.test.ts`, integration & paritas, e2e tanpa JS. ADR-041. @claude
+- [x] Koneksi: paginasi `listConnections` (kursor keyset, `countConnections()` untuk
+      angka, "Muat lebih banyak" = `?tampil=N`). Uji paritas memori ↔ Supabase +
+      1.200 baris melewati `max_rows`. ADR-041. @claude
+- [ ] Koneksi: **laporkan** (antrean moderasi) — tunggu desain moderasi bersama Pesan/Ruang diskusi (ADR-041).
+- [ ] DITUNDA — Koneksi: `pg_trgm` untuk pencarian nama bila profil opt-in > ±50k (ADR-040).
+      Belum ada data pengguna nyata (pola penundaan Linimasa, ADR-038 #1); jangan tambah
+      indeks sebelum ada sinyal butuhnya.
 
 ## Backlog — Phase 3 (skema DB sudah ada, tidak ada UI sama sekali)
 

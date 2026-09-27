@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { NetworkPerson } from '@/types/domain';
 import {
+  clampConnectionLimit,
+  compareConnections,
+  CONNECTION_PAGE,
+  decodeConnectionCursor,
+  encodeConnectionCursor,
   matchesPeopleSearch,
   NETWORK_LIMITS,
   daysAgoLabel,
@@ -150,5 +155,44 @@ describe('parseNetworkProfileForm', () => {
     expect(parseConnectionMessage('').data).toBeNull();
     expect(parseConnectionMessage('Halo!').data).toBe('Halo!');
     expect(parseConnectionMessage('x'.repeat(NETWORK_LIMITS.messageMax + 1)).success).toBe(false);
+  });
+});
+
+describe('kursor koneksi (ADR-041)', () => {
+  const cursor = { status: 'ACCEPTED' as const, createdAt: '2026-09-27T10:00:00.123456+00:00', id: '0f8b6a1e-1c2d-4e3f-8a9b-0c1d2e3f4a5b' };
+
+  it('bolak-balik utuh, termasuk stempel mikrodetik Postgres', () => {
+    const encoded = encodeConnectionCursor(cursor);
+    expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(decodeConnectionCursor(encoded)).toEqual(cursor);
+  });
+
+  it('menolak apa pun yang bisa menyusup ke filter PostgREST', () => {
+    const forge = (status: string, createdAt: string, id: string) =>
+      btoa(JSON.stringify([status, createdAt, id])).replace(/=+$/, '');
+    expect(decodeConnectionCursor(forge('ACCEPTED', '2026-09-27T10:00:00Z),or(id.not.is.null', cursor.id))).toBeNull();
+    expect(decodeConnectionCursor(forge('ACCEPTED', cursor.createdAt, `${cursor.id},x`))).toBeNull();
+    expect(decodeConnectionCursor(forge('REJECTED', cursor.createdAt, cursor.id))).toBeNull();
+    expect(decodeConnectionCursor(forge('ACCEPTED', '2026-13-45T99:99:99Z', cursor.id))).toBeNull();
+    expect(decodeConnectionCursor('bukan base64!')).toBeNull();
+    expect(decodeConnectionCursor('a'.repeat(500))).toBeNull();
+    expect(decodeConnectionCursor(btoa('{"status":"ACCEPTED"}'))).toBeNull();
+  });
+
+  it('urutan: menunggu dulu, lalu terbaru, lalu id — total', () => {
+    const rows = [
+      { status: 'ACCEPTED' as const, createdAt: '2026-09-27T10:00:00Z', id: 'a' },
+      { status: 'PENDING' as const, createdAt: '2026-01-01T00:00:00Z', id: 'b' },
+      { status: 'ACCEPTED' as const, createdAt: '2026-09-27T10:00:00Z', id: 'c' },
+      { status: 'ACCEPTED' as const, createdAt: '2026-09-28T10:00:00Z', id: 'd' },
+    ];
+    expect([...rows].sort(compareConnections).map((row) => row.id)).toEqual(['b', 'd', 'c', 'a']);
+  });
+
+  it('batas halaman dipotong ke rentang yang aman untuk max_rows', () => {
+    expect(clampConnectionLimit(0)).toBe(1);
+    expect(clampConnectionLimit(Number.NaN)).toBe(1);
+    expect(clampConnectionLimit(10_000)).toBe(CONNECTION_PAGE.maxLimit);
+    expect(CONNECTION_PAGE.maxLimit + 1).toBeLessThanOrEqual(1000);
   });
 });

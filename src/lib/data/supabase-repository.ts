@@ -4,9 +4,15 @@ import { actionError } from '@/lib/action-feedback';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
 import { type AppError, upstreamFailure } from '@/lib/errors';
 import {
+  BLOCK_LIST_LIMIT,
+  clampConnectionLimit,
+  connectionCursorOf,
+  decodeConnectionCursor,
+  encodeConnectionCursor,
   matchesPeopleSearch,
   NETWORK_LIMITS,
   rankSuggestions,
+  type ConnectionPageRequest,
   type NetworkProfileInput,
   type NetworkViewer,
   type SuggestionCandidate,
@@ -19,8 +25,10 @@ import {
 } from '@/lib/supabase/server';
 import type {
   AppNotification,
+  BlockedPerson,
   Category,
-  Connection,
+  ConnectionCounts,
+  ConnectionPage,
   DeadlineDay,
   EventDetail,
   EventQuery,
@@ -40,6 +48,7 @@ import type {
 } from '@/types/domain';
 import { toNotificationType } from '@/types/domain';
 import type {
+  BlockedPersonRow,
   CategoryRow,
   ConnectionPairRow,
   ConnectionPeerRow,
@@ -82,6 +91,7 @@ import type {
 import {
   DIRECTORY_COLUMNS,
   isUuid,
+  keysetAfter,
   LISTING_COLUMNS,
   peopleSearchTerm,
   sanitizeSearchQuery,
@@ -107,8 +117,15 @@ const PAGE_SIZE = 1000;
  * jauh di bawah batas panjang URL proxy/CDN di depan PostgREST.
  */
 const IN_CHUNK = 60;
-/** Batas baca koneksi per pengguna; di atasnya halaman butuh paginasi (ADR-040). */
+/**
+ * Batas baca pasangan koneksi untuk MENGECUALIKAN orang dari saran — bukan
+ * untuk menampilkan (itu `listConnections`, berhalaman). Di atas batas ini
+ * saran bisa memuat orang yang sudah terhubung; mengajaknya berakhir di
+ * `connection_exists`, jadi gagalnya aman (ADR-041).
+ */
 const CONNECTION_READ_LIMIT = 1000;
+const PEER_COLUMNS =
+  'connection_id, status, message, created_at, responded_at, is_outgoing, peer_id, full_name, headline, education_level, major, interests';
 /** Kalibrasi dijalankan manual dan jarang; batas ini hanya pengaman memori. */
 const CALIBRATION_ROW_LIMIT = 50_000;
 
@@ -895,18 +912,46 @@ export class SupabaseEventRepository implements EventRepository {
     throw upstreamFailure('Gagal menyimpan pengaturan jaringan.', inserted.error, 500);
   }
 
-  async listConnections(_userId: string): Promise<readonly Connection[]> {
+  async listConnections(_userId: string, page: ConnectionPageRequest): Promise<ConnectionPage> {
     // `connection_peers` sudah memfilter ke auth.uid() pemanggil; parameter
     // userId ada untuk kontrak yang sama dengan mode seed.
+    const limit = clampConnectionLimit(page.limit);
+    const after = page.cursor === null ? null : decodeConnectionCursor(page.cursor);
+    if (page.cursor !== null && !after) throw actionError('invalid_request');
+
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
+    // Urutan = compareConnections(): status turun ('PENDING' dulu), lalu
+    // created_at & id turun. Satu baris ekstra = penanda "masih ada".
+    let query = supabase
       .from('connection_peers')
-      .select('connection_id, status, message, created_at, responded_at, is_outgoing, peer_id, full_name, headline, education_level, major, interests')
+      .select(PEER_COLUMNS)
+      .order('status', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(CONNECTION_READ_LIMIT)
-      .returns<ConnectionPeerRow[]>();
+      .order('connection_id', { ascending: false })
+      .limit(limit + 1);
+    if (after) query = query.or(keysetAfter(after));
+    const { data, error } = await query.returns<ConnectionPeerRow[]>();
     if (error) throw upstreamFailure('Gagal memuat koneksi.', error);
-    return data.map(toConnection);
+
+    const items = data.slice(0, limit).map(toConnection);
+    const last = items.at(-1);
+    return { items, nextCursor: data.length > limit && last ? encodeConnectionCursor(connectionCursorOf(last)) : null };
+  }
+
+  async countConnections(userId: string): Promise<ConnectionCounts> {
+    const supabase = await createSupabaseServerClient();
+    // Tabel `connections` (bukan view): RLS sudah membatasi ke baris
+    // pemanggil, dan ketiganya dilayani indeks (addressee|requester, status).
+    const count = () => supabase.from('connections').select('id', { count: 'exact', head: true });
+    const [accepted, incoming, outgoing] = await Promise.all([
+      count().eq('status', 'ACCEPTED'),
+      count().eq('status', 'PENDING').eq('addressee_id', userId),
+      count().eq('status', 'PENDING').eq('requester_id', userId),
+    ]);
+    for (const result of [accepted, incoming, outgoing]) {
+      if (result.error) throw upstreamFailure('Gagal menghitung koneksi.', result.error);
+    }
+    return { accepted: accepted.count ?? 0, incoming: incoming.count ?? 0, outgoing: outgoing.count ?? 0 };
   }
 
   private async relatedUserIds(userId: string): Promise<Set<string>> {
@@ -1025,8 +1070,10 @@ export class SupabaseEventRepository implements EventRepository {
     const { error } = await supabase.from('connections').insert({ requester_id: actor.id, addressee_id: targetId, message });
     if (!error) return 'requested';
     if (sqlState(error) === '23505') throw actionError('connection_exists');
-    // 42501 = policy insert menolak: target tidak (lagi) bisa ditemukan.
-    if (sqlState(error) === '42501') throw actionError('person_unavailable');
+    // 42501 = policy insert menolak: target tidak (lagi) bisa ditemukan, atau
+    // salah satu pihak memblokir. Sengaja satu kode: yang diblokir tidak
+    // boleh bisa menyimpulkan bahwa ia diblokir.
+    if (sqlState(error) === '42501' || error.message?.includes('connection_blocked')) throw actionError('person_unavailable');
     if (error.message?.includes('connection_rate_limited')) throw actionError('connection_rate_limited');
     throw upstreamFailure('Gagal mengirim ajakan.', error, 500);
   }
@@ -1067,6 +1114,52 @@ export class SupabaseEventRepository implements EventRepository {
       .select('id, requester_id, addressee_id');
     if (error) throw upstreamFailure('Gagal memutus koneksi.', error, 500);
     if (data.length === 0) throw actionError('connection_not_found');
+  }
+
+  async blockPerson(actorId: string, targetId: string): Promise<void> {
+    if (actorId === targetId) throw actionError('block_self');
+    if (!isUuid(targetId)) throw actionError('block_unavailable');
+    const supabase = await createSupabaseServerClient();
+    // Cek dulu, bukan hanya andalkan 23505: setelah blokir pertama koneksinya
+    // hilang, jadi blokir ulang orang tersembunyi akan ditolak policy (42501)
+    // alih-alih bentrok PK — padahal hasilnya sudah sesuai keinginan.
+    const existing = await supabase.from('connection_blocks').select('blocked_id').eq('blocker_id', actorId).eq('blocked_id', targetId).maybeSingle();
+    if (existing.error) throw upstreamFailure('Gagal memeriksa blokir.', existing.error);
+    if (existing.data) return;
+
+    const { error } = await supabase.from('connection_blocks').insert({ blocker_id: actorId, blocked_id: targetId });
+    if (!error || sqlState(error) === '23505') return;
+    // 42501 = policy: target tidak pernah terlihat; 23503 = pengguna tidak ada.
+    if (sqlState(error) === '42501' || sqlState(error) === '23503') throw actionError('block_unavailable');
+    throw upstreamFailure('Gagal memblokir.', error, 500);
+  }
+
+  async unblockPerson(actorId: string, targetId: string): Promise<void> {
+    if (!isUuid(targetId)) throw actionError('block_not_found');
+    const supabase = await createSupabaseServerClient();
+    // Kolom filter wajib ada di select (PostgREST 12, lihat removeConnection).
+    const { data, error } = await supabase
+      .from('connection_blocks')
+      .delete()
+      .eq('blocker_id', actorId)
+      .eq('blocked_id', targetId)
+      .select('blocker_id, blocked_id');
+    if (error) throw upstreamFailure('Gagal membuka blokir.', error, 500);
+    if (data.length === 0) throw actionError('block_not_found');
+  }
+
+  async listBlockedPeople(_userId: string): Promise<readonly BlockedPerson[]> {
+    // View sudah memfilter ke auth.uid() pemanggil (pola connection_peers).
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('blocked_people')
+      .select('user_id, full_name, created_at')
+      .order('created_at', { ascending: false })
+      .order('user_id', { ascending: true })
+      .limit(BLOCK_LIST_LIMIT)
+      .returns<BlockedPersonRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat daftar blokir.', error);
+    return data.map((row) => ({ userId: row.user_id, fullName: row.full_name, blockedAt: row.created_at }));
   }
 
   async listTeamLinks(userIds: readonly string[], limit: number): Promise<readonly TeamLink[]> {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { EducationLevel, NetworkEventRef, NetworkPerson, PeopleSuggestion } from '@/types/domain';
-import { EDUCATION_LEVEL_LABEL } from '@/types/domain';
+import type { Connection, ConnectionStatus, EducationLevel, NetworkEventRef, NetworkPerson, PeopleSuggestion } from '@/types/domain';
+import { CONNECTION_STATUSES, EDUCATION_LEVEL_LABEL } from '@/types/domain';
 import { daysUntil } from './deadline';
 
 /**
@@ -29,6 +29,83 @@ export const NETWORK_LIMITS = {
  * orang yang sedang aktif membangun jaringan.
  */
 export const CONNECTION_RATE_LIMIT = { perDay: 30 } as const;
+
+/**
+ * Paginasi `listConnections` (ADR-041). `maxLimit + 1` (satu baris penanda
+ * "masih ada") harus ≤ `max_rows` PostgREST (1000), kalau tidak baris
+ * penanda terpotong diam-diam dan halaman terakhir tampak lengkap.
+ */
+export const CONNECTION_PAGE = { size: 50, maxLimit: 500 } as const;
+
+/**
+ * Daftar blokir tidak dipaginasi: blokir adalah tindakan langka dan daftar
+ * ratusan orang sudah jauh di luar pemakaian wajar. Di bawah `max_rows`.
+ */
+export const BLOCK_LIST_LIMIT = 500;
+
+export interface ConnectionPageRequest {
+  readonly limit: number;
+  /** `nextCursor` dari halaman sebelumnya; null = halaman pertama. */
+  readonly cursor: string | null;
+}
+
+export interface ConnectionCursor {
+  readonly status: ConnectionStatus;
+  readonly createdAt: string;
+  readonly id: string;
+}
+
+export function clampConnectionLimit(limit: number): number {
+  return Math.min(Math.max(Math.trunc(limit) || 1, 1), CONNECTION_PAGE.maxLimit);
+}
+
+/**
+ * Urutan total & stabil yang dipakai kursor keyset di KEDUA repository:
+ * ajakan menunggu dulu ('PENDING' > 'ACCEPTED'), lalu terbaru, lalu id.
+ * Ajakan masuk yang lama tidak pernah terdorong ke halaman belakang oleh
+ * koneksi yang lebih baru. Id dibandingkan sebagai string huruf kecil —
+ * sama dengan urutan byte `uuid` di Postgres.
+ */
+export function compareConnections(a: ConnectionCursor, b: ConnectionCursor): number {
+  if (a.status !== b.status) return a.status < b.status ? 1 : -1;
+  const time = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+  if (time !== 0) return time;
+  return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+}
+
+export function connectionCursorOf(connection: Pick<Connection, 'status' | 'createdAt' | 'id'>): ConnectionCursor {
+  return { status: connection.status, createdAt: connection.createdAt, id: connection.id };
+}
+
+export function encodeConnectionCursor(cursor: ConnectionCursor): string {
+  return btoa(JSON.stringify([cursor.status, cursor.createdAt, cursor.id]))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+const CURSOR_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+const CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Kursor datang dari luar (URL/klien) dan nilainya dirakit ke filter
+ * PostgREST — jadi setiap bagian divalidasi ketat, bukan sekadar di-parse.
+ * Tidak valid = null; pemanggil yang memutuskan (repository menolaknya).
+ */
+export function decodeConnectionCursor(raw: string): ConnectionCursor | null {
+  if (raw.length > 200 || !/^[A-Za-z0-9_-]+$/.test(raw)) return null;
+  try {
+    const parsed: unknown = JSON.parse(atob(raw.replace(/-/g, '+').replace(/_/g, '/')));
+    if (!Array.isArray(parsed) || parsed.length !== 3) return null;
+    const [status, createdAt, id] = parsed as unknown[];
+    if (!CONNECTION_STATUSES.includes(status as ConnectionStatus)) return null;
+    if (typeof createdAt !== 'string' || !CURSOR_TIMESTAMP.test(createdAt) || Number.isNaN(Date.parse(createdAt))) return null;
+    if (typeof id !== 'string' || !CURSOR_ID.test(id)) return null;
+    return { status: status as ConnectionStatus, createdAt, id };
+  } catch {
+    return null;
+  }
+}
 
 const WEIGHTS = {
   sharedInterest: 3,

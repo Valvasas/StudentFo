@@ -1,8 +1,15 @@
 import { actionError } from '@/lib/action-feedback';
 import {
+  BLOCK_LIST_LIMIT,
+  clampConnectionLimit,
+  compareConnections,
   CONNECTION_RATE_LIMIT,
+  connectionCursorOf,
+  decodeConnectionCursor,
+  encodeConnectionCursor,
   matchesPeopleSearch,
   rankSuggestions,
+  type ConnectionPageRequest,
   type NetworkProfileInput,
   type NetworkViewer,
 } from '@/lib/network';
@@ -12,8 +19,11 @@ import { MemoryRateLimiter } from '@/lib/rate-limit';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
   AppNotification,
+  BlockedPerson,
   Category,
   Connection,
+  ConnectionCounts,
+  ConnectionPage,
   ConnectionStatus,
   DeadlineDay,
   EventDetail,
@@ -206,6 +216,8 @@ export class MemoryEventRepository implements EventRepository {
   /** Cermin `users` + `network_profiles`: orang contoh dan pengguna demo yang pernah bertindak. */
   private readonly people = new Map<string, NetworkMember>();
   private readonly connections = new Map<string, ConnectionEntry>();
+  /** Cermin `connection_blocks`: pemblokir → (yang diblokir → waktu blokir). */
+  private readonly blocks = new Map<string, Map<string, string>>();
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
 
@@ -788,6 +800,11 @@ export class MemoryEventRepository implements EventRepository {
     return undefined;
   }
 
+  /** Dua arah, sama dengan `is_blocked()` di migration 20260928100001. */
+  private isBlocked(a: string, b: string): boolean {
+    return Boolean(this.blocks.get(a)?.has(b) || this.blocks.get(b)?.has(a));
+  }
+
   private notify(userId: string, notification: Omit<AppNotification, 'isRead' | 'sentAt' | 'event'>): void {
     getOrCreate(this.storedNotifications, userId, () => []).push({
       ...notification,
@@ -852,7 +869,11 @@ export class MemoryEventRepository implements EventRepository {
     });
   }
 
-  async listConnections(userId: string): Promise<readonly Connection[]> {
+  async listConnections(userId: string, page: ConnectionPageRequest): Promise<ConnectionPage> {
+    const limit = clampConnectionLimit(page.limit);
+    const after = page.cursor === null ? null : decodeConnectionCursor(page.cursor);
+    if (page.cursor !== null && !after) throw actionError('invalid_request');
+
     const result: Connection[] = [];
     for (const entry of this.connections.values()) {
       const outgoing = entry.requesterId === userId;
@@ -869,7 +890,21 @@ export class MemoryEventRepository implements EventRepository {
         respondedAt: entry.respondedAt,
       });
     }
-    return result.sort((a, b) => (b.respondedAt ?? b.createdAt).localeCompare(a.respondedAt ?? a.createdAt));
+    const rest = result.sort(compareConnections).filter((connection) => !after || compareConnections(connection, after) > 0);
+    const items = rest.slice(0, limit);
+    const last = items.at(-1);
+    return { items, nextCursor: rest.length > limit && last ? encodeConnectionCursor(connectionCursorOf(last)) : null };
+  }
+
+  async countConnections(userId: string): Promise<ConnectionCounts> {
+    const counts = { accepted: 0, incoming: 0, outgoing: 0 };
+    for (const entry of this.connections.values()) {
+      if (entry.requesterId !== userId && entry.addresseeId !== userId) continue;
+      if (entry.status === 'ACCEPTED') counts.accepted += 1;
+      else if (entry.addresseeId === userId) counts.incoming += 1;
+      else counts.outgoing += 1;
+    }
+    return counts;
   }
 
   async suggestPeople(viewer: NetworkViewer, filter: PeopleFilter): Promise<readonly PeopleSuggestion[]> {
@@ -882,7 +917,7 @@ export class MemoryEventRepository implements EventRepository {
     const viewerEventIds = new Set(filter.viewerEvents.map((event) => event.id));
 
     const candidates = [...this.people.values()]
-      .filter((member) => member.discoverable && !related.has(member.person.userId))
+      .filter((member) => member.discoverable && !related.has(member.person.userId) && !this.isBlocked(viewer.id, member.person.userId))
       .filter((member) => !filter.interest || member.person.interests.includes(filter.interest))
       .filter((member) => matchesPeopleSearch(member.person, filter.search))
       .map((member) => {
@@ -898,6 +933,9 @@ export class MemoryEventRepository implements EventRepository {
 
   async requestConnection(actor: NetworkViewer, targetId: string, message: string | null): Promise<'requested' | 'accepted'> {
     if (actor.id === targetId) throw actionError('connection_self');
+    // Kode yang sama dengan "tersembunyi": yang diblokir tidak boleh bisa
+    // menyimpulkan bahwa ia diblokir dari pesan galat.
+    if (this.isBlocked(actor.id, targetId)) throw actionError('person_unavailable');
     const actorMember = this.rememberActor(actor);
 
     const existing = this.findPair(actor.id, targetId);
@@ -940,6 +978,28 @@ export class MemoryEventRepository implements EventRepository {
     const entry = this.connections.get(connectionId);
     if (!entry || (entry.requesterId !== actorId && entry.addresseeId !== actorId)) throw actionError('connection_not_found');
     this.connections.delete(connectionId);
+  }
+
+  async blockPerson(actorId: string, targetId: string): Promise<void> {
+    if (actorId === targetId) throw actionError('block_self');
+    const mine = getOrCreate(this.blocks, actorId, () => new Map<string, string>());
+    if (mine.has(targetId)) return;
+    const pair = this.findPair(actorId, targetId);
+    if (!pair && !this.people.get(targetId)?.discoverable) throw actionError('block_unavailable');
+
+    mine.set(targetId, new Date().toISOString());
+    if (pair) this.connections.delete(pair.id);
+  }
+
+  async unblockPerson(actorId: string, targetId: string): Promise<void> {
+    if (!this.blocks.get(actorId)?.delete(targetId)) throw actionError('block_not_found');
+  }
+
+  async listBlockedPeople(userId: string): Promise<readonly BlockedPerson[]> {
+    return [...(this.blocks.get(userId) ?? new Map<string, string>())]
+      .map(([blockedId, blockedAt]) => ({ userId: blockedId, fullName: this.people.get(blockedId)?.person.fullName ?? 'Pengguna', blockedAt }))
+      .sort((a, b) => b.blockedAt.localeCompare(a.blockedAt) || a.userId.localeCompare(b.userId))
+      .slice(0, BLOCK_LIST_LIMIT);
   }
 
   async listTeamLinks(userIds: readonly string[], limit: number): Promise<readonly TeamLink[]> {

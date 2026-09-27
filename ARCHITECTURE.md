@@ -70,7 +70,7 @@ src/
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
 │   │                           EmptyState, SaveButton
 │   ├── team/                   TeamCard, TeamSlotsBadge
-│   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings
+│   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings, blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard
 │   ├── admin/                  SubmissionReviewCard
 │   ├── auth/                   GoogleButton, AuthFeedback
@@ -88,7 +88,7 @@ src/
 │   │   └── seed-data.ts        Data contoh (event, kategori, tim)
 │   ├── deadline.ts             H-n, urgensi, pita 7 hari WIB — Asia/Jakarta [teruji]
 │   ├── recommendation.ts       Skoring §6 + cold start [teruji]
-│   ├── network.ts              Peringkat saran koneksi, alasan, validasi form jaringan [teruji]
+│   ├── network.ts              Peringkat saran koneksi, alasan, validasi form jaringan, kursor paginasi koneksi [teruji]
 │   ├── network-graph.ts        Data peta koneksi (simpul/sisi, batas) dibangun di server [teruji]
 │   ├── graph-layout.ts         Simulasi gaya deterministik, zoom, hit-test, penempatan label [teruji]
 │   ├── search-params.ts        Parsing/serialisasi query URL [teruji]

@@ -328,6 +328,27 @@ export interface Connection {
   readonly respondedAt: string | null;
 }
 
+/** Satu halaman `listConnections` — kursor keyset, bukan offset (ADR-041). */
+export interface ConnectionPage {
+  readonly items: readonly Connection[];
+  /** Kursor opak untuk halaman berikutnya; null = tidak ada lagi. */
+  readonly nextCursor: string | null;
+}
+
+/** Jumlah per kelompok, terpisah dari halaman supaya angka di halaman tetap benar walau daftar dipotong. */
+export interface ConnectionCounts {
+  readonly accepted: number;
+  readonly incoming: number;
+  readonly outgoing: number;
+}
+
+/** Orang yang diblokir pembaca. Nama saja — cukup untuk mengenali siapa yang mau dibuka blokirnya. */
+export interface BlockedPerson {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly blockedAt: string;
+}
+
 /** Pengaturan jaringan milik pengguna sendiri. Bawaan: tidak bisa ditemukan (opt-in). */
 export interface NetworkProfile {
   readonly discoverable: boolean;

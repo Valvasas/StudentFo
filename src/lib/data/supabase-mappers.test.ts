@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid, sanitizeSearchQuery, sqlState, toModerationLogEntry, toSubmission } from './supabase-mappers';
+import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toModerationLogEntry, toSubmission } from './supabase-mappers';
 
 describe('isUuid', () => {
   it('menerima UUID dan menolak selainnya sebelum sampai ke Postgres', () => {
@@ -60,5 +60,15 @@ describe('toModerationLogEntry', () => {
   it('aktor yang akunnya dihapus / perubahan sistem → nama null', () => {
     expect(toModerationLogEntry({ ...row, actor: null }).actorName).toBeNull();
     expect(toModerationLogEntry({ ...row, actor_id: null, actor: null }).actorId).toBeNull();
+  });
+});
+
+describe('keysetAfter', () => {
+  it('baris setelah kursor dalam urutan (status, created_at, id) menurun, stempel waktu dikutip', () => {
+    expect(keysetAfter({ status: 'PENDING', createdAt: '2026-09-27T10:00:00.5+00:00', id: '0f8b6a1e-1c2d-4e3f-8a9b-0c1d2e3f4a5b' })).toBe(
+      'status.lt.PENDING,' +
+        'and(status.eq.PENDING,created_at.lt."2026-09-27T10:00:00.5+00:00"),' +
+        'and(status.eq.PENDING,created_at.eq."2026-09-27T10:00:00.5+00:00",connection_id.lt.0f8b6a1e-1c2d-4e3f-8a9b-0c1d2e3f4a5b)',
+    );
   });
 });
