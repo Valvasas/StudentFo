@@ -224,3 +224,52 @@ export function formatDateTimeId(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? 'Tanggal tidak valid' : `${dateTimeFormatter.format(date)} WIB`;
 }
+
+/**
+ * Label sisa waktu berbahasa sehari-hari untuk tag di kartu ("3 hari lagi").
+ * `shortLabel` ("H-3") tetap dipakai di tempat yang sangat sempit; kanvas
+ * desain memakai kalimat ini di daftar dan kartu.
+ */
+export function daysLeftLabel(daysLeft: number | null): string {
+  if (daysLeft === null) return 'Tanggal TBA';
+  if (daysLeft < 0) return 'Ditutup';
+  if (daysLeft === 0) return 'Tutup hari ini';
+  if (daysLeft === 1) return 'Tutup besok';
+  return `${daysLeft} hari lagi`;
+}
+
+const shortDateFormatter = new Intl.DateTimeFormat('id-ID', { timeZone: JAKARTA_TZ, day: 'numeric', month: 'short' });
+const partsFormatter = new Intl.DateTimeFormat('id-ID', {
+  timeZone: JAKARTA_TZ,
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  weekday: 'long',
+});
+
+/** "12 Okt" — tanggal ringkas di kartu dan baris daftar. */
+export function formatShortDateId(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '–' : shortDateFormatter.format(date).replace('.', '');
+}
+
+export interface JakartaDateParts {
+  readonly day: string;
+  /** "Oktober" */
+  readonly month: string;
+  readonly year: string;
+  /** "Selasa" */
+  readonly weekday: string;
+}
+
+/**
+ * Bagian-bagian tanggal di zona WIB untuk tampilan kalender (angka besar +
+ * nama hari). Diambil dari `formatToParts`, bukan `getDate()`, supaya server
+ * yang berjalan di UTC tidak menampilkan tanggal kemarin untuk tenggat pagi.
+ */
+export function jakartaDateParts(iso: string): JakartaDateParts | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = Object.fromEntries(partsFormatter.formatToParts(date).map((part) => [part.type, part.value]));
+  return { day: parts.day ?? '', month: parts.month ?? '', year: parts.year ?? '', weekday: parts.weekday ?? '' };
+}

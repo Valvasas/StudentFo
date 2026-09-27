@@ -166,11 +166,16 @@ lewat `@theme inline`. Penamaan mengikuti Blueprint v3 §4 (`--color-accent`,
 `--color-deadline-*`, `--space-*`, `--radius-*`) supaya dokumen desain dan kode
 tidak terpisah jalan.
 
-**Nilainya** mengikuti kanvas desain produk (Indigo `#4F46E5` di atas cream
-`#FAF8F4`, netral hangat, amber untuk urgensi) — lihat `DECISION.md` ADR-016,
-yang menggantikan ADR-005. Beberapa nilai sengaja **menyimpang** dari kanvas
-karena gagal ambang kontras; setiap penyimpangan ditulis alasannya tepat di
-sebelah tokennya di `globals.css`, lengkap dengan angka rasionya.
+**Nilainya** mengikuti desain final StudentHub dari Claude Design: monokrom
+(`#191919` di atas putih, abu hangat, tema gelap setara), font Geist & Geist
+Mono — lihat `DECISION.md` ADR-039, yang menggantikan ADR-016. Setiap nilai
+tetap lolos `npm run check:contrast`.
+
+Fitur di kanvas yang belum punya backend (profil publik, dokumen, pesan,
+ruang diskusi, preferensi notifikasi & privasi, persiapan pendaftaran) hanya
+aktif di **mode data contoh** dan tersimpan di localStorage peramban
+(`src/lib/demo/*`). Di mode produksi bagian itu tidak dirender dan rutenya 404.
+Backlog-nya ada di `TASKS.md`.
 
 Prinsip yang dipegang:
 
@@ -181,8 +186,9 @@ Prinsip yang dipegang:
   salah baca prioritas.
 - **Target sentuh minimal 44px** di semua elemen interaktif (WCAG 2.5.5).
 - **Focus ring di semua elemen fokusable**, bukan hanya `<button>`.
-- **Transisi 150–200ms, tanpa translate/scale.** Produk ini dipindai, bukan
-  dinikmati; kartu yang melompat menggeser target klik.
+- **Animasi masuk hanya sekali dan menghormati `prefers-reduced-motion`.**
+  Transisi interaksi tetap 150–200ms; animasi masuk (`.enter`, reveal saat
+  digulir) tidak pernah memindahkan elemen yang sudah bisa diklik.
 - **Filter berbasis `<form>` dan `<a>`, tanpa state klien.** Tetap berfungsi
   tanpa JavaScript, setiap kombinasi filter punya URL sendiri, tombol back bekerja.
 

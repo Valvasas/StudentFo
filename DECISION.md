@@ -12,6 +12,74 @@ terdokumentasi.
 
 ---
 
+## ADR-039 — Desain StudentHub monokrom diterapkan ke seluruh halaman; fitur tanpa backend hanya di mode demo (menggantikan ADR-016, memperbarui ADR-009)
+
+**Konteks:** Pemilik produk menyerahkan desain final dari Claude Design
+(kanvas "StudentHub": beranda, masuk/daftar, lima halaman daftar per jenis,
+detail, profil bertab, data diri, peminatan, pengaturan, privasi, kebijakan
+privasi, pendaftaran, status pendaftaran, cari tim, pesan, ruang diskusi)
+dan meminta seluruh halaman mengikutinya. Kanvas itu hitam-putih, memakai
+Geist, animasi masuk yang kaya, dan menggambarkan fitur yang **belum ada**
+di skema (hadiah/stipendium/kuota, NIK/IPK/NIM, unggah dokumen ke server,
+pesan, ruang diskusi, peserta solo, pengiriman formulir ke penyelenggara).
+
+**Keputusan:**
+
+1. **Visual:** token `globals.css` diganti monokrom (`#191919` di atas
+   putih, abu hangat; tema gelap setara), font Geist/Geist Mono, radius &
+   bayangan dari kanvas. Nama token tetap, jadi seluruh markup lama ikut
+   berubah. Menggantikan ADR-016. Pagar a11y tidak dilonggarkan:
+   `check:contrast` tetap wajib lulus, target sentuh ≥ 44px, fokus terlihat.
+2. **Gerak (hibrida):** animasi masuk (`.enter`, `.pop`, reveal saat
+   digulir, tur kursor di beranda) memakai CSS dan satu observer kecil;
+   semuanya dimatikan oleh `prefers-reduced-motion`. Saringan tetap
+   `<form>` + `<a>` + URL tanpa state klien (aturan AGENTS.md); interaksi
+   yang memang butuh klien (pemilih melayang, kartu data diri, pesan)
+   adalah pulau klien kecil.
+3. **Navigasi:** tab navbar Lomba · Beasiswa · Magang · Workshop · Seminar
+   dipetakan ke enum yang ada: Workshop = `PELATIHAN`, Seminar =
+   `KONFERENSI` (lihat `lib/event-type-nav.ts`). Halaman akun memakai
+   sidebar kanvas (`AccountShell`), disembunyikan < 960px karena isinya
+   identik dengan menu akun di navbar.
+4. **Kejujuran data:** kolom kanvas yang tidak ada di skema **tidak**
+   dipalsukan. Tempatnya diisi data yang benar-benar kita punya (tanggal
+   tutup, jumlah penyimpan, lokasi, jenjang). Kebijakan privasi ditulis
+   ulang dari migration yang ada — kanvas menjanjikan hal yang tidak
+   dilakukan aplikasi ini — dan ditandai **draf** sampai pemilik
+   melengkapi kontak resmi & meninjaunya bersama penasihat hukum.
+5. **Fitur tanpa backend → mode demo saja** (`demoFeaturesEnabled`, yaitu
+   `dataMode === 'seed'`): profil publik/kontak/pencapaian, dokumen siap
+   pakai (hanya nama berkas), preferensi notifikasi & privasi, pesan, ruang
+   diskusi, dan alur persiapan pendaftaran. Tersimpan di localStorage dengan
+   validasi bentuk di setiap baca (`lib/demo/*`, semuanya diuji). Di mode
+   produksi halaman `/messages`, `/discussions`, dan `/events/[slug]/persiapan`
+   mengembalikan 404 dan bagian demo di halaman lain tidak dirender.
+6. **Alur pendaftaran dibalik jadi persiapan:** kanvas mengirim formulir
+   ke penyelenggara dari dalam aplikasi. StudentFo agregator, jadi alurnya
+   jadi "periksa data → tim → berkas → buka formulir resmi (`/daftar`) →
+   tandai sudah daftar" — langkah terakhir memanggil aksi tracker sungguhan.
+   Tidak ada tabel baru, jadi tidak bertentangan dengan penundaan Linimasa
+   (ADR-038 #1).
+7. **Tracker:** papan kanban lima kolom (ADR-009) diganti daftar dengan
+   bilah empat tahap per baris + halaman status `/tracker/[slug]` (tahap,
+   catatan, jadwal resmi, tim). Semua kendalinya tetap `<form>` Server
+   Action, jadi tetap jalan tanpa JavaScript. Kontrak ADR-009 (tamu
+   melihat nilai fitur, bukan data karangan) dipertahankan.
+8. **Saringan baru yang sungguhan:** `lokasi` dan `mode` (daring/luring)
+   ditambahkan ke query daftar kegiatan, di repository memori **dan**
+   Supabase, dengan uji paritas.
+
+**Konsekuensi:** Tampilan mengikuti desain final, tapi beberapa layar
+kanvas hanya "hidup" di mode demo sampai backend-nya dibuat (TASKS.md,
+bagian desain StudentHub). Yang dibuang dari kanvas karena akan menyesatkan:
+daftar perangkat/sesi di Pengaturan (Supabase tidak memberi daftar sesi ke
+klien), log "data dibagikan ke penyelenggara" (kita tidak meneruskan data),
+tab "Peserta solo" di Cari Tim, testimoni/angka pemakaian di beranda.
+Halaman Tentang dan Cari Koneksi tidak ada di bundel desain, jadi tidak
+dibuat.
+
+---
+
 ## ADR-038 — Yang sengaja ditunda: Linimasa, sumber scraping nyata, scan header publik
 
 **1. Panel "Linimasa kamu" (checklist persiapan per kegiatan) — DITUNDA sampai
@@ -624,6 +692,8 @@ sudah tidak bisa ditindaklanjuti bukan bantuan.
 
 ## ADR-016 — Palet diselaraskan ke kanvas desain: Indigo #4F46E5 di atas cream (menggantikan ADR-005)
 
+> **DIGANTIKAN OLEH ADR-039** (monokrom StudentHub).
+
 **Konteks:** ADR-005 memilih Cobalt `#2B50EC` di atas netral ber-tint biru,
 dengan alasan menghindari palet "Indigo di atas Zinc" yang jadi bawaan
 setiap dashboard hasil generate. Sejak itu, sistem desain produk ini
@@ -801,6 +871,8 @@ bisa tidak sinkron dengan keadaan sebenarnya di dashboard.
 ---
 
 ## ADR-009 — Halaman Tracker terlihat sejak Phase 1 meski terkunci
+
+> **Diperbarui oleh ADR-039 #7:** kanban diganti daftar bertahap + halaman status; prinsip "tanpa data karangan" tetap.
 
 **Konteks:** Backend tracker (`application_tracker`, auth user) baru aktif
 di Phase 2. Opsi: sembunyikan tab tracker sampai Phase 2, atau tampilkan tab

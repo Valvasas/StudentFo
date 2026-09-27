@@ -109,6 +109,19 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
       dipakai sebelum menambah tabel — kanvas desain memakainya sebagai
       contoh tampilan, bukan sebagai kebutuhan yang sudah divalidasi.
 
+## Backlog — desain StudentHub (ADR-039): backend untuk fitur yang baru ada di mode demo
+
+- [ ] Kolom profil publik (`headline`, `bio`, `city`, `phone`, `linkedin`, `portfolio`, peran & keahlian tim, status) + RLS per kolom & pengaturan visibilitas (kanvas Privasi). Hapus `lib/demo/profile-extras.ts` setelahnya.
+- [ ] Pencapaian (tabel sendiri, milik pengguna, RLS own-row).
+- [ ] Dokumen siap pakai → Supabase Storage (bucket privat, kebijakan per pengguna, batas 5 MB, PDF/JPG/PNG, pemindaian). Saat ini hanya nama berkas di localStorage.
+- [ ] Preferensi notifikasi (topik × kanal, H-7/H-3/H-1, jam kirim) + pengirim email; WhatsApp butuh keputusan penyedia & biaya.
+- [ ] Pesan (percakapan, anggota, pesan, laporan penyalahgunaan, batas laju) dan Ruang diskusi (grup per kegiatan, kanal, utas, balasan, suara, moderasi panitia). Keduanya butuh desain moderasi sebelum skema.
+- [ ] Profil pencari tim ("Peserta solo" di Cari Tim) + ajakan tim dua arah.
+- [ ] Kolom kegiatan dari kanvas yang belum ada: hadiah, stipendium, kuota, pembicara, poster — butuh perubahan pipeline & `models.py` (paritas enum/kolom).
+- [ ] Riwayat tahap tracker (tabel event per perubahan) supaya halaman status bisa menampilkan tanggal tiap tahap, bukan hanya `updated_at` terakhir.
+- [ ] Kebijakan privasi: pemilik mengisi alamat kontak resmi & meninjau draf bersama penasihat hukum sebelum rilis publik.
+- [ ] Halaman Tentang & Cari Koneksi — tidak ada di bundel desain; butuh desain dulu.
+
 ## Backlog — Phase 3 (skema DB sudah ada, tidak ada UI sama sekali)
 
 - [x] UGC Submissions — `/submit` (Zod + honeypot, boleh tamu), antrean

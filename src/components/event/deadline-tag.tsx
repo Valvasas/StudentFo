@@ -1,5 +1,5 @@
-import { CalendarClock, CalendarOff } from 'lucide-react';
-import { getDeadlineState, type DeadlineUrgency } from '@/lib/deadline';
+import { CalendarOff, Clock } from 'lucide-react';
+import { daysLeftLabel, getDeadlineState, type DeadlineUrgency } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
 
 /**
@@ -12,14 +12,15 @@ import { cn } from '@/lib/utils';
  * terpenuhi, tanpa mengirim JavaScript apa pun ke browser dan tanpa risiko
  * ketidakcocokan hidrasi antara jam server dan jam perangkat user.
  *
- * Warna TIDAK PERNAH jadi satu-satunya pembawa makna: setiap tag punya
- * ikon + teks. Sekitar 1 dari 12 laki-laki mengalami defisiensi penglihatan
- * warna; "yang merah itu mendesak" bukan informasi yang sampai ke mereka.
+ * Urgensi dibawa BENTUK, bukan warna (palet monokrom, ADR-039): ≤ H-7
+ * tampil sebagai label hitam terisi + ikon jam, yang masih aman cukup teks
+ * abu-abu. Teksnya selalu menyebut sisa hari, jadi tidak ada informasi yang
+ * hanya bisa ditangkap lewat tampilan.
  */
 const URGENCY_CLASS: Record<DeadlineUrgency, string> = {
-  safe: 'bg-due-safe-soft text-due-safe',
-  warning: 'bg-due-warning-soft text-due-warning',
-  urgent: 'bg-due-urgent-soft text-due-urgent',
+  safe: 'px-0 text-due-safe',
+  warning: 'bg-brand font-semibold text-on-brand',
+  urgent: 'bg-brand font-semibold text-on-brand',
   closed: 'bg-panel-nested text-ink-muted line-through decoration-1',
   unknown: 'bg-panel-nested text-ink-muted',
 };
@@ -31,18 +32,19 @@ export interface DeadlineTagProps {
 
 export function DeadlineTag({ deadlineAt, className }: DeadlineTagProps) {
   const state = getDeadlineState(deadlineAt);
-  const Icon = state.urgency === 'closed' ? CalendarOff : CalendarClock;
+  const Icon = state.urgency === 'closed' ? CalendarOff : Clock;
+  const showIcon = state.urgency !== 'safe';
 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-sm font-medium',
+        'inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[6px] px-2 text-xs font-medium',
         URGENCY_CLASS[state.urgency],
         className,
       )}
     >
-      <Icon aria-hidden className="size-3.5" />
-      {state.shortLabel}
+      {showIcon && <Icon aria-hidden className="size-3" />}
+      {daysLeftLabel(state.daysLeft)}
       {/* Teks lengkap untuk pembaca layar; badge visual terlalu ringkas. */}
       <span className="sr-only">— {state.longLabel}</span>
     </span>

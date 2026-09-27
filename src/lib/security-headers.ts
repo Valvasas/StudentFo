@@ -98,3 +98,5 @@ export function generateNonce(): string {
 
 /** Header request tempat middleware menitipkan nonce untuk layout. */
 export const NONCE_HEADER = 'x-nonce';
+/** Path + query permintaan saat ini, diisi middleware (lihat middleware.ts). */
+export const REQUEST_PATH_HEADER = 'x-sf-path';

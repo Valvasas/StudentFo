@@ -10,112 +10,90 @@
 
 /* =====================================================================
    1. DESIGN TOKENS — SINGLE SOURCE OF TRUTH
-   Nilai diambil dari kanvas desain "StudentHub" (Claude Design). Nama
-   token TIDAK berubah supaya jembatan ke Tailwind di §2 dan seluruh
-   markup yang sudah ada tetap jalan — yang diganti hanya nilainya.
+   Nilai mengikuti kanvas desain final "StudentHub" versi hitam-putih
+   (Claude Design, 2026-09-23) — lihat DECISION.md ADR-039 yang
+   menggantikan ADR-016. Nama token TIDAK berubah supaya jembatan ke
+   Tailwind di §2 dan seluruh markup lama (admin, /submit) tetap jalan —
+   yang diganti hanya nilainya.
 
-   KENAPA NETRALNYA HANGAT (cream #FAF8F4), bukan abu-abu dingin:
-   - Halaman ini dibaca lama (scanning puluhan tenggat). Paper hangat
-     menurunkan glare dibanding #FFF murni ATAU abu-abu kebiruan, dan
-     membuat kartu putih di atasnya tetap terbaca sebagai "naik selevel"
-     tanpa perlu border tebal.
-   - Netral hangat + accent indigo dingin memberi kontras suhu yang
-     membuat elemen aksi menonjol tanpa menaikkan saturasi.
-
-   KENAPA AMBER DIPAKAI UNTUK URGENSI, BUKAN MERAH:
-   - Merah sudah dipakai untuk "gagal/ditolak" di alur admin. Kalau
-     tenggat H-3 juga merah, pengguna tidak bisa membedakan "cepat
-     daftar" dari "pendaftaranmu ditolak".
-   - Amber hanya boleh muncul sebagai penanda STATE waktu, tidak pernah
-     sebagai dekorasi. Begitu ia dipakai menghias, nilainya sebagai
-     sinyal urgensi hilang.
+   KENAPA MONOKROM:
+   - Identitas produk dibawa oleh tipografi (Geist) dan ruang kosong,
+     bukan warna. Aksen satu warna (hitam) membuat setiap tombol primer
+     terbaca sebagai aksi tanpa bersaing dengan warna kategori/penyelenggara.
+   - Urgensi tenggat TIDAK lagi dibawa amber: ia dibawa BENTUK — label
+     terisi hitam + ikon jam untuk ≤ H-7, teks biasa untuk yang aman.
+     Warna semantik (error/sukses/peringatan) tetap berwarna karena makna
+     "aksimu gagal" harus bisa dikenali seketika, dan namespace-nya
+     terpisah dari tenggat.
    ===================================================================== */
 :root {
   color-scheme: light;
 
   /* ===== Base — Light (default) ===== */
-  --color-bg: #faf8f4;              /* cream: paper hangat, mengurangi glare saat scanning lama */
-  --color-surface: #ffffff;         /* kartu naik 1 level di atas paper */
-  --color-surface-nested: #f5f3ee;  /* panel bersarang; hindari tumpuk border */
-  --color-border: #dddad1;
-  --color-border-strong: #c4c0b5;
-  --color-text-primary: #2a2a32;
-  --color-text-secondary: #57534a;
-  --color-text-muted: #6f6a5e;  /* 4.76:1 di atas --color-info-container, 4.86:1 di atas --color-surface-nested */
-  --color-text-placeholder: #6f6a5e; /* 5.08:1 di atas --color-bg, 5.39:1 di atas --color-surface —
-                                        diukur, bukan ditaksir. Placeholder & caption tetap teks;
-                                        WCAG 1.4.3 berlaku.
-                                        #9C978B (neutral-400) dari kanvas desain TIDAK dipakai
-                                        sebagai teks: rasionya cuma 2.9:1. Ia hanya untuk ikon & garis. */
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;         /* kartu dibedakan border, bukan level warna — sesuai kanvas */
+  --color-surface-nested: #f7f7f5;  /* panel bersarang (kartu kelengkapan profil, menu terbuka) */
+  --color-border: #e3e3e0;
+  --color-border-strong: #bdbdb8;   /* garis putus-putus "tambah …" & batas input saat hover */
+  --color-text-primary: #191919;
+  --color-text-secondary: #3f3f3c;
+  --color-text-muted: #5f5e5b;      /* 6.36:1 di atas putih, 5.97:1 di atas panel bersarang */
+  --color-text-placeholder: #6f6e69; /* kanvas memakai #77766F (4.61:1 di atas putih) tapi hanya
+                                        4.32:1 di atas panel bersarang — digelapkan supaya lolos
+                                        di kedua latar. */
 
-  /* ===== Accent — Indigo, satu warna aksen solid ===== */
-  --color-accent: #4f46e5;
-  --color-accent-hover: #4038c4;
-  --color-accent-pressed: #332d9e;
-  --color-accent-soft: #eef0ff;                /* bg chip/badge aktif */
-  --color-accent-text: #332d9e;                /* accent sebagai TEKS di atas bg terang: 9.85:1 di
-                                                  atas --color-bg, 10.45:1 di atas --color-surface.
-                                                  --color-accent (#4F46E5) sendiri hanya 4.0:1 sebagai
-                                                  teks, jadi ia TIDAK boleh dipakai untuk tulisan. */
-  --color-accent-foreground: #ffffff;          /* teks di ATAS accent */
+  /* ===== Accent — hitam. Satu-satunya warna aksi. ===== */
+  --color-accent: #191919;
+  --color-accent-hover: #3a3a38;
+  --color-accent-pressed: #000000;
+  --color-accent-soft: #f1f1ef;     /* chip aktif, hitungan di tab */
+  --color-accent-text: #191919;
+  --color-accent-foreground: #ffffff;
 
   /* ===== Semantic — toast, validasi form, alert admin ===== */
   --color-success: #1f6b50;
-  --color-success-container: #ddf0e8;
-  --color-success-border: rgb(46 158 119 / 0.35);
+  --color-success-container: #e6f3ed;
+  --color-success-border: rgb(31 107 80 / 0.3);
 
   --color-error: #a83a3a;
-  --color-error-container: #fbe4e4;
-  --color-error-border: rgb(225 83 83 / 0.35);
+  --color-error-container: #fbeaea;
+  --color-error-border: rgb(168 58 58 / 0.3);
 
-  /* Amber kanvas desain (#B0701F) hanya 3.82:1 di atas --color-bg dan 3.52:1
-     di atas containernya — gagal WCAG 1.4.3 untuk teks normal. Digelapkan ke
-     #9B5D27 (4.96:1 dan 4.58:1). Hue-nya dipertahankan supaya tetap terbaca
-     sebagai "amber/peringatan", bukan cokelat netral. */
-  --color-warning: #9b5d27;
-  --color-warning-container: #fdedd6;
-  --color-warning-border: rgb(155 93 39 / 0.4);
+  --color-warning: #8a5220;
+  --color-warning-container: #fbf1e3;
+  --color-warning-border: rgb(138 82 32 / 0.3);
 
-  --color-info: #332d9e;
-  --color-info-container: #eef0ff;
-  --color-info-border: rgb(79 70 229 / 0.3);
+  /* Info tidak punya hue sendiri di palet monokrom: ia netral. */
+  --color-info: #191919;
+  --color-info-container: #f7f7f5;
+  --color-info-border: #e3e3e0;
 
-  /* ===== Deadline degradation — namespace SENGAJA dipisah dari semantic.
-     "Urgent" di sini artinya WAKTU menipis, bukan aksi gagal. Jangan
-     ditukar-pakai; itu yang bikin user salah baca prioritas. ===== */
-  --color-deadline-safe: #6f6a5e;    /* > 7 hari — 4.86:1 di atas softnya */
-  /* H-7 s/d H-3 — amber, sinyal waktu. Nilai sama dengan --color-warning dan
-     dengan alasan yang sama: amber mentah kanvas desain gagal 4.5:1.
-     Token ini juga mewarnai titik `urgency-dot`; amber terang (#F4A340) cuma
-     1.95:1 terhadap latar, jadi ia gagal WCAG 1.4.11 (komponen non-teks butuh
-     3:1) — bukan cuma untuk tulisan. */
-  --color-deadline-warning: #9b5d27;
-  --color-deadline-urgent: #a83a3a;  /* H-2 s/d H-0 — 5.94:1 */
-  --color-deadline-safe-soft: #f5f3ee;
-  --color-deadline-warning-soft: #fdedd6;
-  --color-deadline-urgent-soft: #fbe4e4;
+  /* ===== Deadline — namespace SENGAJA dipisah dari semantic.
+     Di palet monokrom, "urgent" dibedakan lewat bentuk (DeadlineTag
+     merendernya sebagai label terisi), token di sini hanya menjamin
+     teksnya terbaca di atas latar mana pun ia diletakkan. ===== */
+  --color-deadline-safe: #5f5e5b;
+  --color-deadline-warning: #191919;
+  --color-deadline-urgent: #191919;
+  --color-deadline-safe-soft: #f7f7f5;
+  --color-deadline-warning-soft: #f1f1ef;
+  --color-deadline-urgent-soft: #e3e3e0;
 
-  /* ===== Focus ring — wajib di SEMUA elemen interaktif (a11y §9) ===== */
-  --focus-ring: #4f46e5;
+  /* ===== Focus ring ===== */
+  --focus-ring: #191919;
   --focus-ring-offset: 2px;
 
-  /* ===== Elevation — light mode saja. Di dark mode shadow ~tidak terlihat,
-     jadi hierarki dark dibangun pakai border + surface step. ===== */
-  --shadow-card: 0 1px 2px rgb(42 42 50 / 0.05);
-  --shadow-raised: 0 3px 10px rgb(42 42 50 / 0.08);
-  --shadow-overlay: 0 8px 24px rgb(42 42 50 / 0.1);
-
-  /* ===== Typography scale (base 16px, rasio ~1.25) =====
-     Nilainya didaftarkan di blok `@theme` terpisah di bawah supaya utility
-     `text-3xl`/`text-4xl` ikut memakai skala ini, bukan default Tailwind. */
+  /* ===== Elevation — hanya untuk lapisan melayang (menu, popover).
+     Kartu di kanvas desain datar: border 1px, tanpa bayangan. ===== */
+  --shadow-card: none;
+  --shadow-raised: 0 6px 16px rgb(0 0 0 / 0.06);
+  --shadow-overlay: 0 22px 50px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.05);
 
   --tracking-heading: -0.02em;
-  --leading-heading: 1.2;
+  --leading-heading: 1.1;
   --leading-body: 1.55;
 
-  /* ===== Spacing scale (kelipatan 4/8) =====
-     Catatan mapping ke Tailwind: --space-5 (24px) = `p-6`, --space-6 (32px)
-     = `p-8`, --space-7 (48px) = `p-12`, --space-8 (64px) = `p-16`. */
+  /* ===== Spacing scale (kelipatan 4/8) ===== */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -125,101 +103,92 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  /* ===== Radius — skala rapat (10/12/14). Beda antar level sengaja kecil:
-     radius yang melompat jauh membuat kartu bersarang terlihat seperti
-     komponen dari sistem berbeda. ===== */
-  --radius-sm: 10px;
-  --radius-card: 12px;
+  /* ===== Radius — tombol/isian 10, menu 14, kartu besar 18–20 (kanvas). ===== */
+  --radius-sm: 8px;
+  --radius-card: 10px;
   --radius-modal: 14px;
+  --radius-panel: 18px;
   --radius-pill: 999px;
 
-  /* ===== Motion — snappy, 150-200ms. Tidak ada animasi melayang. ===== */
+  /* ===== Motion =====
+     Transisi interaksi tetap cepat (150–200ms, tanpa geser) supaya target
+     klik tidak berpindah. Animasi MASUK (sekali, saat konten tampil) boleh
+     lebih lambat dan bergeser sedikit — itu karakter kanvas desain dan
+     tidak pernah menggeser elemen yang sedang ditunjuk. ADR-039. */
   --duration-micro: 150ms;
   --duration-transition: 200ms;
+  --duration-enter: 600ms;
   --easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-enter: cubic-bezier(0.2, 0.65, 0.2, 1);
 
-  /* ===== Permukaan gelap-selalu (footer, panel ringkasan) =====
-     Nilainya SAMA di light & dark. Ini bukan kelalaian: panel ini dipakai
-     sebagai penutup halaman dan jangkar visual, jadi ia harus tetap gelap
-     walau temanya gelap — kalau ikut menggelap bersama tema, batas antara
-     "isi halaman" dan "penutup" hilang sama sekali. */
-  --color-inverse-surface: #2a2a32;
-  --color-inverse-nested: #3e3e48;
-  --color-inverse-text: #faf8f4;
-  --color-inverse-text-muted: #aca79b;
+  /* ===== Permukaan gelap-selalu (footer, panel CTA, banner tampilan publik) ===== */
+  --color-inverse-surface: #191919;
+  --color-inverse-nested: #2e2e2c;
+  --color-inverse-text: #ffffff;
+  --color-inverse-text-muted: #a3a29c;
 
   /* ===== Layout ===== */
   --spacing-card-padding: var(--space-5);
-  --layout-max: 1200px;
+  --layout-max: 1240px;
 }
 
-/* Dark mode diturunkan dari sistem yang sama, bukan palet terpisah:
-   netralnya tetap HANGAT (dasar #2A2A32 dari kanvas desain, bukan biru
-   kehitaman). Netral dingin di dark mode + accent indigo membuat accent
-   terbaca ungu-kebiruan yang berbeda dari light mode — identitas warna
-   produk jadi tidak konsisten antar tema. */
+/* Dark mode tidak ada di kanvas desain; diturunkan dengan membalik skala
+   netral yang sama. Aksen ikut terbalik (tombol primer terang, teks gelap)
+   supaya tombol primer tetap elemen paling kontras di layar. */
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-bg: #1c1c22;
-  --color-surface: #2a2a32;
-  --color-surface-nested: #34343e;
-  --color-border: #3e3e48;
-  --color-border-strong: #55555f;
-  --color-text-primary: #faf8f4;
-  --color-text-secondary: #dddad1;
-  --color-text-muted: #aca79b;
-  --color-text-placeholder: #aca79b; /* 7.07:1 di atas --color-bg, 5.93:1 di atas --color-surface */
+  --color-bg: #111110;
+  --color-surface: #111110;
+  --color-surface-nested: #1c1c1b;
+  --color-border: #2e2e2c;
+  --color-border-strong: #4a4a47;
+  --color-text-primary: #ededeb;
+  --color-text-secondary: #cfcfcb;
+  --color-text-muted: #a3a29c;
+  --color-text-placeholder: #a3a29c;
 
-  /* Accent diangkat sedikit: warna yang sama persis terasa "mati" di atas
-     permukaan gelap karena kontras simultan.
-     BATAS kenaikannya ditentukan teks putih di atasnya, bukan selera —
-     accent ini jadi latar tombol primer. #6F68EC (kenaikan yang "terlihat
-     pas") hanya 4.31:1 terhadap putih dan gagal WCAG 1.4.3. #6B64E9 adalah
-     versi paling terang yang masih 4.54:1. */
-  /* Di dark mode, hover justru MENGGELAP — kebalikan dari light mode.
-     Bukan gaya, tapi konsekuensi aritmetika: #6B64E9 sudah nilai paling
-     terang yang menyisakan 4.5:1 untuk teks putih, jadi tidak ada ruang
-     untuk naik lagi. Hover yang lebih terang (#857FEF) turun ke 3.34:1 dan
-     membuat label tombol gagal kontras justru saat kursor ada di atasnya. */
-  --color-accent: #6b64e9;
-  --color-accent-hover: #5a52e6;
-  --color-accent-pressed: #4a41d4;
-  --color-accent-soft: rgb(111 104 236 / 0.2);
-  --color-accent-text: #a5acf0;
-  --color-accent-foreground: #ffffff;
+  --color-accent: #ededeb;
+  --color-accent-hover: #cfcfcb;
+  --color-accent-pressed: #ffffff;
+  --color-accent-soft: #262625;
+  --color-accent-text: #ededeb;
+  --color-accent-foreground: #111110;
 
   --color-success: #6bc9a4;
   --color-success-container: rgb(46 158 119 / 0.18);
   --color-success-border: rgb(107 201 164 / 0.32);
 
   --color-error: #ef8b8b;
-  --color-error-container: rgb(225 83 83 / 0.18);
+  --color-error-container: rgb(225 83 83 / 0.16);
   --color-error-border: rgb(239 139 139 / 0.32);
 
-  --color-warning: #f4a340;
-  --color-warning-container: rgb(244 163 64 / 0.18);
-  --color-warning-border: rgb(244 163 64 / 0.34);
+  --color-warning: #f0b872;
+  --color-warning-container: rgb(240 184 114 / 0.14);
+  --color-warning-border: rgb(240 184 114 / 0.32);
 
-  --color-info: #a5acf0;
-  --color-info-container: rgb(111 104 236 / 0.18);
-  --color-info-border: rgb(165 172 240 / 0.32);
+  --color-info: #ededeb;
+  --color-info-container: #1c1c1b;
+  --color-info-border: #2e2e2c;
 
-  --color-deadline-safe: #aca79b;
-  --color-deadline-warning: #f4a340;
-  --color-deadline-urgent: #ef8b8b;
-  --color-deadline-safe-soft: rgb(172 167 155 / 0.14);
-  --color-deadline-warning-soft: rgb(244 163 64 / 0.16);
-  /* 0.11, bukan 0.16 seperti dua di atasnya: pada 0.16 kombinasi teks urgent
-     di atas containernya sendiri turun ke 4.46:1 — gagal tipis. Lihat
-     `npm run check:contrast`. */
-  --color-deadline-urgent-soft: rgb(239 139 139 / 0.11);
+  --color-deadline-safe: #a3a29c;
+  --color-deadline-warning: #ededeb;
+  --color-deadline-urgent: #ededeb;
+  --color-deadline-safe-soft: #1c1c1b;
+  --color-deadline-warning-soft: #262625;
+  --color-deadline-urgent-soft: #2e2e2c;
 
-  --focus-ring: #a5acf0;
+  --focus-ring: #ededeb;
 
-  --shadow-card: none;
   --shadow-raised: none;
-  --shadow-overlay: 0 16px 40px rgb(0 0 0 / 0.5);
+  --shadow-overlay: 0 16px 40px rgb(0 0 0 / 0.55);
+
+  /* Footer & panel CTA tetap lebih gelap dari halaman supaya batas
+     "isi halaman" vs "penutup" tidak hilang di tema gelap. */
+  --color-inverse-surface: #000000;
+  --color-inverse-nested: #262625;
+  --color-inverse-text: #ededeb;
+  --color-inverse-text-muted: #a3a29c;
 }
 
 /* =====================================================================
@@ -275,6 +244,7 @@
 
   --radius-sm: var(--radius-sm);
   --radius-card: var(--radius-card);
+  --radius-panel: var(--radius-panel);
   --radius-modal: var(--radius-modal);
   --radius-pill: var(--radius-pill);
 
@@ -285,8 +255,10 @@
   --color-focus: var(--focus-ring);
   --ease-snap: var(--easing);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
+  --ease-enter: var(--easing-enter);
 
   --container-page: var(--layout-max);
 
@@ -331,7 +303,6 @@
     color: var(--color-text-primary);
     font-family: var(--font-sans);
     line-height: var(--leading-body);
-    font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -343,6 +314,13 @@
     font-weight: 600;
     color: var(--color-text-primary);
     text-wrap: balance;
+  }
+
+  /* Judul halaman di kanvas: tebal & rapat. Judul kartu (h2 16px) tidak
+     ikut dirapatkan — di ukuran kecil huruf yang dirapatkan saling tabrak. */
+  h1 {
+    font-weight: 700;
+    letter-spacing: -0.04em;
   }
 
   p {
@@ -407,11 +385,32 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Staggered reveal RINGAN (blueprint §4: boleh diambil sedikit, bukan
-   identitas utama). 200ms, geser 6px — cukup untuk memberi arah baca,
-   tidak cukup untuk memperlambat scanning. */
+/* Staggered reveal RINGAN untuk kartu di daftar panjang: 200ms, geser 6px —
+   cukup untuk memberi arah baca, tidak cukup untuk memperlambat scanning. */
 @utility reveal {
   animation: sf-fade-up var(--duration-transition) var(--easing) both;
+}
+
+@keyframes sf-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Animasi masuk blok halaman (kanvas desain: `shIn`). Sekali jalan saat
+   blok pertama tampil; jedanya diatur per blok lewat `animation-delay`.
+   Tunduk pada aturan prefers-reduced-motion global di §3. */
+@utility enter {
+  animation: sf-enter var(--duration-enter) var(--easing-enter) both;
+}
+
+@keyframes sf-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Menu melayang (akun, status, pemilih lokasi) muncul dari tombolnya. */
+@utility pop {
+  animation: sf-pop 220ms var(--easing-enter) both;
 }
 
 @keyframes sf-urgency-pulse {
@@ -454,4 +453,75 @@
 @keyframes sf-shimmer {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
+}
+
+/* =====================================================================
+   5. REVEAL SAAT DIGULIR (kanvas desain: `data-reveal`)
+   Elemen hanya disembunyikan SETELAH <RevealObserver> terpasang dan
+   menandai <html data-reveal-ready>. Tanpa JavaScript — atau kalau skrip
+   gagal dimuat — penanda itu tidak pernah ada dan semua konten tampil
+   biasa. Menyembunyikan konten di CSS sebelum JS terbukti jalan berarti
+   halaman kosong bagi pengunjung yang skripnya diblokir.
+   ===================================================================== */
+[data-reveal] {
+  transition:
+    opacity 1100ms var(--easing-enter),
+    transform 1100ms var(--easing-enter);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+html[data-reveal-ready] [data-reveal]:not([data-revealed]) {
+  opacity: 0;
+  transform: translateY(28px);
+}
+html[data-reveal-ready] [data-reveal='scale']:not([data-revealed]) {
+  transform: scale(0.96);
+}
+html[data-reveal-ready] [data-reveal='left']:not([data-revealed]) {
+  transform: translateX(-24px);
+}
+html[data-reveal-ready] [data-reveal='stamp']:not([data-revealed]) {
+  transform: scale(1.35);
+}
+html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-reveal-ready] [data-reveal]:not([data-revealed]) {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sf-word {
+  0% { opacity: 0; transform: translateY(0.45em); }
+  4%, 18% { opacity: 1; transform: none; }
+  23%, 100% { opacity: 0; transform: translateY(-0.45em); }
+}
+
+@keyframes sf-float {
+  from { transform: translateY(0); }
+  to { transform: translateY(-12px); }
+}
+
+@keyframes sf-rise {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes sf-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes sf-marquee-reverse {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sf-pulse-ring {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(2.6); opacity: 0; }
 }

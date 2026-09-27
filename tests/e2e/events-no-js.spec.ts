@@ -14,7 +14,8 @@ test('filter /events lewat form & chip: URL kanonik, hasil tersaring, berfungsi 
     const filters = page.getByRole('region', { name: 'Filter kegiatan' });
     await filters.getByRole('link', { name: 'Beasiswa', exact: true }).click();
     await expect(page).toHaveURL(/type=BEASISWA/);
-    await expect(filters.getByRole('link', { name: 'Beasiswa', exact: true })).toHaveAttribute('aria-current', 'true');
+    // Satu jenis = tata letak khas jenisnya (ADR-039); penandanya pindah ke tab navbar.
+    await expect(page.getByRole('navigation', { name: 'Navigasi utama' }).getByRole('link', { name: 'Beasiswa', exact: true })).toHaveAttribute('aria-current', 'page');
 
     await page.getByLabel('Kata kunci pencarian').fill('zzz-tidak-ada-kegiatan-seperti-ini');
     await page.getByRole('button', { name: 'Cari' }).click();

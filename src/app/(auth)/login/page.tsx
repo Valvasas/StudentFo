@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { signInAction } from '@/app/auth/actions';
+import { AuthDivider, AuthField, AuthHeading, AuthInput } from '@/components/auth/auth-field';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
+import { AuthModeSwitch } from '@/components/auth/auth-mode-switch';
 import { DemoLogin } from '@/components/auth/demo-login';
 import { GoogleButton } from '@/components/auth/google-button';
-import { Button } from '@/components/ui/button';
-import { Field, TextInput } from '@/components/ui/field';
+import { PasswordInput } from '@/components/auth/password-input';
 import { getSessionUser } from '@/lib/auth';
 import { dataMode } from '@/lib/env';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -20,11 +21,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<RawSearchParams>;
-}) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
   const next = safeNextPath(params.next);
 
@@ -32,14 +29,20 @@ export default async function LoginPage({
   // dilempar ke tujuan, bukan disuruh masuk dua kali.
   if (await getSessionUser()) redirect(next);
 
+  const heading = (
+    <AuthHeading
+      title="Selamat datang kembali"
+      subtitle="Masuk untuk melihat kegiatan tersimpan dan pengingat tenggatmu."
+    />
+  );
+
   // Mode demo: form email/Google tidak punya backend dan pasti gagal.
   // Yang ditampilkan adalah jalur yang benar-benar berfungsi.
   if (dataMode === 'seed') {
     return (
       <>
-        <header>
-          <h1 className="text-3xl">Masuk</h1>
-        </header>
+        {heading}
+        <AuthModeSwitch mode="login" next={next} />
         <AuthFeedback params={params} />
         <DemoLogin next={next} />
       </>
@@ -50,29 +53,16 @@ export default async function LoginPage({
 
   return (
     <>
-      <header>
-        <h1 className="text-3xl">Masuk</h1>
-        <p className="mt-2 text-ink-soft">
-          Simpan peluang yang kamu incar dan atur bidang minatmu supaya urutan kegiatan lebih
-          relevan.
-        </p>
-      </header>
-
+      {heading}
+      <AuthModeSwitch mode="login" next={next} />
       <AuthFeedback params={params} />
-
       <GoogleButton next={next} label="Masuk dengan Google" />
-
-      <div className="flex items-center gap-3">
-        <span aria-hidden className="h-px flex-1 bg-line" />
-        <span className="text-xs text-ink-muted">atau pakai email</span>
-        <span aria-hidden className="h-px flex-1 bg-line" />
-      </div>
+      <AuthDivider />
 
       <form action={signInAction} className="flex flex-col gap-4">
         <input type="hidden" name="next" value={next} />
-
-        <Field id="email" label="Email">
-          <TextInput
+        <AuthField id="email" label="Email">
+          <AuthInput
             id="email"
             name="email"
             type="email"
@@ -82,41 +72,31 @@ export default async function LoginPage({
             maxLength={254}
             placeholder="nama@kampus.ac.id"
           />
-        </Field>
-
-        <Field id="password" label="Kata sandi">
-          <TextInput
-            id="password"
-            name="password"
-            type="password"
-            // autoComplete yang benar menentukan apakah pengelola kata sandi
-            // menawarkan isian yang tepat — dan pengelola kata sandi adalah
-            // pertahanan paling efektif terhadap pemakaian ulang sandi.
-            autoComplete="current-password"
-            required
-            maxLength={72}
-          />
-        </Field>
-
-        <Button type="submit" size="lg" className="w-full">
+        </AuthField>
+        <AuthField
+          id="password"
+          label="Kata sandi"
+          aside={
+            <Link
+              href="/forgot-password"
+              className="inline-flex min-h-11 items-center text-[13.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
+            >
+              Lupa kata sandi?
+            </Link>
+          }
+        >
+          {/* autoComplete yang benar menentukan apakah pengelola kata sandi
+              menawarkan isian yang tepat — pertahanan paling efektif
+              terhadap pemakaian ulang sandi. */}
+          <PasswordInput id="password" name="password" autoComplete="current-password" required maxLength={72} placeholder="Kata sandi kamu" />
+        </AuthField>
+        <button
+          type="submit"
+          className="mt-2 flex h-[46px] items-center justify-center rounded-sm bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
+        >
           Masuk
-        </Button>
+        </button>
       </form>
-
-      <div className="flex flex-col gap-2 text-sm">
-        <Link href="/forgot-password" className="text-brand-text hover:underline">
-          Lupa kata sandi?
-        </Link>
-        <p className="text-ink-muted">
-          Belum punya akun?{' '}
-          <Link
-            href={next === '/' ? '/register' : `/register?next=${encodeURIComponent(next)}`}
-            className="font-medium text-brand-text hover:underline"
-          >
-            Daftar gratis
-          </Link>
-        </p>
-      </div>
     </>
   );
 }

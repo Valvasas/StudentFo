@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  daysLeftLabel,
+  formatShortDateId,
+  jakartaDateParts,
   formatTimeId,
   buildDeadlineWeek,
   daysUntil,
@@ -126,5 +129,29 @@ describe('formatTimeId', () => {
   it('jam WIB, bukan jam server', () => {
     expect(formatTimeId('2026-09-26T07:30:00Z')).toBe('14.30 WIB');
     expect(formatTimeId('bukan tanggal')).toBe('waktu tidak valid');
+  });
+});
+
+describe('daysLeftLabel', () => {
+  it('memakai kalimat sehari-hari, bukan H-n', () => {
+    expect(daysLeftLabel(null)).toBe('Tanggal TBA');
+    expect(daysLeftLabel(-3)).toBe('Ditutup');
+    expect(daysLeftLabel(0)).toBe('Tutup hari ini');
+    expect(daysLeftLabel(1)).toBe('Tutup besok');
+    expect(daysLeftLabel(12)).toBe('12 hari lagi');
+  });
+});
+
+describe('tanggal kalender WIB', () => {
+  it('tenggat 01:00 WIB tetap tanggal WIB, bukan tanggal UTC kemarin', () => {
+    // 12 Okt 2026 01:00 WIB = 11 Okt 2026 18:00 UTC.
+    const iso = '2026-10-11T18:00:00Z';
+    expect(jakartaDateParts(iso)).toMatchObject({ day: '12', month: 'Oktober', year: '2026', weekday: 'Senin' });
+    expect(formatShortDateId(iso)).toBe('12 Okt');
+  });
+
+  it('nilai rusak tidak melempar', () => {
+    expect(jakartaDateParts('bukan-tanggal')).toBeNull();
+    expect(formatShortDateId('bukan-tanggal')).toBe('–');
   });
 });

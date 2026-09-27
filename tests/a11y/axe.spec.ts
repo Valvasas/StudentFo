@@ -23,6 +23,7 @@ const STATIC_ROUTES = [
   '/forgot-password',
   '/tracker',
   '/profile',
+  '/privacy-policy',
   '/halaman-yang-tidak-ada',
 ];
 
@@ -88,8 +89,28 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/tracker'],
   ['Mahasiswa', '/profile'],
   ['Mahasiswa', '/teams'],
+  ['Mahasiswa', '/profile/details'],
+  ['Mahasiswa', '/profile/details?ubah=pendidikan'],
+  ['Mahasiswa', '/profile/interests'],
+  ['Mahasiswa', '/profile/settings'],
+  ['Mahasiswa', '/profile/privacy'],
+  ['Mahasiswa', '/messages'],
+  ['Mahasiswa', '/discussions'],
   ['Siswa baru', '/profile'],
 ];
+
+test('tanpa pelanggaran WCAG: status pendaftaran & persiapan', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/events');
+  const href = await page.locator('main a[href^="/events/"]').first().getAttribute('href');
+  await page.goto(href!);
+  await page.getByRole('button', { name: 'Simpan ke Tracker' }).first().click();
+  await expect(page.getByRole('button', { name: 'Tersimpan di Tracker' }).first()).toBeVisible();
+  const slug = href!.split('/')[2];
+  await page.goto(`/tracker/${slug}`);
+  await expectNoViolations(page);
+  await page.goto(`/events/${slug}/persiapan?langkah=1`);
+  await expectNoViolations(page);
+});
 
 for (const [persona, route] of SIGNED_IN_ROUTES) {
   test(`tanpa pelanggaran WCAG (${persona}): ${route}`, async ({ page }) => {

@@ -116,6 +116,8 @@ interface ListingFetch {
   readonly types: readonly string[];
   readonly levels: readonly string[];
   readonly categories: readonly string[];
+  readonly locations: readonly string[];
+  readonly mode: 'online' | 'onsite' | null;
   readonly sort: 'deadline' | 'newest' | 'relevance';
   readonly from: number;
   readonly to: number;
@@ -177,6 +179,8 @@ export class SupabaseEventRepository implements EventRepository {
       types: sortedCopy(query.types),
       levels: sortedCopy(query.levels),
       categories: sortedCopy(query.categories),
+      locations: sortedCopy(query.locations),
+      mode: query.mode ?? null,
       sort,
       from,
       to,
@@ -917,6 +921,8 @@ async function queryListingPage(filters: ListingFetch): Promise<ListingPage> {
   if (filters.types.length) builder = builder.in('event_type', [...filters.types]);
   if (filters.levels.length) builder = builder.overlaps('education_levels', [...filters.levels]);
   if (filters.categories.length) builder = builder.overlaps('category_slugs', [...filters.categories]);
+  if (filters.locations.length) builder = builder.in('location', [...filters.locations]);
+  if (filters.mode) builder = builder.eq('is_online', filters.mode === 'online');
 
   builder =
     filters.sort === 'deadline'

@@ -1,58 +1,64 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Lock } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { EVENT_TYPE_NAV, eventTypeHref, eventTypeNavFor } from '@/lib/event-type-nav';
+import type { EventType } from '@/types/domain';
 import { cn } from '@/lib/utils';
 
-export interface NavItem {
-  href: string;
-  label: string;
-  locked: boolean;
-}
+const LANDING_LINKS = [
+  { href: '/#cara-kerja', label: 'Cara pakai' },
+  { href: '/#fitur', label: 'Fitur' },
+] as const;
 
 /**
- * Tautan navigasi utama.
+ * Tab kategori navbar.
  *
- * Ini satu-satunya bagian navbar yang jadi Client Component, dan hanya
- * karena penanda "halaman aktif" butuh `usePathname()`. Sisa navbar
- * (menu akun, pengalih tema) tetap dirender di server.
+ * Satu-satunya bagian navbar yang jadi Client Component, dan hanya karena
+ * penanda "halaman aktif" butuh `usePathname()` + query `type`. Di beranda
+ * ada dua tautan jangkar tambahan (Cara pakai, Fitur) seperti kanvas desain.
  *
- * Penanda aktif memakai garis bawah + warna + `aria-current`, bukan warna
- * saja: pengguna dengan defisiensi penglihatan warna tidak menerima
- * informasi "yang biru itu halaman sekarang".
+ * Penanda aktif = garis bawah + warna + `aria-current`, bukan warna saja.
  */
-export function NavLinks({ items }: { items: readonly NavItem[] }) {
+export function NavLinks() {
   const pathname = usePathname();
+  const params = useSearchParams();
+  const active = pathname === '/events' ? eventTypeNavFor(params.getAll('type') as EventType[]) : null;
 
+  return <NavLinkList pathname={pathname} activeKey={active?.key ?? null} />;
+}
+
+/** Versi tanpa hook, untuk fallback Suspense saat prerender. */
+export function NavLinkList({ pathname, activeKey }: { pathname: string | null; activeKey: EventType | null }) {
   return (
     <>
-      {items.map((item) => {
-        const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-
+      {pathname === '/' &&
+        LANDING_LINKS.map((link) => (
+          <Link key={link.href} href={link.href} className={linkClass(false)}>
+            {link.label}
+          </Link>
+        ))}
+      {EVENT_TYPE_NAV.map((item) => {
+        const isActive = item.key === activeKey;
         return (
           <Link
-            key={item.href}
-            href={item.href}
+            key={item.key}
+            href={eventTypeHref(item)}
             aria-current={isActive ? 'page' : undefined}
-            className={cn(
-              'inline-flex min-h-11 items-center gap-1.5 border-b-2 px-2 text-sm font-medium sm:px-3',
-              'transition-colors duration-150 ease-snap',
-              isActive
-                ? 'border-brand text-brand-text'
-                : 'border-transparent text-ink-soft hover:text-ink',
-            )}
+            className={linkClass(isActive)}
           >
             {item.label}
-            {item.locked && (
-              <>
-                <Lock aria-hidden className="size-3 text-ink-faint" />
-                <span className="sr-only">(perlu masuk)</span>
-              </>
-            )}
           </Link>
         );
       })}
     </>
+  );
+}
+
+function linkClass(isActive: boolean): string {
+  return cn(
+    'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-3 text-sm font-medium md:h-16',
+    'transition-colors duration-150 ease-snap',
+    isActive ? 'text-ink shadow-[inset_0_-2px_0_var(--color-text-primary)]' : 'text-ink-muted hover:text-ink',
   );
 }
