@@ -28,6 +28,15 @@ const serverSchema = z.object({
   /** Kunci HMAC untuk ember pembatas laju (IP tidak pernah disimpan mentah). */
   RATE_LIMIT_SECRET: z.string().min(32).optional(),
   /**
+   * Header IP klien yang ditulis platform (mis. `cf-connecting-ip`). Kosong =
+   * entri terakhir `x-forwarded-for` (benar untuk Vercel & satu lapis proxy).
+   * Lihat `clientIpFrom()` — salah isi di sini = batas per-IP bisa dipalsukan.
+   */
+  CLIENT_IP_HEADER: z
+    .string()
+    .regex(/^[a-z0-9-]{1,64}$/i, 'nama header saja, mis. cf-connecting-ip')
+    .optional(),
+  /**
    * Cloudflare Turnstile di /submit. Keduanya diisi, atau keduanya kosong (CAPTCHA mati).
    * Sengaja TANPA awalan NEXT_PUBLIC_: nilai berawalan itu dibekukan saat build,
    * padahal kunci ini hanya dibaca server dan harus bisa diganti tanpa build ulang.
@@ -59,6 +68,7 @@ function readEnv(): ServerEnv {
     ALLOW_DEMO_IN_PRODUCTION: process.env.ALLOW_DEMO_IN_PRODUCTION || undefined,
     DEMO_SESSION_SECRET: process.env.DEMO_SESSION_SECRET || undefined,
     RATE_LIMIT_SECRET: process.env.RATE_LIMIT_SECRET || undefined,
+    CLIENT_IP_HEADER: process.env.CLIENT_IP_HEADER || undefined,
     TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY || undefined,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY || undefined,
   });
