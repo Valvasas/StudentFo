@@ -1,5 +1,6 @@
 import { Check, Ellipsis, UserPlus } from 'lucide-react';
 import { removeConnectionAction, requestConnectionAction, respondConnectionAction, unblockPersonAction } from '@/app/connections/actions';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { initialsOf } from '@/lib/initials';
 import { daysAgoLabel, personMeta } from '@/lib/network';
 import { cn } from '@/lib/utils';
@@ -98,10 +99,10 @@ export function SuggestionCard({
         <input type="hidden" name="returnTo" value={returnTo} />
         <input type="hidden" name="targetId" value={person.userId} />
         <ConnectionMessageField idPrefix={`saran-${person.userId}`} />
-        <button type="submit" className={primary}>
+        <SubmitButton className={primary}>
           <UserPlus aria-hidden className="size-4" /> Hubungkan
           <span className="sr-only"> dengan {person.fullName}</span>
-        </button>
+        </SubmitButton>
       </form>
     </article>
   );
@@ -139,17 +140,17 @@ export function IncomingRequestCard({
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="connectionId" value={connection.id} />
           <input type="hidden" name="decision" value="accept" />
-          <button type="submit" className={cn(primary, 'flex-1')}>
+          <SubmitButton className={cn(primary, 'flex-1')}>
             <Check aria-hidden className="size-4" /> Terima<span className="sr-only"> ajakan {person.fullName}</span>
-          </button>
+          </SubmitButton>
         </form>
         <form action={respondConnectionAction} className="flex flex-1">
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="connectionId" value={connection.id} />
           <input type="hidden" name="decision" value="decline" />
-          <button type="submit" className={cn(secondary, 'flex-1')}>
+          <SubmitButton className={cn(secondary, 'flex-1')}>
             Tolak<span className="sr-only"> ajakan {person.fullName}</span>
-          </button>
+          </SubmitButton>
         </form>
       </div>
       <BlockPersonDetails targetId={person.userId} name={person.fullName} returnTo={returnTo} className="-mb-2 -mt-1" />
@@ -186,9 +187,9 @@ export function ConnectionRow({ connection, returnTo, now }: { connection: Conne
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="connectionId" value={connection.id} />
             <input type="hidden" name="kind" value="remove" />
-            <button type="submit" className={cn(secondary, 'w-full')}>
+            <SubmitButton className={cn(secondary, 'w-full')}>
               Ya, putuskan
-            </button>
+            </SubmitButton>
           </form>
           <p className="mt-1 border-t border-line pt-3 text-[13px] leading-snug">
             Atau blokir {person.fullName}? <span className="text-ink-muted">{BLOCK_CONSEQUENCE}</span>
@@ -213,9 +214,9 @@ export function OutgoingRow({ connection, returnTo, now }: { connection: Connect
         <input type="hidden" name="returnTo" value={returnTo} />
         <input type="hidden" name="connectionId" value={connection.id} />
         <input type="hidden" name="kind" value="cancel" />
-        <button type="submit" className="flex min-h-11 items-center rounded-sm px-2.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink">
+        <SubmitButton className="flex min-h-11 items-center rounded-sm px-2.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink">
           Batalkan<span className="sr-only"> ajakan ke {person.fullName}</span>
-        </button>
+        </SubmitButton>
       </form>
     </li>
   );
@@ -232,13 +233,12 @@ export function BlockedRow({ person, returnTo, now }: { person: BlockedPerson; r
       <form action={unblockPersonAction}>
         <input type="hidden" name="returnTo" value={returnTo} />
         <input type="hidden" name="targetId" value={person.userId} />
-        <button
-          type="submit"
+        <SubmitButton
           aria-label={`Buka blokir ${person.fullName}`}
           className="flex min-h-11 items-center rounded-sm px-2.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink"
         >
           Buka blokir
-        </button>
+        </SubmitButton>
       </form>
     </li>
   );

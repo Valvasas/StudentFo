@@ -41,6 +41,14 @@ for (const route of ROUTES) {
   });
 }
 
+test('rute dinamis berakhiran ekstensi gambar tetap mendapat CSP (dulu lolos matcher)', async ({ request }) => {
+  for (const path of ['/events/tidak-ada.png', '/teams/x.svg', '/halaman.jpg']) {
+    const response = await request.get(path);
+    expect(response.headers()['content-type'] ?? '', path).toContain('text/html');
+    expect(response.headers()['content-security-policy'] ?? '', path).toContain("'strict-dynamic'");
+  }
+});
+
 test('nonce berbeda di setiap request', async ({ request }) => {
   const [a, b] = await Promise.all([request.get('/'), request.get('/')]);
   expect(a.headers()['content-security-policy']).not.toEqual(b.headers()['content-security-policy']);

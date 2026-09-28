@@ -5,6 +5,7 @@ import { ArrowUpRight, Check, UserPlus, Users, X } from 'lucide-react';
 import { removeConnectionAction, requestConnectionAction, respondConnectionAction } from '@/app/connections/actions';
 import { initialsOf } from '@/lib/initials';
 import type { GraphNode } from '@/lib/network-graph';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { cn } from '@/lib/utils';
 import { BlockPersonDetails } from './block-person';
 import { ConnectionMessageField } from './connection-message-field';
@@ -88,17 +89,17 @@ export function GraphDetail({
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="connectionId" value={person.connectionId} />
             <input type="hidden" name="decision" value="accept" />
-            <button type="submit" className={cn(primary, 'flex-1')}>
+            <SubmitButton className={cn(primary, 'flex-1')}>
               <Check aria-hidden className="size-4" /> Terima
-            </button>
+            </SubmitButton>
           </form>
           <form action={respondConnectionAction} className="flex flex-1">
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="connectionId" value={person.connectionId} />
             <input type="hidden" name="decision" value="decline" />
-            <button type="submit" className={cn(secondary, 'flex-1')}>
+            <SubmitButton className={cn(secondary, 'flex-1')}>
               Tolak
-            </button>
+            </SubmitButton>
           </form>
         </div>
       )}
@@ -108,9 +109,9 @@ export function GraphDetail({
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="targetId" value={person.userId} />
           <ConnectionMessageField idPrefix={`peta-${person.userId}`} />
-          <button type="submit" className={primary}>
+          <SubmitButton className={primary}>
             <UserPlus aria-hidden className="size-4" /> Hubungkan
-          </button>
+          </SubmitButton>
         </form>
       )}
 
@@ -119,9 +120,9 @@ export function GraphDetail({
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="connectionId" value={person.connectionId} />
           <input type="hidden" name="kind" value="cancel" />
-          <button type="submit" className={cn(secondary, 'w-full')}>
+          <SubmitButton className={cn(secondary, 'w-full')}>
             Batalkan ajakan
-          </button>
+          </SubmitButton>
         </form>
       )}
 

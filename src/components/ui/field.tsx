@@ -1,8 +1,10 @@
-import type {
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
+import {
+  cloneElement,
+  isValidElement,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -52,13 +54,19 @@ export function Field({
   children: ReactNode;
 }) {
   const hintId = hint ? `${id}-hint` : undefined;
+  // Tanpa aria-describedby petunjuk hanya terlihat, tidak dibacakan pembaca
+  // layar — syarat seperti "berakhir 23.59 WIB" hilang bagi mereka.
+  const control =
+    hintId && isValidElement<{ 'aria-describedby'?: string }>(children) && !children.props['aria-describedby']
+      ? cloneElement(children, { 'aria-describedby': hintId })
+      : children;
 
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium text-ink-soft">
         {label}
       </label>
-      {children}
+      {control}
       {hint && (
         <p id={hintId} className="text-xs text-ink-muted">
           {hint}

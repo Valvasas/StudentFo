@@ -1,5 +1,6 @@
 import { Bookmark } from 'lucide-react';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { cn } from '@/lib/utils';
 
 export interface SaveButtonProps {
@@ -22,8 +23,7 @@ export function SaveButton({
       <form action={toggleSaveEventAction} className={className}>
         <input type="hidden" name="eventId" value={eventId} />
         <input type="hidden" name="returnTo" value={returnTo} />
-        <button
-          type="submit"
+        <SubmitButton
           className={cn(
             'flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-card px-3 text-sm font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested',
             isSaved && 'bg-panel-nested',
@@ -31,7 +31,7 @@ export function SaveButton({
         >
           <Bookmark aria-hidden className={cn('size-4', isSaved && 'fill-current')} />
           <span>{isSaved ? 'Tersimpan di Tracker' : 'Simpan ke Tracker'}</span>
-        </button>
+        </SubmitButton>
       </form>
     );
   }
@@ -40,10 +40,10 @@ export function SaveButton({
     <form action={toggleSaveEventAction} className={cn('inline-block', className)}>
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="returnTo" value={returnTo} />
-      <button
-        type="submit"
+      <SubmitButton
         className={cn(
-          'relative z-10 flex size-9 items-center justify-center rounded-pill border border-line bg-panel transition-colors duration-150 ease-snap',
+          // Tampil 36px, area sentuh 44px lewat ::after (standar proyek, lihat Button size="sm").
+          "relative z-10 flex size-9 items-center justify-center rounded-pill border border-line bg-panel transition-colors duration-150 ease-snap after:absolute after:-inset-1 after:content-['']",
           isSaved
             ? 'border-brand/40 bg-brand/10 text-brand hover:bg-brand/20'
             : 'text-ink-muted hover:border-line-strong hover:bg-panel-nested hover:text-ink',
@@ -55,7 +55,7 @@ export function SaveButton({
           aria-hidden
           className={cn('size-4', isSaved ? 'fill-brand text-brand' : 'text-current')}
         />
-      </button>
+      </SubmitButton>
     </form>
   );
 }
