@@ -85,5 +85,15 @@ export function seedDemoNetwork(userId: string): void {
   memoryRepository().seedDemoNetwork(userId);
 }
 
+/**
+ * Jadikan pengguna demo penyelenggara terverifikasi dengan tiga acara contoh
+ * dan riwayat analitik fiktif (persona "Penyelenggara"). Di produksi status
+ * ini hanya lahir dari keputusan admin.
+ */
+export function seedDemoOrganizer(user: { id: string; fullName: string; email: string }): void {
+  if (dataMode !== 'seed') throw new Error('seedDemoOrganizer hanya berlaku di mode seed.');
+  memoryRepository().seedDemoOrganizer(user);
+}
+
 export { dataMode };
 export type { EventRepository };

@@ -3,8 +3,8 @@ import { headers } from 'next/headers';
 import type { AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import type { RecommendationSignalInput } from '@/lib/data/repository';
-import { clientIpFrom, RATE_LIMITS } from '@/lib/rate-limit';
-import { isRateLimited } from '@/lib/rate-limit-server';
+import { RATE_LIMITS } from '@/lib/rate-limit';
+import { isRateLimited, requestClientIp } from '@/lib/rate-limit-server';
 import { isLikelyHumanAgent } from '@/lib/signal-filter';
 
 /**
@@ -20,7 +20,7 @@ export async function recordSignal(
   try {
     const requestHeaders = await headers();
     if (!isLikelyHumanAgent(requestHeaders.get('user-agent'))) return;
-    if (await isRateLimited(clientIpFrom(requestHeaders), [[RATE_LIMITS.signalPerIp]])) return;
+    if (await isRateLimited(requestClientIp(requestHeaders), [[RATE_LIMITS.signalPerIp]])) return;
 
     const repository = await getEventRepository();
     await repository.recordRecommendationSignal({

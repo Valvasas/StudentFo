@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, ExternalLink, X } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Check, ExternalLink, X } from 'lucide-react';
 import { reviewSubmissionAction } from '@/app/admin/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,17 +26,41 @@ function DecisionForm({ submissionId, decision }: { submissionId: string; decisi
  * lewat `sanitizeExternalUrl` (hanya http/https) dan `rel="nofollow noopener"`,
  * persis seperti tautan hasil scraping di halaman detail.
  */
-export function SubmissionReviewCard({ submission }: { submission: Submission }) {
+export function SubmissionReviewCard({
+  submission,
+  verifiedOrg = null,
+}: {
+  submission: Submission;
+  /** Nama lembaga bila pengirimnya penyelenggara TERVERIFIKASI saat ini. */
+  verifiedOrg?: string | null;
+}) {
   const { payload } = submission;
   const registrationUrl = payload ? sanitizeExternalUrl(payload.registrationLink) : null;
   const sourceUrl = payload?.sourceUrl ? sanitizeExternalUrl(payload.sourceUrl) : null;
+  const orgMismatch =
+    verifiedOrg && payload && payload.organizer.trim().toLowerCase() !== verifiedOrg.trim().toLowerCase();
 
   return (
     <li className="flex flex-col gap-4 rounded-card border border-line bg-panel p-5 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
         <span>Dikirim {formatDateId(submission.createdAt)} oleh {submission.submittedByEmail}</span>
-        {payload && <Badge variant="brand">{EVENT_TYPE_LABEL[payload.eventType]}</Badge>}
+        <span className="flex flex-wrap items-center gap-2">
+          {verifiedOrg && (
+            <Badge variant="success">
+              <BadgeCheck aria-hidden className="size-3.5" />
+              Penyelenggara terverifikasi: {verifiedOrg}
+            </Badge>
+          )}
+          {payload && <Badge variant="brand">{EVENT_TYPE_LABEL[payload.eventType]}</Badge>}
+        </span>
       </div>
+      {orgMismatch && (
+        <p className="flex items-start gap-2 rounded-card bg-caution-soft p-3 text-sm text-caution">
+          <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
+          Nama penyelenggara di kiriman berbeda dari lembaga terverifikasi pengirim. Kalau disetujui, acara ini tetap masuk
+          dasbor pengirim — pastikan memang acara lembaganya.
+        </p>
+      )}
 
       {payload ? (
         <div className="min-w-0">

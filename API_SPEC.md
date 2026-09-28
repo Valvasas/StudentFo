@@ -195,6 +195,28 @@ supaya yang diblokir tidak bisa menyimpulkan bahwa ia diblokir.
 `limit` dipotong ke 500). Angka di halaman diambil dari `countConnections()`,
 bukan dari panjang halaman.
 
+### Aksi penyelenggara — `src/app/penyelenggara/actions.ts` (ADR-042)
+
+| Aksi | Field form | Sukses (`?notice=`) | Gagal (`?error=`) |
+|---|---|---|---|
+| `applyOrganizerAction` | `orgName` (2–160), `website?` (https), `evidence` (20–1000), `returnTo` | `organizer_applied` | `invalid_organizer_application`, `organizer_revoked`, `organizer_rate_limited` |
+| `claimEventAction` | `eventId`, `evidence` (20–1000), `returnTo` | `claim_submitted` | `invalid_claim`, `organizer_not_verified`, `claim_exists`, `claim_already_managed`, `event_unavailable`, `organizer_rate_limited` |
+| `proposeRevisionAction` | `eventId`, `slug`, `registrationLink`, `deadlineDate?`, `description`, `location`, `isOnline`, `educationLevels[]`, `note?`, `returnTo` | `revision_submitted` | `not_event_manager`, `invalid_revision`, `revision_empty`, `revision_deadline`, `organizer_rate_limited` |
+
+Selisih revisi dihitung terhadap data acara SAAT INI di server
+(`buildRevisionChanges`), bukan nilai lama dari form.
+
+### Aksi admin penyelenggara — `src/app/admin/actions.ts` (ADR-042)
+
+| Aksi | Field form | Sukses | Gagal |
+|---|---|---|---|
+| `reviewOrganizerAction` | `userId`, `decision` (`VERIFIED`\|`REJECTED`\|`REVOKED`), `note` (wajib untuk tolak/cabut), `tab` | `organizer_reviewed` | `invalid_request`, `organizer_not_found`, `organizer_invalid_transition` |
+| `reviewClaimAction` | `claimId`, `decision` (`APPROVED`\|`REJECTED`), `note`, `tab` | `claim_reviewed` | `invalid_request`, `claim_not_found`, `organizer_not_verified` |
+| `reviewRevisionAction` | `revisionId`, `decision`, `note`, `tab` | `revision_reviewed` | `invalid_request`, `revision_not_found`, `revision_rejected_by_db` |
+
+Ketiganya memanggil `checkAdminAccess()` sendiri lalu RPC service_role;
+keputusan tercatat di `moderation_log` oleh trigger.
+
 ### Aksi akun — `src/app/auth/actions.ts`
 
 | Aksi | Field form | Sukses | Gagal |

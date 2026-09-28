@@ -17,6 +17,8 @@ import {
   type NetworkViewer,
   type SuggestionCandidate,
 } from '@/lib/network';
+import { type OrganizerApplicationInput, toStoredRevisionChanges } from '@/lib/organizer';
+import { parseEventAnalytics } from '@/lib/organizer-analytics';
 import { toStoredPayload } from '@/lib/submission-schema';
 import {
   createSupabaseAdminClient,
@@ -30,13 +32,20 @@ import type {
   ConnectionCounts,
   ConnectionPage,
   DeadlineDay,
+  EventAnalytics,
+  EventClaim,
   EventDetail,
   EventQuery,
+  EventRevision,
+  EventRevisionChanges,
   EventStatus,
   EventSummary,
+  ManagedEvent,
   ModerationLogEntry,
   NetworkEventRef,
   NetworkProfile,
+  OrganizerProfile,
+  OrganizerStatus,
   Paginated,
   PeopleSuggestion,
   Submission,
@@ -45,6 +54,7 @@ import type {
   TeamMember,
   TrackerItem,
   TrackerStatus,
+  TrustRequestStatus,
 } from '@/types/domain';
 import { toNotificationType } from '@/types/domain';
 import type {
@@ -52,12 +62,16 @@ import type {
   CategoryRow,
   ConnectionPairRow,
   ConnectionPeerRow,
+  EventClaimRow,
   EventDeadlineRow,
   EventDeadlineWithEventRow,
   EventListingRow,
+  EventManagerRow,
+  EventRevisionRow,
   ModerationLogRow,
   NetworkDirectoryRow,
   NetworkProfileRow,
+  OrganizerProfileRow,
   RecommendationSignalRow,
   NotificationRow,
   SubmissionRow,
@@ -83,21 +97,30 @@ import type {
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
   EventRepository,
+  OrganizerActor,
   PeopleFilter,
   RepositoryStats,
   ReviewEventInput,
   ReviewSubmissionInput,
+  ReviewTrustInput,
 } from './repository';
 import {
+  CLAIM_COLUMNS,
   DIRECTORY_COLUMNS,
   isUuid,
   keysetAfter,
   LISTING_COLUMNS,
+  ORGANIZER_COLUMNS,
+  organizerErrorCode,
   peopleSearchTerm,
+  REVISION_COLUMNS,
   sanitizeSearchQuery,
   sqlState,
   toDetail,
+  toEventClaim,
+  toEventRevision,
   toModerationLogEntry,
+  toOrganizerProfile,
   toSubmission,
   toSummary,
   toConnection,
@@ -128,6 +151,15 @@ const PEER_COLUMNS =
   'connection_id, status, message, created_at, responded_at, is_outgoing, peer_id, full_name, headline, education_level, major, interests';
 /** Kalibrasi dijalankan manual dan jarang; batas ini hanya pengaman memori. */
 const CALIBRATION_ROW_LIMIT = 50_000;
+const MANAGED_EVENTS_LIMIT = 200;
+/** Riwayat klaim/perubahan milik sendiri — yang lebih lama tetap ada di log admin. */
+const TRUST_LIST_LIMIT = 50;
+
+/** Penolakan yang dikenal dari trigger/RPC penyelenggara → kode aksi; sisanya 500. */
+function organizerFailure(error: PostgrestError, message: string): AppError {
+  const code = organizerErrorCode(error);
+  return code ? actionError(code) : upstreamFailure(message, error, 500);
+}
 
 /**
  * Baca semua baris per halaman `range()`. `.limit(50_000)` saja TIDAK cukup:
@@ -360,7 +392,7 @@ export class SupabaseEventRepository implements EventRepository {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from('ugc_submissions')
-      .select('id, submitted_by_email, payload, status, created_at')
+      .select('id, submitted_by_email, submitted_by, payload, status, created_at')
       .eq('status', status)
       .order('created_at', { ascending: true })
       .limit(limit)
@@ -1198,6 +1230,317 @@ export class SupabaseEventRepository implements EventRepository {
         ? [{ userId: row.user_id, teamId: row.team_id, event: { id: event.id, slug: event.slug, title: event.title, eventType: event.eventType } }]
         : [];
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Penyelenggara & analitik (ADR-042/043)
+  //
+  // Operasi pemilik lewat klien pengguna — RLS, hak per kolom, dan trigger
+  // di migration 20260928110001 yang menegakkan aturannya; pemeriksaan di
+  // sini hanya untuk pesan yang ramah. Antrean & keputusan admin lewat
+  // service_role, dipanggil HANYA setelah checkAdminAccess().
+  // ------------------------------------------------------------------
+
+  private async orgNamesOf(
+    supabase: ReturnType<typeof createSupabaseAdminClient>,
+    userIds: readonly string[],
+  ): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    for (const part of chunks([...new Set(userIds)].filter(isUuid), IN_CHUNK)) {
+      const { data, error } = await supabase
+        .from('organizer_profiles')
+        .select('user_id, org_name')
+        .in('user_id', part)
+        .returns<Pick<OrganizerProfileRow, 'user_id' | 'org_name'>[]>();
+      if (error) throw upstreamFailure('Gagal memuat nama lembaga.', error);
+      for (const row of data) names.set(row.user_id, row.org_name);
+    }
+    return names;
+  }
+
+  async getOrganizerProfile(userId: string): Promise<OrganizerProfile | null> {
+    if (!isUuid(userId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('organizer_profiles')
+      .select(ORGANIZER_COLUMNS)
+      .eq('user_id', userId)
+      .maybeSingle<OrganizerProfileRow>();
+    if (error) throw upstreamFailure('Gagal memuat profil penyelenggara.', error);
+    return data ? toOrganizerProfile(data) : null;
+  }
+
+  async applyAsOrganizer(actor: OrganizerActor, input: OrganizerApplicationInput): Promise<void> {
+    const existing = await this.getOrganizerProfile(actor.id);
+    if (existing?.status === 'REVOKED') throw actionError('organizer_revoked');
+    if (
+      existing &&
+      existing.orgName === input.orgName &&
+      existing.website === input.website &&
+      existing.evidence === input.evidence
+    ) {
+      return;
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const fields = { org_name: input.orgName, website: input.website, evidence: input.evidence };
+    // Status tidak dikirim: kolomnya tidak termasuk hak tulis klien, dan
+    // trigger mengembalikannya ke PENDING bila identitas berubah.
+    const { error } = existing
+      ? await supabase.from('organizer_profiles').update(fields).eq('user_id', actor.id)
+      : await supabase.from('organizer_profiles').insert({ user_id: actor.id, ...fields });
+    if (error) throw organizerFailure(error, 'Gagal menyimpan pengajuan penyelenggara.');
+  }
+
+  async listManagedEvents(userId: string): Promise<readonly ManagedEvent[]> {
+    if ((await this.getOrganizerProfile(userId))?.status !== 'VERIFIED') return [];
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_managers')
+      .select('event_id, source, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(MANAGED_EVENTS_LIMIT)
+      .returns<EventManagerRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat acara yang dikelola.', error);
+
+    const events = await this.fetchSummariesByIds(data.map((row) => row.event_id));
+    return data.flatMap((row) => {
+      const event = events.get(row.event_id);
+      return event ? [{ event, source: row.source, since: row.created_at }] : [];
+    });
+  }
+
+  async claimEvent(actorId: string, eventId: string, evidence: string): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('event_unavailable');
+    if ((await this.getOrganizerProfile(actorId))?.status !== 'VERIFIED') throw actionError('organizer_not_verified');
+    const supabase = await createSupabaseServerClient();
+
+    const managed = await supabase
+      .from('event_managers')
+      .select('event_id')
+      .eq('event_id', eventId)
+      .eq('user_id', actorId)
+      .maybeSingle();
+    if (managed.error) throw upstreamFailure('Gagal memeriksa klaim.', managed.error);
+    if (managed.data) throw actionError('claim_already_managed');
+
+    const { error } = await supabase.from('event_claims').insert({ event_id: eventId, user_id: actorId, evidence });
+    if (!error) return;
+    // 23505 = idx_event_claims_one_pending; 42501 = policy (acara tidak tayang).
+    if (sqlState(error) === '23505') throw actionError('claim_exists');
+    if (sqlState(error) === '42501' || sqlState(error) === '23503') throw actionError('event_unavailable');
+    throw organizerFailure(error, 'Gagal mengirim klaim.');
+  }
+
+  async listMyClaims(userId: string): Promise<readonly EventClaim[]> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_claims')
+      .select(CLAIM_COLUMNS)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(TRUST_LIST_LIMIT)
+      .returns<EventClaimRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat klaim.', error);
+    const profile = await this.getOrganizerProfile(userId);
+    const names = new Map<string, string>(profile ? [[userId, profile.orgName]] : []);
+    return data.map((row) => toEventClaim(row, names));
+  }
+
+  async proposeEventRevision(
+    actorId: string,
+    eventId: string,
+    changes: EventRevisionChanges,
+    note: string | null,
+  ): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('event_revisions').insert({
+      event_id: eventId,
+      proposed_by: actorId,
+      changes: toStoredRevisionChanges(changes),
+      note,
+    });
+    if (!error) return;
+    // 42501 = policy `manages_event()`: bukan pengelola, atau verifikasi dicabut.
+    if (sqlState(error) === '42501') throw actionError('not_event_manager');
+    if (sqlState(error) === '23514') throw actionError('invalid_revision');
+    throw organizerFailure(error, 'Gagal mengirim permintaan perubahan.');
+  }
+
+  async listEventRevisions(actorId: string, eventId: string): Promise<readonly EventRevision[]> {
+    if (!isUuid(eventId)) return [];
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_revisions')
+      .select(REVISION_COLUMNS)
+      .eq('event_id', eventId)
+      .eq('proposed_by', actorId)
+      .order('created_at', { ascending: false })
+      .limit(TRUST_LIST_LIMIT)
+      .returns<EventRevisionRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat riwayat perubahan.', error);
+    const profile = await this.getOrganizerProfile(actorId);
+    const names = new Map<string, string>(profile ? [[actorId, profile.orgName]] : []);
+    return data.flatMap((row) => toEventRevision(row, names) ?? []);
+  }
+
+  async getEventAnalytics(_actorId: string, eventId: string, days: number): Promise<EventAnalytics> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    // Klien pengguna: `event_analytics()` memeriksa manages_event() atas
+    // auth.uid() pemanggil — actorId dari aplikasi tidak dipercaya di sini.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('event_analytics', { p_event: eventId, p_days: days });
+    if (error) {
+      if (sqlState(error) === '42501') throw actionError('not_event_manager');
+      throw organizerFailure(error, 'Gagal memuat analitik acara.');
+    }
+    const analytics = parseEventAnalytics(data);
+    if (!analytics) throw upstreamFailure('Bentuk analitik acara tidak dikenali.', data, 500);
+    return analytics;
+  }
+
+  async recordEventView(eventId: string, visitorHash: string): Promise<void> {
+    if (!isUuid(eventId) || !/^[0-9a-f]{64}$/.test(visitorHash)) return;
+    const { error } = await createSupabaseAdminClient().rpc('record_event_view', {
+      p_event: eventId,
+      p_visitor_hash: visitorHash,
+    });
+    if (error) throw upstreamFailure('Gagal mencatat kunjungan.', error, 500);
+  }
+
+  async listVerifiedOrganizers(eventIds: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    const result = new Map<string, string>();
+    // Klien publik: view-nya memang untuk anon, dan tanpa cookie.
+    const supabase = createSupabasePublicClient();
+    for (const part of chunks([...new Set(eventIds)].filter(isUuid), IN_CHUNK)) {
+      const { data, error } = await supabase
+        .from('verified_event_organizers')
+        .select('event_id, org_name')
+        .in('event_id', part)
+        .returns<{ event_id: string; org_name: string }[]>();
+      // Lencana hiasan kepercayaan, bukan jalur kritis: gagal = tanpa lencana.
+      if (error) {
+        console.error('[organizer] verified_event_organizers gagal:', error);
+        return result;
+      }
+      for (const row of data) if (!result.has(row.event_id)) result.set(row.event_id, row.org_name);
+    }
+    return result;
+  }
+
+  async listOrganizerApplications(status: OrganizerStatus, limit: number): Promise<readonly OrganizerProfile[]> {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('organizer_profiles')
+      // Dua FK ke users (user_id, reviewed_by) → embed wajib menyebut FK-nya.
+      .select(`${ORGANIZER_COLUMNS}, applicant:users!organizer_profiles_user_id_fkey(full_name, email)`)
+      .eq('status', status)
+      .order('created_at', { ascending: true })
+      .limit(limit)
+      .returns<OrganizerProfileRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat antrean penyelenggara.', error);
+    return data.map(toOrganizerProfile);
+  }
+
+  async reviewOrganizer({
+    userId,
+    decision,
+    reviewerId,
+    note,
+  }: ReviewTrustInput<'VERIFIED' | 'REJECTED' | 'REVOKED'> & { userId: string }): Promise<void> {
+    if (!isUuid(userId)) throw actionError('organizer_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('review_organizer', {
+      p_user_id: userId,
+      p_decision: decision,
+      p_reviewer: reviewerId,
+      p_note: note,
+    });
+    if (error) throw organizerFailure(error, 'Gagal menyimpan keputusan penyelenggara.');
+  }
+
+  async listClaims(status: TrustRequestStatus, limit: number): Promise<readonly EventClaim[]> {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('event_claims')
+      .select(CLAIM_COLUMNS)
+      .eq('status', status)
+      .order('created_at', { ascending: true })
+      .limit(limit)
+      .returns<EventClaimRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat antrean klaim.', error);
+    const names = await this.orgNamesOf(supabase, data.map((row) => row.user_id));
+    return data.map((row) => toEventClaim(row, names));
+  }
+
+  async reviewClaim({
+    claimId,
+    decision,
+    reviewerId,
+    note,
+  }: ReviewTrustInput<'APPROVED' | 'REJECTED'> & { claimId: string }): Promise<void> {
+    if (!isUuid(claimId)) throw actionError('claim_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('review_event_claim', {
+      p_claim_id: claimId,
+      p_decision: decision,
+      p_reviewer: reviewerId,
+      p_note: note,
+    });
+    if (error) throw organizerFailure(error, 'Gagal menyimpan keputusan klaim.');
+  }
+
+  async listRevisions(status: TrustRequestStatus, limit: number): Promise<readonly EventRevision[]> {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('event_revisions')
+      .select(REVISION_COLUMNS)
+      .eq('status', status)
+      .order('created_at', { ascending: true })
+      .limit(limit)
+      .returns<EventRevisionRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat antrean perubahan acara.', error);
+    const names = await this.orgNamesOf(supabase, data.map((row) => row.proposed_by));
+    return data.flatMap((row) => toEventRevision(row, names) ?? []);
+  }
+
+  async reviewRevision({
+    revisionId,
+    decision,
+    reviewerId,
+    note,
+  }: ReviewTrustInput<'APPROVED' | 'REJECTED'> & { revisionId: string }): Promise<void> {
+    if (!isUuid(revisionId)) throw actionError('revision_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('review_event_revision', {
+      p_revision_id: revisionId,
+      p_decision: decision,
+      p_reviewer: reviewerId,
+      p_note: note,
+    });
+    if (!error) return;
+    // Nilai JSONB yang tidak bisa di-cast (mis. jenjang tak dikenal) = baris
+    // yang ditulis di luar aplikasi; jawabannya tetap "tolak permintaan ini".
+    if (sqlState(error) === '22P02' || sqlState(error) === '22007' || sqlState(error) === '23514') {
+      throw actionError('revision_rejected_by_db');
+    }
+    throw organizerFailure(error, 'Gagal menyimpan keputusan perubahan acara.');
+  }
+
+  async listOrganizerStatuses(
+    userIds: readonly string[],
+  ): Promise<ReadonlyMap<string, Pick<OrganizerProfile, 'orgName' | 'status'>>> {
+    const result = new Map<string, Pick<OrganizerProfile, 'orgName' | 'status'>>();
+    const supabase = createSupabaseAdminClient();
+    for (const part of chunks([...new Set(userIds)].filter(isUuid), IN_CHUNK)) {
+      const { data, error } = await supabase
+        .from('organizer_profiles')
+        .select('user_id, org_name, status')
+        .in('user_id', part)
+        .returns<Pick<OrganizerProfileRow, 'user_id' | 'org_name' | 'status'>[]>();
+      if (error) throw upstreamFailure('Gagal memuat status penyelenggara.', error);
+      for (const row of data) result.set(row.user_id, { orgName: row.org_name, status: row.status });
+    }
+    return result;
   }
 
   async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {

@@ -239,6 +239,37 @@ antara keduanya (tanpa syarat ini, blokir UUID sembarang + `blocked_people`
 
 Uji: `supabase/tests/96_connection_blocks.test.sql`.
 
+### `organizer_profiles`, `event_managers`, `event_claims`, `event_revisions` (Penyelenggara — ADR-042)
+`organizer_profiles`: `user_id` PK, `org_name` 2..160, `website` https-only,
+`evidence` 20..1000 (hanya pemilik & admin), `status`
+`PENDING|VERIFIED|REJECTED|REVOKED`, jejak review wajib konsisten dengan status.
+Hak kolom klien: INSERT `(user_id, org_name, website, evidence)`, UPDATE
+`(org_name, website, evidence)` — status TIDAK. Trigger memaksa PENDING saat
+insert/ganti identitas + batas 5/hari. UPDATE ditolak policy bila REVOKED.
+
+`event_managers` `(event_id, user_id)` PK, `source SUBMISSION|CLAIM|ADMIN` —
+hanya ditulis RPC server. `manages_event(p_event)` = pemanggil mengelola DAN
+masih VERIFIED. View `verified_event_organizers (event_id, org_name)` untuk
+anon — **jangan tambah kolom**.
+
+`event_claims` / `event_revisions`: status `PENDING|APPROVED|REJECTED`, satu
+klaim PENDING per (acara, orang), batas 10/20 per hari (trigger). INSERT klaim
+hanya penyelenggara VERIFIED ke acara tayang yang belum dikelolanya; INSERT
+revisi hanya `manages_event()`. `changes` JSONB objek ≤16 KB, bentuknya
+dikontrak `src/lib/organizer.ts`. Keputusan lewat RPC service_role
+`review_organizer`, `review_event_claim`, `review_event_revision`; semuanya
+masuk `moderation_log` (subject `organizer|claim|revision`; status log kini TEXT
++ CHECK karena VERIFIED/REVOKED bukan `event_status`).
+Uji: `supabase/tests/97_organizers.test.sql`, `tests/integration/organizers.test.ts`.
+
+### `event_daily_stats`, `event_view_dedup` (Analitik — ADR-043)
+Agregat per acara per hari WIB (`views`, `visitors`) + dedup hash pengunjung
+(64 hex, HMAC harian dari aplikasi). RLS aktif tanpa policy — klien tidak
+punya akses sama sekali. Tulis: `record_event_view()` (service_role). Baca:
+`event_analytics(p_event, p_days)` → JSONB (7..90 hari, k-anonimitas 5) untuk
+`manages_event()` atau admin. `purge_event_view_dedup()` harian via pg_cron.
+Uji: `supabase/tests/98_event_analytics.test.sql`.
+
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat
 DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom

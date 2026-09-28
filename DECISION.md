@@ -12,6 +12,81 @@ terdokumentasi.
 
 ---
 
+## ADR-043 — Analitik acara untuk penyelenggara: agregat harian, hash pengunjung harian, k-anonimitas
+
+**Konteks:** Penyelenggara butuh angka untuk mengevaluasi acaranya (jangkauan,
+minat, konversi ke pendaftaran), dan targetnya ribuan pengunjung/ribuan acara.
+Mencatat satu baris per kunjungan membengkak cepat, dan menyimpan IP atau
+menampilkan rincian audiens per orang melanggar kepercayaan pengguna.
+
+**Keputusan:**
+- `event_daily_stats (event_id, day)` — SATU baris per acara per hari WIB
+  (`views`, `visitors`), bukan per kunjungan. `event_view_dedup` menampung
+  hash pengunjung hari ini saja; dibersihkan harian (`purge_event_view_dedup`,
+  pg_cron bila ada).
+- Hash pengunjung = HMAC(rahasia server, hari WIB, IP, user-agent) dibuat di
+  aplikasi (`eventVisitorHash`). IP tidak pernah sampai ke database, dan hash
+  berganti tiap hari → tidak bisa dipakai melacak orang lintas hari.
+- Pencatatan lewat `after()` di halaman detail (tidak menunda render), dengan
+  filter bot, prefetch (`next-router-prefetch`/`sec-purpose`), IP tak dikenal,
+  dan batas 300/jam per IP. `record_event_view` hanya service_role.
+- Laporan = satu RPC `event_analytics()` → JSON, dikontrak `parseEventAnalytics`.
+  Hanya `manages_event()` (pengelola yang MASIH terverifikasi) atau admin.
+  Rincian audiens hanya dari penyimpan (akun), kelompok < 5 disembunyikan
+  (`ANALYTICS_MIN_GROUP` = `k` di SQL). Pembanding = median kunjungan acara
+  berjenis sama, ditampilkan hanya bila ≥ 3 pembanding.
+- Grafik SVG dirender server (tanpa pustaka grafik, tanpa JS), plus tabel
+  tersembunyi untuk pembaca layar. "Saran" (`insightsOf`) diturunkan dari angka
+  yang sama dan diam bila sampel < 30 pengunjung.
+
+**Konsekuensi:** "Pengunjung unik" = unik per hari, dijumlah lintas hari (orang
+yang datang 3 hari terhitung 3) — dilabeli begitu di UI. Kunjungan dari IP yang
+sama tapi user-agent berbeda terhitung dua pengunjung. Satu RPC tambahan
+(`consume_rate_limit`) per kunjungan halaman detail; bila jadi beban, batas per
+IP bisa dipindah ke edge. Indeks baru `recommendation_signals (event_id, kind,
+created_at)`.
+
+---
+
+## ADR-042 — Penyelenggara terverifikasi: kepercayaan di atas kecepatan
+
+**Konteks:** Pemilik produk meminta penyelenggara bisa memposting & mengelola
+acara dengan mudah, TANPA mengorbankan kepercayaan: orang tak sah tidak boleh
+bisa mengaku penyelenggara lalu, misalnya, mengganti tautan pendaftaran ke
+formulir palsu.
+
+**Keputusan:**
+- `organizer_profiles`: pengguna hanya MENGAJUKAN (nama lembaga, situs https,
+  bukti peran). Status hanya diubah admin lewat RPC service_role
+  `review_organizer()` dengan transisi sah saja (PENDING→VERIFIED/REJECTED,
+  VERIFIED→REVOKED). Mengubah identitas setelah terverifikasi = kembali
+  PENDING (trigger). REVOKED tidak bisa mengajukan ulang sendiri.
+- Hak kelola (`event_managers`) hanya ditulis server: saat kiriman dari
+  penyelenggara terverifikasi disetujui (`approve_submission`), atau saat admin
+  menyetujui klaim (`review_event_claim`). Berlaku HANYA selama VERIFIED
+  (`manages_event()`), jadi mencabut verifikasi langsung memutus semuanya.
+- Tidak ada edit langsung ke acara tayang. Perubahan = `event_revisions`
+  (hanya kolom yang berubah; judul & nama penyelenggara tidak bisa) yang
+  diterapkan admin; RPC memvalidasi ulang tautan https, tenggat di masa depan,
+  dan status pengaju. Perpanjangan tenggat yang disetujui membuka kembali
+  acara EXPIRED atas nama moderator.
+- Semua keputusan tercatat di `moderation_log` lewat trigger. Menolak/mencabut
+  wajib beralasan (ditegakkan Server Action, bukan hanya `required` di form).
+- Lencana publik "penyelenggara terverifikasi" dari view
+  `verified_event_organizers` (tanpa user_id). Ikon centang yang dulu tampil di
+  SEMUA acara diganti ikon "ditinjau moderator" — centang kini berarti sesuatu.
+- Kemudahan untuk penyelenggara terverifikasi: `/submit` terisi nama lembaga,
+  kiriman ditandai di antrean admin (plus peringatan bila nama berbeda), acara
+  yang disetujui otomatis masuk studio, klaim satu klik dari halaman acara.
+
+**Konsekuensi:** Setiap posting & perubahan tetap menunggu moderator — lebih
+lambat, disengaja. Notifikasi klaim/revisi disimpan tanpa `event_id` supaya
+tidak ditelan `idx_notifications_dedupe` pada keputusan kedua. Revisi yang
+JSON-nya tidak lolos skema aplikasi tidak ditampilkan di antrean (ditulis di
+luar aplikasi) dan tetap PENDING tanpa efek.
+
+---
+
 ## ADR-041 — Blokir koneksi + paginasi `listConnections` (menutup dua celah ADR-040)
 
 **Konteks:** ADR-040 mencatat dua batas sebelum `/connections` dibuka publik:

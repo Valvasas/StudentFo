@@ -36,14 +36,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 export const config = {
   matcher: [
     /*
-     * Semua rute KECUALI aset statis. Penyegaran token dan CSP harus ikut di
-     * navigasi halaman biasa; menjalankannya untuk setiap berkas gambar
-     * hanya menambah latensi tanpa manfaat. Prefetch juga dilewati: nonce-nya
-     * tidak pernah dipakai, dan menghitung CSP untuknya hanya membuang waktu.
+     * Semua rute KECUALI aset build & berkas metadata teks. Pengecualian
+     * sengaja TIDAK berbasis ekstensi (`.*\.png$` dst.): proyek ini tidak
+     * punya berkas statis, jadi pola itu hanya membuat rute dinamis seperti
+     * `/events/apa-saja.png` (→ halaman 404) terkirim TANPA CSP. Prefetch
+     * dilewati: nonce-nya tidak pernah dipakai.
      */
     {
-      source:
-        '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+      source: '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },

@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { toActionErrorCode, type ActionErrorCode } from '@/lib/action-feedback';
+import { type ActionErrorCode, type ActionNoticeCode, toActionErrorCode, withQuery } from '@/lib/action-feedback';
 import { checkAdminAccess } from '@/lib/auth';
 import { getEventRepository, resetDemoData } from '@/lib/data';
 import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
@@ -103,6 +103,92 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
 
   refreshPublicViews();
   redirect(`/admin?notice=${decision === 'APPROVED' ? 'submission_approved' : 'submission_rejected'}`);
+}
+
+// ----------------------------------------------------------------------
+// Penyelenggara, klaim, dan perubahan acara (ADR-042)
+// ----------------------------------------------------------------------
+
+const TRUST_QUEUE = '/admin/penyelenggara';
+
+function trustReturnTo(formData: FormData): string {
+  const tab = formText(formData, 'tab');
+  return tab === 'klaim' || tab === 'perubahan' ? `${TRUST_QUEUE}?tab=${tab}` : TRUST_QUEUE;
+}
+
+async function runTrustDecision(
+  formData: FormData,
+  notice: ActionNoticeCode,
+  decide: (gate: { userId: string; userName: string }, note: string | null) => Promise<void>,
+  refreshCatalog: boolean,
+): Promise<never> {
+  const returnTo = trustReturnTo(formData);
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  // Menolak/mencabut tanpa alasan tidak bisa dipertanggungjawabkan ke
+  // pemohon maupun di riwayat — `required` di form saja bisa dilewati.
+  const note = formText(formData, 'note').trim().slice(0, 500) || null;
+  const decision = formText(formData, 'decision');
+  if (!note && (decision === 'REJECTED' || decision === 'REVOKED')) {
+    redirect(withQuery(returnTo, { error: 'invalid_request' }));
+  }
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await decide(gate, note);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { error: failure }));
+
+  revalidatePath(TRUST_QUEUE);
+  revalidatePath('/admin/riwayat');
+  // Lencana & isi acara publik berubah: status penyelenggara memengaruhi
+  // lencana di semua acaranya, revisi mengubah isi acara.
+  if (refreshCatalog) refreshPublicViews();
+  redirect(withQuery(returnTo, { notice }));
+}
+
+export async function reviewOrganizerAction(formData: FormData): Promise<void> {
+  const userId = formTrimmed(formData, 'userId');
+  const decision = formText(formData, 'decision');
+  if (!userId || (decision !== 'VERIFIED' && decision !== 'REJECTED' && decision !== 'REVOKED')) {
+    redirect(withQuery(trustReturnTo(formData), { error: 'invalid_request' }));
+  }
+  await runTrustDecision(
+    formData,
+    'organizer_reviewed',
+    async (gate, note) =>
+      (await getEventRepository()).reviewOrganizer({ userId, decision, reviewerId: gate.userId, reviewerName: gate.userName, note }),
+    true,
+  );
+}
+
+export async function reviewClaimAction(formData: FormData): Promise<void> {
+  const claimId = formTrimmed(formData, 'claimId');
+  const decision = parseDecision(formData);
+  if (!claimId || !decision) redirect(withQuery(trustReturnTo(formData), { error: 'invalid_request' }));
+  await runTrustDecision(
+    formData,
+    'claim_reviewed',
+    async (gate, note) =>
+      (await getEventRepository()).reviewClaim({ claimId, decision, reviewerId: gate.userId, reviewerName: gate.userName, note }),
+    decision === 'APPROVED',
+  );
+}
+
+export async function reviewRevisionAction(formData: FormData): Promise<void> {
+  const revisionId = formTrimmed(formData, 'revisionId');
+  const decision = parseDecision(formData);
+  if (!revisionId || !decision) redirect(withQuery(trustReturnTo(formData), { error: 'invalid_request' }));
+  await runTrustDecision(
+    formData,
+    'revision_reviewed',
+    async (gate, note) =>
+      (await getEventRepository()).reviewRevision({ revisionId, decision, reviewerId: gate.userId, reviewerName: gate.userName, note }),
+    decision === 'APPROVED',
+  );
 }
 
 /**

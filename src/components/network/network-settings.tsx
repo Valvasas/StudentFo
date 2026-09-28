@@ -1,5 +1,6 @@
 import { EyeOff, Lock } from 'lucide-react';
 import { updateNetworkProfileAction } from '@/app/connections/actions';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { NETWORK_LIMITS, personMeta } from '@/lib/network';
 import type { NetworkProfile } from '@/types/domain';
 import type { NetworkViewer } from '@/lib/network';
@@ -88,9 +89,9 @@ export function NetworkSettings({
           </p>
         </div>
 
-        <button type="submit" className="flex h-11 items-center justify-center rounded-card bg-brand text-sm font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover">
+        <SubmitButton className="flex h-11 items-center justify-center rounded-card bg-brand text-sm font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover">
           Simpan pengaturan
-        </button>
+        </SubmitButton>
       </form>
     </section>
   );

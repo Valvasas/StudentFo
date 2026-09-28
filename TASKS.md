@@ -219,6 +219,24 @@ Belum / butuh akses pemilik:
 - [ ] Bila katalog > 20.000 event: denormalisasi `primary_deadline_at` + index (ADR-035).
 - [ ] Job CI `integration` (PostgREST + e2e mode Supabase) belum pernah berjalan di GitHub.
 
+## Hasil sesi 2026-09-28 (@claude) — penyelenggara terverifikasi + analitik
+
+Selesai:
+- [x] CI: Node 22 (WebSocket bawaan untuk supabase-js) + `--allow-no-sources` di dry-run pipeline
+- [x] IP klien dari entri TERAKHIR `x-forwarded-for` (+ `CLIENT_IP_HEADER` opsional) — pembatas laju tidak bisa dilewati dengan XFF palsu
+- [x] CSP juga untuk rute dinamis berakhiran ekstensi (`/events/x.png`)
+- [x] SubmitButton (status memproses) di form jaringan/simpan/submit; favicon + kartu OG
+- [x] Penyelenggara terverifikasi, klaim, permintaan perubahan, antrean admin `/admin/penyelenggara` (ADR-042)
+- [x] Studio `/penyelenggara` + analitik per acara (grafik, corong, audiens k-anon, pembanding, saran) (ADR-043)
+- [x] Uji: pgTAP 97/98, integration PostgREST `organizers.test.ts`, e2e `organizer.spec.ts`, axe untuk halaman baru
+
+Belum / butuh keputusan atau akses pemilik:
+- [ ] Apply migration `20260927*`, `20260928*` ke staging (BUTUH KONFIRMASI eksplisit), lalu `npm run db:verify`
+      + uji manual dua akun (koneksi/blokir) dan alur penyelenggara (ajukan → verifikasi → klaim → revisi).
+- [ ] Set `CLIENT_IP_HEADER` bila hosting di belakang Cloudflare (`cf-connecting-ip`).
+- [ ] Uji beban nyata (k6/autocannon) terhadap staging: detail acara kini memanggil 2 RPC per kunjungan (ADR-043).
+- [ ] Fase berikut yang diminta: audit visual & animasi menyeluruh, uji skalabilitas ribuan postingan (EXPLAIN ANALYZE), review DB & login.
+
 ## Template tugas baru
 
 ```md

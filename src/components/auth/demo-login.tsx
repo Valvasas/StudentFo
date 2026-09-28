@@ -1,4 +1,4 @@
-import { GraduationCap, ShieldCheck, Sprout } from 'lucide-react';
+import { BadgeCheck, GraduationCap, ShieldCheck, Sprout } from 'lucide-react';
 import { demoSignInAction } from '@/app/auth/actions';
 import { DEMO_PERSONA_IDS, DEMO_PERSONAS, type DemoPersonaId } from '@/lib/demo/personas';
 
@@ -6,6 +6,7 @@ const ICON: Record<DemoPersonaId, typeof GraduationCap> = {
   mahasiswa: GraduationCap,
   'siswa-baru': Sprout,
   admin: ShieldCheck,
+  penyelenggara: BadgeCheck,
 };
 
 /**

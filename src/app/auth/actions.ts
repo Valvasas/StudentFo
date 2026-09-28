@@ -10,8 +10,8 @@ import {
   signInSchema,
   signUpSchema,
 } from '@/lib/auth-schema';
-import { seedDemoNetwork } from '@/lib/data';
-import { isDemoPersonaId } from '@/lib/demo/personas';
+import { seedDemoNetwork, seedDemoOrganizer } from '@/lib/data';
+import { DEMO_PERSONAS, isDemoPersonaId } from '@/lib/demo/personas';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
@@ -211,8 +211,12 @@ export async function demoSignInAction(formData: FormData): Promise<void> {
 
   const uid = await startDemoSession(persona);
   if (persona === 'mahasiswa') seedDemoNetwork(uid);
+  if (persona === 'penyelenggara') {
+    seedDemoOrganizer({ id: uid, fullName: DEMO_PERSONAS.penyelenggara.fullName, email: `${persona}@demo.studentfo.local` });
+  }
   revalidatePath('/', 'layout');
-  redirect(persona === 'admin' && next === '/' ? '/admin' : next);
+  const landing = persona === 'admin' ? '/admin' : persona === 'penyelenggara' ? '/penyelenggara' : null;
+  redirect(landing && next === '/' ? landing : next);
 }
 
 export async function signOutAction(): Promise<void> {

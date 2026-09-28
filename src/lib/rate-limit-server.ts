@@ -13,12 +13,16 @@ const processSecret = crypto.randomUUID();
  * HMAC tidak membocorkannya). Di mode seed penghitungnya memang per proses,
  * jadi kunci acak per proses cukup.
  */
-function bucketSecret(): string {
+export function bucketSecret(): string {
   return env.RATE_LIMIT_SECRET ?? (dataMode === 'supabase' ? env.SUPABASE_SERVICE_ROLE_KEY : undefined) ?? processSecret;
 }
 
+export function requestClientIp(requestHeaders: Pick<Headers, 'get'>): string {
+  return clientIpFrom(requestHeaders, { trustedHeader: env.CLIENT_IP_HEADER });
+}
+
 export async function currentClientIp(): Promise<string> {
-  return clientIpFrom(await headers());
+  return requestClientIp(await headers());
 }
 
 /**

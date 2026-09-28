@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlertTriangle, Check, History, Inbox, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Check, History, Inbox, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react';
 import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -59,10 +59,21 @@ export default async function AdminPage({
 
   const repository = await getEventRepository();
   const demoCreatedAt = demoDataCreatedAt();
-  const [pending, submissions] = await Promise.all([
+  const [pending, submissions, organizerQueue, claimQueue, revisionQueue] = await Promise.all([
     repository.listByStatus('PENDING', 50),
     repository.listSubmissions('PENDING', 50),
+    repository.listOrganizerApplications('PENDING', 50),
+    repository.listClaims('PENDING', 50),
+    repository.listRevisions('PENDING', 50),
   ]);
+  const submitterStatuses = await repository.listOrganizerStatuses(
+    submissions.flatMap((submission) => (submission.submittedBy ? [submission.submittedBy] : [])),
+  );
+  const verifiedOrgOf = (userId: string | null) => {
+    const entry = userId ? submitterStatuses.get(userId) : undefined;
+    return entry?.status === 'VERIFIED' ? entry.orgName : null;
+  };
+  const trustWaiting = organizerQueue.length + claimQueue.length + revisionQueue.length;
 
   return (
     <div className="container-page py-8">
@@ -79,6 +90,17 @@ export default async function AdminPage({
             <Inbox aria-hidden className="size-3.5" />
             {pending.length} menunggu
           </Badge>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/admin/penyelenggara">
+              <BadgeCheck aria-hidden /> Penyelenggara
+              {trustWaiting > 0 && (
+                <span className="rounded-pill bg-caution-soft px-1.5 text-xs font-semibold text-caution">
+                  {trustWaiting}
+                  <span className="sr-only"> menunggu</span>
+                </span>
+              )}
+            </Link>
+          </Button>
           <Button asChild variant="secondary" size="sm">
             <Link href="/admin/riwayat">
               <History aria-hidden /> Riwayat moderasi
@@ -165,7 +187,7 @@ export default async function AdminPage({
         ) : (
           <ul className="flex flex-col gap-4">
             {submissions.map((submission) => (
-              <SubmissionReviewCard key={submission.id} submission={submission} />
+              <SubmissionReviewCard key={submission.id} submission={submission} verifiedOrg={verifiedOrgOf(submission.submittedBy)} />
             ))}
           </ul>
         )}

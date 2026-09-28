@@ -139,6 +139,14 @@ export const NOTIFICATION_TYPES = [
   /** Jaringan (trigger notify_connection_change, ADR-040). */
   'CONNECTION_REQUEST',
   'CONNECTION_ACCEPTED',
+  /** Keputusan moderator untuk penyelenggara (RPC review_*, ADR-042). */
+  'ORGANIZER_VERIFIED',
+  'ORGANIZER_REJECTED',
+  'ORGANIZER_REVOKED',
+  'CLAIM_APPROVED',
+  'CLAIM_REJECTED',
+  'REVISION_APPROVED',
+  'REVISION_REJECTED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -244,26 +252,148 @@ export interface SubmissionPayload {
 export interface Submission {
   readonly id: string;
   readonly submittedByEmail: string;
+  /** Akun yang masuk saat mengirim (null = tamu) — antrean menandai penyelenggara terverifikasi. */
+  readonly submittedBy: string | null;
   readonly status: EventStatus;
   readonly createdAt: string;
   readonly payload: SubmissionPayload | null;
 }
 
+/** Status yang bisa muncul di log moderasi — status acara + status penyelenggara (ADR-042). */
+export const MODERATION_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'VERIFIED', 'REVOKED'] as const;
+export type ModerationStatus = (typeof MODERATION_STATUSES)[number];
+
+export const MODERATION_SUBJECTS = ['event', 'submission', 'organizer', 'claim', 'revision'] as const;
+export type ModerationSubject = (typeof MODERATION_SUBJECTS)[number];
+
 /** Satu baris log moderasi append-only (tabel `moderation_log`). */
 export interface ModerationLogEntry {
   readonly id: string;
-  readonly subjectType: 'event' | 'submission';
+  readonly subjectType: ModerationSubject;
   readonly subjectId: string;
   /** Judul saat keputusan dibuat — event bisa diganti judulnya kemudian. */
   readonly title: string;
   /** null = baris langsung terbit tanpa melewati antrean (mis. hasil kiriman). */
-  readonly fromStatus: EventStatus | null;
-  readonly toStatus: EventStatus;
+  readonly fromStatus: ModerationStatus | null;
+  readonly toStatus: ModerationStatus;
   /** null = perubahan di luar aplikasi (job expiry, SQL manual). */
   readonly actorId: string | null;
   readonly actorName: string | null;
   readonly reason: string | null;
   readonly createdAt: string;
+}
+
+/**
+ * Penyelenggara terverifikasi (ADR-042). Status VARCHAR+CHECK, bukan enum —
+ * paritasnya dengan migration 20260928110001 saja (pipeline tidak menyentuhnya).
+ */
+export const ORGANIZER_STATUSES = ['PENDING', 'VERIFIED', 'REJECTED', 'REVOKED'] as const;
+export type OrganizerStatus = (typeof ORGANIZER_STATUSES)[number];
+
+export interface OrganizerProfile {
+  readonly userId: string;
+  readonly orgName: string;
+  readonly website: string | null;
+  /** Bukti peran — hanya untuk pemiliknya & admin, tidak pernah publik. */
+  readonly evidence: string;
+  readonly status: OrganizerStatus;
+  readonly reviewNote: string | null;
+  readonly reviewedAt: string | null;
+  readonly createdAt: string;
+  /** Hanya terisi di antrean admin: nama & email akun pengaju. */
+  readonly applicant?: { readonly fullName: string; readonly email: string | null };
+}
+
+export const TRUST_REQUEST_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+export type TrustRequestStatus = (typeof TRUST_REQUEST_STATUSES)[number];
+
+/** "Acara ini milik lembaga kami" — disetujui admin → hak kelola. */
+export interface EventClaim {
+  readonly id: string;
+  readonly event: Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer'>;
+  readonly userId: string;
+  /** Nama lembaga pengklaim (antrean admin & riwayat pemilik). */
+  readonly orgName: string | null;
+  readonly evidence: string;
+  readonly status: TrustRequestStatus;
+  readonly reviewNote: string | null;
+  readonly createdAt: string;
+}
+
+/**
+ * Kolom yang boleh diubah lewat permintaan perubahan. Judul & nama
+ * penyelenggara sengaja tidak termasuk (identitas acara + dedup_hash).
+ */
+export interface EventRevisionChanges {
+  readonly description?: string | null;
+  readonly registrationLink?: string;
+  readonly location?: string | null;
+  readonly isOnline?: boolean;
+  readonly educationLevels?: readonly EducationLevel[];
+  /** ISO — tenggat pendaftaran utama yang baru. */
+  readonly deadlineAt?: string;
+}
+
+export interface EventRevision {
+  readonly id: string;
+  readonly event: Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer'>;
+  readonly proposedBy: string;
+  readonly orgName: string | null;
+  readonly changes: EventRevisionChanges;
+  readonly note: string | null;
+  readonly status: TrustRequestStatus;
+  readonly reviewNote: string | null;
+  readonly createdAt: string;
+}
+
+export const MANAGER_SOURCES = ['SUBMISSION', 'CLAIM', 'ADMIN'] as const;
+export type ManagerSource = (typeof MANAGER_SOURCES)[number];
+
+export interface ManagedEvent {
+  readonly event: EventSummary;
+  readonly source: ManagerSource;
+  readonly since: string;
+}
+
+export interface AnalyticsDay {
+  /** `YYYY-MM-DD` hari kalender WIB. */
+  readonly day: string;
+  readonly views: number;
+  readonly visitors: number;
+  readonly saves: number;
+  readonly clicks: number;
+}
+
+export interface AnalyticsBucket {
+  readonly label: string;
+  readonly count: number;
+}
+
+/** Laporan dasbor penyelenggara (ADR-043) — bentuk sama di kedua repository. */
+export interface EventAnalytics {
+  readonly days: number;
+  readonly series: readonly AnalyticsDay[];
+  readonly totals: {
+    readonly views: number;
+    readonly visitors: number;
+    readonly saves: number;
+    readonly clicks: number;
+    /** Pelacak berstatus sudah daftar / wawancara / diterima. */
+    readonly applied: number;
+  };
+  readonly audience: {
+    /** Kelompok di bawah ambang ini disembunyikan (k-anonimitas). */
+    readonly minGroup: number;
+    readonly levels: readonly AnalyticsBucket[];
+    readonly interests: readonly AnalyticsBucket[];
+    /** Jumlah penyimpan di kelompok jenjang yang disembunyikan. */
+    readonly hidden: number;
+  };
+  readonly benchmark: {
+    /** Median kunjungan acara lain berjenis sama pada rentang yang sama. */
+    readonly medianViews: number;
+    readonly peers: number;
+  };
 }
 
 export const EVENT_MODES = ['online', 'onsite'] as const;

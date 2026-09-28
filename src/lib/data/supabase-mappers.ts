@@ -1,21 +1,29 @@
+import type { ActionErrorCode } from '@/lib/action-feedback';
 import { fromStoredPayload } from '@/lib/submission-schema';
 import type { ConnectionCursor } from '@/lib/network';
+import { fromStoredRevisionChanges } from '@/lib/organizer';
 import type {
   Connection,
+  EventClaim,
   EventDetail,
+  EventRevision,
   EventSummary,
   ModerationLogEntry,
   NetworkPerson,
+  OrganizerProfile,
   Submission,
   TeamMember,
 } from '@/types/domain';
 import { toTeamRole } from '@/types/domain';
 import type {
   ConnectionPeerRow,
+  EventClaimRow,
   EventDeadlineRow,
   EventListingRow,
+  EventRevisionRow,
   ModerationLogRow,
   NetworkDirectoryRow,
+  OrganizerProfileRow,
   SubmissionRow,
   TeamMemberProfileRow,
 } from '@/types/database';
@@ -75,6 +83,7 @@ export function toSubmission(row: SubmissionRow): Submission {
   return {
     id: row.id,
     submittedByEmail: row.submitted_by_email,
+    submittedBy: row.submitted_by ?? null,
     status: row.status,
     createdAt: row.created_at,
     payload: fromStoredPayload(row.payload),
@@ -193,6 +202,82 @@ export function peopleSearchTerm(search: string): string | null {
     .map((word) => word.replace(/[^\p{L}\p{N}-]/gu, ''))
     .find((word) => word.length >= 2);
   return first ?? null;
+}
+
+export const ORGANIZER_COLUMNS = 'user_id, org_name, website, evidence, status, review_note, reviewed_at, created_at';
+export const CLAIM_COLUMNS = 'id, event_id, user_id, evidence, status, review_note, created_at, event:events(id, slug, title, organizer)';
+export const REVISION_COLUMNS =
+  'id, event_id, proposed_by, changes, note, status, review_note, created_at, event:events(id, slug, title, organizer)';
+
+export function toOrganizerProfile(row: OrganizerProfileRow): OrganizerProfile {
+  return {
+    userId: row.user_id,
+    orgName: row.org_name,
+    website: row.website,
+    evidence: row.evidence,
+    status: row.status,
+    reviewNote: row.review_note,
+    reviewedAt: row.reviewed_at,
+    createdAt: row.created_at,
+    ...(row.applicant ? { applicant: { fullName: row.applicant.full_name, email: row.applicant.email } } : {}),
+  };
+}
+
+function eventRefOf(row: { event_id: string; event: EventClaimRow['event'] }): EventClaim['event'] {
+  return row.event ?? { id: row.event_id, slug: '', title: '(acara dihapus)', organizer: '' };
+}
+
+export function toEventClaim(row: EventClaimRow, orgNames: ReadonlyMap<string, string>): EventClaim {
+  return {
+    id: row.id,
+    event: eventRefOf(row),
+    userId: row.user_id,
+    orgName: orgNames.get(row.user_id) ?? null,
+    evidence: row.evidence,
+    status: row.status,
+    reviewNote: row.review_note,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * `null` bila `changes` tidak lolos skema: baris itu ditulis di luar
+ * aplikasi (siapa pun yang memegang sesi pengelola bisa INSERT langsung).
+ * Tidak ditampilkan ke moderator sebagai "tanpa perubahan" — itu menyesatkan.
+ */
+export function toEventRevision(row: EventRevisionRow, orgNames: ReadonlyMap<string, string>): EventRevision | null {
+  const changes = fromStoredRevisionChanges(row.changes);
+  if (!changes) return null;
+  return {
+    id: row.id,
+    event: eventRefOf(row),
+    proposedBy: row.proposed_by,
+    orgName: orgNames.get(row.proposed_by) ?? null,
+    changes,
+    note: row.note,
+    status: row.status,
+    reviewNote: row.review_note,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Pesan RAISE dari trigger/RPC migration 20260928110001 → kode aksi
+ * tertutup (ADR-019). `null` = bukan penolakan yang dikenal → kegagalan sistem.
+ */
+export function organizerErrorCode(
+  error: { code?: string; message?: string } | null,
+): Exclude<ActionErrorCode, 'unknown'> | null {
+  const message = error?.message ?? '';
+  if (/organizer_rate_limited|claim_rate_limited|revision_rate_limited/.test(message)) return 'organizer_rate_limited';
+  if (message.includes('organizer_invalid_transition')) return 'organizer_invalid_transition';
+  if (message.includes('organizer_not_found')) return 'organizer_not_found';
+  if (message.includes('claim_not_found')) return 'claim_not_found';
+  if (message.includes('claim_not_verified')) return 'organizer_not_verified';
+  if (message.includes('revision_not_found')) return 'revision_not_found';
+  if (/revision_invalid_link|revision_deadline_past|revision_not_manager/.test(message)) return 'revision_rejected_by_db';
+  if (message.includes('analytics_forbidden')) return 'not_event_manager';
+  return null;
 }
 
 /**

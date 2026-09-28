@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
-import { ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { BadgeCheck, ShieldCheck } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { TurnstileWidget } from '@/components/submit/turnstile-widget';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { jakartaDateKey } from '@/lib/deadline';
@@ -60,7 +62,11 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   ]);
   const nonce = requestHeaders.get(NONCE_HEADER) ?? undefined;
   const turnstileSiteKey = env.TURNSTILE_SITE_KEY;
-  const categories = await repository.listCategories();
+  const [categories, organizerProfile] = await Promise.all([
+    repository.listCategories(),
+    user ? repository.getOrganizerProfile(user.id) : Promise.resolve(null),
+  ]);
+  const verifiedOrg = organizerProfile?.status === 'VERIFIED' ? organizerProfile.orgName : null;
   const invalidFields = invalidFieldLabels(params.fields);
   const today = jakartaDateKey(new Date());
 
@@ -77,6 +83,29 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           Setiap kiriman dicek manual ke sumber aslinya sebelum tayang. Email kamu hanya dipakai untuk
           menghubungi kalau ada yang perlu dikonfirmasi — tidak ditampilkan ke publik.
         </p>
+        {verifiedOrg ? (
+          <p className="mt-3 flex items-start gap-2 rounded-card border border-success-line bg-success-soft p-4 text-sm text-success">
+            <BadgeCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span>
+              Kamu mengirim sebagai <strong className="font-semibold">{verifiedOrg}</strong> (terverifikasi). Kirimanmu ditandai
+              untuk moderator, dan setelah disetujui acaranya otomatis masuk{' '}
+              <Link href="/penyelenggara" className="font-semibold underline underline-offset-[3px]">
+                studio penyelenggara
+              </Link>{' '}
+              lengkap dengan analitiknya.
+            </span>
+          </p>
+        ) : (
+          user && (
+            <p className="mt-3 text-sm text-ink-muted">
+              Penyelenggara acara ini?{' '}
+              <Link href="/penyelenggara" className="font-medium text-ink underline underline-offset-[3px]">
+                Verifikasi lembagamu
+              </Link>{' '}
+              supaya kirimanmu mendapat lencana terverifikasi dan analitik peserta.
+            </p>
+          )
+        )}
       </header>
 
       <ActionFeedback params={params} className="mt-6" />
@@ -97,7 +126,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field id="organizer" label="Penyelenggara">
-            <TextInput id="organizer" name="organizer" required minLength={2} maxLength={255} />
+            <TextInput id="organizer" name="organizer" required minLength={2} maxLength={255} defaultValue={verifiedOrg ?? ''} />
           </Field>
           <Field id="eventType" label="Jenis kegiatan">
             <SelectInput id="eventType" name="eventType" required defaultValue="">
@@ -193,9 +222,9 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
 
         {turnstileSiteKey && <TurnstileWidget siteKey={turnstileSiteKey} nonce={nonce} />}
 
-        <Button type="submit" size="lg" className="self-start">
+        <SubmitButton className={buttonVariants({ size: 'lg', className: 'self-start' })}>
           Kirim untuk diverifikasi
-        </Button>
+        </SubmitButton>
       </form>
     </div>
   );

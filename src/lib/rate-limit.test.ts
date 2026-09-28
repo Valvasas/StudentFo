@@ -1,11 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { clientIpFrom, MemoryRateLimiter, RATE_LIMITS, rateLimitBucket } from './rate-limit';
+import { clientIpFrom, eventVisitorHash, MemoryRateLimiter, RATE_LIMITS, rateLimitBucket } from './rate-limit';
 
 const headers = (entries: Record<string, string>) => new Headers(entries);
 
 describe('clientIpFrom', () => {
-  it('memakai entri PERTAMA x-forwarded-for (yang ditulis proxy terdepan)', () => {
-    expect(clientIpFrom(headers({ 'x-forwarded-for': '203.0.113.7, 10.0.0.1' }))).toBe('203.0.113.7');
+  it('memakai entri TERAKHIR x-forwarded-for — yang ditulis proxy, bukan klien', () => {
+    // Klien mengirim "1.2.3.4"; proxy menambahkan IP aslinya di kanan.
+    expect(clientIpFrom(headers({ 'x-forwarded-for': '1.2.3.4, 203.0.113.7' }))).toBe('203.0.113.7');
+    expect(clientIpFrom(headers({ 'x-forwarded-for': '203.0.113.7' }))).toBe('203.0.113.7');
+  });
+
+  it('sampah di sisi kiri tidak bisa mematikan pembatas (dulu jadi "unknown" = tanpa batas)', () => {
+    expect(clientIpFrom(headers({ 'x-forwarded-for': 'x, 203.0.113.7' }))).toBe('203.0.113.7');
+  });
+
+  it('header platform tepercaya menang kalau dikonfigurasi', () => {
+    const h = headers({ 'cf-connecting-ip': '198.51.100.9', 'x-forwarded-for': '1.2.3.4, 172.64.0.1' });
+    expect(clientIpFrom(h, { trustedHeader: 'cf-connecting-ip' })).toBe('198.51.100.9');
+    expect(clientIpFrom(headers({ 'x-forwarded-for': '1.2.3.4' }), { trustedHeader: 'cf-connecting-ip' })).toBe('unknown');
   });
 
   it('jatuh ke x-real-ip, lalu "unknown"', () => {
@@ -37,6 +49,20 @@ describe('rateLimitBucket', () => {
   it('rahasia berbeda → ember berbeda (tidak bisa ditebak tanpa rahasia)', async () => {
     const rule = RATE_LIMITS.submissionPerIp;
     expect(await rateLimitBucket(rule, 'k1', '1.1.1.1')).not.toBe(await rateLimitBucket(rule, 'k2', '1.1.1.1'));
+  });
+});
+
+describe('eventVisitorHash', () => {
+  it('64 hex (CHECK di event_view_dedup), tanpa IP mentah, stabil dalam satu hari', async () => {
+    const hash = await eventVisitorHash('k', '2026-09-28', '203.0.113.7', 'Mozilla/5.0');
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(hash).toBe(await eventVisitorHash('k', '2026-09-28', '203.0.113.7', 'Mozilla/5.0'));
+  });
+
+  it('berganti setiap hari — pengunjung tidak bisa dilacak lintas hari', async () => {
+    expect(await eventVisitorHash('k', '2026-09-28', '203.0.113.7', 'UA')).not.toBe(
+      await eventVisitorHash('k', '2026-09-29', '203.0.113.7', 'UA'),
+    );
   });
 });
 

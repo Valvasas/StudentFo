@@ -1,4 +1,16 @@
-import type { ConnectionStatus, DeadlineLabel, EducationLevel, EventStatus, EventType, TrackerStatus } from './domain';
+import type {
+  ConnectionStatus,
+  DeadlineLabel,
+  EducationLevel,
+  EventStatus,
+  EventType,
+  ManagerSource,
+  ModerationStatus,
+  ModerationSubject,
+  OrganizerStatus,
+  TrackerStatus,
+  TrustRequestStatus,
+} from './domain';
 
 /**
  * Bentuk baris sebagaimana dikembalikan PostgREST.
@@ -104,6 +116,7 @@ export interface TeamMemberCountRow {
 export interface SubmissionRow {
   id: string;
   submitted_by_email: string;
+  submitted_by?: string | null;
   payload: unknown;
   status: EventStatus;
   created_at: string;
@@ -126,11 +139,12 @@ export interface NotificationRow {
 
 export interface ModerationLogRow {
   id: number;
-  subject_type: 'event' | 'submission';
+  subject_type: ModerationSubject;
   subject_id: string;
   title: string;
-  from_status: EventStatus | null;
-  to_status: EventStatus;
+  /** TEXT + CHECK daftar tertutup sejak migration 20260928110001. */
+  from_status: ModerationStatus | null;
+  to_status: ModerationStatus;
   actor_id: string | null;
   reason: string | null;
   created_at: string;
@@ -187,5 +201,50 @@ export interface ConnectionPairRow {
 export interface BlockedPersonRow {
   user_id: string;
   full_name: string;
+  created_at: string;
+}
+
+/** Tabel `organizer_profiles` (ADR-042). */
+export interface OrganizerProfileRow {
+  user_id: string;
+  org_name: string;
+  website: string | null;
+  evidence: string;
+  status: OrganizerStatus;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  /** Hanya di antrean admin (embed `users!organizer_profiles_user_id_fkey`). */
+  applicant?: { full_name: string; email: string | null } | null;
+}
+
+/** `event_claims` + judul acara (embed FK `events`). */
+export interface EventClaimRow {
+  id: string;
+  event_id: string;
+  user_id: string;
+  evidence: string;
+  status: TrustRequestStatus;
+  review_note: string | null;
+  created_at: string;
+  event: { id: string; slug: string; title: string; organizer: string } | null;
+}
+
+/** `event_revisions` + judul acara (embed FK `events`). */
+export interface EventRevisionRow {
+  id: string;
+  event_id: string;
+  proposed_by: string;
+  changes: unknown;
+  note: string | null;
+  status: TrustRequestStatus;
+  review_note: string | null;
+  created_at: string;
+  event: { id: string; slug: string; title: string; organizer: string } | null;
+}
+
+export interface EventManagerRow {
+  event_id: string;
+  source: ManagerSource;
   created_at: string;
 }

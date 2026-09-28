@@ -1,5 +1,6 @@
 import { Ban } from 'lucide-react';
 import { blockPersonAction } from '@/app/connections/actions';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { cn } from '@/lib/utils';
 
 /** Teks yang sama di setiap pintu blokir: orang harus tahu akibatnya sebelum menekan. */
@@ -14,9 +15,9 @@ export function BlockPersonForm({ targetId, name, returnTo }: { targetId: string
       <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="targetId" value={targetId} />
       {/* aria-label, bukan span sr-only: nama persis di teks tersembunyi ikut cocok di pencarian teks halaman. */}
-      <button type="submit" aria-label={`Ya, blokir ${name}`} className={blockButton}>
+      <SubmitButton aria-label={`Ya, blokir ${name}`} className={blockButton}>
         <Ban aria-hidden className="size-4" /> Ya, blokir
-      </button>
+      </SubmitButton>
     </form>
   );
 }

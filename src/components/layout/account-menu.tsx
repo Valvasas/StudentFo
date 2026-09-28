@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
   ArrowRight,
+  BadgeCheck,
   Bookmark,
   ChevronDown,
   Hash,
@@ -51,6 +52,7 @@ export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: 
       { href: '/tracker', label: 'Pendaftaran saya', icon: Ticket },
       { href: '/connections', label: 'Koneksi', icon: Users },
       { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, badge: 'saved' },
+      { href: '/penyelenggara', label: 'Studio penyelenggara', icon: BadgeCheck },
       ...(demoFeaturesEnabled
         ? [
             { href: '/messages', label: 'Pesan', icon: MessageCircle, badge: 'unread' as const },
