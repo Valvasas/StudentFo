@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { checkAdminAccess } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
-import type { EventStatus, ModerationLogEntry } from '@/types/domain';
+import type { ModerationLogEntry, ModerationStatus, ModerationSubject } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,18 +17,30 @@ export const metadata: Metadata = {
 
 const HISTORY_LIMIT = 100;
 
-const STATUS_TEXT: Record<EventStatus, string> = {
+const STATUS_TEXT: Record<ModerationStatus, string> = {
   PENDING: 'Menunggu',
   APPROVED: 'Disetujui',
   REJECTED: 'Ditolak',
   EXPIRED: 'Kedaluwarsa',
+  VERIFIED: 'Terverifikasi',
+  REVOKED: 'Dicabut',
 };
 
-const STATUS_VARIANT: Record<EventStatus, 'warning' | 'success' | 'danger' | 'neutral'> = {
+const STATUS_VARIANT: Record<ModerationStatus, 'warning' | 'success' | 'danger' | 'neutral'> = {
   PENDING: 'warning',
   APPROVED: 'success',
   REJECTED: 'danger',
   EXPIRED: 'neutral',
+  VERIFIED: 'success',
+  REVOKED: 'danger',
+};
+
+const SUBJECT_TEXT: Record<ModerationSubject, string> = {
+  event: 'Kegiatan',
+  submission: 'Kiriman',
+  organizer: 'Penyelenggara',
+  claim: 'Klaim acara',
+  revision: 'Perubahan acara',
 };
 
 function actorLabel(entry: ModerationLogEntry): string {
@@ -76,8 +88,8 @@ export default async function ModerationHistoryPage() {
           Riwayat moderasi
         </h1>
         <p className="mt-2 max-w-2xl text-ink-soft">
-          Setiap perubahan status kegiatan dan kiriman komunitas, terbaru di atas ({HISTORY_LIMIT}{' '}
-          terakhir). Log ini tidak bisa diubah atau dihapus dari aplikasi.
+          Setiap perubahan status kegiatan, kiriman komunitas, verifikasi penyelenggara, klaim, dan perubahan
+          acara — terbaru di atas ({HISTORY_LIMIT} terakhir). Log ini tidak bisa diubah atau dihapus dari aplikasi.
         </p>
       </header>
 
@@ -90,7 +102,7 @@ export default async function ModerationHistoryPage() {
           {entries.map((entry) => (
             <li key={entry.id} className="rounded-card border border-line bg-panel p-4 shadow-card">
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <Badge variant="neutral">{entry.subjectType === 'event' ? 'Kegiatan' : 'Kiriman'}</Badge>
+                <Badge variant="neutral">{SUBJECT_TEXT[entry.subjectType]}</Badge>
                 {entry.fromStatus && (
                   <>
                     <Badge variant={STATUS_VARIANT[entry.fromStatus]}>{STATUS_TEXT[entry.fromStatus]}</Badge>

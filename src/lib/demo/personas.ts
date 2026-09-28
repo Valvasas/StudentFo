@@ -8,11 +8,14 @@ import type { EducationLevel } from '@/types/domain';
  *  - `mahasiswa`  → profil lengkap: urutan kegiatan memakai skor personal.
  *  - `siswa-baru` → profil kosong: jalur cold start (recency + popularitas).
  *  - `admin`      → dasbor moderasi, dijaga gerbang yang sama dengan produksi.
+ *  - `penyelenggara` → penyelenggara TERVERIFIKASI dengan tiga acara contoh
+ *    dan riwayat analitik fiktif (ADR-042/043). Perannya tetap USER: status
+ *    penyelenggara bukan peran sistem, dan tidak memberi akses moderasi.
  *
  * Minat memakai slug kategori dari `SEED_CATEGORIES` — slug yang tidak ada
  * di data contoh tidak akan pernah cocok di `categoryMatch()`.
  */
-export const DEMO_PERSONA_IDS = ['mahasiswa', 'siswa-baru', 'admin'] as const;
+export const DEMO_PERSONA_IDS = ['mahasiswa', 'siswa-baru', 'admin', 'penyelenggara'] as const;
 export type DemoPersonaId = (typeof DEMO_PERSONA_IDS)[number];
 
 export interface DemoPersona {
@@ -56,6 +59,16 @@ export const DEMO_PERSONAS: Readonly<Record<DemoPersonaId, DemoPersona>> = {
     educationLevel: 'UMUM',
     major: null,
     interests: [],
+  },
+  penyelenggara: {
+    id: 'penyelenggara',
+    label: 'Penyelenggara',
+    summary: 'Penyelenggara terverifikasi — dasbor analitik acara, klaim, dan permintaan perubahan.',
+    fullName: 'Sekar Ayu (Himpunan Informatika)',
+    role: 'USER',
+    educationLevel: 'D4_S1',
+    major: 'Teknik Informatika',
+    interests: ['teknologi'],
   },
 };
 

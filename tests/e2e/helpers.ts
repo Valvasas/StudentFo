@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 
-export type PersonaLabel = 'Mahasiswa' | 'Siswa baru' | 'Admin moderator';
+export type PersonaLabel = 'Mahasiswa' | 'Siswa baru' | 'Admin moderator' | 'Penyelenggara';
 
 /** Masuk lewat kartu persona demo, persis seperti pengunjung sungguhan. */
 export async function signInAsDemo(page: Page, persona: PersonaLabel, next = '/'): Promise<void> {

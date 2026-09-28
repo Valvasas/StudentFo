@@ -10,3 +10,16 @@ const NON_HUMAN_AGENT =
 export function isLikelyHumanAgent(userAgent: string | null): boolean {
   return Boolean(userAgent) && !NON_HUMAN_AGENT.test(userAgent!);
 }
+
+/**
+ * Prefetch `<Link>` Next.js dan prefetch/prerender browser bukan kunjungan:
+ * satu daftar berisi 12 kartu akan "mengunjungi" 12 acara tanpa ada yang
+ * membukanya.
+ */
+export function isPrefetchRequest(headers: Pick<Headers, 'get'>): boolean {
+  return (
+    headers.get('next-router-prefetch') !== null ||
+    /prefetch|prerender/i.test(headers.get('purpose') ?? '') ||
+    /prefetch|prerender/i.test(headers.get('sec-purpose') ?? '')
+  );
+}

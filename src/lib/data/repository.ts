@@ -6,11 +6,19 @@ import type {
   ConnectionPage,
   DeadlineDay,
   EducationLevel,
+  EventAnalytics,
+  EventClaim,
   EventDetail,
   EventQuery,
+  EventRevision,
+  EventRevisionChanges,
   EventStatus,
   EventSummary,
+  ManagedEvent,
   ModerationLogEntry,
+  OrganizerProfile,
+  OrganizerStatus,
+  TrustRequestStatus,
   NetworkEventRef,
   NetworkProfile,
   Paginated,
@@ -23,6 +31,7 @@ import type {
   TrackerStatus,
 } from '@/types/domain';
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
+import type { OrganizerApplicationInput } from '@/lib/organizer';
 import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 
 /**
@@ -49,6 +58,7 @@ export interface EventRepository
     NotificationRepository,
     TeamRepository,
     NetworkRepository,
+    OrganizerRepository,
     RateLimitRepository,
     RecommendationSignalRepository {}
 
@@ -223,6 +233,59 @@ export interface PeopleFilter {
   readonly limit: number;
   /** Kegiatan yang disimpan/dilacak pembaca — sumber alasan "ikut tim di …". */
   readonly viewerEvents: readonly NetworkEventRef[];
+}
+
+/**
+ * Penyelenggara terverifikasi, klaim, permintaan perubahan, analitik
+ * (ADR-042/043).
+ *
+ * Kepercayaan di atas kecepatan: status penyelenggara, hak kelola, dan
+ * setiap perubahan acara hanya lahir dari keputusan ADMIN (method `review*`,
+ * dipanggil Server Action SETELAH `checkAdminAccess()`). Hak kelola berlaku
+ * hanya selama status VERIFIED — implementasi memeriksanya di setiap
+ * operasi, tidak mengandalkan pemanggil.
+ */
+export interface OrganizerRepository {
+  getOrganizerProfile(userId: string): Promise<OrganizerProfile | null>;
+  /** Ajukan / perbarui. Mengubah data setelah terverifikasi = kembali ke antrean. REVOKED ditolak. */
+  applyAsOrganizer(actor: OrganizerActor, input: OrganizerApplicationInput): Promise<void>;
+  /** Acara yang dikelola — kosong bila tidak (lagi) terverifikasi. */
+  listManagedEvents(userId: string): Promise<readonly ManagedEvent[]>;
+  claimEvent(actorId: string, eventId: string, evidence: string): Promise<void>;
+  listMyClaims(userId: string): Promise<readonly EventClaim[]>;
+  proposeEventRevision(actorId: string, eventId: string, changes: EventRevisionChanges, note: string | null): Promise<void>;
+  listEventRevisions(actorId: string, eventId: string): Promise<readonly EventRevision[]>;
+  /** Hanya pengelola terverifikasi acara itu (atau admin) — selain itu `analytics_forbidden`. */
+  getEventAnalytics(actorId: string, eventId: string, days: number): Promise<EventAnalytics>;
+  /** Server saja, setelah filter bot & batas laju. `visitorHash` = HMAC harian (64 hex). */
+  recordEventView(eventId: string, visitorHash: string): Promise<void>;
+  /** Lencana publik "dikelola penyelenggara terverifikasi". */
+  listVerifiedOrganizers(eventIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
+
+  // Antrean & keputusan admin
+  listOrganizerApplications(status: OrganizerStatus, limit: number): Promise<readonly OrganizerProfile[]>;
+  reviewOrganizer(input: ReviewTrustInput<'VERIFIED' | 'REJECTED' | 'REVOKED'> & { userId: string }): Promise<void>;
+  listClaims(status: TrustRequestStatus, limit: number): Promise<readonly EventClaim[]>;
+  reviewClaim(input: ReviewTrustInput<'APPROVED' | 'REJECTED'> & { claimId: string }): Promise<void>;
+  listRevisions(status: TrustRequestStatus, limit: number): Promise<readonly EventRevision[]>;
+  reviewRevision(input: ReviewTrustInput<'APPROVED' | 'REJECTED'> & { revisionId: string }): Promise<void>;
+  /** Status penyelenggara para pengirim — lencana "terverifikasi" di antrean kiriman. */
+  listOrganizerStatuses(userIds: readonly string[]): Promise<ReadonlyMap<string, Pick<OrganizerProfile, 'orgName' | 'status'>>>;
+}
+
+/** Mode seed tidak punya tabel `users`; nama pelaku dicatat saat ia bertindak (pola NetworkViewer). */
+export interface OrganizerActor {
+  readonly id: string;
+  readonly fullName: string;
+  readonly email: string;
+}
+
+export interface ReviewTrustInput<D extends string> {
+  readonly decision: D;
+  readonly reviewerId: string | null;
+  /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
+  readonly reviewerName?: string;
+  readonly note: string | null;
 }
 
 /** Penghitung pembatas laju (ADR-028). */

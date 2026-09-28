@@ -35,6 +35,22 @@ export const ACTION_ERROR_CODES = [
   'block_not_found',
   'invalid_network_profile',
   'invalid_connection_message',
+  'invalid_organizer_application',
+  'organizer_revoked',
+  'organizer_not_verified',
+  'organizer_rate_limited',
+  'organizer_not_found',
+  'organizer_invalid_transition',
+  'claim_exists',
+  'claim_already_managed',
+  'claim_not_found',
+  'invalid_claim',
+  'invalid_revision',
+  'revision_empty',
+  'revision_deadline',
+  'revision_not_found',
+  'revision_rejected_by_db',
+  'not_event_manager',
   'invalid_request',
   'unknown',
 ] as const;
@@ -69,6 +85,24 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   block_not_found: 'Orang ini sudah tidak ada di daftar blokirmu.',
   invalid_network_profile: 'Headline maksimal 140 karakter.',
   invalid_connection_message: 'Pesan pengantar maksimal 280 karakter.',
+  invalid_organizer_application:
+    'Data belum lengkap. Isi nama lembaga, situs resmi (https://, opsional), dan jelaskan peranmu minimal 20 karakter beserta tautan bukti.',
+  organizer_revoked: 'Status penyelenggara akun ini dicabut. Hubungi moderator bila menurutmu ini keliru.',
+  organizer_not_verified: 'Fitur ini hanya untuk penyelenggara terverifikasi.',
+  organizer_rate_limited: 'Terlalu banyak perubahan pengajuan hari ini. Coba lagi besok.',
+  organizer_not_found: 'Pengajuan penyelenggara itu tidak ditemukan.',
+  organizer_invalid_transition: 'Keputusan itu tidak berlaku untuk status pengajuan saat ini. Muat ulang antrean.',
+  claim_exists: 'Klaimmu untuk acara ini masih menunggu ditinjau.',
+  claim_already_managed: 'Acara ini sudah ada di dasbormu.',
+  claim_not_found: 'Klaim itu sudah tidak ada atau sudah ditinjau.',
+  invalid_claim: 'Jelaskan hubungan lembagamu dengan acara ini minimal 20 karakter, sertakan tautan bukti.',
+  invalid_revision: 'Periksa isian: tautan harus https://, pilih minimal satu jenjang, deskripsi maks. 5000 karakter.',
+  revision_empty: 'Tidak ada yang berubah dari data acara saat ini.',
+  revision_deadline: 'Tenggat baru harus setelah hari ini dan tidak lebih dari 3 tahun ke depan.',
+  revision_not_found: 'Permintaan perubahan itu sudah tidak ada atau sudah ditinjau.',
+  revision_rejected_by_db:
+    'Perubahan tidak bisa diterapkan: tautan bukan https://, tenggat sudah lewat, atau pengaju tidak lagi terverifikasi. Tolak permintaan ini.',
+  not_event_manager: 'Kamu tidak (lagi) mengelola acara ini.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -87,6 +121,12 @@ export const ACTION_NOTICE_CODES = [
   'person_blocked',
   'person_unblocked',
   'network_profile_saved',
+  'organizer_applied',
+  'claim_submitted',
+  'revision_submitted',
+  'organizer_reviewed',
+  'claim_reviewed',
+  'revision_reviewed',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -106,6 +146,12 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   person_blocked:
     'Diblokir. Koneksi & ajakan di antara kalian dihapus, dan kalian tidak bisa saling menemukan atau mengajak lagi. Dia tidak diberi tahu.',
   person_unblocked: 'Blokir dibuka. Kalian bisa saling menemukan dan mengajak lagi.',
+  organizer_applied: 'Pengajuan terkirim. Moderator mengecek bukti peranmu dulu — kamu dikabari lewat lonceng notifikasi.',
+  claim_submitted: 'Klaim terkirim ke moderator. Acara muncul di dasbormu setelah disetujui.',
+  revision_submitted: 'Permintaan perubahan terkirim. Halaman acara baru berubah setelah dicek moderator.',
+  organizer_reviewed: 'Keputusan verifikasi penyelenggara disimpan dan tercatat di riwayat.',
+  claim_reviewed: 'Keputusan klaim disimpan dan tercatat di riwayat.',
+  revision_reviewed: 'Keputusan perubahan acara disimpan dan tercatat di riwayat.',
   network_profile_saved: 'Pengaturan jaringan disimpan.',
 };
 
@@ -126,9 +172,13 @@ export function parseActionNoticeCode(value: string | string[] | undefined): Act
 /** Buat AppError yang alasannya bisa dioper ke URL sebagai kode. */
 export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError {
   const status =
-    code === 'team_forbidden' || code === 'connection_forbidden'
+    code === 'team_forbidden' ||
+    code === 'connection_forbidden' ||
+    code === 'organizer_not_verified' ||
+    code === 'organizer_revoked' ||
+    code === 'not_event_manager'
       ? 403
-      : code === 'submission_rate_limited' || code === 'connection_rate_limited'
+      : code === 'submission_rate_limited' || code === 'connection_rate_limited' || code === 'organizer_rate_limited'
         ? 429
         : code.endsWith('not_found')
           ? 404

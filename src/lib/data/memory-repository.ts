@@ -13,7 +13,9 @@ import {
   type NetworkProfileInput,
   type NetworkViewer,
 } from '@/lib/network';
-import { buildDeadlineWeek, daysUntil, getDeadlineState } from '@/lib/deadline';
+import { buildDeadlineWeek, daysUntil, getDeadlineState, jakartaDateKey } from '@/lib/deadline';
+import { ORGANIZER_RATE_LIMITS, type OrganizerApplicationInput } from '@/lib/organizer';
+import { ANALYTICS_MIN_GROUP, kAnonymize } from '@/lib/organizer-analytics';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
@@ -26,11 +28,21 @@ import type {
   ConnectionPage,
   ConnectionStatus,
   DeadlineDay,
+  EventAnalytics,
+  EventClaim,
   EventDetail,
   EventQuery,
+  EventRevision,
+  EventRevisionChanges,
   EventStatus,
   EventSummary,
+  ManagedEvent,
+  ManagerSource,
   ModerationLogEntry,
+  ModerationStatus,
+  OrganizerProfile,
+  OrganizerStatus,
+  TrustRequestStatus,
   NetworkEventRef,
   NetworkPerson,
   NetworkProfile,
@@ -50,10 +62,12 @@ import type {
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
   EventRepository,
+  OrganizerActor,
   PeopleFilter,
   RepositoryStats,
   ReviewEventInput,
   ReviewSubmissionInput,
+  ReviewTrustInput,
 } from './repository';
 import {
   DEMO_STARTER_NETWORK,
@@ -180,6 +194,32 @@ interface ConnectionEntry {
   respondedAt: string | null;
 }
 
+interface ManagerEntry {
+  source: ManagerSource;
+  since: string;
+}
+
+interface ClaimEntry {
+  id: string;
+  eventId: string;
+  userId: string;
+  evidence: string;
+  status: TrustRequestStatus;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+interface RevisionEntry {
+  id: string;
+  eventId: string;
+  proposedBy: string;
+  changes: EventRevisionChanges;
+  note: string | null;
+  status: TrustRequestStatus;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
 interface TeamEntry {
   id: string;
   eventId: string;
@@ -218,6 +258,21 @@ export class MemoryEventRepository implements EventRepository {
   private readonly connections = new Map<string, ConnectionEntry>();
   /** Cermin `connection_blocks`: pemblokir → (yang diblokir → waktu blokir). */
   private readonly blocks = new Map<string, Map<string, string>>();
+  /** Cermin `organizer_profiles` (ADR-042). */
+  private readonly organizers = new Map<string, OrganizerProfile>();
+  /** Cermin `event_managers`: acara → (pengguna → sumber hak). */
+  private readonly eventManagers = new Map<string, Map<string, ManagerEntry>>();
+  private readonly claims = new Map<string, ClaimEntry>();
+  private readonly revisions = new Map<string, RevisionEntry>();
+  /** Cermin `event_daily_stats`: `${eventId}|${YYYY-MM-DD WIB}`. */
+  private readonly dailyStats = new Map<string, { views: number; visitors: number }>();
+  /** Cermin `event_view_dedup`. */
+  private readonly viewDedup = new Set<string>();
+  /**
+   * Sinyal fiktif persona demo penyelenggara — terpisah dari
+   * `recommendationSignals` supaya halaman kalibrasi admin tidak tercemar.
+   */
+  private readonly demoAnalyticsSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
 
@@ -377,8 +432,8 @@ export class MemoryEventRepository implements EventRepository {
     subjectType: ModerationLogEntry['subjectType'];
     subjectId: string;
     title: string;
-    fromStatus: EventStatus | null;
-    toStatus: EventStatus;
+    fromStatus: ModerationStatus | null;
+    toStatus: ModerationStatus;
     actor: { reviewerId: string | null; reviewerName?: string | undefined };
     reason: string | null;
   }): void {
@@ -413,6 +468,7 @@ export class MemoryEventRepository implements EventRepository {
     this.submissions.set(id, {
       id,
       submittedByEmail,
+      submittedBy,
       status: 'PENDING',
       createdAt: new Date().toISOString(),
       payload,
@@ -478,6 +534,12 @@ export class MemoryEventRepository implements EventRepository {
         actor: { reviewerId, reviewerName },
         reason: null,
       });
+      // Cermin approve_submission() (migration 20260928110001): kiriman
+      // penyelenggara TERVERIFIKASI → acara masuk dasbornya.
+      const owner = this.submissionOwners.get(submissionId);
+      if (owner && this.isVerifiedOrganizer(owner)) {
+        getOrCreate(this.eventManagers, id, () => new Map()).set(owner, { source: 'SUBMISSION', since: new Date().toISOString() });
+      }
     }
 
     this.submissions.set(submissionId, { ...submission, status: decision });
@@ -1014,6 +1076,500 @@ export class MemoryEventRepository implements EventRepository {
       }
     }
     return links.slice(0, limit);
+  }
+
+  // ------------------------------------------------------------------
+  // Penyelenggara & analitik (ADR-042/043)
+  //
+  // Cermin migration 20260928110001 & 20260928120001: status hanya dari
+  // admin, ganti identitas = verifikasi ulang, REVOKED tidak bisa mengajukan
+  // ulang, hak kelola berlaku hanya selama VERIFIED, perubahan acara lewat
+  // antrean, setiap keputusan masuk log.
+  // ------------------------------------------------------------------
+
+  private isVerifiedOrganizer(userId: string): boolean {
+    return this.organizers.get(userId)?.status === 'VERIFIED';
+  }
+
+  /** Cermin `manages_event()`: mengelola DAN masih terverifikasi. */
+  private managesEvent(userId: string, eventId: string): boolean {
+    return this.isVerifiedOrganizer(userId) && Boolean(this.eventManagers.get(eventId)?.has(userId));
+  }
+
+  private eventRefOf(eventId: string): Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer'> {
+    const event = this.findEvent(eventId);
+    return event
+      ? { id: event.id, slug: event.slug, title: event.title, organizer: event.organizer }
+      : { id: eventId, slug: '', title: '(acara dihapus)', organizer: '' };
+  }
+
+  private toClaim(entry: ClaimEntry): EventClaim {
+    return {
+      id: entry.id,
+      event: this.eventRefOf(entry.eventId),
+      userId: entry.userId,
+      orgName: this.organizers.get(entry.userId)?.orgName ?? null,
+      evidence: entry.evidence,
+      status: entry.status,
+      reviewNote: entry.reviewNote,
+      createdAt: entry.createdAt,
+    };
+  }
+
+  private toRevision(entry: RevisionEntry): EventRevision {
+    return {
+      id: entry.id,
+      event: this.eventRefOf(entry.eventId),
+      proposedBy: entry.proposedBy,
+      orgName: this.organizers.get(entry.proposedBy)?.orgName ?? null,
+      changes: entry.changes,
+      note: entry.note,
+      status: entry.status,
+      reviewNote: entry.reviewNote,
+      createdAt: entry.createdAt,
+    };
+  }
+
+  async getOrganizerProfile(userId: string): Promise<OrganizerProfile | null> {
+    return this.organizers.get(userId) ?? null;
+  }
+
+  async applyAsOrganizer(actor: OrganizerActor, input: OrganizerApplicationInput): Promise<void> {
+    const existing = this.organizers.get(actor.id);
+    if (existing?.status === 'REVOKED') throw actionError('organizer_revoked');
+    const unchanged =
+      existing && existing.orgName === input.orgName && existing.website === input.website && existing.evidence === input.evidence;
+    if (unchanged) return;
+    if (!this.rateLimiter.consume(`organizer:${actor.id}`, ORGANIZER_RATE_LIMITS.profileWritesPerDay, 86_400)) {
+      throw actionError('organizer_rate_limited');
+    }
+
+    this.organizers.set(actor.id, {
+      userId: actor.id,
+      orgName: input.orgName,
+      website: input.website,
+      evidence: input.evidence,
+      status: 'PENDING',
+      reviewNote: null,
+      reviewedAt: null,
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+      applicant: { fullName: actor.fullName, email: actor.email },
+    });
+    if (existing && existing.status !== 'PENDING') {
+      this.logModeration({
+        subjectType: 'organizer',
+        subjectId: actor.id,
+        title: input.orgName,
+        fromStatus: existing.status,
+        toStatus: 'PENDING',
+        actor: { reviewerId: null },
+        reason: existing.status === 'VERIFIED' ? 'Data lembaga diubah pemiliknya — perlu verifikasi ulang' : null,
+      });
+    }
+  }
+
+  async listManagedEvents(userId: string): Promise<readonly ManagedEvent[]> {
+    if (!this.isVerifiedOrganizer(userId)) return [];
+    const managed: ManagedEvent[] = [];
+    for (const [eventId, managers] of this.eventManagers) {
+      const entry = managers.get(userId);
+      const event = this.findEvent(eventId);
+      if (entry && event) managed.push({ event, source: entry.source, since: entry.since });
+    }
+    return managed.sort((a, b) => b.since.localeCompare(a.since));
+  }
+
+  async claimEvent(actorId: string, eventId: string, evidence: string): Promise<void> {
+    if (!this.isVerifiedOrganizer(actorId)) throw actionError('organizer_not_verified');
+    const event = this.findEvent(eventId);
+    if (!event || !isPubliclyVisible(event)) throw actionError('event_unavailable');
+    if (this.eventManagers.get(eventId)?.has(actorId)) throw actionError('claim_already_managed');
+    const pending = [...this.claims.values()].some(
+      (claim) => claim.eventId === eventId && claim.userId === actorId && claim.status === 'PENDING',
+    );
+    if (pending) throw actionError('claim_exists');
+    if (!this.rateLimiter.consume(`event-claim:${actorId}`, ORGANIZER_RATE_LIMITS.claimsPerDay, 86_400)) {
+      throw actionError('organizer_rate_limited');
+    }
+    const id = this.nextId();
+    this.claims.set(id, { id, eventId, userId: actorId, evidence, status: 'PENDING', reviewNote: null, createdAt: new Date().toISOString() });
+  }
+
+  async listMyClaims(userId: string): Promise<readonly EventClaim[]> {
+    return [...this.claims.values()]
+      .filter((claim) => claim.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((claim) => this.toClaim(claim));
+  }
+
+  async proposeEventRevision(actorId: string, eventId: string, changes: EventRevisionChanges, note: string | null): Promise<void> {
+    if (!this.managesEvent(actorId, eventId)) throw actionError('not_event_manager');
+    if (!this.rateLimiter.consume(`event-revision:${actorId}`, ORGANIZER_RATE_LIMITS.revisionsPerDay, 86_400)) {
+      throw actionError('organizer_rate_limited');
+    }
+    const id = this.nextId();
+    this.revisions.set(id, { id, eventId, proposedBy: actorId, changes, note, status: 'PENDING', reviewNote: null, createdAt: new Date().toISOString() });
+  }
+
+  async listEventRevisions(actorId: string, eventId: string): Promise<readonly EventRevision[]> {
+    return [...this.revisions.values()]
+      .filter((revision) => revision.eventId === eventId && revision.proposedBy === actorId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((revision) => this.toRevision(revision));
+  }
+
+  async getEventAnalytics(actorId: string, eventId: string, days: number): Promise<EventAnalytics> {
+    if (!this.managesEvent(actorId, eventId)) throw actionError('not_event_manager');
+    const event = this.findEvent(eventId);
+    if (!event) throw actionError('not_event_manager');
+
+    const span = Math.min(Math.max(Math.trunc(days) || 30, 7), 90);
+    const now = Date.now();
+    const dayKeys = Array.from({ length: span }, (_, index) => jakartaDateKey(new Date(now - (span - 1 - index) * MS_PER_DAY)));
+    const signals = [...this.recommendationSignals, ...this.demoAnalyticsSignals].filter((signal) => signal.eventId === eventId);
+    const signalsOn = (kind: RecommendationSignalInput['kind'], key: string) =>
+      signals.filter((signal) => signal.kind === kind && jakartaDateKey(new Date(signal.createdAt)) === key).length;
+
+    const series = dayKeys.map((key) => {
+      const stats = this.dailyStats.get(`${eventId}|${key}`);
+      return { day: key, views: stats?.views ?? 0, visitors: stats?.visitors ?? 0, saves: signalsOn('save', key), clicks: signalsOn('register_click', key) };
+    });
+
+    let views = 0;
+    let visitors = 0;
+    for (const [key, stats] of this.dailyStats) {
+      if (!key.startsWith(`${eventId}|`)) continue;
+      views += stats.views;
+      visitors += stats.visitors;
+    }
+    let applied = 0;
+    for (const entries of this.trackerEntries.values()) {
+      const status = entries.get(eventId)?.status;
+      if (status === 'APPLIED' || status === 'INTERVIEW' || status === 'ACCEPTED') applied += 1;
+    }
+
+    // Mode seed tidak punya tabel users: audiens dari salinan profil di sinyal
+    // simpan (produksi: profil penyimpan saat ini). Ambang k-anonimitas sama.
+    const savers = signals.filter((signal) => signal.kind === 'save');
+    const levelCounts = new Map<string, number>();
+    const interestCounts = new Map<string, number>();
+    for (const signal of savers) {
+      if (signal.educationLevel) levelCounts.set(signal.educationLevel, (levelCounts.get(signal.educationLevel) ?? 0) + 1);
+      for (const interest of signal.interests) interestCounts.set(interest, (interestCounts.get(interest) ?? 0) + 1);
+    }
+    const levels = kAnonymize(levelCounts);
+    const interests = kAnonymize(interestCounts, 8);
+
+    const peerTotals: number[] = [];
+    for (const other of this.events) {
+      if (other.id === eventId || other.eventType !== event.eventType) continue;
+      let total = 0;
+      let seen = false;
+      for (const key of dayKeys) {
+        const stats = this.dailyStats.get(`${other.id}|${key}`);
+        if (stats) {
+          total += stats.views;
+          seen = true;
+        }
+      }
+      if (seen) peerTotals.push(total);
+    }
+    peerTotals.sort((a, b) => a - b);
+    const mid = Math.floor(peerTotals.length / 2);
+    const medianViews =
+      peerTotals.length === 0 ? 0 : peerTotals.length % 2 ? peerTotals[mid]! : (peerTotals[mid - 1]! + peerTotals[mid]!) / 2;
+
+    return {
+      days: span,
+      series,
+      totals: {
+        views,
+        visitors,
+        saves: [...this.savedEvents.values()].filter((saved) => saved.has(eventId)).length +
+          this.demoAnalyticsSignals.filter((signal) => signal.eventId === eventId && signal.kind === 'save').length,
+        clicks: signals.filter((signal) => signal.kind === 'register_click').length,
+        applied,
+      },
+      audience: { minGroup: ANALYTICS_MIN_GROUP, levels: levels.buckets, interests: interests.buckets, hidden: levels.hidden },
+      benchmark: { medianViews, peers: peerTotals.length },
+    };
+  }
+
+  async recordEventView(eventId: string, visitorHash: string): Promise<void> {
+    const event = this.findEvent(eventId);
+    if (!event || !isPubliclyVisible(event)) return;
+    const day = jakartaDateKey(new Date());
+    const dedupKey = `${eventId}|${day}|${visitorHash}`;
+    const isNew = !this.viewDedup.has(dedupKey);
+    if (isNew) this.viewDedup.add(dedupKey);
+    const stats = getOrCreate(this.dailyStats, `${eventId}|${day}`, () => ({ views: 0, visitors: 0 }));
+    stats.views += 1;
+    if (isNew) stats.visitors += 1;
+  }
+
+  async listVerifiedOrganizers(eventIds: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    const result = new Map<string, string>();
+    for (const eventId of eventIds) {
+      const event = this.findEvent(eventId);
+      if (!event || !isPubliclyVisible(event)) continue;
+      for (const userId of this.eventManagers.get(eventId)?.keys() ?? []) {
+        const profile = this.organizers.get(userId);
+        if (profile?.status === 'VERIFIED') {
+          result.set(eventId, profile.orgName);
+          break;
+        }
+      }
+    }
+    return result;
+  }
+
+  async listOrganizerApplications(status: OrganizerStatus, limit: number): Promise<readonly OrganizerProfile[]> {
+    return [...this.organizers.values()]
+      .filter((profile) => profile.status === status)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .slice(0, limit);
+  }
+
+  async reviewOrganizer({
+    userId,
+    decision,
+    reviewerId,
+    reviewerName,
+    note,
+  }: ReviewTrustInput<'VERIFIED' | 'REJECTED' | 'REVOKED'> & { userId: string }): Promise<void> {
+    const profile = this.organizers.get(userId);
+    if (!profile) throw actionError('organizer_not_found');
+    const allowed =
+      (profile.status === 'PENDING' && (decision === 'VERIFIED' || decision === 'REJECTED')) ||
+      (profile.status === 'VERIFIED' && decision === 'REVOKED');
+    if (!allowed) throw actionError('organizer_invalid_transition');
+
+    const reviewNote = note?.trim().slice(0, 500) || null;
+    this.organizers.set(userId, { ...profile, status: decision, reviewNote, reviewedAt: new Date().toISOString() });
+    this.notify(userId, {
+      id: `notif-organizer-${userId}-${this.moderationLog.length}`,
+      type: `ORGANIZER_${decision}`,
+      message:
+        decision === 'VERIFIED'
+          ? `${profile.orgName} kini terverifikasi sebagai penyelenggara. Kiriman & klaim acaramu mendapat lencana terverifikasi.`
+          : decision === 'REJECTED'
+            ? 'Pengajuan penyelenggara belum bisa diverifikasi. Lengkapi bukti peranmu, lalu ajukan ulang.'
+            : 'Status penyelenggara terverifikasi akunmu dicabut. Hubungi moderator bila ini keliru.',
+    });
+    this.logModeration({
+      subjectType: 'organizer',
+      subjectId: userId,
+      title: profile.orgName,
+      fromStatus: profile.status,
+      toStatus: decision,
+      actor: { reviewerId, reviewerName },
+      reason: reviewNote,
+    });
+  }
+
+  async listClaims(status: TrustRequestStatus, limit: number): Promise<readonly EventClaim[]> {
+    return [...this.claims.values()]
+      .filter((claim) => claim.status === status)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .slice(0, limit)
+      .map((claim) => this.toClaim(claim));
+  }
+
+  async reviewClaim({
+    claimId,
+    decision,
+    reviewerId,
+    reviewerName,
+    note,
+  }: ReviewTrustInput<'APPROVED' | 'REJECTED'> & { claimId: string }): Promise<void> {
+    const claim = this.claims.get(claimId);
+    if (!claim || claim.status !== 'PENDING') throw actionError('claim_not_found');
+    if (decision === 'APPROVED' && !this.isVerifiedOrganizer(claim.userId)) throw actionError('organizer_not_verified');
+
+    const reviewNote = note?.trim().slice(0, 500) || null;
+    this.claims.set(claimId, { ...claim, status: decision, reviewNote });
+    if (decision === 'APPROVED') {
+      const managers = getOrCreate(this.eventManagers, claim.eventId, () => new Map());
+      if (!managers.has(claim.userId)) managers.set(claim.userId, { source: 'CLAIM', since: new Date().toISOString() });
+    }
+    const title = this.eventRefOf(claim.eventId).title;
+    this.notify(claim.userId, {
+      id: `notif-claim-${claimId}`,
+      type: `CLAIM_${decision}`,
+      message:
+        decision === 'APPROVED'
+          ? `Klaim "${title}" disetujui. Acara ini kini muncul di dasbor penyelenggaramu.`
+          : `Klaim "${title}" belum bisa disetujui moderator.`,
+    });
+    this.logModeration({
+      subjectType: 'claim',
+      subjectId: claimId,
+      title: `Klaim: ${title}`,
+      fromStatus: 'PENDING',
+      toStatus: decision,
+      actor: { reviewerId, reviewerName },
+      reason: reviewNote,
+    });
+  }
+
+  async listRevisions(status: TrustRequestStatus, limit: number): Promise<readonly EventRevision[]> {
+    return [...this.revisions.values()]
+      .filter((revision) => revision.status === status)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .slice(0, limit)
+      .map((revision) => this.toRevision(revision));
+  }
+
+  async reviewRevision({
+    revisionId,
+    decision,
+    reviewerId,
+    reviewerName,
+    note,
+  }: ReviewTrustInput<'APPROVED' | 'REJECTED'> & { revisionId: string }): Promise<void> {
+    const revision = this.revisions.get(revisionId);
+    if (!revision || revision.status !== 'PENDING') throw actionError('revision_not_found');
+
+    if (decision === 'APPROVED') {
+      const { changes } = revision;
+      // Validasi ulang seperti review_event_revision(): baris antrean bisa
+      // berasal dari klien mana pun yang memegang sesi pengelola.
+      const linkOk = changes.registrationLink === undefined || /^https:\/\/\S+$/i.test(changes.registrationLink);
+      const deadlineOk = changes.deadlineAt === undefined || new Date(changes.deadlineAt).getTime() > Date.now();
+      if (!this.managesEvent(revision.proposedBy, revision.eventId) || !linkOk || !deadlineOk) {
+        throw actionError('revision_rejected_by_db');
+      }
+      const before = this.findEvent(revision.eventId);
+      const reopen = Boolean(changes.deadlineAt && before?.status === 'EXPIRED');
+      this.updateEvent(revision.eventId, (event) => ({
+        ...event,
+        ...('description' in changes ? { description: changes.description ?? null } : {}),
+        ...(changes.registrationLink !== undefined ? { registrationLink: changes.registrationLink } : {}),
+        ...('location' in changes ? { location: changes.location ?? null } : {}),
+        ...(changes.isOnline !== undefined ? { isOnline: changes.isOnline } : {}),
+        ...(changes.educationLevels !== undefined ? { educationLevels: [...changes.educationLevels] } : {}),
+        ...(changes.deadlineAt !== undefined
+          ? {
+              primaryDeadlineAt: changes.deadlineAt,
+              deadlines: event.deadlines.map((deadline) => (deadline.isPrimary ? { ...deadline, deadlineAt: changes.deadlineAt! } : deadline)),
+            }
+          : {}),
+        ...(reopen ? { status: 'APPROVED' as const } : {}),
+      }));
+      if (reopen && before) {
+        this.logModeration({
+          subjectType: 'event',
+          subjectId: before.id,
+          title: before.title,
+          fromStatus: 'EXPIRED',
+          toStatus: 'APPROVED',
+          actor: { reviewerId, reviewerName },
+          reason: null,
+        });
+      }
+    }
+
+    const reviewNote = note?.trim().slice(0, 500) || null;
+    this.revisions.set(revisionId, { ...revision, status: decision, reviewNote });
+    const title = this.eventRefOf(revision.eventId).title;
+    this.notify(revision.proposedBy, {
+      id: `notif-revision-${revisionId}`,
+      type: `REVISION_${decision}`,
+      message:
+        decision === 'APPROVED'
+          ? `Perubahan untuk "${title}" sudah diterapkan.`
+          : `Perubahan untuk "${title}" belum bisa diterapkan moderator.`,
+    });
+    this.logModeration({
+      subjectType: 'revision',
+      subjectId: revisionId,
+      title: `Perubahan: ${title}`,
+      fromStatus: 'PENDING',
+      toStatus: decision,
+      actor: { reviewerId, reviewerName },
+      reason: reviewNote,
+    });
+  }
+
+  async listOrganizerStatuses(
+    userIds: readonly string[],
+  ): Promise<ReadonlyMap<string, Pick<OrganizerProfile, 'orgName' | 'status'>>> {
+    const result = new Map<string, Pick<OrganizerProfile, 'orgName' | 'status'>>();
+    for (const userId of userIds) {
+      const profile = this.organizers.get(userId);
+      if (profile) result.set(userId, { orgName: profile.orgName, status: profile.status });
+    }
+    return result;
+  }
+
+  /**
+   * Persona demo "Penyelenggara": terverifikasi, mengelola tiga acara contoh,
+   * dengan riwayat 90 hari yang DETERMINISTIK (angka sama setiap reset) supaya
+   * dasbor bisa dinilai. Hanya mode seed — tidak ada padanannya di produksi.
+   */
+  seedDemoOrganizer(user: { id: string; fullName: string; email: string }, now: Date = new Date()): void {
+    const since = new Date(now.getTime() - 60 * MS_PER_DAY).toISOString();
+    this.organizers.set(user.id, {
+      userId: user.id,
+      orgName: 'Himpunan Mahasiswa Informatika (contoh)',
+      website: 'https://example.org/himpunan',
+      evidence: 'Akun demo — lembaga fiktif untuk mencoba dasbor penyelenggara.',
+      status: 'VERIFIED',
+      reviewNote: null,
+      reviewedAt: since,
+      createdAt: since,
+      applicant: { fullName: user.fullName, email: user.email },
+    });
+
+    const managed = this.events.filter((event) => event.status === 'APPROVED').slice(0, 3);
+    let seed = 42;
+    const random = () => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed / 2_147_483_648;
+    };
+    const levels = ['D4_S1', 'D4_S1', 'D4_S1', 'D3', 'SMA_SMK', 'S2'] as const;
+    const interestPool = ['teknologi', 'desain', 'bisnis', 'sains'];
+
+    managed.forEach((event, eventIndex) => {
+      getOrCreate(this.eventManagers, event.id, () => new Map()).set(user.id, {
+        source: eventIndex === 0 ? 'SUBMISSION' : 'CLAIM',
+        since,
+      });
+      const scale = [1, 0.55, 0.3][eventIndex] ?? 0.3;
+      for (let back = 89; back >= 0; back -= 1) {
+        const date = new Date(now.getTime() - back * MS_PER_DAY);
+        // Kurva wajar: naik mendekati tenggat, sedikit lebih ramai di hari kerja.
+        const ramp = 1 + (89 - back) / 45;
+        const weekday = [0.7, 1.1, 1.15, 1.1, 1.05, 0.95, 0.75][date.getUTCDay()] ?? 1;
+        const visitorsToday = Math.round((18 + random() * 22) * ramp * weekday * scale);
+        const key = `${event.id}|${jakartaDateKey(date)}`;
+        this.dailyStats.set(key, { views: Math.round(visitorsToday * (1.25 + random() * 0.35)), visitors: visitorsToday });
+
+        const saves = Math.round(visitorsToday * (0.07 + random() * 0.05));
+        const clicks = Math.round(visitorsToday * (0.03 + random() * 0.03));
+        for (let s = 0; s < saves + clicks; s += 1) {
+          this.demoAnalyticsSignals.push({
+            eventId: event.id,
+            kind: s < saves ? 'save' : 'register_click',
+            userId: null,
+            interests: interestPool.filter(() => random() < 0.45),
+            educationLevel: levels[Math.floor(random() * levels.length)] ?? 'D4_S1',
+            createdAt: date.toISOString(),
+          });
+        }
+      }
+    });
+
+    // Pembanding "acara sejenis": acara lain berjenis sama punya riwayat juga.
+    for (const other of this.events.filter((event) => event.status === 'APPROVED' && !managed.includes(event)).slice(0, 12)) {
+      for (let back = 89; back >= 0; back -= 1) {
+        const date = new Date(now.getTime() - back * MS_PER_DAY);
+        const key = `${other.id}|${jakartaDateKey(date)}`;
+        if (this.dailyStats.has(key)) continue;
+        const visitorsToday = Math.round(8 + random() * 20);
+        this.dailyStats.set(key, { views: Math.round(visitorsToday * 1.3), visitors: visitorsToday });
+      }
+    }
   }
 
   async consumeRateLimit(bucket: string, limit: number, windowSeconds: number): Promise<boolean> {

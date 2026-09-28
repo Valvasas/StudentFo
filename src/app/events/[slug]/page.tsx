@@ -1,7 +1,9 @@
 import { cache } from 'react';
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { after } from 'next/server';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -14,8 +16,10 @@ import {
   FileText,
   GraduationCap,
   MapPin,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
+import { claimEventAction } from '@/app/penyelenggara/actions';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { RequirementsChecklist } from '@/components/event/requirements-checklist';
 import { SaveButton } from '@/components/event/save-button';
@@ -23,8 +27,13 @@ import { ShareButton } from '@/components/event/share-button';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
 import { InlineCountdown } from '@/components/listing/countdown';
+import { buttonVariants } from '@/components/ui/button';
+import { TextArea } from '@/components/ui/field';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { recordEventView } from '@/lib/event-views';
+import { ORGANIZER_LIMITS } from '@/lib/organizer';
 import {
   daysLeftLabel,
   daysUntil,
@@ -45,6 +54,7 @@ import {
   EVENT_TYPE_LABEL,
   TRACKER_STATUS_LABEL,
   type EventDetail,
+  type OrganizerProfile,
 } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -103,12 +113,19 @@ export default async function EventDetailPage({
   const tab: TabKey = TABS.some((item) => item.key === rawTab) ? (rawTab as TabKey) : 'ringkasan';
   const tabIndex = TABS.findIndex((item) => item.key === tab);
 
-  const [isSaved, trackerItems, categories, similar] = await Promise.all([
+  const requestHeaders = await headers();
+  after(() => recordEventView(event.id, requestHeaders));
+
+  const [isSaved, trackerItems, categories, similar, verifiedOrganizers, organizerProfile] = await Promise.all([
     user ? repository.isEventSaved(user.id, event.id) : Promise.resolve(false),
     user ? repository.listTrackerItems(user.id) : Promise.resolve([]),
     repository.listCategories(),
     repository.listEvents({ types: [event.eventType], sort: 'deadline', pageSize: 4 }),
+    repository.listVerifiedOrganizers([event.id]),
+    // Hanya di tab Penyelenggara, tempat ajakan klaim tampil.
+    user && tab === 'penyelenggara' ? repository.getOrganizerProfile(user.id) : Promise.resolve(null),
   ]);
+  const verifiedOrg = verifiedOrganizers.get(event.id) ?? null;
   const tracked = trackerItems.find((item) => item.eventId === event.id);
   const category = categories.find((item) => item.slug === event.categorySlugs[0]);
 
@@ -232,9 +249,15 @@ export default async function EventDetailPage({
               <span className="flex flex-col gap-px">
                 <span className="flex items-center gap-1.5 text-[15px] font-semibold">
                   {event.organizer}
-                  <BadgeCheck aria-hidden className="size-4" />
+                  {verifiedOrg ? (
+                    <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 text-success" />
+                  ) : (
+                    <ShieldCheck aria-hidden className="size-4 text-ink-muted" />
+                  )}
                 </span>
-                <span className="text-[12.5px] text-ink-muted">Ditinjau manual sebelum tayang</span>
+                <span className="text-[12.5px] text-ink-muted">
+                  {verifiedOrg ? `Dikelola ${verifiedOrg} · penyelenggara terverifikasi` : 'Ditinjau manual sebelum tayang'}
+                </span>
               </span>
             </div>
             {event.description && (
@@ -453,14 +476,26 @@ export default async function EventDetailPage({
                 <div className="flex min-w-[200px] flex-1 flex-col gap-1">
                   <span className="flex items-center gap-1.5 text-base font-semibold">
                     {event.organizer}
-                    <BadgeCheck aria-hidden className="size-4" />
+                    {verifiedOrg ? (
+                      <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 text-success" />
+                    ) : (
+                      <ShieldCheck aria-hidden className="size-4 text-ink-muted" />
+                    )}
                   </span>
                   <span className="text-[13.5px] text-ink-muted">
                     Informasinya dicocokkan moderator dengan sumber{' '}
                     {sourceHost ? <strong className="font-medium text-ink-soft">{sourceHost}</strong> : 'aslinya'} sebelum tayang.
                   </span>
+                  {verifiedOrg && (
+                    <span className="text-[13.5px] text-ink-muted">
+                      Dikelola <strong className="font-medium text-ink-soft">{verifiedOrg}</strong> — identitasnya diverifikasi
+                      moderator, dan setiap perubahan dari mereka tetap ditinjau sebelum tampil.
+                    </span>
+                  )}
                 </div>
               </div>
+              <OrganizerCallout eventId={event.id} returnTo={tabHref('penyelenggara')} signedIn={Boolean(user)} profile={organizerProfile} />
+
               <div role="note" className="flex gap-3 rounded-[12px] border border-dashed border-ink-muted p-4 text-sm leading-normal">
                 <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
                 <span>
@@ -630,5 +665,66 @@ export default async function EventDetailPage({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Ajakan untuk pemilik acara. Penyelenggara terverifikasi mengklaim lewat
+ * form biasa (tanpa JS); yang belum terverifikasi diarahkan ke pengajuan —
+ * klaim dari akun sembarang tidak pernah diterima, bahkan untuk ditinjau.
+ */
+function OrganizerCallout({
+  eventId,
+  returnTo,
+  signedIn,
+  profile,
+}: {
+  eventId: string;
+  returnTo: string;
+  signedIn: boolean;
+  profile: OrganizerProfile | null;
+}) {
+  if (profile?.status === 'REVOKED') return null;
+
+  if (profile?.status === 'VERIFIED') {
+    return (
+      <details className="group rounded-[12px] border border-line">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[14.5px] font-semibold [&::-webkit-details-marker]:hidden">
+          Acara ini milik {profile.orgName}? Klaim untuk mengelolanya
+          <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-open:rotate-90" />
+        </summary>
+        <form action={claimEventAction} className="flex flex-col gap-3 border-t border-line p-4">
+          <input type="hidden" name="eventId" value={eventId} />
+          <input type="hidden" name="returnTo" value={returnTo} />
+          <label htmlFor="claim-evidence" className="text-sm font-medium">
+            Bukti hubungan lembagamu dengan acara ini
+          </label>
+          <TextArea
+            id="claim-evidence"
+            name="evidence"
+            required
+            minLength={ORGANIZER_LIMITS.evidenceMin}
+            maxLength={ORGANIZER_LIMITS.evidenceMax}
+            rows={3}
+            aria-describedby="claim-evidence-hint"
+          />
+          <p id="claim-evidence-hint" className="text-[13px] text-ink-muted">
+            Contoh: tautan pengumuman resmi yang mencantumkan nama/kontak lembagamu. Moderator mengecek sebelum acara masuk dasbormu.
+          </p>
+          <SubmitButton className={buttonVariants({ className: 'self-start' })}>Kirim klaim</SubmitButton>
+        </form>
+      </details>
+    );
+  }
+
+  const href = signedIn ? '/penyelenggara' : `/login?next=${encodeURIComponent('/penyelenggara')}`;
+  return (
+    <p className="text-[13.5px] text-ink-muted">
+      Kamu penyelenggara acara ini?{' '}
+      <Link href={href} className="font-medium text-ink underline underline-offset-[3px]">
+        {profile?.status === 'PENDING' ? 'Pengajuan verifikasimu sedang ditinjau' : 'Ajukan verifikasi penyelenggara'}
+      </Link>{' '}
+      untuk melihat analitik dan mengusulkan pembaruan.
+    </p>
   );
 }

@@ -528,3 +528,38 @@ html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
   0% { transform: scale(1); opacity: 0.5; }
   100% { transform: scale(2.6); opacity: 0; }
 }
+
+/* =====================================================================
+   6. GRAFIK DASBOR (ADR-043) — animasi masuk sekali jalan, CSS murni
+   supaya grafik tetap utuh tanpa JS dan ikut aturan reduced-motion §3.
+   ===================================================================== */
+@keyframes sf-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Garis yang "tergambar": path WAJIB ber-`pathLength="1"`. */
+@utility chart-draw {
+  stroke-dasharray: 1;
+  animation: sf-draw 900ms var(--easing-enter) both;
+}
+
+@keyframes sf-grow-x {
+  from { transform: scaleX(0); }
+  to { transform: none; }
+}
+
+/* Batang horizontal (corong, audiens) tumbuh dari kiri. */
+@utility grow-x {
+  transform-origin: left center;
+  animation: sf-grow-x 700ms var(--easing-enter) both;
+}
+
+@keyframes sf-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@utility chart-fade {
+  animation: sf-fade 900ms var(--easing-enter) both;
+}
