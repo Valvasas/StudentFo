@@ -81,6 +81,12 @@ async def main() -> int:
         action="store_true",
         help="Jalankan seluruh alur tanpa menulis apa pun ke database.",
     )
+    parser.add_argument(
+        "--allow-no-sources",
+        action="store_true",
+        help="Jangan anggap 0 sumber aktif sebagai kegagalan. Hanya untuk smoke test CI "
+        "dengan sources.example.yaml (semua sumbernya sengaja nonaktif).",
+    )
     args = parser.parse_args()
 
     if not args.config.exists():
@@ -174,6 +180,10 @@ async def main() -> int:
             result.duplicates,
             result.failed,
         )
+
+    if not sources and args.allow_no_sources and not crashed:
+        logger.info("0 sumber aktif diizinkan (--allow-no-sources); tidak ada peringatan.")
+        return 0
 
     if should_alert(len(sources), failed_sources, crashed):
         send_telegram_alert(

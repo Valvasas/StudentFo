@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run verify
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
@@ -98,7 +98,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - uses: actions/cache@v4
@@ -128,4 +128,6 @@ jobs:
       - run: pip install -r pipeline/requirements.txt
       - run: python pipeline/tests/test_models.py
       - run: python pipeline/tests/test_publisher.py
-      - run: python pipeline/run.py --config pipeline/config/sources.example.yaml --dry-run
+      # Semua sumber di config contoh sengaja nonaktif; tanpa flag ini "0 sumber
+      # aktif" (kesalahan konfigurasi di cron sungguhan) menggagalkan setiap run.
+      - run: python pipeline/run.py --config pipeline/config/sources.example.yaml --dry-run --allow-no-sources
