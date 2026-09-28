@@ -177,10 +177,23 @@ berfungsi tanpa JavaScript. `redirect()` melempar secara internal, jadi ia
 | `respondConnectionAction` | `connectionId`, `decision` (`accept`\|`decline`), `returnTo` | `connection_accepted` / `connection_declined` | `connection_not_found`, `connection_forbidden` |
 | `removeConnectionAction` | `connectionId`, `kind` (`cancel`\|`remove`), `returnTo` | `connection_cancelled` / `connection_removed` | `connection_not_found` |
 | `updateNetworkProfileAction` | `discoverable` (checkbox), `headline?` (≤140), `returnTo` | `network_profile_saved` | `invalid_network_profile` |
+| `blockPersonAction` (ADR-041) | `targetId`, `returnTo` | `person_blocked` (juga kalau sudah diblokir — idempoten) | `block_self`, `block_unavailable` |
+| `unblockPersonAction` (ADR-041) | `targetId`, `returnTo` | `person_unblocked` | `block_not_found` |
 
-Semua memanggil `requireUser()` sendiri; siapa yang boleh menjawab/memutus
-diperiksa di repository, RLS migration `20260927100001` penjaga terakhirnya.
-`returnTo` lewat `safeNextPath()` dan mempertahankan saringan `?q=`/`?minat=`.
+Semua memanggil `requireUser()` sendiri; siapa yang boleh menjawab/memutus/
+memblokir diperiksa di repository, RLS migration `20260927100001` &
+`20260928100001` penjaga terakhirnya. `returnTo` lewat `safeNextPath()` dan
+mempertahankan saringan `?q=`/`?minat=` serta `?tampil=` (jumlah halaman
+koneksi yang dimuat, 1–10 × 50).
+
+Mengajak orang yang memblokir pembaca (atau yang diblokir pembaca) gagal
+dengan `person_unavailable` — kode yang SAMA dengan "profil disembunyikan",
+supaya yang diblokir tidak bisa menyimpulkan bahwa ia diblokir.
+
+`NetworkRepository.listConnections(userId, { limit, cursor })` mengembalikan
+`{ items, nextCursor }` (kursor keyset opak; rusak → `invalid_request`,
+`limit` dipotong ke 500). Angka di halaman diambil dari `countConnections()`,
+bukan dari panjang halaman.
 
 ### Aksi akun — `src/app/auth/actions.ts`
 

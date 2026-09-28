@@ -27,6 +27,7 @@ Urutan migration (harus dijalankan berurutan):
 17. `20260926150001_events_listing_search_vector.sql` — `events_listing` mengekspos `search_vector` (tanpanya setiap pencarian di mode Supabase gagal 42703)
 18. `20260926160001_submission_notifications.sql` — `ugc_submissions.submitted_by` + trigger `notify_submission_decision()` (notifikasi `SUBMISSION_APPROVED`/`SUBMISSION_REJECTED`, ADR-037)
 19. `20260927100001_network.sql` — `network_profiles` + `connections`, view `network_directory` & `connection_peers`, RPC `mutual_connection_counts()` / `is_discoverable()`, trigger batas laju & notifikasi koneksi (ADR-040)
+20. `20260928100001_connection_blocks.sql` — tabel `connection_blocks` + `is_blocked()`, policy INSERT/UPDATE `connections` diganti (tolak pasangan yang saling blokir), trigger pemutus koneksi, kunci pasangan `lock_connection_pair()`, `network_directory` menyaring blokir dua arah, view `blocked_people` (ADR-041)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -200,10 +201,43 @@ addressee_id, message)`, UPDATE `(status)`. Trigger BEFORE INSERT memanggil
 `consume_rate_limit('connection:<uid>', 30, 86400)` (percobaan, bukan baris);
 AFTER INSERT/UPDATE menulis notifikasi `CONNECTION_REQUEST`/`CONNECTION_ACCEPTED`.
 
-View `network_directory` (hanya opt-in) dan `connection_peers` (pihak lawan
-dari koneksi pemanggil) — keduanya `security_invoker = off`, tanpa email,
-`authenticated` saja. **Jangan tambah kolom** (alasan sama dengan
-`team_member_profiles`). Uji: `supabase/tests/95_network.test.sql`.
+View `network_directory` (hanya opt-in; sejak 0020 juga tanpa orang yang
+memblokir/diblokir pemanggil) dan `connection_peers` (pihak lawan dari koneksi
+pemanggil) — keduanya `security_invoker = off`, tanpa email, `authenticated`
+saja. **Jangan tambah kolom** (alasan sama dengan `team_member_profiles`).
+Uji: `supabase/tests/95_network.test.sql`.
+
+Paginasi `listConnections` memakai kursor keyset atas urutan
+`(status DESC, created_at DESC, connection_id DESC)` di `connection_peers` —
+ajakan menunggu selalu di halaman pertama. Tidak butuh indeks baru: view
+sudah disaring ke baris pemanggil lewat `idx_connections_addressee` /
+`idx_connections_requester`, jadi yang diurutkan hanya koneksi satu orang.
+
+### `connection_blocks` (Blokir — ADR-041)
+`(blocker_id, blocked_id)` PK komposit, `created_at` diisi server,
+`CHECK blocker_id <> blocked_id`, indeks balik `(blocked_id, blocker_id)`.
+RLS: SELECT/INSERT/DELETE **pemblokir saja** — yang diblokir tidak bisa
+membaca apa pun. INSERT hanya untuk orang yang pernah terlihat oleh
+pemblokir: `is_discoverable(blocked_id)` ATAU ada baris `connections` di
+antara keduanya (tanpa syarat ini, blokir UUID sembarang + `blocked_people`
+= membaca nama orang yang tidak pernah membuka profilnya). Hak kolom: INSERT
+`(blocker_id, blocked_id)`, tanpa UPDATE.
+
+- `is_blocked(a, b)` — DEFINER, dua arah, **hanya menjawab kalau pemanggil
+  salah satu pihak** (pihak ketiga selalu `false`). Dipakai policy
+  `connections_insert_requester` & `connections_accept_addressee` (di-DROP +
+  CREATE ulang di 0020).
+- Trigger `trg_connection_blocks_sever` (AFTER INSERT) menghapus
+  koneksi/ajakan di antara keduanya.
+- `lock_connection_pair(a, b)` — `pg_advisory_xact_lock` per pasangan,
+  diambil trigger blokir DAN `enforce_connection_insert()` (diganti di 0020)
+  lalu diperiksa ulang dengan snapshot baru. Tanpa ini "A memblokir B" dan
+  "B mengajak A" yang bersamaan bisa sama-sama lolos (policy WITH CHECK
+  memakai snapshot awal statement).
+- View `blocked_people` (`user_id`, `full_name`, `created_at`) — orang yang
+  diblokir pemanggil, `security_invoker = off`, tanpa email. **Jangan tambah kolom.**
+
+Uji: `supabase/tests/96_connection_blocks.test.sql`.
 
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat
@@ -231,7 +265,7 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 
 ## Row Level Security
 
-RLS **aktif di semua tabel publik** (termasuk `network_profiles` & `connections`, ADR-040), deny-by-default (DEVIATIONS #2 —
+RLS **aktif di semua tabel publik** (termasuk `network_profiles`, `connections` — ADR-040 — dan `connection_blocks`, ADR-041), deny-by-default (DEVIATIONS #2 —
 blueprint asli hanya menyalakan 5 tabel, sisanya bisa ditulis publik lewat
 anon key). Ringkasan policy:
 

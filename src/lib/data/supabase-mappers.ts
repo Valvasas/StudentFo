@@ -1,4 +1,5 @@
 import { fromStoredPayload } from '@/lib/submission-schema';
+import type { ConnectionCursor } from '@/lib/network';
 import type {
   Connection,
   EventDetail,
@@ -142,6 +143,22 @@ export function toNetworkPerson(row: NetworkDirectoryRow): NetworkPerson {
     major: row.major,
     interests: row.interests ?? [],
   };
+}
+
+/**
+ * Filter PostgREST `or=(…)` untuk baris SETELAH kursor dalam urutan
+ * (status, created_at, connection_id) menurun — keyset, jadi halaman tetap
+ * stabil walau ada koneksi baru di antara dua permintaan. Nilai kursor
+ * sudah divalidasi ketat `decodeConnectionCursor()`; stempel waktu dikutip
+ * karena memuat `.` dan `:` yang bermakna di sintaks filter.
+ */
+export function keysetAfter({ status, createdAt, id }: ConnectionCursor): string {
+  const at = `"${createdAt}"`;
+  return [
+    `status.lt.${status}`,
+    `and(status.eq.${status},created_at.lt.${at})`,
+    `and(status.eq.${status},created_at.eq.${at},connection_id.lt.${id})`,
+  ].join(',');
 }
 
 export function toConnection(row: ConnectionPeerRow): Connection {

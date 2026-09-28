@@ -6,6 +6,7 @@ import { removeConnectionAction, requestConnectionAction, respondConnectionActio
 import { initialsOf } from '@/lib/initials';
 import type { GraphNode } from '@/lib/network-graph';
 import { cn } from '@/lib/utils';
+import { BlockPersonDetails } from './block-person';
 import { ConnectionMessageField } from './connection-message-field';
 import { KIND_LABEL, NodeGlyph } from './node-glyph';
 
@@ -128,6 +129,10 @@ export function GraphDetail({
         <a href={`#orang-${person.userId}`} className={cn(secondary, 'w-full')}>
           <Users aria-hidden className="size-4" /> Lihat di daftar koneksi
         </a>
+      )}
+
+      {person && (node.kind === 'connection' || node.kind === 'suggestion' || node.kind === 'incoming') && (
+        <BlockPersonDetails targetId={person.userId} name={node.label} returnTo={returnTo} className="-my-1" />
       )}
 
       {node.href && node.kind !== 'me' && (

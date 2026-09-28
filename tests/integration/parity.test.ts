@@ -5,6 +5,7 @@ import { MemoryEventRepository } from '@/lib/data/memory-repository';
 import type { EventRepository } from '@/lib/data/repository';
 import { noCache } from '@/lib/data/cache';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
+import type { NetworkViewer } from '@/lib/network';
 import type { SubmissionPayload } from '@/types/domain';
 import { actAs, createEvent, createUser } from './harness';
 
@@ -79,6 +80,12 @@ function submission(): SubmissionPayload {
     isOnline: true,
     deadlineAt: new Date(Date.now() + 15 * 86_400_000).toISOString(),
   };
+}
+
+const person = (id: string): NetworkViewer => ({ id, fullName: 'Pengguna Uji', educationLevel: null, major: null, interests: [] });
+
+async function discoverable(world: World, ids: readonly string[]): Promise<void> {
+  for (const id of ids) await world.as(id, () => world.repo.updateNetworkProfile(person(id), { discoverable: true, headline: null }));
 }
 
 describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
@@ -160,5 +167,66 @@ describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
     for (let i = 0; i < 3; i += 1) results.push(await world.repo.consumeRateLimit(bucket, 2, 60));
     results.push(await world.repo.consumeRateLimit(`${bucket}:lain`, 2, 60));
     expect(results).toEqual([true, true, false, true]);
+  });
+
+  it('koneksi berhalaman (ADR-041): rantai kursor = urutan yang sama, jumlah tidak bergantung halaman', async () => {
+    const world = makeWorld();
+    const me = world.user();
+    const peers = Array.from({ length: 5 }, () => world.user());
+    await discoverable(world, [me, ...peers]);
+    for (const id of peers.slice(0, 3)) await world.as(me, () => world.repo.requestConnection(person(me), id, null));
+    for (const id of peers.slice(0, 2)) {
+      await world.as(id, async () => {
+        const [incoming] = (await world.repo.listConnections(id, { limit: 10, cursor: null })).items;
+        await world.repo.respondToConnection(id, incoming!.id, 'accept');
+      });
+    }
+    for (const id of peers.slice(3)) await world.as(id, () => world.repo.requestConnection(person(id), me, null));
+
+    const pages: string[][] = [];
+    const ids: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const page = await world.as(me, () => world.repo.listConnections(me, { limit: 2, cursor }));
+      pages.push(page.items.map((item) => `${item.status}:${item.direction}`));
+      ids.push(...page.items.map((item) => item.person.userId));
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    // Sama di kedua dunia: ukuran halaman, ajakan menunggu dulu, isi tiap kelompok.
+    expect(pages.map((page) => page.length)).toEqual([2, 2, 1]);
+    expect(pages.flat().map((label) => label.split(':')[0])).toEqual(['PENDING', 'PENDING', 'PENDING', 'ACCEPTED', 'ACCEPTED']);
+    expect(new Set(ids.slice(0, 3))).toEqual(new Set(peers.slice(2)));
+    expect(new Set(ids.slice(3))).toEqual(new Set(peers.slice(0, 2)));
+    // Urutan "terbaru dulu" per baris hanya pasti di Postgres (stempel per
+    // transaksi, mikrodetik). Mode seed memakai milidetik: dua ajakan di
+    // milidetik yang sama SERI dan diurutkan id acak — tetap sah & stabil.
+    if (world.name === 'supabase') {
+      expect(pages).toEqual([['PENDING:incoming', 'PENDING:incoming'], ['PENDING:outgoing', 'ACCEPTED:outgoing'], ['ACCEPTED:outgoing']]);
+      expect(ids.slice(2)).toEqual([peers[2], peers[1], peers[0]]);
+    }
+    expect(await world.as(me, () => world.repo.countConnections(me))).toEqual({ accepted: 2, incoming: 2, outgoing: 1 });
+    expect(await outcome(() => world.as(me, () => world.repo.listConnections(me, { limit: 2, cursor: 'rusak' })))).toBe('invalid_request');
+  });
+
+  it('blokir (ADR-041): memutus, ajakan dua arah ditolak, hanya pemblokir yang bisa membuka', async () => {
+    const world = makeWorld();
+    const [a, b] = [world.user(), world.user()];
+    await discoverable(world, [a, b]);
+    await world.as(a, () => world.repo.requestConnection(person(a), b, null));
+
+    expect(await outcome(() => world.as(a, () => world.repo.blockPerson(a, b)))).toBe('ok');
+    expect(await outcome(() => world.as(a, () => world.repo.blockPerson(a, b)))).toBe('ok');
+    expect(await outcome(() => world.as(a, () => world.repo.blockPerson(a, a)))).toBe('block_self');
+    expect(await world.as(a, () => world.repo.countConnections(a))).toEqual({ accepted: 0, incoming: 0, outgoing: 0 });
+    expect(await world.as(b, () => world.repo.countConnections(b))).toEqual({ accepted: 0, incoming: 0, outgoing: 0 });
+    expect(await outcome(() => world.as(b, () => world.repo.requestConnection(person(b), a, null)))).toBe('person_unavailable');
+    expect(await outcome(() => world.as(a, () => world.repo.requestConnection(person(a), b, null)))).toBe('person_unavailable');
+    expect(await outcome(() => world.as(b, () => world.repo.unblockPerson(b, a)))).toBe('block_not_found');
+    expect((await world.as(b, () => world.repo.listBlockedPeople(b))).length).toBe(0);
+
+    expect(await outcome(() => world.as(a, () => world.repo.unblockPerson(a, b)))).toBe('ok');
+    expect(await outcome(() => world.as(a, () => world.repo.unblockPerson(a, b)))).toBe('block_not_found');
+    expect(await outcome(() => world.as(b, () => world.repo.requestConnection(person(b), a, null)))).toBe('ok');
   });
 });

@@ -124,6 +124,22 @@ for (const [persona, route] of SIGNED_IN_ROUTES) {
   });
 }
 
+test('koneksi: opsi putus/blokir terbuka & daftar blokir terisi tanpa pelanggaran WCAG', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/connections');
+  await page.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();
+  await page.locator('section[aria-labelledby="ajakan-masuk"] article summary').first().click();
+  // Klik di atas menggulir halaman; tanpa kembali ke atas, navbar lengket
+  // menutupi kontrol peta dan axe melaporkan target-size palsu.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expectNoViolations(page);
+  await page.getByRole('button', { name: 'Ya, blokir Rani Prameswari' }).click();
+  await expect(page).toHaveURL(/notice=person_blocked/);
+  await expect(page.locator('section[aria-labelledby="diblokir-title"] li')).toHaveCount(1);
+  await expect(page).toHaveTitle(/\S/);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expectNoViolations(page);
+});
+
 test('menu akun & lonceng notifikasi terbuka tanpa pelanggaran WCAG', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa');
   await page.locator('summary[aria-label^="Menu akun"]').click();

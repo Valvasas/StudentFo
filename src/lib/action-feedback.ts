@@ -30,6 +30,9 @@ export const ACTION_ERROR_CODES = [
   'connection_self',
   'connection_rate_limited',
   'person_unavailable',
+  'block_self',
+  'block_unavailable',
+  'block_not_found',
   'invalid_network_profile',
   'invalid_connection_message',
   'invalid_request',
@@ -61,6 +64,9 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   connection_rate_limited:
     'Kamu sudah mengirim banyak ajakan dalam 24 jam terakhir. Tunggu ajakan sebelumnya dijawab dulu, lalu coba lagi besok.',
   person_unavailable: 'Orang ini tidak bisa diajak terhubung saat ini. Profilnya mungkin sudah disembunyikan.',
+  block_self: 'Kamu tidak bisa memblokir dirimu sendiri.',
+  block_unavailable: 'Orang ini tidak bisa diblokir dari sini. Muat ulang halaman lalu coba lagi.',
+  block_not_found: 'Orang ini sudah tidak ada di daftar blokirmu.',
   invalid_network_profile: 'Headline maksimal 140 karakter.',
   invalid_connection_message: 'Pesan pengantar maksimal 280 karakter.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
@@ -78,6 +84,8 @@ export const ACTION_NOTICE_CODES = [
   'connection_declined',
   'connection_cancelled',
   'connection_removed',
+  'person_blocked',
+  'person_unblocked',
   'network_profile_saved',
 ] as const;
 
@@ -95,6 +103,9 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   connection_declined: 'Ajakan ditolak. Pengirimnya tidak diberi tahu alasannya.',
   connection_cancelled: 'Ajakan dibatalkan.',
   connection_removed: 'Koneksi diputus.',
+  person_blocked:
+    'Diblokir. Koneksi & ajakan di antara kalian dihapus, dan kalian tidak bisa saling menemukan atau mengajak lagi. Dia tidak diberi tahu.',
+  person_unblocked: 'Blokir dibuka. Kalian bisa saling menemukan dan mengajak lagi.',
   network_profile_saved: 'Pengaturan jaringan disimpan.',
 };
 

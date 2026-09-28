@@ -82,6 +82,37 @@ export async function removeConnectionAction(formData: FormData): Promise<void> 
   done(returnTo, formText(formData, 'kind') === 'cancel' ? 'connection_cancelled' : 'connection_removed');
 }
 
+/** Target dipilih pelaku sendiri; siapa yang BOLEH diblokir diperiksa repository + RLS. */
+export async function blockPersonAction(formData: FormData): Promise<void> {
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), FALLBACK);
+  const user = await requireUser(returnTo);
+
+  const targetId = formTrimmed(formData, 'targetId');
+  if (!targetId) redirect(withQuery(returnTo, { error: 'invalid_request' }));
+
+  try {
+    await (await getEventRepository()).blockPerson(user.id, targetId);
+  } catch (error) {
+    failed(returnTo, error);
+  }
+  done(returnTo, 'person_blocked');
+}
+
+export async function unblockPersonAction(formData: FormData): Promise<void> {
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), FALLBACK);
+  const user = await requireUser(returnTo);
+
+  const targetId = formTrimmed(formData, 'targetId');
+  if (!targetId) redirect(withQuery(returnTo, { error: 'invalid_request' }));
+
+  try {
+    await (await getEventRepository()).unblockPerson(user.id, targetId);
+  } catch (error) {
+    failed(returnTo, error);
+  }
+  done(returnTo, 'person_unblocked');
+}
+
 export async function updateNetworkProfileAction(formData: FormData): Promise<void> {
   const returnTo = safeNextPath(formText(formData, 'returnTo'), FALLBACK);
   const user = await requireUser(returnTo);

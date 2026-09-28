@@ -11,7 +11,9 @@ async function smallTargets(page: Page, scope: string): Promise<string[]> {
     nodes
       .filter((node) => {
         const box = node.getBoundingClientRect();
-        return box.width > 0 && box.height > 0 && getComputedStyle(node).visibility !== 'hidden';
+        // checkVisibility(): isi <details> yang tertutup tetap punya kotak layout
+        // di Chromium (content-visibility: hidden), padahal tidak bisa disentuh.
+        return box.width > 0 && box.height > 0 && getComputedStyle(node).visibility !== 'hidden' && node.checkVisibility();
       })
       .map((node) => {
         const box = node.getBoundingClientRect();
@@ -44,6 +46,15 @@ test('halaman tim & detail tim: setiap target ≥ 44px', async ({ page }) => {
   const href = await page.locator('main a[href^="/teams/"]').first().getAttribute('href');
   await page.goto(href!);
   expect(await smallTargets(page, 'main')).toEqual([]);
+});
+
+test('halaman koneksi (opsi putus/blokir & konfirmasi blokir terbuka): setiap target ≥ 44px', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/connections');
+  await page.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();
+  await page.locator('section[aria-labelledby="ajakan-masuk"] article summary').first().click();
+  for (const scope of ['section[aria-labelledby="koneksimu"]', 'section[aria-labelledby="ajakan-masuk"]', 'section[aria-labelledby="diblokir-title"]']) {
+    expect(await smallTargets(page, scope), scope).toEqual([]);
+  }
 });
 
 test('halaman detail kegiatan: setiap target di <main> ≥ 44px', async ({ page }) => {

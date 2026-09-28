@@ -182,3 +182,10 @@ export interface ConnectionPairRow {
   addressee_id: string;
   status: ConnectionStatus;
 }
+
+/** View `blocked_people` — orang yang diblokir pemanggil (ADR-041). */
+export interface BlockedPersonRow {
+  user_id: string;
+  full_name: string;
+  created_at: string;
+}

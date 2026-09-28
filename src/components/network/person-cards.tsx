@@ -1,9 +1,10 @@
-import { Check, UserMinus, UserPlus } from 'lucide-react';
-import { removeConnectionAction, requestConnectionAction, respondConnectionAction } from '@/app/connections/actions';
+import { Check, Ellipsis, UserPlus } from 'lucide-react';
+import { removeConnectionAction, requestConnectionAction, respondConnectionAction, unblockPersonAction } from '@/app/connections/actions';
 import { initialsOf } from '@/lib/initials';
 import { daysAgoLabel, personMeta } from '@/lib/network';
 import { cn } from '@/lib/utils';
-import type { Connection, NetworkPerson } from '@/types/domain';
+import type { BlockedPerson, Connection, NetworkPerson } from '@/types/domain';
+import { BLOCK_CONSEQUENCE, BlockPersonDetails, BlockPersonForm } from './block-person';
 import { ConnectionMessageField } from './connection-message-field';
 
 /**
@@ -151,6 +152,7 @@ export function IncomingRequestCard({
           </button>
         </form>
       </div>
+      <BlockPersonDetails targetId={person.userId} name={person.fullName} returnTo={returnTo} className="-mb-2 -mt-1" />
     </article>
   );
 }
@@ -158,32 +160,40 @@ export function IncomingRequestCard({
 export function ConnectionRow({ connection, returnTo, now }: { connection: Connection; returnTo: string; now: Date }) {
   const { person } = connection;
   return (
-    <li id={`orang-${person.userId}`} className="flex scroll-mt-28 items-center gap-3 py-3 target:rounded-card target:bg-brand-soft target:px-2">
+    <li id={`orang-${person.userId}`} className="relative flex scroll-mt-28 flex-wrap items-center gap-x-3 py-3 target:rounded-card target:bg-brand-soft target:px-2">
       <PersonAvatar name={person.fullName} solid size="sm" />
-      <span className="flex min-w-0 flex-1 flex-col">
+      <span className="flex min-h-11 min-w-0 flex-1 flex-col justify-center pr-12">
         <span className="truncate text-sm font-semibold">{person.fullName}</span>
         <span className="truncate text-[12px] text-ink-muted">
           {personMeta(person) || person.headline || 'Terhubung'} · sejak {daysAgoLabel(connection.respondedAt ?? connection.createdAt, now)}
         </span>
       </span>
-      {/* Memutus koneksi tidak bisa dibatalkan, jadi butuh satu langkah konfirmasi. */}
-      <details className="group relative">
+      {/*
+        Memutus & memblokir di balik satu langkah konfirmasi. Dibuka INLINE
+        (akordeon), bukan melayang: daftar ini wadah gulir ber-max-h, dan
+        panel absolut di baris bawah terpotong di dalamnya.
+      */}
+      <details className="group w-0 open:w-full">
         <summary
           aria-label={`Opsi untuk ${person.fullName}`}
-          className="flex size-11 cursor-pointer list-none items-center justify-center rounded-sm text-ink-muted hover:bg-panel-nested hover:text-ink [&::-webkit-details-marker]:hidden"
+          className="absolute right-0 top-3 flex size-11 cursor-pointer list-none items-center justify-center rounded-sm text-ink-muted hover:bg-panel-nested hover:text-ink group-open:bg-panel-nested group-open:text-ink [&::-webkit-details-marker]:hidden"
         >
-          <UserMinus aria-hidden className="size-4" />
+          <Ellipsis aria-hidden className="size-4" />
         </summary>
-        <div className="pop absolute right-0 top-[calc(100%+4px)] z-10 flex w-60 flex-col gap-2 rounded-modal border border-line bg-panel p-3 shadow-overlay">
+        <div className="pop mt-3 flex flex-col gap-2 rounded-card border border-line bg-panel p-3">
           <p className="text-[13px] leading-snug">Putuskan koneksi dengan {person.fullName}? Dia tidak diberi tahu.</p>
           <form action={removeConnectionAction}>
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="connectionId" value={connection.id} />
             <input type="hidden" name="kind" value="remove" />
-            <button type="submit" className="flex h-11 w-full items-center justify-center rounded-card border border-danger-line bg-danger-soft text-[13.5px] font-semibold text-danger">
+            <button type="submit" className={cn(secondary, 'w-full')}>
               Ya, putuskan
             </button>
           </form>
+          <p className="mt-1 border-t border-line pt-3 text-[13px] leading-snug">
+            Atau blokir {person.fullName}? <span className="text-ink-muted">{BLOCK_CONSEQUENCE}</span>
+          </p>
+          <BlockPersonForm targetId={person.userId} name={person.fullName} returnTo={returnTo} />
         </div>
       </details>
     </li>
@@ -205,6 +215,29 @@ export function OutgoingRow({ connection, returnTo, now }: { connection: Connect
         <input type="hidden" name="kind" value="cancel" />
         <button type="submit" className="flex min-h-11 items-center rounded-sm px-2.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink">
           Batalkan<span className="sr-only"> ajakan ke {person.fullName}</span>
+        </button>
+      </form>
+    </li>
+  );
+}
+
+export function BlockedRow({ person, returnTo, now }: { person: BlockedPerson; returnTo: string; now: Date }) {
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <PersonAvatar name={person.fullName} solid={false} size="sm" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-semibold">{person.fullName}</span>
+        <span className="truncate text-[12px] text-ink-muted">Diblokir {daysAgoLabel(person.blockedAt, now)}</span>
+      </span>
+      <form action={unblockPersonAction}>
+        <input type="hidden" name="returnTo" value={returnTo} />
+        <input type="hidden" name="targetId" value={person.userId} />
+        <button
+          type="submit"
+          aria-label={`Buka blokir ${person.fullName}`}
+          className="flex min-h-11 items-center rounded-sm px-2.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink"
+        >
+          Buka blokir
         </button>
       </form>
     </li>
