@@ -43,7 +43,9 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/ke/chromium python pipeline/tests/test_fetc
 mengganti Gemini dengan jawaban kosong, tidak menulis ke database, dan **tidak
 pernah** mengirim Telegram — hasilnya hanya dicatat di log.
 
-Satu sumber = satu halaman (`start_url`); paginasi & tautan detail belum
+Satu sumber = halaman `start_url`, atau — dengan `link_selector` — halaman
+daftar + tautan detailnya (domain yang sama, maks. `max_pages_per_source`,
+setiap tautan tetap lewat robots.txt & jeda). Paginasi halaman daftar belum
 diikuti. Sumber yang isinya dirender JavaScript diberi `requires_javascript:
 true` (Playwright; di CI Chromium dipasang otomatis hanya bila dibutuhkan).
 

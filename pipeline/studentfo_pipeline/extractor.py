@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urldefrag, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -71,6 +71,31 @@ def html_to_text(html: str, content_selector: str | None = None) -> str:
             MAX_CONTENT_CHARS,
         )
     return text[:MAX_CONTENT_CHARS]
+
+
+def extract_detail_links(html: str, page_url: str, selector: str, limit: int) -> list[str]:
+    """Tautan detail dari halaman daftar: domain yang sama, unik, tanpa #fragmen.
+
+    Domain dibatasi supaya selector yang terlalu longgar (mis. `a`) tidak
+    membawa pipeline berkeliling ke situs lain yang tidak pernah didaftarkan
+    sebagai sumber — dan tidak pernah dicek siapa pun.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    host = urlparse(page_url).netloc
+    links: list[str] = []
+    for node in soup.select(selector):
+        anchor = node if node.name == "a" else node.find("a")
+        href = anchor.get("href") if anchor else None
+        if not isinstance(href, str) or not href.strip():
+            continue
+        url, _ = urldefrag(urljoin(page_url, href.strip()))
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or parsed.netloc != host or url == page_url or url in links:
+            continue
+        links.append(url)
+        if len(links) >= limit:
+            break
+    return links
 
 
 def build_response_schema(category_slugs: list[str]) -> dict[str, Any]:

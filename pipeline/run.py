@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from studentfo_pipeline.alerts import send_telegram_alert, should_alert  # noqa: E402
 from studentfo_pipeline.config import Source, load_config  # noqa: E402
-from studentfo_pipeline.extractor import html_to_text, parse_events  # noqa: E402
+from studentfo_pipeline.extractor import extract_detail_links, html_to_text, parse_events  # noqa: E402
 from studentfo_pipeline.fetcher import PoliteFetcher, build_client  # noqa: E402
 from studentfo_pipeline.models import ValidatedEvent, compute_dedup_hash  # noqa: E402
 
@@ -34,26 +34,20 @@ logging.basicConfig(
 logger = logging.getLogger("pipeline")
 
 
-async def process_source(
-    source: Source,
-    fetcher: PoliteFetcher,
-    client,
+async def extract_page(
+    html: str,
+    page_url: str,
+    content_selector: str | None,
     category_slugs: list[str],
     extract_fn,
 ) -> tuple[list[ValidatedEvent], list[str]]:
-    """Olah satu sumber. Mengembalikan (event valid, daftar kesalahan)."""
-    fetch = fetcher.fetch_rendered if source.requires_javascript else fetcher.fetch
-    html = await fetch(client, source.start_url)
-    if html is None:
-        return [], [f"{source.id}: halaman tidak bisa diambil atau dilarang robots.txt"]
-
-    content = html_to_text(html, source.content_selector)
+    """Pangkas → ekstrak → validasi satu halaman. source_url = halaman ini."""
+    content = html_to_text(html, content_selector)
     if len(content) < 200:
-        return [], [f"{source.id}: isi halaman terlalu pendek setelah dipangkas"]
+        return [], [f"{page_url}: isi halaman terlalu pendek setelah dipangkas"]
 
-    raw_json = await extract_fn(content, source.start_url, category_slugs)
-    extracted, errors = parse_events(raw_json, source.start_url)
-
+    raw_json = await extract_fn(content, page_url, category_slugs)
+    extracted, errors = parse_events(raw_json, page_url)
     validated = [
         ValidatedEvent(
             title=event.title,
@@ -61,7 +55,7 @@ async def process_source(
             description=event.description,
             event_type=event.event_type,
             registration_link=str(event.registration_link),
-            source_url=source.start_url,
+            source_url=page_url,
             dedup_hash=compute_dedup_hash(event.title, event.organizer),
             education_levels=event.education_levels,
             location=event.location,
@@ -71,7 +65,49 @@ async def process_source(
         )
         for event in extracted
     ]
-    return validated, [f"{source.id}: {error}" for error in errors]
+    return validated, errors
+
+
+async def process_source(
+    source: Source,
+    fetcher: PoliteFetcher,
+    client,
+    category_slugs: list[str],
+    extract_fn,
+) -> tuple[list[ValidatedEvent], list[str]]:
+    """Olah satu sumber. Mengembalikan (event valid, daftar kesalahan).
+
+    Dengan `link_selector`, halaman daftar hanya dipakai untuk menemukan
+    tautan detail; setiap detail diekstrak sendiri sehingga `source_url`
+    menunjuk pengumuman aslinya — itulah yang dicocokkan moderator.
+    """
+    fetch = fetcher.fetch_rendered if source.requires_javascript else fetcher.fetch
+    html = await fetch(client, source.start_url)
+    if html is None:
+        return [], [f"{source.id}: halaman tidak bisa diambil atau dilarang robots.txt"]
+
+    if not source.link_selector:
+        events, errors = await extract_page(html, source.start_url, source.content_selector, category_slugs, extract_fn)
+        return events, [f"{source.id}: {error}" for error in errors]
+
+    links = extract_detail_links(html, source.start_url, source.link_selector, fetcher.policy.max_pages_per_source)
+    if not links:
+        # Nol tautan hampir selalu berarti tata letak situs berubah —
+        # dilaporkan sebagai kegagalan supaya ambang peringatan ikut menghitungnya.
+        return [], [f"{source.id}: tidak ada tautan yang cocok dengan link_selector {source.link_selector!r}"]
+
+    all_events: list[ValidatedEvent] = []
+    all_errors: list[str] = []
+    for link in links:
+        page = await fetch(client, link)
+        if page is None:
+            all_errors.append(f"{source.id}: {link} tidak bisa diambil atau dilarang robots.txt")
+            continue
+        events, errors = await extract_page(page, link, source.detail_content_selector, category_slugs, extract_fn)
+        all_events.extend(events)
+        all_errors.extend(f"{source.id}: {error}" for error in errors)
+    logger.info("%s: %d halaman detail diperiksa", source.id, len(links))
+    return all_events, all_errors
 
 
 def dry_run_dependencies():

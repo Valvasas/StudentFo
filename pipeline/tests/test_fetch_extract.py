@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import asyncio
 import http.server
+import json
 import os
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 PIPELINE = Path(__file__).resolve().parents[1]
@@ -37,6 +39,8 @@ ARTICLE_PAGE = """<html><body>
 </article></main>
 <footer class="situs">Hak cipta Universitas Contoh</footer>
 </body></html>"""
+
+FUTURE_DATE = (datetime.now(timezone.utc) + timedelta(days=30)).date().isoformat()
 
 JS_PAGE = """<html><body><main id="isi"></main><script>
 document.getElementById('isi').textContent = 'Beasiswa Dirender JavaScript ' + 'x'.repeat(300);
@@ -59,12 +63,12 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(site["page"].encode())
+        self.wfile.write(site["pages"].get(self.path, site["page"]).encode())
 
 
-def serve(robots=(200, "User-agent: *\nDisallow: /rahasia\n"), page=ARTICLE_PAGE):
+def serve(robots=(200, "User-agent: *\nDisallow: /rahasia\n"), page=ARTICLE_PAGE, pages=None):
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
-    server.site = {"robots": robots, "page": page, "requests": []}  # type: ignore[attr-defined]
+    server.site = {"robots": robots, "page": page, "pages": pages or {}, "requests": []}  # type: ignore[attr-defined]
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server, f"http://127.0.0.1:{server.server_address[1]}"
 
@@ -132,6 +136,90 @@ def test_empty_taxonomy_omits_category_enum():
     properties = build_response_schema([])["items"]["properties"]
     assert "categories" not in properties, "enum kosong ditolak API; properti harus tidak dikirim"
     assert build_response_schema(["sains"])["items"]["properties"]["categories"]["items"]["enum"] == ["sains"]
+
+
+LISTING = """<html><body><main><ul class="daftar">
+  <li><a href="/info/lomba-a">Lomba A</a></li>
+  <li><a href="/info/lomba-b#syarat">Lomba B</a></li>
+  <li><a href="/info/lomba-a">Lomba A (duplikat)</a></li>
+  <li><a href="https://situs-lain.example/info/c">Situs lain</a></li>
+  <li><a href="/rahasia/lomba-d">Dilarang robots.txt</a></li>
+  <li><a href="/info/lomba-e">Lomba E</a></li>
+</ul></main></body></html>"""
+
+
+def detail_page(title: str) -> str:
+    return f"<html><body><main><h1>{title}</h1><p>{'Pendaftaran dibuka untuk mahasiswa seluruh Indonesia. ' * 6}</p></main></body></html>"
+
+
+def load_run_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("pipeline_run", PIPELINE / "run.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
+def test_detail_links_same_host_unique_capped():
+    from studentfo_pipeline.extractor import extract_detail_links
+
+    base = "http://127.0.0.1:9/pengumuman"
+    links = extract_detail_links(LISTING, base, "ul.daftar li", limit=10)
+    assert links == [
+        "http://127.0.0.1:9/info/lomba-a",
+        "http://127.0.0.1:9/info/lomba-b",
+        "http://127.0.0.1:9/rahasia/lomba-d",
+        "http://127.0.0.1:9/info/lomba-e",
+    ], links
+    assert len(extract_detail_links(LISTING, base, "ul.daftar a", limit=2)) == 2, "batas max_pages_per_source diabaikan"
+
+
+def test_source_follows_detail_links_politely():
+    from studentfo_pipeline.config import Source
+
+    run = load_run_module()
+    pages = {path: detail_page(f"Lomba Detail {path[-1].upper()} Nasional") for path in ("/info/lomba-a", "/info/lomba-b", "/info/lomba-e")}
+    pages["/pengumuman"] = LISTING
+    server, base = serve(pages=pages)
+    seen: list[str] = []
+
+    async def fake_extract(content: str, url: str, slugs: list[str]) -> str:
+        seen.append(url)
+        title = content.splitlines()[0]
+        return json.dumps([{
+            "title": title, "organizer": "Kampus Contoh", "event_type": "LOMBA",
+            "registration_link": "/daftar", "deadlines": [{"label": "registration", "deadline_at": FUTURE_DATE}],
+        }])
+
+    async def go():
+        fetcher = PoliteFetcher(policy=FetchPolicy(delay_seconds_min=0.0, delay_seconds_max=0.0, max_pages_per_source=10))
+        source = Source(id="kampus", name="Kampus", start_url=f"{base}/pengumuman", link_selector="ul.daftar li")
+        async with build_client() as client:
+            return await run.process_source(source, fetcher, client, ["sains"], fake_extract)
+
+    try:
+        events, errors = asyncio.run(go())
+        assert seen == [f"{base}/info/lomba-a", f"{base}/info/lomba-b", f"{base}/info/lomba-e"], seen
+        assert [event.source_url for event in events] == seen, "source_url harus menunjuk halaman detail"
+        assert events[0].registration_link == f"{base}/daftar", "tautan relatif diselesaikan terhadap halaman detail"
+        assert len(errors) == 1 and "rahasia" in errors[0], errors
+        paths = [path for path, *_ in server.site["requests"]]
+        assert "/rahasia/lomba-d" not in paths, "halaman yang dilarang robots.txt tetap diminta"
+        assert paths.count("/robots.txt") == 1, "robots.txt per host cukup dibaca sekali"
+    finally:
+        server.shutdown()
+
+
+def test_listing_without_matching_links_is_a_failure():
+    server, base = serve(pages={"/pengumuman": LISTING})
+    try:
+        yaml = source(base) + "    link_selector: 'div.tidak-ada a'\n"
+        code, output = run_pipeline(yaml, "--dry-run")
+        assert code == 1, "tata letak berubah (0 tautan) harus dihitung gagal"
+        assert "tidak ada tautan yang cocok" in output, output
+    finally:
+        server.shutdown()
 
 
 def run_pipeline(sources_yaml: str, *args: str, env_overrides: dict[str, str] | None = None):
