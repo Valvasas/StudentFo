@@ -341,5 +341,20 @@ Belum / butuh keputusan atau akses pemilik:
 - [x] `scripts/e2e-supabase.sh` menghapus Data Cache lama sebelum build.
 - [ ] Ekstraksi Gemini sungguhan belum pernah diuji di lingkungan ini (tidak ada `GEMINI_API_KEY`);
       jalankan satu sumber nyata dengan `--dry-run` dimatikan di staging sebelum cron diaktifkan.
-- [ ] `max_pages_per_source` belum diimplementasikan (paginasi/tautan detail tidak diikuti).
-- [ ] Belum ada jalan balik untuk kegiatan yang tertolak (restore dari `/admin/riwayat`).
+- [x] `max_pages_per_source` dipakai lewat `link_selector` (halaman daftar → detail) — ADR-046.
+- [x] Jalan balik untuk kegiatan yang tertolak: "Kembalikan ke antrean" di `/admin/riwayat` — ADR-046.
+
+## Portofolio & riwayat per peran 2026-09-29 (@claude) — ADR-046
+
+- [x] Pipeline: panjang judul dicek setelah dirapikan; `registration_link` relatif diselesaikan ke URL sumber.
+- [x] Pipeline: `link_selector` + `detail_content_selector` (host sama, unik, dibatasi, jeda & robots tetap).
+- [x] Migration `20260929100001_portfolio_and_history.sql` + uji SQL `99_portfolio_history` (mutation-tested).
+- [x] Portofolio otomatis dari tracker APPLIED+; form hasil/catatan/bukti/visibilitas di `/tracker/[slug]`.
+- [x] Tab "Portofolio" di profil (pemilik + pratinjau publik), menggantikan "Pencapaian" demo.
+- [x] Profil publik `/orang/[id]` (aturan jaringan, 404 seragam, tombol Hubungkan); nama di Koneksi menautkannya.
+- [x] Penyelenggara: "Riwayat acara" dengan angka akhir, terpisah dari "Acara aktif".
+- [x] Admin: pulihkan kegiatan/kiriman tertolak ke antrean, tercatat di log moderasi.
+- [x] Paritas memori ↔ Supabase (integrasi), e2e + axe untuk rute baru.
+- [x] Demo: masuk ulang sebagai Penyelenggara tidak lagi melipatgandakan simpan/klik analitik.
+- [ ] Verifikasi hasil oleh penyelenggara (hasil kini dilaporkan sendiri, ditandai begitu).
+- [ ] Ekspor portofolio (PDF/tautan bagikan) — butuh keputusan soal akses tanpa login.

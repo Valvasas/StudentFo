@@ -143,6 +143,18 @@ Status personal per user per event (`tracker_status`). `UNIQUE(user_id, event_id
 `notes` dibatasi 500 karakter (CHECK, 0008). Sejak 0008, INSERT hanya untuk
 event yang terlihat publik (`APPROVED`/`EXPIRED`) — berlaku juga untuk `saved_events`.
 
+**Portofolio (ADR-046, migration `20260929100001`):** baris berstatus
+APPLIED/INTERVIEW/ACCEPTED = entri portofolio, tanpa tabel terpisah. Kolom:
+`achievement` (VARCHAR + CHECK daftar tertutup `ACHIEVEMENTS` di
+`src/types/domain.ts`), `achievement_note` ≤120, `proof_url` https ≤500,
+`portfolio_visible` BOOLEAN NULL (= bawaan jenis: BEASISWA/MAGANG privat,
+lainnya publik — `portfolio_default_visible(event_type)`). Ditulis pemilik
+lewat policy UPDATE yang sudah ada. Dibaca orang lain HANYA lewat RPC:
+`public_profile(p_user)` & `public_portfolio(p_user)` (authenticated;
+REJECTED tidak pernah dikembalikan) yang digerbangi `can_view_profile(p_user)`
+(pemilik, atau tidak saling blokir DAN bisa ditemukan/berkoneksi/ada ajakan;
+EXECUTE dicabut dari klien). Uji: `supabase/tests/99_portfolio_history.test.sql`.
+
 ### `notifications` (Phase 2 — sudah ada UI)
 Pengingat tenggat per user. Diisi **hanya** oleh
 `create_deadline_notifications()` (service_role); aplikasi cuma membaca dan
@@ -269,6 +281,11 @@ punya akses sama sekali. Tulis: `record_event_view()` (service_role). Baca:
 `event_analytics(p_event, p_days)` → JSONB (7..90 hari, k-anonimitas 5) untuk
 `manages_event()` atau admin. `purge_event_view_dedup()` harian via pg_cron.
 Uji: `supabase/tests/98_event_analytics.test.sql`.
+
+`organizer_event_history()` (ADR-046, authenticated) → acara kelolaan
+pemanggil yang sudah tutup (EXPIRED, atau APPROVED lewat tenggat) beserta
+total seumur acara (views, visitors, saves, clicks, applied), hanya selama
+penyelenggara VERIFIED.
 
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat

@@ -12,6 +12,57 @@ terdokumentasi.
 
 ---
 
+## ADR-046 — Portofolio = baris tracker yang sudah "Sudah daftar"; riwayat berbeda per peran
+
+**Konteks:** Pengguna meminta riwayat untuk tiap peran dengan isi berbeda,
+dan portofolio yang otomatis terisi saat mahasiswa mendaftar kegiatan.
+Tracker sudah mencatat pendaftaran (SAVED → APPLIED → INTERVIEW → ACCEPTED /
+REJECTED) dan riwayat tahapnya, tapi halaman tracker berjanji "status
+pendaftaranmu tidak pernah ditampilkan". Profil "Pencapaian" masih data demo
+statis. Penyelenggara hanya melihat acara yang masih buka; admin tidak bisa
+membatalkan penolakan (ADR-045 mencatatnya sebagai celah).
+
+**Keputusan:**
+- **Mahasiswa — portofolio.** Tidak ada tabel baru: entri portofolio adalah
+  baris `application_tracker` berstatus APPLIED/INTERVIEW/ACCEPTED (jadi "otomatis"
+  sejak tombol "Sudah daftar"). Kolom tambahan: `achievement` (daftar
+  tertutup per jenis kegiatan, CHECK di SQL), `achievement_note` (≤120),
+  `proof_url` (https saja, ≤500), `portfolio_visible` (NULL = bawaan jenis).
+  Dua sumber kebenaran untuk status = pasti tidak sinkron; satu baris tidak.
+- **Privasi bawaan.** Beasiswa & magang privat secara bawaan (kondisi
+  ekonomi, lamaran kerja); jenis lain publik. REJECTED tidak pernah tampil,
+  apa pun togglenya — "tidak lolos" adalah data yang tidak pernah dipilih
+  untuk dipamerkan. SAVED bukan portofolio (belum melakukan apa-apa).
+- **Siapa yang melihat** = aturan jaringan yang sudah ada (`can_view_profile`):
+  pemilik; atau tidak saling memblokir DAN (pemilik bisa ditemukan ATAU ada
+  koneksi/ajakan di antara keduanya). Tidak boleh dilihat dan tidak ada
+  sama-sama 404 di `/orang/[id]` supaya URL tidak jadi alat menebak akun.
+  Halaman wajib masuk dan `Disallow` di robots — ini jaringan, bukan SEO.
+- **Hasil dilaporkan sendiri**, dan ditulis begitu di profil publik plus
+  tautan bukti opsional. Verifikasi oleh penyelenggara butuh alur klaim dua
+  sisi yang belum ada; menyebutnya "terverifikasi" tanpa itu = bohong.
+- **Penyelenggara — riwayat acara.** `organizer_event_history()` hanya acara
+  kelolaan yang sudah tutup (EXPIRED, atau APPROVED lewat tenggat), dengan
+  total seumur acara (tayangan, pengunjung, simpan, klik, pendaftar
+  tercatat), dan hanya selama status penyelenggara VERIFIED — sama dengan
+  gerbang analitik ADR-043. Acara tutup keluar dari "Acara aktif".
+- **Admin — pulihkan.** REJECTED → PENDING untuk event & kiriman, dari
+  `/admin/riwayat`, hanya bila entri log terakhir subjek itu adalah
+  penolakan. Trigger `moderation_log` mencatat aktornya seperti keputusan
+  lain; konfirmasi "Tolak" kini menyebut jalan baliknya.
+- **Pipeline:** `link_selector` pada sumber = halaman daftar diikuti ke
+  halaman detail (host sama, unik, dibatasi `max_pages_per_source`, jeda &
+  robots tetap berlaku). 0 tautan cocok = kesalahan (selektor basi), bukan
+  "tidak ada kegiatan".
+
+**Konsekuensi:** Menghapus kegiatan dari Pendaftaran ikut menghapusnya dari
+portofolio — disebut di form. Hasil bisa dipalsukan pemiliknya; labelnya
+jujur soal itu. `public_portfolio` dibatasi 100 entri. Riwayat penyelenggara
+bergantung pada acara yang benar-benar ditandai kelolaan (`event_managers`);
+acara lama sebelum klaim tidak muncul. Pesan & diskusi tetap demo.
+
+---
+
 ## ADR-045 — Pipeline: jalur scraping diuji sungguhan, bukan hanya gerbang validasinya
 
 **Konteks:** Uji pipeline yang ada (`test_models`, `test_publisher`) hanya
