@@ -160,11 +160,24 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                       </span>
                       <SaveToggle eventId={event.id} isSaved={savedIds.includes(event.id)} returnTo={currentHref} className="-my-2.5 -mr-2.5" />
                     </div>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-xs text-ink-muted">Tutup pendaftaran</span>
-                      <span className="text-[26px] font-bold leading-[1.1] tracking-[-0.035em]">
-                        {event.primaryDeadlineAt ? formatShortDateId(event.primaryDeadlineAt) : 'Belum diumumkan'}
+                    {/* Satu blok tenggat per kartu: tanggal + sisa hari. Kanvas
+                        mengulang tanggal yang sama lagi di kaki kartu plus bilah
+                        progres berskala 30 hari — tiga penanda untuk satu fakta. */}
+                    <div className="flex items-end justify-between gap-3">
+                      <span className="flex flex-col gap-0.5">
+                        <span className="text-xs text-ink-muted">Tutup pendaftaran</span>
+                        <span className="text-[26px] font-bold leading-[1.1] tracking-[-0.035em]">
+                          {event.primaryDeadlineAt ? formatShortDateId(event.primaryDeadlineAt) : 'Belum diumumkan'}
+                        </span>
                       </span>
+                      {urgent ? (
+                        <span className="mb-1 inline-flex h-6 shrink-0 items-center gap-[5px] rounded-[6px] bg-brand px-2 text-[12.5px] font-semibold text-on-brand">
+                          <Clock aria-hidden className="size-3" />
+                          {daysLeftLabel(days)}
+                        </span>
+                      ) : (
+                        days !== 999 && <span className="mb-1 shrink-0 text-[13px] font-semibold">{daysLeftLabel(days)}</span>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <h3 className="text-[16.5px] font-semibold leading-snug tracking-[-0.015em]">
@@ -174,7 +187,7 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                       </h3>
                       <span className="text-[13px] text-ink-muted">{event.organizer}</span>
                     </div>
-                    <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">
+                    <ul aria-label="Ringkasan" className="mt-auto flex flex-wrap gap-1.5">
                       {[
                         event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(' & ') || 'Terbuka umum',
                         event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul'),
@@ -185,24 +198,6 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                         </li>
                       ))}
                     </ul>
-                    <div className="mt-auto flex flex-col gap-2.5">
-                      <div aria-hidden className="h-1 overflow-hidden rounded-[2px] bg-line">
-                        <div className="h-full rounded-[2px] bg-brand" style={{ width: `${Math.max(6, Math.round(100 - (Math.min(days, 30) / 30) * 100))}%` }} />
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[12.5px] text-ink-muted">
-                          Tutup {event.primaryDeadlineAt ? formatShortDateId(event.primaryDeadlineAt) : '–'}
-                        </span>
-                        {urgent ? (
-                          <span className="inline-flex h-6 items-center gap-[5px] rounded-[6px] bg-brand px-2 text-[12.5px] font-semibold text-on-brand">
-                            <Clock aria-hidden className="size-3" />
-                            {daysLeftLabel(days)}
-                          </span>
-                        ) : (
-                          <span className="text-[13px] font-semibold">{days === 999 ? 'Tanggal TBA' : daysLeftLabel(days)}</span>
-                        )}
-                      </div>
-                    </div>
                   </li>
                 );
               })}

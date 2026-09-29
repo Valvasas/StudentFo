@@ -81,12 +81,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
               <span className="text-[13px] text-on-inverse-muted">{daysLeftLabel(daysUntil(scoped.primaryDeadlineAt, now))}</span>
             </span>
           </div>
-        ) : (
-          <div className="enter flex items-baseline gap-3 justify-self-start rounded-[18px] bg-inverse px-6 py-5 text-on-inverse [animation-delay:120ms] [animation-duration:900ms] min-[720px]:justify-self-end">
-            <span className="text-[44px] font-bold leading-none tracking-[-0.04em]">{openCount}</span>
-            <span className="text-sm text-on-inverse-muted">tim masih mencari anggota</span>
-          </div>
-        )}
+        ) : null}
       </div>
 
       <ActionFeedback params={params} className="mt-6 max-w-2xl" />
@@ -220,7 +215,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
             </h2>
             <span className="font-mono text-[13px] text-ink-muted">{teams.length}</span>
             <span aria-hidden className="h-px flex-1 self-center bg-line" />
-            <span className="text-[13px] text-ink-muted">Yang masih butuh orang tampil lebih dulu</span>
+            <span className="text-[13px] text-ink-muted">{openCount} masih butuh orang — tampil lebih dulu</span>
           </div>
 
           {teams.length === 0 ? (

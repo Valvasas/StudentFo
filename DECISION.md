@@ -12,6 +12,52 @@ terdokumentasi.
 
 ---
 
+## ADR-044 — Satu fakta, satu tempat: memangkas pengulangan dari kanvas desain
+
+**Konteks:** Audit visual (desktop 1440px + ponsel 390px, mode seed) menemukan
+kepadatan yang lahir dari kanvas desain, bukan dari kebutuhan pengguna. Di
+detail kegiatan, tenggat tampil lima kali (panel poster, deretan fakta, hitung
+mundur, "Tutup … WIB", bilah bawah), jenjang tiga kali, ajakan "Cari tim" dua
+kali, dan navigasi bagian tiga lapis (tab + daftar "Sebelum mendaftar" yang
+isinya tautan ke tab yang sama + tombol "Selanjutnya"); tombol "Daftar
+sekarang" baru terlihat setelah menggulir ~1100px. Pola yang sama muncul di
+tempat lain: kartu lomba menulis tanggal tutup tiga kali, kartu statistik hitam
+di `/teams` & `/connections` mengulang angka yang sudah ada di judul bagian,
+kelengkapan profil 100% tampil dua kali lengkap dengan daftar yang dicoret
+semua, dan navbar beranda berisi delapan tautan yang isinya berganti antarhalaman.
+
+**Keputusan:** Aturan umumnya — setiap fakta tampil SEKALI per lebar layar, di
+tempat pengguna bisa bertindak atasnya; yang tidak butuh tindakan tidak memakan
+ruang.
+- Detail kegiatan: panel aksi (hitung mundur + daftar + simpan/bagikan) naik ke
+  samping judul; jenjang/tempat/jumlah penyimpan jadi satu baris meta di bawah
+  judul; deskripsi pindah ke tab Ringkasan. Dibuang: panel poster-tanggal,
+  deretan lima fakta, daftar "Sebelum mendaftar", tombol sebelum/selanjutnya,
+  tombol kembali (remah roti cukup), tombol tim kedua, dan disclaimer panel
+  (sudah ada di footer setiap halaman).
+- Navbar sama di semua halaman: "Semua" + lima kategori. Jangkar beranda
+  (Cara pakai, Fitur) tetap terjangkau dari tombol hero; "Tentang" dari footer.
+- Tombol utama hero = "Jelajahi kegiatan" (/events), bukan "Mulai gratis":
+  mencari tidak butuh akun; daftar tetap di navbar & ajakan penutup.
+- Kartu statistik yang hanya mengulang hitungan judul bagian dihapus; kartu
+  yang membawa informasi unik (tenggat di `/teams?kegiatan=`, "N dari M
+  beasiswa terbuka untuk jenjangmu") dipertahankan.
+- Kelengkapan profil hanya tampil selama < 100%. Form "Cara orang
+  menemukanmu" dilipat (`<details>`), terbuka sendiri hanya saat profil masih
+  tersembunyi.
+- Kartu kegiatan tanpa baris tag bidang (slug mentah huruf kecil); FilterBar
+  memisahkan "Tampilkan yang ditutup" (filter) dari opsi urutan, dan di ponsel
+  baris chip jadi satu baris geser.
+
+**Konsekuensi:** Beberapa elemen kanvas desain sengaja tidak diikuti lagi —
+penyelarasan kanvas berikutnya harus membaca ADR ini dulu, bukan
+"mengembalikan yang hilang". Di bawah 960px tenggat hanya ada di bilah bawah
+(tidak di badan halaman); itu disengaja karena bilahnya selalu terlihat.
+Metrik konversi "Mulai gratis" dari hero akan turun — yang diukur seharusnya
+akun yang dibuat setelah pengguna melihat isi, bukan klik di hero.
+
+---
+
 ## ADR-043 — Analitik acara untuk penyelenggara: agregat harian, hash pengunjung harian, k-anonimitas
 
 **Konteks:** Penyelenggara butuh angka untuk mengevaluasi acaranya (jangkauan,

@@ -140,7 +140,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           {demoFeaturesEnabled && <DemoStatusPicker editable={!isPublic} />}
         </section>
 
-        {!isPublic && (
+        {/* Setelah 100% kartu ini hanya berisi daftar yang dicoret semua —
+            ruang besar untuk kabar yang tidak butuh tindakan apa pun. */}
+        {!isPublic && completeness.percent < 100 && (
           <section aria-labelledby="kelengkapan" className="flex min-w-0 flex-[1_1_260px] flex-col gap-4 rounded-[20px] bg-panel-nested p-5 sm:p-6">
             <div className="flex items-center gap-4">
               <div
@@ -155,7 +157,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               </div>
               <div className="flex flex-col gap-[3px]">
                 <h2 id="kelengkapan" className="text-[15px] font-semibold">
-                  {completeness.percent === 100 ? 'Profil sudah lengkap' : completeness.percent >= 50 ? 'Profil hampir siap' : 'Yuk lengkapi profilmu'}
+                  {completeness.percent >= 50 ? 'Profil hampir siap' : 'Yuk lengkapi profilmu'}
                 </h2>
                 <p className="text-[13px] leading-snug text-ink-muted">Profil lengkap membuat urutan kegiatan lebih sesuai dengan minat dan jenjangmu.</p>
               </div>

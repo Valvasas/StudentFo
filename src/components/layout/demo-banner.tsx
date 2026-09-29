@@ -28,25 +28,22 @@ export function DemoBanner() {
 
   return (
     <div role="note" className="border-b border-caution-line bg-caution-soft">
-      <div className="container-page flex items-start gap-2 py-2 text-xs text-caution sm:items-center">
+      <div className="container-page flex items-start gap-2 py-1.5 text-xs text-caution sm:items-center">
         <Icon aria-hidden className="mt-0.5 size-4 shrink-0 sm:mt-0" />
         <p>
-          <strong className="font-semibold">Mode data contoh.</strong> Seluruh kegiatan, penyelenggara,
-          dan tenggat di halaman ini fiktif — dipakai untuk pengembangan antarmuka. Fitur akun bisa
-          dicoba lewat akun demo di halaman Masuk.{' '}
+          <strong className="font-semibold">Mode demo</strong> — semua kegiatan &amp; tenggat di sini fiktif.{' '}
           {reset && (
             <span data-testid="demo-reset">
               {reset.imminent ? (
                 <strong className="font-semibold">
-                  Data demo diatur ulang dalam {formatDuration(reset.minutesLeft)} (pukul{' '}
+                  Data diatur ulang dalam {formatDuration(reset.minutesLeft)} (pukul{' '}
                   <time dateTime={reset.nextResetAt.toISOString()}>{formatTimeId(reset.nextResetAt.toISOString())}</time>)
                   — simpanan & tim demo-mu akan hilang.
                 </strong>
               ) : (
                 <>
-                  Reset data berikutnya pukul{' '}
-                  <time dateTime={reset.nextResetAt.toISOString()}>{formatTimeId(reset.nextResetAt.toISOString())}</time>{' '}
-                  (±{formatDuration(reset.minutesLeft)} lagi).
+                  Reset pukul{' '}
+                  <time dateTime={reset.nextResetAt.toISOString()}>{formatTimeId(reset.nextResetAt.toISOString())}</time>.
                 </>
               )}
             </span>

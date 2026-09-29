@@ -6,12 +6,10 @@ import { notFound } from 'next/navigation';
 import { after } from 'next/server';
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   BadgeCheck,
   Bookmark,
-  CalendarClock,
   ExternalLink,
   FileText,
   GraduationCap,
@@ -41,7 +39,6 @@ import {
   formatDateTimeId,
   formatShortDateId,
   getDeadlineState,
-  jakartaDateParts,
 } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
@@ -97,6 +94,11 @@ const headingClass = 'text-[22px] font-bold tracking-[-0.025em]';
  * tetap utuh tanpa JavaScript. Bagian kanvas yang butuh data yang belum
  * ada di skema (poster, hadiah, daftar berkas per jenis — ADR-039) diganti
  * dengan data yang ada atau arahan ke pengumuman resmi, bukan diisi rekaan.
+ *
+ * Kanvas juga memuat panel poster-tanggal, deretan lima fakta, daftar
+ * "Sebelum mendaftar" yang menautkan ke tab, dan tombol "Selanjutnya" —
+ * semuanya mengulang tenggat/jenjang/tab yang sudah tampil di tempat lain
+ * (tenggat sempat muncul lima kali). Sengaja tidak dipakai: lihat ADR-044.
  */
 export default async function EventDetailPage({
   params,
@@ -148,7 +150,6 @@ export default async function EventDetailPage({
   const detailPath = `/events/${event.slug}`;
   const tabHref = (key: TabKey) => (key === 'ringkasan' ? detailPath : `${detailPath}?tab=${key}`);
   const upcoming = event.deadlines.find((deadline) => (daysUntil(deadline.deadlineAt, now) ?? -1) >= 0);
-  const deadlineParts = event.primaryDeadlineAt ? jakartaDateParts(event.primaryDeadlineAt) : null;
   const others = similar.items.filter((item) => item.id !== event.id).slice(0, 3);
 
   const requirements = [
@@ -159,11 +160,9 @@ export default async function EventDetailPage({
   ];
 
   const facts = [
-    { icon: FileText, label: 'Jenis', value: EVENT_TYPE_LABEL[event.eventType] },
-    { icon: GraduationCap, label: 'Jenjang', value: levels.join(' & ') || 'Semua jenjang' },
+    { icon: GraduationCap, label: 'Jenjang', value: levels.join(', ') || 'Semua jenjang' },
     { icon: MapPin, label: 'Pelaksanaan', value: place },
-    { icon: CalendarClock, label: 'Tutup', value: event.primaryDeadlineAt ? formatDateId(event.primaryDeadlineAt) : 'Belum diumumkan' },
-    { icon: Bookmark, label: 'Disimpan', value: `${event.savedCount.toLocaleString('id-ID')} orang` },
+    { icon: Bookmark, label: 'Disimpan', value: `Disimpan ${event.savedCount.toLocaleString('id-ID')} orang` },
   ];
 
   const register = isClosed ? (
@@ -195,31 +194,30 @@ export default async function EventDetailPage({
     <div className="pb-28 min-[960px]:pb-0">
       <div className="container-page pt-6">
         <ActionFeedback params={query} className="mb-4 max-w-2xl" />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href={listHref}
-            className="flex h-11 items-center gap-2 rounded-card border border-line pl-2.5 pr-3.5 text-sm font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested"
-          >
-            <ArrowLeft aria-hidden className="size-4" />
-            Kembali ke {typeLabel}
+        <nav aria-label="Remah roti" className="flex min-w-0 items-center gap-2 text-[13px] text-ink-muted">
+          <Link href="/" className="inline-flex min-h-11 shrink-0 items-center hover:text-ink">
+            Beranda
           </Link>
-          <nav aria-label="Remah roti" className="hidden flex-wrap items-center gap-2 text-[13px] text-ink-muted sm:flex">
-            <Link href="/" className="inline-flex min-h-11 items-center hover:text-ink">
-              Beranda
-            </Link>
-            <span aria-hidden>/</span>
-            <Link href={listHref} className="inline-flex min-h-11 items-center hover:text-ink">
-              {typeLabel}
-            </Link>
-            <span aria-hidden>/</span>
-            <span aria-current="page" className="max-w-[32ch] truncate text-ink">
-              {event.title}
-            </span>
-          </nav>
-        </div>
+          <span aria-hidden>/</span>
+          <Link href={listHref} className="inline-flex min-h-11 shrink-0 items-center hover:text-ink">
+            {typeLabel}
+          </Link>
+          <span aria-hidden className="hidden sm:inline">
+            /
+          </span>
+          <span aria-current="page" className="hidden max-w-[40ch] truncate text-ink sm:inline">
+            {event.title}
+          </span>
+        </nav>
+      </div>
 
-        <div className="mt-6 grid items-center gap-10 [grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr))]">
-          <div className="enter flex flex-col gap-4">
+      {/* Panel aksi berdiri di samping judul, bukan di bawah deretan info:
+          tombol daftar terlihat tanpa menggulir. Setiap fakta (jenjang,
+          tempat, tenggat) tampil SEKALI per lebar layar — tenggat di panel
+          samping / bilah bawah ponsel, sisanya di baris meta judul. */}
+      <div className="container-page flex flex-wrap items-start gap-12 pb-12 pt-4">
+        <div className="flex min-w-0 flex-[1_1_560px] flex-col">
+          <header className="enter flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex h-[26px] items-center rounded-[6px] bg-brand px-2.5 text-[12.5px] font-semibold text-on-brand">
                 {EVENT_TYPE_LABEL[event.eventType]}
@@ -260,293 +258,219 @@ export default async function EventDetailPage({
                 </span>
               </span>
             </div>
-            {event.description && (
-              <p className="max-w-[56ch] whitespace-pre-line text-base leading-[1.65] text-ink-soft">{event.description}</p>
-            )}
+            <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
+              {facts.map((fact) => (
+                <div key={fact.label} className="flex items-center gap-1.5">
+                  <dt>
+                    <fact.icon aria-hidden className="size-4 text-ink-muted" />
+                    <span className="sr-only">{fact.label}</span>
+                  </dt>
+                  <dd>{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </header>
+
+          <div className="sticky top-0 z-30 mt-8 border-b border-line bg-canvas md:top-16">
+            <nav aria-label="Bagian informasi" className="-mx-4 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
+              {TABS.map((item) => {
+                const active = item.key === tab;
+                const count = item.key === 'syarat' ? requirements.length : item.key === 'tahapan' ? event.deadlines.length : null;
+                return (
+                  <Link
+                    key={item.key}
+                    href={tabHref(item.key)}
+                    scroll={false}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'flex h-[52px] shrink-0 items-center gap-2 whitespace-nowrap px-3.5 text-[14.5px] transition-colors duration-150 ease-snap first:pl-0',
+                      active ? 'font-semibold text-ink shadow-[inset_0_-2px_0_var(--color-text-primary)]' : 'font-medium text-ink-muted hover:text-ink',
+                    )}
+                  >
+                    {item.label}
+                    {count !== null && count > 0 && (
+                      <span
+                        className={cn(
+                          'flex h-5 min-w-5 items-center justify-center rounded-[10px] px-1.5 text-[11.5px] font-semibold',
+                          active ? 'bg-brand text-on-brand' : 'bg-panel-nested text-ink-muted',
+                        )}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
 
-          {/* Kanvas menaruh poster resmi di sini; poster belum dikumpulkan
-              (ADR-039), jadi panel ini merangkum tanggal tutup & sumbernya. */}
-          <div
-            aria-hidden
-            className="enter relative hidden aspect-[4/3] w-full max-w-[520px] justify-self-end overflow-hidden rounded-2xl bg-panel-nested [animation-delay:80ms] [background-image:radial-gradient(var(--color-border)_1px,transparent_1px)] [background-size:22px_22px] md:block"
-          >
-            <div className="absolute inset-[12%] flex flex-col justify-between rounded-[14px] border border-line bg-panel p-[7%] shadow-[0_18px_40px_rgba(0,0,0,.06)]">
-              <span className="font-mono text-xs uppercase tracking-[.08em] text-ink-muted">Tutup pendaftaran</span>
-              <span className="flex items-end gap-4">
-                <span className="text-[clamp(56px,7vw,88px)] font-bold leading-[.9] tracking-[-0.05em]">{deadlineParts?.day ?? '–'}</span>
-                <span className="flex flex-col pb-1.5">
-                  <span className="text-lg font-semibold">{deadlineParts?.month ?? 'Belum diumumkan'}</span>
-                  <span className="text-sm text-ink-muted">{deadlineParts ? `${deadlineParts.weekday}, ${deadlineParts.year}` : ''}</span>
-                </span>
-              </span>
-              <span className="flex items-center justify-between gap-3 border-t border-line pt-3 text-[13px]">
-                <span className="truncate text-ink-muted">{sourceHost ? `Sumber: ${sourceHost}` : 'Sumber resmi penyelenggara'}</span>
-                <span className="font-semibold">{daysLeftLabel(state.daysLeft)}</span>
-              </span>
-            </div>
-          </div>
+          <section aria-label={TABS[tabIndex]?.label} className="enter flex flex-col gap-10 pt-8 [animation-duration:300ms]">
+            {tab === 'ringkasan' && (
+              <>
+                <div className="flex flex-col gap-3">
+                  <h2 className={headingClass}>Tentang kegiatan</h2>
+                  {event.description ? (
+                    <p className="max-w-[64ch] whitespace-pre-line text-base leading-[1.7] text-ink-soft">{event.description}</p>
+                  ) : (
+                    <p className="text-[14.5px] text-ink-muted">
+                      Penyelenggara belum menulis deskripsi. Baca detail lengkapnya di pengumuman resmi.
+                    </p>
+                  )}
+                </div>
+
+                {isTeamEvent && !isClosed && (
+                  <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] bg-panel-nested p-[18px]">
+                    <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-brand text-on-brand">
+                      <Users className="size-4" />
+                    </span>
+                    <p className="min-w-[200px] flex-1 text-sm leading-normal text-ink-soft">
+                      Lomba ini diikuti per tim. Belum punya tim? Cari rekan lintas kampus atau buka timmu sendiri.
+                    </p>
+                    <Link
+                      href={`/teams?kegiatan=${event.slug}`}
+                      className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 bg-panel px-3.5 text-sm font-semibold transition-colors duration-150 ease-snap hover:border-brand"
+                    >
+                      <Users aria-hidden className="size-4" />
+                      Cari tim
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
+            {tab === 'syarat' && (
+              <>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1">
+                    <h2 className={headingClass}>Syarat peserta</h2>
+                    <p className="text-[14.5px] text-ink-muted">Tandai untuk mengecek kesiapanmu. Syarat lengkap selalu mengikuti pengumuman resmi.</p>
+                  </div>
+                  <RequirementsChecklist items={requirements} />
+                </div>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1">
+                    <h2 className={headingClass}>Berkas yang disiapkan</h2>
+                    <p className="text-[14.5px] text-ink-muted">Daftar berkas berbeda di tiap penyelenggara dan tercantum di pengumuman resminya.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3.5 rounded-[12px] border border-line px-[18px] py-3.5">
+                    <FileText aria-hidden className="size-5 shrink-0 text-ink-muted" />
+                    <p className="min-w-[200px] flex-1 text-[14.5px]">Baca bagian persyaratan berkas di pengumuman resmi sebelum mulai mengisi formulir.</p>
+                    {sourceUrl && (
+                      <a
+                        href={sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="flex min-h-11 items-center gap-1 whitespace-nowrap text-sm font-semibold underline underline-offset-[3px]"
+                      >
+                        Buka sumber <ExternalLink aria-hidden className="size-3.5" />
+                        <span className="sr-only">(tab baru)</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {tab === 'tahapan' && (
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-1">
+                  <h2 className={headingClass}>Tahapan dan jadwal</h2>
+                  <p className="text-[14.5px] text-ink-muted">Semua waktu dalam WIB. Jadwal bisa berubah sesuai pengumuman penyelenggara.</p>
+                </div>
+                {event.deadlines.length > 0 ? (
+                  <ol className="flex flex-col">
+                    {event.deadlines.map((deadline, index) => {
+                      const days = daysUntil(deadline.deadlineAt, now);
+                      const past = days !== null && days < 0;
+                      const isNext = deadline.id === upcoming?.id;
+                      return (
+                        <li key={deadline.id} className="grid grid-cols-[88px_24px_minmax(0,1fr)] gap-3 sm:grid-cols-[120px_24px_minmax(0,1fr)]">
+                          <span className="pt-px font-mono text-[13px] text-ink-muted">{formatShortDateId(deadline.deadlineAt)}</span>
+                          <span aria-hidden className="flex flex-col items-center">
+                            <span className={cn('mt-[3px] size-3.5 shrink-0 rounded-pill border-[1.5px] border-brand', past || isNext ? 'bg-brand' : 'bg-panel')} />
+                            {index < event.deadlines.length - 1 && <span className={cn('min-h-7 w-[1.5px] flex-1', past ? 'bg-brand' : 'bg-line')} />}
+                          </span>
+                          <span className="flex flex-col gap-1 pb-7">
+                            <span className="text-[15px] font-semibold leading-snug">
+                              {DEADLINE_LABEL_TEXT[deadline.label]}
+                              {deadline.isPrimary && <span className="font-normal text-ink-muted"> · tenggat utama</span>}
+                            </span>
+                            <span className="text-[13px] text-ink-muted">{formatDateTimeId(deadline.deadlineAt)}</span>
+                            {isNext && (
+                              <span className="flex h-[22px] items-center self-start rounded-[6px] bg-brand px-2 text-xs font-semibold text-on-brand">
+                                Berikutnya · {daysLeftLabel(days)}
+                              </span>
+                            )}
+                            {past && <span className="text-xs text-ink-muted">Sudah lewat</span>}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <p className="text-[14.5px] text-ink-muted">Penyelenggara belum mengumumkan jadwalnya.</p>
+                )}
+              </div>
+            )}
+
+            {tab === 'penyelenggara' && (
+              <div className="flex flex-col gap-4">
+                <h2 className={headingClass}>Penyelenggara</h2>
+                <div className="flex flex-wrap items-center gap-[18px] rounded-[14px] border border-line p-[22px]">
+                  <span aria-hidden className="flex size-14 items-center justify-center rounded-[12px] bg-brand text-base font-semibold text-on-brand">
+                    {initialsOf(event.organizer)}
+                  </span>
+                  <div className="flex min-w-[200px] flex-1 flex-col gap-1">
+                    <span className="flex items-center gap-1.5 text-base font-semibold">
+                      {event.organizer}
+                      {verifiedOrg ? (
+                        <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 text-success" />
+                      ) : (
+                        <ShieldCheck aria-hidden className="size-4 text-ink-muted" />
+                      )}
+                    </span>
+                    <span className="text-[13.5px] text-ink-muted">
+                      Informasinya dicocokkan moderator dengan sumber{' '}
+                      {sourceHost ? <strong className="font-medium text-ink-soft">{sourceHost}</strong> : 'aslinya'} sebelum tayang.
+                    </span>
+                    {verifiedOrg && (
+                      <span className="text-[13.5px] text-ink-muted">
+                        Dikelola <strong className="font-medium text-ink-soft">{verifiedOrg}</strong> — identitasnya diverifikasi
+                        moderator, dan setiap perubahan dari mereka tetap ditinjau sebelum tampil.
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <OrganizerCallout eventId={event.id} returnTo={tabHref('penyelenggara')} signedIn={Boolean(user)} profile={organizerProfile} />
+
+                <div role="note" className="flex gap-3 rounded-[12px] border border-dashed border-ink-muted p-4 text-sm leading-normal">
+                  <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    Jangan transfer biaya pendaftaran ke rekening pribadi, dan pastikan formulir yang kamu isi berada di domain resmi
+                    penyelenggara. Ada yang janggal? Bandingkan dengan pengumuman aslinya.
+                  </span>
+                </div>
+                {sourceUrl && (
+                  <a
+                    href={sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="inline-flex min-h-11 items-center gap-1 self-start text-[13.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
+                  >
+                    Buka pengumuman asli di {sourceHost ?? 'situs penyelenggara'}
+                    <ExternalLink aria-hidden className="size-3.5" />
+                    <span className="sr-only">(tab baru)</span>
+                  </a>
+                )}
+              </div>
+            )}
+
+          </section>
         </div>
 
-        <dl className="mt-8 grid gap-px overflow-hidden rounded-[14px] border border-line bg-line [grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr))]">
-          {facts.map((fact) => (
-            <div key={fact.label} className="flex flex-col gap-1.5 bg-panel px-[18px] py-4">
-              <dt className="flex items-center gap-1.5 text-[12.5px] text-ink-muted">
-                <fact.icon aria-hidden className="size-3.5" />
-                {fact.label}
-              </dt>
-              <dd className="text-[15px] font-semibold tracking-[-0.01em]">{fact.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-
-      <div className="sticky top-0 z-30 mt-8 border-b border-line bg-canvas md:top-16">
-        <nav aria-label="Bagian informasi" className="container-page flex gap-1 overflow-x-auto [scrollbar-width:none]">
-          {TABS.map((item) => {
-            const active = item.key === tab;
-            const count = item.key === 'syarat' ? requirements.length : item.key === 'tahapan' ? event.deadlines.length : null;
-            return (
-              <Link
-                key={item.key}
-                href={tabHref(item.key)}
-                scroll={false}
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'flex h-[52px] shrink-0 items-center gap-2 whitespace-nowrap px-3.5 text-[14.5px] transition-colors duration-150 ease-snap',
-                  active ? 'font-semibold text-ink shadow-[inset_0_-2px_0_var(--color-text-primary)]' : 'font-medium text-ink-muted hover:text-ink',
-                )}
-              >
-                {item.label}
-                {count !== null && count > 0 && (
-                  <span
-                    className={cn(
-                      'flex h-5 min-w-5 items-center justify-center rounded-[10px] px-1.5 text-[11.5px] font-semibold',
-                      active ? 'bg-brand text-on-brand' : 'bg-panel-nested text-ink-muted',
-                    )}
-                  >
-                    {count}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className="container-page flex flex-wrap items-start gap-12 pb-12 pt-9">
-        <section aria-label={TABS[tabIndex]?.label} className="enter flex min-w-0 flex-[1_1_560px] flex-col gap-10 [animation-duration:300ms]">
-          {tab === 'ringkasan' && (
-            <>
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                  <h2 className={headingClass}>Sebelum mendaftar</h2>
-                  <p className="text-[14.5px] text-ink-muted">Cek tiga hal ini. Buka tiap bagian untuk detail lengkapnya.</p>
-                </div>
-                <ol className="flex flex-col overflow-hidden rounded-[12px] border border-line">
-                  {[
-                    { key: 'syarat' as const, title: 'Syarat peserta', detail: `${requirements.length} syarat, termasuk jenjang ${levels.join(' atau ') || 'bebas'}` },
-                    {
-                      key: 'tahapan' as const,
-                      title: 'Tahapan dan jadwal',
-                      detail: `${event.deadlines.length} tanggal penting${upcoming ? `, berikutnya ${formatShortDateId(upcoming.deadlineAt)}` : ''}`,
-                    },
-                    { key: 'penyelenggara' as const, title: 'Penyelenggara', detail: `${event.organizer} · ditinjau manual` },
-                  ].map((item, index) => (
-                    <li key={item.key} className="border-b border-line last:border-b-0">
-                      <Link href={tabHref(item.key)} scroll={false} className="flex items-center gap-4 px-[18px] py-4 transition-colors duration-150 ease-snap hover:bg-panel-nested">
-                        <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-sm border border-line font-mono text-[12.5px]">
-                          0{index + 1}
-                        </span>
-                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span className="text-[15px] font-semibold">{item.title}</span>
-                          <span className="text-[13px] text-ink-muted">{item.detail}</span>
-                        </span>
-                        <span className="flex items-center gap-1.5 whitespace-nowrap text-[13.5px] font-medium">
-                          Lihat <ArrowRight aria-hidden className="size-3.5" />
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              {isTeamEvent && !isClosed && (
-                <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] bg-panel-nested p-[18px]">
-                  <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-brand text-on-brand">
-                    <Users className="size-4" />
-                  </span>
-                  <p className="min-w-[200px] flex-1 text-sm leading-normal text-ink-soft">
-                    Lomba ini diikuti per tim. Belum punya tim? Cari rekan lintas kampus atau buka timmu sendiri.
-                  </p>
-                  <Link
-                    href={`/teams?kegiatan=${event.slug}`}
-                    className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 bg-panel px-3.5 text-sm font-semibold transition-colors duration-150 ease-snap hover:border-brand"
-                  >
-                    <Users aria-hidden className="size-4" />
-                    Cari tim
-                  </Link>
-                </div>
-              )}
-            </>
-          )}
-
-          {tab === 'syarat' && (
-            <>
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                  <h2 className={headingClass}>Syarat peserta</h2>
-                  <p className="text-[14.5px] text-ink-muted">Tandai untuk mengecek kesiapanmu. Syarat lengkap selalu mengikuti pengumuman resmi.</p>
-                </div>
-                <RequirementsChecklist items={requirements} />
-              </div>
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                  <h2 className={headingClass}>Berkas yang disiapkan</h2>
-                  <p className="text-[14.5px] text-ink-muted">Daftar berkas berbeda di tiap penyelenggara dan tercantum di pengumuman resminya.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3.5 rounded-[12px] border border-line px-[18px] py-3.5">
-                  <FileText aria-hidden className="size-5 shrink-0 text-ink-muted" />
-                  <p className="min-w-[200px] flex-1 text-[14.5px]">Baca bagian persyaratan berkas di pengumuman resmi sebelum mulai mengisi formulir.</p>
-                  {sourceUrl && (
-                    <a
-                      href={sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="flex min-h-11 items-center gap-1 whitespace-nowrap text-sm font-semibold underline underline-offset-[3px]"
-                    >
-                      Buka sumber <ExternalLink aria-hidden className="size-3.5" />
-                      <span className="sr-only">(tab baru)</span>
-                    </a>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {tab === 'tahapan' && (
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-1">
-                <h2 className={headingClass}>Tahapan dan jadwal</h2>
-                <p className="text-[14.5px] text-ink-muted">Semua waktu dalam WIB. Jadwal bisa berubah sesuai pengumuman penyelenggara.</p>
-              </div>
-              {event.deadlines.length > 0 ? (
-                <ol className="flex flex-col">
-                  {event.deadlines.map((deadline, index) => {
-                    const days = daysUntil(deadline.deadlineAt, now);
-                    const past = days !== null && days < 0;
-                    const isNext = deadline.id === upcoming?.id;
-                    return (
-                      <li key={deadline.id} className="grid grid-cols-[88px_24px_minmax(0,1fr)] gap-3 sm:grid-cols-[120px_24px_minmax(0,1fr)]">
-                        <span className="pt-px font-mono text-[13px] text-ink-muted">{formatShortDateId(deadline.deadlineAt)}</span>
-                        <span aria-hidden className="flex flex-col items-center">
-                          <span className={cn('mt-[3px] size-3.5 shrink-0 rounded-pill border-[1.5px] border-brand', past || isNext ? 'bg-brand' : 'bg-panel')} />
-                          {index < event.deadlines.length - 1 && <span className={cn('min-h-7 w-[1.5px] flex-1', past ? 'bg-brand' : 'bg-line')} />}
-                        </span>
-                        <span className="flex flex-col gap-1 pb-7">
-                          <span className="text-[15px] font-semibold leading-snug">
-                            {DEADLINE_LABEL_TEXT[deadline.label]}
-                            {deadline.isPrimary && <span className="font-normal text-ink-muted"> · tenggat utama</span>}
-                          </span>
-                          <span className="text-[13px] text-ink-muted">{formatDateTimeId(deadline.deadlineAt)}</span>
-                          {isNext && (
-                            <span className="flex h-[22px] items-center self-start rounded-[6px] bg-brand px-2 text-xs font-semibold text-on-brand">
-                              Berikutnya · {daysLeftLabel(days)}
-                            </span>
-                          )}
-                          {past && <span className="text-xs text-ink-muted">Sudah lewat</span>}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ol>
-              ) : (
-                <p className="text-[14.5px] text-ink-muted">Penyelenggara belum mengumumkan jadwalnya.</p>
-              )}
-            </div>
-          )}
-
-          {tab === 'penyelenggara' && (
-            <div className="flex flex-col gap-4">
-              <h2 className={headingClass}>Penyelenggara</h2>
-              <div className="flex flex-wrap items-center gap-[18px] rounded-[14px] border border-line p-[22px]">
-                <span aria-hidden className="flex size-14 items-center justify-center rounded-[12px] bg-brand text-base font-semibold text-on-brand">
-                  {initialsOf(event.organizer)}
-                </span>
-                <div className="flex min-w-[200px] flex-1 flex-col gap-1">
-                  <span className="flex items-center gap-1.5 text-base font-semibold">
-                    {event.organizer}
-                    {verifiedOrg ? (
-                      <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 text-success" />
-                    ) : (
-                      <ShieldCheck aria-hidden className="size-4 text-ink-muted" />
-                    )}
-                  </span>
-                  <span className="text-[13.5px] text-ink-muted">
-                    Informasinya dicocokkan moderator dengan sumber{' '}
-                    {sourceHost ? <strong className="font-medium text-ink-soft">{sourceHost}</strong> : 'aslinya'} sebelum tayang.
-                  </span>
-                  {verifiedOrg && (
-                    <span className="text-[13.5px] text-ink-muted">
-                      Dikelola <strong className="font-medium text-ink-soft">{verifiedOrg}</strong> — identitasnya diverifikasi
-                      moderator, dan setiap perubahan dari mereka tetap ditinjau sebelum tampil.
-                    </span>
-                  )}
-                </div>
-              </div>
-              <OrganizerCallout eventId={event.id} returnTo={tabHref('penyelenggara')} signedIn={Boolean(user)} profile={organizerProfile} />
-
-              <div role="note" className="flex gap-3 rounded-[12px] border border-dashed border-ink-muted p-4 text-sm leading-normal">
-                <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
-                <span>
-                  Jangan transfer biaya pendaftaran ke rekening pribadi, dan pastikan formulir yang kamu isi berada di domain resmi
-                  penyelenggara. Ada yang janggal? Bandingkan dengan pengumuman aslinya.
-                </span>
-              </div>
-              {sourceUrl && (
-                <a
-                  href={sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="inline-flex min-h-11 items-center gap-1 self-start text-[13.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
-                >
-                  Buka pengumuman asli di {sourceHost ?? 'situs penyelenggara'}
-                  <ExternalLink aria-hidden className="size-3.5" />
-                  <span className="sr-only">(tab baru)</span>
-                </a>
-              )}
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
-            {tabIndex > 0 && (
-              <Link
-                href={tabHref(TABS[tabIndex - 1]!.key)}
-                scroll={false}
-                className="flex h-11 items-center gap-2 rounded-card border border-line pl-3 pr-4 text-sm font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested"
-              >
-                <ArrowLeft aria-hidden className="size-4" />
-                {TABS[tabIndex - 1]!.label}
-              </Link>
-            )}
-            <span className="flex-1" />
-            {tabIndex < TABS.length - 1 && (
-              <Link
-                href={tabHref(TABS[tabIndex + 1]!.key)}
-                scroll={false}
-                className="flex h-11 items-center gap-2 rounded-card border border-brand pl-4 pr-3 text-sm font-semibold transition-colors duration-150 ease-snap hover:bg-panel-nested"
-              >
-                Selanjutnya: {TABS[tabIndex + 1]!.label}
-                <ArrowRight aria-hidden className="size-4" />
-              </Link>
-            )}
-          </div>
-        </section>
-
-        {/* Panel aksi, menempel saat menggulir supaya tombol daftar selalu
-            terjangkau. Di bawah 960px digantikan bilah bawah. */}
-        <aside aria-label="Pendaftaran" className="hidden min-w-[300px] flex-[0_1_340px] flex-col gap-3 min-[960px]:sticky min-[960px]:top-[136px] min-[960px]:flex">
-          <div className="flex flex-col gap-[18px] rounded-2xl border border-line bg-panel p-6 shadow-[0_12px_32px_rgba(0,0,0,.05)]">
+        {/* Menempel saat menggulir supaya tombol daftar selalu terjangkau.
+            Di bawah 960px digantikan bilah bawah. */}
+        <aside aria-label="Pendaftaran" className="hidden min-w-[300px] flex-[0_1_340px] flex-col gap-3 min-[960px]:sticky min-[960px]:top-[88px] min-[960px]:flex">
+          <div className="flex flex-col gap-5 rounded-2xl border border-line bg-panel p-6 shadow-[0_12px_32px_rgba(0,0,0,.05)]">
             <div className="flex flex-col gap-2.5">
               <span className="text-[13px] text-ink-muted">{isClosed ? 'Pendaftaran' : 'Pendaftaran tutup dalam'}</span>
               {event.primaryDeadlineAt && !isClosed ? (
@@ -559,27 +483,8 @@ export default async function EventDetailPage({
                 {event.primaryDeadlineAt ? `Tutup ${formatDateTimeId(event.primaryDeadlineAt)}` : 'Pantau pengumuman penyelenggara'}
               </span>
             </div>
-            <dl className="flex flex-col gap-2.5 border-y border-line py-4 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt className="text-ink-muted">Jenjang</dt>
-                <dd className="text-right font-semibold">{levels.join(', ') || 'Semua'}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-ink-muted">Pelaksanaan</dt>
-                <dd className="text-right font-semibold">{place}</dd>
-              </div>
-            </dl>
             <div className="flex flex-col gap-2">
               {register}
-              {isTeamEvent && !isClosed && (
-                <Link
-                  href={`/teams?kegiatan=${event.slug}`}
-                  className="flex h-11 items-center justify-center gap-2 rounded-card border border-line-strong/70 text-[14.5px] font-semibold transition-colors duration-150 ease-snap hover:bg-panel-nested"
-                >
-                  <Users aria-hidden className="size-4" />
-                  Belum punya tim? Cari tim
-                </Link>
-              )}
               <div className="flex gap-2">
                 <SaveButton eventId={event.id} isSaved={isSaved} returnTo={detailPath} variant="full" className="flex-1" />
                 <ShareButton title={event.title} path={detailPath} />
@@ -589,16 +494,13 @@ export default async function EventDetailPage({
           {demoFeaturesEnabled && !isClosed && (
             <Link
               href={`${detailPath}/persiapan`}
-              className="flex min-h-11 items-center gap-2 rounded-card bg-panel-nested px-3.5 py-3 text-[13px] leading-snug text-ink-soft transition-colors duration-150 ease-snap hover:bg-brand-soft"
+              className="flex min-h-11 items-center gap-2 rounded-card px-3.5 py-3 text-[13px] leading-snug text-ink-soft transition-colors duration-150 ease-snap hover:bg-panel-nested"
             >
               <FileText aria-hidden className="size-4 shrink-0" />
               <span className="flex-1">Siapkan data & berkas sebelum mendaftar</span>
               <ArrowRight aria-hidden className="size-3.5" />
             </Link>
           )}
-          <p className="text-[12.5px] leading-normal text-ink-muted">
-            StudentFo hanya mengumpulkan informasi. Pendaftaran, seleksi, dan keputusan sepenuhnya ada di penyelenggara.
-          </p>
         </aside>
       </div>
 

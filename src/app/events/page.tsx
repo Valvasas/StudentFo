@@ -159,8 +159,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
             <Breadcrumb current="Semua kegiatan" />
             <PageTitle>Semua kegiatan</PageTitle>
             <p className="max-w-2xl text-base leading-relaxed text-ink-muted">
-              Saring berdasarkan jenis, jenjang, dan bidang. Setiap kombinasi filter punya alamat sendiri — tinggal salin
-              tautannya kalau mau dibagikan.
+              Lomba, beasiswa, magang, dan pelatihan yang sudah ditinjau — saring sesuai jenjang dan minatmu.
             </p>
           </header>
           <ActionFeedback params={rawParams} className="mb-6 max-w-2xl" />

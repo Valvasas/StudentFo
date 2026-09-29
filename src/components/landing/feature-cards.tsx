@@ -40,7 +40,7 @@ export function FeatureCards() {
   const stage = Math.min(phase, 3);
 
   return (
-    <div className="mt-12 grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
+    <div className="mt-12 grid gap-5 md:grid-cols-2">
       <Card
         title="Pengingat yang tidak berisik"
         body="Dua notifikasi untuk setiap kegiatan tersimpan: tiga hari dan sehari sebelum pendaftaran ditutup."

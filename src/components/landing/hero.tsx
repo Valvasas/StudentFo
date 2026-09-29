@@ -1,10 +1,15 @@
 import Link from 'next/link';
-import { BadgeCheck, Bell, Clock, GraduationCap, Play } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Bell, GraduationCap, Play } from 'lucide-react';
 
 const ROTATING_WORDS = ['lomba', 'beasiswa', 'magang', 'workshop', 'seminar'] as const;
 
 /**
  * Hero beranda (kanvas desain Landing v2).
+ *
+ * Tombol utama membuka katalog, bukan pendaftaran akun: mencari tidak
+ * butuh akun, dan meminta daftar sebelum pengunjung melihat isinya adalah
+ * gesekan terbesar di corong ini. "Mulai gratis" tetap ada di navbar dan
+ * di ajakan penutup beranda.
  *
  * Kata yang berganti hanya animasi CSS: tanpa JavaScript dan dengan
  * prefers-reduced-motion, keempat kata lain disembunyikan dari tampilan dan
@@ -62,18 +67,19 @@ export function LandingHero() {
       </p>
 
       <div
-        className="mt-10 flex flex-wrap justify-center gap-3"
+        className="mt-10 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-center"
         style={{ animation: 'sf-rise 1.1s var(--easing-enter) 460ms both' }}
       >
         <Link
-          href="/register"
-          className="flex h-12 items-center rounded-sm bg-brand px-[22px] text-[15px] font-semibold text-on-brand transition-colors duration-200 ease-snap hover:bg-brand-hover"
+          href="/events"
+          className="flex h-12 items-center justify-center gap-2 rounded-sm bg-brand px-[22px] text-[15px] font-semibold text-on-brand transition-colors duration-200 ease-snap hover:bg-brand-hover"
         >
-          Mulai gratis
+          Jelajahi kegiatan
+          <ArrowRight aria-hidden className="size-4" />
         </Link>
         <Link
           href="#cara-kerja"
-          className="flex h-12 items-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
+          className="flex h-12 items-center justify-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
         >
           <Play aria-hidden className="size-3.5 fill-current" />
           Lihat cara pakainya
@@ -83,7 +89,7 @@ export function LandingHero() {
         className="mt-[18px] text-[13px] text-ink-muted"
         style={{ animation: 'sf-rise 1.1s var(--easing-enter) 560ms both' }}
       >
-        Gratis untuk pelajar. Tanpa kartu kredit.
+        Gratis. Cari kegiatan tanpa perlu membuat akun.
       </p>
 
       <div
@@ -93,18 +99,10 @@ export function LandingHero() {
         <HeroPreview />
 
         {/* Kartu melayang: hiasan, bukan konten — disembunyikan dari
-            pembaca layar dan dari layar < 820px tempat ia menutupi pratinjau. */}
+            pembaca layar dan dari layar < 820px tempat ia menutupi pratinjau.
+            Tidak ada kartu di sisi kiri: di sana ia menutupi judul & baris
+            pertama pratinjau dan hanya mengulang isi baris itu. */}
         <div aria-hidden className="pointer-events-none hidden min-[820px]:block">
-          <div className="absolute -left-7 top-[14%]" style={{ animation: 'sf-float 7s ease-in-out infinite alternate' }}>
-            <div className="flex w-[230px] flex-col items-start gap-2 rounded-[12px] border border-line bg-panel px-4 py-3.5 text-left shadow-[0_1px_2px_rgba(0,0,0,.04),0_14px_34px_rgba(0,0,0,.08)]">
-              <span className="inline-flex h-[22px] items-center gap-[5px] rounded-[6px] bg-brand px-2 text-[11.5px] font-semibold text-on-brand">
-                <Clock className="size-[11px]" />
-                Tutup 3 hari lagi
-              </span>
-              <span className="text-sm font-semibold leading-snug tracking-[-0.01em]">Hackathon Layanan Publik 2026</span>
-              <span className="text-[12.5px] text-ink-muted">Contoh kegiatan</span>
-            </div>
-          </div>
           <div
             className="absolute -right-6 top-[22%]"
             style={{ animation: 'sf-float 8.5s ease-in-out -3s infinite alternate' }}

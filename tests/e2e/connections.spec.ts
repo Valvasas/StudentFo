@@ -119,7 +119,7 @@ test('blokir tanpa JavaScript: dari daftar koneksi & kartu ajakan, hilang dari m
   await expect(mine.getByText('Rani Prameswari', { exact: true })).toHaveCount(0);
   await expect(page.locator('#orang-seed-user-1')).toHaveCount(0);
   await expect(blocked.getByText('Rani Prameswari', { exact: true })).toBeVisible();
-  await expect(page.locator('dl').getByText('Koneksi', { exact: true }).locator('..')).toContainText('2');
+  await expect(page.locator('#koneksimu')).toContainText('2');
 
   const incoming = page.locator('section[aria-labelledby="ajakan-masuk"]');
   const rizky = incoming.getByRole('article').filter({ hasText: 'Rizky Hidayat' });

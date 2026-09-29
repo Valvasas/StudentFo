@@ -72,15 +72,17 @@ export function AccountShell({ user, active, children }: { user: AuthUser; activ
               <span className="text-xs text-ink-muted">{user.educationLevel ? EDUCATION_LEVEL_LABEL[user.educationLevel] : 'Jenjang belum diisi'}</span>
             </span>
           </span>
-          <span className="flex flex-col gap-1.5">
-            <span className="flex justify-between text-xs">
-              <span className="text-ink-muted">Kelengkapan profil</span>
-              <span className="font-semibold">{percent}%</span>
+          {percent < 100 && (
+            <span className="flex flex-col gap-1.5">
+              <span className="flex justify-between text-xs">
+                <span className="text-ink-muted">Kelengkapan profil</span>
+                <span className="font-semibold">{percent}%</span>
+              </span>
+              <span aria-hidden className="h-1 overflow-hidden rounded-[2px] bg-line">
+                <span className="block h-full rounded-[2px] bg-brand transition-[width] duration-700 ease-enter" style={{ width: `${percent}%` }} />
+              </span>
             </span>
-            <span aria-hidden className="h-1 overflow-hidden rounded-[2px] bg-line">
-              <span className="block h-full rounded-[2px] bg-brand transition-[width] duration-700 ease-enter" style={{ width: `${percent}%` }} />
-            </span>
-          </span>
+          )}
         </Link>
 
         {groups.map((group) => (

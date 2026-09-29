@@ -13,5 +13,8 @@
 const script = `(function(){try{var s=localStorage.getItem('sf-theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=s==='dark'||s==='light'?s:(m?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
 
 export function ThemeScript({ nonce }: { nonce: string | undefined }) {
-  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: script }} />;
+  // Browser mengosongkan atribut `nonce` di DOM setelah parse (supaya tidak
+  // bisa dicuri skrip lain), jadi React selalu melihat nonce server ≠ klien
+  // dan melaporkan hydration mismatch palsu di setiap halaman.
+  return <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: script }} />;
 }
