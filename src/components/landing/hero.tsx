@@ -67,19 +67,19 @@ export function LandingHero() {
       </p>
 
       <div
-        className="mt-10 flex flex-wrap justify-center gap-3"
+        className="mt-10 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-center"
         style={{ animation: 'sf-rise 1.1s var(--easing-enter) 460ms both' }}
       >
         <Link
           href="/events"
-          className="flex h-12 items-center gap-2 rounded-sm bg-brand px-[22px] text-[15px] font-semibold text-on-brand transition-colors duration-200 ease-snap hover:bg-brand-hover"
+          className="flex h-12 items-center justify-center gap-2 rounded-sm bg-brand px-[22px] text-[15px] font-semibold text-on-brand transition-colors duration-200 ease-snap hover:bg-brand-hover"
         >
           Jelajahi kegiatan
           <ArrowRight aria-hidden className="size-4" />
         </Link>
         <Link
           href="#cara-kerja"
-          className="flex h-12 items-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
+          className="flex h-12 items-center justify-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
         >
           <Play aria-hidden className="size-3.5 fill-current" />
           Lihat cara pakainya
