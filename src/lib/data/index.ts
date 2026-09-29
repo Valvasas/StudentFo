@@ -90,6 +90,11 @@ export function seedDemoNetwork(userId: string): void {
  * dan riwayat analitik fiktif (persona "Penyelenggara"). Di produksi status
  * ini hanya lahir dari keputusan admin.
  */
+export function seedDemoPortfolio(userId: string): void {
+  if (dataMode !== 'seed') throw new Error('seedDemoPortfolio hanya berlaku di mode seed.');
+  memoryRepository().seedDemoPortfolio(userId);
+}
+
 export function seedDemoOrganizer(user: { id: string; fullName: string; email: string }): void {
   if (dataMode !== 'seed') throw new Error('seedDemoOrganizer hanya berlaku di mode seed.');
   memoryRepository().seedDemoOrganizer(user);

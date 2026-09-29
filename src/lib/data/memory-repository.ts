@@ -17,6 +17,7 @@ import { buildDeadlineWeek, daysUntil, getDeadlineState, jakartaDateKey } from '
 import { ORGANIZER_RATE_LIMITS, type OrganizerApplicationInput } from '@/lib/organizer';
 import { ANALYTICS_MIN_GROUP, kAnonymize } from '@/lib/organizer-analytics';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
+import { isPortfolioStatus, isPubliclyListed, toPortfolioEntry, type PortfolioInput } from '@/lib/portfolio';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
@@ -40,6 +41,7 @@ import type {
   ManagerSource,
   ModerationLogEntry,
   ModerationStatus,
+  OrganizerHistoryEntry,
   OrganizerProfile,
   OrganizerStatus,
   TrustRequestStatus,
@@ -48,6 +50,10 @@ import type {
   NetworkProfile,
   Paginated,
   PeopleSuggestion,
+  PortfolioEntry,
+  PortfolioFields,
+  ProfileRelation,
+  PublicProfile,
   Submission,
   Team,
   TeamLink,
@@ -67,13 +73,17 @@ import type {
   RepositoryStats,
   ReviewEventInput,
   ReviewSubmissionInput,
+  RestoreRejectedInput,
   ReviewTrustInput,
 } from './repository';
 import {
   DEMO_STARTER_NETWORK,
+  DEMO_STARTER_PORTFOLIO,
   SEED_CATEGORIES,
   SEED_EVENTS,
   SEED_PEOPLE,
+  SEED_PORTFOLIO,
+  type SeedPortfolioEntry,
   SEED_PERSON_CONNECTIONS,
   SEED_TEAMS,
   type SeedEvent,
@@ -170,13 +180,15 @@ function getOrCreate<K, V>(map: Map<K, V>, key: K, create: () => V): V {
   return value;
 }
 
-interface TrackerEntry {
+interface TrackerEntry extends PortfolioFields {
   id: string;
   status: TrackerStatus;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+const EMPTY_PORTFOLIO: PortfolioFields = { achievement: null, achievementNote: null, proofUrl: null, portfolioVisible: null };
 
 interface NetworkMember {
   person: NetworkPerson;
@@ -315,6 +327,7 @@ export class MemoryEventRepository implements EventRepository {
     for (const { discoverable, ...person } of SEED_PEOPLE) {
       this.people.set(person.userId, { person, discoverable, updatedAt: base.toISOString() });
     }
+    for (const { userId, ...entry } of SEED_PORTFOLIO) this.seedPortfolioEntry(userId, entry, base);
     SEED_PERSON_CONNECTIONS.forEach(([requesterId, addresseeId], index) => {
       const at = isoOffsetDays(-(index + 3), base);
       const id = this.nextId();
@@ -453,6 +466,29 @@ export class MemoryEventRepository implements EventRepository {
 
   async listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]> {
     return [...this.moderationLog].reverse().slice(0, limit);
+  }
+
+  async restoreRejected({ subjectType, subjectId, reviewerId, reviewerName }: RestoreRejectedInput): Promise<void> {
+    const actor = { reviewerId, reviewerName };
+    if (subjectType === 'event') {
+      const event = this.findEvent(subjectId);
+      if (event?.status !== 'REJECTED') throw actionError('moderation_not_rejected');
+      this.updateEvent(subjectId, (current) => ({ ...current, status: 'PENDING' }));
+      this.logModeration({ subjectType, subjectId, title: event.title, fromStatus: 'REJECTED', toStatus: 'PENDING', actor, reason: null });
+      return;
+    }
+    const submission = this.submissions.get(subjectId);
+    if (submission?.status !== 'REJECTED') throw actionError('moderation_not_rejected');
+    this.submissions.set(subjectId, { ...submission, status: 'PENDING' });
+    this.logModeration({
+      subjectType,
+      subjectId,
+      title: submission.payload?.title ?? '(kiriman tanpa judul)',
+      fromStatus: 'REJECTED',
+      toStatus: 'PENDING',
+      actor,
+      reason: null,
+    });
   }
 
   // ------------------------------------------------------------------
@@ -624,7 +660,7 @@ export class MemoryEventRepository implements EventRepository {
       eventId,
       existing
         ? { ...existing, status, notes: notes !== undefined ? notes : existing.notes, updatedAt: now }
-        : { id: `tracker-${userId}-${eventId}`, status, notes: notes ?? null, createdAt: now, updatedAt: now },
+        : { id: `tracker-${userId}-${eventId}`, status, notes: notes ?? null, createdAt: now, updatedAt: now, ...EMPTY_PORTFOLIO },
     );
   }
 
@@ -635,6 +671,52 @@ export class MemoryEventRepository implements EventRepository {
 
   async removeTrackerItem(userId: string, eventId: string): Promise<void> {
     this.trackerEntries.get(userId)?.delete(eventId);
+  }
+
+  // ------------------------------------------------------------------
+  // Portofolio & profil publik (ADR-046)
+  // ------------------------------------------------------------------
+
+  async updatePortfolioEntry(userId: string, eventId: string, input: PortfolioInput): Promise<void> {
+    const entry = this.trackerEntries.get(userId)?.get(eventId);
+    if (!entry || !isPortfolioStatus(entry.status)) throw actionError('portfolio_not_eligible');
+    // Cermin WITH CHECK tracker_own: acara harus tayang atau sudah selesai.
+    const event = this.findEvent(eventId);
+    if (!event || (event.status !== 'APPROVED' && event.status !== 'EXPIRED')) throw actionError('event_unavailable');
+    this.trackerEntries.get(userId)?.set(eventId, {
+      ...entry,
+      achievement: input.achievement,
+      achievementNote: input.achievementNote,
+      proofUrl: input.proofUrl,
+      portfolioVisible: input.visible,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  /** Cermin `can_view_profile()` (migration 20260929100001). */
+  private canViewProfile(viewerId: string, userId: string): boolean {
+    if (viewerId === userId) return true;
+    if (this.isBlocked(viewerId, userId)) return false;
+    return Boolean(this.people.get(userId)?.discoverable || this.findPair(viewerId, userId));
+  }
+
+  async getPublicProfile(viewerId: string, userId: string): Promise<PublicProfile | null> {
+    const member = this.people.get(userId);
+    if (!member || !this.canViewProfile(viewerId, userId)) return null;
+
+    const pair = this.findPair(viewerId, userId);
+    const relation: ProfileRelation =
+      viewerId === userId ? 'self' : !pair ? null : pair.status === 'ACCEPTED' ? 'connected' : pair.requesterId === userId ? 'incoming' : 'outgoing';
+
+    const portfolio: PortfolioEntry[] = [];
+    for (const [eventId, entry] of this.trackerEntries.get(userId) ?? []) {
+      const event = this.findEvent(eventId);
+      if (!event || (event.status !== 'APPROVED' && event.status !== 'EXPIRED')) continue;
+      if (!isPubliclyListed({ ...entry, event })) continue;
+      portfolio.push(toPortfolioEntry({ ...entry, eventId, event }));
+    }
+    portfolio.sort((a, b) => (b.deadlineAt ?? '').localeCompare(a.deadlineAt ?? ''));
+    return { person: member.person, relation, portfolio: portfolio.slice(0, 100) };
   }
 
   // ------------------------------------------------------------------
@@ -896,6 +978,28 @@ export class MemoryEventRepository implements EventRepository {
       }
     }
     return [...refs.values()];
+  }
+
+  private seedPortfolioEntry(userId: string, entry: Omit<SeedPortfolioEntry, 'userId'>, now: Date): void {
+    const event = this.events.find((candidate) => candidate.slug === entry.eventSlug);
+    if (!event) return;
+    const at = event.primaryDeadlineAt ?? now.toISOString();
+    getOrCreate(this.trackerEntries, userId, () => new Map<string, TrackerEntry>()).set(event.id, {
+      id: `tracker-${userId}-${event.id}`,
+      status: entry.status,
+      notes: null,
+      createdAt: at,
+      updatedAt: at,
+      achievement: entry.achievement,
+      achievementNote: entry.achievementNote ?? null,
+      proofUrl: entry.proofUrl ?? null,
+      portfolioVisible: entry.portfolioVisible ?? null,
+    });
+  }
+
+  /** Riwayat awal persona demo "Mahasiswa" (ADR-046). Hanya mode seed. */
+  seedDemoPortfolio(userId: string, now: Date = new Date()): void {
+    for (const entry of DEMO_STARTER_PORTFOLIO) this.seedPortfolioEntry(userId, entry, now);
   }
 
   /** Jaringan awal persona demo "Mahasiswa". Hanya mode seed — tidak ada padanannya di produksi. */
@@ -1177,6 +1281,48 @@ export class MemoryEventRepository implements EventRepository {
       if (entry && event) managed.push({ event, source: entry.source, since: entry.since });
     }
     return managed.sort((a, b) => b.since.localeCompare(a.since));
+  }
+
+  /** Cermin `organizer_event_history()`: kelolaan, sudah tutup, angka seumur acara. */
+  async listOrganizerHistory(userId: string, now: Date = new Date()): Promise<readonly OrganizerHistoryEntry[]> {
+    if (!this.isVerifiedOrganizer(userId)) return [];
+    const history: OrganizerHistoryEntry[] = [];
+    for (const [eventId, managers] of this.eventManagers) {
+      const event = this.findEvent(eventId);
+      if (!managers.has(userId) || !event) continue;
+      const closed =
+        event.status === 'EXPIRED' ||
+        (event.status === 'APPROVED' && event.primaryDeadlineAt !== null && new Date(event.primaryDeadlineAt) < now);
+      if (!closed) continue;
+
+      let views = 0;
+      let visitors = 0;
+      for (const [key, stats] of this.dailyStats) {
+        if (!key.startsWith(`${eventId}|`)) continue;
+        views += stats.views;
+        visitors += stats.visitors;
+      }
+      const signals = [...this.recommendationSignals, ...this.demoAnalyticsSignals].filter((signal) => signal.eventId === eventId);
+      let applied = 0;
+      for (const entries of this.trackerEntries.values()) {
+        const status = entries.get(eventId)?.status;
+        if (status && isPortfolioStatus(status)) applied += 1;
+      }
+      history.push({
+        eventId,
+        slug: event.slug,
+        title: event.title,
+        eventType: event.eventType,
+        status: event.status,
+        closedAt: event.primaryDeadlineAt,
+        views,
+        visitors,
+        saves: [...this.savedEvents.values()].filter((saved) => saved.has(eventId)).length + signals.filter((signal) => signal.kind === 'save').length,
+        clicks: signals.filter((signal) => signal.kind === 'register_click').length,
+        applied,
+      });
+    }
+    return history.sort((a, b) => (b.closedAt ?? '').localeCompare(a.closedAt ?? '')).slice(0, 50);
   }
 
   async claimEvent(actorId: string, eventId: string, evidence: string): Promise<void> {
@@ -1521,7 +1667,11 @@ export class MemoryEventRepository implements EventRepository {
       applicant: { fullName: user.fullName, email: user.email },
     });
 
-    const managed = this.events.filter((event) => event.status === 'APPROVED').slice(0, 3);
+    // Tiga acara yang masih buka + satu yang sudah selesai (bahan "Riwayat acara").
+    const managed = [
+      ...this.events.filter((event) => event.status === 'APPROVED').slice(0, 3),
+      ...this.events.filter((event) => event.status === 'EXPIRED').slice(0, 1),
+    ];
     let seed = 42;
     const random = () => {
       seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;

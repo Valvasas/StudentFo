@@ -10,7 +10,7 @@ import {
   signInSchema,
   signUpSchema,
 } from '@/lib/auth-schema';
-import { seedDemoNetwork, seedDemoOrganizer } from '@/lib/data';
+import { seedDemoNetwork, seedDemoOrganizer, seedDemoPortfolio } from '@/lib/data';
 import { DEMO_PERSONAS, isDemoPersonaId } from '@/lib/demo/personas';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
@@ -210,7 +210,10 @@ export async function demoSignInAction(formData: FormData): Promise<void> {
   }
 
   const uid = await startDemoSession(persona);
-  if (persona === 'mahasiswa') seedDemoNetwork(uid);
+  if (persona === 'mahasiswa') {
+    seedDemoNetwork(uid);
+    seedDemoPortfolio(uid);
+  }
   if (persona === 'penyelenggara') {
     seedDemoOrganizer({ id: uid, fullName: DEMO_PERSONAS.penyelenggara.fullName, email: `${persona}@demo.studentfo.local` });
   }

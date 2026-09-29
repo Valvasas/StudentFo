@@ -108,7 +108,24 @@ export function remainingSlots(team: Pick<Team, 'slotsNeeded' | 'memberCount'>):
   return Math.max(team.slotsNeeded - team.memberCount, 0);
 }
 
-export interface TrackerItem {
+/**
+ * Hasil kegiatan di portofolio (ADR-046) — DILAPORKAN SENDIRI oleh pemilik.
+ * Kolomnya VARCHAR + CHECK di Postgres, bukan enum, jadi paritas tiga-tempat
+ * (AGENTS.md §2) tidak berlaku: pipeline tidak pernah menyentuhnya. Daftar
+ * ini tetap harus sama dengan CHECK di migration 20260929100001.
+ */
+export const ACHIEVEMENTS = ['PESERTA', 'FINALIS', 'JUARA_HARAPAN', 'JUARA_3', 'JUARA_2', 'JUARA_1', 'PENERIMA', 'BERSERTIFIKAT'] as const;
+export type Achievement = (typeof ACHIEVEMENTS)[number];
+
+export interface PortfolioFields {
+  readonly achievement: Achievement | null;
+  readonly achievementNote: string | null;
+  readonly proofUrl: string | null;
+  /** null = ikut aturan bawaan per jenis kegiatan (`defaultPortfolioVisible`). */
+  readonly portfolioVisible: boolean | null;
+}
+
+export interface TrackerItem extends PortfolioFields {
   readonly id: string;
   readonly eventId: string;
   readonly status: TrackerStatus;
@@ -116,6 +133,44 @@ export interface TrackerItem {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly event: EventSummary;
+}
+
+/** Satu baris portofolio seperti yang boleh dilihat orang lain. */
+export interface PortfolioEntry {
+  readonly eventId: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly organizer: string;
+  readonly eventType: EventType;
+  readonly status: TrackerStatus;
+  readonly achievement: Achievement | null;
+  readonly achievementNote: string | null;
+  readonly proofUrl: string | null;
+  readonly deadlineAt: string | null;
+}
+
+/** Hubungan pembaca dengan pemilik profil (`public_profile().relation`). */
+export type ProfileRelation = 'self' | 'connected' | 'incoming' | 'outgoing' | null;
+
+export interface PublicProfile {
+  readonly person: NetworkPerson;
+  readonly relation: ProfileRelation;
+  readonly portfolio: readonly PortfolioEntry[];
+}
+
+/** Rekap acara yang dikelola dan sudah tutup (`organizer_event_history()`). */
+export interface OrganizerHistoryEntry {
+  readonly eventId: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly eventType: EventType;
+  readonly status: EventStatus;
+  readonly closedAt: string | null;
+  readonly views: number;
+  readonly visitors: number;
+  readonly saves: number;
+  readonly clicks: number;
+  readonly applied: number;
 }
 
 /**

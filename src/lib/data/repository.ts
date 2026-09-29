@@ -21,8 +21,10 @@ import type {
   TrustRequestStatus,
   NetworkEventRef,
   NetworkProfile,
+  OrganizerHistoryEntry,
   Paginated,
   PeopleSuggestion,
+  PublicProfile,
   Submission,
   SubmissionPayload,
   Team,
@@ -32,6 +34,7 @@ import type {
 } from '@/types/domain';
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
 import type { OrganizerApplicationInput } from '@/lib/organizer';
+import type { PortfolioInput } from '@/lib/portfolio';
 import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 
 /**
@@ -55,6 +58,7 @@ export interface EventRepository
     SubmissionRepository,
     SavedEventRepository,
     TrackerRepository,
+    PortfolioRepository,
     NotificationRepository,
     TeamRepository,
     NetworkRepository,
@@ -90,6 +94,37 @@ export interface ModerationRepository {
    * job expiry, SQL editor — ikut tercatat. Hanya untuk rute admin.
    */
   listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]>;
+
+  /**
+   * Jalan balik keputusan "Tolak": kegiatan/kiriman kembali PENDING di
+   * antrean. Perubahan status tercatat di log seperti keputusan lain.
+   * Bukan REJECTED lagi → `moderation_not_rejected`.
+   */
+  restoreRejected(input: RestoreRejectedInput): Promise<void>;
+}
+
+export interface RestoreRejectedInput {
+  readonly subjectType: 'event' | 'submission';
+  readonly subjectId: string;
+  readonly reviewerId: string | null;
+  /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
+  readonly reviewerName?: string;
+}
+
+/**
+ * Portofolio & profil publik (ADR-046). Portofolio = baris tracker APPLIED+;
+ * method di sini hanya mengisi hasil/visibilitasnya dan membacanya untuk
+ * orang lain dengan aturan kelihatan yang sama dengan jaringan.
+ */
+export interface PortfolioRepository {
+  /** Hasil, catatan, bukti, visibilitas. Hanya entri sendiri berstatus APPLIED+ (`portfolio_not_eligible`). */
+  updatePortfolioEntry(userId: string, eventId: string, input: PortfolioInput): Promise<void>;
+  /**
+   * Profil + portofolio publik yang boleh dilihat pembaca: bisa ditemukan
+   * ATAU punya koneksi/ajakan dengannya, dan tidak saling memblokir.
+   * `null` = tidak boleh dilihat ATAU tidak ada — sengaja tidak dibedakan.
+   */
+  getPublicProfile(viewerId: string, userId: string): Promise<PublicProfile | null>;
 }
 
 /** Kiriman komunitas (/submit) dan peninjauannya. */
@@ -259,6 +294,8 @@ export interface OrganizerRepository {
   getEventAnalytics(actorId: string, eventId: string, days: number): Promise<EventAnalytics>;
   /** Server saja, setelah filter bot & batas laju. `visitorHash` = HMAC harian (64 hex). */
   recordEventView(eventId: string, visitorHash: string): Promise<void>;
+  /** Acara kelolaan yang sudah tutup + angka seumur acara — kosong bila tidak (lagi) terverifikasi. */
+  listOrganizerHistory(userId: string): Promise<readonly OrganizerHistoryEntry[]>;
   /** Lencana publik "dikelola penyelenggara terverifikasi". */
   listVerifiedOrganizers(eventIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
 

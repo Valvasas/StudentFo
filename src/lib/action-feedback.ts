@@ -51,6 +51,9 @@ export const ACTION_ERROR_CODES = [
   'revision_not_found',
   'revision_rejected_by_db',
   'not_event_manager',
+  'portfolio_not_eligible',
+  'invalid_portfolio',
+  'moderation_not_rejected',
   'invalid_request',
   'unknown',
 ] as const;
@@ -103,6 +106,9 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   revision_rejected_by_db:
     'Perubahan tidak bisa diterapkan: tautan bukan https://, tenggat sudah lewat, atau pengaju tidak lagi terverifikasi. Tolak permintaan ini.',
   not_event_manager: 'Kamu tidak (lagi) mengelola acara ini.',
+  portfolio_not_eligible: 'Hasil hanya bisa diisi untuk kegiatan yang sudah kamu tandai "Sudah daftar".',
+  invalid_portfolio: 'Periksa isian: pilih hasil yang sesuai jenis kegiatan, catatan maks. 120 karakter, tautan bukti harus https://.',
+  moderation_not_rejected: 'Item itu sudah tidak berstatus ditolak — mungkin sudah dipulihkan admin lain.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -127,6 +133,8 @@ export const ACTION_NOTICE_CODES = [
   'organizer_reviewed',
   'claim_reviewed',
   'revision_reviewed',
+  'portfolio_saved',
+  'moderation_restored',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -153,6 +161,8 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   claim_reviewed: 'Keputusan klaim disimpan dan tercatat di riwayat.',
   revision_reviewed: 'Keputusan perubahan acara disimpan dan tercatat di riwayat.',
   network_profile_saved: 'Pengaturan jaringan disimpan.',
+  portfolio_saved: 'Portofolio diperbarui.',
+  moderation_restored: 'Dikembalikan ke antrean moderasi dan tercatat di riwayat.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {
