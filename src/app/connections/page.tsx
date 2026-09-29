@@ -14,11 +14,12 @@ import { cn } from '@/lib/utils';
 import type { NetworkEventRef } from '@/types/domain';
 
 /**
- * Koneksi (ADR-040): ajakan masuk → peta → cari koneksi → daftar.
+ * Koneksi (ADR-040): ajakan masuk → cari koneksi + daftar → peta → diblokir.
  *
  * Urutannya mengikuti prioritas tindakan: yang menunggu jawaban PEMBACA
  * tampil paling atas, karena itulah satu-satunya bagian yang membuat orang
- * lain menunggu. Saringan saran memakai `<form method="get">` + URL (aturan
+ * lain menunggu. Peta (eksplorasi, tanpa tindakan langsung) di bawah
+ * direktori, bukan di antara ajakan dan tombol "Hubungkan" (ADR-044). Saringan saran memakai `<form method="get">` + URL (aturan
  * AGENTS.md §9); peta ikut menampilkan hasil saringan yang sama.
  */
 export const dynamic = 'force-dynamic';
@@ -124,30 +125,6 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
           </ul>
         </section>
       )}
-
-      <section aria-labelledby="peta-koneksi" className="mt-10 flex flex-col gap-4">
-        <SectionTitle
-          id="peta-koneksi"
-          title="Peta koneksi"
-          hint={graph.hiddenPeople > 0 ? `${graph.hiddenPeople} orang tidak digambar agar peta tetap terbaca` : 'Garis = sambungan · simpul besar = banyak sambungan'}
-        />
-        <div className="enter [animation-delay:150ms] [animation-duration:900ms]">
-          <NetworkGraphView graph={graph} returnTo={returnTo} summary={summary} />
-        </div>
-        {counts.accepted === 0 && counts.incoming === 0 && (
-          <p className="flex items-start gap-2 text-[13.5px] leading-relaxed text-ink-muted">
-            <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0" />
-            {user.interests.length > 0
-              ? 'Petamu masih berisi kamu dan minatmu. Ajak satu orang dari saran di bawah — peta langsung tumbuh.'
-              : 'Petamu masih sepi. Isi peminatan di profil supaya saran di bawah lebih nyambung denganmu.'}
-            {user.interests.length === 0 && (
-              <Link href="/profile/interests" className="shrink-0 font-semibold text-ink underline underline-offset-[3px]">
-                Isi peminatan
-              </Link>
-            )}
-          </p>
-        )}
-      </section>
 
       <div className="mt-12 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section aria-labelledby="cari-koneksi" className="flex min-w-0 flex-col gap-4">
@@ -272,6 +249,30 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
           <NetworkSettings viewer={user} profile={profile} categoryName={categoryName} returnTo={returnTo} />
         </aside>
       </div>
+
+      <section aria-labelledby="peta-koneksi" className="mt-12 flex flex-col gap-4">
+        <SectionTitle
+          id="peta-koneksi"
+          title="Peta koneksi"
+          hint={graph.hiddenPeople > 0 ? `${graph.hiddenPeople} orang tidak digambar agar peta tetap terbaca` : 'Garis = sambungan · simpul besar = banyak sambungan'}
+        />
+        <div className="enter [animation-delay:150ms] [animation-duration:900ms]">
+          <NetworkGraphView graph={graph} returnTo={returnTo} summary={summary} />
+        </div>
+        {counts.accepted === 0 && counts.incoming === 0 && (
+          <p className="flex items-start gap-2 text-[13.5px] leading-relaxed text-ink-muted">
+            <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0" />
+            {user.interests.length > 0
+              ? 'Petamu masih berisi kamu dan minatmu. Ajak satu orang dari saran di atas — peta langsung tumbuh.'
+              : 'Petamu masih sepi. Isi peminatan di profil supaya saran di atas lebih nyambung denganmu.'}
+            {user.interests.length === 0 && (
+              <Link href="/profile/interests" className="shrink-0 font-semibold text-ink underline underline-offset-[3px]">
+                Isi peminatan
+              </Link>
+            )}
+          </p>
+        )}
+      </section>
 
       {/* Di luar <aside> yang lengket: aside sudah lebih tinggi dari layar, dan bagian bawahnya baru terjangkau di ujung halaman. */}
       <section id="diblokir" aria-labelledby="diblokir-title" className="mt-12 flex scroll-mt-28 flex-col gap-4">

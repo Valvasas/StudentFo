@@ -8,10 +8,12 @@ import {
   BODY_MAX,
   CHANNELS,
   DEMO_GROUPS,
+  DISCOVER_GROUPS,
   DISCOVER_SLUGS,
   DISCUSSIONS_KEY,
   EMPTY_DISCUSSIONS,
   POSTABLE_CHANNELS,
+  discoverGroupId,
   TITLE_MAX,
   parseDiscussions,
   type ChannelKey,
@@ -57,7 +59,10 @@ function Author({ name, official, time }: { name: string; official?: boolean; ti
  */
 export function DiscussionsApp({ events, userName }: { events: Readonly<Record<string, GroupEvent>>; userName: string }) {
   const [state, save, loaded] = useDemoStore<DiscussionState>(DISCUSSIONS_KEY, EMPTY_DISCUSSIONS, parseDiscussions);
-  const groups = DEMO_GROUPS.filter((group) => events[group.eventSlug]);
+  const groups = [...DEMO_GROUPS, ...DISCOVER_GROUPS.filter((group) => state.joined.includes(group.eventSlug))].filter(
+    (group) => events[group.eventSlug],
+  );
+  const discover = DISCOVER_SLUGS.filter((slug) => events[slug] && !state.joined.includes(slug));
   const [groupId, setGroupId] = useState(groups[0]?.id ?? '');
   const [channel, setChannel] = useState<ChannelKey | 'semua'>('semua');
   const [openThread, setOpenThread] = useState<string | null>(null);
@@ -101,6 +106,18 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
     setOpenThread(null);
     setChannel('semua');
     setSwitcher(false);
+  };
+
+  const joinGroup = (slug: string) => {
+    save({ ...state, joined: [...state.joined, slug] });
+    pickGroup(discoverGroupId(slug));
+    setToast('Bergabung. Mulai utas pertama di grup ini.');
+  };
+
+  const leaveGroup = (slug: string) => {
+    save({ ...state, joined: state.joined.filter((item) => item !== slug) });
+    pickGroup(groups[0]?.id ?? '');
+    setToast('Keluar dari grup.');
   };
 
   const submitThread = (formEvent: FormEvent) => {
@@ -161,35 +178,31 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
           );
         })}
       </div>
-      <div className="flex flex-col gap-1">
-        <span className="px-2 font-mono text-[11px] tracking-[.08em] text-ink-muted">TEMUKAN GRUP</span>
-        {DISCOVER_SLUGS.filter((slug) => events[slug]).map((slug) => {
-          const info = events[slug]!;
-          const joined = state.joined.includes(slug);
-          return (
-            <div key={slug} className="flex items-center gap-2 px-2 py-2">
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[13px] font-medium">{info.title}</span>
-                <span className="text-[11.5px] text-ink-muted">{info.type}</span>
-              </span>
-              <button
-                type="button"
-                aria-pressed={joined}
-                disabled={!loaded}
-                onClick={() => {
-                  save({ ...state, joined: joined ? state.joined.filter((item) => item !== slug) : [...state.joined, slug] });
-                  setToast(joined ? 'Keluar dari grup.' : 'Bergabung ke grup. Utasnya segera hadir.');
-                }}
-                className={cn('flex h-9 shrink-0 items-center gap-1 rounded-sm border px-2.5 text-[12.5px] font-semibold', joined ? 'border-brand bg-brand text-on-brand' : 'border-line-strong/70 hover:bg-panel-nested')}
-              >
-                {joined && <Check aria-hidden className="size-3" />}
-                {joined ? 'Diikuti' : 'Gabung'}
-                <span className="sr-only"> grup {info.title}</span>
-              </button>
-            </div>
-          );
-        })}
-      </div>
+      {discover.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="px-2 font-mono text-[11px] tracking-[.08em] text-ink-muted">TEMUKAN GRUP</span>
+          {discover.map((slug) => {
+            const info = events[slug]!;
+            return (
+              <div key={slug} className="flex items-center gap-2 px-2 py-2">
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13px] font-medium">{info.title}</span>
+                  <span className="text-[11.5px] text-ink-muted">{info.type}</span>
+                </span>
+                <button
+                  type="button"
+                  disabled={!loaded}
+                  onClick={() => joinGroup(slug)}
+                  className="flex h-9 shrink-0 items-center gap-1 rounded-sm border border-line-strong/70 px-2.5 text-[12.5px] font-semibold hover:bg-panel-nested"
+                >
+                  Gabung
+                  <span className="sr-only"> grup {info.title}</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 
@@ -225,11 +238,17 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
           <h2 className="text-[22px] font-bold leading-tight tracking-[-0.025em] text-on-inverse">{event.title}</h2>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-on-inverse-muted">
             <span className="flex items-center gap-1.5">
-              <Users aria-hidden className="size-4" /> {group.members.toLocaleString('id-ID')} anggota · {group.online} sedang aktif
+              <Users aria-hidden className="size-4" /> {group.members.toLocaleString('id-ID')} anggota
+              {group.online > 0 && ` · ${group.online} sedang aktif`}
             </span>
             <span className="flex items-center gap-1.5">
               <ShieldCheck aria-hidden className="size-4" /> Dimoderasi panitia
             </span>
+            {state.joined.includes(group.eventSlug) && (
+              <button type="button" onClick={() => leaveGroup(group.eventSlug)} className="flex min-h-11 items-center font-medium text-on-inverse-muted underline underline-offset-[3px] hover:text-on-inverse">
+                Keluar grup
+              </button>
+            )}
             <Link href={`/events/${event.slug}`} className="ml-auto flex min-h-11 items-center gap-1.5 font-semibold text-on-inverse hover:underline">
               Detail kegiatan <ArrowRight aria-hidden className="size-4" />
             </Link>

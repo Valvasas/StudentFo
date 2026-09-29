@@ -48,6 +48,17 @@ ruang.
 - Kartu kegiatan tanpa baris tag bidang (slug mentah huruf kecil); FilterBar
   memisahkan "Tampilkan yang ditutup" (filter) dari opsi urutan, dan di ponsel
   baris chip jadi satu baris geser.
+- Beranda tanpa bagian "Fitur utama": keempat kartunya sudah dicakup Tur
+  singkat tepat di atasnya. Keterangan Tur tidak lagi mengklaim formulir
+  "terisi otomatis" — StudentFo tidak mengisi formulir penyelenggara.
+- `/connections`: ajakan → cari koneksi & daftar → peta → diblokir. Peta
+  adalah eksplorasi, jadi turun ke bawah tombol "Hubungkan"; tetap di halaman
+  yang sama karena panelnya menautkan `#orang-…` dan `#pengaturan-jaringan`.
+- Ruang diskusi (demo): grup yang di-"Gabung" jadi grup sungguhan (masuk
+  "Grup kamu", bisa dibuka, diisi utas, dan ditinggalkan), bukan hanya label
+  "Diikuti" dengan pesan "segera hadir".
+- Tidak ada kotak "segera hadir" di produksi (tab Profil); label tutup di
+  Persiapan = "Tutup", karena "Keluar" sudah berarti keluar akun.
 
 **Konsekuensi:** Beberapa elemen kanvas desain sengaja tidak diikuti lagi —
 penyelarasan kanvas berikutnya harus membaca ADR ini dulu, bukan

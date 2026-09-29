@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -15,10 +16,16 @@ import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL } from '@
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Persiapan pendaftaran',
-  robots: { index: false, follow: false },
-};
+const loadEvent = cache(async (slug: string) => (await getEventRepository()).getEventBySlug(slug));
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const event = await loadEvent(slug);
+  return {
+    title: event ? `Persiapan: ${event.title}` : 'Persiapan pendaftaran',
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * Persiapan pendaftaran (kanvas Pendaftaran, disesuaikan — ADR-039).
@@ -35,8 +42,7 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const self = `/events/${slug}/persiapan`;
   const user = await requireUser(self);
-  const repository = await getEventRepository();
-  const event = await repository.getEventBySlug(slug);
+  const [repository, event] = await Promise.all([getEventRepository(), loadEvent(slug)]);
   if (!event) notFound();
 
   const isTeamEvent = event.eventType === 'LOMBA';
@@ -68,7 +74,8 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
         <div className="container-page flex flex-wrap items-center justify-between gap-3 py-3">
           <span className="font-mono text-xs tracking-[.08em] text-ink-muted">PERSIAPAN PENDAFTARAN</span>
           <Link href={`/events/${event.slug}`} className="flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-ink-muted hover:text-ink">
-            <X aria-hidden className="size-4" /> Keluar
+            {/* Bukan "Keluar": kata itu sudah berarti keluar akun di menu akun. */}
+            <X aria-hidden className="size-4" /> Tutup
           </Link>
         </div>
       </div>

@@ -322,6 +322,10 @@ Belum / butuh keputusan atau akses pemilik:
 - [x] FilterBar: "Tampilkan yang ditutup" dipisah dari urutan; chip satu baris geser di ponsel.
 - [x] Kelengkapan profil & form "Cara orang menemukanmu" hanya menonjol saat butuh tindakan.
 - [x] Hydration mismatch `nonce` palsu di setiap halaman (badge "1 Issue" di dev).
-- [ ] Belum disentuh, layak dievaluasi: `/connections` masih memuat peta + direktori +
-      sidebar dalam satu halaman (pertimbangkan peta di tab/rute sendiri);
-      beranda punya dua bagian yang tumpang tindih (Tur singkat vs Fitur utama).
+- [x] `/connections`: peta turun di bawah direktori (tetap satu halaman — tautan panel peta).
+- [x] Beranda: bagian "Fitur utama" dihapus (duplikat Tur); klaim "formulir terisi otomatis" dikoreksi.
+- [x] Ruang diskusi demo: "Gabung" membuat grup sungguhan, bukan jalan buntu "segera hadir".
+- [x] Judul tab Persiapan memuat nama kegiatan; "Keluar" → "Tutup"; placeholder "segera hadir" produksi dihapus.
+- [x] Crawler tautan (tamu + 4 persona, ~870 halaman): 0 tautan internal mati, 0 error konsol.
+- [ ] Judul tab analitik penyelenggara masih generik ("Analitik acara") — butuh cek
+      otorisasi di `generateMetadata`; nilai kecil, belum dikerjakan.

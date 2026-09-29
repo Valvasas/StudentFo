@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { BadgeCheck, CalendarClock, Check, Link2, Plus, ShieldCheck } from 'lucide-react';
-import { FeatureCards } from '@/components/landing/feature-cards';
 import { LandingHero } from '@/components/landing/hero';
 import { RevealObserver } from '@/components/landing/reveal-observer';
 import { LandingTour } from '@/components/landing/tour';
@@ -11,6 +10,10 @@ import { dataMode } from '@/lib/env';
  *
  * Isinya statis dan tidak memuat hitungan H-n; dinamisnya halaman ini
  * datang dari CSP bernonce di layout (ADR-027), bukan dari datanya.
+ *
+ * Kanvas juga memuat bagian "Fitur utama" (empat kartu animasi); isinya
+ * sudah dicakup penuh oleh Tur singkat tepat di atasnya, jadi dua demo
+ * berturut-turut untuk hal yang sama dihapus (ADR-044).
  *
  * Salinan kanvas yang mengklaim hal yang belum benar untuk produk ini
  * (daftar lembaga yang "dicek setiap hari", sinkron tiap 6 jam, pengingat
@@ -130,16 +133,6 @@ export default function HomePage() {
           </p>
         </div>
         <LandingTour />
-      </section>
-
-      <section id="fitur" aria-labelledby="fitur-title" className={`${sectionClass} scroll-mt-20`}>
-        <div data-reveal="" className="flex max-w-[640px] flex-col gap-3.5">
-          <span className={eyebrowClass}>Fitur utama</span>
-          <h2 id="fitur-title" className={h2Class}>
-            Dari cari info sampai berkas siap, semuanya di satu tempat.
-          </h2>
-        </div>
-        <FeatureCards />
       </section>
 
       <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>

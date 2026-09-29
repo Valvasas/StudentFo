@@ -86,12 +86,12 @@ const CHAPTERS: readonly Chapter[] = [
   },
   {
     title: 'Daftar',
-    detail: 'Formulir terisi dari profilmu. Tinggal unggah berkas.',
+    detail: 'Siapkan data & berkas, lalu daftar di situs resmi.',
     url: 'events/hackathon-layanan-publik/persiapan',
     beats: [
-      { x: 300, y: 180, cap: 'Data dari profilmu terisi otomatis.', set: { fill: 1 }, focus: [296, 230, 1.2], dur: 2800 },
+      { x: 300, y: 180, cap: 'Data dari profilmu siap disalin ke formulir resmi.', set: { fill: 1 }, focus: [296, 230, 1.2], dur: 2800 },
       { x: 500, y: 400, click: true, cap: 'Siapkan berkas yang diminta penyelenggara.', set: { up: 1 }, dur: 2200 },
-      { x: 480, y: 474, click: true, cap: 'Selesai. Tahapannya bisa kamu pantau kapan saja.', set: { sent: 1 }, hitWide: true, dur: 3000 },
+      { x: 480, y: 474, click: true, cap: 'Daftar di situs penyelenggara, lalu pantau tahapannya di sini.', set: { sent: 1 }, hitWide: true, dur: 3000 },
     ],
   },
   {

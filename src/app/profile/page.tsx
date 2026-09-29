@@ -234,16 +234,15 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       <section aria-label={tabs.find((item) => item.key === tab)?.label} className="enter flex min-h-[360px] flex-col gap-5 [animation-duration:300ms]">
         {tab === 'tentang' && (
           <div className="flex flex-wrap items-start gap-5">
-            <div className="flex min-w-0 flex-[2_1_420px] flex-col gap-5">
-              {demoFeaturesEnabled && <DemoAboutCard isPublic={isPublic} />}
-              {demoFeaturesEnabled && <DemoTeamCard />}
-              {!demoFeaturesEnabled && (
-                <section className="flex flex-col gap-2 rounded-[18px] border border-dashed border-line-strong p-6">
-                  <h2 className="text-base font-semibold">Bio, peran tim, dan pencapaian</h2>
-                  <p className="text-sm leading-relaxed text-ink-muted">Bagian ini segera hadir. Sementara itu, lengkapi jenjang dan minat supaya rekomendasinya pas.</p>
-                </section>
-              )}
-            </div>
+            {/* Tanpa kotak "segera hadir" di produksi: placeholder fitur yang
+                belum ada membuat halaman terasa belum jadi. Kolom minat &
+                kontak cukup melebar sendiri. */}
+            {demoFeaturesEnabled && (
+              <div className="flex min-w-0 flex-[2_1_420px] flex-col gap-5">
+                <DemoAboutCard isPublic={isPublic} />
+                <DemoTeamCard />
+              </div>
+            )}
             <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-5">
               <section aria-labelledby="minat-title" className="flex flex-col gap-3.5 rounded-[18px] border border-line p-[22px]">
                 <div className="flex items-center justify-between gap-3">
