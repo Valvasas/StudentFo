@@ -17,7 +17,7 @@ import { buildDeadlineWeek, daysUntil, getDeadlineState, jakartaDateKey } from '
 import { ORGANIZER_RATE_LIMITS, type OrganizerApplicationInput } from '@/lib/organizer';
 import { ANALYTICS_MIN_GROUP, kAnonymize } from '@/lib/organizer-analytics';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
-import { isPortfolioStatus, isPubliclyListed, toPortfolioEntry, type PortfolioInput } from '@/lib/portfolio';
+import { VERIFICATION_NOTE_MAX, isPortfolioStatus, isPubliclyListed, toPortfolioEntry, type PortfolioInput } from '@/lib/portfolio';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
@@ -49,17 +49,20 @@ import type {
   NetworkPerson,
   NetworkProfile,
   Paginated,
+  PendingVerification,
   PeopleSuggestion,
   PortfolioEntry,
   PortfolioFields,
   ProfileRelation,
   PublicProfile,
+  ResultVerification,
   Submission,
   Team,
   TeamLink,
   TeamMember,
   TrackerItem,
   TrackerStatus,
+  VerificationStatus,
 } from '@/types/domain';
 import { isPubliclyVisible, paginate, resolvePaging, sortSummaries } from './listing';
 import type {
@@ -75,17 +78,20 @@ import type {
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
+  ReviewVerificationInput,
 } from './repository';
 import {
   DEMO_STARTER_NETWORK,
   DEMO_STARTER_PORTFOLIO,
   SEED_CATEGORIES,
   SEED_EVENTS,
+  SEED_ORGANIZERS,
   SEED_PEOPLE,
   SEED_PORTFOLIO,
   type SeedPortfolioEntry,
   SEED_PERSON_CONNECTIONS,
   SEED_TEAMS,
+  SEED_VERIFICATIONS,
   type SeedEvent,
 } from './seed-data';
 
@@ -190,6 +196,16 @@ interface TrackerEntry extends PortfolioFields {
 
 const EMPTY_PORTFOLIO: PortfolioFields = { achievement: null, achievementNote: null, proofUrl: null, portfolioVisible: null };
 
+/** Cermin `portfolio_verifications` (ADR-047), kunci `${userId}|${eventId}`. */
+interface VerificationEntry {
+  status: VerificationStatus;
+  requestedAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  orgName: string | null;
+  reviewNote: string | null;
+}
+
 interface NetworkMember {
   person: NetworkPerson;
   discoverable: boolean;
@@ -270,6 +286,7 @@ export class MemoryEventRepository implements EventRepository {
   private readonly connections = new Map<string, ConnectionEntry>();
   /** Cermin `connection_blocks`: pemblokir → (yang diblokir → waktu blokir). */
   private readonly blocks = new Map<string, Map<string, string>>();
+  private readonly verifications = new Map<string, VerificationEntry>();
   /** Cermin `organizer_profiles` (ADR-042). */
   private readonly organizers = new Map<string, OrganizerProfile>();
   /** Cermin `event_managers`: acara → (pengguna → sumber hak). */
@@ -332,6 +349,43 @@ export class MemoryEventRepository implements EventRepository {
       const at = isoOffsetDays(-(index + 3), base);
       const id = this.nextId();
       this.connections.set(id, { id, requesterId, addresseeId, status: 'ACCEPTED', message: null, createdAt: at, respondedAt: at });
+    });
+    this.seedVerifications(base);
+  }
+
+  private seedVerifications(base: Date): void {
+    const since = isoOffsetDays(-120, base);
+    const orgOfEvent = new Map<string, { userId: string; orgName: string }>();
+    for (const org of SEED_ORGANIZERS) {
+      const event = this.events.find((candidate) => candidate.slug === org.eventSlug);
+      if (!event) continue;
+      this.organizers.set(org.userId, {
+        userId: org.userId,
+        orgName: org.orgName,
+        website: null,
+        evidence: 'Penyelenggara contoh — lembaga fiktif untuk mencoba konfirmasi hasil.',
+        status: 'VERIFIED',
+        reviewNote: null,
+        reviewedAt: since,
+        createdAt: since,
+        applicant: { fullName: org.fullName, email: `${org.userId}@contoh.studentfo.local` },
+      });
+      getOrCreate(this.eventManagers, event.id, () => new Map()).set(org.userId, { source: 'ADMIN', since });
+      orgOfEvent.set(event.id, { userId: org.userId, orgName: org.orgName });
+    }
+    SEED_VERIFICATIONS.forEach(({ userId, eventSlug, status }, index) => {
+      const event = this.events.find((candidate) => candidate.slug === eventSlug);
+      const org = event && orgOfEvent.get(event.id);
+      if (!event || !org || !this.trackerEntries.get(userId)?.get(event.id)?.achievement) return;
+      const requestedAt = isoOffsetDays(-(index + 2), base);
+      this.verifications.set(`${userId}|${event.id}`, {
+        status,
+        requestedAt,
+        reviewedBy: status === 'VERIFIED' ? org.userId : null,
+        reviewedAt: status === 'VERIFIED' ? isoOffsetDays(-(index + 1), base) : null,
+        orgName: status === 'VERIFIED' ? org.orgName : null,
+        reviewNote: null,
+      });
     });
   }
 
@@ -662,6 +716,7 @@ export class MemoryEventRepository implements EventRepository {
         ? { ...existing, status, notes: notes !== undefined ? notes : existing.notes, updatedAt: now }
         : { id: `tracker-${userId}-${eventId}`, status, notes: notes ?? null, createdAt: now, updatedAt: now, ...EMPTY_PORTFOLIO },
     );
+    if (!isPortfolioStatus(status)) this.verifications.delete(`${userId}|${eventId}`);
   }
 
   async addTrackerItemIfAbsent(userId: string, eventId: string): Promise<void> {
@@ -671,6 +726,7 @@ export class MemoryEventRepository implements EventRepository {
 
   async removeTrackerItem(userId: string, eventId: string): Promise<void> {
     this.trackerEntries.get(userId)?.delete(eventId);
+    this.verifications.delete(`${userId}|${eventId}`);
   }
 
   // ------------------------------------------------------------------
@@ -691,6 +747,118 @@ export class MemoryEventRepository implements EventRepository {
       portfolioVisible: input.visible,
       updatedAt: new Date().toISOString(),
     });
+    // Cermin trg_tracker_reset_verification: yang dikonfirmasi adalah isi SAAT ITU.
+    if (entry.achievement !== input.achievement || entry.achievementNote !== input.achievementNote || entry.proofUrl !== input.proofUrl) {
+      this.verifications.delete(`${userId}|${eventId}`);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Konfirmasi hasil oleh penyelenggara (ADR-047) — cermin migration 20260929110001
+  // ------------------------------------------------------------------
+
+  async listMyVerifications(userId: string): Promise<readonly ResultVerification[]> {
+    const result: ResultVerification[] = [];
+    for (const [key, entry] of this.verifications) {
+      const [owner, eventId] = key.split('|');
+      if (owner !== userId || !eventId) continue;
+      result.push({
+        eventId,
+        status: entry.status,
+        orgName: entry.orgName,
+        reviewNote: entry.reviewNote,
+        requestedAt: entry.requestedAt,
+        reviewedAt: entry.reviewedAt,
+      });
+    }
+    return result;
+  }
+
+  /** Pengelola terverifikasi acara ini selain `exceptUserId`. */
+  private verifiersOf(eventId: string, exceptUserId: string): string[] {
+    return [...(this.eventManagers.get(eventId)?.keys() ?? [])].filter(
+      (managerId) => managerId !== exceptUserId && this.isVerifiedOrganizer(managerId),
+    );
+  }
+
+  async requestResultVerification(requester: NetworkViewer, eventId: string): Promise<void> {
+    const entry = this.trackerEntries.get(requester.id)?.get(eventId);
+    const event = this.findEvent(eventId);
+    if (!entry || !isPortfolioStatus(entry.status) || !entry.achievement || !event || !isPubliclyVisible(event)) {
+      throw actionError('verification_not_eligible');
+    }
+    const verifiers = this.verifiersOf(eventId, requester.id);
+    if (verifiers.length === 0) throw actionError('verification_unavailable');
+
+    const key = `${requester.id}|${eventId}`;
+    const existing = this.verifications.get(key);
+    if (existing?.status === 'DECLINED') throw actionError('verification_declined');
+    if (existing) return;
+
+    this.rememberActor(requester);
+    this.verifications.set(key, { status: 'PENDING', requestedAt: new Date().toISOString(), reviewedBy: null, reviewedAt: null, orgName: null, reviewNote: null });
+    for (const managerId of verifiers) {
+      this.notifyAboutEvent(managerId, 'VERIFICATION_REQUESTED', event, `Ada permintaan konfirmasi hasil untuk "${event.title.slice(0, 150)}".`);
+    }
+  }
+
+  async cancelResultVerification(userId: string, eventId: string): Promise<void> {
+    const key = `${userId}|${eventId}`;
+    if (this.verifications.get(key)?.status === 'PENDING') this.verifications.delete(key);
+  }
+
+  async listPendingVerifications(userId: string): Promise<readonly PendingVerification[]> {
+    const result: PendingVerification[] = [];
+    for (const [key, verification] of this.verifications) {
+      const [ownerId, eventId] = key.split('|');
+      if (verification.status !== 'PENDING' || !ownerId || !eventId || ownerId === userId) continue;
+      if (!this.managesEvent(userId, eventId)) continue;
+      const entry = this.trackerEntries.get(ownerId)?.get(eventId);
+      const event = this.findEvent(eventId);
+      if (!entry?.achievement || !event) continue;
+      const person = this.people.get(ownerId)?.person;
+      result.push({
+        userId: ownerId,
+        fullName: person?.fullName ?? 'Pengguna StudentFo',
+        educationLevel: person?.educationLevel ?? null,
+        major: person?.major ?? null,
+        eventId,
+        slug: event.slug,
+        title: event.title,
+        eventType: event.eventType,
+        achievement: entry.achievement,
+        achievementNote: entry.achievementNote,
+        proofUrl: entry.proofUrl,
+        requestedAt: verification.requestedAt,
+      });
+    }
+    return result.sort((a, b) => a.requestedAt.localeCompare(b.requestedAt)).slice(0, 100);
+  }
+
+  async reviewResultVerification(actorId: string, input: ReviewVerificationInput): Promise<void> {
+    if (!this.managesEvent(actorId, input.eventId)) throw actionError('not_event_manager');
+    if (input.userId === actorId) throw actionError('verification_self');
+    const key = `${input.userId}|${input.eventId}`;
+    const verification = this.verifications.get(key);
+    if (!verification || verification.status !== 'PENDING' || verification.requestedAt !== input.requestedAt) {
+      throw actionError('verification_not_pending');
+    }
+    const orgName = (this.organizers.get(actorId)?.orgName ?? '').slice(0, 160);
+    const note = input.decision === 'DECLINED' ? input.note?.trim().slice(0, VERIFICATION_NOTE_MAX) || null : null;
+    this.verifications.set(key, { ...verification, status: input.decision, reviewedBy: actorId, reviewedAt: new Date().toISOString(), orgName, reviewNote: note });
+
+    const event = this.findEvent(input.eventId);
+    if (!event) return;
+    const title = event.title.slice(0, 150);
+    const org = orgName.slice(0, 120);
+    this.notifyAboutEvent(
+      input.userId,
+      input.decision === 'VERIFIED' ? 'RESULT_VERIFIED' : 'RESULT_DECLINED',
+      event,
+      input.decision === 'VERIFIED'
+        ? `${org} mengonfirmasi hasilmu di "${title}". Kini tampil terverifikasi di portofoliomu.`
+        : `${org} belum bisa mengonfirmasi hasilmu di "${title}". Lihat alasannya, perbaiki, lalu minta lagi.`,
+    );
   }
 
   /** Cermin `can_view_profile()` (migration 20260929100001). */
@@ -713,7 +881,8 @@ export class MemoryEventRepository implements EventRepository {
       const event = this.findEvent(eventId);
       if (!event || (event.status !== 'APPROVED' && event.status !== 'EXPIRED')) continue;
       if (!isPubliclyListed({ ...entry, event })) continue;
-      portfolio.push(toPortfolioEntry({ ...entry, eventId, event }));
+      const verification = this.verifications.get(`${userId}|${eventId}`);
+      portfolio.push(toPortfolioEntry({ ...entry, eventId, event }, verification?.status === 'VERIFIED' ? verification.orgName : null));
     }
     portfolio.sort((a, b) => (b.deadlineAt ?? '').localeCompare(a.deadlineAt ?? ''));
     return { person: member.person, relation, portfolio: portfolio.slice(0, 100) };
@@ -956,6 +1125,16 @@ export class MemoryEventRepository implements EventRepository {
       sentAt: new Date().toISOString(),
       event: null,
     });
+  }
+
+  /** Cermin `ON CONFLICT (user_id, event_id, type) DO UPDATE`: satu baris per acara, disegarkan jadi belum dibaca. */
+  private notifyAboutEvent(userId: string, type: AppNotification['type'], event: EventDetail, message: string): void {
+    const id = `notif-${type}-${event.id}`;
+    const list = getOrCreate(this.storedNotifications, userId, () => []);
+    const index = list.findIndex((notification) => notification.id === id);
+    if (index >= 0) list.splice(index, 1);
+    this.readNotifications.get(userId)?.delete(id);
+    list.push({ id, type, message, isRead: false, sentAt: new Date().toISOString(), event: { id: event.id, slug: event.slug, title: event.title } });
   }
 
   private acceptedPeers(userId: string): Set<string> {
@@ -1492,6 +1671,10 @@ export class MemoryEventRepository implements EventRepository {
 
     const reviewNote = note?.trim().slice(0, 500) || null;
     this.organizers.set(userId, { ...profile, status: decision, reviewNote, reviewedAt: new Date().toISOString() });
+    // Cermin trg_organizer_drop_verifications.
+    if (decision === 'REVOKED') {
+      for (const [key, verification] of this.verifications) if (verification.reviewedBy === userId) this.verifications.delete(key);
+    }
     this.notify(userId, {
       id: `notif-organizer-${userId}-${this.moderationLog.length}`,
       type: `ORGANIZER_${decision}`,

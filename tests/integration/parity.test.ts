@@ -277,6 +277,54 @@ describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
     expect(await seenBy(viewer)).toBeNull();
   });
 
+  it('konfirmasi hasil (ADR-047): hanya pengelola, token versi, gugur saat isi berubah', async () => {
+    const world = makeWorld();
+    const [owner, organizer, outsider, admin] = [world.user(), world.user(), world.user(), world.user()];
+    const lomba = await world.approvedEventIdOfType('LOMBA');
+    const orgActor = { id: organizer, fullName: 'Panitia Paritas', email: `${organizer}@uji` };
+    await world.as(organizer, () =>
+      world.repo.applyAsOrganizer(orgActor, { orgName: 'Himpunan Paritas', website: null, evidence: 'Ketua himpunan, lihat https://himpunan.example/pengurus' }),
+    );
+    await world.repo.reviewOrganizer({ userId: organizer, decision: 'VERIFIED', reviewerId: admin, reviewerName: 'Admin', note: null });
+    await world.as(organizer, () => world.repo.claimEvent(organizer, lomba, 'Acara ini milik himpunan kami, lihat https://himpunan.example'));
+    const claim = (await world.repo.listClaims('PENDING', 200)).find((entry) => entry.userId === organizer)!;
+    await world.repo.reviewClaim({ claimId: claim.id, decision: 'APPROVED', reviewerId: admin, reviewerName: 'Admin', note: null });
+
+    const request = () => world.as(owner, () => world.repo.requestResultVerification(person(owner), lomba));
+    await world.as(owner, () => world.repo.upsertTrackerItem(owner, lomba, 'ACCEPTED'));
+    expect(await outcome(request)).toBe('verification_not_eligible');
+    const result = { achievement: 'JUARA_1' as const, achievementNote: 'Tim A', proofUrl: 'https://bukti.example/p', visible: true };
+    await world.as(owner, () => world.repo.updatePortfolioEntry(owner, lomba, result));
+    expect(await outcome(request)).toBe('ok');
+    expect(await outcome(request)).toBe('ok');
+
+    expect(await world.as(outsider, () => world.repo.listPendingVerifications(outsider))).toEqual([]);
+    const [pending] = await world.as(organizer, () => world.repo.listPendingVerifications(organizer));
+    expect(pending).toMatchObject({ userId: owner, eventId: lomba, fullName: 'Pengguna Uji', achievement: 'JUARA_1', proofUrl: 'https://bukti.example/p' });
+
+    const decide = (who: string, requestedAt: string, decision: 'VERIFIED' | 'DECLINED' = 'VERIFIED') =>
+      outcome(() => world.as(who, () => world.repo.reviewResultVerification(who, { userId: owner, eventId: lomba, requestedAt, decision, note: 'Tidak ada di daftar' })));
+    expect(await decide(outsider, pending!.requestedAt)).toBe('not_event_manager');
+    expect(await decide(organizer, '2000-01-01T00:00:00.000Z')).toBe('verification_not_pending');
+    expect(await decide(organizer, pending!.requestedAt)).toBe('ok');
+
+    const mine = async () => world.as(owner, () => world.repo.listMyVerifications(owner));
+    expect((await mine())[0]).toMatchObject({ eventId: lomba, status: 'VERIFIED', orgName: 'Himpunan Paritas', reviewNote: null });
+    const shown = await world.as(owner, () => world.repo.getPublicProfile(owner, owner));
+    expect(shown?.portfolio.find((entry) => entry.eventId === lomba)?.verifiedBy).toBe('Himpunan Paritas');
+    const notified = await world.as(owner, () => world.repo.listNotifications(owner, 20));
+    expect(notified.find((n) => n.type === 'RESULT_VERIFIED')?.event?.id).toBe(lomba);
+
+    // Ubah bukti → gugur → minta lagi → ditolak → tidak bisa minta ulang tanpa perbaikan.
+    await world.as(owner, () => world.repo.updatePortfolioEntry(owner, lomba, { ...result, proofUrl: 'https://bukti.example/q' }));
+    expect(await mine()).toEqual([]);
+    await request();
+    const [again] = await world.as(organizer, () => world.repo.listPendingVerifications(organizer));
+    expect(await decide(organizer, again!.requestedAt, 'DECLINED')).toBe('ok');
+    expect((await mine())[0]).toMatchObject({ status: 'DECLINED', reviewNote: 'Tidak ada di daftar' });
+    expect(await outcome(request)).toBe('verification_declined');
+  });
+
   it('pemulihan moderasi (ADR-046): tolak → kembali PENDING sekali saja', async () => {
     const world = makeWorld();
     const admin = world.user();

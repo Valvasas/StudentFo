@@ -54,6 +54,12 @@ export const ACTION_ERROR_CODES = [
   'portfolio_not_eligible',
   'invalid_portfolio',
   'moderation_not_rejected',
+  'verification_not_eligible',
+  'verification_unavailable',
+  'verification_declined',
+  'verification_not_pending',
+  'verification_self',
+  'verification_rate_limited',
   'invalid_request',
   'unknown',
 ] as const;
@@ -109,6 +115,12 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   portfolio_not_eligible: 'Hasil hanya bisa diisi untuk kegiatan yang sudah kamu tandai "Sudah daftar".',
   invalid_portfolio: 'Periksa isian: pilih hasil yang sesuai jenis kegiatan, catatan maks. 120 karakter, tautan bukti harus https://.',
   moderation_not_rejected: 'Item itu sudah tidak berstatus ditolak — mungkin sudah dipulihkan admin lain.',
+  verification_not_eligible: 'Pilih hasilmu dan simpan dulu — konfirmasi hanya untuk kegiatan yang sudah kamu tandai "Sudah daftar".',
+  verification_unavailable: 'Penyelenggara kegiatan ini belum bergabung di StudentFo, jadi belum ada yang bisa mengonfirmasi hasilnya.',
+  verification_declined: 'Penyelenggara menyatakan hasil ini belum sesuai. Perbaiki hasil, catatan, atau buktinya dulu, lalu minta lagi.',
+  verification_not_pending: 'Permintaan itu sudah berubah atau dibatalkan pesertanya. Daftar di bawah sudah yang terbaru.',
+  verification_self: 'Kamu tidak bisa mengonfirmasi hasilmu sendiri.',
+  verification_rate_limited: 'Terlalu banyak permintaan konfirmasi hari ini. Coba lagi besok.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -134,7 +146,12 @@ export const ACTION_NOTICE_CODES = [
   'claim_reviewed',
   'revision_reviewed',
   'portfolio_saved',
+  'portfolio_added',
   'moderation_restored',
+  'verification_requested',
+  'verification_cancelled',
+  'result_confirmed',
+  'result_declined',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -163,6 +180,11 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   network_profile_saved: 'Pengaturan jaringan disimpan.',
   portfolio_saved: 'Portofolio diperbarui.',
   moderation_restored: 'Dikembalikan ke antrean moderasi dan tercatat di riwayat.',
+  portfolio_added: 'Masuk portofoliomu. Isi hasilnya di bawah supaya orang tahu capaianmu.',
+  verification_requested: 'Permintaan terkirim ke penyelenggara. Kamu dikabari lewat lonceng begitu mereka memutuskan.',
+  verification_cancelled: 'Permintaan konfirmasi dibatalkan.',
+  result_confirmed: 'Hasil dikonfirmasi. Peserta dikabari, dan portofolionya kini bertanda terverifikasi.',
+  result_declined: 'Ditandai belum sesuai. Peserta dikabari beserta alasanmu.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

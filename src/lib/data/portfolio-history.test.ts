@@ -146,3 +146,92 @@ describe('MemoryEventRepository — pemulihan moderasi', () => {
     expect(await reason(repository.restoreRejected({ subjectType: 'submission', subjectId: 'tidak-ada', reviewerId: 'admin' }))).toBe('moderation_not_rejected');
   });
 });
+
+describe('MemoryEventRepository — konfirmasi hasil (ADR-047)', () => {
+  const now = new Date('2026-09-27T03:00:00Z');
+  const org = { id: 'org', fullName: 'Sekar', email: 'org@contoh.example' };
+  let repository: MemoryEventRepository;
+
+  const pendingFor = async (organizerId: string) => repository.listPendingVerifications(organizerId);
+  const statusOf = async (userId: string, eventId: string) =>
+    (await repository.listMyVerifications(userId)).find((entry) => entry.eventId === eventId)?.status ?? null;
+
+  beforeEach(async () => {
+    repository = new MemoryEventRepository(now);
+    repository.seedDemoOrganizer(org, now);
+    repository.seedDemoPortfolio('ana');
+    await repository.updateNetworkProfile(ana, { discoverable: true, headline: null });
+  });
+
+  it('data contoh: profil Rani sudah bertanda terverifikasi, permintaan Citra menunggu', async () => {
+    const rani = await repository.getPublicProfile('ana', 'seed-user-1');
+    expect(rani?.portfolio.find((entry) => entry.eventId === PAST_LOMBA)?.verifiedBy).toBe('Himpunan Mahasiswa Informatika Nusantara');
+    expect((await pendingFor('org')).map((entry) => entry.fullName)).toContain('Citra Lestari');
+  });
+
+  it('minta → penyelenggara dikabari → konfirmasi → lencana publik & kabar ke peserta', async () => {
+    await repository.requestResultVerification(ana, PAST_LOMBA);
+    await repository.requestResultVerification(ana, PAST_LOMBA);
+    expect(await statusOf('ana', PAST_LOMBA)).toBe('PENDING');
+    expect((await repository.listNotifications('org', 20)).filter((n) => n.type === 'VERIFICATION_REQUESTED')).toHaveLength(1);
+
+    const request = (await pendingFor('org')).find((entry) => entry.userId === 'ana');
+    expect(request).toMatchObject({ fullName: 'Ana', achievement: 'JUARA_3', proofUrl: 'https://example.org/sertifikat/lomba-desain-ui-ux' });
+
+    expect(
+      await reason(repository.reviewResultVerification('org', { userId: 'ana', eventId: PAST_LOMBA, requestedAt: '2000-01-01T00:00:00.000Z', decision: 'VERIFIED', note: null })),
+    ).toBe('verification_not_pending');
+    await repository.reviewResultVerification('org', { userId: 'ana', eventId: PAST_LOMBA, requestedAt: request!.requestedAt, decision: 'VERIFIED', note: 'abaikan' });
+
+    expect(await statusOf('ana', PAST_LOMBA)).toBe('VERIFIED');
+    expect((await repository.getPublicProfile('budi', 'ana'))?.portfolio.find((entry) => entry.eventId === PAST_LOMBA)?.verifiedBy).toBe(
+      'Himpunan Mahasiswa Informatika (contoh)',
+    );
+    const [notification] = (await repository.listNotifications('ana', 50)).filter((n) => n.type === 'RESULT_VERIFIED');
+    expect(notification?.event?.slug).toBe('lomba-desain-ui-ux-nasional-edisi-lalu');
+  });
+
+  it('mengubah hasil menggugurkan; ditolak tidak bisa diminta ulang sebelum diperbaiki', async () => {
+    await repository.requestResultVerification(ana, PAST_LOMBA);
+    const request = (await pendingFor('org')).find((entry) => entry.userId === 'ana')!;
+    await repository.reviewResultVerification('org', { userId: 'ana', eventId: PAST_LOMBA, requestedAt: request.requestedAt, decision: 'DECLINED', note: '  Nama tidak ada di daftar pemenang.  ' });
+    expect((await repository.listMyVerifications('ana'))[0]).toMatchObject({ status: 'DECLINED', reviewNote: 'Nama tidak ada di daftar pemenang.' });
+    expect(await reason(repository.requestResultVerification(ana, PAST_LOMBA))).toBe('verification_declined');
+
+    // Visibilitas saja tidak menggugurkan; isi yang berubah menggugurkan.
+    const current = { achievement: 'JUARA_3' as const, achievementNote: 'Kategori aplikasi layanan publik', proofUrl: 'https://example.org/sertifikat/lomba-desain-ui-ux' };
+    await repository.updatePortfolioEntry('ana', PAST_LOMBA, input({ ...current, visible: false }));
+    expect(await statusOf('ana', PAST_LOMBA)).toBe('DECLINED');
+    await repository.updatePortfolioEntry('ana', PAST_LOMBA, input({ ...current, achievement: 'FINALIS' }));
+    expect(await statusOf('ana', PAST_LOMBA)).toBeNull();
+    await repository.requestResultVerification(ana, PAST_LOMBA);
+    await repository.cancelResultVerification('ana', PAST_LOMBA);
+    expect(await statusOf('ana', PAST_LOMBA)).toBeNull();
+  });
+
+  it('syarat: hasil terisi, ada penyelenggara lain, bukan diri sendiri, bukan pengelola lain', async () => {
+    await repository.upsertTrackerItem('ana', OPEN_LOMBA, 'APPLIED');
+    expect(await reason(repository.requestResultVerification(ana, OPEN_LOMBA))).toBe('verification_not_eligible');
+    // Acara tanpa pengelola terverifikasi: tidak ada yang bisa mengonfirmasi.
+    const unmanaged = idOf('lomba-karya-tulis-ilmiah-energi-terbarukan');
+    await repository.upsertTrackerItem('ana', unmanaged, 'ACCEPTED');
+    await repository.updatePortfolioEntry('ana', unmanaged, input({ achievement: 'FINALIS' }));
+    expect(await reason(repository.requestResultVerification(ana, unmanaged))).toBe('verification_unavailable');
+
+    await repository.requestResultVerification(ana, PAST_LOMBA);
+    const request = (await pendingFor('org')).find((entry) => entry.userId === 'ana')!;
+    expect(await pendingFor('ana')).toEqual([]);
+    expect(
+      await reason(repository.reviewResultVerification('ana', { userId: 'ana', eventId: PAST_LOMBA, requestedAt: request.requestedAt, decision: 'VERIFIED', note: null })),
+    ).toBe('not_event_manager');
+  });
+
+  it('penyelenggara dicabut → keputusannya gugur', async () => {
+    await repository.requestResultVerification(ana, PAST_LOMBA);
+    const request = (await pendingFor('org')).find((entry) => entry.userId === 'ana')!;
+    await repository.reviewResultVerification('org', { userId: 'ana', eventId: PAST_LOMBA, requestedAt: request.requestedAt, decision: 'VERIFIED', note: null });
+    await repository.reviewOrganizer({ userId: 'org', decision: 'REVOKED', reviewerId: 'admin', reviewerName: 'Admin', note: 'uji' });
+    expect(await statusOf('ana', PAST_LOMBA)).toBeNull();
+    expect(await statusOf('seed-user-1', PAST_LOMBA)).toBe('VERIFIED');
+  });
+});

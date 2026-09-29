@@ -24,7 +24,9 @@ import type {
   OrganizerHistoryEntry,
   Paginated,
   PeopleSuggestion,
+  PendingVerification,
   PublicProfile,
+  ResultVerification,
   Submission,
   SubmissionPayload,
   Team,
@@ -125,6 +127,19 @@ export interface PortfolioRepository {
    * `null` = tidak boleh dilihat ATAU tidak ada — sengaja tidak dibedakan.
    */
   getPublicProfile(viewerId: string, userId: string): Promise<PublicProfile | null>;
+
+  // Konfirmasi hasil oleh penyelenggara (ADR-047) — sisi pemilik.
+  /** Semua permintaan & keputusan milik sendiri. Tidak ada baris = dilaporkan sendiri. */
+  listMyVerifications(userId: string): Promise<readonly ResultVerification[]>;
+  /**
+   * Idempoten untuk PENDING/VERIFIED. Gagal: `verification_not_eligible`
+   * (belum APPLIED+ atau hasil kosong), `verification_unavailable` (tidak ada
+   * penyelenggara terverifikasi selain dirinya), `verification_declined`
+   * (ditolak dan isinya belum diubah).
+   */
+  requestResultVerification(requester: NetworkViewer, eventId: string): Promise<void>;
+  /** Hanya yang masih menunggu; tidak ada = no-op. */
+  cancelResultVerification(userId: string, eventId: string): Promise<void>;
 }
 
 /** Kiriman komunitas (/submit) dan peninjauannya. */
@@ -296,6 +311,13 @@ export interface OrganizerRepository {
   recordEventView(eventId: string, visitorHash: string): Promise<void>;
   /** Acara kelolaan yang sudah tutup + angka seumur acara — kosong bila tidak (lagi) terverifikasi. */
   listOrganizerHistory(userId: string): Promise<readonly OrganizerHistoryEntry[]>;
+  /** Permintaan konfirmasi hasil untuk acara yang dikelola (ADR-047) — kosong bila tidak (lagi) terverifikasi. */
+  listPendingVerifications(userId: string): Promise<readonly PendingVerification[]>;
+  /**
+   * `requestedAt` = token versi dari `listPendingVerifications` apa adanya;
+   * isi yang berubah sejak dimuat → `verification_not_pending`.
+   */
+  reviewResultVerification(actorId: string, input: ReviewVerificationInput): Promise<void>;
   /** Lencana publik "dikelola penyelenggara terverifikasi". */
   listVerifiedOrganizers(eventIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
 
@@ -308,6 +330,15 @@ export interface OrganizerRepository {
   reviewRevision(input: ReviewTrustInput<'APPROVED' | 'REJECTED'> & { revisionId: string }): Promise<void>;
   /** Status penyelenggara para pengirim — lencana "terverifikasi" di antrean kiriman. */
   listOrganizerStatuses(userIds: readonly string[]): Promise<ReadonlyMap<string, Pick<OrganizerProfile, 'orgName' | 'status'>>>;
+}
+
+export interface ReviewVerificationInput {
+  readonly userId: string;
+  readonly eventId: string;
+  readonly requestedAt: string;
+  readonly decision: 'VERIFIED' | 'DECLINED';
+  /** Alasan untuk peserta; hanya disimpan untuk DECLINED. */
+  readonly note: string | null;
 }
 
 /** Mode seed tidak punya tabel `users`; nama pelaku dicatat saat ia bertindak (pola NetworkViewer). */

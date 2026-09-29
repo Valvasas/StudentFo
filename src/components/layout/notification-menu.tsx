@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Megaphone,
   ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
   UserPlus,
   Users,
   XCircle,
@@ -49,6 +51,9 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   CLAIM_REJECTED: XCircle,
   REVISION_APPROVED: CheckCircle2,
   REVISION_REJECTED: XCircle,
+  VERIFICATION_REQUESTED: ShieldQuestion,
+  RESULT_VERIFIED: ShieldCheck,
+  RESULT_DECLINED: XCircle,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {
@@ -116,7 +121,11 @@ export async function NotificationMenu() {
               const Icon = TYPE_ICON[notification.type];
               const target = /^(ORGANIZER|CLAIM|REVISION)_/.test(notification.type)
                 ? '/penyelenggara'
-                : notification.event
+                : notification.type === 'VERIFICATION_REQUESTED'
+                  ? '/penyelenggara#verifikasi-hasil'
+                  : notification.type.startsWith('RESULT_') && notification.event
+                    ? `/tracker/${notification.event.slug}#portofolio-title`
+                    : notification.event
                   ? `/events/${notification.event.slug}`
                   : notification.type.startsWith('CONNECTION_')
                     ? '/connections'

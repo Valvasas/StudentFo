@@ -31,7 +31,8 @@ export async function markNotificationReadAction(formData: FormData): Promise<vo
   const repository = await getEventRepository();
   await repository.markNotificationAsRead(user.id, notificationId);
 
-  revalidatePath(returnTo);
+  // Tujuan bisa membawa #jangkar (panel portofolio, kotak verifikasi) — bukan bagian path.
+  revalidatePath(returnTo.split('#', 1)[0] ?? '/');
   redirect(returnTo);
 }
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toSubmission } from './supabase-mappers';
+import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toSubmission,
+  toResultVerifications,
+  verificationErrorCode,
+} from './supabase-mappers';
 
 describe('isUuid', () => {
   it('menerima UUID dan menolak selainnya sebelum sampai ke Postgres', () => {
@@ -84,9 +87,22 @@ describe('portofolio & riwayat', () => {
     const entry = toPublicPortfolioEntry({
       event_id: 'e1', slug: 'lomba-a', title: 'Lomba A', organizer: 'Himpunan', event_type: 'LOMBA',
       tracker_status: 'ACCEPTED', achievement: 'JUARA_2', achievement_note: 'UI/UX', proof_url: 'https://a.example',
-      deadline_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
+      deadline_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z', verified_by: 'Himpunan',
     });
-    expect(entry).toMatchObject({ eventId: 'e1', status: 'ACCEPTED', achievement: 'JUARA_2', deadlineAt: '2026-01-01T00:00:00Z' });
+    expect(entry).toMatchObject({ eventId: 'e1', status: 'ACCEPTED', achievement: 'JUARA_2', deadlineAt: '2026-01-01T00:00:00Z', verifiedBy: 'Himpunan' });
+  });
+
+  it('status verifikasi tak dikenal dibuang, bukan jadi lencana', () => {
+    const base = { event_id: 'e1', org_name: 'Himpunan', review_note: null, requested_at: '2026-01-01T00:00:00.123+00:00', reviewed_at: '2026-01-02T00:00:00Z' };
+    expect(toResultVerifications([{ ...base, status: 'VERIFIED' }, { ...base, event_id: 'e2', status: 'DIVERIFIKASI' }])).toEqual([
+      { eventId: 'e1', status: 'VERIFIED', orgName: 'Himpunan', reviewNote: null, requestedAt: '2026-01-01T00:00:00.123+00:00', reviewedAt: '2026-01-02T00:00:00Z' },
+    ]);
+  });
+
+  it('pesan RAISE verifikasi dipetakan ke kode tertutup', () => {
+    expect(verificationErrorCode({ message: 'verification_declined' })).toBe('verification_declined');
+    expect(verificationErrorCode({ message: 'not_event_manager' })).toBe('not_event_manager');
+    expect(verificationErrorCode({ message: 'deadlock detected' })).toBeNull();
   });
 
   it('angka BIGINT riwayat jadi number', () => {

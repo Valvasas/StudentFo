@@ -112,6 +112,33 @@ export interface PublicPortfolioRow {
   proof_url: string | null;
   deadline_at: string | null;
   updated_at: string;
+  verified_by: string | null;
+}
+
+/** RPC `my_result_verifications()` (ADR-047). */
+export interface ResultVerificationRow {
+  event_id: string;
+  status: string;
+  org_name: string | null;
+  review_note: string | null;
+  requested_at: string;
+  reviewed_at: string | null;
+}
+
+/** RPC `organizer_pending_verifications()` (ADR-047). */
+export interface PendingVerificationRow {
+  user_id: string;
+  full_name: string;
+  education_level: EducationLevel | null;
+  major: string | null;
+  event_id: string;
+  slug: string;
+  title: string;
+  event_type: EventType;
+  achievement: string;
+  achievement_note: string | null;
+  proof_url: string | null;
+  requested_at: string;
 }
 
 /** RPC `organizer_event_history()`. BIGINT tiba sebagai number JSON. */

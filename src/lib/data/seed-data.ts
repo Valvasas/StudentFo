@@ -581,6 +581,24 @@ export const SEED_PORTFOLIO: readonly SeedPortfolioEntry[] = [
 ];
 
 /**
+ * Penyelenggara terverifikasi contoh (ADR-047), masing-masing mengelola satu
+ * acara yang sudah selesai — supaya konfirmasi hasil bisa dicoba dari sisi
+ * peserta tanpa harus masuk sebagai penyelenggara lebih dulu.
+ */
+export const SEED_ORGANIZERS = [
+  { userId: 'seed-org-1', fullName: 'Dimas Pratama', orgName: 'Himpunan Mahasiswa Informatika Nusantara', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu' },
+  { userId: 'seed-org-2', fullName: 'Laras Wening', orgName: 'Studio Rupa Kolektif', eventSlug: 'workshop-riset-pengguna-angkatan-3' },
+] as const;
+
+/** Keputusan & permintaan awal atas SEED_PORTFOLIO: profil Rani sudah bertanda terverifikasi, dua lainnya menunggu. */
+export const SEED_VERIFICATIONS: readonly { userId: string; eventSlug: string; status: 'PENDING' | 'VERIFIED' }[] = [
+  { userId: 'seed-user-1', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'VERIFIED' },
+  { userId: 'seed-user-1', eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'VERIFIED' },
+  { userId: 'seed-user-10', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'PENDING' },
+  { userId: 'seed-user-4', eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'PENDING' },
+];
+
+/**
  * Riwayat awal persona demo "Mahasiswa". Beasiswa yang belum lolos hanya
  * terlihat oleh pemiliknya — di profil publik ia tidak pernah muncul.
  */

@@ -14,11 +14,14 @@ import type {
   OrganizerHistoryEntry,
   OrganizerProfile,
   PortfolioEntry,
+  PendingVerification,
   PortfolioFields,
+  ResultVerification,
   Submission,
   TeamMember,
+  VerificationStatus,
 } from '@/types/domain';
-import { ACHIEVEMENTS, toTeamRole } from '@/types/domain';
+import { ACHIEVEMENTS, VERIFICATION_STATUSES, toTeamRole } from '@/types/domain';
 import type {
   ConnectionPeerRow,
   EventClaimRow,
@@ -29,7 +32,9 @@ import type {
   NetworkDirectoryRow,
   OrganizerHistoryRow,
   OrganizerProfileRow,
+  PendingVerificationRow,
   PublicPortfolioRow,
+  ResultVerificationRow,
   SubmissionRow,
   TeamMemberProfileRow,
 } from '@/types/database';
@@ -336,7 +341,71 @@ export function toPublicPortfolioEntry(row: PublicPortfolioRow): PortfolioEntry 
     achievementNote: row.achievement_note,
     proofUrl: row.proof_url,
     deadlineAt: row.deadline_at,
+    verifiedBy: row.verified_by ?? null,
   };
+}
+
+function toVerificationStatus(value: string): VerificationStatus | null {
+  return (VERIFICATION_STATUSES as readonly string[]).includes(value) ? (value as VerificationStatus) : null;
+}
+
+/** Status tak dikenal dibuang — lebih baik "dilaporkan sendiri" daripada lencana palsu. */
+export function toResultVerifications(rows: readonly ResultVerificationRow[]): ResultVerification[] {
+  const result: ResultVerification[] = [];
+  for (const row of rows) {
+    const status = toVerificationStatus(row.status);
+    if (!status) continue;
+    result.push({
+      eventId: row.event_id,
+      status,
+      orgName: row.org_name,
+      reviewNote: row.review_note,
+      requestedAt: row.requested_at,
+      reviewedAt: row.reviewed_at,
+    });
+  }
+  return result;
+}
+
+export function toPendingVerifications(rows: readonly PendingVerificationRow[]): PendingVerification[] {
+  const result: PendingVerification[] = [];
+  for (const row of rows) {
+    const achievement = toAchievement(row.achievement);
+    if (!achievement) continue;
+    result.push({
+      userId: row.user_id,
+      fullName: row.full_name,
+      educationLevel: row.education_level,
+      major: row.major,
+      eventId: row.event_id,
+      slug: row.slug,
+      title: row.title,
+      eventType: row.event_type,
+      achievement,
+      achievementNote: row.achievement_note,
+      proofUrl: row.proof_url,
+      requestedAt: row.requested_at,
+    });
+  }
+  return result;
+}
+
+/** Pesan RAISE dari RPC verifikasi hasil (migration 20260929110001) → kode aksi. */
+export function verificationErrorCode(
+  error: { code?: string; message?: string } | null,
+): Exclude<ActionErrorCode, 'unknown'> | null {
+  const message = error?.message ?? '';
+  for (const code of [
+    'verification_not_eligible',
+    'verification_unavailable',
+    'verification_declined',
+    'verification_not_pending',
+    'verification_self',
+    'not_event_manager',
+  ] as const) {
+    if (message.includes(code)) return code;
+  }
+  return null;
 }
 
 export function toOrganizerHistoryEntry(row: OrganizerHistoryRow): OrganizerHistoryEntry {

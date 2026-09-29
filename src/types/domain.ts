@@ -147,6 +147,44 @@ export interface PortfolioEntry {
   readonly achievementNote: string | null;
   readonly proofUrl: string | null;
   readonly deadlineAt: string | null;
+  /** Lembaga yang mengonfirmasi hasil ini (ADR-047); null = dilaporkan sendiri. */
+  readonly verifiedBy: string | null;
+}
+
+/**
+ * Konfirmasi hasil oleh penyelenggara (ADR-047). Tidak ada baris = belum
+ * pernah diminta ATAU gugur karena isinya berubah — keduanya berarti
+ * "dilaporkan sendiri".
+ */
+export const VERIFICATION_STATUSES = ['PENDING', 'VERIFIED', 'DECLINED'] as const;
+export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
+
+export interface ResultVerification {
+  readonly eventId: string;
+  readonly status: VerificationStatus;
+  /** Diisi saat diputuskan; null selama menunggu. */
+  readonly orgName: string | null;
+  /** Alasan penolakan, hanya untuk pemilik. */
+  readonly reviewNote: string | null;
+  /** Token versi untuk keputusan penyelenggara — teruskan apa adanya. */
+  readonly requestedAt: string;
+  readonly reviewedAt: string | null;
+}
+
+/** Satu permintaan di kotak masuk penyelenggara: hanya yang diminta pemiliknya. */
+export interface PendingVerification {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly educationLevel: EducationLevel | null;
+  readonly major: string | null;
+  readonly eventId: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly eventType: EventType;
+  readonly achievement: Achievement;
+  readonly achievementNote: string | null;
+  readonly proofUrl: string | null;
+  readonly requestedAt: string;
 }
 
 /** Hubungan pembaca dengan pemilik profil (`public_profile().relation`). */
@@ -202,6 +240,10 @@ export const NOTIFICATION_TYPES = [
   'CLAIM_REJECTED',
   'REVISION_APPROVED',
   'REVISION_REJECTED',
+  /** Konfirmasi hasil portofolio (RPC *_result_verification, ADR-047). */
+  'VERIFICATION_REQUESTED',
+  'RESULT_VERIFIED',
+  'RESULT_DECLINED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

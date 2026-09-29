@@ -50,7 +50,9 @@ import type {
   OrganizerStatus,
   Paginated,
   PeopleSuggestion,
+  PendingVerification,
   PublicProfile,
+  ResultVerification,
   Submission,
   Team,
   TeamLink,
@@ -82,8 +84,10 @@ import type {
   TeamMemberProfileRow,
   TeamRow,
   OrganizerHistoryRow,
+  PendingVerificationRow,
   PublicPortfolioRow,
   PublicProfileRow,
+  ResultVerificationRow,
   TrackerRow,
 } from '@/types/database';
 import {
@@ -110,6 +114,7 @@ import type {
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
+  ReviewVerificationInput,
 } from './repository';
 import {
   CLAIM_COLUMNS,
@@ -120,6 +125,9 @@ import {
   ORGANIZER_COLUMNS,
   organizerErrorCode,
   peopleSearchTerm,
+  toPendingVerifications,
+  toResultVerifications,
+  verificationErrorCode,
   REVISION_COLUMNS,
   sanitizeSearchQuery,
   sqlState,
@@ -169,6 +177,11 @@ const TRUST_LIST_LIMIT = 50;
 /** Penolakan yang dikenal dari trigger/RPC penyelenggara → kode aksi; sisanya 500. */
 function organizerFailure(error: PostgrestError, message: string): AppError {
   const code = organizerErrorCode(error);
+  return code ? actionError(code) : upstreamFailure(message, error, 500);
+}
+
+function verificationFailure(error: PostgrestError, message: string): AppError {
+  const code = verificationErrorCode(error);
   return code ? actionError(code) : upstreamFailure(message, error, 500);
 }
 
@@ -710,6 +723,52 @@ export class SupabaseEventRepository implements EventRepository {
       relation: row.relation,
       portfolio: rpcRows<PublicPortfolioRow>(portfolio.data).map(toPublicPortfolioEntry),
     };
+  }
+
+  // ------------------------------------------------------------------
+  // Konfirmasi hasil oleh penyelenggara (ADR-047). Semua lewat RPC dengan
+  // klien pengguna: fungsi membaca auth.uid() sendiri, tabelnya tertutup.
+  // ------------------------------------------------------------------
+
+  async listMyVerifications(_userId: string): Promise<readonly ResultVerification[]> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('my_result_verifications');
+    if (error) throw upstreamFailure('Gagal memuat status konfirmasi hasil.', error);
+    return toResultVerifications(rpcRows<ResultVerificationRow>(data));
+  }
+
+  async requestResultVerification(_requester: NetworkViewer, eventId: string): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('verification_not_eligible');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('request_result_verification', { p_event: eventId });
+    if (error) throw verificationFailure(error, 'Gagal mengirim permintaan konfirmasi.');
+  }
+
+  async cancelResultVerification(_userId: string, eventId: string): Promise<void> {
+    if (!isUuid(eventId)) return;
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('cancel_result_verification', { p_event: eventId });
+    if (error) throw upstreamFailure('Gagal membatalkan permintaan konfirmasi.', error, 500);
+  }
+
+  async listPendingVerifications(_userId: string): Promise<readonly PendingVerification[]> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('organizer_pending_verifications');
+    if (error) throw upstreamFailure('Gagal memuat permintaan konfirmasi hasil.', error);
+    return toPendingVerifications(rpcRows<PendingVerificationRow>(data));
+  }
+
+  async reviewResultVerification(_actorId: string, input: ReviewVerificationInput): Promise<void> {
+    if (!isUuid(input.userId) || !isUuid(input.eventId)) throw actionError('verification_not_pending');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('review_result_verification', {
+      p_user: input.userId,
+      p_event: input.eventId,
+      p_requested_at: input.requestedAt,
+      p_decision: input.decision,
+      p_note: input.note,
+    });
+    if (error) throw verificationFailure(error, 'Gagal menyimpan keputusan konfirmasi.');
   }
 
   // ------------------------------------------------------------------

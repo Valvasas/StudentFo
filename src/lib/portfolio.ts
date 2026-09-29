@@ -1,4 +1,4 @@
-import type { Achievement, EventType, PortfolioEntry, TrackerItem, TrackerStatus } from '@/types/domain';
+import type { Achievement, EventType, PortfolioEntry, ResultVerification, TrackerItem, TrackerStatus } from '@/types/domain';
 import { ACHIEVEMENTS } from '@/types/domain';
 
 /**
@@ -94,7 +94,7 @@ export function achievementRank(achievement: Achievement | null): number {
   return achievement ? ACHIEVEMENT_RANK[achievement] : 0;
 }
 
-export function toPortfolioEntry(item: TrackerItem): PortfolioEntry {
+export function toPortfolioEntry(item: TrackerItem, verifiedBy: string | null = null): PortfolioEntry {
   return {
     eventId: item.eventId,
     slug: item.event.slug,
@@ -106,7 +106,20 @@ export function toPortfolioEntry(item: TrackerItem): PortfolioEntry {
     achievementNote: item.achievementNote,
     proofUrl: item.proofUrl,
     deadlineAt: item.event.primaryDeadlineAt,
+    verifiedBy,
   };
+}
+
+/** Alasan "tidak sesuai" dari penyelenggara — sama dengan CHECK di migration 20260929110001. */
+export const VERIFICATION_NOTE_MAX = 300;
+
+/** Nama lembaga per acara untuk entri yang terkonfirmasi — satu sumber untuk profil pemilik. */
+export function verifiedByEvent(verifications: readonly ResultVerification[]): ReadonlyMap<string, string> {
+  const result = new Map<string, string>();
+  for (const verification of verifications) {
+    if (verification.status === 'VERIFIED' && verification.orgName) result.set(verification.eventId, verification.orgName);
+  }
+  return result;
 }
 
 export interface PortfolioInput {
