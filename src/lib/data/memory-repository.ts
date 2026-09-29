@@ -1680,6 +1680,12 @@ export class MemoryEventRepository implements EventRepository {
     const levels = ['D4_S1', 'D4_S1', 'D4_S1', 'D3', 'SMA_SMK', 'S2'] as const;
     const interestPool = ['teknologi', 'desain', 'bisnis', 'sains'];
 
+    // Setiap masuk demo memanggil ini lagi; tanpa dibuang dulu, angka simpan &
+    // klik berlipat tiap login sementara pengunjung (Map) tetap — rasio kacau.
+    const managedIds = new Set(managed.map((event) => event.id));
+    const kept = this.demoAnalyticsSignals.filter((signal) => !managedIds.has(signal.eventId));
+    this.demoAnalyticsSignals.splice(0, this.demoAnalyticsSignals.length, ...kept);
+
     managed.forEach((event, eventIndex) => {
       getOrCreate(this.eventManagers, event.id, () => new Map()).set(user.id, {
         source: eventIndex === 0 ? 'SUBMISSION' : 'CLAIM',

@@ -118,6 +118,17 @@ describe('MemoryEventRepository — riwayat penyelenggara', () => {
     await repository.reviewOrganizer({ userId: 'org', decision: 'REVOKED', reviewerId: 'admin', reviewerName: 'Admin', note: 'uji' });
     expect(await repository.listOrganizerHistory('org')).toEqual([]);
   });
+
+  it('masuk demo berulang tidak melipatgandakan simpan & klik', async () => {
+    const now = new Date('2026-09-27T03:00:00Z');
+    const repository = new MemoryEventRepository(now);
+    repository.seedDemoOrganizer(org, now);
+    const [first] = await repository.listOrganizerHistory('org', now);
+    repository.seedDemoOrganizer(org, now);
+    const [second] = await repository.listOrganizerHistory('org', now);
+    expect(first!.clicks).toBeGreaterThan(0);
+    expect(second).toEqual(first);
+  });
 });
 
 describe('MemoryEventRepository — pemulihan moderasi', () => {
