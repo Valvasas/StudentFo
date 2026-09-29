@@ -150,6 +150,22 @@ export const DEMO_GROUPS: readonly DemoGroup[] = [
 
 export const DISCOVER_SLUGS = ['lomba-karya-tulis-ilmiah-energi-terbarukan', 'program-magang-analis-data-kuartal-ii', 'konferensi-mahasiswa-kesehatan-masyarakat-2026'] as const;
 
+/**
+ * Grup "Temukan grup" yang sudah diikuti menjadi grup sungguhan (tanpa utas
+ * contoh): masuk ke "Grup kamu", bisa dibuka, dan bisa diisi utas. Tanpa
+ * ini tombol Gabung hanya mengganti label — jalan buntu yang terasa rusak.
+ */
+export const discoverGroupId = (slug: string) => `d-${slug}`;
+const DISCOVER_MEMBERS = [86, 214, 57] as const;
+export const DISCOVER_GROUPS: readonly DemoGroup[] = DISCOVER_SLUGS.map((slug, index) => ({
+  id: discoverGroupId(slug),
+  eventSlug: slug,
+  members: DISCOVER_MEMBERS[index] ?? 50,
+  online: 0,
+  fresh: 0,
+  threads: [],
+}));
+
 export interface DiscussionState {
   readonly votes: readonly string[];
   readonly joined: readonly string[];
@@ -178,7 +194,7 @@ function parseReply(raw: unknown): DemoReply | null {
 export function parseDiscussions(raw: unknown): DiscussionState {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return EMPTY_DISCUSSIONS;
   const value = raw as Record<string, unknown>;
-  const groupIds = new Set(DEMO_GROUPS.map((group) => group.id));
+  const groupIds = new Set([...DEMO_GROUPS, ...DISCOVER_GROUPS].map((group) => group.id));
   const channelKeys = new Set<string>(POSTABLE_CHANNELS.map((channel) => channel.key));
 
   const threads: Record<string, DemoThread[]> = {};

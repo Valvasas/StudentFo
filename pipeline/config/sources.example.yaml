@@ -13,6 +13,8 @@ defaults:
   delay_seconds_min: 2.0
   delay_seconds_max: 5.0
   timeout_seconds: 30
+  # Batas halaman DETAIL per sumber (hanya berlaku kalau link_selector diisi).
+  # Satu halaman = satu panggilan LLM, jadi ini juga batas biaya per sumber.
   max_pages_per_source: 20
 
 sources:
@@ -23,7 +25,15 @@ sources:
     # dulu memotong biaya token secara drastis dan mengurangi halusinasi
     # dari isi menu/footer yang tidak relevan.
     content_selector: "main"
+    # Opsional. Kalau halaman daftar hanya berisi judul + cuplikan, arahkan
+    # ke tautan detail tiap pengumuman: setiap tautan yang cocok (domain yang
+    # sama, maks. max_pages_per_source) diambil & diekstrak sendiri, dan
+    # source_url event menunjuk halaman detail itu. 0 tautan cocok = sumber
+    # dihitung gagal (biasanya tanda tata letak situs berubah).
+    # link_selector: "ul.daftar-pengumuman li"
+    # detail_content_selector: "article"
     # Playwright dipakai hanya kalau isinya dirender JavaScript. Kalau HTML
-    # statis sudah cukup, httpx jauh lebih murah dan lebih cepat.
+    # statis sudah cukup, httpx jauh lebih murah dan lebih cepat. Tetap lewat
+    # robots.txt, jeda, dan User-Agent yang sama; gambar/font/media diblokir.
     requires_javascript: false
     enabled: false

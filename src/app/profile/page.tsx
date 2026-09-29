@@ -6,6 +6,7 @@ import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon } from '@/components/listing/category-icon';
 import { AccountShell } from '@/components/layout/account-shell';
+import { PortfolioList, type PortfolioRow } from '@/components/profile/portfolio-list';
 import {
   DemoAboutCard,
   DemoAchievements,
@@ -20,6 +21,7 @@ import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { initialsOf } from '@/lib/initials';
+import { isPubliclyListed, toPortfolioEntry } from '@/lib/portfolio';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import type { RawSearchParams } from '@/lib/search-params';
 import { TRACKER_STEPS, TRACKER_STEP_LABEL, trackerProgress } from '@/lib/tracker-progress';
@@ -35,7 +37,7 @@ export const metadata: Metadata = {
 
 const TABS = [
   { key: 'tentang', label: 'Tentang', private: false, demoOnly: false },
-  { key: 'pencapaian', label: 'Pencapaian', private: false, demoOnly: true },
+  { key: 'portofolio', label: 'Portofolio', private: false, demoOnly: false },
   { key: 'pendaftaran', label: 'Pendaftaran', private: true, demoOnly: false },
   { key: 'tersimpan', label: 'Tersimpan', private: true, demoOnly: false },
 ] as const;
@@ -70,7 +72,25 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
   const completeness = profileCompleteness(user);
   const applications = trackerItems.filter((item) => item.status !== 'SAVED');
-  const counts: Partial<Record<TabKey, number>> = { pendaftaran: applications.length, tersimpan: savedEvents.length };
+  // Tampilan publik = aturan yang SAMA dengan public_portfolio(); pemilik
+  // melihat semuanya, termasuk yang privat & yang belum lolos.
+  const portfolioRows: PortfolioRow[] = applications
+    .filter((item) => !isPublic || isPubliclyListed(item))
+    .sort((left, right) => (right.event.primaryDeadlineAt ?? '').localeCompare(left.event.primaryDeadlineAt ?? ''))
+    .map((item) => ({
+      entry: toPortfolioEntry(item),
+      ...(isPublic
+        ? {}
+        : {
+            visibility: item.status === 'REJECTED' ? ('never' as const) : isPubliclyListed(item) ? ('public' as const) : ('private' as const),
+            editHref: `/tracker/${item.event.slug}#portofolio-title`,
+          }),
+    }));
+  const counts: Partial<Record<TabKey, number>> = {
+    portofolio: portfolioRows.length,
+    pendaftaran: applications.length,
+    tersimpan: savedEvents.length,
+  };
   const interests = user.interests
     .map((slug) => categories.find((category) => category.slug === slug))
     .filter((category): category is NonNullable<typeof category> => Boolean(category));
@@ -234,16 +254,15 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       <section aria-label={tabs.find((item) => item.key === tab)?.label} className="enter flex min-h-[360px] flex-col gap-5 [animation-duration:300ms]">
         {tab === 'tentang' && (
           <div className="flex flex-wrap items-start gap-5">
-            <div className="flex min-w-0 flex-[2_1_420px] flex-col gap-5">
-              {demoFeaturesEnabled && <DemoAboutCard isPublic={isPublic} />}
-              {demoFeaturesEnabled && <DemoTeamCard />}
-              {!demoFeaturesEnabled && (
-                <section className="flex flex-col gap-2 rounded-[18px] border border-dashed border-line-strong p-6">
-                  <h2 className="text-base font-semibold">Bio, peran tim, dan pencapaian</h2>
-                  <p className="text-sm leading-relaxed text-ink-muted">Bagian ini segera hadir. Sementara itu, lengkapi jenjang dan minat supaya rekomendasinya pas.</p>
-                </section>
-              )}
-            </div>
+            {/* Tanpa kotak "segera hadir" di produksi: placeholder fitur yang
+                belum ada membuat halaman terasa belum jadi. Kolom minat &
+                kontak cukup melebar sendiri. */}
+            {demoFeaturesEnabled && (
+              <div className="flex min-w-0 flex-[2_1_420px] flex-col gap-5">
+                <DemoAboutCard isPublic={isPublic} />
+                <DemoTeamCard />
+              </div>
+            )}
             <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-5">
               <section aria-labelledby="minat-title" className="flex flex-col gap-3.5 rounded-[18px] border border-line p-[22px]">
                 <div className="flex items-center justify-between gap-3">
@@ -294,7 +313,30 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           </div>
         )}
 
-        {tab === 'pencapaian' && demoFeaturesEnabled && <DemoAchievements isPublic={isPublic} />}
+        {tab === 'portofolio' && (
+          <>
+            <section aria-labelledby="portofolio-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">
+              <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
+                <h2 id="portofolio-title" className="text-base font-semibold">
+                  {isPublic ? 'Portofolio' : 'Riwayat & portofolio'}
+                </h2>
+                <span className="text-[12.5px] text-ink-muted">
+                  {isPublic ? 'Hasil dilaporkan sendiri oleh pemilik profil' : 'Otomatis dari kegiatan yang kamu tandai "Sudah daftar"'}
+                </span>
+              </div>
+              <PortfolioList
+                now={now}
+                rows={portfolioRows}
+                emptyText={
+                  isPublic
+                    ? 'Belum ada kegiatan yang ditampilkan.'
+                    : 'Belum ada. Tandai "Sudah daftar" di halaman Pendaftaran — kegiatannya otomatis masuk ke sini.'
+                }
+              />
+            </section>
+            {demoFeaturesEnabled && <DemoAchievements isPublic={isPublic} />}
+          </>
+        )}
 
         {tab === 'pendaftaran' && (
           <section aria-labelledby="pendaftaran-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">

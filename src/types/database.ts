@@ -80,6 +80,53 @@ export interface TrackerRow {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // Portofolio (migration 20260929100001). VARCHAR + CHECK; mapper tetap
+  // menyaring nilai yang tidak dikenal.
+  achievement: string | null;
+  achievement_note: string | null;
+  proof_url: string | null;
+  portfolio_visible: boolean | null;
+}
+
+/** RPC `public_profile(p_user)` — kolom yang sama dengan network_directory + hubungan. */
+export interface PublicProfileRow {
+  user_id: string;
+  full_name: string;
+  headline: string | null;
+  education_level: EducationLevel | null;
+  major: string | null;
+  interests: string[] | null;
+  relation: 'self' | 'connected' | 'incoming' | 'outgoing' | null;
+}
+
+/** RPC `public_portfolio(p_user)`. */
+export interface PublicPortfolioRow {
+  event_id: string;
+  slug: string;
+  title: string;
+  organizer: string;
+  event_type: EventType;
+  tracker_status: TrackerStatus;
+  achievement: string | null;
+  achievement_note: string | null;
+  proof_url: string | null;
+  deadline_at: string | null;
+  updated_at: string;
+}
+
+/** RPC `organizer_event_history()`. BIGINT tiba sebagai number JSON. */
+export interface OrganizerHistoryRow {
+  event_id: string;
+  slug: string;
+  title: string;
+  event_type: EventType;
+  status: EventStatus;
+  closed_at: string | null;
+  views: number;
+  visitors: number;
+  saves: number;
+  clicks: number;
+  applied: number;
 }
 
 export interface TeamRow {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toModerationLogEntry, toSubmission } from './supabase-mappers';
+import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toSubmission } from './supabase-mappers';
 
 describe('isUuid', () => {
   it('menerima UUID dan menolak selainnya sebelum sampai ke Postgres', () => {
@@ -70,5 +70,27 @@ describe('keysetAfter', () => {
         'and(status.eq.PENDING,created_at.lt."2026-09-27T10:00:00.5+00:00"),' +
         'and(status.eq.PENDING,created_at.eq."2026-09-27T10:00:00.5+00:00",connection_id.lt.0f8b6a1e-1c2d-4e3f-8a9b-0c1d2e3f4a5b)',
     );
+  });
+});
+
+describe('portofolio & riwayat', () => {
+  it('hasil di luar daftar dianggap belum diisi', () => {
+    expect(toAchievement('JUARA_1')).toBe('JUARA_1');
+    expect(toAchievement('JUARA_0')).toBeNull();
+    expect(toAchievement(null)).toBeNull();
+  });
+
+  it('memetakan baris portofolio publik', () => {
+    const entry = toPublicPortfolioEntry({
+      event_id: 'e1', slug: 'lomba-a', title: 'Lomba A', organizer: 'Himpunan', event_type: 'LOMBA',
+      tracker_status: 'ACCEPTED', achievement: 'JUARA_2', achievement_note: 'UI/UX', proof_url: 'https://a.example',
+      deadline_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z',
+    });
+    expect(entry).toMatchObject({ eventId: 'e1', status: 'ACCEPTED', achievement: 'JUARA_2', deadlineAt: '2026-01-01T00:00:00Z' });
+  });
+
+  it('angka BIGINT riwayat jadi number', () => {
+    const row = { event_id: 'e1', slug: 's', title: 't', event_type: 'LOMBA' as const, status: 'EXPIRED' as const, closed_at: null, views: 10, visitors: 7, saves: 3, clicks: 2, applied: 1 };
+    expect(toOrganizerHistoryEntry({ ...row, views: '10' as unknown as number })).toMatchObject({ views: 10, applied: 1 });
   });
 });

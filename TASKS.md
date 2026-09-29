@@ -322,6 +322,39 @@ Belum / butuh keputusan atau akses pemilik:
 - [x] FilterBar: "Tampilkan yang ditutup" dipisah dari urutan; chip satu baris geser di ponsel.
 - [x] Kelengkapan profil & form "Cara orang menemukanmu" hanya menonjol saat butuh tindakan.
 - [x] Hydration mismatch `nonce` palsu di setiap halaman (badge "1 Issue" di dev).
-- [ ] Belum disentuh, layak dievaluasi: `/connections` masih memuat peta + direktori +
-      sidebar dalam satu halaman (pertimbangkan peta di tab/rute sendiri);
-      beranda punya dua bagian yang tumpang tindih (Tur singkat vs Fitur utama).
+- [x] `/connections`: peta turun di bawah direktori (tetap satu halaman — tautan panel peta).
+- [x] Beranda: bagian "Fitur utama" dihapus (duplikat Tur); klaim "formulir terisi otomatis" dikoreksi.
+- [x] Ruang diskusi demo: "Gabung" membuat grup sungguhan, bukan jalan buntu "segera hadir".
+- [x] Judul tab Persiapan memuat nama kegiatan; "Keluar" → "Tutup"; placeholder "segera hadir" produksi dihapus.
+- [x] Crawler tautan (tamu + 4 persona, ~870 halaman): 0 tautan internal mati, 0 error konsol.
+- [ ] Judul tab analitik penyelenggara masih generik ("Analitik acara") — butuh cek
+      otorisasi di `generateMetadata`; nilai kecil, belum dikerjakan.
+
+## Audit pipeline & moderasi 2026-09-29 (@claude) — ADR-045
+
+- [x] Uji jalur scraping sungguhan (`test_fetch_extract.py`, 10 uji) + tanggal tanpa jam (`test_models`).
+- [x] Judul `<article><header>` kini sampai ke LLM; robots.txt 5xx dilewati; jeda robots→halaman.
+- [x] Alarm palsu untuk halaman tanpa kegiatan buka; dry-run tanpa Telegram; crash setup ikut diperingatkan.
+- [x] `requires_javascript` dirender Playwright (diuji dengan Chromium sungguhan); `tenacity` yang tak terpakai dihapus.
+- [x] Uji end-to-end manual: situs palsu → pipeline → Postgres + PostgREST → `/admin` → setujui → tayang.
+- [x] Kartu moderasi: jenjang/tempat/bidang (+penanda kosong), deskripsi lengkap, konfirmasi "Tolak".
+- [x] `scripts/e2e-supabase.sh` menghapus Data Cache lama sebelum build.
+- [ ] Ekstraksi Gemini sungguhan belum pernah diuji di lingkungan ini (tidak ada `GEMINI_API_KEY`);
+      jalankan satu sumber nyata dengan `--dry-run` dimatikan di staging sebelum cron diaktifkan.
+- [x] `max_pages_per_source` dipakai lewat `link_selector` (halaman daftar → detail) — ADR-046.
+- [x] Jalan balik untuk kegiatan yang tertolak: "Kembalikan ke antrean" di `/admin/riwayat` — ADR-046.
+
+## Portofolio & riwayat per peran 2026-09-29 (@claude) — ADR-046
+
+- [x] Pipeline: panjang judul dicek setelah dirapikan; `registration_link` relatif diselesaikan ke URL sumber.
+- [x] Pipeline: `link_selector` + `detail_content_selector` (host sama, unik, dibatasi, jeda & robots tetap).
+- [x] Migration `20260929100001_portfolio_and_history.sql` + uji SQL `99_portfolio_history` (mutation-tested).
+- [x] Portofolio otomatis dari tracker APPLIED+; form hasil/catatan/bukti/visibilitas di `/tracker/[slug]`.
+- [x] Tab "Portofolio" di profil (pemilik + pratinjau publik), menggantikan "Pencapaian" demo.
+- [x] Profil publik `/orang/[id]` (aturan jaringan, 404 seragam, tombol Hubungkan); nama di Koneksi menautkannya.
+- [x] Penyelenggara: "Riwayat acara" dengan angka akhir, terpisah dari "Acara aktif".
+- [x] Admin: pulihkan kegiatan/kiriman tertolak ke antrean, tercatat di log moderasi.
+- [x] Paritas memori ↔ Supabase (integrasi), e2e + axe untuk rute baru.
+- [x] Demo: masuk ulang sebagai Penyelenggara tidak lagi melipatgandakan simpan/klik analitik.
+- [ ] Verifikasi hasil oleh penyelenggara (hasil kini dilaporkan sendiri, ditandai begitu).
+- [ ] Ekspor portofolio (PDF/tautan bagikan) — butuh keputusan soal akses tanpa login.

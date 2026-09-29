@@ -23,6 +23,8 @@ interface World {
   /** Jalankan sebagai pengguna ini (produksi: JWT → RLS). */
   as<T>(userId: string | null, run: () => Promise<T>): Promise<T>;
   approvedEventId(): Promise<string>;
+  /** Acara tayang berjenis tertentu — visibilitas portofolio bergantung jenis (ADR-046). */
+  approvedEventIdOfType(type: 'LOMBA' | 'BEASISWA'): Promise<string>;
   pendingEventId(): Promise<string>;
 }
 
@@ -34,6 +36,7 @@ function memoryWorld(): World {
     user: () => randomUUID(),
     as: (_userId, run) => run(),
     approvedEventId: async () => (await repo.listEvents({ pageSize: 1 })).items[0]!.id,
+    approvedEventIdOfType: async (type) => (await repo.listEvents({ types: [type], pageSize: 1 })).items[0]!.id,
     pendingEventId: async () => (await repo.listByStatus('PENDING', 1))[0]!.id,
   };
 }
@@ -52,6 +55,7 @@ function supabaseWorld(): World {
       }
     },
     approvedEventId: async () => createEvent().id,
+    approvedEventIdOfType: async (type) => createEvent({ eventType: type }).id,
     pendingEventId: async () => createEvent({ status: 'PENDING' }).id,
   };
 }
@@ -228,5 +232,58 @@ describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
     expect(await outcome(() => world.as(a, () => world.repo.unblockPerson(a, b)))).toBe('ok');
     expect(await outcome(() => world.as(a, () => world.repo.unblockPerson(a, b)))).toBe('block_not_found');
     expect(await outcome(() => world.as(b, () => world.repo.requestConnection(person(b), a, null)))).toBe('ok');
+  });
+
+  it('portofolio (ADR-046): otomatis dari "Sudah daftar", beasiswa privat bawaan, blokir menutup', async () => {
+    const world = makeWorld();
+    const [owner, viewer, stranger] = [world.user(), world.user(), world.user()];
+    await discoverable(world, [owner, viewer]);
+    const [lomba, beasiswa] = [await world.approvedEventIdOfType('LOMBA'), await world.approvedEventIdOfType('BEASISWA')];
+    const seenBy = async (who: string) =>
+      (await world.as(who, () => world.repo.getPublicProfile(who, owner)))?.portfolio.map((entry) => entry.eventId) ?? null;
+
+    await world.as(owner, async () => {
+      await world.repo.upsertTrackerItem(owner, lomba, 'SAVED');
+      await world.repo.upsertTrackerItem(owner, beasiswa, 'APPLIED');
+    });
+    expect(await seenBy(viewer)).toEqual([]);
+    expect(await outcome(() => world.as(owner, () => world.repo.updatePortfolioEntry(owner, lomba, { achievement: 'JUARA_1', achievementNote: null, proofUrl: null, visible: true })))).toBe(
+      'portfolio_not_eligible',
+    );
+
+    await world.as(owner, () => world.repo.upsertTrackerItem(owner, lomba, 'ACCEPTED'));
+    expect(
+      await outcome(() =>
+        world.as(owner, () =>
+          world.repo.updatePortfolioEntry(owner, lomba, { achievement: 'JUARA_2', achievementNote: 'Kategori A', proofUrl: 'https://bukti.example/a', visible: true }),
+        ),
+      ),
+    ).toBe('ok');
+    expect(await seenBy(viewer)).toEqual([lomba]);
+    const [entry] = (await world.as(viewer, () => world.repo.getPublicProfile(viewer, owner)))!.portfolio;
+    expect(entry).toMatchObject({ achievement: 'JUARA_2', achievementNote: 'Kategori A', proofUrl: 'https://bukti.example/a', status: 'ACCEPTED' });
+    // Pemilik melihat kolom portofolionya sendiri di tracker.
+    const own = await world.as(owner, () => world.repo.listTrackerItems(owner));
+    expect(own.find((item) => item.eventId === lomba)).toMatchObject({ achievement: 'JUARA_2', portfolioVisible: true });
+
+    await world.as(owner, () => world.repo.updatePortfolioEntry(owner, beasiswa, { achievement: null, achievementNote: null, proofUrl: null, visible: true }));
+    expect(new Set(await seenBy(viewer))).toEqual(new Set([lomba, beasiswa]));
+
+    // Orang yang tidak bisa ditemukan & tanpa koneksi: pemilik tetap terlihat
+    // karena pemilik bisa ditemukan — yang tertutup adalah profil si stranger.
+    expect(await world.as(owner, () => world.repo.getPublicProfile(owner, stranger))).toBeNull();
+
+    await world.as(owner, () => world.repo.blockPerson(owner, viewer));
+    expect(await seenBy(viewer)).toBeNull();
+  });
+
+  it('pemulihan moderasi (ADR-046): tolak → kembali PENDING sekali saja', async () => {
+    const world = makeWorld();
+    const admin = world.user();
+    const eventId = await world.pendingEventId();
+    await world.repo.reviewEvent({ eventId, decision: 'REJECTED', reviewerId: admin, reviewerName: 'Admin' });
+    expect(await outcome(() => world.repo.restoreRejected({ subjectType: 'event', subjectId: eventId, reviewerId: admin, reviewerName: 'Admin' }))).toBe('ok');
+    expect((await world.repo.listByStatus('PENDING', 200)).some((event) => event.id === eventId)).toBe(true);
+    expect(await outcome(() => world.repo.restoreRejected({ subjectType: 'event', subjectId: eventId, reviewerId: admin }))).toBe('moderation_not_rejected');
   });
 });

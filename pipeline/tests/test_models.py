@@ -6,6 +6,7 @@ Dijalankan tanpa pytest supaya bisa dieksekusi di lingkungan minimal:
 
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -127,6 +128,26 @@ def test_schema_enum_comes_from_database_list():
     categories = schema["items"]["properties"]["categories"]["items"]
     assert categories["enum"] == ["teknologi", "bisnis"]
     assert "LOMBA" in schema["items"]["properties"]["event_type"]["enum"]
+
+
+def test_date_only_deadline_means_end_of_day_wib():
+    tomorrow = (datetime.now(timezone(timedelta(hours=7))) + timedelta(days=1)).date().isoformat()
+    event = ExtractedEvent.model_validate(base_payload(deadlines=[{"label": "registration", "deadline_at": tomorrow}]))
+    deadline = event.deadlines[0].deadline_at
+    assert (deadline.hour, deadline.minute) == (23, 59), f"jam jadi {deadline.time()}, bukan 23:59"
+    assert deadline.utcoffset() == timedelta(hours=7), "tanggal tanpa zona waktu harus WIB"
+
+
+def test_length_limits_apply_after_whitespace_normalization():
+    expect_error(base_payload(title="   Ab      "), "judul 2 huruf setelah dirapikan harus ditolak")
+
+
+def test_relative_registration_link_resolved_against_source():
+    valid, errors = parse_events(json.dumps([base_payload(registration_link="/lomba/daftar")]), "https://kampus.ac.id/pengumuman/lomba")
+    assert not errors, errors
+    assert str(valid[0].registration_link) == "https://kampus.ac.id/lomba/daftar"
+    _, errors = parse_events(json.dumps([base_payload(registration_link="javascript:alert(1)")]), "https://kampus.ac.id/")
+    assert errors, "skema non-http tetap harus ditolak"
 
 
 def test_alert_threshold():

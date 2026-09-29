@@ -19,6 +19,7 @@ import {
 } from '@/lib/network';
 import { type OrganizerApplicationInput, toStoredRevisionChanges } from '@/lib/organizer';
 import { parseEventAnalytics } from '@/lib/organizer-analytics';
+import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
 import { toStoredPayload } from '@/lib/submission-schema';
 import {
   createSupabaseAdminClient,
@@ -44,10 +45,12 @@ import type {
   ModerationLogEntry,
   NetworkEventRef,
   NetworkProfile,
+  OrganizerHistoryEntry,
   OrganizerProfile,
   OrganizerStatus,
   Paginated,
   PeopleSuggestion,
+  PublicProfile,
   Submission,
   Team,
   TeamLink,
@@ -78,6 +81,9 @@ import type {
   TeamMemberCountRow,
   TeamMemberProfileRow,
   TeamRow,
+  OrganizerHistoryRow,
+  PublicPortfolioRow,
+  PublicProfileRow,
   TrackerRow,
 } from '@/types/database';
 import {
@@ -102,6 +108,7 @@ import type {
   RepositoryStats,
   ReviewEventInput,
   ReviewSubmissionInput,
+  RestoreRejectedInput,
   ReviewTrustInput,
 } from './repository';
 import {
@@ -126,6 +133,10 @@ import {
   toConnection,
   toMutualCounts,
   toNetworkPerson,
+  toOrganizerHistoryEntry,
+  toPortfolioFields,
+  toPublicPortfolioEntry,
+  rpcRows,
   toTeamMember,
 } from './supabase-mappers';
 
@@ -361,6 +372,25 @@ export class SupabaseEventRepository implements EventRepository {
     if (error) throw upstreamFailure('Gagal menyimpan keputusan moderasi.', error);
   }
 
+  async restoreRejected({ subjectType, subjectId, reviewerId }: RestoreRejectedInput): Promise<void> {
+    if (!isUuid(subjectId)) throw actionError('moderation_not_rejected');
+    // `reviewed_at` diisi supaya trigger log mencatatnya sebagai keputusan
+    // manusia beserta namanya, bukan "Sistem".
+    const reviewed = { status: 'PENDING', reviewed_by: reviewerId, reviewed_at: new Date().toISOString() };
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await (subjectType === 'event'
+      ? supabase.from('events').update({ ...reviewed, rejection_reason: null })
+      : supabase.from('ugc_submissions').update(reviewed)
+    )
+      .eq('id', subjectId)
+      .eq('status', 'REJECTED')
+      .select('id')
+      .returns<{ id: string }[]>();
+
+    if (error) throw upstreamFailure('Gagal memulihkan keputusan moderasi.', error);
+    if (data.length === 0) throw actionError('moderation_not_rejected');
+  }
+
   // ------------------------------------------------------------------
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
@@ -550,7 +580,7 @@ export class SupabaseEventRepository implements EventRepository {
     const supabase = await createSupabaseServerClient();
     const { data: rows, error } = await supabase
       .from('application_tracker')
-      .select('id, user_id, event_id, status, notes, created_at, updated_at')
+      .select('id, user_id, event_id, status, notes, created_at, updated_at, achievement, achievement_note, proof_url, portfolio_visible')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .returns<TrackerRow[]>();
@@ -570,6 +600,7 @@ export class SupabaseEventRepository implements EventRepository {
               notes: row.notes,
               createdAt: row.created_at,
               updatedAt: row.updated_at,
+              ...toPortfolioFields(row),
               event,
             },
           ]
@@ -620,6 +651,65 @@ export class SupabaseEventRepository implements EventRepository {
       .eq('event_id', eventId);
 
     if (error) throw upstreamFailure('Gagal menghapus entri tracker.', error, 500);
+  }
+
+  // ------------------------------------------------------------------
+  // Portofolio & profil publik (ADR-046)
+  // ------------------------------------------------------------------
+
+  async updatePortfolioEntry(userId: string, eventId: string, input: PortfolioInput): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('portfolio_not_eligible');
+    const supabase = await createSupabaseServerClient();
+    // Filter status di query: entri SAVED/REJECTED tidak punya portofolio,
+    // jadi 0 baris terubah = tidak memenuhi syarat (bukan kegagalan diam).
+    const { data, error } = await supabase
+      .from('application_tracker')
+      .update({
+        achievement: input.achievement,
+        achievement_note: input.achievementNote,
+        proof_url: input.proofUrl,
+        portfolio_visible: input.visible,
+      })
+      .eq('user_id', userId)
+      .eq('event_id', eventId)
+      .in('status', PORTFOLIO_STATUSES)
+      .select('id')
+      .returns<{ id: string }[]>();
+
+    if (error) {
+      // 23514 = CHECK (hasil/catatan/https) — validator aplikasi seharusnya sudah menahannya.
+      if (sqlState(error) === '23514') throw actionError('invalid_portfolio');
+      throw rejectedOrFailed(error, 'Gagal menyimpan portofolio.');
+    }
+    if (data.length === 0) throw actionError('portfolio_not_eligible');
+  }
+
+  async getPublicProfile(_viewerId: string, userId: string): Promise<PublicProfile | null> {
+    if (!isUuid(userId)) return null;
+    // Klien pengguna: aturan kelihatan diperiksa `can_view_profile()` atas
+    // auth.uid() pemanggil — viewerId dari aplikasi tidak dipercaya di sini.
+    const supabase = await createSupabaseServerClient();
+    const [profile, portfolio] = await Promise.all([
+      supabase.rpc('public_profile', { p_user: userId }),
+      supabase.rpc('public_portfolio', { p_user: userId }),
+    ]);
+    if (profile.error) throw upstreamFailure('Gagal memuat profil.', profile.error);
+    const row = rpcRows<PublicProfileRow>(profile.data)[0];
+    if (!row) return null;
+    if (portfolio.error) throw upstreamFailure('Gagal memuat portofolio.', portfolio.error);
+
+    return {
+      person: {
+        userId: row.user_id,
+        fullName: row.full_name,
+        headline: row.headline,
+        educationLevel: row.education_level,
+        major: row.major,
+        interests: row.interests ?? [],
+      },
+      relation: row.relation,
+      portfolio: rpcRows<PublicPortfolioRow>(portfolio.data).map(toPublicPortfolioEntry),
+    };
   }
 
   // ------------------------------------------------------------------
@@ -1399,6 +1489,15 @@ export class SupabaseEventRepository implements EventRepository {
     const analytics = parseEventAnalytics(data);
     if (!analytics) throw upstreamFailure('Bentuk analitik acara tidak dikenali.', data, 500);
     return analytics;
+  }
+
+  async listOrganizerHistory(_userId: string): Promise<readonly OrganizerHistoryEntry[]> {
+    // Klien pengguna: fungsi membaca auth.uid() sendiri dan hanya berlaku
+    // selama pemanggil VERIFIED — sama dengan manages_event().
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('organizer_event_history');
+    if (error) throw organizerFailure(error, 'Gagal memuat riwayat acara.');
+    return rpcRows<OrganizerHistoryRow>(data).map(toOrganizerHistoryEntry);
   }
 
   async recordEventView(eventId: string, visitorHash: string): Promise<void> {

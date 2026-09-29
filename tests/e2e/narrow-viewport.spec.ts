@@ -54,6 +54,10 @@ const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/profile/privacy'],
   ['Mahasiswa', '/messages'],
   ['Mahasiswa', '/discussions'],
+  ['Mahasiswa', '/profile?tab=portofolio'],
+  ['Mahasiswa', '/tracker/lomba-desain-ui-ux-nasional-edisi-lalu'],
+  ['Mahasiswa', '/orang/seed-user-1'],
+  ['Penyelenggara', '/penyelenggara'],
 ];
 
 for (const width of WIDTHS) {

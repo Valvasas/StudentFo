@@ -42,6 +42,14 @@ jobs:
             exit 1
           fi
           printf '%s' "$PIPELINE_SOURCES_YAML" > pipeline/config/sources.yaml
+      # Browser hanya dipasang kalau ada sumber yang dirender JavaScript —
+      # tanpa ini sumber `requires_javascript` selalu gagal di CI, dan
+      # memasangnya di setiap run memperlambat run yang tidak butuh.
+      - name: Install Chromium for JavaScript sources
+        run: |
+          if grep -Eq '^\s*requires_javascript:\s*true' pipeline/config/sources.yaml; then
+            python -m playwright install --with-deps chromium
+          fi
       - name: Run pipeline
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

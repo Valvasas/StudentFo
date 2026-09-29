@@ -9,12 +9,16 @@ import type {
   EventRevision,
   EventSummary,
   ModerationLogEntry,
+  Achievement,
   NetworkPerson,
+  OrganizerHistoryEntry,
   OrganizerProfile,
+  PortfolioEntry,
+  PortfolioFields,
   Submission,
   TeamMember,
 } from '@/types/domain';
-import { toTeamRole } from '@/types/domain';
+import { ACHIEVEMENTS, toTeamRole } from '@/types/domain';
 import type {
   ConnectionPeerRow,
   EventClaimRow,
@@ -23,7 +27,9 @@ import type {
   EventRevisionRow,
   ModerationLogRow,
   NetworkDirectoryRow,
+  OrganizerHistoryRow,
   OrganizerProfileRow,
+  PublicPortfolioRow,
   SubmissionRow,
   TeamMemberProfileRow,
 } from '@/types/database';
@@ -297,4 +303,64 @@ export function toMutualCounts(data: unknown): Map<string, number> {
     }
   }
   return counts;
+}
+
+/** Nilai di luar daftar (CHECK diubah tanpa aplikasi) diperlakukan sebagai "belum diisi", bukan dilempar ke UI. */
+export function toAchievement(value: string | null): Achievement | null {
+  return value !== null && (ACHIEVEMENTS as readonly string[]).includes(value) ? (value as Achievement) : null;
+}
+
+export function toPortfolioFields(row: {
+  achievement: string | null;
+  achievement_note: string | null;
+  proof_url: string | null;
+  portfolio_visible: boolean | null;
+}): PortfolioFields {
+  return {
+    achievement: toAchievement(row.achievement),
+    achievementNote: row.achievement_note,
+    proofUrl: row.proof_url,
+    portfolioVisible: row.portfolio_visible,
+  };
+}
+
+export function toPublicPortfolioEntry(row: PublicPortfolioRow): PortfolioEntry {
+  return {
+    eventId: row.event_id,
+    slug: row.slug,
+    title: row.title,
+    organizer: row.organizer,
+    eventType: row.event_type,
+    status: row.tracker_status,
+    achievement: toAchievement(row.achievement),
+    achievementNote: row.achievement_note,
+    proofUrl: row.proof_url,
+    deadlineAt: row.deadline_at,
+  };
+}
+
+export function toOrganizerHistoryEntry(row: OrganizerHistoryRow): OrganizerHistoryEntry {
+  return {
+    eventId: row.event_id,
+    slug: row.slug,
+    title: row.title,
+    eventType: row.event_type,
+    status: row.status,
+    closedAt: row.closed_at,
+    views: Number(row.views),
+    visitors: Number(row.visitors),
+    saves: Number(row.saves),
+    clicks: Number(row.clicks),
+    applied: Number(row.applied),
+  };
+}
+
+/**
+ * Baris dari RPC `RETURNS TABLE`. Tanpa skema tergenerasi supabase-js
+ * mengetik hasil `rpc()` sebagai objek tunggal; PostgREST sebenarnya selalu
+ * mengirim array untuk fungsi bertipe tabel. Bentuk barisnya tetap kontrak
+ * eksplisit di `src/types/database.ts` — setara `.returns<Row[]>()` pada query tabel.
+ */
+export function rpcRows<Row>(data: unknown): readonly Row[] {
+  return Array.isArray(data) ? (data as Row[]) : [];
 }

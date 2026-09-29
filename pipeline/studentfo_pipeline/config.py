@@ -16,6 +16,11 @@ class Source:
     name: str
     start_url: str
     content_selector: str | None = None
+    # Tautan ke halaman detail pengumuman di halaman daftar. Diisi = setiap
+    # tautan yang cocok (domain yang sama, maks. max_pages_per_source)
+    # diambil dan diekstrak sendiri-sendiri; kosong = halaman daftar saja.
+    link_selector: str | None = None
+    detail_content_selector: str | None = None
     requires_javascript: bool = False
     enabled: bool = True
 
@@ -38,7 +43,7 @@ def load_config(path: Path) -> PipelineConfig:
         delay_seconds_min=float(defaults.get("delay_seconds_min", 2.0)),
         delay_seconds_max=float(defaults.get("delay_seconds_max", 5.0)),
         timeout_seconds=int(defaults.get("timeout_seconds", 30)),
-        max_pages_per_source=int(defaults.get("max_pages_per_source", 20)),
+        max_pages_per_source=max(1, int(defaults.get("max_pages_per_source", 20))),
     )
 
     # Jeda minimum dipaksa di kode, bukan diserahkan ke berkas konfigurasi.
@@ -53,6 +58,8 @@ def load_config(path: Path) -> PipelineConfig:
             name=item["name"],
             start_url=item["start_url"],
             content_selector=item.get("content_selector"),
+            link_selector=item.get("link_selector"),
+            detail_content_selector=item.get("detail_content_selector"),
             requires_javascript=bool(item.get("requires_javascript", False)),
             enabled=bool(item.get("enabled", True)),
         )

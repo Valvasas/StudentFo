@@ -1,4 +1,4 @@
-import type { DeadlineLabel, EducationLevel, EventStatus, EventType } from '@/types/domain';
+import type { Achievement, DeadlineLabel, EducationLevel, EventStatus, EventType, TrackerStatus } from '@/types/domain';
 
 /**
  * DATA CONTOH — bukan event sungguhan.
@@ -390,6 +390,56 @@ export const SEED_EVENTS: readonly SeedEvent[] = [
     createdDaysAgo: 0,
     deadlines: [{ label: 'submission', inDays: 18, isPrimary: true }],
   },
+  // Tiga kegiatan yang SUDAH selesai: bahan riwayat & portofolio (ADR-046).
+  // EXPIRED tidak tampil di katalog kecuali "Tampilkan yang ditutup".
+  {
+    id: 'e1000000-0000-4000-8000-000000000021',
+    slug: 'lomba-desain-ui-ux-nasional-edisi-lalu',
+    title: 'Lomba Desain UI/UX Nasional',
+    organizer: 'Himpunan Mahasiswa Informatika Nusantara',
+    description: 'Lomba desain antarmuka layanan publik untuk mahasiswa D3 dan S1. Babak final berupa presentasi purwarupa di depan juri industri.',
+    eventType: 'LOMBA',
+    categorySlugs: ['desain', 'teknologi'],
+    educationLevels: ['D3', 'D4_S1'],
+    location: null,
+    isOnline: true,
+    status: 'EXPIRED',
+    savedCount: 318,
+    createdDaysAgo: 140,
+    deadlines: [{ label: 'registration', inDays: -75, isPrimary: true }],
+  },
+  {
+    id: 'e1000000-0000-4000-8000-000000000022',
+    slug: 'workshop-riset-pengguna-angkatan-3',
+    title: 'Workshop Riset Pengguna Angkatan 3',
+    organizer: 'Studio Rupa Kolektif',
+    description: 'Tiga sesi praktik wawancara pengguna dan sintesis temuan. Peserta yang menyelesaikan tugas akhir mendapat sertifikat.',
+    eventType: 'WORKSHOP',
+    categorySlugs: ['desain'],
+    educationLevels: ['SMA_SMK', 'D4_S1', 'UMUM'],
+    location: 'Yogyakarta',
+    isOnline: false,
+    status: 'EXPIRED',
+    savedCount: 142,
+    createdDaysAgo: 90,
+    deadlines: [{ label: 'registration', inDays: -40, isPrimary: true }],
+  },
+  {
+    id: 'e1000000-0000-4000-8000-000000000023',
+    slug: 'beasiswa-talenta-digital-gelombang-1',
+    title: 'Beasiswa Talenta Digital Gelombang 1',
+    organizer: 'Yayasan Talenta Digital Nusantara',
+    description: 'Beasiswa biaya kuliah satu tahun untuk mahasiswa S1 bidang teknologi dan desain digital.',
+    eventType: 'BEASISWA',
+    categorySlugs: ['teknologi'],
+    educationLevels: ['D4_S1'],
+    location: null,
+    isOnline: true,
+    status: 'EXPIRED',
+    savedCount: 530,
+    createdDaysAgo: 200,
+    deadlines: [{ label: 'registration', inDays: -120, isPrimary: true }],
+  },
 ] as const;
 
 export const SEED_CATEGORIES = [
@@ -505,3 +555,43 @@ export const DEMO_STARTER_NETWORK = {
   ],
   outgoing: ['seed-user-5'],
 } as const;
+
+export interface SeedPortfolioEntry {
+  readonly userId: string;
+  readonly eventSlug: string;
+  readonly status: TrackerStatus;
+  readonly achievement: Achievement | null;
+  readonly achievementNote?: string;
+  readonly proofUrl?: string;
+  readonly portfolioVisible?: boolean;
+}
+
+/**
+ * Riwayat kegiatan orang di jaringan contoh, supaya profil publik
+ * (/orang/[id]) punya isi. Beasiswa Citra sengaja tanpa `portfolioVisible`:
+ * privat secara bawaan, jadi TIDAK tampil ke orang lain — contoh aturannya.
+ */
+export const SEED_PORTFOLIO: readonly SeedPortfolioEntry[] = [
+  { userId: 'seed-user-1', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'JUARA_2', achievementNote: 'Kategori aksesibilitas' },
+  { userId: 'seed-user-1', eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'APPLIED', achievement: 'BERSERTIFIKAT' },
+  { userId: 'seed-user-1', eventSlug: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026', status: 'APPLIED', achievement: null },
+  { userId: 'seed-user-4', eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'APPLIED', achievement: 'PESERTA' },
+  { userId: 'seed-user-10', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'FINALIS' },
+  { userId: 'seed-user-10', eventSlug: 'beasiswa-talenta-digital-gelombang-1', status: 'ACCEPTED', achievement: 'PENERIMA' },
+];
+
+/**
+ * Riwayat awal persona demo "Mahasiswa". Beasiswa yang belum lolos hanya
+ * terlihat oleh pemiliknya — di profil publik ia tidak pernah muncul.
+ */
+export const DEMO_STARTER_PORTFOLIO: readonly Omit<SeedPortfolioEntry, 'userId'>[] = [
+  {
+    eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu',
+    status: 'ACCEPTED',
+    achievement: 'JUARA_3',
+    achievementNote: 'Kategori aplikasi layanan publik',
+    proofUrl: 'https://example.org/sertifikat/lomba-desain-ui-ux',
+  },
+  { eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'APPLIED', achievement: 'BERSERTIFIKAT' },
+  { eventSlug: 'beasiswa-talenta-digital-gelombang-1', status: 'REJECTED', achievement: null },
+];

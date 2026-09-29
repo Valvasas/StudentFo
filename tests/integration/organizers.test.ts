@@ -130,3 +130,26 @@ describe('SupabaseEventRepository — penyelenggara', () => {
     expect(await reason(repo.getEventAnalytics(other, event.id, 30))).toBe('not_event_manager');
   });
 });
+
+describe('SupabaseEventRepository — riwayat acara (ADR-046)', () => {
+  it('hanya acara kelolaan yang sudah tutup, angka seumur acara, tertutup setelah dicabut', async () => {
+    const { id, admin } = await verifiedOrganizer('Himpunan Riwayat');
+    const closed = createEvent({ title: 'Acara Riwayat Selesai', status: 'EXPIRED', deadlineInDays: -30 });
+    const open = createEvent({ title: 'Acara Riwayat Buka' });
+    for (const event of [closed, open]) {
+      sql(`INSERT INTO public.event_managers (event_id, user_id, source) VALUES ('${event.id}', '${id}', 'ADMIN')`);
+    }
+    const participant = createUser();
+    sql(`INSERT INTO public.application_tracker (user_id, event_id, status) VALUES ('${participant}', '${closed.id}', 'ACCEPTED')`);
+
+    actAs(id);
+    const history = await repo.listOrganizerHistory(id);
+    expect(history.map((entry) => entry.eventId)).toEqual([closed.id]);
+    expect(history[0]).toMatchObject({ title: 'Acara Riwayat Selesai', status: 'EXPIRED', applied: 1, views: 0 });
+
+    await repo.reviewOrganizer({ userId: id, decision: 'REVOKED', reviewerId: admin, note: 'Uji cabut' });
+    actAs(id);
+    expect(await repo.listOrganizerHistory(id)).toEqual([]);
+  });
+});
+

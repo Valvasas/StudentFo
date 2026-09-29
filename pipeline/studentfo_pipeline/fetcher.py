@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import random
 import time
 import urllib.robotparser as robotparser
@@ -58,12 +59,20 @@ class PoliteFetcher:
 
         parser = robotparser.RobotFileParser()
         try:
+            await self._respect_delay(parsed.netloc)
             response = await client.get(f"{origin}/robots.txt", timeout=10)
             if response.status_code == 200:
                 parser.parse(response.text.splitlines())
-            else:
-                # Tidak ada robots.txt = tidak ada larangan eksplisit.
+            elif 400 <= response.status_code < 500:
+                # 4xx = robots.txt memang tidak ada: tidak ada larangan
+                # eksplisit (RFC 9309 §2.3.1.3).
                 parser.parse([])
+            else:
+                # 5xx = server tidak bisa menjawab, bukan "boleh semua"
+                # (RFC 9309 §2.3.1.4). Sama dengan gagal jaringan: lewati.
+                logger.warning("robots.txt %s menjawab %s — sumber dilewati", origin, response.status_code)
+                self._robots_cache[origin] = None
+                return None
         except httpx.HTTPError as exc:
             # Gagal membaca robots.txt diperlakukan sebagai TIDAK BOLEH.
             # Menganggapnya "boleh" berarti kegagalan jaringan diam-diam
@@ -84,24 +93,66 @@ class PoliteFetcher:
                 await asyncio.sleep(delay - elapsed)
         self._last_request_at[host] = time.monotonic()
 
-    async def fetch(self, client: httpx.AsyncClient, url: str) -> str | None:
-        """Kembalikan HTML, atau None kalau dilarang/gagal. Tidak pernah melempar."""
+    async def _allowed(self, client: httpx.AsyncClient, url: str) -> bool:
         parser = await self._robots_for(client, url)
         if parser is None:
-            return None
+            return False
         if not parser.can_fetch(USER_AGENT, url):
             logger.info("Dilarang oleh robots.txt, dilewati: %s", url)
+            return False
+        await self._respect_delay(urlparse(url).netloc)
+        return True
+
+    async def fetch(self, client: httpx.AsyncClient, url: str) -> str | None:
+        """Kembalikan HTML, atau None kalau dilarang/gagal. Tidak pernah melempar."""
+        if not await self._allowed(client, url):
             return None
-
-        host = urlparse(url).netloc
-        await self._respect_delay(host)
-
         try:
             response = await client.get(url, timeout=self.policy.timeout_seconds)
             response.raise_for_status()
             return response.text
         except httpx.HTTPError as exc:
             logger.warning("Gagal mengambil %s: %s", url, exc)
+            return None
+
+    async def fetch_rendered(self, client: httpx.AsyncClient, url: str) -> str | None:
+        """Seperti `fetch`, tapi isinya dirender browser (sumber `requires_javascript`).
+
+        Melewati gerbang robots.txt + jeda yang SAMA dengan `fetch`, dan
+        mengirim User-Agent yang sama — browser tanpa kepala tidak boleh jadi
+        jalan pintas untuk menyamar. Hanya dokumen utama yang diambil;
+        gambar, font, dan media diblokir supaya satu kunjungan tidak berubah
+        jadi puluhan request ke server sumber.
+        """
+        if not await self._allowed(client, url):
+            return None
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            logger.error("Playwright tidak terpasang; sumber JavaScript %s dilewati", url)
+            return None
+
+        try:
+            async with async_playwright() as playwright:
+                # Lingkungan yang sudah punya Chromium (container CI) bisa
+                # menunjuknya tanpa `playwright install` — konvensi yang sama
+                # dengan playwright.config.ts di aplikasi web.
+                executable = os.getenv("PLAYWRIGHT_CHROMIUM_EXECUTABLE") or None
+                browser = await playwright.chromium.launch(executable_path=executable)
+                try:
+                    page = await browser.new_page(user_agent=USER_AGENT, locale="id-ID")
+                    await page.route(
+                        "**/*",
+                        lambda route: route.abort()
+                        if route.request.resource_type in {"image", "media", "font"}
+                        else route.continue_(),
+                    )
+                    await page.goto(url, wait_until="networkidle", timeout=self.policy.timeout_seconds * 1000)
+                    return await page.content()
+                finally:
+                    await browser.close()
+        except Exception as exc:  # noqa: BLE001 — satu sumber gagal tidak boleh menghentikan batch
+            logger.warning("Gagal merender %s: %s", url, exc)
             return None
 
 

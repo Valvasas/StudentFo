@@ -58,6 +58,8 @@ src/
 │   ├── tracker/                Papan lamaran + actions.ts (simpan, ubah tahap, hapus)
 │   ├── teams/                  Cari rekan tim + [id] detail + actions.ts
 │   ├── connections/            Koneksi: ajakan, peta ala Obsidian, cari koneksi + actions.ts (ADR-040)
+│   ├── orang/[id]/             Profil publik + portofolio orang lain, wajib masuk, 404 seragam (ADR-046)
+│   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara, analitik (ADR-042/043/046)
 │   ├── about/                  Tentang — angka dari getStats(), klaim sesuai perilaku sistem
 │   ├── submit/                 Kirim kegiatan (kiriman komunitas, boleh tamu) + actions.ts
 │   ├── notifications/          actions.ts (tandai dibaca)
@@ -71,7 +73,8 @@ src/
 │   │                           EmptyState, SaveButton
 │   ├── team/                   TeamCard, TeamSlotsBadge
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings, blokir (BlockPersonDetails)
-│   ├── tracker/                TrackerCard
+│   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
+│   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
 │   ├── admin/                  SubmissionReviewCard
 │   ├── auth/                   GoogleButton, AuthFeedback
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,

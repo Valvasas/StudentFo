@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Check, Ellipsis, UserPlus } from 'lucide-react';
 import { removeConnectionAction, requestConnectionAction, respondConnectionAction, unblockPersonAction } from '@/app/connections/actions';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -34,11 +35,19 @@ export function PersonAvatar({ name, solid, size = 'md' }: { name: string; solid
   );
 }
 
+/** Profil publik (ADR-046). Orang yang diblokir tidak diberi tautan: profilnya memang tertutup. */
+const profileHref = (userId: string) => `/orang/${encodeURIComponent(userId)}`;
+
 function PersonHeading({ person, as: Heading = 'h3' }: { person: NetworkPerson; as?: 'h3' | 'h4' }) {
   const meta = personMeta(person);
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      <Heading className="truncate text-[15px] font-semibold tracking-[-0.01em]">{person.fullName}</Heading>
+      <Heading className="truncate text-[15px] font-semibold tracking-[-0.01em]">
+        {/* Margin negatif: target sentuh 44px tanpa menggeser tata letak kartu. */}
+        <Link href={profileHref(person.userId)} className="-my-3 inline-flex min-h-11 max-w-full items-center hover:underline">
+          <span className="truncate">{person.fullName}</span>
+        </Link>
+      </Heading>
       {meta && <span className="truncate text-[12.5px] text-ink-muted">{meta}</span>}
     </span>
   );
@@ -163,12 +172,12 @@ export function ConnectionRow({ connection, returnTo, now }: { connection: Conne
   return (
     <li id={`orang-${person.userId}`} className="relative flex scroll-mt-28 flex-wrap items-center gap-x-3 py-3 target:rounded-card target:bg-brand-soft target:px-2">
       <PersonAvatar name={person.fullName} solid size="sm" />
-      <span className="flex min-h-11 min-w-0 flex-1 flex-col justify-center pr-12">
-        <span className="truncate text-sm font-semibold">{person.fullName}</span>
+      <Link href={profileHref(person.userId)} className="group flex min-h-11 min-w-0 flex-1 flex-col justify-center pr-12">
+        <span className="truncate text-sm font-semibold group-hover:underline">{person.fullName}</span>
         <span className="truncate text-[12px] text-ink-muted">
           {personMeta(person) || person.headline || 'Terhubung'} · sejak {daysAgoLabel(connection.respondedAt ?? connection.createdAt, now)}
         </span>
-      </span>
+      </Link>
       {/*
         Memutus & memblokir di balik satu langkah konfirmasi. Dibuka INLINE
         (akordeon), bukan melayang: daftar ini wadah gulir ber-max-h, dan
@@ -206,10 +215,10 @@ export function OutgoingRow({ connection, returnTo, now }: { connection: Connect
   return (
     <li id={`orang-${person.userId}`} className="flex items-center gap-3 py-3">
       <PersonAvatar name={person.fullName} solid={false} size="sm" />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-semibold">{person.fullName}</span>
+      <Link href={profileHref(person.userId)} className="group flex min-h-11 min-w-0 flex-1 flex-col justify-center">
+        <span className="truncate text-sm font-semibold group-hover:underline">{person.fullName}</span>
         <span className="truncate text-[12px] text-ink-muted">Menunggu jawaban · dikirim {daysAgoLabel(connection.createdAt, now)}</span>
-      </span>
+      </Link>
       <form action={removeConnectionAction}>
         <input type="hidden" name="returnTo" value={returnTo} />
         <input type="hidden" name="connectionId" value={connection.id} />

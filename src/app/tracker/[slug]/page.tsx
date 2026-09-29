@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarClock, Check, FileText, History, ListChecks, NotebookPen, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Award, CalendarClock, Check, FileText, History, ListChecks, NotebookPen, Users } from 'lucide-react';
 import { updateTrackerStatusAction } from '@/app/tracker/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DemoDocumentsSummary } from '@/components/profile/demo-detail-cards';
+import { PortfolioPanel } from '@/components/tracker/portfolio-form';
 import { TrackerRemoveForm, TrackerStatusForm, TrackerSteps } from '@/components/tracker/tracker-card';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -232,6 +233,10 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
                   </button>
                 </span>
               </form>
+            </Panel>
+
+            <Panel id="portofolio-title" icon={<Award className="size-4" />} title="Portofolio">
+              <PortfolioPanel item={item} returnTo={returnTo} />
             </Panel>
 
             <Panel id="riwayat-title" icon={<History className="size-4" />} title="Riwayat">

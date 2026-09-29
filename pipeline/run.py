@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from studentfo_pipeline.alerts import send_telegram_alert, should_alert  # noqa: E402
 from studentfo_pipeline.config import Source, load_config  # noqa: E402
-from studentfo_pipeline.extractor import html_to_text, parse_events  # noqa: E402
+from studentfo_pipeline.extractor import extract_detail_links, html_to_text, parse_events  # noqa: E402
 from studentfo_pipeline.fetcher import PoliteFetcher, build_client  # noqa: E402
 from studentfo_pipeline.models import ValidatedEvent, compute_dedup_hash  # noqa: E402
 
@@ -34,25 +34,20 @@ logging.basicConfig(
 logger = logging.getLogger("pipeline")
 
 
-async def process_source(
-    source: Source,
-    fetcher: PoliteFetcher,
-    client,
+async def extract_page(
+    html: str,
+    page_url: str,
+    content_selector: str | None,
     category_slugs: list[str],
     extract_fn,
 ) -> tuple[list[ValidatedEvent], list[str]]:
-    """Olah satu sumber. Mengembalikan (event valid, daftar kesalahan)."""
-    html = await fetcher.fetch(client, source.start_url)
-    if html is None:
-        return [], [f"{source.id}: halaman tidak bisa diambil atau dilarang robots.txt"]
-
-    content = html_to_text(html, source.content_selector)
+    """Pangkas → ekstrak → validasi satu halaman. source_url = halaman ini."""
+    content = html_to_text(html, content_selector)
     if len(content) < 200:
-        return [], [f"{source.id}: isi halaman terlalu pendek setelah dipangkas"]
+        return [], [f"{page_url}: isi halaman terlalu pendek setelah dipangkas"]
 
-    raw_json = await extract_fn(content, source.start_url, category_slugs)
-    extracted, errors = parse_events(raw_json, source.start_url)
-
+    raw_json = await extract_fn(content, page_url, category_slugs)
+    extracted, errors = parse_events(raw_json, page_url)
     validated = [
         ValidatedEvent(
             title=event.title,
@@ -60,7 +55,7 @@ async def process_source(
             description=event.description,
             event_type=event.event_type,
             registration_link=str(event.registration_link),
-            source_url=source.start_url,
+            source_url=page_url,
             dedup_hash=compute_dedup_hash(event.title, event.organizer),
             education_levels=event.education_levels,
             location=event.location,
@@ -70,7 +65,104 @@ async def process_source(
         )
         for event in extracted
     ]
-    return validated, [f"{source.id}: {error}" for error in errors]
+    return validated, errors
+
+
+async def process_source(
+    source: Source,
+    fetcher: PoliteFetcher,
+    client,
+    category_slugs: list[str],
+    extract_fn,
+) -> tuple[list[ValidatedEvent], list[str]]:
+    """Olah satu sumber. Mengembalikan (event valid, daftar kesalahan).
+
+    Dengan `link_selector`, halaman daftar hanya dipakai untuk menemukan
+    tautan detail; setiap detail diekstrak sendiri sehingga `source_url`
+    menunjuk pengumuman aslinya — itulah yang dicocokkan moderator.
+    """
+    fetch = fetcher.fetch_rendered if source.requires_javascript else fetcher.fetch
+    html = await fetch(client, source.start_url)
+    if html is None:
+        return [], [f"{source.id}: halaman tidak bisa diambil atau dilarang robots.txt"]
+
+    if not source.link_selector:
+        events, errors = await extract_page(html, source.start_url, source.content_selector, category_slugs, extract_fn)
+        return events, [f"{source.id}: {error}" for error in errors]
+
+    links = extract_detail_links(html, source.start_url, source.link_selector, fetcher.policy.max_pages_per_source)
+    if not links:
+        # Nol tautan hampir selalu berarti tata letak situs berubah —
+        # dilaporkan sebagai kegagalan supaya ambang peringatan ikut menghitungnya.
+        return [], [f"{source.id}: tidak ada tautan yang cocok dengan link_selector {source.link_selector!r}"]
+
+    all_events: list[ValidatedEvent] = []
+    all_errors: list[str] = []
+    for link in links:
+        page = await fetch(client, link)
+        if page is None:
+            all_errors.append(f"{source.id}: {link} tidak bisa diambil atau dilarang robots.txt")
+            continue
+        events, errors = await extract_page(page, link, source.detail_content_selector, category_slugs, extract_fn)
+        all_events.extend(events)
+        all_errors.extend(f"{source.id}: {error}" for error in errors)
+    logger.info("%s: %d halaman detail diperiksa", source.id, len(links))
+    return all_events, all_errors
+
+
+def dry_run_dependencies():
+    """Kategori contoh + ekstraktor tiruan: seluruh alur jalan tanpa kunci apa pun."""
+
+    async def extract_fn(content: str, url: str, slugs: list[str]) -> str:
+        logger.info("[dry-run] akan mengirim %d karakter ke Gemini dari %s", len(content), url)
+        return "[]"
+
+    return ["teknologi", "bisnis", "sains", "desain"], extract_fn
+
+
+def live_dependencies():
+    """Klien Supabase, taksonomi dari database, dan ekstraktor Gemini."""
+    # Impor ditunda sampai dibutuhkan supaya --dry-run bisa dijalankan di
+    # mesin tanpa kredensial Supabase/Gemini terpasang.
+    from google import genai
+    from supabase import create_client
+
+    from studentfo_pipeline.extractor import PROMPT, build_response_schema
+    from studentfo_pipeline.publisher import fetch_category_slugs
+
+    missing = [
+        name
+        for name in ("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY")
+        if not os.getenv(name)
+    ]
+    if missing:
+        raise RuntimeError(f"variabel lingkungan belum diisi: {', '.join(missing)}")
+
+    supabase = create_client(os.environ["NEXT_PUBLIC_SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+    category_slugs = fetch_category_slugs(supabase)
+
+    genai_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    # Id model pihak ketiga bisa dipensiunkan tanpa ada perubahan di repo
+    # ini. Diambil dari env supaya penggantiannya cukup lewat secret CI,
+    # bukan rilis kode.
+    gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
+
+    async def extract_fn(content: str, url: str, slugs: list[str]) -> str:
+        response = await asyncio.to_thread(
+            genai_client.models.generate_content,
+            model=gemini_model,
+            contents=PROMPT.format(source_url=url, content=content),
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": build_response_schema(slugs),
+                # Suhu 0: ini tugas ekstraksi, bukan penulisan kreatif.
+                # Variasi keluaran di sini hanya berarti kesalahan.
+                "temperature": 0,
+            },
+        )
+        return response.text or "[]"
+
+    return supabase, category_slugs, extract_fn
 
 
 async def main() -> int:
@@ -102,53 +194,17 @@ async def main() -> int:
     failed_sources = 0
     all_events: list[ValidatedEvent] = []
     all_errors: list[str] = []
-
-    # Impor ditunda sampai dibutuhkan supaya --dry-run bisa dijalankan di
-    # mesin tanpa kredensial Supabase/Gemini terpasang.
-    if args.dry_run:
-        category_slugs = ["teknologi", "bisnis", "sains", "desain"]
-
-        async def extract_fn(content: str, url: str, slugs: list[str]) -> str:
-            logger.info("[dry-run] akan mengirim %d karakter ke Gemini dari %s", len(content), url)
-            return "[]"
-
-        supabase = None
-    else:
-        from supabase import create_client
-
-        from studentfo_pipeline.publisher import fetch_category_slugs, publish
-
-        supabase_url = os.environ["NEXT_PUBLIC_SUPABASE_URL"]
-        service_key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-        supabase = create_client(supabase_url, service_key)
-        category_slugs = fetch_category_slugs(supabase)
-
-        from google import genai
-
-        genai_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-        # Id model pihak ketiga bisa dipensiunkan tanpa ada perubahan di repo
-        # ini. Diambil dari env supaya penggantiannya cukup lewat secret CI,
-        # bukan rilis kode.
-        gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
-
-        from studentfo_pipeline.extractor import PROMPT, build_response_schema
-
-        async def extract_fn(content: str, url: str, slugs: list[str]) -> str:
-            response = await asyncio.to_thread(
-                genai_client.models.generate_content,
-                model=gemini_model,
-                contents=PROMPT.format(source_url=url, content=content),
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": build_response_schema(slugs),
-                    # Suhu 0: ini tugas ekstraksi, bukan penulisan kreatif.
-                    # Variasi keluaran di sini hanya berarti kesalahan.
-                    "temperature": 0,
-                },
-            )
-            return response.text or "[]"
+    supabase = None
 
     try:
+        # Setup kredensial ikut di dalam jaring crash: kunci yang hilang atau
+        # database yang tidak terjangkau adalah kegagalan yang PALING perlu
+        # dikabarkan, bukan traceback yang hanya terlihat di log CI.
+        if args.dry_run:
+            category_slugs, extract_fn = dry_run_dependencies()
+        else:
+            supabase, category_slugs, extract_fn = live_dependencies()
+
         fetcher = PoliteFetcher(policy=config.policy)
         async with build_client() as client:
             for source in sources:
@@ -158,7 +214,10 @@ async def main() -> int:
                     )
                     all_events.extend(events)
                     all_errors.extend(errors)
-                    if not events:
+                    # Gagal = tidak menghasilkan apa-apa DAN ada kesalahan.
+                    # Halaman yang sah tapi sedang tidak punya kegiatan buka
+                    # (jawaban "[]") itu normal, bukan alasan membangunkan orang.
+                    if not events and errors:
                         failed_sources += 1
                     logger.info("%s: %d event valid, %d kesalahan", source.id, len(events), len(errors))
                 except Exception as exc:
@@ -173,6 +232,8 @@ async def main() -> int:
     if args.dry_run or supabase is None:
         logger.info("[dry-run] %d event akan ditulis sebagai PENDING", len(all_events))
     elif all_events:
+        from studentfo_pipeline.publisher import publish
+
         result = publish(supabase, all_events)
         logger.info(
             "Publikasi selesai: %d baru, %d duplikat, %d gagal",
@@ -186,6 +247,17 @@ async def main() -> int:
         return 0
 
     if should_alert(len(sources), failed_sources, crashed):
+        if args.dry_run:
+            # Latihan kering tidak boleh membangunkan tim di Telegram.
+            logger.warning(
+                "[dry-run] run sungguhan akan mengirim peringatan: %d/%d sumber gagal, crash=%s",
+                failed_sources,
+                len(sources),
+                crashed,
+            )
+            for error in all_errors[:10]:
+                logger.warning("[dry-run]   %s", error)
+            return 1
         send_telegram_alert(
             "<b>Pipeline StudentFo bermasalah</b>\n"
             f"Sumber: {len(sources)} | gagal: {failed_sources} | crash: {crashed}\n"
