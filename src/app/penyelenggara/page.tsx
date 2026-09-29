@@ -26,6 +26,7 @@ import {
   EVENT_TYPE_LABEL,
   type EventClaim,
   type ManagedEvent,
+  type OrganizerHistoryEntry,
   type OrganizerProfile,
   type TrustRequestStatus,
 } from '@/types/domain';
@@ -67,9 +68,13 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
   const repository = await getEventRepository();
   const profile = await repository.getOrganizerProfile(user.id);
   const verified = profile?.status === 'VERIFIED';
-  const [managed, claims] = verified
-    ? await Promise.all([repository.listManagedEvents(user.id), repository.listMyClaims(user.id)])
-    : [[], []];
+  const [managed, claims, history] = verified
+    ? await Promise.all([repository.listManagedEvents(user.id), repository.listMyClaims(user.id), repository.listOrganizerHistory(user.id)])
+    : [[], [], []];
+  // Acara yang sudah tutup pindah ke Riwayat (angka akhir), bukan bercampur
+  // dengan acara yang masih butuh perhatian.
+  const closedIds = new Set(history.map((entry) => entry.eventId));
+  const active = managed.filter(({ event }) => !closedIds.has(event.id));
 
   return (
     <div className="container-page flex flex-col gap-10 py-8">
@@ -95,8 +100,9 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
       {verified ? (
         <>
           <QuickActions />
-          <ManagedEventsSection managed={managed} />
+          <ManagedEventsSection managed={active} hasHistory={history.length > 0} />
           <ClaimsSection claims={claims} />
+          <HistorySection history={history} />
           <details className="group rounded-panel border border-line bg-panel">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-semibold [&::-webkit-details-marker]:hidden">
               Data lembaga
@@ -274,17 +280,19 @@ function QuickActions() {
   );
 }
 
-function ManagedEventsSection({ managed }: { managed: readonly ManagedEvent[] }) {
+function ManagedEventsSection({ managed, hasHistory }: { managed: readonly ManagedEvent[]; hasHistory: boolean }) {
   const now = new Date();
   return (
     <section aria-labelledby="acara-saya" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="acara-saya" className="text-2xl">Acara yang kamu kelola</h2>
+        <h2 id="acara-saya" className="text-2xl">Acara aktif</h2>
         <span className="text-sm text-ink-muted">{managed.length} acara</span>
       </div>
       {managed.length === 0 ? (
         <p className="rounded-panel border border-dashed border-line bg-panel px-6 py-10 text-center text-sm text-ink-muted">
-          Belum ada. Kirim acara baru atau klaim acara lembagamu yang sudah tayang.
+          {hasHistory
+            ? 'Tidak ada acara yang sedang buka. Rekap acara sebelumnya ada di Riwayat acara di bawah.'
+            : 'Belum ada. Kirim acara baru atau klaim acara lembagamu yang sudah tayang.'}
         </p>
       ) : (
         <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))]">
@@ -318,6 +326,66 @@ function ManagedEventsSection({ managed }: { managed: readonly ManagedEvent[] })
           })}
         </ul>
       )}
+    </section>
+  );
+}
+
+/**
+ * Rekap acara yang sudah tutup (ADR-046) — angka seumur acara, untuk
+ * membandingkan antar-edisi. Berbeda dari analitik per acara (jendela
+ * 7–90 hari, audiens); detailnya tetap satu klik ke halaman analitik.
+ */
+function HistorySection({ history }: { history: readonly OrganizerHistoryEntry[] }) {
+  if (history.length === 0) return null;
+  return (
+    <section aria-labelledby="riwayat-acara" className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="riwayat-acara" className="text-2xl">Riwayat acara</h2>
+        <span className="text-sm text-ink-muted">Angka akhir sejak acara tayang</span>
+      </div>
+      <ul className="flex flex-col gap-3">
+        {history.map((entry) => {
+          const clickRate = entry.visitors > 0 ? Math.round((entry.clicks / entry.visitors) * 1000) / 10 : null;
+          const metrics = [
+            { label: 'Pengunjung unik', value: entry.visitors.toLocaleString('id-ID') },
+            { label: 'Disimpan', value: entry.saves.toLocaleString('id-ID') },
+            { label: 'Klik "Daftar"', value: `${entry.clicks.toLocaleString('id-ID')}${clickRate !== null ? ` · ${clickRate.toLocaleString('id-ID')}%` : ''}` },
+            { label: 'Menandai sudah daftar', value: entry.applied.toLocaleString('id-ID') },
+          ];
+          return (
+            <li key={entry.eventId} className="flex flex-col gap-4 rounded-panel border border-line bg-panel p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="flex flex-wrap items-center gap-2 text-xs">
+                    <Badge variant="brand">{EVENT_TYPE_LABEL[entry.eventType]}</Badge>
+                    <span className="text-ink-muted">{entry.closedAt ? `Tutup ${formatDateId(entry.closedAt)}` : 'Selesai'}</span>
+                  </span>
+                  <span className="text-base font-semibold leading-snug">{entry.title}</span>
+                </span>
+                <Link
+                  href={`/penyelenggara/acara/${entry.eventId}`}
+                  className="flex min-h-11 items-center gap-1.5 text-sm font-medium underline underline-offset-[3px]"
+                >
+                  <BarChart3 aria-hidden className="size-4" /> Analitik lengkap
+                  <span className="sr-only"> {entry.title}</span>
+                </Link>
+              </div>
+              <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line bg-line sm:grid-cols-4">
+                {metrics.map((metric) => (
+                  <div key={metric.label} className="flex flex-col gap-1 bg-panel px-4 py-3">
+                    <dt className="text-[12.5px] text-ink-muted">{metric.label}</dt>
+                    <dd className="font-mono text-lg font-medium tracking-[-0.02em]">{metric.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-[12.5px] text-ink-muted">
+        &ldquo;Menandai sudah daftar&rdquo; hanya menghitung peserta yang mencatatnya di StudentFo — bukan jumlah pendaftar
+        resmimu.
+      </p>
     </section>
   );
 }
