@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils';
  * "Tolak" di balik `<details>`: satu langkah konfirmasi tanpa JavaScript
  * (pola yang sama dengan blokir koneksi & tolak penyelenggara).
  *
- * Penolakan tidak punya jalan balik dari antrean — kegiatan yang tertolak
- * tidak muncul lagi di sini — jadi satu klik yang meleset dari "Setujui"
- * tidak boleh langsung membuang kiriman yang sah.
+ * Yang tertolak hilang dari antrean dan hanya bisa dikembalikan dari
+ * Riwayat moderasi — satu klik yang meleset dari "Setujui" tidak boleh
+ * langsung menyingkirkan kiriman yang sah dari pandangan moderator.
  */
 export function RejectConfirm({ action, fields, subject }: { action: (formData: FormData) => void | Promise<void>; fields: Readonly<Record<string, string>>; subject: string }) {
   return (
@@ -20,7 +20,7 @@ export function RejectConfirm({ action, fields, subject }: { action: (formData: 
         {Object.entries(fields).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
-        <p className="text-ink-soft">Tolak {subject}? Kiriman yang ditolak tidak kembali ke antrean.</p>
+        <p className="text-ink-soft">Tolak {subject}? Bisa dikembalikan ke antrean dari Riwayat moderasi.</p>
         <Button type="submit" variant="danger" size="sm">
           Ya, tolak
         </Button>

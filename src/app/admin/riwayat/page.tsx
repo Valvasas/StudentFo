@@ -1,11 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, History, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, History, RotateCcw, ShieldCheck } from 'lucide-react';
+import { restoreRejectedAction } from '@/app/admin/actions';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { checkAdminAccess } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
+import type { RawSearchParams } from '@/lib/search-params';
 import type { ModerationLogEntry, ModerationStatus, ModerationSubject } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -54,7 +58,8 @@ function actorLabel(entry: ModerationLogEntry): string {
  * ringkas; halaman ini untuk menjawab "siapa menyetujui ini, dan kapan?"
  * begitu ada lebih dari satu admin.
  */
-export default async function ModerationHistoryPage() {
+export default async function ModerationHistoryPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  const params = await searchParams;
   const gate = await checkAdminAccess();
   if (!gate.allowed) {
     return (
@@ -73,6 +78,15 @@ export default async function ModerationHistoryPage() {
 
   const repository = await getEventRepository();
   const entries = await repository.listModerationLog(HISTORY_LIMIT);
+  // Log diisi trigger di SETIAP perubahan status, jadi entri terbaru per
+  // subjek = statusnya sekarang. Hanya itu yang boleh dipulihkan.
+  const latestIds = new Set<string>();
+  const restorable = new Set<string>();
+  for (const entry of entries) {
+    if (latestIds.has(entry.subjectId)) continue;
+    latestIds.add(entry.subjectId);
+    if (entry.toStatus === 'REJECTED' && (entry.subjectType === 'event' || entry.subjectType === 'submission')) restorable.add(entry.id);
+  }
 
   return (
     <div className="container-page py-8">
@@ -92,6 +106,8 @@ export default async function ModerationHistoryPage() {
           acara — terbaru di atas ({HISTORY_LIMIT} terakhir). Log ini tidak bisa diubah atau dihapus dari aplikasi.
         </p>
       </header>
+
+      <ActionFeedback params={params} className="mb-6 max-w-2xl" />
 
       {entries.length === 0 ? (
         <p className="rounded-card border border-dashed border-line bg-panel px-6 py-12 text-center text-sm text-ink-muted">
@@ -117,6 +133,16 @@ export default async function ModerationHistoryPage() {
                 {actorLabel(entry)} · <time dateTime={entry.createdAt}>{formatDateTimeId(entry.createdAt)}</time>
               </p>
               {entry.reason && <p className="mt-2 text-sm text-ink-soft">Alasan: {entry.reason}</p>}
+              {restorable.has(entry.id) && (
+                <form action={restoreRejectedAction} className="mt-3">
+                  <input type="hidden" name="subjectType" value={entry.subjectType} />
+                  <input type="hidden" name="subjectId" value={entry.subjectId} />
+                  <SubmitButton className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+                    <RotateCcw aria-hidden /> Kembalikan ke antrean
+                    <span className="sr-only"> — {entry.title}</span>
+                  </SubmitButton>
+                </form>
+              )}
             </li>
           ))}
         </ol>

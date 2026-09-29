@@ -204,3 +204,37 @@ export async function resetDemoDataAction(): Promise<void> {
   revalidatePath('/', 'layout');
   redirect('/admin?notice=demo_reset');
 }
+
+/**
+ * Jalan balik "Tolak" (ADR-046): kegiatan/kiriman kembali ke antrean.
+ * Perubahan statusnya tercatat di log seperti keputusan lain, jadi
+ * pemulihan pun punya jejak siapa & kapan.
+ */
+export async function restoreRejectedAction(formData: FormData): Promise<void> {
+  const HISTORY = '/admin/riwayat';
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const subjectType = formTrimmed(formData, 'subjectType');
+  const subjectId = formTrimmed(formData, 'subjectId');
+  if ((subjectType !== 'event' && subjectType !== 'submission') || !subjectId) {
+    redirect(withQuery(HISTORY, { error: 'invalid_request' }));
+  }
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).restoreRejected({
+      subjectType,
+      subjectId,
+      reviewerId: gate.userId,
+      reviewerName: gate.userName,
+    });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(withQuery(HISTORY, { error: failure }));
+  revalidatePath('/admin');
+  revalidatePath(HISTORY);
+  redirect(withQuery(HISTORY, { notice: 'moderation_restored' }));
+}
