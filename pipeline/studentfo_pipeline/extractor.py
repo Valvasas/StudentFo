@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
@@ -142,6 +143,11 @@ def parse_events(
         return [], ["balasan bukan array"]
 
     for index, item in enumerate(payload):
+        # Halaman sering menulis tautan relatif ("/lomba/daftar") dan model
+        # menyalinnya apa adanya; tanpa ini event yang sah ditolak utuh.
+        # Skema selain http(s) tetap ditolak validator HttpUrl.
+        if isinstance(item, dict) and isinstance(item.get("registration_link"), str):
+            item["registration_link"] = urljoin(source_url, item["registration_link"].strip())
         try:
             valid.append(ExtractedEvent.model_validate(item))
         except Exception as exc:  # pydantic.ValidationError dan turunannya

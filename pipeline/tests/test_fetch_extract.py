@@ -107,10 +107,13 @@ def test_robots_disallow_for_our_bot_is_respected():
 def test_delay_also_counts_robots_request():
     server, base = serve()
     try:
-        fetch(f"{base}/pengumuman", FetchPolicy(delay_seconds_min=0.4, delay_seconds_max=0.4))
+        fetch(f"{base}/pengumuman", FetchPolicy(delay_seconds_min=0.6, delay_seconds_max=0.6))
         (robots_path, robots_at, _), (page_path, page_at, agent) = server.site["requests"]
         assert (robots_path, page_path) == ("/robots.txt", "/pengumuman")
-        assert page_at - robots_at >= 0.35, f"jeda robots->halaman hanya {page_at - robots_at:.2f} dtk"
+        # Jeda diukur fetcher dari AWAL request robots.txt; server mencatat
+        # waktu TIBA — latensi memakan sebagian jeda. Margin lebar supaya uji
+        # tidak goyah di CI; tanpa jeda sama sekali selisihnya ~0.00 dtk.
+        assert page_at - robots_at >= 0.4, f"jeda robots->halaman hanya {page_at - robots_at:.2f} dtk"
         assert agent.startswith("StudentFoBot/"), "User-Agent harus jujur, bukan menyamar"
     finally:
         server.shutdown()

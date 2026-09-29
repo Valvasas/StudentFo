@@ -88,10 +88,12 @@ class ExtractedEvent(BaseModel):
     is_online: bool = False
     deadlines: list[ExtractedDeadline] = Field(min_length=1)
 
-    @field_validator("title", "organizer")
+    # mode="before": batas panjang harus berlaku pada teks yang SUDAH
+    # dirapikan — "   Ab      " lolos min_length=5 lalu menyusut jadi "Ab".
+    @field_validator("title", "organizer", mode="before")
     @classmethod
-    def normalize_text(cls, value: str) -> str:
-        return re.sub(r"\s+", " ", value).strip()
+    def normalize_text(cls, value: object) -> object:
+        return re.sub(r"\s+", " ", value).strip() if isinstance(value, str) else value
 
     @model_validator(mode="after")
     def validate_deadlines(self) -> "ExtractedEvent":
