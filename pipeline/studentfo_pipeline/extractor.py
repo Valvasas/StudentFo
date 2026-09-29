@@ -50,11 +50,25 @@ def html_to_text(html: str, content_selector: str | None = None) -> str:
     terkait" adalah sumber utama model salah mengambil judul kegiatan lain.
     """
     soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "nav", "footer", "header", "noscript", "svg"]):
+    for tag in soup(["script", "style", "noscript", "svg"]):
         tag.decompose()
+    # Hanya kerangka SITUS yang dibuang. <header>/<footer> di dalam
+    # <article>/<main> justru tempat judul, penyelenggara, dan tanggal
+    # pengumuman ditulis — membuangnya membuat model tidak pernah melihat
+    # judul kegiatan sama sekali.
+    for tag in soup(["nav", "footer", "header"]):
+        if not tag.decomposed and tag.find_parent(["article", "main"]) is None:
+            tag.decompose()
 
     root = soup.select_one(content_selector) if content_selector else None
     text = (root or soup).get_text(separator="\n", strip=True)
+    if len(text) > MAX_CONTENT_CHARS:
+        logger.warning(
+            "Isi halaman dipotong %d -> %d karakter; kegiatan di bagian akhir tidak ikut diekstrak. "
+            "Pertimbangkan content_selector yang lebih sempit.",
+            len(text),
+            MAX_CONTENT_CHARS,
+        )
     return text[:MAX_CONTENT_CHARS]
 
 
@@ -77,12 +91,15 @@ def build_response_schema(category_slugs: list[str]) -> dict[str, Any]:
                     "type": "array",
                     "items": {"type": "string", "enum": [level.value for level in EducationLevel]},
                 },
-                "categories": {
-                    "type": "array",
-                    # Enum diambil dari tabel `categories` — inilah pengikat
-                    # antara keluaran LLM dan taksonomi yang benar-benar ada.
-                    "items": {"type": "string", "enum": category_slugs},
-                },
+                # Enum diambil dari tabel `categories` — inilah pengikat antara
+                # keluaran LLM dan taksonomi yang benar-benar ada. Tabel kosong
+                # = properti tidak dikirim: enum kosong ditolak API, dan
+                # menghapus batasannya membuka label bebas.
+                **(
+                    {"categories": {"type": "array", "items": {"type": "string", "enum": category_slugs}}}
+                    if category_slugs
+                    else {}
+                ),
                 "deadlines": {
                     "type": "array",
                     "items": {

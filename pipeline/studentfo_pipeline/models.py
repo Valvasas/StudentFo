@@ -52,6 +52,17 @@ class ExtractedDeadline(BaseModel):
     deadline_at: datetime
     is_primary: bool = False
 
+    @field_validator("deadline_at", mode="before")
+    @classmethod
+    def date_only_means_end_of_day(cls, value: object) -> object:
+        # "2026-12-20" tanpa jam berarti pendaftaran masih buka sepanjang
+        # hari itu. Pydantic membacanya sebagai 00:00 — tenggat maju hampir
+        # sehari penuh, dan kegiatan yang tutup hari ini ditolak sebagai
+        # "sudah lewat". Prompt meminta 23:59 WIB; ini penegaknya.
+        if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value.strip()):
+            return f"{value.strip()}T23:59:00+07:00"
+        return value
+
     @field_validator("deadline_at")
     @classmethod
     def must_be_timezone_aware(cls, value: datetime) -> datetime:

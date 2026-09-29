@@ -13,6 +13,8 @@ defaults:
   delay_seconds_min: 2.0
   delay_seconds_max: 5.0
   timeout_seconds: 30
+  # Belum dipakai: pipeline mengambil SATU halaman (start_url) per sumber,
+  # tanpa mengikuti paginasi atau tautan detail.
   max_pages_per_source: 20
 
 sources:
@@ -24,6 +26,7 @@ sources:
     # dari isi menu/footer yang tidak relevan.
     content_selector: "main"
     # Playwright dipakai hanya kalau isinya dirender JavaScript. Kalau HTML
-    # statis sudah cukup, httpx jauh lebih murah dan lebih cepat.
+    # statis sudah cukup, httpx jauh lebih murah dan lebih cepat. Tetap lewat
+    # robots.txt, jeda, dan User-Agent yang sama; gambar/font/media diblokir.
     requires_javascript: false
     enabled: false

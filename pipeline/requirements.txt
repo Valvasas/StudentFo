@@ -6,4 +6,3 @@ pydantic==2.10.4
 supabase==2.11.0
 httpx==0.28.1
 PyYAML==6.0.2
-tenacity==9.0.0

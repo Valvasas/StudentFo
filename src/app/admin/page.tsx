@@ -59,13 +59,15 @@ export default async function AdminPage({
 
   const repository = await getEventRepository();
   const demoCreatedAt = demoDataCreatedAt();
-  const [pending, submissions, organizerQueue, claimQueue, revisionQueue] = await Promise.all([
+  const [pending, submissions, organizerQueue, claimQueue, revisionQueue, categories] = await Promise.all([
     repository.listByStatus('PENDING', 50),
     repository.listSubmissions('PENDING', 50),
     repository.listOrganizerApplications('PENDING', 50),
     repository.listClaims('PENDING', 50),
     repository.listRevisions('PENDING', 50),
+    repository.listCategories(),
   ]);
+  const categoryNames = Object.fromEntries(categories.map((category) => [category.slug, category.name]));
   const submitterStatuses = await repository.listOrganizerStatuses(
     submissions.flatMap((submission) => (submission.submittedBy ? [submission.submittedBy] : [])),
   );
@@ -165,7 +167,7 @@ export default async function AdminPage({
       ) : (
         <ul className="flex flex-col gap-4">
           {pending.map((event) => (
-            <EventReviewCard key={event.id} event={event} />
+            <EventReviewCard key={event.id} event={event} categoryNames={categoryNames} />
           ))}
         </ul>
       )}

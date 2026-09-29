@@ -162,7 +162,10 @@ export default async function EventDetailPage({
   const facts = [
     { icon: GraduationCap, label: 'Jenjang', value: levels.join(', ') || 'Semua jenjang' },
     { icon: MapPin, label: 'Pelaksanaan', value: place },
-    { icon: Bookmark, label: 'Disimpan', value: `Disimpan ${event.savedCount.toLocaleString('id-ID')} orang` },
+    // "Disimpan 0 orang" di kegiatan baru terbaca sebagai "tidak ada yang tertarik".
+    ...(event.savedCount > 0
+      ? [{ icon: Bookmark, label: 'Disimpan', value: `Disimpan ${event.savedCount.toLocaleString('id-ID')} orang` }]
+      : []),
   ];
 
   const register = isClosed ? (

@@ -1,19 +1,19 @@
-import { AlertTriangle, BadgeCheck, Check, ExternalLink, X } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Check, ExternalLink } from 'lucide-react';
 import { reviewSubmissionAction } from '@/app/admin/actions';
+import { RejectConfirm } from '@/components/admin/reject-confirm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDateId, formatDateTimeId } from '@/lib/deadline';
 import { sanitizeExternalUrl } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type Submission } from '@/types/domain';
 
-function DecisionForm({ submissionId, decision }: { submissionId: string; decision: 'APPROVED' | 'REJECTED' }) {
-  const approve = decision === 'APPROVED';
+function ApproveForm({ submissionId }: { submissionId: string }) {
   return (
     <form action={reviewSubmissionAction}>
       <input type="hidden" name="submissionId" value={submissionId} />
-      <input type="hidden" name="decision" value={decision} />
-      <Button type="submit" variant={approve ? 'success' : 'danger'} size="sm">
-        {approve ? <Check aria-hidden /> : <X aria-hidden />} {approve ? 'Setujui & tayangkan' : 'Tolak'}
+      <input type="hidden" name="decision" value="APPROVED" />
+      <Button type="submit" variant="success" size="sm">
+        <Check aria-hidden /> Setujui & tayangkan
       </Button>
     </form>
   );
@@ -111,8 +111,8 @@ export function SubmissionReviewCard({
 
       {/* Dua <form> terpisah — lihat catatan tombol Enter di antrean event. */}
       <div className="flex flex-wrap gap-2">
-        {payload && <DecisionForm submissionId={submission.id} decision="APPROVED" />}
-        <DecisionForm submissionId={submission.id} decision="REJECTED" />
+        {payload && <ApproveForm submissionId={submission.id} />}
+        <RejectConfirm action={reviewSubmissionAction} fields={{ submissionId: submission.id, decision: 'REJECTED' }} subject="kiriman ini" />
       </div>
     </li>
   );

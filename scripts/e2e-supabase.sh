@@ -50,6 +50,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Data Cache (unstable_cache) di disk bertahan antar-build, padahal database
+# uji dibuat ulang setiap run: hasil dari run SEBELUMNYA bisa ikut tampil dan
+# membuat uji cache lolos/gagal karena alasan yang salah.
+rm -rf "${NEXT_DIST_DIR}/cache/fetch-cache"
 npx next build > /tmp/studentfo-e2e-supabase-build.log 2>&1 || { tail -30 /tmp/studentfo-e2e-supabase-build.log; exit 1; }
 # `node …/next` langsung, BUKAN `npx next`: kill ke PID npx tidak menghentikan
 # next-server anaknya, dan server yatim itu melayani run berikutnya.

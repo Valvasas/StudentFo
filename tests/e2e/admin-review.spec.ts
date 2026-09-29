@@ -48,7 +48,9 @@ test('keputusan moderasi tercatat di riwayat dengan nama admin', async ({ browse
   const page = await context.newPage();
   await signInAsDemo(page, 'Admin moderator', '/admin');
   const card = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: title }) });
-  await card.getByRole('button', { name: 'Tolak' }).click();
+  // Tolak butuh satu langkah konfirmasi (RejectConfirm) — tidak ada jalan balik dari antrean.
+  await card.getByText('Tolak', { exact: true }).click();
+  await card.getByRole('button', { name: 'Ya, tolak' }).click();
   await expect(card).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Riwayat moderasi' }).click();

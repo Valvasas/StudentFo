@@ -12,6 +12,41 @@ terdokumentasi.
 
 ---
 
+## ADR-045 — Pipeline: jalur scraping diuji sungguhan, bukan hanya gerbang validasinya
+
+**Konteks:** Uji pipeline yang ada (`test_models`, `test_publisher`) hanya
+menyentuh validasi dan payload; dry-run CI memuat 0 sumber. Fetcher,
+robots.txt, pemangkasan HTML, dan orkestrasi tidak pernah dijalankan. Audit
+dengan situs palsu lokal + Postgres/PostgREST sungguhan menemukan:
+`html_to_text` membuang SEMUA `<header>` sehingga judul & penyelenggara di
+`<article><header>` tidak pernah sampai ke LLM; robots.txt 5xx dianggap
+"boleh semua"; tidak ada jeda antara robots.txt dan halaman; tanggal tanpa
+jam menjadi 00:00 (prompt menjanjikan 23:59 WIB); halaman sah tanpa kegiatan
+buka dihitung sebagai sumber gagal (alarm palsu); dry-run bisa mengirim
+Telegram; kredensial hilang = traceback tanpa peringatan; `requires_javascript`
+dan Playwright tidak pernah dipakai; enum kategori kosong dikirim ke Gemini.
+
+**Keputusan:**
+- Semua temuan di atas diperbaiki, masing-masing dikunci uji di
+  `pipeline/tests/test_fetch_extract.py` (server HTTP lokal, tanpa jaringan
+  luar/kunci API) — setiap uji dibuktikan GAGAL di kode lama.
+- robots.txt mengikuti RFC 9309: 4xx = tanpa larangan, 5xx/jaringan = lewati.
+- Sumber gagal = tidak menghasilkan event DAN ada kesalahan.
+- `requires_javascript` dirender Playwright lewat gerbang robots/jeda/UA yang
+  sama; Chromium dipasang di cron hanya bila ada sumber yang membutuhkannya.
+- Moderasi: kartu antrean menampilkan jenjang, tempat, bidang (yang kosong
+  ditandai), deskripsi lengkap, dan waktu masuk antrean; "Tolak" butuh satu
+  langkah konfirmasi karena penolakan tidak punya jalan balik.
+
+**Konsekuensi:** Uji fetch memakai subprocess `run.py` sehingga butuh semua
+dependensi pipeline terpasang (sudah di job CI). Ekstraksi Gemini sendiri
+tetap tidak teruji tanpa kunci API — ditiru dengan jawaban yang dibentuk
+seperti keluarannya. Satu sumber masih = satu halaman (`max_pages_per_source`
+belum dipakai; dicatat di config contoh). Chromium meminta `/favicon.ico` di
+luar jangkauan `page.route` — satu request kecil yang diterima sadar.
+
+---
+
 ## ADR-044 — Satu fakta, satu tempat: memangkas pengulangan dari kanvas desain
 
 **Konteks:** Audit visual (desktop 1440px + ponsel 390px, mode seed) menemukan

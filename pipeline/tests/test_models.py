@@ -129,6 +129,14 @@ def test_schema_enum_comes_from_database_list():
     assert "LOMBA" in schema["items"]["properties"]["event_type"]["enum"]
 
 
+def test_date_only_deadline_means_end_of_day_wib():
+    tomorrow = (datetime.now(timezone(timedelta(hours=7))) + timedelta(days=1)).date().isoformat()
+    event = ExtractedEvent.model_validate(base_payload(deadlines=[{"label": "registration", "deadline_at": tomorrow}]))
+    deadline = event.deadlines[0].deadline_at
+    assert (deadline.hour, deadline.minute) == (23, 59), f"jam jadi {deadline.time()}, bukan 23:59"
+    assert deadline.utcoffset() == timedelta(hours=7), "tanggal tanpa zona waktu harus WIB"
+
+
 def test_alert_threshold():
     assert should_alert(10, 2, crashed=False) is False   # 20% masih wajar
     assert should_alert(10, 4, crashed=False) is True    # 40% -> masalah kita

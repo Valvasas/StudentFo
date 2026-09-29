@@ -329,3 +329,17 @@ Belum / butuh keputusan atau akses pemilik:
 - [x] Crawler tautan (tamu + 4 persona, ~870 halaman): 0 tautan internal mati, 0 error konsol.
 - [ ] Judul tab analitik penyelenggara masih generik ("Analitik acara") — butuh cek
       otorisasi di `generateMetadata`; nilai kecil, belum dikerjakan.
+
+## Audit pipeline & moderasi 2026-09-29 (@claude) — ADR-045
+
+- [x] Uji jalur scraping sungguhan (`test_fetch_extract.py`, 10 uji) + tanggal tanpa jam (`test_models`).
+- [x] Judul `<article><header>` kini sampai ke LLM; robots.txt 5xx dilewati; jeda robots→halaman.
+- [x] Alarm palsu untuk halaman tanpa kegiatan buka; dry-run tanpa Telegram; crash setup ikut diperingatkan.
+- [x] `requires_javascript` dirender Playwright (diuji dengan Chromium sungguhan); `tenacity` yang tak terpakai dihapus.
+- [x] Uji end-to-end manual: situs palsu → pipeline → Postgres + PostgREST → `/admin` → setujui → tayang.
+- [x] Kartu moderasi: jenjang/tempat/bidang (+penanda kosong), deskripsi lengkap, konfirmasi "Tolak".
+- [x] `scripts/e2e-supabase.sh` menghapus Data Cache lama sebelum build.
+- [ ] Ekstraksi Gemini sungguhan belum pernah diuji di lingkungan ini (tidak ada `GEMINI_API_KEY`);
+      jalankan satu sumber nyata dengan `--dry-run` dimatikan di staging sebelum cron diaktifkan.
+- [ ] `max_pages_per_source` belum diimplementasikan (paginasi/tautan detail tidak diikuti).
+- [ ] Belum ada jalan balik untuk kegiatan yang tertolak (restore dari `/admin/riwayat`).

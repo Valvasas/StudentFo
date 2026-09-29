@@ -29,16 +29,33 @@ export NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... GEMINI_API_KEY
 python pipeline/run.py --config pipeline/config/sources.yaml
 ```
 
-Uji: `python pipeline/tests/test_models.py`
+Uji (tanpa jaringan luar, tanpa kunci API):
+
+```bash
+python pipeline/tests/test_models.py        # gerbang validasi
+python pipeline/tests/test_publisher.py     # payload & hitungan publikasi
+python pipeline/tests/test_fetch_extract.py # robots.txt, jeda, pemangkasan HTML, orkestrasi
+# render JavaScript ikut diuji kalau Chromium tersedia:
+PLAYWRIGHT_CHROMIUM_EXECUTABLE=/path/ke/chromium python pipeline/tests/test_fetch_extract.py
+```
+
+`--dry-run` menjalankan fetch, robots.txt, dan pemangkasan sungguhan tetapi
+mengganti Gemini dengan jawaban kosong, tidak menulis ke database, dan **tidak
+pernah** mengirim Telegram — hasilnya hanya dicatat di log.
+
+Satu sumber = satu halaman (`start_url`); paginasi & tautan detail belum
+diikuti. Sumber yang isinya dirender JavaScript diberi `requires_javascript:
+true` (Playwright; di CI Chromium dipasang otomatis hanya bila dibutuhkan).
 
 ## Etika scraping — bukan opsional
 
 Tiga aturan ditegakkan di kode, bukan diserahkan ke kebijaksanaan operator:
 
-1. **`robots.txt` dicek sebelum setiap fetch.** Kalau robots.txt gagal dibaca,
-   sumbernya **dilewati** — bukan dianggap boleh. Menganggapnya boleh berarti
+1. **`robots.txt` dicek sebelum setiap fetch.** Kalau robots.txt gagal dibaca
+   (jaringan putus atau server menjawab 5xx), sumbernya **dilewati** — bukan
+   dianggap boleh. Hanya 4xx (memang tidak ada) yang berarti tanpa larangan. Menganggapnya boleh berarti
    kegagalan jaringan diam-diam mengubah scraper sopan jadi penerobos.
-2. **Jeda 2–5 detik per domain**, diacak, dan batas minimum dipaksa di
+2. **Jeda 2–5 detik per domain** (termasuk antara robots.txt dan halamannya), diacak, dan batas minimum dipaksa di
    `config.py` supaya satu salah ketik di YAML tidak bisa mematikannya.
 3. **User-Agent jujur** dengan alamat kontak — tidak menyamar sebagai browser.
 
