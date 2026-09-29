@@ -109,6 +109,11 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/connections?minat=desain&q=a'],
   ['Siswa baru', '/profile'],
   ['Siswa baru', '/connections'],
+  // Portofolio & riwayat (ADR-046)
+  ['Mahasiswa', '/profile?tab=portofolio'],
+  ['Mahasiswa', '/profile?tampilan=publik&tab=portofolio'],
+  ['Mahasiswa', '/tracker/lomba-desain-ui-ux-nasional-edisi-lalu'],
+  ['Mahasiswa', '/orang/seed-user-1'],
 ];
 
 test('tanpa pelanggaran WCAG: status pendaftaran & persiapan', async ({ page }) => {
