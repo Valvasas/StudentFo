@@ -17,6 +17,9 @@ import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type EventSummary } from '@/ty
  * - TIDAK ada gambar/poster. Kartu di produk ini dibaca secara memindai,
  *   dan thumbnail dari sumber pihak ketiga kualitasnya tidak seragam —
  *   hasilnya justru menaikkan beban kognitif, bukan menurunkannya.
+ * - TIDAK ada baris tag bidang. Jenis + judul + penyelenggara + tempat/
+ *   jenjang sudah cukup untuk memutuskan "buka atau lewati"; lapis kelima
+ *   hanya menambah kepadatan, dan bidang bisa disaring di FilterBar.
  * - Hover hanya mengubah warna border & latar, tanpa translate/scale.
  *   Kartu yang "melompat" saat disentuh kursor membuat daftar panjang
  *   terasa gelisah dan menggeser target klik.
@@ -41,8 +44,6 @@ export function EventCard({
   returnTo = '/events',
   className,
 }: EventCardProps) {
-  const extraCategories = Math.max(event.categorySlugs.length - 2, 0);
-
   return (
     <article
       className={cn(
@@ -79,7 +80,7 @@ export function EventCard({
         <span className="line-clamp-1">{event.organizer}</span>
       </p>
 
-      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-xs text-ink-muted">
+      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-line pt-3 text-xs text-ink-muted">
         <span className="flex items-center gap-1">
           {event.isOnline ? (
             <>
@@ -97,21 +98,6 @@ export function EventCard({
           </span>
         )}
       </div>
-
-      {event.categorySlugs.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5" aria-label="Kategori">
-          {event.categorySlugs.slice(0, 2).map((slug) => (
-            <li key={slug}>
-              <Badge variant="outline">{slug.replace(/-/g, ' ')}</Badge>
-            </li>
-          ))}
-          {extraCategories > 0 && (
-            <li>
-              <Badge variant="outline">+{extraCategories}</Badge>
-            </li>
-          )}
-        </ul>
-      )}
     </article>
   );
 }

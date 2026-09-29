@@ -6,18 +6,16 @@ import { EVENT_TYPE_NAV, eventTypeHref, eventTypeNavFor } from '@/lib/event-type
 import type { EventType } from '@/types/domain';
 import { cn } from '@/lib/utils';
 
-const LANDING_LINKS = [
-  { href: '/#cara-kerja', label: 'Cara pakai' },
-  { href: '/#fitur', label: 'Fitur' },
-  { href: '/about', label: 'Tentang' },
-] as const;
-
 /**
  * Tab kategori navbar.
  *
  * Satu-satunya bagian navbar yang jadi Client Component, dan hanya karena
- * penanda "halaman aktif" butuh `usePathname()` + query `type`. Di beranda
- * ada tiga tautan tambahan (Cara pakai, Fitur, Tentang) seperti kanvas desain.
+ * penanda "halaman aktif" butuh `usePathname()` + query `type`.
+ *
+ * Isinya sama di semua halaman. Kanvas desain menambah tautan jangkar
+ * beranda (Cara pakai, Fitur, Tentang) hanya di `/`; navigasi yang berganti
+ * isi antarhalaman membuat pengguna kehilangan pegangan, dan jangkar itu
+ * sudah terjangkau dari tombol hero & footer.
  *
  * Penanda aktif = garis bawah + warna + `aria-current`, bukan warna saja.
  */
@@ -33,12 +31,13 @@ export function NavLinks() {
 export function NavLinkList({ pathname, activeKey }: { pathname: string | null; activeKey: EventType | null }) {
   return (
     <>
-      {pathname === '/' &&
-        LANDING_LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className={linkClass(false)}>
-            {link.label}
-          </Link>
-        ))}
+      <Link
+        href="/events"
+        aria-current={pathname === '/events' && activeKey === null ? 'page' : undefined}
+        className={linkClass(pathname === '/events' && activeKey === null)}
+      >
+        Semua
+      </Link>
       {EVENT_TYPE_NAV.map((item) => {
         const isActive = item.key === activeKey;
         return (

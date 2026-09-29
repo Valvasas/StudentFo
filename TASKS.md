@@ -311,3 +311,17 @@ Belum / butuh keputusan atau akses pemilik:
   dijalankan terhadap database sungguhan (keduanya baru diuji lewat
   `MemoryEventRepository`). Dua migration baru (`20260914100001`,
   `20260914100002`) belum pernah di-apply ke project mana pun.
+
+## Audit UI/UX 2026-09-29 (@claude) — horror vacui & alur (ADR-044)
+
+- [x] Detail kegiatan: panel daftar di samping judul (terlihat tanpa gulir),
+      tenggat/jenjang/tim tidak lagi diulang, navigasi bagian cukup tab.
+- [x] Navbar konsisten di semua halaman (+ "Semua"), hero → "Jelajahi kegiatan".
+- [x] Banner demo satu baris; kartu statistik duplikat di `/teams` & `/connections` dihapus.
+- [x] Kartu kegiatan & kartu lomba: tanpa tag slug mentah / tanggal tiga kali.
+- [x] FilterBar: "Tampilkan yang ditutup" dipisah dari urutan; chip satu baris geser di ponsel.
+- [x] Kelengkapan profil & form "Cara orang menemukanmu" hanya menonjol saat butuh tindakan.
+- [x] Hydration mismatch `nonce` palsu di setiap halaman (badge "1 Issue" di dev).
+- [ ] Belum disentuh, layak dievaluasi: `/connections` masih memuat peta + direktori +
+      sidebar dalam satu halaman (pertimbangkan peta di tab/rute sendiri);
+      beranda punya dua bagian yang tumpang tindih (Tur singkat vs Fitur utama).

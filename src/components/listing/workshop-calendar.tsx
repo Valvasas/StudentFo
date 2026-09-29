@@ -189,7 +189,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
                       <SaveToggle eventId={event.id} isSaved={savedIds.includes(event.id)} returnTo={withDay(currentHref, day)} />
                       <Link
                         href={`/events/${event.slug}`}
-                        className="flex h-11 items-center gap-1.5 rounded-sm bg-brand px-3.5 text-[13.5px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
+                        className="flex h-11 items-center gap-1.5 rounded-sm border border-line-strong/70 px-3.5 text-[13.5px] font-semibold transition-colors duration-150 ease-snap hover:border-brand hover:bg-panel-nested"
                         aria-label={`Lihat detail ${event.title}`}
                       >
                         Lihat detail <ArrowRight aria-hidden className="size-3.5" />

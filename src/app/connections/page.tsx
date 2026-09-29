@@ -91,7 +91,10 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="container-page pb-16 pt-10">
-      <div className="grid items-end gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr))]">
+      {/* Tanpa kartu statistik di samping judul: tiap angka sudah tampil di
+          judul bagiannya sendiri (Menunggu jawabanmu, Koneksimu, Ajakan
+          terkirim), tempat pengguna bisa langsung bertindak atasnya. */}
+      <div>
         <header className="enter flex flex-col gap-3 [animation-duration:900ms]">
           <span className="font-mono text-[13px] text-ink-muted">Jaringan</span>
           <h1 className="text-[clamp(36px,5vw,52px)] leading-[1.02]">Koneksi</h1>
@@ -100,18 +103,6 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
             tersambung, lalu ajak mereka satu tim.
           </p>
         </header>
-        <dl className="enter grid grid-cols-3 gap-px overflow-hidden rounded-[18px] bg-inverse-nested text-on-inverse [animation-delay:120ms] [animation-duration:900ms] min-[720px]:justify-self-end">
-          {[
-            { label: 'Koneksi', value: counts.accepted },
-            { label: 'Ajakan masuk', value: counts.incoming },
-            { label: 'Terkirim', value: counts.outgoing },
-          ].map((stat) => (
-            <div key={stat.label} className="flex min-w-[96px] flex-col-reverse gap-1 bg-inverse px-5 py-4">
-              <dt className="text-[12.5px] text-on-inverse-muted">{stat.label}</dt>
-              <dd className="font-mono text-[34px] font-medium leading-none tracking-[-0.04em]">{stat.value}</dd>
-            </div>
-          ))}
-        </dl>
       </div>
 
       <ActionFeedback params={params} className="mt-6 max-w-2xl" />

@@ -134,9 +134,6 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                           <li className="flex h-6 items-center rounded-[6px] border border-line px-[9px] text-xs font-medium">
                             {event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(' · ') || 'Semua jenjang'}
                           </li>
-                          {event.eventType === 'KONFERENSI' && (
-                            <li className="flex h-6 items-center rounded-[6px] bg-brand px-[9px] text-xs font-semibold text-on-brand">Konferensi</li>
-                          )}
                         </ul>
                       </div>
                       <SaveToggle eventId={event.id} isSaved={savedIds.includes(event.id)} returnTo={currentHref} className="col-start-2 row-start-2 sm:col-start-auto sm:row-start-auto" />

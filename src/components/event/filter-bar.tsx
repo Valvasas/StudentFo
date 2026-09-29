@@ -52,7 +52,7 @@ function FilterChip({
       aria-current={active ? 'true' : undefined}
       scroll={false}
       className={cn(
-        'inline-flex min-h-9 items-center rounded-pill border px-3 text-sm transition-colors duration-150 ease-snap',
+        'inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-pill border px-3 text-sm transition-colors duration-150 ease-snap',
         active
           ? 'border-brand bg-brand-soft font-medium text-brand-text'
           : 'border-line bg-panel text-ink-soft hover:border-line-strong hover:text-ink',
@@ -62,6 +62,13 @@ function FilterChip({
     </Link>
   );
 }
+
+/**
+ * Di ponsel satu baris yang bisa digeser, bukan dibungkus ke 3–4 baris:
+ * dua grup chip yang membungkus mendorong hasil pertama ~450px ke bawah.
+ */
+const chipRowClass =
+  '-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0';
 
 /** Field tersembunyi supaya filter aktif tidak hilang saat form dikirim. */
 export function HiddenFilters({ query, omit = [] }: { query: ParsedEventQuery; omit?: readonly string[] }) {
@@ -134,8 +141,8 @@ export function FilterBar({
     <section aria-label="Filter kegiatan" className="flex flex-col gap-4">
       <SearchForm query={query} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="flex items-center gap-1.5 text-sm font-medium text-ink-soft">
+      <div className={chipRowClass}>
+        <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink-soft">
           <SlidersHorizontal aria-hidden className="size-4" />
           Jenis
         </span>
@@ -150,8 +157,8 @@ export function FilterBar({
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-ink-soft">Jenjang</span>
+      <div className={chipRowClass}>
+        <span className="shrink-0 text-sm font-medium text-ink-soft">Jenjang</span>
         {EDUCATION_LEVELS.map((level) => (
           <FilterChip
             key={level}
@@ -200,10 +207,25 @@ export function FilterBar({
       </details>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-        <p className="text-sm text-ink-muted" role="status" aria-live="polite">
-          <strong className="font-semibold text-ink">{resultCount.toLocaleString('id-ID')}</strong>{' '}
-          kegiatan ditemukan
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="mr-1 text-sm text-ink-muted" role="status" aria-live="polite">
+            <strong className="font-semibold text-ink">{resultCount.toLocaleString('id-ID')}</strong>{' '}
+            kegiatan ditemukan
+          </p>
+          <FilterChip
+            href={buildEventHref(query, { includeClosed: !query.includeClosed, page: 1 })}
+            active={query.includeClosed}
+          >
+            Tampilkan yang ditutup
+          </FilterChip>
+          {active && (
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/events">
+                <X aria-hidden /> Reset
+              </Link>
+            </Button>
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-ink-muted">Urutkan</span>
@@ -216,19 +238,6 @@ export function FilterBar({
               {SORT_LABEL[option]}
             </FilterChip>
           ))}
-          <FilterChip
-            href={buildEventHref(query, { includeClosed: !query.includeClosed, page: 1 })}
-            active={query.includeClosed}
-          >
-            Termasuk yang ditutup
-          </FilterChip>
-          {active && (
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/events">
-                <X aria-hidden /> Reset
-              </Link>
-            </Button>
-          )}
         </div>
       </div>
     </section>

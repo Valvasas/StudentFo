@@ -90,7 +90,7 @@ export function BeasiswaBoard({
 
       <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
         <div className="flex w-full max-w-[360px] flex-[1_1_260px]">
-          <SearchBox query={query} placeholder="Cari nama beasiswa atau penyelenggara" />
+          <SearchBox query={query} placeholder="Cari beasiswa atau penyelenggara" />
         </div>
         <div className="flex items-center gap-4 text-[13px] text-ink-muted">
           <span className="flex items-center gap-1.5">

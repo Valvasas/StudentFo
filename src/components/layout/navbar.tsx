@@ -83,9 +83,11 @@ export async function Navbar() {
               >
                 <Bookmark aria-hidden className="size-4" />
                 Tersimpan
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-[6px] bg-panel-nested px-1.5 text-xs font-semibold">
-                  {savedCount}
-                </span>
+                {savedCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-[6px] bg-panel-nested px-1.5 text-xs font-semibold">
+                    {savedCount}
+                  </span>
+                )}
               </Link>
               <ThemeToggle />
               <AccountMenu user={user} savedCount={savedCount} />
