@@ -217,6 +217,13 @@ Selisih revisi dihitung terhadap data acara SAAT INI di server
 Ketiganya memanggil `checkAdminAccess()` sendiri lalu RPC service_role;
 keputusan tercatat di `moderation_log` oleh trigger.
 
+`reviewVerificationAction` (ADR-047, `src/app/penyelenggara/actions.ts`):
+`userId`, `eventId`, `requestedAt` (token versi apa adanya), `decision`
+(`VERIFIED`\|`DECLINED`), `note?` (≤300, hanya untuk DECLINED) →
+`/penyelenggara?notice=result_confirmed|result_declined`; gagal
+`not_event_manager`, `verification_not_pending`, `verification_self`,
+`invalid_request`.
+
 `restoreRejectedAction` (ADR-046): `subjectType` (`event`\|`submission`),
 `subjectId` → `/admin/riwayat?notice=moderation_restored`; gagal
 `moderation_not_rejected` (subjek tidak sedang REJECTED). Memanggil
@@ -273,6 +280,10 @@ punya query string.
 | `updateTrackerStatusAction` | `eventId`, `status`, `notes?`, `returnTo` | redirect ke `returnTo` | status tak dikenal → `returnTo?error=invalid_request` |
 | `removeTrackerAction` | `eventId`, `returnTo` | redirect ke `returnTo` | `returnTo?error=<kode>` |
 | `updatePortfolioAction` (ADR-046) | `eventId`, `achievement?`, `achievementNote?` (≤120), `proofUrl?` (https, ≤500), `visible` (checkbox), `returnTo` | `returnTo?notice=portfolio_saved` | `invalid_portfolio`, `portfolio_not_eligible` (bukan APPLIED+ / bukan miliknya) |
+
+| `requestVerificationAction` (ADR-047) | `eventId`, `returnTo` | `notice=verification_requested` | `verification_not_eligible`, `verification_unavailable`, `verification_declined`, `verification_rate_limited` (10/hari) |
+| `cancelVerificationAction` | `eventId`, `returnTo` | `notice=verification_cancelled` | `<kode>` |
+| `addToPortfolioAction` | `slug` | `/tracker/<slug>?notice=portfolio_added` (SAVED/belum ada → APPLIED; tahap lain dibiarkan) | `/events/<slug>?error=<kode>` |
 
 Portofolio dibaca lewat `PortfolioRepository.getPublicProfile(viewerId, userId)`
 → `PublicProfile | null` (null = tidak ada ATAU tidak boleh dilihat; halaman

@@ -12,6 +12,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { VerificationInbox } from '@/components/organizer/verification-inbox';
+import { ScrollToSection } from '@/components/ui/scroll-to-section';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
@@ -68,9 +70,14 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
   const repository = await getEventRepository();
   const profile = await repository.getOrganizerProfile(user.id);
   const verified = profile?.status === 'VERIFIED';
-  const [managed, claims, history] = verified
-    ? await Promise.all([repository.listManagedEvents(user.id), repository.listMyClaims(user.id), repository.listOrganizerHistory(user.id)])
-    : [[], [], []];
+  const [managed, claims, history, requests] = verified
+    ? await Promise.all([
+        repository.listManagedEvents(user.id),
+        repository.listMyClaims(user.id),
+        repository.listOrganizerHistory(user.id),
+        repository.listPendingVerifications(user.id),
+      ])
+    : [[], [], [], []];
   // Acara yang sudah tutup pindah ke Riwayat (angka akhir), bukan bercampur
   // dengan acara yang masih butuh perhatian.
   const closedIds = new Set(history.map((entry) => entry.eventId));
@@ -96,9 +103,11 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
       </header>
 
       <ActionFeedback params={params} className="max-w-2xl" />
+      <ScrollToSection id={params.fokus === 'verifikasi' && requests.length > 0 ? 'verifikasi-hasil' : null} />
 
       {verified ? (
         <>
+          <VerificationInbox requests={requests} />
           <QuickActions />
           <ManagedEventsSection managed={active} hasHistory={history.length > 0} />
           <ClaimsSection claims={claims} />
@@ -112,7 +121,8 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
               <p role="note" className="flex items-start gap-2 rounded-card bg-caution-soft p-3 text-sm text-caution">
                 <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
                 Mengubah nama, situs, atau bukti mengembalikan lembagamu ke antrean verifikasi. Selama menunggu, lencana,
-                analitik, dan pengajuan perubahan nonaktif.
+                analitik, konfirmasi hasil peserta, dan pengajuan perubahan nonaktif. Hasil yang sudah kamu konfirmasi tetap
+                berlaku.
               </p>
               <ApplicationForm profile={profile} submitLabel="Simpan & verifikasi ulang" />
             </div>

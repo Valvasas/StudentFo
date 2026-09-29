@@ -122,9 +122,9 @@ export async function NotificationMenu() {
               const target = /^(ORGANIZER|CLAIM|REVISION)_/.test(notification.type)
                 ? '/penyelenggara'
                 : notification.type === 'VERIFICATION_REQUESTED'
-                  ? '/penyelenggara#verifikasi-hasil'
+                  ? '/penyelenggara?fokus=verifikasi#verifikasi-hasil'
                   : notification.type.startsWith('RESULT_') && notification.event
-                    ? `/tracker/${notification.event.slug}#portofolio-title`
+                    ? `/tracker/${notification.event.slug}?fokus=portofolio#portofolio-title`
                     : notification.event
                   ? `/events/${notification.event.slug}`
                   : notification.type.startsWith('CONNECTION_')

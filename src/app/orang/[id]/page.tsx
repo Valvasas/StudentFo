@@ -130,8 +130,8 @@ export default async function PublicProfilePage({
         {portfolio.length > 0 && (
           <p className="mt-2 flex items-start gap-2 text-[12.5px] leading-normal text-ink-muted">
             <Info aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-            Dicatat pemilik profil dari pendaftarannya di StudentFo. Hasil (juara, finalis, dst.) dilaporkan sendiri dan belum
-            diverifikasi penyelenggara — cek tautan bukti bila ada.
+            Dicatat pemilik profil dari pendaftarannya di StudentFo. Hasil bertanda &ldquo;Dikonfirmasi&rdquo; sudah dicek
+            penyelenggara acaranya; sisanya dilaporkan sendiri — cek tautan bukti bila ada.
           </p>
         )}
       </section>

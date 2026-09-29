@@ -85,3 +85,32 @@ export async function proposeRevisionAction(formData: FormData): Promise<void> {
   }
   done(returnTo, 'revision_submitted');
 }
+
+/**
+ * Konfirmasi hasil peserta (ADR-047). `requestedAt` dikirim balik apa
+ * adanya sebagai token versi: kalau peserta mengubah hasilnya setelah
+ * halaman ini dimuat, keputusan ditolak alih-alih menempel ke isi baru.
+ */
+export async function reviewVerificationAction(formData: FormData): Promise<void> {
+  const user = await requireUser(FALLBACK);
+  const decision = formTrimmed(formData, 'decision');
+  const userId = formTrimmed(formData, 'userId');
+  const eventId = formTrimmed(formData, 'eventId');
+  const requestedAt = formTrimmed(formData, 'requestedAt');
+  if ((decision !== 'VERIFIED' && decision !== 'DECLINED') || !userId || !eventId || !requestedAt) {
+    redirect(withQuery(FALLBACK, { notice: undefined, error: 'invalid_request' }));
+  }
+
+  try {
+    await (await getEventRepository()).reviewResultVerification(user.id, {
+      userId,
+      eventId,
+      requestedAt,
+      decision,
+      note: formText(formData, 'note').trim() || null,
+    });
+  } catch (error) {
+    failed(FALLBACK, error);
+  }
+  done(FALLBACK, decision === 'VERIFIED' ? 'result_confirmed' : 'result_declined');
+}

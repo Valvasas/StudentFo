@@ -247,9 +247,9 @@ export function DemoAchievements({ isPublic }: { isPublic: boolean }) {
     <section aria-labelledby="pencapaian-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-6">
       <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
         <h2 id="pencapaian-title" className="text-base font-semibold">
-          Pencapaian
+          Pencapaian di luar StudentFo
         </h2>
-        <span className="text-[12.5px] text-ink-muted">Terlihat di profil publik</span>
+        <span className="text-[12.5px] text-ink-muted">Contoh — tersimpan di peramban ini, belum tampil ke orang lain</span>
       </div>
       {extras.achievements.length > 0 ? (
         <ol className="flex flex-col">

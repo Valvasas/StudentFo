@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Award, CalendarClock, Check, FileText, History, ListChecks, NotebookPen, Users } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Award, CalendarClock, Check, FileText, History, ListChecks, NotebookPen, Users } from 'lucide-react';
 import { updateTrackerStatusAction } from '@/app/tracker/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { ScrollToSection } from '@/components/ui/scroll-to-section';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DemoDocumentsSummary } from '@/components/profile/demo-detail-cards';
 import { PortfolioPanel } from '@/components/tracker/portfolio-form';
@@ -13,6 +14,7 @@ import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId, getDeadlineState } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { isPortfolioStatus } from '@/lib/portfolio';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
 import { DEADLINE_LABEL_TEXT, EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL, remainingSlots, type TrackerStatus } from '@/types/domain';
@@ -27,7 +29,8 @@ export const metadata: Metadata = {
 function Panel({ id, icon, title, children, className }: { id: string; icon: ReactNode; title: string; children: ReactNode; className?: string }) {
   return (
     <section aria-labelledby={id} className={cn('flex flex-col gap-3 rounded-[18px] border border-line p-5 sm:p-6', className)}>
-      <h2 id={id} className="flex items-center gap-2.5 text-base font-semibold">
+      {/* scroll-mt: tautan #jangkar dari daftar tugas & lonceng tidak tertutup navbar lengket. */}
+      <h2 id={id} className="flex scroll-mt-24 items-center gap-2.5 text-base font-semibold">
         <span aria-hidden className="flex size-8 items-center justify-center rounded-[9px] bg-panel-nested">
           {icon}
         </span>
@@ -75,7 +78,14 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
   const item = items.find((entry) => entry.event.slug === slug);
   if (!item || !event) notFound();
 
-  const teams = event.eventType === 'LOMBA' ? await repository.listTeams(event.id) : [];
+  const inPortfolio = isPortfolioStatus(item.status);
+  const [teams, verifications, verifiers] = await Promise.all([
+    event.eventType === 'LOMBA' ? repository.listTeams(event.id) : Promise.resolve([]),
+    inPortfolio ? repository.listMyVerifications(user.id) : Promise.resolve([]),
+    inPortfolio ? repository.listVerifiedOrganizers([event.id]) : Promise.resolve(new Map<string, string>()),
+  ]);
+  const verification = verifications.find((entry) => entry.eventId === event.id) ?? null;
+  const verifierName = verifiers.get(event.id) ?? null;
   const myTeam = teams.find((team) => team.members.some((member) => member.userId === user.id));
   const openTeams = teams.filter((team) => team !== myTeam && remainingSlots(team) > 0).length;
 
@@ -142,6 +152,24 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
       ),
     });
   }
+  // Portofolio: tiap langkah menunjuk ke panelnya — tombolnya hanya ada di
+  // satu tempat supaya tidak ada dua "Minta konfirmasi" di satu layar.
+  const toPortfolio = (label: string) => (
+    <a href="#portofolio-title" className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 px-3.5 text-sm font-semibold hover:bg-panel-nested">
+      {label} <ArrowDown aria-hidden className="size-4" />
+    </a>
+  );
+  if (inPortfolio && !item.achievement && (isClosed || item.status === 'ACCEPTED')) {
+    todos.push({ title: 'Catat hasilmu', text: 'Juara, finalis, atau sertifikat — tampil di portofoliomu.', action: toPortfolio('Isi hasil') });
+  } else if (inPortfolio && item.achievement && verifierName && !verification) {
+    todos.push({
+      title: 'Minta konfirmasi hasil',
+      text: `${verifierName} bisa mengonfirmasi hasilmu supaya bertanda terverifikasi di profil.`,
+      action: toPortfolio('Ke portofolio'),
+    });
+  } else if (verification?.status === 'DECLINED') {
+    todos.push({ title: 'Hasil belum sesuai menurut penyelenggara', text: 'Baca alasannya, perbaiki, lalu minta lagi.', action: toPortfolio('Perbaiki') });
+  }
   if (event.eventType === 'LOMBA' && !myTeam && item.status !== 'ACCEPTED' && item.status !== 'REJECTED') {
     todos.push({
       title: 'Belum punya tim',
@@ -182,6 +210,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
         </header>
 
         <ActionFeedback params={query} className="max-w-2xl" />
+        <ScrollToSection id={query.fokus === 'portofolio' ? 'portofolio-title' : null} />
 
         <div className="enter rounded-[18px] border border-line p-5 [animation-delay:80ms] [animation-duration:800ms] sm:p-6">
           <TrackerSteps item={item} />
@@ -209,6 +238,10 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
               )}
             </Panel>
 
+            <Panel id="portofolio-title" icon={<Award className="size-4" />} title="Portofolio">
+              <PortfolioPanel item={item} returnTo={returnTo} verification={verification} verifierName={verifierName} />
+            </Panel>
+
             <Panel id="catatan-title" icon={<NotebookPen className="size-4" />} title="Catatan">
               <form action={updateTrackerStatusAction} className="flex flex-col gap-3">
                 <input type="hidden" name="eventId" value={event.id} />
@@ -233,10 +266,6 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
                   </button>
                 </span>
               </form>
-            </Panel>
-
-            <Panel id="portofolio-title" icon={<Award className="size-4" />} title="Portofolio">
-              <PortfolioPanel item={item} returnTo={returnTo} />
             </Panel>
 
             <Panel id="riwayat-title" icon={<History className="size-4" />} title="Riwayat">

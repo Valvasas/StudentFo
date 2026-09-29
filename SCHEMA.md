@@ -155,6 +155,20 @@ REJECTED tidak pernah dikembalikan) yang digerbangi `can_view_profile(p_user)`
 (pemilik, atau tidak saling blokir DAN bisa ditemukan/berkoneksi/ada ajakan;
 EXECUTE dicabut dari klien). Uji: `supabase/tests/99_portfolio_history.test.sql`.
 
+**Konfirmasi hasil (ADR-047, migration `20260929110001`):**
+`portfolio_verifications (user_id, event_id)` PK + FK komposit ke
+`application_tracker` ON DELETE CASCADE; `status PENDING|VERIFIED|DECLINED`,
+`requested_at` (milidetik — token versi), `reviewed_by/at`, `org_name`
+(snapshot), `review_note` ≤300; CHECK konsistensi jejak keputusan. RLS aktif
+tanpa policy + REVOKE penuh: klien hanya lewat RPC `request_result_verification`,
+`cancel_result_verification`, `my_result_verifications`,
+`organizer_pending_verifications`, `review_result_verification(p_user,
+p_event, p_requested_at, p_decision, p_note)`. Trigger
+`trg_tracker_reset_verification` (hasil/catatan/bukti berubah atau keluar
+APPLIED+ → baris dihapus) dan `trg_organizer_drop_verifications` (REVOKED →
+keputusannya dihapus). `public_portfolio()` kini mengembalikan `verified_by`.
+Uji: `supabase/tests/99_result_verification.test.sql`.
+
 ### `notifications` (Phase 2 — sudah ada UI)
 Pengingat tenggat per user. Diisi **hanya** oleh
 `create_deadline_notifications()` (service_role); aplikasi cuma membaca dan

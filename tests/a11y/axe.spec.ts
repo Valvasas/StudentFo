@@ -26,6 +26,8 @@ const STATIC_ROUTES = [
   '/privacy-policy',
   '/about',
   '/connections',
+  // Kegiatan yang sudah tutup: "Saya ikut kegiatan ini" menggantikan simpan (ADR-047).
+  '/events/workshop-riset-pengguna-angkatan-3',
   '/halaman-yang-tidak-ada',
 ];
 
@@ -114,6 +116,7 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/profile?tampilan=publik&tab=portofolio'],
   ['Mahasiswa', '/tracker/lomba-desain-ui-ux-nasional-edisi-lalu'],
   ['Mahasiswa', '/orang/seed-user-1'],
+  ['Mahasiswa', '/events/lomba-desain-ui-ux-nasional-edisi-lalu'],
 ];
 
 test('tanpa pelanggaran WCAG: status pendaftaran & persiapan', async ({ page }) => {
@@ -132,6 +135,12 @@ test('tanpa pelanggaran WCAG: status pendaftaran & persiapan', async ({ page }) 
 for (const [persona, route] of SIGNED_IN_ROUTES) {
   test(`tanpa pelanggaran WCAG (${persona}): ${route}`, async ({ page }) => {
     await signInAsDemo(page, persona, route);
+    // Redirect Server Action dari halaman masuk yang sudah digulir kadang
+    // tidak mengembalikan gulir ke atas (findDOMNode Next bisa menangkap
+    // metadata di <head>; mis. /penyelenggara mendarat di 588px). Tanpa ini
+    // axe melaporkan target di bawah navbar lengket sebagai "tertutup" —
+    // artefak posisi gulir, bukan ukuran target.
+    await page.evaluate(() => window.scrollTo(0, 0));
     await expectNoViolations(page);
   });
 }

@@ -356,5 +356,22 @@ Belum / butuh keputusan atau akses pemilik:
 - [x] Admin: pulihkan kegiatan/kiriman tertolak ke antrean, tercatat di log moderasi.
 - [x] Paritas memori ↔ Supabase (integrasi), e2e + axe untuk rute baru.
 - [x] Demo: masuk ulang sebagai Penyelenggara tidak lagi melipatgandakan simpan/klik analitik.
-- [ ] Verifikasi hasil oleh penyelenggara (hasil kini dilaporkan sendiri, ditandai begitu).
+- [x] Verifikasi hasil oleh penyelenggara — ADR-047.
 - [ ] Ekspor portofolio (PDF/tautan bagikan) — butuh keputusan soal akses tanpa login.
+
+## Konfirmasi hasil & kegiatan lampau 2026-09-29 (@claude) — ADR-047
+
+- [x] Migration `20260929110001_result_verification.sql` + uji SQL (mutation-tested, 8 mutan terbunuh).
+- [x] Repository memori + Supabase, paritas integrasi, uji unit memori.
+- [x] Panel Portofolio: status konfirmasi satu kotak satu tombol, peringatan sebelum menyimpan.
+- [x] Kotak masuk "Konfirmasi hasil peserta" di studio penyelenggara (konfirmasi / tidak sesuai + alasan).
+- [x] Lencana "Dikonfirmasi {lembaga}" vs "Dilaporkan sendiri" di profil sendiri & `/orang/[id]`.
+- [x] Notifikasi dua arah + tujuan klik yang benar (`?fokus=` karena #fragmen hilang di redirect Server Action).
+- [x] "Saya ikut kegiatan ini" di halaman kegiatan yang sudah tutup.
+- [x] e2e `verification.spec.ts` (dua sesi browser) + axe/viewport sempit.
+- [ ] Penyelenggara belum bisa membatalkan keputusannya sendiri (peserta memperbaiki lalu minta ulang).
+- [ ] Pencapaian di luar katalog StudentFo masih demo peramban (ADR-039) — perlu tabel + moderasi kalau mau publik.
+- [ ] Masuk demo sebagai Penyelenggara dari halaman masuk yang sudah digulir mendarat di tengah `/penyelenggara`
+      (±588px): redirect Server Action tidak menggulir ke atas karena `findDOMNode` Next menangkap metadata `<head>`.
+      Bawaan kerangka, sudah ada sebelum ADR-047; harness axe menggulir ke atas dulu. Perlu perbaikan di sisi
+      halaman masuk (kartu persona di atas lipatan) atau pembaruan Next.

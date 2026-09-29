@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Bookmark, Check, ChevronRight, Clock, Eye, GraduationCap, Lock, Mail, Pencil } from 'lucide-react';
+import { ArrowRight, Bookmark, Check, ChevronRight, Clock, Eye, GraduationCap, Info, Lock, Mail, Pencil } from 'lucide-react';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -21,7 +21,7 @@ import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { initialsOf } from '@/lib/initials';
-import { isPubliclyListed, toPortfolioEntry } from '@/lib/portfolio';
+import { isPubliclyListed, toPortfolioEntry, verifiedByEvent } from '@/lib/portfolio';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import type { RawSearchParams } from '@/lib/search-params';
 import { TRACKER_STEPS, TRACKER_STEP_LABEL, trackerProgress } from '@/lib/tracker-progress';
@@ -57,10 +57,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const params = await searchParams;
   const user = await requireUser('/profile');
   const repository = await getEventRepository();
-  const [categories, savedEvents, trackerItems] = await Promise.all([
+  const [categories, savedEvents, trackerItems, verifications] = await Promise.all([
     repository.listCategories(),
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
+    repository.listMyVerifications(user.id),
   ]);
 
   const isPublic = params.tampilan === 'publik';
@@ -74,16 +75,21 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const applications = trackerItems.filter((item) => item.status !== 'SAVED');
   // Tampilan publik = aturan yang SAMA dengan public_portfolio(); pemilik
   // melihat semuanya, termasuk yang privat & yang belum lolos.
+  const verifiedBy = verifiedByEvent(verifications);
+  const openRequests = new Map(
+    verifications.flatMap((entry) => (entry.status === 'VERIFIED' ? [] : [[entry.eventId, entry.status] as const])),
+  );
   const portfolioRows: PortfolioRow[] = applications
     .filter((item) => !isPublic || isPubliclyListed(item))
     .sort((left, right) => (right.event.primaryDeadlineAt ?? '').localeCompare(left.event.primaryDeadlineAt ?? ''))
     .map((item) => ({
-      entry: toPortfolioEntry(item),
+      entry: toPortfolioEntry(item, verifiedBy.get(item.eventId) ?? null),
       ...(isPublic
         ? {}
         : {
             visibility: item.status === 'REJECTED' ? ('never' as const) : isPubliclyListed(item) ? ('public' as const) : ('private' as const),
             editHref: `/tracker/${item.event.slug}#portofolio-title`,
+            verificationState: openRequests.get(item.eventId),
           }),
     }));
   const counts: Partial<Record<TabKey, number>> = {
@@ -321,20 +327,36 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   {isPublic ? 'Portofolio' : 'Riwayat & portofolio'}
                 </h2>
                 <span className="text-[12.5px] text-ink-muted">
-                  {isPublic ? 'Hasil dilaporkan sendiri oleh pemilik profil' : 'Otomatis dari kegiatan yang kamu tandai "Sudah daftar"'}
+                  {isPublic ? 'Begini orang lain melihatnya' : 'Otomatis dari kegiatan yang kamu tandai "Sudah daftar"'}
                 </span>
               </div>
               <PortfolioList
                 now={now}
                 rows={portfolioRows}
                 emptyText={
-                  isPublic
-                    ? 'Belum ada kegiatan yang ditampilkan.'
-                    : 'Belum ada. Tandai "Sudah daftar" di halaman Pendaftaran — kegiatannya otomatis masuk ke sini.'
+                  isPublic ? (
+                    'Belum ada kegiatan yang ditampilkan.'
+                  ) : (
+                    <>
+                      Belum ada. Tandai &ldquo;Sudah daftar&rdquo; di{' '}
+                      <Link href="/tracker" className="font-medium text-ink underline underline-offset-[3px]">
+                        Pendaftaran
+                      </Link>{' '}
+                      — kegiatannya otomatis masuk ke sini.
+                    </>
+                  )
                 }
               />
+              {!isPublic && (
+                <p className="mt-2 flex items-start gap-2 text-[12.5px] leading-normal text-ink-muted">
+                  <Info aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+                  Pernah ikut kegiatan yang sudah lewat? Buka halamannya di StudentFo, lalu pilih &ldquo;Saya ikut kegiatan
+                  ini&rdquo;.
+                </p>
+              )}
             </section>
-            {demoFeaturesEnabled && <DemoAchievements isPublic={isPublic} />}
+            {/* Tersimpan di peramban (ADR-039) — orang lain tidak pernah melihatnya, jadi tidak ikut pratinjau publik. */}
+            {demoFeaturesEnabled && !isPublic && <DemoAchievements isPublic={false} />}
           </>
         )}
 

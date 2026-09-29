@@ -139,3 +139,86 @@ export async function updatePortfolioAction(formData: FormData): Promise<void> {
   revalidatePath('/tracker');
   redirect(withQuery(returnTo, { notice: 'portfolio_saved', error: undefined }));
 }
+
+/** Ember batas laju permintaan konfirmasi: tiap permintaan membangunkan penyelenggara. */
+const VERIFICATION_REQUESTS_PER_DAY = 10;
+
+function refreshPortfolioViews(): void {
+  revalidatePath('/profile');
+  revalidatePath('/tracker', 'layout');
+  revalidatePath('/penyelenggara');
+}
+
+/** Minta penyelenggara mengonfirmasi hasil yang TERSIMPAN (ADR-047). */
+export async function requestVerificationAction(formData: FormData): Promise<void> {
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), '/tracker');
+  const user = await requireUser(returnTo);
+  const eventId = formTrimmed(formData, 'eventId');
+  if (!eventId) redirect(withQuery(returnTo, { error: 'invalid_request', notice: undefined }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    if (!(await repository.consumeRateLimit(`verification:${user.id}`, VERIFICATION_REQUESTS_PER_DAY, 86_400))) {
+      throw actionError('verification_rate_limited');
+    }
+    await repository.requestResultVerification(user, eventId);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(withQuery(returnTo, { error: failure, notice: undefined }));
+  refreshPortfolioViews();
+  redirect(withQuery(returnTo, { notice: 'verification_requested', error: undefined }));
+}
+
+export async function cancelVerificationAction(formData: FormData): Promise<void> {
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), '/tracker');
+  const user = await requireUser(returnTo);
+  const eventId = formTrimmed(formData, 'eventId');
+  if (!eventId) redirect(withQuery(returnTo, { error: 'invalid_request', notice: undefined }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).cancelResultVerification(user.id, eventId);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(withQuery(returnTo, { error: failure, notice: undefined }));
+  refreshPortfolioViews();
+  redirect(withQuery(returnTo, { notice: 'verification_cancelled', error: undefined }));
+}
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * "Saya ikut kegiatan ini" dari halaman kegiatan yang sudah tutup: kegiatan
+ * lama pun bisa masuk portofolio tanpa berpura-pura baru menyimpannya.
+ * Hanya menaikkan "Disimpan"/belum tercatat ke "Sudah daftar"; tahap lain
+ * dibiarkan — tombol ini tidak boleh memundurkan atau menimpa keputusan.
+ */
+export async function addToPortfolioAction(formData: FormData): Promise<void> {
+  const slug = formTrimmed(formData, 'slug');
+  if (!SLUG_PATTERN.test(slug)) redirect('/events');
+  const detailPath = `/events/${slug}`;
+  const user = await requireUser(detailPath);
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    const event = await repository.getEventBySlug(slug);
+    if (!event) throw actionError('event_unavailable');
+    const existing = (await repository.listTrackerItems(user.id)).find((item) => item.eventId === event.id);
+    // "Belum berhasil" yang sudah dicatat tidak diubah diam-diam oleh tombol ini.
+    if (!existing || existing.status === 'SAVED') {
+      await repository.upsertTrackerItem(user.id, event.id, 'APPLIED');
+    }
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(withQuery(detailPath, { error: failure }));
+  refreshPortfolioViews();
+  redirect(`/tracker/${slug}?notice=portfolio_added`);
+}

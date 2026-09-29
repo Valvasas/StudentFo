@@ -20,6 +20,7 @@ import {
 import { claimEventAction } from '@/app/penyelenggara/actions';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { RequirementsChecklist } from '@/components/event/requirements-checklist';
+import { PortfolioCta } from '@/components/event/portfolio-cta';
 import { SaveButton } from '@/components/event/save-button';
 import { ShareButton } from '@/components/event/share-button';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -257,7 +258,12 @@ export default async function EventDetailPage({
                   )}
                 </span>
                 <span className="text-[12.5px] text-ink-muted">
-                  {verifiedOrg ? `Dikelola ${verifiedOrg} · penyelenggara terverifikasi` : 'Ditinjau manual sebelum tayang'}
+                  {/* Nama sama dengan baris di atasnya → cukup statusnya; mengulang nama hanya menambah bising. */}
+                  {verifiedOrg
+                    ? verifiedOrg === event.organizer
+                      ? 'Penyelenggara terverifikasi'
+                      : `Dikelola ${verifiedOrg} · penyelenggara terverifikasi`
+                    : 'Ditinjau manual sebelum tayang'}
                 </span>
               </span>
             </div>
@@ -489,9 +495,16 @@ export default async function EventDetailPage({
             <div className="flex flex-col gap-2">
               {register}
               <div className="flex gap-2">
-                <SaveButton eventId={event.id} isSaved={isSaved} returnTo={detailPath} variant="full" className="flex-1" />
+                {isClosed ? (
+                  <PortfolioCta slug={event.slug} trackedStatus={tracked?.status ?? null} className="flex-1" />
+                ) : (
+                  <SaveButton eventId={event.id} isSaved={isSaved} returnTo={detailPath} variant="full" className="flex-1" />
+                )}
                 <ShareButton title={event.title} path={detailPath} />
               </div>
+              {isClosed && !tracked && (
+                <p className="text-[12.5px] leading-snug text-ink-muted">Pernah ikut? Catat di portofoliomu, lengkap dengan hasilnya.</p>
+              )}
             </div>
           </div>
           {demoFeaturesEnabled && !isClosed && (
@@ -545,17 +558,21 @@ export default async function EventDetailPage({
               {event.primaryDeadlineAt ? `Tutup ${formatDateId(event.primaryDeadlineAt)}` : event.organizer}
             </span>
           </div>
-          <form action={toggleSaveEventAction}>
-            <input type="hidden" name="eventId" value={event.id} />
-            <input type="hidden" name="returnTo" value={detailPath} />
-            <button
-              type="submit"
-              aria-label={isSaved ? 'Tersimpan di Tracker' : 'Simpan ke Tracker'}
-              className="flex size-12 items-center justify-center rounded-card border border-line"
-            >
-              <Bookmark aria-hidden className={cn('size-4', isSaved && 'fill-current')} />
-            </button>
-          </form>
+          {isClosed ? (
+            <PortfolioCta slug={event.slug} trackedStatus={tracked?.status ?? null} compact className="shrink-0" />
+          ) : (
+            <form action={toggleSaveEventAction}>
+              <input type="hidden" name="eventId" value={event.id} />
+              <input type="hidden" name="returnTo" value={detailPath} />
+              <button
+                type="submit"
+                aria-label={isSaved ? 'Tersimpan di Tracker' : 'Simpan ke Tracker'}
+                className="flex size-12 items-center justify-center rounded-card border border-line"
+              >
+                <Bookmark aria-hidden className={cn('size-4', isSaved && 'fill-current')} />
+              </button>
+            </form>
+          )}
           {!isClosed && registrationUrl && (
             <a
               href={`${detailPath}/daftar`}

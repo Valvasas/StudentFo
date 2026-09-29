@@ -12,6 +12,59 @@ terdokumentasi.
 
 ---
 
+## ADR-047 — Hasil portofolio dikonfirmasi penyelenggara atas permintaan peserta, terikat isi saat itu
+
+**Konteks:** ADR-046 menandai semua hasil "dilaporkan sendiri" — jujur, tapi
+membuat "Juara 1" dari siapa pun bernilai sama. Penyelenggara terverifikasi
+(ADR-042) adalah satu-satunya pihak yang bisa memastikannya. Dua jebakan:
+(1) membuka daftar "siapa yang menandai sudah daftar" ke penyelenggara
+melanggar janji privasi tracker; (2) tanda terverifikasi yang tetap menempel
+setelah hasilnya diubah = tanda palsu.
+
+**Keputusan:**
+- **Peserta yang meminta**, per entri, setelah hasilnya tersimpan.
+  Penyelenggara hanya melihat permintaan: nama, jenjang & jurusan, hasil,
+  catatan, tautan bukti. Tidak ada daftar peserta.
+- Yang memutuskan: pengelola acara itu yang MASIH terverifikasi
+  (`manages_event`), bukan dirinya sendiri. Acara tanpa pengelola →
+  `verification_unavailable`, dan UI mengatakannya terang ("belum bergabung").
+- **Terikat isi.** Trigger menghapus permintaan/keputusan saat hasil,
+  catatan, atau bukti berubah, atau entri keluar dari APPLIED+. Visibilitas
+  tidak ikut. `requested_at` (presisi milidetik) jadi token versi keputusan:
+  isi yang berubah lalu diminta ulang saat halaman penyelenggara masih
+  terbuka → `verification_not_pending`, bukan konfirmasi atas isi baru.
+- **Tidak sesuai ≠ ditolak selamanya.** Alasan opsional untuk peserta; minta
+  ulang baru bisa setelah isinya diperbaiki (trigger yang sama menghapus
+  barisnya). Warna kuning (bisa diperbaiki), bukan merah.
+- **Penyelenggara dicabut (REVOKED) → keputusannya gugur.** Kembali ke
+  PENDING karena ganti nama lembaga TIDAK menggugurkan — satu salah ketik
+  tidak boleh menghapus tanda semua peserta.
+- Tabel `portfolio_verifications` tanpa hak klien sama sekali; semua lewat
+  RPC SECURITY DEFINER. Notifikasi dua arah, satu baris per (pengguna,
+  acara, jenis) yang disegarkan, bukan ditumpuk.
+- **UX:** di panel Portofolio tracker, satu kotak = satu keadaan dengan paling
+  banyak satu tombol, di atas form; peringatan "mengubah isi menghapus tanda /
+  membatalkan permintaan" tampil SEBELUM menyimpan. Daftar tugas menunjuk ke
+  panel, tidak menggandakan tombolnya. Kotak masuk penyelenggara paling atas
+  di studio dan hilang saat kosong. Profil: "Dikonfirmasi {lembaga}" (hijau,
+  ikon + teks) vs "Dilaporkan sendiri" (netral — keadaan normal, bukan tuduhan).
+- **Kegiatan lampau:** halaman kegiatan yang sudah tutup mengganti "Simpan ke
+  Tracker" (tidak berguna lagi) dengan "Saya ikut kegiatan ini" → langsung
+  "Sudah daftar" + ke panel portofolio. Tidak pernah menimpa "Belum berhasil".
+- Redirect Server Action di Next membuang `#fragmen`; tujuan notifikasi
+  membawa `?fokus=portofolio` dan `ScrollToSection` menggulir + memindah fokus.
+
+**Konsekuensi:** Penyelenggara bisa keliru mengonfirmasi dan belum ada
+"batalkan keputusan" — peserta yang tidak setuju memperbaiki isinya lalu
+meminta lagi. Tanda tetap berlaku bila penyelenggara kembali ke PENDING.
+Batas 10 permintaan/hari/pengguna (lapisan aplikasi). Mode seed: semua sesi
+demo Penyelenggara mengelola acara yang sama, jadi kotak masuknya berisi
+permintaan dari semua sesi demo Mahasiswa — sengaja, dunia demo bersama.
+Kartu "Pencapaian" demo (peramban, ADR-039) kini jujur menyebut dirinya
+tidak tampil ke orang lain dan tidak ikut pratinjau publik.
+
+---
+
 ## ADR-046 — Portofolio = baris tracker yang sudah "Sudah daftar"; riwayat berbeda per peran
 
 **Konteks:** Pengguna meminta riwayat untuk tiap peran dengan isi berbeda,

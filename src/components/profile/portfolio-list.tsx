@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowUpRight, Award, EyeOff, Globe, Pencil } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { ArrowUpRight, Award, Clock, EyeOff, Globe, Pencil, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { jakartaDateParts } from '@/lib/deadline';
 import { achievementRank, portfolioOutcomeLabel } from '@/lib/portfolio';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
@@ -10,6 +11,8 @@ export interface PortfolioRow {
   /** Hanya tampilan pemilik: siapa yang melihat baris ini, dan tautan ubahnya. */
   readonly visibility?: 'public' | 'private' | 'never';
   readonly editHref?: string;
+  /** Hanya tampilan pemilik: permintaan konfirmasi yang belum berbuah tanda (ADR-047). */
+  readonly verificationState?: 'PENDING' | 'DECLINED';
 }
 
 /**
@@ -17,14 +20,14 @@ export interface PortfolioRow {
  * orang lain. Urut waktu terbaru; hasil ditulis sebagai teks + ikon, bukan
  * warna saja. Tautan bukti dari pengguna divalidasi ulang di titik render.
  */
-export function PortfolioList({ rows, now, emptyText }: { rows: readonly PortfolioRow[]; now: Date; emptyText: string }) {
+export function PortfolioList({ rows, now, emptyText }: { rows: readonly PortfolioRow[]; now: Date; emptyText: ReactNode }) {
   if (rows.length === 0) {
     return <p className="border-t border-line py-3.5 text-sm text-ink-muted">{emptyText}</p>;
   }
 
   return (
     <ol className="flex flex-col">
-      {rows.map(({ entry, visibility, editHref }) => {
+      {rows.map(({ entry, visibility, editHref, verificationState }) => {
         const running = entry.deadlineAt !== null && new Date(entry.deadlineAt) >= now;
         const year = entry.deadlineAt ? (jakartaDateParts(entry.deadlineAt)?.year ?? null) : null;
         const proofUrl = entry.proofUrl ? sanitizeExternalUrl(entry.proofUrl) : null;
@@ -53,6 +56,7 @@ export function PortfolioList({ rows, now, emptyText }: { rows: readonly Portfol
                 {entry.organizer}
                 {entry.achievementNote && ` · ${entry.achievementNote}`}
               </span>
+              {entry.achievement && <Trust verifiedBy={entry.verifiedBy} state={verificationState} />}
               {(proofUrl || editHref) && (
                 <span className="flex flex-wrap gap-x-4">
                   {proofUrl && (
@@ -80,6 +84,37 @@ export function PortfolioList({ rows, now, emptyText }: { rows: readonly Portfol
       })}
     </ol>
   );
+}
+
+/**
+ * Seberapa bisa dipercaya hasil ini — ditulis sebagai teks + ikon, bukan
+ * warna saja. "Dilaporkan sendiri" sengaja netral: itu keadaan normal,
+ * bukan tuduhan.
+ */
+function Trust({ verifiedBy, state }: { verifiedBy: string | null; state?: 'PENDING' | 'DECLINED' }) {
+  if (verifiedBy) {
+    return (
+      <span className="inline-flex items-start gap-1.5 text-[12.5px] font-medium text-success">
+        <ShieldCheck aria-hidden className="mt-px size-3.5 shrink-0" />
+        Dikonfirmasi {verifiedBy}
+      </span>
+    );
+  }
+  if (state === 'PENDING') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-muted">
+        <Clock aria-hidden className="size-3.5" /> Dilaporkan sendiri · menunggu konfirmasi penyelenggara
+      </span>
+    );
+  }
+  if (state === 'DECLINED') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[12.5px] text-caution">
+        <ShieldAlert aria-hidden className="size-3.5" /> Dilaporkan sendiri · belum sesuai menurut penyelenggara
+      </span>
+    );
+  }
+  return <span className="text-[12.5px] text-ink-muted">Dilaporkan sendiri</span>;
 }
 
 function VisibilityChip({ visibility }: { visibility: 'public' | 'private' | 'never' }) {
