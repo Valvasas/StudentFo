@@ -10,6 +10,7 @@ import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { withFallback } from '@/lib/fallback';
 import { eventTypeNavFor } from '@/lib/event-type-nav';
 import { REQUEST_PATH_HEADER } from '@/lib/security-headers';
 import type { EventType } from '@/types/domain';
@@ -24,8 +25,12 @@ import type { EventType } from '@/types/domain';
  * visual yang berubah.
  */
 export async function Navbar() {
-  const user = await getSessionUser();
-  const savedCount = user ? (await (await getEventRepository()).listSavedEventIds(user.id)).length : 0;
+  // Navbar ada di root layout: kegagalan di sini menjatuhkan SELURUH situs,
+  // termasuk halaman error-nya sendiri. Lihat `withFallback`.
+  const user = await withFallback('sesi pengguna', getSessionUser, null);
+  const savedCount = user
+    ? await withFallback('jumlah tersimpan', async () => (await (await getEventRepository()).listSavedEventIds(user.id)).length, 0)
+    : 0;
   // Tanpa JavaScript, tab aktif hanya terlihat dari fallback Suspense di
   // bawah (NavLinks memakai useSearchParams dan ter-stream). Jadi penanda
   // aktifnya dihitung di server dari path yang dititipkan middleware.

@@ -17,6 +17,7 @@ import {
 } from '@/app/notifications/actions';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import type { NotificationType } from '@/types/domain';
 
 /**
@@ -70,8 +71,8 @@ export async function NotificationMenu() {
 
   const repository = await getEventRepository();
   const [notifications, unreadCount] = await Promise.all([
-    repository.listNotifications(user.id, PREVIEW_LIMIT),
-    repository.countUnreadNotifications(user.id),
+    withFallback('daftar notifikasi', () => repository.listNotifications(user.id, PREVIEW_LIMIT), []),
+    withFallback('hitungan notifikasi', () => repository.countUnreadNotifications(user.id), 0),
   ]);
 
   return (
