@@ -6,8 +6,10 @@ import {
   CONNECTION_PAGE,
   decodeConnectionCursor,
   encodeConnectionCursor,
+  matchesConnectionFilter,
   matchesPeopleSearch,
   NETWORK_LIMITS,
+  normalizeConnectionSearch,
   daysAgoLabel,
   parseConnectionMessage,
   parseNetworkProfileForm,
@@ -194,5 +196,32 @@ describe('kursor koneksi (ADR-041)', () => {
     expect(clampConnectionLimit(Number.NaN)).toBe(1);
     expect(clampConnectionLimit(10_000)).toBe(CONNECTION_PAGE.maxLimit);
     expect(CONNECTION_PAGE.maxLimit + 1).toBeLessThanOrEqual(1000);
+  });
+});
+
+describe('saringan koneksi per tugas (ADR-048)', () => {
+  const person = { fullName: 'Rani Prameswari' } as NetworkPerson;
+  const accepted = { status: 'ACCEPTED', direction: 'incoming', person } as const;
+  const incoming = { status: 'PENDING', direction: 'incoming', person } as const;
+  const outgoing = { status: 'PENDING', direction: 'outgoing', person } as const;
+
+  it('setiap jenis hanya memuat daftarnya sendiri; tanpa jenis = semua', () => {
+    expect([accepted, incoming, outgoing].map((item) => matchesConnectionFilter(item, { kind: 'accepted' }))).toEqual([true, false, false]);
+    expect([accepted, incoming, outgoing].map((item) => matchesConnectionFilter(item, { kind: 'incoming' }))).toEqual([false, true, false]);
+    expect([accepted, incoming, outgoing].map((item) => matchesConnectionFilter(item, { kind: 'outgoing' }))).toEqual([false, false, true]);
+    expect([accepted, incoming, outgoing].every((item) => matchesConnectionFilter(item, {}))).toBe(true);
+  });
+
+  it('pencarian nama tidak peka huruf besar dan hanya mencocokkan potongan nama', () => {
+    expect(matchesConnectionFilter(accepted, { search: 'prames' })).toBe(true);
+    expect(matchesConnectionFilter(accepted, { search: 'RANI P' })).toBe(true);
+    expect(matchesConnectionFilter(accepted, { search: 'dimas' })).toBe(false);
+  });
+
+  it('karakter bermakna khusus di filter PostgREST dibuang sebelum sampai ke SQL', () => {
+    expect(normalizeConnectionSearch('  Rani%_*,(or)  ')).toBe('Rani or');
+    expect(normalizeConnectionSearch("O'Neil-Putra A.")).toBe("O'Neil-Putra A.");
+    expect(normalizeConnectionSearch(null)).toBe('');
+    expect(normalizeConnectionSearch('a'.repeat(200))).toHaveLength(60);
   });
 });

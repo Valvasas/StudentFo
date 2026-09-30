@@ -43,10 +43,48 @@ export const CONNECTION_PAGE = { size: 50, maxLimit: 500 } as const;
  */
 export const BLOCK_LIST_LIMIT = 500;
 
+/**
+ * Satu daftar per tugas (ADR-048): koneksi yang sudah jadi, ajakan yang
+ * menunggu jawaban pembaca, dan ajakan yang pembaca kirim. Tanpa `kind`,
+ * ketiganya bercampur dalam urutan `compareConnections` (dipakai peta).
+ */
+export const CONNECTION_KINDS = ['accepted', 'incoming', 'outgoing'] as const;
+export type ConnectionKind = (typeof CONNECTION_KINDS)[number];
+
 export interface ConnectionPageRequest {
   readonly limit: number;
   /** `nextCursor` dari halaman sebelumnya; null = halaman pertama. */
   readonly cursor: string | null;
+  readonly kind?: ConnectionKind;
+  /** Potongan nama pihak lawan. WAJIB lewat `normalizeConnectionSearch` dulu. */
+  readonly search?: string;
+}
+
+/**
+ * Kata kunci pencarian koneksi → hanya huruf, angka, spasi, titik, petik,
+ * dan tanda hubung. Nilainya dirakit ke filter `ilike` PostgREST: `%`, `_`,
+ * `*`, koma, dan kurung punya arti khusus di sana, dan membiarkannya lolos
+ * berarti pengguna bisa mengubah bentuk filter, bukan sekadar isinya.
+ */
+export function normalizeConnectionSearch(raw: string | null | undefined): string {
+  return (raw ?? '')
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}\s.'-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60);
+}
+
+/** Aturan saring yang SAMA untuk kedua repository — Supabase menerjemahkannya ke SQL. */
+export function matchesConnectionFilter(
+  connection: Pick<Connection, 'status' | 'direction' | 'person'>,
+  filter: Pick<ConnectionPageRequest, 'kind' | 'search'>,
+): boolean {
+  if (filter.kind === 'accepted' && connection.status !== 'ACCEPTED') return false;
+  if (filter.kind === 'incoming' && (connection.status !== 'PENDING' || connection.direction !== 'incoming')) return false;
+  if (filter.kind === 'outgoing' && (connection.status !== 'PENDING' || connection.direction !== 'outgoing')) return false;
+  if (filter.search && !connection.person.fullName.toLocaleLowerCase('id').includes(filter.search.toLocaleLowerCase('id'))) return false;
+  return true;
 }
 
 export interface ConnectionCursor {

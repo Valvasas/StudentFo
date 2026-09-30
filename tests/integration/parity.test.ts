@@ -211,6 +211,26 @@ describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
     }
     expect(await world.as(me, () => world.repo.countConnections(me))).toEqual({ accepted: 2, incoming: 2, outgoing: 1 });
     expect(await outcome(() => world.as(me, () => world.repo.listConnections(me, { limit: 2, cursor: 'rusak' })))).toBe('invalid_request');
+
+    // Satu daftar per tugas (ADR-048): tiap jenis dipaginasi sendiri, kursor
+    // tetap sah di dalam saringan, dan nama lawan bisa dicari.
+    const kindIds = async (kind: 'accepted' | 'incoming' | 'outgoing') => {
+      const seen: string[] = [];
+      let next: string | null = null;
+      do {
+        const page = await world.as(me, () => world.repo.listConnections(me, { limit: 1, cursor: next, kind }));
+        seen.push(...page.items.map((item) => item.person.userId));
+        next = page.nextCursor;
+      } while (next);
+      return new Set(seen);
+    };
+    expect(await kindIds('accepted')).toEqual(new Set(peers.slice(0, 2)));
+    expect(await kindIds('incoming')).toEqual(new Set(peers.slice(3)));
+    expect(await kindIds('outgoing')).toEqual(new Set([peers[2]]));
+    const named = await world.as(me, () => world.repo.listConnections(me, { limit: 10, cursor: null, kind: 'accepted', search: 'UJI' }));
+    expect(named.items.length).toBe(2);
+    const none = await world.as(me, () => world.repo.listConnections(me, { limit: 10, cursor: null, search: 'tidak-ada-yang-bernama-ini' }));
+    expect(none.items).toEqual([]);
   });
 
   it('blokir (ADR-041): memutus, ajakan dua arah ditolak, hanya pemblokir yang bisa membuka', async () => {
