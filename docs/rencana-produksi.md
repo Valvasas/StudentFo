@@ -198,6 +198,18 @@ nyata untuk fixture evaluasi (ADR-038 #2: memilih situs = keputusan pemilik).
 
 ---
 
+### 5.1 Jawaban pemilik (2026-09-30)
+
+| Keputusan | Jawaban |
+|---|---|
+| Realtime Fase 4 | **Polling ringan** (server-render + form POST, pulau klien refresh ±30 dtk saat tab terlihat) |
+| MVP Fase 4 | **Diskusi per kegiatan dulu**; pesan langsung menyusul, hanya antar koneksi ACCEPTED |
+| Identitas bot | **Belum punya domain** → `PIPELINE_BOT_URL`/`PIPELINE_BOT_CONTACT` wajib; run sungguhan & dry-run terhadap situs nyata terkunci sampai terisi |
+| Retensi | Notifikasi dibaca 180 hari / semua 365 hari · email kiriman dikosongkan 90 hari setelah keputusan · log pipeline & cek tautan 180 hari |
+| Retensi sinyal rekomendasi | **Tidak disetujui** → tetap tanpa purge; Fase 5 membatasi jendela analisis, bukan menghapus data |
+
+---
+
 ## 6. Desain Fase 1–6
 
 Aturan yang berlaku di setiap fase (dari brief & AGENTS.md): satu fase = satu
