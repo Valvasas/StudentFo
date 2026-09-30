@@ -518,6 +518,13 @@ export class MemoryEventRepository implements EventRepository {
       .slice(0, limit);
   }
 
+  async listMySubmissions(userId: string, limit: number): Promise<readonly Submission[]> {
+    return [...this.submissions.values()]
+      .filter((submission) => submission.submittedBy === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit);
+  }
+
   async reviewSubmission({ submissionId, decision, reviewerId, reviewerName }: ReviewSubmissionInput): Promise<void> {
     const submission = this.submissions.get(submissionId);
     if (!submission || submission.status !== 'PENDING') throw actionError('submission_not_found');

@@ -358,3 +358,20 @@ Belum / butuh keputusan atau akses pemilik:
 - [x] Demo: masuk ulang sebagai Penyelenggara tidak lagi melipatgandakan simpan/klik analitik.
 - [ ] Verifikasi hasil oleh penyelenggara (hasil kini dilaporkan sendiri, ditandai begitu).
 - [ ] Ekspor portofolio (PDF/tautan bagikan) — butuh keputusan soal akses tanpa login.
+
+## Pengerasan produksi 2026-09-30 (@claude) — ADR-047
+
+- [x] `global-error.tsx` + `withFallback()` untuk data navbar (root layout tidak jatuh karena lonceng).
+- [x] `events.category_slugs` fisik + GIN + trigger sinkron (termasuk ganti slug) — `91_category_slugs` dengan uji negatif index.
+- [x] RPC `create_team_with_leader` (INVOKER, tunduk RLS) — `92_team_atomic_rpc` + paritas integrasi.
+- [x] `output: 'standalone'`, `Dockerfile`, `serverActions.allowedOrigins`.
+- [x] Ditolak dengan alasan (ADR-047): `join_team_atomic` (IDOR, race sudah dijaga), Suspense `/events` (no-JS), CSP statis kedua.
+- [x] Tur beranda: ritme zoom 1.0–1.9× + pembuka bab yang benar-benar mundur penuh (diukur di Chromium).
+- [x] Semua `<select>` lewat `SelectInput` + panah `select-chevron`; bug zoom iOS (`text-sm`) di select tracker.
+- [x] "Kirimanmu" di `/submit` + kiriman yang belum tayang di studio penyelenggara (index pemilik).
+- [x] Pendaftaran: blok "Tutup dalam 7 hari, belum kamu daftar" menggantikan satu ubin terdekat.
+- [x] `/admin`: panel kondisi antrean (umur tertua, lewat batas 48 jam, keputusan 7 hari).
+- [x] CTA beranda tanpa teks latar berjalan.
+- [ ] `docker build` belum dijalankan (tanpa daemon di lingkungan ini) — uji di CI/staging.
+- [ ] Simpan alasan penolakan kiriman (kolom + form admin) supaya "Kirimanmu" bisa menyebut alasan spesifik.
+- [ ] Terapkan migration 20260930100001–03 ke project Supabase — butuh persetujuan eksplisit pemilik.

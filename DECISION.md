@@ -12,6 +12,73 @@ terdokumentasi.
 
 ---
 
+## ADR-047 — Pengerasan produksi: apa yang diambil dari audit otomatis, dan apa yang ditolak
+
+**Konteks:** Audit dari agent AI lain mengusulkan lima fase pengerasan
+(error boundary, indexing kategori, RPC tim atomik, Suspense di `/events`,
+header keamanan). Sebagian usulan menyasar masalah nyata, sebagian
+menyasar masalah yang sudah diselesaikan — atau akan membuka lubang baru.
+
+**Keputusan — diambil:**
+- `src/app/global-error.tsx`: `error.tsx` dirender DI DALAM root layout, jadi
+  tidak menangkap kegagalan layout itu sendiri. Tanpa komponen proyek (setiap
+  impor = satu hal lagi yang bisa ikut gagal).
+- `withFallback()` (`src/lib/fallback.ts`) untuk data PENDUKUNG di navbar
+  (sesi, jumlah tersimpan, notifikasi). `unstable_rethrow` di depan supaya
+  `redirect()`/`notFound()`/sinyal render dinamis tidak ikut tertelan. Tidak
+  dipakai untuk data inti halaman — "0 hasil" saat DB mati itu bohong.
+  Catatan: fetch profil ada di `navbar.tsx`, bukan `account-menu.tsx` (yang
+  sinkron) seperti klaim audit.
+- `events.category_slugs` fisik + GIN (migration `20260930100001`). Tipe
+  `VARCHAR[]`, bukan `TEXT[]` seperti usulan: kolom view lama bertipe
+  `character varying[]`, dan tipe berbeda memaksa DROP VIEW atau cast yang
+  membuat filter tidak lagi cocok dengan index (dibuktikan `91_category_slugs`,
+  termasuk uji negatif tanpa index). Trigger juga menangani ganti slug
+  kategori dan mengabaikan tulisan langsung ke kolom turunan.
+- `create_team_with_leader()` (migration `20260930100002`) — **SECURITY
+  INVOKER**, bukan DEFINER seperti usulan. Atomisitas tidak butuh DEFINER;
+  INVOKER tetap tunduk pada RLS `teams_owner_insert`/`team_members_self_join`
+  sehingga aturan tidak disalin dua kali. Pembuat = `auth.uid()`, bukan
+  parameter.
+- `output: 'standalone'` + `Dockerfile`; `serverActions.allowedOrigins` dari
+  host `NEXT_PUBLIC_SITE_URL` (untuk proxy yang meneruskan `Host` internal —
+  pertahanan CSRF bawaan Next.js tetap berlaku tanpanya).
+
+**Keputusan — ditolak:**
+- `join_team_atomic(p_team_id, p_user_id)` SECURITY DEFINER: race slot
+  terakhir SUDAH dijaga trigger `enforce_team_capacity` (`FOR UPDATE`,
+  20260923100001, diuji paritas). Versi usulan menerima `p_user_id` dan
+  melewati RLS → siapa pun bisa memasukkan orang lain ke tim mana pun (IDOR).
+- `<Suspense>` di sekitar grid `/events`: melanggar keputusan yang dikunci
+  `tests/e2e/events-no-js.spec.ts` — konten stream dikirim dalam `<div hidden>`
+  dan hanya dimunculkan JavaScript, jadi tanpa JS halaman kosong. Halaman itu
+  juga TIDAK memakai Suspense sama sekali (tidak ada `FilterBar` "di dalam
+  Suspense" untuk dikeluarkan); navigasi App Router menahan UI lama sampai
+  data baru siap, jadi tidak ada kedipan yang perlu diperbaiki.
+- `React.cache()` untuk `loadEvent`: sudah ada sejak awal.
+- HSTS: sudah ada (hanya produksi, `HSTS_VALUE`). CSP statis di
+  `next.config.ts`: browser menegakkan SEMUA header CSP sekaligus, jadi CSP
+  kedua tanpa nonce akan memblokir skrip hidrasi — CSP tetap per request di
+  middleware. Supabase tidak ditambahkan ke `connect-src`: browser tidak pernah
+  memanggil Supabase langsung (semua lewat server), dan origin yang tidak
+  dipakai hanya memperlebar tujuan eksfiltrasi.
+
+**UI (bagian yang sama):** kamera tur beranda diberi ritme zoom bervariasi
+(1.0–1.9×) dan pembuka bab yang cukup lama untuk benar-benar mundur ke 1.0×
+(sebelumnya berhenti di 1.09× karena 700 ms < transisi 1100 ms); `<select>`
+native tetap native tapi satu komponen + panah sendiri (`select-chevron`);
+"Kiriman saya" untuk pengirim (`listMySubmissions`, index pemilik
+`20260930100003`); "Perlu tindakan" di Pendaftaran; panel kondisi antrean
+di `/admin` (batas tunggu 48 jam).
+
+**Konsekuensi:** `next start` mencetak peringatan soal standalone tetapi tetap
+berjalan (dipakai Playwright). Dockerfile belum pernah di-`docker build` di
+lingkungan pengembangan ini (tanpa daemon); tahap jalannya (`node server.js`
+dari folder standalone) sudah. Alasan penolakan kiriman belum disimpan di
+skema, jadi "Kiriman saya" menulis penyebab umum, bukan alasan spesifik.
+
+---
+
 ## ADR-046 — Portofolio = baris tracker yang sudah "Sudah daftar"; riwayat berbeda per peran
 
 **Konteks:** Pengguna meminta riwayat untuk tiap peran dengan isi berbeda,

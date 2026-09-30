@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Check, ChevronRight, Trash2, X } from 'lucide-react';
 import { removeTrackerAction, updateTrackerStatusAction } from '@/app/tracker/actions';
 import { DeadlineTag } from '@/components/event/deadline-tag';
+import { SelectInput } from '@/components/ui/field';
 import { initialsOf } from '@/lib/initials';
 import { TRACKER_STEPS, TRACKER_STEP_LABEL, trackerProgress } from '@/lib/tracker-progress';
 import { cn } from '@/lib/utils';
@@ -18,18 +19,18 @@ export function TrackerStatusForm({ item, returnTo }: { item: TrackerItem; retur
       <label htmlFor={`status-${item.id}`} className="sr-only">
         Tahap lamaran untuk {item.event.title}
       </label>
-      <select
+      <SelectInput
         id={`status-${item.id}`}
         name="status"
         defaultValue={item.status}
-        className="h-11 min-w-0 rounded-sm border border-line-strong/70 bg-panel px-2.5 text-sm hover:border-line-strong focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        className="min-w-0 flex-1 sm:w-44 sm:flex-none"
       >
         {TRACKER_STATUSES.map((status) => (
           <option key={status} value={status}>
             {TRACKER_STATUS_LABEL[status]}
           </option>
         ))}
-      </select>
+      </SelectInput>
       <button type="submit" className="h-11 shrink-0 rounded-sm bg-brand px-3.5 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover">
         Ubah
       </button>

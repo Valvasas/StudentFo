@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { BadgeCheck, ShieldCheck } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { MySubmissions } from '@/components/submit/my-submissions';
 import { TurnstileWidget } from '@/components/submit/turnstile-widget';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
@@ -62,9 +63,10 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   ]);
   const nonce = requestHeaders.get(NONCE_HEADER) ?? undefined;
   const turnstileSiteKey = env.TURNSTILE_SITE_KEY;
-  const [categories, organizerProfile] = await Promise.all([
+  const [categories, organizerProfile, mySubmissions] = await Promise.all([
     repository.listCategories(),
     user ? repository.getOrganizerProfile(user.id) : Promise.resolve(null),
+    user ? repository.listMySubmissions(user.id, 5) : Promise.resolve([]),
   ]);
   const verifiedOrg = organizerProfile?.status === 'VERIFIED' ? organizerProfile.orgName : null;
   const invalidFields = invalidFieldLabels(params.fields);
@@ -78,10 +80,11 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           Tahu lomba, beasiswa, magang, atau workshop yang belum ada di StudentFo? Kirim di sini.
           Penyelenggara juga boleh mendaftarkan acaranya sendiri.
         </p>
-        <p className="mt-3 flex items-start gap-2 rounded-card border border-line bg-panel p-4 text-sm text-ink-soft">
-          <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-brand" />
-          Setiap kiriman dicek manual ke sumber aslinya sebelum tayang. Email kamu hanya dipakai untuk
-          menghubungi kalau ada yang perlu dikonfirmasi — tidak ditampilkan ke publik.
+        {/* Satu baris teks biasa, bukan kotak ketiga: tiga kotak bertumpuk di
+            atas form membuat orang menggulir melewati semuanya tanpa membaca. */}
+        <p className="mt-3 flex items-start gap-2 text-sm text-ink-muted">
+          <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
+          Dicek manual ke sumber aslinya sebelum tayang. Emailmu tidak pernah ditampilkan ke publik.
         </p>
         {verifiedOrg ? (
           <p className="mt-3 flex items-start gap-2 rounded-card border border-success-line bg-success-soft p-4 text-sm text-success">
@@ -111,6 +114,12 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
       <ActionFeedback params={params} className="mt-6" />
       {invalidFields.length > 0 && (
         <p className="mt-2 text-sm text-danger">Periksa kolom: {invalidFields.join(', ')}.</p>
+      )}
+
+      {mySubmissions.length > 0 && (
+        <div className="mt-8">
+          <MySubmissions submissions={mySubmissions} />
+        </div>
       )}
 
       <form action={submitEventAction} className="mt-8 flex flex-col gap-5">

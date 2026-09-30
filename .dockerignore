@@ -1,0 +1,13 @@
+.git
+node_modules
+.next
+.next-supabase
+.cache
+.env
+.env*.local
+pipeline
+test-results
+playwright-report
+coverage
+supabase/.temp
+supabase/.branches

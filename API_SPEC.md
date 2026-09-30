@@ -35,6 +35,8 @@ interface EventRepository {
   // Kiriman komunitas (Phase 3). createSubmission boleh tamu; dua lainnya admin saja.
   createSubmission(input: CreateSubmissionInput): Promise<void>;
   listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]>;
+  // Kiriman milik userId (dari sesi server, bukan input), terbaru dulu — /submit & studio.
+  listMySubmissions(userId: string, limit: number): Promise<readonly Submission[]>;
   reviewSubmission(input: ReviewSubmissionInput): Promise<void>;
 
   // Saved events (Phase 2)
@@ -53,7 +55,7 @@ interface EventRepository {
   // Tim lomba (Phase 3)
   listTeams(eventId?: string): Promise<readonly Team[]>;
   getTeamById(teamId: string): Promise<Team | null>;
-  createTeam(input: CreateTeamRepositoryInput): Promise<string>; // -> teamId
+  createTeam(input: CreateTeamRepositoryInput): Promise<string>; // -> teamId; Supabase: RPC create_team_with_leader (atomik)
   joinTeam(actorId: string, actorName: string, teamId: string): Promise<void>;
   leaveTeam(actorId: string, teamId: string): Promise<void>;
   removeTeamMember(actorId: string, teamId: string, memberId: string): Promise<void>;

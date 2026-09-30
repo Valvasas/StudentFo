@@ -13,7 +13,29 @@ const securityHeaders = [
     : []),
 ];
 
+/**
+ * Origin tambahan untuk Server Action. Next.js sudah menolak POST Server
+ * Action yang header `Origin`-nya tidak sama dengan `Host`/`X-Forwarded-Host`
+ * — itu pertahanan CSRF-nya, dan berlaku tanpa daftar ini. Daftar ini untuk
+ * deploy di balik proxy/CDN yang meneruskan `Host` internal (mis. nama
+ * container) alih-alih domain publik: tanpa itu SEMUA form ditolak di
+ * produksi padahal jalan di lokal.
+ */
+function serverActionOrigins(): string[] {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!raw) return [];
+  try {
+    return [new URL(raw).host];
+  } catch {
+    return [];
+  }
+}
+
 const nextConfig: NextConfig = {
+  // Build mandiri (`.next/standalone/server.js` + node_modules minimal) untuk
+  // image container — lihat Dockerfile. Tidak mengubah `next start` dan
+  // tidak berpengaruh di Vercel.
+  output: 'standalone',
   // e2e mode Supabase (scripts/e2e-supabase.sh) membangun ke folder terpisah
   // supaya tidak menimpa build mode seed yang dipakai audit aksesibilitas.
   distDir: process.env.NEXT_DIST_DIR || '.next',
@@ -25,6 +47,9 @@ const nextConfig: NextConfig = {
   experimental: {
     // Tree-shake barrel import lucide-react supaya bundle tidak membengkak.
     optimizePackageImports: ['lucide-react'],
+    serverActions: {
+      allowedOrigins: serverActionOrigins(),
+    },
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

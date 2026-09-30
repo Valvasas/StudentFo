@@ -368,6 +368,27 @@
   padding-inline: var(--space-4);
 }
 
+/* Panah <select> milik sendiri. Panah bawaan peramban berbeda di tiap OS
+   (Chrome Windows: kotak abu bergaya 2010) dan tidak mengikuti token warna —
+   itu yang membuat form terlihat setengah jadi. Elemennya TETAP <select>
+   native: di ponsel ia membuka pemilih sistem yang jauh lebih mudah dipakai
+   daripada dropdown JavaScript, dan form tetap jalan tanpa JavaScript.
+   Warna panah = --color-text-muted (terang #5f5e5b / gelap #a3a29c); data
+   URI tidak bisa membaca variabel CSS, jadi nilainya ditulis ulang di sini. */
+@utility select-chevron {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235f5e5b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+  text-overflow: ellipsis;
+
+  :root[data-theme='dark'] & {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23a3a29c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  }
+}
+
 /* Skip-link: tersembunyi sampai di-Tab. Wajib untuk keyboard user supaya
    tidak perlu tab lewat seluruh navigasi di tiap halaman. */
 @utility skip-link {
@@ -517,11 +538,6 @@ html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
 @keyframes sf-marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
-}
-
-@keyframes sf-marquee-reverse {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
 }
 
 @keyframes sf-pulse-ring {

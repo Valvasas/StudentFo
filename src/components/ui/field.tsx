@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
  */
 
 const controlClass = [
-  'h-11 w-full rounded-card border border-line bg-panel px-3 text-base',
+  'h-11 w-full rounded-card border border-line-strong/70 bg-panel px-3 text-base',
   'text-ink placeholder:text-ink-faint',
   'transition-colors duration-150 ease-snap hover:border-line-strong',
   'focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
@@ -33,8 +33,9 @@ export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInput
   return <input className={cn(controlClass, className)} {...props} />;
 }
 
+/** Satu-satunya <select> di aplikasi — jangan menulis ulang kelasnya per halaman. */
 export function SelectInput({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(controlClass, 'pr-8', className)} {...props} />;
+  return <select className={cn(controlClass, 'select-chevron cursor-pointer', className)} {...props} />;
 }
 
 export function TextArea({ className, rows = 4, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {

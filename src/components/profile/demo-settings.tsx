@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Bell, Check, RotateCcw } from 'lucide-react';
 import { useDemoStore } from '@/components/demo/use-demo-store';
 import { DetailCard, detailPrimaryButton } from '@/components/profile/detail-card';
+import { SelectInput } from '@/components/ui/field';
 import { DEMO_STORE_EVENT } from '@/lib/demo/browser-store';
 import {
   CHANNEL_LABEL,
@@ -151,7 +152,7 @@ export function DemoNotificationCard({ delay }: { delay: number }) {
           <label htmlFor="reminder-hour" className="text-[13.5px] font-semibold">
             Dikirim pukul
           </label>
-          <select
+          <SelectInput
             id="reminder-hour"
             value={prefs.hour}
             disabled={!loaded}
@@ -159,14 +160,14 @@ export function DemoNotificationCard({ delay }: { delay: number }) {
               const hour = REMINDER_HOURS.find((item) => item === event.target.value);
               if (hour) update({ ...prefs, hour });
             }}
-            className="h-11 rounded-card border border-line-strong/70 bg-panel px-3 text-base hover:border-line-strong focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className="w-auto"
           >
             {REMINDER_HOURS.map((hour) => (
               <option key={hour} value={hour}>
                 {hour} WIB
               </option>
             ))}
-          </select>
+          </SelectInput>
         </div>
         <p className={cn('flex items-start gap-2 rounded-card px-3.5 py-3 text-[13.5px]', days.length ? 'bg-panel-nested' : 'border border-dashed border-line-strong')}>
           <Bell aria-hidden className="mt-0.5 size-4 shrink-0" />

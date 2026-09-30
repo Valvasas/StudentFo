@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { MySubmissions } from '@/components/submit/my-submissions';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
@@ -68,9 +69,17 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
   const repository = await getEventRepository();
   const profile = await repository.getOrganizerProfile(user.id);
   const verified = profile?.status === 'VERIFIED';
-  const [managed, claims, history] = verified
-    ? await Promise.all([repository.listManagedEvents(user.id), repository.listMyClaims(user.id), repository.listOrganizerHistory(user.id)])
-    : [[], [], []];
+  const [managed, claims, history, submissions] = verified
+    ? await Promise.all([
+        repository.listManagedEvents(user.id),
+        repository.listMyClaims(user.id),
+        repository.listOrganizerHistory(user.id),
+        repository.listMySubmissions(user.id, 10),
+      ])
+    : [[], [], [], []];
+  // Kiriman yang sudah disetujui sudah tampil sebagai acara kelolaan; di sini
+  // hanya yang masih perlu perhatian penyelenggara.
+  const openSubmissions = submissions.filter((submission) => submission.status !== 'APPROVED');
   // Acara yang sudah tutup pindah ke Riwayat (angka akhir), bukan bercampur
   // dengan acara yang masih butuh perhatian.
   const closedIds = new Set(history.map((entry) => entry.eventId));
@@ -101,6 +110,7 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
         <>
           <QuickActions />
           <ManagedEventsSection managed={active} hasHistory={history.length > 0} />
+          <MySubmissions submissions={openSubmissions} title="Menunggu atau tidak disetujui moderator" />
           <ClaimsSection claims={claims} />
           <HistorySection history={history} />
           <details className="group rounded-panel border border-line bg-panel">

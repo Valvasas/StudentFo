@@ -87,8 +87,6 @@ const FAQS = [
   },
 ] as const;
 
-const CTA_WORDS = ['Lomba', 'Beasiswa', 'Magang', 'Workshop', 'Seminar'] as const;
-
 const sectionClass = 'container-page max-w-[1120px] pt-[clamp(96px,12vw,144px)]';
 const eyebrowClass = 'font-mono text-[13px] text-ink-muted';
 const h2Class = 'text-[clamp(32px,5vw,44px)] font-bold leading-[1.08] tracking-[-0.035em]';
@@ -251,17 +249,9 @@ export default function HomePage() {
 
       <section aria-labelledby="cta-title" className={sectionClass}>
         <div data-reveal="scale" className="relative overflow-hidden rounded-[20px] bg-inverse text-on-inverse">
-          <div aria-hidden className="pointer-events-none absolute inset-0 flex select-none flex-col justify-center gap-2">
-            {(['sf-marquee 80s', 'sf-marquee-reverse 90s'] as const).map((animation) => (
-              <div key={animation} className="flex w-max" style={{ animation: `${animation} linear infinite` }}>
-                {[...CTA_WORDS, ...CTA_WORDS].map((word, index) => (
-                  <span key={index} className="whitespace-nowrap pr-14 text-[120px] font-bold leading-none tracking-[-0.05em] text-white/[0.06]">
-                    {word}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
+          {/* Tanpa teks latar berjalan: dua baris kata raksasa yang bergerak di
+              belakang judul bersaing dengan judul itu sendiri, dan satu-satunya
+              tugas bagian ini adalah membuat dua tombolnya terbaca. */}
           <div className="relative flex flex-col items-center gap-5 px-6 py-[clamp(64px,9vw,96px)] text-center">
             <h2 id="cta-title" className="max-w-[18ch] text-[clamp(34px,5.4vw,48px)] font-bold leading-[1.06] tracking-[-0.04em] text-on-inverse">
               Tenggat berikutnya mungkin minggu ini.

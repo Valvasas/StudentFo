@@ -6,6 +6,7 @@ import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { CategoryIcon } from '@/components/listing/category-icon';
 import { DemoRolePicker } from '@/components/profile/demo-role-picker';
+import { SelectInput } from '@/components/ui/field';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil } from '@/lib/deadline';
@@ -95,11 +96,11 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
             <label htmlFor="educationLevel" className="text-lg font-semibold tracking-[-0.015em]">
               Jenjang pendidikan
             </label>
-            <select
+            <SelectInput
               id="educationLevel"
               name="educationLevel"
               defaultValue={user.educationLevel ?? ''}
-              className="h-11 w-full max-w-xs rounded-card border border-line-strong/70 bg-panel px-3 text-base hover:border-line-strong focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              className="max-w-xs"
             >
               <option value="">Belum diisi</option>
               {EDUCATION_LEVELS.map((level) => (
@@ -107,7 +108,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
                   {EDUCATION_LEVEL_LABEL[level]}
                 </option>
               ))}
-            </select>
+            </SelectInput>
           </div>
 
           {demoFeaturesEnabled && (
