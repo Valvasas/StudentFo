@@ -192,10 +192,14 @@ Mengajak orang yang memblokir pembaca (atau yang diblokir pembaca) gagal
 dengan `person_unavailable` — kode yang SAMA dengan "profil disembunyikan",
 supaya yang diblokir tidak bisa menyimpulkan bahwa ia diblokir.
 
-`NetworkRepository.listConnections(userId, { limit, cursor })` mengembalikan
+`NetworkRepository.listConnections(userId, { limit, cursor, kind?, search? })` mengembalikan
 `{ items, nextCursor }` (kursor keyset opak; rusak → `invalid_request`,
-`limit` dipotong ke 500). Angka di halaman diambil dari `countConnections()`,
-bukan dari panjang halaman.
+`limit` dipotong ke 500). `kind` = `accepted` | `incoming` | `outgoing`
+(tanpa = semua, dipakai peta); `search` = potongan nama pihak lawan, WAJIB
+lewat `normalizeConnectionSearch()` (repository Supabase menormalisasi ulang
+sebelum `ilike`). Aturan saring yang sama (`matchesConnectionFilter`) dipakai
+kedua repository — dikunci test paritas. Angka di halaman diambil dari
+`countConnections()`, bukan dari panjang halaman (ADR-048).
 
 ### Aksi penyelenggara — `src/app/penyelenggara/actions.ts` (ADR-042)
 

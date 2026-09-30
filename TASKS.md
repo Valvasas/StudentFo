@@ -375,3 +375,14 @@ Belum / butuh keputusan atau akses pemilik:
 - [ ] `docker build` belum dijalankan (tanpa daemon di lingkungan ini) — uji di CI/staging.
 - [ ] Simpan alasan penolakan kiriman (kolom + form admin) supaya "Kirimanmu" bisa menyebut alasan spesifik.
 - [ ] Terapkan migration 20260930100001–03 ke project Supabase — butuh persetujuan eksplisit pemilik.
+
+## Skalabilitas UI & ruang napas 2026-09-30 (@claude) — ADR-048
+
+- [x] `listConnections({ kind, search })` di kedua repository + unit & paritas integrasi.
+- [x] `/connections` dipecah per tab; semua daftar dipaginasi kursor; cari di koneksi sendiri.
+- [x] Kartu saran: 2 alasan terkuat, tanpa chip minat yang mengulang alasan; 12 chip → `<select>`.
+- [x] `/messages` & `/discussions` tanpa AccountShell; diskusi: temukan grup dilipat, utas datar.
+- [x] `/teams`: chip kegiatan → `<select>` (GET).
+- [x] e2e/axe/target sentuh diperbarui untuk tab baru (+ uji pencarian koneksi & URL aneh).
+- [ ] Backend diskusi/pesan (masih demo) — paginasi utas & percakapan saat dibangun.
+- [ ] Hitungan hasil pencarian di Koneksimu ("N hasil") butuh `count` dengan saringan yang sama.
