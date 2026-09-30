@@ -432,6 +432,25 @@ export class SupabaseEventRepository implements EventRepository {
     return data.map(toSubmission);
   }
 
+  async listMySubmissions(userId: string, limit: number): Promise<readonly Submission[]> {
+    if (!isUuid(userId)) return [];
+    // Klien admin karena `ugc_submissions` hanya terbaca admin lewat RLS
+    // (`ugc_admin_read`) — tabel itu juga memuat `reviewed_by`, identitas
+    // moderator yang tidak perlu dibuka ke pengirim lewat policy baru.
+    // Penyaringnya `userId` dari sesi server, dan kolomnya dipilih eksplisit.
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('ugc_submissions')
+      .select('id, submitted_by_email, submitted_by, payload, status, created_at')
+      .eq('submitted_by', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+      .returns<SubmissionRow[]>();
+
+    if (error) throw upstreamFailure('Gagal memuat kirimanmu.', error);
+    return data.map(toSubmission);
+  }
+
   async reviewSubmission({ submissionId, decision, reviewerId }: ReviewSubmissionInput): Promise<void> {
     if (!isUuid(submissionId)) throw actionError('submission_not_found');
     const supabase = createSupabaseAdminClient();
@@ -878,39 +897,26 @@ export class SupabaseEventRepository implements EventRepository {
   async createTeam(input: CreateTeamRepositoryInput): Promise<string> {
     const supabase = await createSupabaseServerClient();
 
-    const { data, error } = await supabase
-      .from('teams')
-      .insert({
-        event_id: input.eventId,
-        created_by: input.createdBy,
-        title: input.title,
-        description: input.description,
-        slots_needed: input.slotsNeeded,
-      })
-      .select('id')
-      .single<{ id: string }>();
+    // Tim + ketua dibuat dalam satu transaksi di database (migration
+    // 20260930100002). Dua request terpisah pernah bisa meninggalkan tim
+    // tanpa ketua kalau request kedua dan DELETE kompensasinya sama-sama
+    // gagal. Pembuat = `auth.uid()` di SQL; `input.createdBy` hanya dipakai
+    // mode seed.
+    const { data, error } = await supabase.rpc('create_team_with_leader', {
+      p_event_id: input.eventId,
+      p_title: input.title,
+      p_description: input.description,
+      p_slots_needed: input.slotsNeeded,
+    });
 
-    if (error || !data) {
-      // 42501 = ditolak RLS. Sejak 20260923100001, policy insert `teams`
-      // mensyaratkan event berstatus APPROVED — penolakan itu yang muncul di sini.
+    if (error || typeof data !== 'string') {
+      // 42501 = ditolak RLS. Policy insert `teams` mensyaratkan event
+      // berstatus APPROVED — penolakan itu yang muncul di sini.
       if (sqlState(error) === '42501') throw actionError('event_unavailable');
       throw upstreamFailure('Gagal membuat tim.', error, 500);
     }
 
-    // Pembuat langsung didaftarkan sebagai ketua. Kalau langkah ini gagal,
-    // timnya dihapus lagi: tim tanpa ketua tidak bisa dikelola siapa pun,
-    // dan `teams_owner_*` membuat hanya pembuatnya yang bisa
-    // membereskannya — yaitu request yang sedang gagal ini.
-    const { error: memberError } = await supabase
-      .from('team_members')
-      .insert({ team_id: data.id, user_id: input.createdBy, role: 'leader' });
-
-    if (memberError) {
-      await supabase.from('teams').delete().eq('id', data.id);
-      throw upstreamFailure('Gagal membuat tim.', memberError, 500);
-    }
-
-    return data.id;
+    return data;
   }
 
   async joinTeam(actorId: string, _actorName: string, teamId: string): Promise<void> {
