@@ -87,29 +87,30 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
 
       <ActionFeedback params={params} className="mt-6 max-w-2xl" />
 
+      {/* Satu pilihan per kegiatan yang punya tim — bisa puluhan. Sebagai
+          chip, judulnya terpotong dan barisnya bergeser tanpa ujung; sebagai
+          <select> native, semua judul terbaca utuh dan tetap satu baris.
+          Form GET + tombol: jalan tanpa JavaScript (AGENTS.md §9). */}
       {eventChips.length > 1 && (
-        <nav aria-label="Saring kegiatan" className="mt-8 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
-          <Link
-            href="/teams"
-            aria-current={!scoped ? 'page' : undefined}
-            className={cn('flex min-h-11 shrink-0 items-center rounded-sm border px-3.5 text-[13.5px] font-medium', !scoped ? 'border-brand bg-brand text-on-brand' : 'border-line hover:border-line-strong')}
+        <form method="get" action="/teams" aria-label="Saring kegiatan" className="mt-8 flex max-w-xl flex-col gap-2 sm:flex-row">
+          <label className="flex-1">
+            <span className="sr-only">Kegiatan</span>
+            <SelectInput name="kegiatan" defaultValue={scoped?.slug ?? ''}>
+              <option value="">Semua kegiatan ({eventChips.length})</option>
+              {eventChips.map((event) => (
+                <option key={event.id} value={event.slug}>
+                  {event.title}
+                </option>
+              ))}
+            </SelectInput>
+          </label>
+          <button
+            type="submit"
+            className="flex h-11 items-center justify-center rounded-card border border-line-strong/70 px-4 text-sm font-semibold transition-colors duration-150 hover:bg-panel-nested"
           >
-            Semua kegiatan
-          </Link>
-          {eventChips.map((event) => {
-            const active = scoped?.id === event.id;
-            return (
-              <Link
-                key={event.id}
-                href={`/teams?kegiatan=${event.slug}`}
-                aria-current={active ? 'page' : undefined}
-                className={cn('flex min-h-11 max-w-[260px] shrink-0 items-center rounded-sm border px-3.5 text-[13.5px] font-medium', active ? 'border-brand bg-brand text-on-brand' : 'border-line hover:border-line-strong')}
-              >
-                <span className="truncate">{event.title}</span>
-              </Link>
-            );
-          })}
-        </nav>
+            Tampilkan
+          </button>
+        </form>
       )}
 
       <div className="mt-8 grid items-start gap-8 lg:grid-cols-[300px_minmax(0,1fr)]">

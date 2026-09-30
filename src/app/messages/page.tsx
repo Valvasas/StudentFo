@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { InboxTabs } from '@/components/demo/inbox-tabs';
 import { MessagesApp, type RelatedEvent } from '@/components/demo/messages-app';
-import { AccountShell } from '@/components/layout/account-shell';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateId } from '@/lib/deadline';
@@ -20,7 +19,7 @@ export const metadata: Metadata = {
 /** Pesan (kanvas Pesan). Belum ada backend pesan — hanya di mode data contoh (ADR-039). */
 export default async function MessagesPage() {
   if (!demoFeaturesEnabled) notFound();
-  const user = await requireUser('/messages');
+  await requireUser('/messages');
   const repository = await getEventRepository();
   const slugs = [...new Set(DEMO_CONVERSATIONS.map((item) => item.eventSlug).filter((slug): slug is string => Boolean(slug)))];
   const found = await Promise.all(slugs.map((slug) => repository.getEventBySlug(slug)));
@@ -37,12 +36,13 @@ export default async function MessagesPage() {
   }
 
   return (
-    <AccountShell user={user} active="pesan">
-      <div className="flex flex-col gap-5">
-        <h1 className="sr-only">Pesan</h1>
-        <InboxTabs active="pesan" description="Percakapan pribadi, tim, dan penyelenggara kegiatan." />
-        <MessagesApp events={events} />
-      </div>
-    </AccountShell>
+    // Tanpa AccountShell (ADR-048): kotak masuk sudah punya kolom daftarnya
+    // sendiri; menu akun di kiri membuatnya tiga kolom dan memotong nama
+    // percakapan. Tujuan menu itu tetap ada di menu akun navbar.
+    <div className="container-page flex flex-col gap-6 pb-16 pt-8">
+      <h1 className="sr-only">Pesan</h1>
+      <InboxTabs active="pesan" description="Percakapan pribadi, tim, dan penyelenggara kegiatan." />
+      <MessagesApp events={events} />
+    </div>
   );
 }
