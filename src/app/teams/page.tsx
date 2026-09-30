@@ -5,6 +5,7 @@ import { createTeamAction } from '@/app/teams/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { DemoTeamCard } from '@/components/profile/demo-profile-parts';
 import { TeamCard } from '@/components/team/team-card';
+import { SelectInput } from '@/components/ui/field';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId } from '@/lib/deadline';
@@ -162,7 +163,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
                   <label htmlFor="eventId" className="text-[13.5px] font-semibold">
                     Kegiatan
                   </label>
-                  <select id="eventId" name="eventId" required defaultValue={scoped?.id ?? ''} className={inputClass}>
+                  <SelectInput id="eventId" name="eventId" required defaultValue={scoped?.id ?? ''}>
                     <option value="" disabled>
                       Pilih kegiatan
                     </option>
@@ -171,7 +172,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
                         {event.title} — {EVENT_TYPE_LABEL[event.eventType]}
                       </option>
                     ))}
-                  </select>
+                  </SelectInput>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="title" className="text-[13.5px] font-semibold">

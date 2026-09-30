@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, BookmarkCheck, Clock, Plus, Send, Trophy, Users } from 'lucide-react';
+import { AlarmClock, ArrowRight, BookmarkCheck, Clock, Plus, Send, Trophy, Users } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { TrackerCard } from '@/components/tracker/tracker-card';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
-import { daysLeftLabel, daysUntil, formatDateId } from '@/lib/deadline';
+import { daysLeftLabel, formatDateId } from '@/lib/deadline';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
+import { ACTION_WINDOW_DAYS, needsActionSoon } from '@/lib/tracker-progress';
 import { cn } from '@/lib/utils';
 import { TRACKER_STATUS_LABEL, TRACKER_STATUSES, type TrackerStatus } from '@/types/domain';
 
@@ -86,9 +87,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
   const byDeadline = (left: (typeof items)[number], right: (typeof items)[number]) =>
     (left.event.primaryDeadlineAt ?? '9999').localeCompare(right.event.primaryDeadlineAt ?? '9999');
   const shown = items.filter((item) => !filter || item.status === filter).sort(byDeadline);
-  const nextUp = items
-    .filter((item) => item.status === 'SAVED' && item.event.primaryDeadlineAt && (daysUntil(item.event.primaryDeadlineAt, now) ?? -1) >= 0)
-    .sort(byDeadline)[0];
+  const actionable = needsActionSoon(items, now);
   const returnTo = filter ? `/tracker?tahap=${filter}` : '/tracker';
 
   return (
@@ -118,16 +117,44 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
                 <span className="text-[13px] text-ink-muted">{TRACKER_STATUS_LABEL[status]}</span>
               </div>
             ))}
-            {nextUp?.event.primaryDeadlineAt ? (
-              <Link href={`/tracker/${nextUp.event.slug}`} className="flex min-w-0 flex-col gap-1 bg-inverse px-5 py-4 text-on-inverse transition-opacity duration-150 hover:opacity-90 [grid-column:span_2]">
-                <span className="font-mono text-[11px] tracking-[.08em] text-on-inverse-muted">BELUM DAFTAR · TERDEKAT</span>
-                <span className="truncate text-[15px] font-semibold">{nextUp.event.title}</span>
-                <span className="text-[13px] text-on-inverse-muted">
-                  Tutup {formatDateId(nextUp.event.primaryDeadlineAt)} · {daysLeftLabel(daysUntil(nextUp.event.primaryDeadlineAt, now)).toLowerCase()}
-                </span>
-              </Link>
-            ) : null}
           </div>
+        )}
+
+        {/* Satu-satunya bagian halaman ini yang meminta sesuatu dari pengguna,
+            jadi ia mendapat tempat sendiri — bukan satu ubin di antara angka.
+            Hanya yang belum didaftar: yang sudah daftar tidak butuh tindakan. */}
+        {actionable.length > 0 && (
+          <section aria-labelledby="perlu-tindakan" className="enter flex flex-col gap-3 rounded-[18px] border border-line-strong/70 p-5 [animation-delay:120ms] [animation-duration:800ms] sm:p-6">
+            <h2 id="perlu-tindakan" className="flex items-center gap-2 text-[17px] font-semibold">
+              <AlarmClock aria-hidden className="size-[18px]" />
+              Tutup dalam {ACTION_WINDOW_DAYS} hari, belum kamu daftar
+            </h2>
+            <ul className="flex flex-col divide-y divide-line">
+              {actionable.slice(0, 3).map(({ item, daysLeft }) => (
+                <li key={item.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5 first:pt-0 last:pb-0">
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate font-medium">{item.event.title}</span>
+                    <span className="text-[13px] text-ink-muted">
+                      Tutup {item.event.primaryDeadlineAt ? formatDateId(item.event.primaryDeadlineAt) : '—'} ·{' '}
+                      <strong className="font-semibold text-ink">{daysLeftLabel(daysLeft).toLowerCase()}</strong>
+                    </span>
+                  </span>
+                  <Link
+                    href={`/tracker/${item.event.slug}`}
+                    className="flex min-h-11 items-center gap-1.5 text-sm font-semibold underline underline-offset-[3px]"
+                  >
+                    Siapkan pendaftaran<span className="sr-only"> {item.event.title}</span>
+                    <ArrowRight aria-hidden className="size-4" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {actionable.length > 3 && (
+              <Link href="/tracker?tahap=SAVED" className="self-start text-sm text-ink-muted underline underline-offset-[3px]">
+                dan {actionable.length - 3} lainnya di tahap Disimpan
+              </Link>
+            )}
+          </section>
         )}
 
         {items.length > 0 && (

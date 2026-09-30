@@ -24,6 +24,9 @@ test('pengirim yang masuk dikabari lewat lonceng saat kirimannya disetujui', asy
   await student.locator('input[name="categorySlugs"]').first().check();
   await student.getByRole('button', { name: 'Kirim untuk diverifikasi' }).click();
   await expect(student).toHaveURL(/notice=submission_received/);
+  // Pengirim melihat nasib kirimannya tanpa menunggu notifikasi.
+  const mine = student.getByRole('region', { name: 'Kirimanmu' }).getByRole('listitem').filter({ hasText: title });
+  await expect(mine).toContainText('Menunggu moderator');
 
   const adminContext = await browser.newContext();
   const admin = await adminContext.newPage();
@@ -40,6 +43,9 @@ test('pengirim yang masuk dikabari lewat lonceng saat kirimannya disetujui', asy
   await item.click();
   await expect(student).toHaveURL(/\/events\/lomba-kabar-pengirim/);
   await expect(student.getByRole('heading', { level: 1, name: title })).toBeVisible();
+
+  await student.goto('/submit');
+  await expect(mine).toContainText('Tayang');
   await studentContext.close();
 });
 

@@ -136,6 +136,12 @@ export interface SubmissionRepository {
    */
   createSubmission(input: CreateSubmissionInput): Promise<void>;
   listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]>;
+  /**
+   * Kiriman milik satu akun, terbaru dulu — supaya pengirim tahu nasib
+   * kirimannya tanpa menunggu notifikasi. `userId` WAJIB dari sesi server
+   * (`getSessionUser`), tidak pernah dari input form/URL.
+   */
+  listMySubmissions(userId: string, limit: number): Promise<readonly Submission[]>;
   /** Setujui = salin ke `events` berstatus APPROVED (atomik); tolak = tandai REJECTED. */
   reviewSubmission(input: ReviewSubmissionInput): Promise<void>;
 }

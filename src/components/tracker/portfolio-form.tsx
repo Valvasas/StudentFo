@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Eye, EyeOff, Info } from 'lucide-react';
 import { updatePortfolioAction } from '@/app/tracker/actions';
+import { SelectInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import {
   ACHIEVEMENT_OPTIONS,
@@ -54,14 +55,14 @@ export function PortfolioPanel({ item, returnTo }: { item: TrackerItem; returnTo
         <label htmlFor="achievement" className="text-[13.5px] font-semibold">
           Hasil
         </label>
-        <select id="achievement" name="achievement" defaultValue={item.achievement ?? ''} className={fieldClass}>
+        <SelectInput id="achievement" name="achievement" defaultValue={item.achievement ?? ''}>
           <option value="">Belum ada hasil / masih berjalan</option>
           {ACHIEVEMENT_OPTIONS[eventType].map((achievement) => (
             <option key={achievement} value={achievement}>
               {achievementLabel(achievement, eventType)}
             </option>
           ))}
-        </select>
+        </SelectInput>
       </div>
 
       <div className="flex flex-col gap-1.5">

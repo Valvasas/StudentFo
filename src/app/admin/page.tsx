@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlertTriangle, BadgeCheck, Check, History, Inbox, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Check, CheckCircle2, History, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react';
 import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatWait, REVIEW_SLA_HOURS, summarizeDecisions, summarizeQueue, type QueueHealth } from '@/lib/admin-health';
 import { checkAdminAccess } from '@/lib/auth';
 import { DEMO_DATA_TTL_MS, demoDataCreatedAt, getEventRepository } from '@/lib/data';
 import { formatDateTimeId, formatTimeId } from '@/lib/deadline';
@@ -18,6 +19,8 @@ export const metadata: Metadata = {
   title: 'Antrean moderasi',
   robots: { index: false, follow: false },
 };
+
+const QUEUE_LIMIT = 50;
 
 const STATUS_MESSAGE: Record<string, string> = {
   forbidden: 'Kamu tidak punya izin untuk meninjau kiriman ini.',
@@ -59,13 +62,14 @@ export default async function AdminPage({
 
   const repository = await getEventRepository();
   const demoCreatedAt = demoDataCreatedAt();
-  const [pending, submissions, organizerQueue, claimQueue, revisionQueue, categories] = await Promise.all([
-    repository.listByStatus('PENDING', 50),
-    repository.listSubmissions('PENDING', 50),
-    repository.listOrganizerApplications('PENDING', 50),
-    repository.listClaims('PENDING', 50),
-    repository.listRevisions('PENDING', 50),
+  const [pending, submissions, organizerQueue, claimQueue, revisionQueue, categories, recentLog] = await Promise.all([
+    repository.listByStatus('PENDING', QUEUE_LIMIT),
+    repository.listSubmissions('PENDING', QUEUE_LIMIT),
+    repository.listOrganizerApplications('PENDING', QUEUE_LIMIT),
+    repository.listClaims('PENDING', QUEUE_LIMIT),
+    repository.listRevisions('PENDING', QUEUE_LIMIT),
     repository.listCategories(),
+    repository.listModerationLog(300),
   ]);
   const categoryNames = Object.fromEntries(categories.map((category) => [category.slug, category.name]));
   const submitterStatuses = await repository.listOrganizerStatuses(
@@ -76,6 +80,13 @@ export default async function AdminPage({
     return entry?.status === 'VERIFIED' ? entry.orgName : null;
   };
   const trustWaiting = organizerQueue.length + claimQueue.length + revisionQueue.length;
+  const now = new Date();
+  const health = {
+    events: summarizeQueue(pending.map((event) => event.createdAt), now),
+    submissions: summarizeQueue(submissions.map((submission) => submission.createdAt), now),
+    trust: summarizeQueue([...organizerQueue, ...claimQueue, ...revisionQueue].map((item) => item.createdAt), now),
+  };
+  const decisions = summarizeDecisions(recentLog, now);
 
   return (
     <div className="container-page py-8">
@@ -88,10 +99,6 @@ export default async function AdminPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Badge variant={pending.length > 0 ? 'warning' : 'success'}>
-            <Inbox aria-hidden className="size-3.5" />
-            {pending.length} menunggu
-          </Badge>
           <Button asChild variant="secondary" size="sm">
             <Link href="/admin/penyelenggara">
               <BadgeCheck aria-hidden /> Penyelenggara
@@ -128,6 +135,26 @@ export default async function AdminPage({
 
       <ActionFeedback params={params} className="mb-6" />
 
+      <section aria-labelledby="kondisi-antrean" className="mb-10">
+        <h2 id="kondisi-antrean" className="mb-3 text-sm font-medium text-ink-muted">
+          Kondisi antrean · batas tunggu {REVIEW_SLA_HOURS} jam
+        </h2>
+        <ul className="grid gap-px overflow-hidden rounded-card border border-line bg-line [grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))]">
+          <QueueTile href="#antrean-acara" label="Acara hasil scraping" health={health.events} capped={pending.length >= QUEUE_LIMIT} />
+          <QueueTile href="#kiriman-komunitas" label="Kiriman komunitas" health={health.submissions} capped={submissions.length >= QUEUE_LIMIT} />
+          <QueueTile href="/admin/penyelenggara" label="Penyelenggara, klaim & revisi" health={health.trust} capped={false} />
+          <li className="bg-panel">
+            <Link href="/admin/riwayat" className="flex h-full flex-col gap-1 px-5 py-4 transition-colors duration-150 ease-snap hover:bg-panel-nested">
+              <span className="text-[13px] text-ink-muted">Keputusan {decisions.windowDays} hari terakhir</span>
+              <span className="text-2xl font-semibold tracking-[-0.03em]">{decisions.approved + decisions.rejected}</span>
+              <span className="text-[13px] text-ink-soft">
+                {decisions.approved} disetujui · {decisions.rejected} ditolak
+              </span>
+            </Link>
+          </li>
+        </ul>
+      </section>
+
       {gate.reason === 'demo' && (
         <div
           role="note"
@@ -156,6 +183,9 @@ export default async function AdminPage({
         </div>
       )}
 
+      <h2 id="antrean-acara" className="mb-4 scroll-mt-24 text-2xl">
+        Acara hasil scraping
+      </h2>
       {pending.length === 0 ? (
         <div className="rounded-card border border-dashed border-line bg-panel px-6 py-16 text-center">
           <Check aria-hidden className="mx-auto size-8 text-success" />
@@ -172,7 +202,7 @@ export default async function AdminPage({
         </ul>
       )}
 
-      <section aria-labelledby="kiriman-komunitas" className="mt-12">
+      <section aria-labelledby="kiriman-komunitas" className="mt-12 scroll-mt-24">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 id="kiriman-komunitas" className="flex items-center gap-2 text-2xl">
             <Users aria-hidden className="size-5 text-ink-muted" />
@@ -199,5 +229,37 @@ export default async function AdminPage({
         Sumber data saat ini: <code>{dataMode === 'supabase' ? 'Supabase' : 'seed lokal'}</code>
       </p>
     </div>
+  );
+}
+
+/**
+ * Satu antrean = satu angka + satu kalimat keadaan. Yang lewat batas tunggu
+ * ditulis dengan ikon + teks (bukan hanya warna) karena itulah satu-satunya
+ * hal di panel ini yang menuntut tindakan.
+ */
+function QueueTile({ href, label, health, capped }: { href: string; label: string; health: QueueHealth; capped: boolean }) {
+  return (
+    <li className="bg-panel">
+      <Link href={href} className="flex h-full flex-col gap-1 px-5 py-4 transition-colors duration-150 ease-snap hover:bg-panel-nested">
+        <span className="text-[13px] text-ink-muted">{label}</span>
+        <span className="text-2xl font-semibold tracking-[-0.03em]">
+          {health.count}
+          {capped && '+'}
+          <span className="sr-only"> menunggu</span>
+        </span>
+        {health.count === 0 ? (
+          <span className="flex items-center gap-1.5 text-[13px] text-success">
+            <CheckCircle2 aria-hidden className="size-3.5" /> Kosong
+          </span>
+        ) : health.overdue > 0 ? (
+          <span className="flex items-center gap-1.5 text-[13px] font-medium text-caution">
+            <AlertTriangle aria-hidden className="size-3.5" />
+            {health.overdue} lewat batas · tertua {formatWait(health.oldestHours)}
+          </span>
+        ) : (
+          <span className="text-[13px] text-ink-soft">Tertua {formatWait(health.oldestHours)}</span>
+        )}
+      </Link>
+    </li>
   );
 }

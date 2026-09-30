@@ -38,6 +38,8 @@ interface Beat {
   readonly dur?: number;
   /** [x, y, zoom] titik fokus kamera, kalau berbeda dari posisi kursor. */
   readonly focus?: readonly [number, number, number];
+  /** Tingkat zoom di posisi kursor (default 1.5). */
+  readonly zoom?: number;
   /** Kamera mundur ke tampilan penuh setelah klik (hasil besar perlu terlihat). */
   readonly hitWide?: boolean;
   readonly wide?: boolean;
@@ -56,9 +58,9 @@ const CHAPTERS: readonly Chapter[] = [
     detail: 'Sekali atur, rekomendasi langsung menyesuaikan.',
     url: 'mulai',
     beats: [
-      { x: 288, y: 212, click: true, cap: 'Pilih bidang yang kamu minati. Boleh lebih dari satu.', set: { desain: 1 } },
-      { x: 440, y: 212, click: true, cap: 'Pilih bidang yang kamu minati. Boleh lebih dari satu.', set: { tek: 1 }, dur: 1500 },
-      { x: 554, y: 362, click: true, cap: 'Tentukan jenjangmu supaya daftarnya relevan.', set: { mhs: 1 } },
+      { x: 288, y: 212, click: true, cap: 'Pilih bidang yang kamu minati. Boleh lebih dari satu.', set: { desain: 1 }, focus: [340, 226, 1.75] },
+      { x: 440, y: 212, click: true, cap: 'Pilih bidang yang kamu minati. Boleh lebih dari satu.', set: { tek: 1 }, focus: [420, 226, 1.75], dur: 1500 },
+      { x: 554, y: 362, click: true, cap: 'Tentukan jenjangmu supaya daftarnya relevan.', set: { mhs: 1 }, focus: [470, 350, 1.35] },
       { x: 602, y: 442, click: true, cap: 'Selesai. Daftar kegiatanmu kini menyesuaikan.', set: {}, hitWide: true, dur: 2600 },
     ],
   },
@@ -67,10 +69,10 @@ const CHAPTERS: readonly Chapter[] = [
     detail: 'Semua kategori di satu tempat, urut dari tenggat terdekat.',
     url: 'events?type=LOMBA',
     beats: [
-      { x: 360, y: 27, click: true, cap: 'Cari dengan kata kunci, atau biarkan filter minatmu bekerja.', set: { focus: 1 }, dur: 1700 },
-      { x: 360, y: 27, cap: 'Cari dengan kata kunci, atau biarkan filter minatmu bekerja.', set: { q: 'UI/' }, dur: 700 },
-      { x: 360, y: 27, cap: 'Hasil langsung tersaring, urut dari tenggat terdekat.', set: { q: 'UI/UX', filtered: 1 }, focus: [440, 270, 1.15], dur: 2600 },
-      { x: 320, y: 244, click: true, cap: 'Buka detail untuk melihat syarat dan jadwal.', set: { open: 1 }, dur: 2000 },
+      { x: 360, y: 27, click: true, cap: 'Cari dengan kata kunci, atau biarkan filter minatmu bekerja.', set: { focus: 1 }, zoom: 1.9, dur: 1700 },
+      { x: 360, y: 27, cap: 'Cari dengan kata kunci, atau biarkan filter minatmu bekerja.', set: { q: 'UI/' }, zoom: 1.9, dur: 700 },
+      { x: 360, y: 27, cap: 'Hasil langsung tersaring, urut dari tenggat terdekat.', set: { q: 'UI/UX', filtered: 1 }, focus: [440, 280, 1.05], dur: 2600 },
+      { x: 320, y: 244, click: true, cap: 'Buka detail untuk melihat syarat dan jadwal.', set: { open: 1 }, zoom: 1.6, dur: 2000 },
     ],
   },
   {
@@ -78,10 +80,10 @@ const CHAPTERS: readonly Chapter[] = [
     detail: 'Lihat penyelenggara dan syarat, lalu simpan.',
     url: 'events/hackathon-layanan-publik',
     beats: [
-      { x: 291, y: 151, cap: 'Tanda ini berarti kegiatannya sudah ditinjau manual sebelum tayang.', set: { badge: 1 }, dur: 2600 },
-      { x: 167, y: 201, click: true, cap: 'Syarat, berkas, dan jadwal ada di bagiannya masing-masing.', set: { tab: 1 } },
-      { x: 722, y: 372, click: true, cap: 'Simpan, lalu kami ingatkan H-3 dan H-1 sebelum tutup.', set: { saved: 1 }, dur: 2600 },
-      { x: 722, y: 322, click: true, cap: 'Sudah siap? Tekan Daftar.', set: {}, dur: 1600 },
+      { x: 291, y: 151, cap: 'Tanda ini berarti kegiatannya sudah ditinjau manual sebelum tayang.', set: { badge: 1 }, zoom: 1.85, dur: 2600 },
+      { x: 167, y: 201, click: true, cap: 'Syarat, berkas, dan jadwal ada di bagiannya masing-masing.', set: { tab: 1 }, focus: [300, 300, 1.25] },
+      { x: 722, y: 372, click: true, cap: 'Simpan, lalu kami ingatkan H-3 dan H-1 sebelum tutup.', set: { saved: 1 }, zoom: 1.7, dur: 2600 },
+      { x: 722, y: 322, click: true, cap: 'Sudah siap? Tekan Daftar.', set: {}, zoom: 1.45, dur: 1600 },
     ],
   },
   {
@@ -89,8 +91,8 @@ const CHAPTERS: readonly Chapter[] = [
     detail: 'Siapkan data & berkas, lalu daftar di situs resmi.',
     url: 'events/hackathon-layanan-publik/persiapan',
     beats: [
-      { x: 300, y: 180, cap: 'Data dari profilmu siap disalin ke formulir resmi.', set: { fill: 1 }, focus: [296, 230, 1.2], dur: 2800 },
-      { x: 500, y: 400, click: true, cap: 'Siapkan berkas yang diminta penyelenggara.', set: { up: 1 }, dur: 2200 },
+      { x: 300, y: 180, cap: 'Data dari profilmu siap disalin ke formulir resmi.', set: { fill: 1 }, focus: [296, 230, 1.5], dur: 2800 },
+      { x: 500, y: 400, click: true, cap: 'Siapkan berkas yang diminta penyelenggara.', set: { up: 1 }, zoom: 1.7, dur: 2200 },
       { x: 480, y: 474, click: true, cap: 'Daftar di situs penyelenggara, lalu pantau tahapannya di sini.', set: { sent: 1 }, hitWide: true, dur: 3000 },
     ],
   },
@@ -99,8 +101,8 @@ const CHAPTERS: readonly Chapter[] = [
     detail: 'Temukan rekan yang keahliannya melengkapi kamu.',
     url: 'teams',
     beats: [
-      { x: 432, y: 200, cap: 'Lihat peran dan keahlian calon rekan.', set: { hover: 1 }, focus: [432, 240, 1.3], dur: 2200 },
-      { x: 432, y: 344, click: true, cap: 'Kirim ajakan. Kalau diterima, ia masuk ke timmu.', set: { inv: 1 }, dur: 2400 },
+      { x: 432, y: 200, cap: 'Lihat peran dan keahlian calon rekan.', set: { hover: 1 }, focus: [432, 240, 1.55], dur: 2200 },
+      { x: 432, y: 344, click: true, cap: 'Kirim ajakan. Kalau diterima, ia masuk ke timmu.', set: { inv: 1 }, zoom: 1.8, dur: 2400 },
       { x: 300, y: 450, cap: 'Itu saja. Sekarang giliranmu mencoba.', set: {}, wide: true, dur: 3200 },
     ],
   },
@@ -131,6 +133,12 @@ const MUTED = '#5F5E5B';
 const LINE = '#E3E3E0';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+const CAMERA_WIDE_MS = 1100;
+const CAMERA_ZOOM_MS = 1000;
+const ESTABLISH_MS = CAMERA_WIDE_MS + 500;
+/** Di atas ini teks panggung mulai pecah (panggung digambar di 880×560 lalu diskalakan). */
+const MAX_ZOOM = 2.2;
 
 export function LandingTour() {
   const [chapter, setChapter] = useState(0);
@@ -196,7 +204,10 @@ export function LandingTour() {
     let extra = 0;
     if (enteringChapter.current) {
       // Setiap bab dibuka dengan tampilan penuh sebelum kamera mendekat.
-      extra = 700;
+      // Harus lebih lama dari transisi kamera ke zoom 1 (CAMERA_WIDE_MS):
+      // lebih pendek dari itu, kamera berbalik mendekat sebelum sempat
+      // mundur penuh dan "tampilan penuh" tidak pernah benar-benar terlihat.
+      extra = ESTABLISH_MS;
       enteringChapter.current = false;
       setWide(true);
       later(() => setWide(false), extra);
@@ -237,10 +248,10 @@ export function LandingTour() {
   if (hit) Object.assign(state, bt.set);
 
   const captionBelow = scale < 0.66;
-  let zoom = bt.focus ? bt.focus[2] : 1.5;
+  let zoom = bt.focus ? bt.focus[2] : (bt.zoom ?? 1.5);
   let fx = bt.focus ? bt.focus[0] : bt.x;
   let fy = bt.focus ? bt.focus[1] : bt.y;
-  if (captionBelow) zoom *= 1.25;
+  if (captionBelow) zoom = Math.min(zoom * 1.25, MAX_ZOOM);
   if (bt.wide || (hit && bt.hitWide) || wide || reducedMotion) {
     zoom = 1;
     fx = 440;
@@ -248,14 +259,14 @@ export function LandingTour() {
   }
   const ox = clamp(fx - 440 / zoom, 0, 880 - 880 / zoom);
   const oy = clamp(fy - 280 / zoom, 0, 560 - 560 / zoom);
-  const camDur = zoom === 1 ? 1100 : 1000;
+  const camDur = zoom === 1 ? CAMERA_WIDE_MS : CAMERA_ZOOM_MS;
   const camTransition = `transform ${camDur}ms cubic-bezier(.65,0,.25,1)`;
   const move = '850ms cubic-bezier(.65,0,.25,1)';
   const screenX = (bt.x - ox) * zoom;
   const screenY = (bt.y - oy) * zoom;
 
   const live = playing && inView;
-  const progressDur = (bt.dur ?? 2400) + (beat === 0 ? 700 : 0);
+  const progressDur = (bt.dur ?? 2400) + (beat === 0 ? ESTABLISH_MS : 0);
   const progressPct = `${Math.round(((live ? beat + 1 : beat + (hit ? 1 : 0)) / current.beats.length) * 100)}%`;
   const progressTransition = live ? `width ${progressDur}ms linear` : 'width 300ms ease';
 

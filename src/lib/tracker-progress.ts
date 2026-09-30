@@ -1,3 +1,4 @@
+import { daysUntil } from '@/lib/deadline';
 import type { TrackerStatus } from '@/types/domain';
 
 /** Urutan tahap maju di papan pendaftaran. REJECTED bukan tahap, melainkan akhir cabang. */
@@ -36,4 +37,32 @@ export function trackerProgress(status: TrackerStatus): TrackerProgress {
     case 'REJECTED':
       return { reached: 1, rejected: true, next: null };
   }
+}
+
+/** Jendela "perlu tindakan": sama dengan ambang urgensi tenggat (≤ H-7) di deadline.ts. */
+export const ACTION_WINDOW_DAYS = 7;
+
+export interface ActionItem<T> {
+  readonly item: T;
+  readonly daysLeft: number;
+}
+
+/**
+ * Kegiatan yang masih DISIMPAN (belum didaftar) dan tutup dalam 7 hari
+ * kalender WIB, urut paling mendesak. Yang sudah lewat dibuang — tidak ada
+ * tindakan yang bisa diambil untuknya, dan menampilkannya di sini hanya
+ * membuat daftar "mendesak" terasa seperti daftar penyesalan.
+ */
+export function needsActionSoon<T extends { readonly status: TrackerStatus; readonly event: { readonly primaryDeadlineAt: string | null } }>(
+  items: readonly T[],
+  now: Date = new Date(),
+): readonly ActionItem<T>[] {
+  const result: ActionItem<T>[] = [];
+  for (const item of items) {
+    if (item.status !== 'SAVED' || !item.event.primaryDeadlineAt) continue;
+    const daysLeft = daysUntil(item.event.primaryDeadlineAt, now);
+    if (daysLeft === null || daysLeft < 0 || daysLeft > ACTION_WINDOW_DAYS) continue;
+    result.push({ item, daysLeft });
+  }
+  return result.sort((left, right) => left.daysLeft - right.daysLeft);
 }
