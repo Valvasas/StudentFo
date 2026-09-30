@@ -28,6 +28,12 @@ Urutan migration (harus dijalankan berurutan):
 18. `20260926160001_submission_notifications.sql` — `ugc_submissions.submitted_by` + trigger `notify_submission_decision()` (notifikasi `SUBMISSION_APPROVED`/`SUBMISSION_REJECTED`, ADR-037)
 19. `20260927100001_network.sql` — `network_profiles` + `connections`, view `network_directory` & `connection_peers`, RPC `mutual_connection_counts()` / `is_discoverable()`, trigger batas laju & notifikasi koneksi (ADR-040)
 20. `20260928100001_connection_blocks.sql` — tabel `connection_blocks` + `is_blocked()`, policy INSERT/UPDATE `connections` diganti (tolak pasangan yang saling blokir), trigger pemutus koneksi, kunci pasangan `lock_connection_pair()`, `network_directory` menyaring blokir dua arah, view `blocked_people` (ADR-041)
+21. `20260928110001_organizers.sql` — penyelenggara terverifikasi, klaim & revisi acara (ADR-042)
+22. `20260928120001_event_analytics.sql` — analitik acara harian untuk penyelenggara (ADR-043)
+23. `20260929100001_portfolio_and_history.sql` — kolom portofolio di `application_tracker`, riwayat penyelenggara, pemulihan moderasi (ADR-046)
+24. `20260930100001_optimize_event_categories_and_indexing.sql` — `events.category_slugs VARCHAR[]` (turunan `event_categories`, dijaga trigger `sync_event_category_slugs` / `sync_category_slug_rename` / `events_derive_category_slugs`) + GIN `idx_events_category_slugs`; `events_listing` membacanya langsung (ADR-047)
+25. `20260930100002_team_atomic_rpc.sql` — RPC `create_team_with_leader()` SECURITY INVOKER: tim + ketua dalam satu transaksi (ADR-047)
+26. `20260930100003_submission_owner_index.sql` — index `ugc_submissions (submitted_by, created_at DESC)` untuk "Kiriman saya" dan FK penghapusan akun
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -336,7 +342,10 @@ tanpa itu user bisa INSERT baris atas nama `user_id` orang lain (DEVIATIONS #6).
 
 `public.events_listing` (`WITH (security_invoker = on)` — tunduk RLS
 pemanggil, bukan RLS pemilik view) menyatukan `events` + primary deadline +
-`category_slugs` (array agregat) supaya frontend tidak perlu N+1 query.
+`category_slugs` supaya frontend tidak perlu N+1 query. Sejak 20260930100001
+`category_slugs` adalah kolom fisik `events` (ber-GIN), bukan subquery per
+baris — JANGAN menulisnya langsung; ubah `event_categories`, trigger yang
+menghitung ulang.
 Ini yang di-`SELECT` oleh `SupabaseEventRepository`, bukan tabel `events`
 langsung.
 
