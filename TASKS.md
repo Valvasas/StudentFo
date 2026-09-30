@@ -386,3 +386,15 @@ Belum / butuh keputusan atau akses pemilik:
 - [x] e2e/axe/target sentuh diperbarui untuk tab baru (+ uji pencarian koneksi & URL aneh).
 - [ ] Backend diskusi/pesan (masih demo) — paginasi utas & percakapan saat dibangun.
 - [ ] Hitungan hasil pencarian di Koneksimu ("N hasil") butuh `count` dengan saringan yang sama.
+
+## Rencana produksi — Fase 0 audit 2026-09-30 (@claude)
+
+Dokumen: `docs/rencana-produksi.md` (baseline nyata, koreksi premis, audit per peran,
+audit skala terukur 10k pengguna / 100k event, desain Fase 1–6). Menunggu persetujuan pemilik.
+
+- [x] Baseline: verify 421/421, db:test lolos, integrasi 64/64, Playwright 359 lolos (118 skip sengaja), e2e Supabase 5/5, pipeline 32/32.
+- [ ] **P0** `gemini-2.0-flash` sudah dimatikan (1 Jun 2026) — ganti & validasi model saat start (Fase 1).
+- [ ] Hotspot terukur: listing tenggat + count ≈600 ms (Q1), `event_analytics` ≈420 ms (Q5), produsen notifikasi 823 ms + sort di disk (Q6) — Fase 6.
+- [ ] `reviewed_by` terbaca pemilik profil/klaim/revisi penyelenggara (hak SELECT se-tabel) — Fase 3.
+- [ ] Sitemap hanya 4.800 URL; retensi `notifications`/`recommendation_signals`/email kiriman belum ada.
+- [ ] Konfirmasi status migration produksi (brief vs catatan di atas tidak konsisten).
