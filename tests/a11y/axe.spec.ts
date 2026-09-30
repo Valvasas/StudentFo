@@ -107,6 +107,13 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/discussions'],
   ['Mahasiswa', '/connections'],
   ['Mahasiswa', '/connections?minat=desain&q=a'],
+  ['Mahasiswa', '/connections?lagi=1'],
+  ['Mahasiswa', '/connections?tab=koneksi'],
+  ['Mahasiswa', '/connections?tab=koneksi&cari=rani'],
+  ['Mahasiswa', '/connections?tab=ajakan'],
+  ['Mahasiswa', '/connections?tab=ajakan&arah=terkirim'],
+  ['Mahasiswa', '/connections?tab=peta'],
+  ['Mahasiswa', '/connections?tab=pengaturan'],
   ['Siswa baru', '/profile'],
   ['Siswa baru', '/connections'],
   // Portofolio & riwayat (ADR-046)
@@ -138,17 +145,16 @@ for (const [persona, route] of SIGNED_IN_ROUTES) {
 
 test('koneksi: opsi putus/blokir terbuka & daftar blokir terisi tanpa pelanggaran WCAG', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/connections');
-  await page.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();
   await page.locator('section[aria-labelledby="ajakan-masuk"] article summary').first().click();
-  // Klik di atas menggulir halaman; tanpa kembali ke atas, navbar lengket
-  // menutupi kontrol peta dan axe melaporkan target-size palsu.
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await expectNoViolations(page);
+  await page.goto('/connections?tab=koneksi');
+  await page.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();
   await expectNoViolations(page);
   await page.getByRole('button', { name: 'Ya, blokir Rani Prameswari' }).click();
   await expect(page).toHaveURL(/notice=person_blocked/);
+  await page.goto('/connections?tab=pengaturan');
   await expect(page.locator('section[aria-labelledby="diblokir-title"] li')).toHaveCount(1);
   await expect(page).toHaveTitle(/\S/);
-  await page.evaluate(() => window.scrollTo(0, 0));
   await expectNoViolations(page);
 });
 

@@ -80,7 +80,7 @@ export default async function PublicProfilePage({
               {relation === 'connected' && <Check aria-hidden className="size-4" />}
               {RELATION_TEXT[relation]}
               {relation === 'incoming' && (
-                <Link href="/connections#ajakan-masuk" className="ml-1 underline underline-offset-[3px]">
+                <Link href="/connections?tab=ajakan#ajakan-masuk" className="ml-1 underline underline-offset-[3px]">
                   Jawab
                 </Link>
               )}

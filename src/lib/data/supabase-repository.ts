@@ -11,6 +11,7 @@ import {
   encodeConnectionCursor,
   matchesPeopleSearch,
   NETWORK_LIMITS,
+  normalizeConnectionSearch,
   rankSuggestions,
   type ConnectionPageRequest,
   type NetworkProfileInput,
@@ -1058,6 +1059,13 @@ export class SupabaseEventRepository implements EventRepository {
       .order('connection_id', { ascending: false })
       .limit(limit + 1);
     if (after) query = query.or(keysetAfter(after));
+    if (page.kind === 'accepted') query = query.eq('status', 'ACCEPTED');
+    if (page.kind === 'incoming') query = query.eq('status', 'PENDING').eq('is_outgoing', false);
+    if (page.kind === 'outgoing') query = query.eq('status', 'PENDING').eq('is_outgoing', true);
+    // Dinormalisasi ulang di sini, bukan dipercaya dari pemanggil: nilainya
+    // masuk ke pola `ilike`, dan `%`/`_`/`*` di sana adalah wildcard.
+    const search = normalizeConnectionSearch(page.search);
+    if (search) query = query.ilike('full_name', `%${search}%`);
     const { data, error } = await query.returns<ConnectionPeerRow[]>();
     if (error) throw upstreamFailure('Gagal memuat koneksi.', error);
 

@@ -142,7 +142,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
   };
 
   return (
-    <div className="grid h-[clamp(520px,calc(100dvh-290px),760px)] grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[18px] border border-line bg-panel md:grid-cols-[300px_minmax(0,1fr)]">
+    <div className="grid h-[clamp(520px,calc(100dvh-290px),760px)] grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[18px] border border-line bg-panel md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
       {/* Daftar percakapan */}
       <section aria-label="Daftar percakapan" className={cn('min-h-0 flex-col border-line md:flex md:border-r', pane === 'list' ? 'flex' : 'hidden')}>
         <div className="flex flex-col gap-3 border-b border-line p-4">

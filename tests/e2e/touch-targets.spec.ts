@@ -50,11 +50,15 @@ test('halaman tim & detail tim: setiap target ≥ 44px', async ({ page }) => {
 
 test('halaman koneksi (opsi putus/blokir & konfirmasi blokir terbuka): setiap target ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/connections');
-  await page.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();
   await page.locator('section[aria-labelledby="ajakan-masuk"] article summary').first().click();
-  for (const scope of ['section[aria-labelledby="koneksimu"]', 'section[aria-labelledby="ajakan-masuk"]', 'section[aria-labelledby="diblokir-title"]']) {
+  for (const scope of ['nav[aria-label="Bagian koneksi"]', 'section[aria-labelledby="ajakan-masuk"]', 'section[aria-labelledby="cari-koneksi"]']) {
     expect(await smallTargets(page, scope), scope).toEqual([]);
   }
+  await page.goto('/connections?tab=koneksi');
+  await page.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();
+  expect(await smallTargets(page, 'section[aria-labelledby="koneksimu"]')).toEqual([]);
+  await page.goto('/connections?tab=pengaturan');
+  expect(await smallTargets(page, 'section[aria-labelledby="diblokir-title"]')).toEqual([]);
 });
 
 test('halaman detail kegiatan: setiap target di <main> ≥ 44px', async ({ page }) => {

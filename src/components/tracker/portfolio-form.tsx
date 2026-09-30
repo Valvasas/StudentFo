@@ -110,7 +110,7 @@ export function PortfolioPanel({ item, returnTo }: { item: TrackerItem; returnTo
             {privateByDefault
               ? 'Beasiswa & magang privat secara bawaan — menyangkut kondisi ekonomi dan lamaran kerja. Nyalakan hanya kalau kamu nyaman.'
               : 'Terlihat oleh koneksimu dan, kalau kamu bisa ditemukan, oleh pengguna Cari Koneksi.'}{' '}
-            <Link href="/connections#pengaturan-jaringan" className="underline underline-offset-[3px]">
+            <Link href="/connections?tab=pengaturan#pengaturan-jaringan" className="underline underline-offset-[3px]">
               Atur siapa yang bisa menemukanmu
             </Link>
           </span>

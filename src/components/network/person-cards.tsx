@@ -93,10 +93,14 @@ export function SuggestionCard({
         <PersonHeading person={person} />
       </div>
       {person.headline && <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-soft">{person.headline}</p>}
-      <InterestList slugs={person.interests} highlight={viewerInterests} categoryName={categoryName} />
+      {/* Alasan sudah menyebut minat yang sama; chip minat di sampingnya
+          mengulang fakta yang sama. Chip hanya tampil saat tidak ada alasan
+          lain yang bisa ditunjukkan. Dua alasan terkuat saja (urutan dari
+          suggestionReasons): yang ketiga jarang mengubah keputusan. */}
+      {reasons.length === 0 && <InterestList slugs={person.interests} highlight={viewerInterests} categoryName={categoryName} />}
       {reasons.length > 0 && (
         <ul aria-label="Kenapa disarankan" className="flex flex-col gap-1 text-[12.5px] text-ink-muted">
-          {reasons.map((reason) => (
+          {reasons.slice(0, 2).map((reason) => (
             <li key={reason} className="flex items-start gap-1.5">
               <span aria-hidden className="mt-[7px] size-1 shrink-0 rounded-pill bg-ink-muted" />
               {reason}

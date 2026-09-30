@@ -7,6 +7,7 @@ import {
   connectionCursorOf,
   decodeConnectionCursor,
   encodeConnectionCursor,
+  matchesConnectionFilter,
   matchesPeopleSearch,
   rankSuggestions,
   type ConnectionPageRequest,
@@ -1063,7 +1064,10 @@ export class MemoryEventRepository implements EventRepository {
         respondedAt: entry.respondedAt,
       });
     }
-    const rest = result.sort(compareConnections).filter((connection) => !after || compareConnections(connection, after) > 0);
+    const rest = result
+      .filter((connection) => matchesConnectionFilter(connection, page))
+      .sort(compareConnections)
+      .filter((connection) => !after || compareConnections(connection, after) > 0);
     const items = rest.slice(0, limit);
     const last = items.at(-1);
     return { items, nextCursor: rest.length > limit && last ? encodeConnectionCursor(connectionCursorOf(last)) : null };

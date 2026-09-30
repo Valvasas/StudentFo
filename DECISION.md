@@ -12,6 +12,49 @@ terdokumentasi.
 
 ---
 
+## ADR-048 — Halaman yang tumbuh bersama data pengguna: satu tugas per layar, daftar selalu berbatas
+
+**Konteks:** Lapisan data jaringan sudah berbatas (kursor keyset, maks 500,
+saran 24 dari jendela 200), tapi UI-nya tidak: `/connections` merender SEMUA
+ajakan masuk sebagai kartu besar di atas, ajakan terkirim tanpa batas di
+sidebar, daftar koneksi sebagai gulir 420px di dalam sidebar lengket yang
+sudah lebih tinggi dari layar, 12 chip minat, 24 kartu saran, form
+pengaturan, peta, dan daftar blokir — 6.500px di ponsel dengan data contoh.
+Tidak ada cara mencari di antara koneksi sendiri. `/discussions` dan
+`/messages` memakai AccountShell sehingga menjadi tiga kolom (menu akun +
+daftar + isi) yang memotong nama grup/percakapan. `/teams` punya satu chip
+per kegiatan (hingga 60) dengan judul terpotong.
+
+**Keputusan:**
+- **Satu tab = satu tugas** di `/connections` (`?tab=`): Untukmu (ajakan
+  masuk maks 3 + saran maks 6, "Tampilkan N lainnya" → `?lagi=1`), Koneksimu
+  (dicari di server `?cari=`, 30/halaman, `?setelah=` kursor), Ajakan
+  (masuk/terkirim, dipaginasi), Peta, Pengaturan (+ daftar blokir). Setiap
+  tab hanya mengambil data yang ia tampilkan — peta & tautan tim tidak lagi
+  dihitung di setiap kunjungan.
+- `listConnections` mendapat `kind` + `search` (fungsi murni bersama
+  `matchesConnectionFilter`, `normalizeConnectionSearch` membuang wildcard
+  `ilike`). Tanpa migration: `connection_peers` sudah memfilter ke pemanggil.
+- **Prioritas informasi dari pola penggunaan:** hanya angka yang menuntut
+  tindakan (ajakan menunggu) ditonjolkan; kartu saran menampilkan dua alasan
+  terkuat dan TIDAK mengulang minat yang sama sebagai chip; 12 chip minat →
+  satu `<select>` (minatmu di atas).
+- **Kotak masuk tanpa AccountShell** (`/messages`, `/discussions`): tujuan
+  menu akun sudah ada di navbar. Diskusi: "Temukan grup" dilipat, kepala grup
+  ringan (bukan blok hitam), utas = daftar datar bergaris pemisah dengan satu
+  baris cuplikan; jumlah "sedang aktif" dihapus (tidak mengubah keputusan apa pun).
+- `/teams`: chip kegiatan → `<select>` + tombol (GET, tanpa JS).
+- `/events` tidak diubah: hasilnya sudah dipaginasi dan "Bidang" sudah dilipat.
+
+**Konsekuensi:** URL lama `/connections#ajakan-masuk`/`#pengaturan-jaringan`
+diganti `?tab=…` (tautan internal ikut diperbarui). `?tampil=N` tidak lagi
+dikenali (diabaikan, bukan error). Kursor bersifat maju saja — "Kembali ke
+awal", bukan "Sebelumnya"; nomor halaman butuh OFFSET yang justru dihindari
+ADR-041. Diskusi & pesan masih mode demo tanpa backend; saat backend dibuat,
+daftar utas perlu paginasi dengan pola yang sama.
+
+---
+
 ## ADR-047 — Pengerasan produksi: apa yang diambil dari audit otomatis, dan apa yang ditolak
 
 **Konteks:** Audit dari agent AI lain mengusulkan lima fase pengerasan

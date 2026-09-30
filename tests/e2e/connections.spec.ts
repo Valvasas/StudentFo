@@ -15,13 +15,17 @@ test('mahasiswa: terima ajakan masuk lalu kirim ajakan berpesan', async ({ page 
   await incoming.getByRole('button', { name: /Terima ajakan Rizky Hidayat/ }).click();
   await expect(page).toHaveURL(/notice=connection_accepted/);
   await expect(page.getByText('Ajakan diterima. Kalian sekarang terhubung.')).toBeVisible();
+  await page.getByRole('navigation', { name: 'Bagian koneksi' }).getByRole('link', { name: /Koneksimu/ }).click();
+  await expect(page).toHaveURL(/tab=koneksi/);
   await expect(page.locator('section[aria-labelledby="koneksimu"]').getByText('Rizky Hidayat', { exact: true })).toBeVisible();
 
+  await page.goto('/connections?lagi=1');
   const card = page.locator('#orang-seed-user-2');
   await card.getByText('+ Tambah pesan pengantar').click();
   await card.getByRole('textbox', { name: 'Pesan pengantar' }).fill('Halo Dimas, yuk satu tim!');
   await card.getByRole('button', { name: /Hubungkan dengan Dimas Arya/ }).click();
   await expect(page).toHaveURL(/notice=connection_requested/);
+  await page.goto('/connections?tab=ajakan&arah=terkirim');
   await expect(page.locator('section[aria-labelledby="terkirim"]').getByText('Dimas Arya', { exact: true })).toBeVisible();
 });
 
@@ -47,6 +51,8 @@ test('dua akun demo: opt-in terlihat → diajak → diterima, keduanya dikabari'
 
   await signInAsDemo(b, 'Siswa baru', '/connections');
   await expect(b.getByText('Profilmu belum bisa ditemukan.')).toBeVisible();
+  await b.getByRole('link', { name: 'Atur sekarang' }).click();
+  await expect(b).toHaveURL(/tab=pengaturan/);
   await b.getByRole('switch', { name: /Tampilkan aku di Cari Koneksi/ }).check();
   const headline = `Uji koneksi ${Date.now()}`;
   await b.getByLabel('Headline').fill(headline);
@@ -63,6 +69,8 @@ test('dua akun demo: opt-in terlihat → diajak → diterima, keduanya dikabari'
 
   await b.goto('/connections');
   await b.getByRole('button', { name: /Terima ajakan Dinda Pratiwi/ }).click();
+  await expect(b).toHaveURL(/notice=connection_accepted/);
+  await b.goto('/connections?tab=koneksi');
   await expect(b.locator('section[aria-labelledby="koneksimu"]').getByText('Dinda Pratiwi', { exact: true })).toBeVisible();
 
   await a.goto('/connections');
@@ -73,7 +81,7 @@ test('dua akun demo: opt-in terlihat → diajak → diterima, keduanya dikabari'
 });
 
 test('peta: kanvas tergambar, navigasi keyboard membuka panel detail', async ({ page }) => {
-  await signInAsDemo(page, 'Mahasiswa', '/connections');
+  await signInAsDemo(page, 'Mahasiswa', '/connections?tab=peta');
   const canvas = page.locator('canvas[aria-roledescription="peta koneksi"]');
   await expect(canvas).toBeVisible();
   const painted = await canvas.evaluate((element: HTMLCanvasElement) => {
@@ -107,43 +115,60 @@ test('peta: kanvas tergambar, navigasi keyboard membuka panel detail', async ({ 
 test('blokir tanpa JavaScript: dari daftar koneksi & kartu ajakan, hilang dari mana pun, lalu dibuka lagi', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
-  await signInAsDemo(page, 'Mahasiswa', '/connections');
+  await signInAsDemo(page, 'Mahasiswa', '/connections?tab=pengaturan');
   const mine = page.locator('section[aria-labelledby="koneksimu"]');
   const blocked = page.locator('section[aria-labelledby="diblokir-title"]');
   await expect(blocked.getByText('Belum ada.', { exact: false })).toBeVisible();
 
+  await page.goto('/connections?tab=koneksi');
   await mine.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();
   await mine.getByRole('button', { name: 'Ya, blokir Rani Prameswari' }).click();
   await expect(page).toHaveURL(/notice=person_blocked/);
+  await expect(page).toHaveURL(/tab=koneksi/);
   await expect(page.getByText(/^Diblokir\. Koneksi & ajakan/)).toBeVisible();
   await expect(mine.getByText('Rani Prameswari', { exact: true })).toHaveCount(0);
-  await expect(page.locator('#orang-seed-user-1')).toHaveCount(0);
-  await expect(blocked.getByText('Rani Prameswari', { exact: true })).toBeVisible();
   await expect(page.locator('#koneksimu')).toContainText('2');
 
+  await page.goto('/connections?lagi=1');
+  await expect(page.locator('#orang-seed-user-1')).toHaveCount(0);
   const incoming = page.locator('section[aria-labelledby="ajakan-masuk"]');
   const rizky = incoming.getByRole('article').filter({ hasText: 'Rizky Hidayat' });
   await rizky.locator('summary[aria-label="Blokir Rizky Hidayat"]').click();
   await rizky.getByRole('button', { name: 'Ya, blokir Rizky Hidayat' }).click();
   await expect(page).toHaveURL(/notice=person_blocked/);
   await expect(incoming.getByRole('article')).toHaveCount(1);
-  await expect(blocked.getByRole('listitem')).toHaveCount(2);
 
+  await page.goto('/connections?tab=pengaturan');
+  await expect(blocked.getByRole('listitem')).toHaveCount(2);
   await blocked.getByRole('button', { name: 'Buka blokir Rani Prameswari' }).click();
   await expect(page).toHaveURL(/notice=person_unblocked/);
   await expect(blocked.getByRole('listitem')).toHaveCount(1);
   // Tidak ada lagi hubungan apa pun: Rani kembali sebagai saran, bukan koneksi.
+  await page.goto('/connections?lagi=1');
   await expect(page.locator('section[aria-labelledby="cari-koneksi"] #orang-seed-user-1')).toBeVisible();
   await context.close();
 });
 
-test('parameter tampil yang aneh tidak merusak halaman', async ({ page }) => {
-  await signInAsDemo(page, 'Mahasiswa', '/connections');
-  for (const value of ['abc', '-5', '999999', '2']) {
-    const response = await page.goto(`/connections?tampil=${value}`);
-    expect(response?.status()).toBe(200);
-    await expect(page.locator('section[aria-labelledby="koneksimu"] li')).toHaveCount(3);
+test('parameter tab, kursor, dan pencarian yang aneh tidak merusak halaman', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/connections?tab=koneksi');
+  for (const query of ['tab=koneksi&setelah=abc', 'tab=koneksi&setelah=-5', `tab=koneksi&setelah=${'x'.repeat(300)}`, 'tab=koneksi&cari=%25_*%2C(or)']) {
+    const response = await page.goto(`/connections?${query}`);
+    expect(response?.status(), query).toBe(200);
   }
+  await page.goto('/connections?tab=koneksi&setelah=rusak');
+  await expect(page.locator('section[aria-labelledby="koneksimu"] li')).toHaveCount(3);
+  expect((await page.goto('/connections?tab=constructor'))?.status()).toBe(200);
+  await expect(page.getByRole('link', { name: 'Untukmu' })).toHaveAttribute('aria-current', 'page');
+});
+
+test('koneksimu bisa dicari di server dan hasilnya berbentuk URL', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/connections?tab=koneksi');
+  await page.getByRole('searchbox', { name: 'Cari di antara koneksimu' }).fill('salsa');
+  await page.getByRole('searchbox', { name: 'Cari di antara koneksimu' }).press('Enter');
+  await expect(page).toHaveURL(/tab=koneksi&cari=salsa/);
+  const rows = page.locator('section[aria-labelledby="koneksimu"] li');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Salsabila Putri');
 });
 
 test('tamu melihat peta contoh tanpa nama & ajakan masuk', async ({ page }) => {

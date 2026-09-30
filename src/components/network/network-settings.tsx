@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ChevronDown, EyeOff, Lock } from 'lucide-react';
 import { updateNetworkProfileAction } from '@/app/connections/actions';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -117,9 +118,9 @@ export function HiddenProfileBanner() {
       <p className="min-w-[220px] flex-1 text-sm leading-relaxed">
         <span className="font-semibold">Profilmu belum bisa ditemukan.</span> Kamu tetap bisa mengajak orang, tapi orang lain belum bisa mengajakmu lebih dulu.
       </p>
-      <a href="#pengaturan-jaringan" className="flex min-h-11 items-center rounded-sm bg-brand px-3.5 text-[13.5px] font-semibold text-on-brand hover:bg-brand-hover">
+      <Link href="/connections?tab=pengaturan#pengaturan-jaringan" className="flex min-h-11 items-center rounded-sm bg-brand px-3.5 text-[13.5px] font-semibold text-on-brand hover:bg-brand-hover">
         Atur sekarang
-      </a>
+      </Link>
     </div>
   );
 }

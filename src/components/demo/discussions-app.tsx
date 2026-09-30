@@ -42,7 +42,9 @@ function Author({ name, official, time }: { name: string; official?: boolean; ti
         {initialsOf(name)}
       </span>
       <span className="truncate font-semibold text-ink">{name}</span>
-      {official && (
+      {/* Akun resmi bernama "Panitia" sudah menyebut perannya; lencana di
+          sebelahnya hanya mengulang kata yang sama. */}
+      {official && name !== 'Panitia' && (
         <span className="inline-flex items-center gap-1 rounded-[5px] border border-brand px-1.5 py-px text-[11px] font-semibold text-ink">
           <BadgeCheck aria-hidden className="size-3" /> Panitia
         </span>
@@ -147,9 +149,9 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
   };
 
   const groupList = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <span className="px-2 font-mono text-[11px] tracking-[.08em] text-ink-muted">GRUP KAMU</span>
+        <span className="px-2 pb-1 text-[13px] font-medium text-ink-muted">Grup kamu</span>
         {groups.map((item) => {
           const info = events[item.eventSlug]!;
           const active = item.id === group.id;
@@ -159,13 +161,13 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
               type="button"
               aria-current={active ? 'true' : undefined}
               onClick={() => pickGroup(item.id)}
-              className={cn('flex min-h-11 items-center gap-3 rounded-card px-2 py-2 text-left transition-colors duration-150', active ? 'bg-panel-nested' : 'hover:bg-panel-nested/60')}
+              className={cn('flex min-h-14 items-center gap-3 rounded-card px-2.5 py-2.5 text-left transition-colors duration-150', active ? 'bg-panel-nested' : 'hover:bg-panel-nested/60')}
             >
               <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-brand font-mono text-[11px] text-on-brand">
                 {initialsOf(info.title)}
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className={cn('truncate text-[13.5px]', active ? 'font-semibold' : 'font-medium')}>{info.title}</span>
+                <span className={cn('line-clamp-2 text-[13.5px] leading-snug', active ? 'font-semibold' : 'font-medium')}>{info.title}</span>
                 <span className="text-[11.5px] text-ink-muted">{item.members.toLocaleString('id-ID')} anggota</span>
               </span>
               {item.fresh > 0 && (
@@ -178,9 +180,14 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
           );
         })}
       </div>
+      {/* Menemukan grup baru adalah tugas sesekali; membacanya di bawah grupmu
+          setiap kali membuka halaman hanya menambah daftar yang harus dilewati. */}
       {discover.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="px-2 font-mono text-[11px] tracking-[.08em] text-ink-muted">TEMUKAN GRUP</span>
+        <details className="group/temukan flex flex-col gap-1 border-t border-line pt-4">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-2 text-[13.5px] font-medium text-ink-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+            Temukan grup lain ({discover.length})
+            <ChevronDown aria-hidden className="size-4 transition-transform duration-150 group-open/temukan:rotate-180" />
+          </summary>
           {discover.map((slug) => {
             const info = events[slug]!;
             return (
@@ -193,7 +200,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
                   type="button"
                   disabled={!loaded}
                   onClick={() => joinGroup(slug)}
-                  className="flex h-9 shrink-0 items-center gap-1 rounded-sm border border-line-strong/70 px-2.5 text-[12.5px] font-semibold hover:bg-panel-nested"
+                  className="flex min-h-11 shrink-0 items-center gap-1 rounded-sm border border-line-strong/70 px-3 text-[12.5px] font-semibold hover:bg-panel-nested"
                 >
                   Gabung
                   <span className="sr-only"> grup {info.title}</span>
@@ -201,13 +208,13 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
               </div>
             );
           })}
-        </div>
+        </details>
       )}
     </div>
   );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside aria-label="Grup diskusi" className="hidden lg:block">
         {groupList}
       </aside>
@@ -231,29 +238,31 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
           {switcher && <div className="pop mt-2 rounded-card border border-line bg-panel p-3 shadow-overlay">{groupList}</div>}
         </div>
 
-        <section className="enter flex flex-col gap-3 rounded-[18px] bg-inverse p-5 text-on-inverse [animation-duration:600ms] sm:p-6">
-          <span className="text-[12.5px] text-on-inverse-muted">
+        {/* Kepala grup ringan: judul + satu baris keterangan. Blok hitam penuh
+            sebelumnya menjadi elemen paling berat di layar, padahal yang dicari
+            orang di halaman ini adalah utasnya. */}
+        <header className="flex flex-col gap-2 border-b border-line pb-5">
+          <span className="text-[13px] text-ink-muted">
             {event.type} · {event.organizer}
           </span>
-          <h2 className="text-[22px] font-bold leading-tight tracking-[-0.025em] text-on-inverse">{event.title}</h2>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-on-inverse-muted">
+          <h2 className="text-[24px] font-bold leading-tight tracking-[-0.025em]">{event.title}</h2>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-ink-muted">
             <span className="flex items-center gap-1.5">
               <Users aria-hidden className="size-4" /> {group.members.toLocaleString('id-ID')} anggota
-              {group.online > 0 && ` · ${group.online} sedang aktif`}
             </span>
             <span className="flex items-center gap-1.5">
               <ShieldCheck aria-hidden className="size-4" /> Dimoderasi panitia
             </span>
             {state.joined.includes(group.eventSlug) && (
-              <button type="button" onClick={() => leaveGroup(group.eventSlug)} className="flex min-h-11 items-center font-medium text-on-inverse-muted underline underline-offset-[3px] hover:text-on-inverse">
+              <button type="button" onClick={() => leaveGroup(group.eventSlug)} className="flex min-h-11 items-center font-medium underline underline-offset-[3px] hover:text-ink">
                 Keluar grup
               </button>
             )}
-            <Link href={`/events/${event.slug}`} className="ml-auto flex min-h-11 items-center gap-1.5 font-semibold text-on-inverse hover:underline">
+            <Link href={`/events/${event.slug}`} className="flex min-h-11 items-center gap-1.5 font-semibold text-ink hover:underline sm:ml-auto">
               Detail kegiatan <ArrowRight aria-hidden className="size-4" />
             </Link>
           </div>
-        </section>
+        </header>
 
         {current ? (
           <article aria-labelledby="utas-title" className="flex flex-col gap-4 rounded-[18px] border border-line p-5 sm:p-6">
@@ -379,50 +388,62 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
               </button>
             )}
 
-            <ul className="flex flex-col gap-3">
+            {/* Daftar datar bergaris pemisah, bukan kotak per utas: batas kotak +
+                kotak suara + kotak lencana membuat setiap utas terbaca sebagai
+                lima elemen. Satu baris keterangan, judul, cuplikan satu baris,
+                lalu suara & balasan di baris akhir. */}
+            <ul className="flex flex-col divide-y divide-line border-y border-line">
               {threads.map((thread) => (
-                <li key={thread.id} className="enter flex gap-3 rounded-[18px] border border-line p-4 transition-colors duration-150 [animation-duration:500ms] hover:border-line-strong sm:p-5">
-                  <button
-                    type="button"
-                    aria-pressed={state.votes.includes(thread.id)}
-                    disabled={!loaded}
-                    onClick={() => toggleVote(thread)}
-                    className={cn('flex w-11 shrink-0 flex-col items-center justify-center gap-0.5 self-start rounded-sm py-1.5 text-[13px] font-semibold', state.votes.includes(thread.id) ? 'bg-brand text-on-brand' : 'bg-panel-nested hover:bg-line')}
-                  >
-                    <ArrowUp aria-hidden className="size-4" />
-                    {votes(thread)}
-                    <span className="sr-only"> suara, dukung {thread.title}</span>
-                  </button>
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <span className="flex flex-wrap items-center gap-2 text-[12px] font-medium text-ink-muted">
-                      {thread.pinned && (
-                        <span className="inline-flex items-center gap-1 text-ink">
-                          <Pin aria-hidden className="size-3" /> Disematkan
-                        </span>
-                      )}
-                      <span># {channelLabel(thread.channel)}</span>
-                      {thread.answered && (
-                        <span className="inline-flex items-center gap-1 rounded-[5px] bg-brand px-1.5 py-px text-on-brand">
-                          <Check aria-hidden className="size-3" /> Dijawab panitia
-                        </span>
-                      )}
-                    </span>
-                    <h3 className="text-[16px] font-semibold leading-snug">
-                      <button type="button" onClick={() => setOpenThread(thread.id)} className="text-left hover:underline">
-                        {thread.title}
-                      </button>
-                    </h3>
-                    {thread.body && <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-soft">{thread.body}</p>}
-                    <span className="flex flex-wrap items-center justify-between gap-2">
-                      <Author name={thread.author} official={thread.official} time={thread.time} />
-                      <span className="flex items-center gap-1.5 text-[12.5px] text-ink-muted">
-                        <MessageSquare aria-hidden className="size-3.5" /> {repliesOf(thread).length} balasan
+                <li key={thread.id} className="flex flex-col gap-2 py-5">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-muted">
+                    {thread.pinned && (
+                      <span className="inline-flex items-center gap-1 font-medium text-ink">
+                        <Pin aria-hidden className="size-3" /> Disematkan
                       </span>
+                    )}
+                    <span># {channelLabel(thread.channel)}</span>
+                    {thread.answered && (
+                      <span className="inline-flex items-center gap-1 font-medium text-success">
+                        <Check aria-hidden className="size-3.5" /> Dijawab panitia
+                      </span>
+                    )}
+                  </span>
+                  <h3 className="text-[16.5px] font-semibold leading-snug">
+                    <button type="button" onClick={() => setOpenThread(thread.id)} className="text-left hover:underline">
+                      {thread.title}
+                    </button>
+                  </h3>
+                  {thread.body && <p className="line-clamp-1 text-[14px] leading-relaxed text-ink-muted">{thread.body}</p>}
+                  <span className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <Author name={thread.author} official={thread.official} time={thread.time} />
+                    <span className="ml-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-pressed={state.votes.includes(thread.id)}
+                        disabled={!loaded}
+                        onClick={() => toggleVote(thread)}
+                        className={cn(
+                          'flex min-h-11 items-center gap-1 rounded-sm px-2.5 text-[13px] font-semibold',
+                          state.votes.includes(thread.id) ? 'text-ink' : 'text-ink-muted hover:bg-panel-nested hover:text-ink',
+                        )}
+                      >
+                        <ArrowUp aria-hidden className={cn('size-4', state.votes.includes(thread.id) && 'stroke-[2.6]')} />
+                        {votes(thread)}
+                        <span className="sr-only"> suara, dukung {thread.title}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOpenThread(thread.id)}
+                        className="flex min-h-11 items-center gap-1.5 rounded-sm px-2.5 text-[13px] text-ink-muted hover:bg-panel-nested hover:text-ink"
+                      >
+                        <MessageSquare aria-hidden className="size-3.5" /> {repliesOf(thread).length}
+                        <span className="sr-only"> balasan, buka {thread.title}</span>
+                      </button>
                     </span>
-                  </div>
+                  </span>
                 </li>
               ))}
-              {threads.length === 0 && <li className="rounded-[18px] border border-dashed border-line-strong p-6 text-center text-sm text-ink-muted">Belum ada utas di kanal ini. Jadilah yang pertama bertanya.</li>}
+              {threads.length === 0 && <li className="py-10 text-center text-sm text-ink-muted">Belum ada utas di kanal ini. Jadilah yang pertama bertanya.</li>}
             </ul>
             <p className="text-center text-[12px] text-ink-faint">Utas contoh · mode demo. Yang kamu tulis hanya tersimpan di perangkat ini.</p>
           </>

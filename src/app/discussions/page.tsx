@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { DiscussionsApp, type GroupEvent } from '@/components/demo/discussions-app';
 import { InboxTabs } from '@/components/demo/inbox-tabs';
-import { AccountShell } from '@/components/layout/account-shell';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { DEMO_GROUPS, DISCOVER_SLUGS } from '@/lib/demo/discussions';
@@ -29,12 +28,11 @@ export default async function DiscussionsPage() {
   }
 
   return (
-    <AccountShell user={user} active="diskusi">
-      <div className="flex flex-col gap-5">
-        <h1 className="sr-only">Ruang diskusi</h1>
-        <InboxTabs active="diskusi" description="Satu grup untuk setiap kegiatan yang kamu ikuti. Panitia menjawab langsung di sini." />
-        <DiscussionsApp events={events} userName={user.fullName} />
-      </div>
-    </AccountShell>
+    // Tanpa AccountShell — alasan yang sama dengan /messages (ADR-048).
+    <div className="container-page flex flex-col gap-6 pb-16 pt-8">
+      <h1 className="sr-only">Ruang diskusi</h1>
+      <InboxTabs active="diskusi" description="Satu grup untuk setiap kegiatan yang kamu ikuti. Panitia menjawab langsung di sini." />
+      <DiscussionsApp events={events} userName={user.fullName} />
+    </div>
   );
 }
