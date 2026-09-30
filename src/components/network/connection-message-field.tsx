@@ -9,7 +9,7 @@ export function ConnectionMessageField({ idPrefix }: { idPrefix: string }) {
   const id = `${idPrefix}-pesan`;
   return (
     <details className="group">
-      <summary className="flex min-h-9 cursor-pointer list-none items-center text-[12.5px] font-medium text-ink-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center text-[12.5px] font-medium text-ink-muted hover:text-ink [&::-webkit-details-marker]:hidden">
         <span className="group-open:hidden">+ Tambah pesan pengantar</span>
         <span className="hidden group-open:inline">Pesan pengantar (opsional)</span>
       </summary>
