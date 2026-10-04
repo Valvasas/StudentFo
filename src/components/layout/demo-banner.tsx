@@ -46,8 +46,7 @@ export function DemoBanner() {
                 </strong>
               ) : (
                 <>
-                  <span className="hidden sm:inline">Reset pukul </span>
-                  <span className="sm:hidden">Reset </span>
+                  Reset pukul{' '}
                   <time dateTime={reset.nextResetAt.toISOString()}>{formatTimeId(reset.nextResetAt.toISOString())}</time>.
                 </>
               )}
