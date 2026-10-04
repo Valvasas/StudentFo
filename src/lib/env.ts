@@ -43,6 +43,11 @@ const serverSchema = z.object({
    */
   TURNSTILE_SITE_KEY: z.string().min(1).optional(),
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+  /**
+   * Bearer token endpoint mesin `/api/cron/*` (ADR-051). Kosong = endpoint
+   * menolak semua permintaan (gagal tertutup), bukan terbuka.
+   */
+  CRON_SECRET: z.string().min(32, 'minimal 32 karakter acak, mis. `openssl rand -hex 32`').optional(),
 }).refine(
   (value) => Boolean(value.TURNSTILE_SITE_KEY) === Boolean(value.TURNSTILE_SECRET_KEY),
   {
@@ -71,6 +76,7 @@ function readEnv(): ServerEnv {
     CLIENT_IP_HEADER: process.env.CLIENT_IP_HEADER || undefined,
     TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY || undefined,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY || undefined,
+    CRON_SECRET: process.env.CRON_SECRET || undefined,
   });
 
   if (!parsed.success) {

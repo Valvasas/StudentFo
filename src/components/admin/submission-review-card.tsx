@@ -3,6 +3,7 @@ import { reviewSubmissionAction } from '@/app/admin/actions';
 import { RejectConfirm } from '@/components/admin/reject-confirm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { priceLabel } from '@/lib/currency';
 import { formatDateId, formatDateTimeId } from '@/lib/deadline';
 import { sanitizeExternalUrl } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type Submission } from '@/types/domain';
@@ -37,6 +38,9 @@ export function SubmissionReviewCard({
   const { payload } = submission;
   const registrationUrl = payload ? sanitizeExternalUrl(payload.registrationLink) : null;
   const sourceUrl = payload?.sourceUrl ? sanitizeExternalUrl(payload.sourceUrl) : null;
+  const guidebookUrl = payload?.guidebookUrl ? sanitizeExternalUrl(payload.guidebookUrl) : null;
+  const proofUrl = payload?.proofLink ? sanitizeExternalUrl(payload.proofLink) : null;
+  const price = payload ? priceLabel(payload) : null;
   const orgMismatch =
     verifiedOrg && payload && payload.organizer.trim().toLowerCase() !== verifiedOrg.trim().toLowerCase();
 
@@ -75,9 +79,18 @@ export function SubmissionReviewCard({
               <dt className="inline text-ink-muted">Lokasi: </dt>
               <dd className="inline">{payload.isOnline ? 'Daring' : (payload.location ?? '—')}</dd>
             </div>
-            <div className="sm:col-span-2">
+            <div>
               <dt className="inline text-ink-muted">Jenjang: </dt>
               <dd className="inline">{payload.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(', ')}</dd>
+            </div>
+            <div>
+              <dt className="inline text-ink-muted">Biaya: </dt>
+              <dd className="inline">{price && price.kind !== 'unknown' ? price.text : 'Belum diketahui'}</dd>
+            </div>
+            {/* Privat: tidak pernah ikut tayang (approve_submission tidak menyalinnya). */}
+            <div className="sm:col-span-2">
+              <dt className="inline text-ink-muted">Kontak panitia: </dt>
+              <dd className="inline">{payload.organizerContact ?? '—'}</dd>
             </div>
           </dl>
           {payload.description && (
@@ -87,6 +100,8 @@ export function SubmissionReviewCard({
             {[
               { label: 'Tautan pendaftaran', url: registrationUrl },
               { label: 'Sumber', url: sourceUrl },
+              { label: 'Buku panduan', url: guidebookUrl },
+              { label: 'Bukti kepanitiaan', url: proofUrl },
             ].map(({ label, url }) =>
               url ? (
                 <a

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildContentSecurityPolicy, generateNonce, HSTS_VALUE } from './security-headers';
+import { allowsDocumentFrames, buildContentSecurityPolicy, generateNonce, HSTS_VALUE } from './security-headers';
 
 function directives(csp: string): Map<string, string[]> {
   return new Map(
@@ -42,6 +42,18 @@ describe('buildContentSecurityPolicy', () => {
     const dev = directives(buildContentSecurityPolicy({ nonce: 'n', isDev: true }));
     expect(dev.has('upgrade-insecure-requests')).toBe(false);
     expect(dev.get('script-src')).toContain("'unsafe-eval'");
+  });
+
+  it('iframe ke host https lain hanya di halaman detail kegiatan (pratinjau buku panduan)', () => {
+    expect(prod.get('frame-src')).toEqual(['https://challenges.cloudflare.com']);
+    const detail = directives(buildContentSecurityPolicy({ nonce: 'n', isDev: false, allowDocumentFrames: true }));
+    expect(detail.get('frame-src')).toEqual(['https://challenges.cloudflare.com', 'https:']);
+    expect(detail.get('frame-ancestors')).toEqual(["'none'"]);
+    expect(allowsDocumentFrames('/events/lomba-esai')).toBe(true);
+    expect(allowsDocumentFrames('/events/lomba-esai/')).toBe(true);
+    for (const path of ['/events', '/events/', '/events/x/daftar', '/events/x/persiapan', '/admin', '/eventsx/y']) {
+      expect(allowsDocumentFrames(path), path).toBe(false);
+    }
   });
 
   it('URL Supabase rusak tidak menghasilkan sumber sampah', () => {

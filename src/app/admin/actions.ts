@@ -8,6 +8,7 @@ import { getEventRepository, resetDemoData } from '@/lib/data';
 import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
 import { dataMode } from '@/lib/env';
 import { toApiError } from '@/lib/errors';
+import { parsePresentationForm } from '@/lib/event-presentation';
 import { formText, formTrimmed } from '@/lib/form-data';
 
 /**
@@ -103,6 +104,38 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
 
   refreshPublicViews();
   redirect(`/admin?notice=${decision === 'APPROVED' ? 'submission_approved' : 'submission_rejected'}`);
+}
+
+// ----------------------------------------------------------------------
+// Lencana otoritas & promosi berbayar (ADR-049)
+// ----------------------------------------------------------------------
+
+const PRESENTATION_PAGE = '/admin/promosi';
+
+export async function updateEventPresentationAction(formData: FormData): Promise<void> {
+  // Pencarian yang sedang dibuka ikut dibawa pulang, tapi hanya sebagai
+  // NILAI parameter `q` — bukan path bebas dari form (open redirect).
+  const search = formText(formData, 'q').trim().slice(0, 120);
+  const returnTo = withQuery(PRESENTATION_PAGE, { q: search || undefined });
+
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const parsed = parsePresentationForm(formData);
+  if (!parsed.success) redirect(withQuery(returnTo, { error: 'invalid_presentation' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).updateEventPresentation(parsed.data);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { error: failure }));
+
+  // Lencana & urutan promosi tampil di katalog publik yang di-cache.
+  refreshPublicViews();
+  revalidatePath(PRESENTATION_PAGE);
+  redirect(withQuery(returnTo, { notice: 'presentation_saved' }));
 }
 
 // ----------------------------------------------------------------------

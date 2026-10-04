@@ -63,14 +63,17 @@ src/
 │   ├── about/                  Tentang — angka dari getStats(), klaim sesuai perilaku sistem
 │   ├── submit/                 Kirim kegiatan (kiriman komunitas, boleh tamu) + actions.ts
 │   ├── notifications/          actions.ts (tandai dibaca)
-│   └── admin/                  Antrean moderasi event + kiriman komunitas; actions.ts (auth di dalam)
+│   ├── api/events/[slug]/calendar/   GET berkas .ics semua tenggat (RFC 5545, ADR-049)
+│   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
+│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); actions.ts (auth di dalam)
 │
 ├── components/
 │   ├── ui/                     Primitif tanpa domain-knowledge (Button, Badge, Card,
 │   │                           Skeleton, Field/TextInput/SelectInput/TextArea/FormAlert)
 │   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
-│   │                           EmptyState, SaveButton
+│   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
+│   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS)
 │   ├── team/                   TeamCard, TeamSlotsBadge
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings, blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
@@ -90,7 +93,12 @@ src/
 │   │   ├── supabase-mappers.ts    Baris → domain, isUuid, sanitizeSearchQuery [teruji]
 │   │   └── seed-data.ts        Data contoh (event, kategori, tim)
 │   ├── deadline.ts             H-n, urgensi, pita 7 hari WIB — Asia/Jakarta [teruji]
-│   ├── recommendation.ts       Skoring §6 + cold start [teruji]
+│   ├── recommendation.ts       Skoring §6 + cold start [teruji] — kembaran SQL: list_personalized_events (ADR-050)
+│   ├── calendar.ts             URL Google Calendar + .ics RFC 5545 (escape, lipat 75 oktet, VALARM) [teruji]
+│   ├── currency.ts             formatRupiah, priceLabel (null = tidak ditebak gratis) [teruji]
+│   ├── guidebook.ts            Validasi ulang tautan buku panduan + deteksi PDF [teruji]
+│   ├── event-presentation.ts   Form admin lencana & promosi (Zod) [teruji]
+│   ├── cron-auth.ts            Bearer CRON_SECRET, banding waktu-konstan, gagal tertutup [teruji]
 │   ├── network.ts              Peringkat saran koneksi, alasan, validasi form jaringan, kursor paginasi koneksi [teruji]
 │   ├── network-graph.ts        Data peta koneksi (simpul/sisi, batas) dibangun di server [teruji]
 │   ├── graph-layout.ts         Simulasi gaya deterministik, zoom, hit-test, penempatan label [teruji]

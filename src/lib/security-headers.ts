@@ -18,6 +18,18 @@ export interface CspInput {
   readonly isDev: boolean;
   /** Origin Supabase; tujuan redirect alur OAuth dari form tanpa JavaScript. */
   readonly supabaseUrl?: string | undefined;
+  /**
+   * Izinkan iframe ke host https mana pun — HANYA untuk halaman detail
+   * kegiatan, tempat pratinjau buku panduan PDF (ADR-049). Host-nya tidak
+   * bisa diketahui di middleware (kiriman komunitas), jadi daftar putih per
+   * host tidak mungkin; pelonggarannya dibatasi per RUTE sebagai gantinya.
+   */
+  readonly allowDocumentFrames?: boolean;
+}
+
+/** Halaman detail kegiatan (`/events/<slug>`), bukan sub-rute seperti `/daftar` atau `/persiapan`. */
+export function allowsDocumentFrames(pathname: string): boolean {
+  return /^\/events\/[^/]+\/?$/.test(pathname);
 }
 
 export const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
@@ -32,7 +44,7 @@ function originOf(url: string | undefined): string | null {
   }
 }
 
-export function buildContentSecurityPolicy({ nonce, isDev, supabaseUrl }: CspInput): string {
+export function buildContentSecurityPolicy({ nonce, isDev, supabaseUrl, allowDocumentFrames = false }: CspInput): string {
   const supabaseOrigin = originOf(supabaseUrl);
 
   const directives: Record<string, readonly string[]> = {
@@ -54,7 +66,7 @@ export function buildContentSecurityPolicy({ nonce, isDev, supabaseUrl }: CspInp
     'img-src': ["'self'", 'data:', 'blob:'],
     'font-src': ["'self'"],
     'connect-src': ["'self'", TURNSTILE_ORIGIN, ...(isDev ? ['ws:'] : [])],
-    'frame-src': [TURNSTILE_ORIGIN],
+    'frame-src': [TURNSTILE_ORIGIN, ...(allowDocumentFrames ? ['https:'] : [])],
     // Chrome menerapkan form-action juga pada REDIRECT hasil kirim form. Masuk
     // dengan Google tanpa JavaScript = POST → Supabase → Google, jadi kedua
     // origin itu harus ada di sini atau tombolnya diam-diam tidak berbuat apa-apa.

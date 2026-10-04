@@ -1,3 +1,5 @@
+import { PriceBadge } from '@/components/event/price-badge';
+import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { MapPin, Monitor } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
@@ -122,10 +124,14 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                             {initialsOf(event.organizer)}
                           </span>
                           <span className="flex min-w-0 flex-col gap-px">
-                            <span className="text-sm font-semibold">{event.organizer}</span>
+                            <span className="flex items-center gap-1 text-sm font-semibold">
+                              {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
+                              {event.organizer}
+                            </span>
                             <span className="text-[12.5px] text-ink-muted">Penyelenggara</span>
                           </span>
                         </div>
+                        <PriceBadge event={event} className="self-start" />
                         <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">
                           <li className="flex h-6 items-center gap-[5px] rounded-[6px] border border-line px-[9px] text-xs font-medium">
                             {event.isOnline ? <Monitor aria-hidden className="size-3" /> : <MapPin aria-hidden className="size-3" />}

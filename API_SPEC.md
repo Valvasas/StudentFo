@@ -110,27 +110,57 @@ interface EventQuery {
   types?: readonly EventType[];
   categories?: readonly string[];   // category slugs
   levels?: readonly EducationLevel[];
+  locations?: readonly string[];
+  mode?: 'online' | 'onsite';
   sort?: 'relevance' | 'deadline' | 'newest';
   includeClosed?: boolean;
+  cost?: 'free' | 'paid';           // ADR-049; `isFree === null` tidak masuk keduanya
   page?: number;
   pageSize?: number;   // default 12, maks 48 (DEFAULT_PAGE_SIZE / MAX_PAGE_SIZE)
   profile?: UserProfile | null;     // personalisasi rekomendasi (§6)
+  promoted?: boolean;               // ADR-049; OPT-IN, default false
 }
 ```
 
 Perilaku sort:
-- `relevance` — `rankEvents()` dari `recommendation.ts` (personalized jika
-  `profile` ada, cold-start jika `profile` null/belum lengkap). Di Supabase
-  diperingkat atas ≤240 kandidat terbaru (`RELEVANCE_CANDIDATE_WINDOW`), lalu
-  dipotong per halaman; halaman di luar jendela jatuh ke urutan terbaru (ADR-021).
+- `relevance` — rumus `rankEvents()` dari `recommendation.ts` (personalized
+  jika profil lengkap, cold-start jika `profile` null/belum lengkap). Mode
+  seed menjalankannya di Node; Supabase menjalankan kembarannya di SQL lewat
+  RPC `list_personalized_events()` atas SEMUA hasil filter sebelum
+  LIMIT/OFFSET — halaman berapa pun benar (ADR-050, menggantikan jendela 240
+  kandidat ADR-021). Kedua sisi dikunci uji paritas
+  `tests/integration/relevance-and-attributes.test.ts`.
 - `includeClosed: true` ikut menampilkan event `EXPIRED` di kedua implementasi.
 - `deadline` — tenggat terdekat dulu; event tanpa tenggat ditaruh **terakhir**
   (bukan `NULL` pertama, supaya tidak "menyelinap" ke puncak).
 - `newest` — `created_at DESC`.
+- `promoted: true` — kegiatan dengan promosi AKTIF (`isPromoted()` =
+  `events_listing.is_promoted`) dipindah ke puncak dalam urutan relatifnya,
+  sisanya tetap urutan di atas. Skor tidak berubah. Hanya daftar umum
+  `/events` yang memintanya; daftar yang menyatakan fakta (tenggat terdekat,
+  hitungan, "sesuai minatmu") tidak.
 
 Kedua implementasi (`MemoryEventRepository`, `SupabaseEventRepository`)
 WAJIB menghasilkan urutan & filter yang setara secara semantik — kalau kamu
 ubah logika filter/sort, ubah di kedua tempat dan jaga test tetap hijau.
+
+### Field biaya, promosi, lencana, buku panduan (ADR-049)
+
+| Field | Tipe | Arti |
+|---|---|---|
+| `EventSummary.isFree` | `boolean \| null` | `null` = belum diketahui (hasil scraping). UI tidak menampilkan lencana. |
+| `EventSummary.priceAmount` | `number \| null` | Rupiah utuh; hanya bila `isFree === false`. `null` = nominal belum diumumkan. |
+| `EventSummary.featuredUntil` | `string \| null` | Akhir promosi; `null` = tidak berpromosi. Aktif/tidak dihitung `isPromoted(event, now)`. |
+| `EventSummary.verificationBadge` | `'OFFICIAL_GOV' \| 'CAMPUS_VERIFIED' \| 'COMMUNITY' \| null` | Diberikan moderator, bukan diklaim penyelenggara. |
+| `EventDetail.guidebookUrl` | `string \| null` | https saja (CHECK di DB + `guidebookPreview()` saat render). |
+
+`EventPresentationRepository` (admin saja, dipanggil SETELAH `checkAdminAccess()`):
+`updateEventPresentation({ eventId, verificationBadge, featuredUntil })` — hanya
+acara APPROVED (`event_unavailable`); `listFeaturedEvents(limit)`.
+
+`NotificationDispatchRepository` (server saja, route ber-`CRON_SECRET`):
+`claimDeadlineDispatches(limit)` → `DeadlineDispatch[]` (sewa 15 menit),
+`acknowledgeDeadlineDispatches(ids)` → jumlah yang benar-benar ditandai.
 
 ### `ReviewEventInput`
 
@@ -319,13 +349,25 @@ batas-batasnya mencerminkan kolomnya di migration 0001 (`title` VARCHAR(255),
 
 | Aksi | Field form | Sukses | Gagal |
 |---|---|---|---|
-| `submitEventAction` | `email`, `title`, `organizer`, `eventType`, `registrationLink`, `sourceUrl?`, `deadlineDate` (`YYYY-MM-DD`), `educationLevels[]`, `categorySlugs[]?`, `location?`, `isOnline?`, `description?`, `website` (honeypot) | `/submit?notice=submission_received` | `/submit?error=invalid_submission&fields=<nama field skema>`, atau `/submit?error=submission_rate_limited` (ADR-023) |
+| `submitEventAction` | `email`, `title`, `organizer`, `eventType`, `registrationLink`, `sourceUrl?`, `deadlineDate` (`YYYY-MM-DD`), `educationLevels[]`, `categorySlugs[]?`, `location?`, `isOnline?`, `description?`, `costType` (`free`/`paid`/`unknown`), `priceAmount?`, `guidebookUrl?` (https), `organizerContact?`, `proofLink?`, `website` (honeypot) | `/submit?notice=submission_received` | `/submit?error=invalid_submission&fields=<nama field skema>`, atau `/submit?error=submission_rate_limited` (ADR-023) |
 
 Boleh dipanggil tamu. Validasi: `parseSubmissionForm()`
 (`src/lib/submission-schema.ts`) — tenggat tidak boleh lewat atau > 3 tahun
 (aturan sama dengan pipeline), tautan wajib http/https. `fields` hanya berisi
 nama field dari skema kita dan disaring daftar putih di halaman. Honeypot
-terisi → dijawab seolah sukses, tidak disimpan.
+terisi → dijawab seolah sukses, tidak disimpan. Teks bebas melewati
+`stripMarkup()` (tag HTML, karakter kendali & pembalik arah U+202E dibuang)
+SEBELUM batas panjang dicek — isinya juga mengalir ke `.ics` dan payload bot.
+`organizerContact`/`proofLink` hanya untuk moderator: `approve_submission()`
+tidak menyalinnya ke `events` (ADR-049).
+
+### `updateEventPresentationAction` — `src/app/admin/actions.ts` (ADR-049)
+
+Field: `eventId`, `verificationBadge` (kosong = cabut), `featuredUntil`
+(`YYYY-MM-DD`, 23.59 WIB; kosong = hentikan; hari ini..+366 hari), `q`
+(pencarian yang dibawa pulang — hanya sebagai NILAI parameter). Otorisasi
+`checkAdminAccess()` di dalam aksi. Sukses → `/admin/promosi?notice=presentation_saved`;
+gagal → `invalid_presentation` / `event_unavailable`. Mencabut tag `events`.
 
 ### `reviewSubmissionAction` — `src/app/admin/actions.ts`
 
@@ -350,6 +392,45 @@ try/catch (ia melempar secara internal oleh Next.js).
 
 Efek samping sukses: `revalidatePath('/admin')`, `revalidatePath('/events')`,
 `revalidatePath('/')`.
+
+## 2b. Route handler mesin & unduhan
+
+### `GET /api/events/[slug]/calendar` (ADR-049/Modul 2)
+
+Berkas `.ics` (RFC 5545) semua tenggat yang belum lewat, acara seharian per
+tanggal WIB, pengingat 09.00 H-3 & H-1 untuk pendaftaran/pengumpulan.
+`200 text/calendar; charset=utf-8` + `Content-Disposition: attachment`;
+`404 { error, code: 'NOT_FOUND' }` bila kegiatan tidak ada/tidak tayang atau
+belum punya jadwal. Publik, `Cache-Control: public, max-age=300`.
+
+### `POST /api/cron/dispatch-deadline-notifications?limit=100` (ADR-051)
+
+`Authorization: Bearer <CRON_SECRET>` (≥32 karakter; kosong = selalu 401).
+Mengklaim ≤`limit` (1..500) pengingat `DEADLINE_H3`/`DEADLINE_H1` yang belum
+terkirim, kegiatannya masih APPROVED & belum tutup. Respons:
+
+```jsonc
+{
+  "claimedAt": "…", "leaseSeconds": 900,
+  "ackUrl": "https://…/api/cron/dispatch-deadline-notifications/ack",
+  "count": 1,
+  "dispatches": [{
+    "notificationId": "uuid", "type": "DEADLINE_H1",
+    "message": "Terakhir — pendaftaran … ditutup besok.", "createdAt": "…",
+    "recipient": { "userId": "uuid", "email": "…", "fullName": "…" },
+    "event": { "id": "uuid", "slug": "…", "title": "…", "organizer": "…",
+               "deadlineAt": "…", "daysLeft": 1, "url": "https://…/events/…" }
+  }]
+}
+```
+
+`GET` → `405` (`Allow: POST`): mengambil antrean MENGUBAH state.
+
+### `POST /api/cron/dispatch-deadline-notifications/ack`
+
+Body `{ "notificationIds": ["…"] }` (1..500). Respons `{ "acknowledged": n }`
+— hanya baris yang sedang diklaim dan belum terkirim yang dihitung. Yang
+tidak di-ack sebelum sewa habis akan diklaim ulang (at-least-once).
 
 ## 3. Kontrak error
 
@@ -387,6 +468,7 @@ aturannya: **nilai tidak dikenal dibuang, tidak pernah error 500**.
 | `jenjang` (bisa berulang / CSV) | levels | hanya nilai yang ada di `EDUCATION_LEVELS` |
 | `sort` | sort | fallback `'relevance'` kalau tidak dikenal |
 | `tampilkan=semua` | includeClosed | boolean literal |
+| `biaya=gratis\|berbayar` | cost | `free`/`paid`; nilai lain (termasuk `constructor`, `__proto__`) dibuang — `Object.hasOwn` |
 | `page` | page | integer positif, fallback 1 |
 
 `buildEventHref()` membangun URL kanonik balik dari `ParsedEventQuery` —

@@ -3,7 +3,9 @@ import type { EventSummary } from '@/types/domain';
 import {
   chooseCountMode,
   EXACT_COUNT_MAX_ACTIVE,
+  isPromoted,
   isPubliclyVisible,
+  matchesCost,
   paginate,
   resolvePaging,
   sortSummaries,
@@ -25,6 +27,10 @@ function summary(id: string, overrides: Partial<EventSummary> = {}): EventSummar
     createdAt: '2026-01-01T00:00:00Z',
     primaryDeadlineAt: null,
     primaryDeadlineLabel: null,
+    isFree: null,
+    priceAmount: null,
+    featuredUntil: null,
+    verificationBadge: null,
     ...overrides,
   };
 }
@@ -82,6 +88,50 @@ describe('sortSummaries', () => {
       now,
     );
     expect(sorted.map((event) => event.id)).toEqual(['baru', 'lama']);
+  });
+});
+
+describe('promosi berbayar (ADR-049)', () => {
+  const now = new Date('2026-01-10T00:00:00Z');
+  const running = { featuredUntil: '2026-01-20T00:00:00Z', primaryDeadlineAt: '2026-01-15T00:00:00Z' };
+
+  it('aktif hanya selama masa promosi, untuk kegiatan APPROVED yang belum tutup', () => {
+    expect(isPromoted(summary('a', running), now)).toBe(true);
+    expect(isPromoted(summary('b', { ...running, featuredUntil: '2026-01-09T00:00:00Z' }), now)).toBe(false);
+    expect(isPromoted(summary('c', { ...running, primaryDeadlineAt: '2026-01-09T00:00:00Z' }), now)).toBe(false);
+    expect(isPromoted(summary('d', { ...running, status: 'EXPIRED' }), now)).toBe(false);
+    expect(isPromoted(summary('e', { ...running, primaryDeadlineAt: null }), now)).toBe(true);
+    expect(isPromoted(summary('f'), now)).toBe(false);
+  });
+
+  it('opt-in: tanpa `promoted` urutan tidak berubah; dengan `promoted` yang berpromosi naik, sisanya tetap urut', () => {
+    const events = [
+      summary('dekat', { primaryDeadlineAt: '2026-01-12T00:00:00Z' }),
+      summary('iklan', { ...running, primaryDeadlineAt: '2026-03-01T00:00:00Z' }),
+      summary('sedang', { primaryDeadlineAt: '2026-01-14T00:00:00Z' }),
+    ];
+    expect(sortSummaries(events, 'deadline', now).map((event) => event.id)).toEqual(['dekat', 'sedang', 'iklan']);
+    expect(sortSummaries(events, 'deadline', now, null, true).map((event) => event.id)).toEqual(['iklan', 'dekat', 'sedang']);
+  });
+
+  it('promosi tidak mengubah skor relevansi — hanya posisinya', () => {
+    const profile = { interests: ['teknologi'], educationLevel: 'D4_S1' as const };
+    const events = [
+      summary('relevan', { categorySlugs: ['teknologi'], educationLevels: ['D4_S1'] }),
+      summary('iklan-tak-relevan', { ...running, categorySlugs: ['olahraga'] }),
+    ];
+    expect(sortSummaries(events, 'relevance', now, profile).map((event) => event.id)).toEqual(['relevan', 'iklan-tak-relevan']);
+    expect(sortSummaries(events, 'relevance', now, profile, true).map((event) => event.id)).toEqual(['iklan-tak-relevan', 'relevan']);
+  });
+});
+
+describe('matchesCost', () => {
+  it('"belum diketahui" (null) tidak pernah lolos saringan gratis maupun berbayar', () => {
+    expect(matchesCost({ isFree: true }, 'free')).toBe(true);
+    expect(matchesCost({ isFree: false }, 'paid')).toBe(true);
+    expect(matchesCost({ isFree: null }, 'free')).toBe(false);
+    expect(matchesCost({ isFree: null }, 'paid')).toBe(false);
+    expect(matchesCost({ isFree: null }, undefined)).toBe(true);
   });
 });
 

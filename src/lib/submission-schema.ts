@@ -31,12 +31,67 @@ const httpUrlSchema = z
   .url('Tautan harus berupa alamat web lengkap, diawali https://')
   .refine((value) => /^https?:\/\//i.test(value), 'Tautan harus diawali http:// atau https://');
 
+const httpsUrlSchema = z
+  .string()
+  .trim()
+  .max(2000, 'Tautan terlalu panjang.')
+  .url('Tautan harus berupa alamat web lengkap, diawali https://')
+  .refine((value) => /^https:\/\//i.test(value), 'Tautan harus diawali https://');
+
+/** Kolom URL opsional: kosong → null. */
+const optionalUrl = (schema: z.ZodType<string>) => z.union([schema, z.literal('').transform(() => null)]);
+
+/**
+ * Buang markup & karakter tak terlihat dari teks bebas kiriman.
+ *
+ * React memang meng-escape semua teks saat render, tapi isi kiriman juga
+ * mengalir ke tempat yang TIDAK di-escape React: berkas .ics, payload bot
+ * Telegram/WhatsApp (mode HTML/Markdown), email. `<a href=…>` di judul akan
+ * menjadi tautan aktif di salah satu kanal itu. Karakter kendali dua arah
+ * (U+202E dkk) membalik tampilan teks — trik klasik menyamarkan domain palsu.
+ *
+ * Hanya `<` yang diikuti huruf atau `/` yang dianggap tag, jadi "IPK < 3,5"
+ * tetap utuh.
+ */
+export function stripMarkup(value: string): string {
+  return value
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<\/?[a-z][^<>]*>/gi, ' ')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g, '')
+    .replace(/[ \t]+/g, ' ');
+}
+
+/** Teks satu baris: markup dibuang, spasi dirapikan, LALU batas panjang dicek. */
+const plainLine = () =>
+  z
+    .string()
+    .transform((value) => stripMarkup(value).replace(/\s+/g, ' ').trim());
+
 const optionalText = (max: number, message: string) =>
   z
     .string()
-    .trim()
-    .max(max, message)
+    .transform((value) => stripMarkup(value).trim())
+    .pipe(z.string().max(max, message))
     .transform((value) => (value.length === 0 ? null : value));
+
+/** Batas atas nominal = CHECK `events_price_consistent` (migration 20261003100001). */
+export const MAX_PRICE_AMOUNT = 1_000_000_000;
+
+/**
+ * "Rp 150.000", "150000", "150.000,00" → 150000. Kosong → null (berbayar,
+ * nominal belum diumumkan). Sen dibuang dulu SEBELUM membuang pemisah ribuan;
+ * kalau tidak, "150.000,50" terbaca 15.000.050.
+ */
+export function parsePriceInput(raw: string): number | null | 'invalid' {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  const digits = trimmed.replace(/,\d{1,2}$/, '').replace(/[^\d]/g, '');
+  if (digits.length === 0 || digits.length > 10) return 'invalid';
+  const amount = Number(digits);
+  return amount >= 1 && amount <= MAX_PRICE_AMOUNT ? amount : 'invalid';
+}
+
+export const COST_TYPES = ['free', 'paid', 'unknown'] as const;
 
 /** `YYYY-MM-DD` dari `<input type="date">` → 23:59 WIB pada hari itu, sebagai ISO UTC. */
 export function dateInputToDeadlineIso(value: string): string | null {
@@ -53,21 +108,16 @@ export function dateInputToDeadlineIso(value: string): string | null {
 export function createSubmissionSchema(now: Date = new Date()) {
   return z.object({
     submittedByEmail: emailSchema,
-    title: z
-      .string()
-      .trim()
-      .min(6, 'Judul kegiatan minimal 6 karakter.')
-      .max(255, 'Judul kegiatan maksimal 255 karakter.')
-      .transform((value) => value.replace(/\s+/g, ' ')),
-    organizer: z
-      .string()
-      .trim()
-      .min(2, 'Nama penyelenggara minimal 2 karakter.')
-      .max(255, 'Nama penyelenggara maksimal 255 karakter.'),
+    title: plainLine().pipe(
+      z.string().min(6, 'Judul kegiatan minimal 6 karakter.').max(255, 'Judul kegiatan maksimal 255 karakter.'),
+    ),
+    organizer: plainLine().pipe(
+      z.string().min(2, 'Nama penyelenggara minimal 2 karakter.').max(255, 'Nama penyelenggara maksimal 255 karakter.'),
+    ),
     description: optionalText(5000, 'Deskripsi maksimal 5000 karakter.'),
     eventType: z.enum(EVENT_TYPES, { message: 'Pilih jenis kegiatan.' }),
     registrationLink: httpUrlSchema,
-    sourceUrl: z.union([httpUrlSchema, z.literal('').transform(() => null)]),
+    sourceUrl: optionalUrl(httpUrlSchema),
     educationLevels: z
       .array(z.enum(EDUCATION_LEVELS))
       .min(1, 'Pilih minimal satu jenjang peserta.')
@@ -85,7 +135,25 @@ export function createSubmissionSchema(now: Date = new Date()) {
         const days = daysUntil(value, now);
         return days !== null && days <= MAX_DEADLINE_DAYS;
       }, 'Tenggat lebih dari 3 tahun ke depan — periksa lagi tahunnya.'),
-  });
+    costType: z.enum(COST_TYPES, { message: 'Pilih status biaya pendaftaran.' }),
+    priceAmount: z.union([z.number(), z.null(), z.literal('invalid')]),
+    guidebookUrl: optionalUrl(httpsUrlSchema),
+    organizerContact: optionalText(120, 'Kontak penyelenggara maksimal 120 karakter.'),
+    proofLink: optionalUrl(httpUrlSchema),
+  })
+    .superRefine((value, ctx) => {
+      if (value.costType === 'paid' && value.priceAmount === 'invalid') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['priceAmount'], message: 'Nominal biaya tidak valid.' });
+      }
+    })
+    .transform(({ costType, priceAmount, ...rest }) => ({
+      ...rest,
+      isFree: costType === 'unknown' ? null : costType === 'free',
+      // Nominal hanya bermakna untuk "berbayar"; isian nominal dengan
+      // pilihan "gratis" diabaikan, bukan disimpan sebagai data yang
+      // saling membantah (CHECK events_price_consistent akan menolaknya).
+      priceAmount: costType === 'paid' && typeof priceAmount === 'number' ? priceAmount : null,
+    }));
 }
 
 export type ParsedSubmission = SubmissionPayload & { readonly submittedByEmail: string };
@@ -141,6 +209,11 @@ export function parseSubmissionForm(formData: FormData, now: Date = new Date()) 
     location: text(formData, 'location'),
     isOnline: text(formData, 'isOnline') === 'on',
     deadlineAt: dateInputToDeadlineIso(deadlineRaw) ?? undefined,
+    costType: text(formData, 'costType'),
+    priceAmount: parsePriceInput(text(formData, 'priceAmount')),
+    guidebookUrl: text(formData, 'guidebookUrl'),
+    organizerContact: text(formData, 'organizerContact'),
+    proofLink: text(formData, 'proofLink'),
   });
 }
 
@@ -161,6 +234,13 @@ const storedPayloadSchema = z.object({
   location: z.string().max(120).nullable(),
   is_online: z.boolean(),
   deadline_at: z.string().datetime({ offset: true }),
+  // Kunci-kunci di bawah lahir di migration 20261003100001; kiriman yang
+  // lebih tua tidak memilikinya dan tetap harus terbaca (→ null).
+  is_free: z.boolean().nullable().optional(),
+  price_amount: z.number().positive().max(MAX_PRICE_AMOUNT).nullable().optional(),
+  guidebook_url: z.string().regex(/^https:\/\//i).max(2000).nullable().optional(),
+  organizer_contact: z.string().max(120).nullable().optional(),
+  proof_link: z.string().regex(/^https?:\/\//i).max(2000).nullable().optional(),
 });
 
 export type StoredSubmissionPayload = z.infer<typeof storedPayloadSchema>;
@@ -178,6 +258,11 @@ export function toStoredPayload(payload: SubmissionPayload): StoredSubmissionPay
     location: payload.location,
     is_online: payload.isOnline,
     deadline_at: payload.deadlineAt,
+    is_free: payload.isFree,
+    price_amount: payload.priceAmount,
+    guidebook_url: payload.guidebookUrl,
+    organizer_contact: payload.organizerContact,
+    proof_link: payload.proofLink,
   };
 }
 
@@ -197,5 +282,10 @@ export function fromStoredPayload(raw: unknown): SubmissionPayload | null {
     location: value.location,
     isOnline: value.is_online,
     deadlineAt: value.deadline_at,
+    isFree: value.is_free ?? null,
+    priceAmount: value.is_free === false ? (value.price_amount ?? null) : null,
+    guidebookUrl: value.guidebook_url ?? null,
+    organizerContact: value.organizer_contact ?? null,
+    proofLink: value.proof_link ?? null,
   };
 }

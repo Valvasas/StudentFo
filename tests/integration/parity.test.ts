@@ -83,6 +83,11 @@ function submission(): SubmissionPayload {
     location: null,
     isOnline: true,
     deadlineAt: new Date(Date.now() + 15 * 86_400_000).toISOString(),
+    isFree: null,
+    priceAmount: null,
+    guidebookUrl: null,
+    organizerContact: null,
+    proofLink: null,
   };
 }
 

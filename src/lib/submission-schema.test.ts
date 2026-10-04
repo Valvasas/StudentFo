@@ -5,7 +5,9 @@ import {
   HONEYPOT_FIELD,
   isLikelyBot,
   isSubmissionRateLimited,
+  parsePriceInput,
   parseSubmissionForm,
+  stripMarkup,
   SUBMISSION_RATE_LIMIT,
   toStoredPayload,
 } from './submission-schema';
@@ -26,6 +28,7 @@ function validForm(overrides: Record<string, string | string[]> = {}): FormData 
     categorySlugs: ['sosial'],
     location: '',
     deadlineDate: '2026-02-01',
+    costType: 'unknown',
     ...overrides,
   };
   const form = new FormData();
@@ -86,9 +89,103 @@ describe('honeypot', () => {
   });
 });
 
+describe('stripMarkup', () => {
+  it('membuang tag & komentar HTML, tapi tidak memakan tanda "<" biasa', () => {
+    expect(stripMarkup('<b>Lomba</b> <a href="https://x.example">Esai</a><!-- x -->')).toBe(' Lomba Esai ');
+    expect(stripMarkup('Syarat IPK < 3,5 dan usia > 17')).toBe('Syarat IPK < 3,5 dan usia > 17');
+    expect(stripMarkup('<script>alert(1)</script>')).toBe(' alert(1) ');
+  });
+
+  it('membuang karakter kendali & pembalik arah teks (U+202E), mempertahankan baris baru', () => {
+    expect(stripMarkup('kampus\u202Efdp.exe')).toBe('kampusfdp.exe');
+    expect(stripMarkup('baris 1\nbaris\u200B 2')).toBe('baris 1\nbaris 2');
+  });
+});
+
+describe('parsePriceInput', () => {
+  it('membaca format rupiah yang lazim diketik', () => {
+    expect(parsePriceInput('Rp 150.000')).toBe(150000);
+    expect(parsePriceInput('150000')).toBe(150000);
+    expect(parsePriceInput('Rp150.000,00')).toBe(150000);
+    expect(parsePriceInput('150.000,50')).toBe(150000);
+  });
+
+  it('kosong = nominal belum diumumkan; nol, huruf saja, dan nominal absurd ditolak', () => {
+    expect(parsePriceInput('  ')).toBeNull();
+    expect(parsePriceInput('0')).toBe('invalid');
+    expect(parsePriceInput('gratis')).toBe('invalid');
+    expect(parsePriceInput('99999999999')).toBe('invalid');
+  });
+});
+
+describe('parseSubmissionForm — biaya, panduan, verifikasi', () => {
+  it('gratis → isFree true tanpa nominal, meski kolom nominal sempat terisi', () => {
+    const result = parseSubmissionForm(validForm({ costType: 'free', priceAmount: '50000' }), NOW);
+    expect(result.success && result.data).toMatchObject({ isFree: true, priceAmount: null });
+  });
+
+  it('berbayar dengan/tanpa nominal; nominal rusak ditandai di kolom priceAmount', () => {
+    expect(parseSubmissionForm(validForm({ costType: 'paid', priceAmount: 'Rp 25.000' }), NOW)).toMatchObject({
+      success: true,
+      data: { isFree: false, priceAmount: 25000 },
+    });
+    expect(parseSubmissionForm(validForm({ costType: 'paid' }), NOW)).toMatchObject({
+      success: true,
+      data: { isFree: false, priceAmount: null },
+    });
+    const broken = parseSubmissionForm(validForm({ costType: 'paid', priceAmount: 'seikhlasnya' }), NOW);
+    expect(broken.success).toBe(false);
+    if (!broken.success) expect(broken.error.issues.map((issue) => issue.path[0])).toContain('priceAmount');
+  });
+
+  it('"belum tahu" disimpan sebagai null, bukan ditebak gratis', () => {
+    const result = parseSubmissionForm(validForm(), NOW);
+    expect(result.success && result.data.isFree).toBeNull();
+  });
+
+  it('status biaya wajib salah satu pilihan yang dikenal', () => {
+    expect(parseSubmissionForm(validForm({ costType: 'mungkin' }), NOW).success).toBe(false);
+  });
+
+  it('buku panduan wajib https (CHECK di database); bukti boleh http', () => {
+    expect(parseSubmissionForm(validForm({ guidebookUrl: 'http://kampus.ac.id/panduan.pdf' }), NOW).success).toBe(false);
+    expect(parseSubmissionForm(validForm({ guidebookUrl: 'javascript:alert(1)' }), NOW).success).toBe(false);
+    const ok = parseSubmissionForm(
+      validForm({ guidebookUrl: 'https://kampus.ac.id/panduan.pdf', proofLink: 'http://kampus.ac.id/sk-panitia' }),
+      NOW,
+    );
+    expect(ok.success && ok.data).toMatchObject({
+      guidebookUrl: 'https://kampus.ac.id/panduan.pdf',
+      proofLink: 'http://kampus.ac.id/sk-panitia',
+    });
+  });
+
+  it('markup di judul/penyelenggara/kontak dibuang SEBELUM batas panjang dicek', () => {
+    const result = parseSubmissionForm(
+      validForm({ title: '<b>Lomba</b> <i>Esai</i> Nasional', organizerContact: '<a href="x">0812</a>' }),
+      NOW,
+    );
+    expect(result.success && result.data).toMatchObject({ title: 'Lomba Esai Nasional', organizerContact: '0812' });
+    // "<b></b><i>x</i>" = 15 karakter mentah, tapi hanya 1 karakter teks → gagal minimal 6.
+    expect(parseSubmissionForm(validForm({ title: '<b></b><i>x</i>' }), NOW).success).toBe(false);
+  });
+});
+
 describe('payload tersimpan', () => {
+  it('kiriman lama (sebelum kolom biaya ada) tetap terbaca, biayanya "belum diketahui"', () => {
+    const legacy = {
+      title: 'Lomba Lama', organizer: 'Panitia Lama', description: null, event_type: 'LOMBA',
+      registration_link: 'https://lama.example', source_url: null, education_levels: ['D4_S1'],
+      category_slugs: [], location: null, is_online: true, deadline_at: '2026-02-01T16:59:00.000Z',
+    };
+    expect(fromStoredPayload(legacy)).toMatchObject({ isFree: null, priceAmount: null, guidebookUrl: null, organizerContact: null });
+  });
+
   it('bolak-balik toStoredPayload → fromStoredPayload tanpa kehilangan data', () => {
-    const parsed = parseSubmissionForm(validForm(), NOW);
+    const parsed = parseSubmissionForm(
+      validForm({ costType: 'paid', priceAmount: '75000', guidebookUrl: 'https://a.example/p.pdf', organizerContact: 'IG @panitia' }),
+      NOW,
+    );
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
     const { submittedByEmail: _email, ...payload } = parsed.data;

@@ -15,13 +15,18 @@ import {
   GraduationCap,
   MapPin,
   ShieldCheck,
+  Ticket,
   Users,
 } from 'lucide-react';
 import { claimEventAction } from '@/app/penyelenggara/actions';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
+import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
+import { GuidebookViewer } from '@/components/event/guidebook-viewer';
+import { PromotedBadge } from '@/components/event/price-badge';
 import { RequirementsChecklist } from '@/components/event/requirements-checklist';
 import { SaveButton } from '@/components/event/save-button';
 import { ShareButton } from '@/components/event/share-button';
+import { VerifiedBadge } from '@/components/event/verified-badge';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
 import { InlineCountdown } from '@/components/listing/countdown';
@@ -30,6 +35,8 @@ import { TextArea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { isPromoted } from '@/lib/data/listing';
+import { priceLabel } from '@/lib/currency';
 import { recordEventView } from '@/lib/event-views';
 import { ORGANIZER_LIMITS } from '@/lib/organizer';
 import {
@@ -159,9 +166,13 @@ export default async function EventDetailPage({
     'Mendaftar sebelum tenggat melalui tautan resmi penyelenggara',
   ];
 
+  const price = priceLabel(event);
   const facts = [
     { icon: GraduationCap, label: 'Jenjang', value: levels.join(', ') || 'Semua jenjang' },
     { icon: MapPin, label: 'Pelaksanaan', value: place },
+    // Biaya yang belum diketahui tidak ditampilkan sama sekali — "Gratis"
+    // tebakan lebih merugikan daripada diam (ADR-049).
+    ...(price.kind === 'unknown' ? [] : [{ icon: Ticket, label: 'Biaya pendaftaran', value: price.text }]),
     // "Disimpan 0 orang" di kegiatan baru terbaca sebagai "tidak ada yang tertarik".
     ...(event.savedCount > 0
       ? [{ icon: Bookmark, label: 'Disimpan', value: `Disimpan ${event.savedCount.toLocaleString('id-ID')} orang` }]
@@ -202,7 +213,7 @@ export default async function EventDetailPage({
             Beranda
           </Link>
           <span aria-hidden>/</span>
-          <Link href={listHref} className="inline-flex min-h-11 shrink-0 items-center hover:text-ink">
+          <Link href={listHref} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center hover:text-ink">
             {typeLabel}
           </Link>
           <span aria-hidden className="hidden sm:inline">
@@ -241,6 +252,7 @@ export default async function EventDetailPage({
                   Pendaftaran ditutup
                 </span>
               )}
+              {isPromoted(event, now) && <PromotedBadge />}
             </div>
             <h1 className="text-[clamp(30px,4.6vw,42px)] leading-[1.08] tracking-[-0.04em] [text-wrap:balance]">{event.title}</h1>
             <div className="flex items-center gap-2.5">
@@ -259,6 +271,7 @@ export default async function EventDetailPage({
                 <span className="text-[12.5px] text-ink-muted">
                   {verifiedOrg ? `Dikelola ${verifiedOrg} · penyelenggara terverifikasi` : 'Ditinjau manual sebelum tayang'}
                 </span>
+                {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} showLabel className="mt-1.5 self-start" />}
               </span>
             </div>
             <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
@@ -354,6 +367,7 @@ export default async function EventDetailPage({
                     <h2 className={headingClass}>Berkas yang disiapkan</h2>
                     <p className="text-[14.5px] text-ink-muted">Daftar berkas berbeda di tiap penyelenggara dan tercantum di pengumuman resminya.</p>
                   </div>
+                  <GuidebookViewer url={event.guidebookUrl} eventTitle={event.title} />
                   <div className="flex flex-wrap items-center gap-3.5 rounded-[12px] border border-line px-[18px] py-3.5">
                     <FileText aria-hidden className="size-5 shrink-0 text-ink-muted" />
                     <p className="min-w-[200px] flex-1 text-[14.5px]">Baca bagian persyaratan berkas di pengumuman resmi sebelum mulai mengisi formulir.</p>
@@ -379,6 +393,7 @@ export default async function EventDetailPage({
                   <h2 className={headingClass}>Tahapan dan jadwal</h2>
                   <p className="text-[14.5px] text-ink-muted">Semua waktu dalam WIB. Jadwal bisa berubah sesuai pengumuman penyelenggara.</p>
                 </div>
+                <AddToCalendarButton event={event} now={now} className="self-start" />
                 {event.deadlines.length > 0 ? (
                   <ol className="flex flex-col">
                     {event.deadlines.map((deadline, index) => {
@@ -492,6 +507,7 @@ export default async function EventDetailPage({
                 <SaveButton eventId={event.id} isSaved={isSaved} returnTo={detailPath} variant="full" className="flex-1" />
                 <ShareButton title={event.title} path={detailPath} />
               </div>
+              {!isClosed && <AddToCalendarButton event={event} now={now} />}
             </div>
           </div>
           {demoFeaturesEnabled && !isClosed && (

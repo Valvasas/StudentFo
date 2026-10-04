@@ -21,6 +21,8 @@ import {
 import { type OrganizerApplicationInput, toStoredRevisionChanges } from '@/lib/organizer';
 import { parseEventAnalytics } from '@/lib/organizer-analytics';
 import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
+import { isColdStart } from '@/lib/recommendation';
+import type { EventPresentationInput } from '@/lib/event-presentation';
 import { toStoredPayload } from '@/lib/submission-schema';
 import {
   createSupabaseAdminClient,
@@ -31,6 +33,9 @@ import type {
   AppNotification,
   BlockedPerson,
   Category,
+  CostFilter,
+  DeadlineDispatch,
+  EducationLevel,
   ConnectionCounts,
   ConnectionPage,
   DeadlineDay,
@@ -75,7 +80,9 @@ import type {
   ModerationLogRow,
   NetworkDirectoryRow,
   NetworkProfileRow,
+  NotificationDispatchRow,
   OrganizerProfileRow,
+  PersonalizedEventRow,
   RecommendationSignalRow,
   NotificationRow,
   SubmissionRow,
@@ -92,12 +99,11 @@ import {
   EXACT_COUNT_MAX_ACTIVE,
   type ListingCountMode,
   PUBLIC_STATUSES,
-  RELEVANCE_CANDIDATE_WINDOW,
   resolvePaging,
-  sortSummaries,
   totalPagesFor,
 } from './listing';
 import { type CacheLayer, nextDataCache } from './cache';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH } from './repository';
 import type {
   CreateSubmissionInput,
   CalibrationData,
@@ -129,6 +135,7 @@ import {
   toEventRevision,
   toModerationLogEntry,
   toOrganizerProfile,
+  toDeadlineDispatch,
   toSubmission,
   toSummary,
   toConnection,
@@ -207,7 +214,7 @@ function rejectedOrFailed(error: PostgrestError, message: string): AppError {
 }
 
 /** Kunci cache listing: hanya parameter yang memengaruhi QUERY, dinormalisasi supaya URL berbeda urutan tetap berbagi entri. */
-interface ListingFetch {
+interface ListingFilters {
   readonly includeClosed: boolean;
   readonly search: string;
   readonly types: readonly string[];
@@ -215,10 +222,22 @@ interface ListingFetch {
   readonly categories: readonly string[];
   readonly locations: readonly string[];
   readonly mode: 'online' | 'onsite' | null;
-  readonly sort: 'deadline' | 'newest' | 'relevance';
+  readonly cost: CostFilter | null;
+  readonly promoted: boolean;
+}
+
+interface ListingFetch extends ListingFilters {
+  readonly sort: 'deadline' | 'newest';
   readonly from: number;
   readonly to: number;
   readonly countMode: ListingCountMode;
+}
+
+interface RelevanceFetch extends ListingFilters {
+  readonly interests: readonly string[];
+  readonly education: EducationLevel | null;
+  readonly offset: number;
+  readonly limit: number;
 }
 
 interface ListingPage {
@@ -233,12 +252,14 @@ const sortedCopy = (values: readonly string[] | undefined) => [...(values ?? [])
  *
  * Data publik (listing, detail, statistik) dibaca lewat klien anon tanpa
  * cookie dan dibungkus `cacheLayer` (Data Cache Next.js, tag `events`) —
- * dibagi semua pengunjung, dicabut saat moderasi. Yang personal (profil
- * untuk peringkat, simpanan, tracker) tidak pernah masuk cache: peringkat
- * relevansi dihitung SETELAH jendela kandidat diambil dari cache.
+ * dibagi semua pengunjung, dicabut saat moderasi. Yang personal (simpanan,
+ * tracker) tidak pernah masuk cache. Urutan relevansi dihitung Postgres
+ * (ADR-050), jadi kuncinya memuat minat + jenjang — tanpa identitas apa pun;
+ * profil cold start dinormalisasi supaya semua tamu berbagi satu entri.
  */
 export class SupabaseEventRepository implements EventRepository {
   private readonly fetchListingPage: (filters: ListingFetch) => Promise<ListingPage>;
+  private readonly fetchRelevancePage: (request: RelevanceFetch) => Promise<ListingPage>;
   private readonly fetchDetailBySlug: (slug: string) => Promise<EventDetail | null>;
   private readonly fetchClosingSoon: (limit: number) => Promise<EventSummary[]>;
   private readonly fetchCategories: () => Promise<Category[]>;
@@ -249,7 +270,8 @@ export class SupabaseEventRepository implements EventRepository {
     cacheLayer: CacheLayer = nextDataCache,
     private readonly exactCountMaxActive: number = EXACT_COUNT_MAX_ACTIVE,
   ) {
-    this.fetchListingPage = cacheLayer(queryListingPage, ['events-listing-v1']);
+    this.fetchListingPage = cacheLayer(queryListingPage, ['events-listing-v2']);
+    this.fetchRelevancePage = cacheLayer(queryRelevancePage, ['events-relevance-v1']);
     this.fetchDetailBySlug = cacheLayer(queryDetailBySlug, ['events-detail-v1']);
     this.fetchClosingSoon = cacheLayer(queryClosingSoon, ['events-closing-soon-v1']);
     this.fetchCategories = cacheLayer(queryCategories, ['categories-v1']);
@@ -260,17 +282,7 @@ export class SupabaseEventRepository implements EventRepository {
   async listEvents(query: EventQuery): Promise<Paginated<EventSummary>> {
     const paging = resolvePaging(query);
     const sort = query.sort ?? 'relevance';
-    // Lihat RELEVANCE_CANDIDATE_WINDOW: peringkat relevansi dihitung atas
-    // satu jendela kandidat, bukan per halaman.
-    const rankInApp = sort === 'relevance' && paging.offset + paging.pageSize <= RELEVANCE_CANDIDATE_WINDOW;
-    const [from, to] = rankInApp
-      ? [0, RELEVANCE_CANDIDATE_WINDOW - 1]
-      : [paging.offset, paging.offset + paging.pageSize - 1];
-
-    // Ukuran katalog dari statistik yang sudah di-cache — tanpa query tambahan
-    // di jalur panas. Lihat EXACT_COUNT_MAX_ACTIVE.
-    const countMode = chooseCountMode((await this.fetchStats()).totalActive, this.exactCountMaxActive);
-    const { rows, count } = await this.fetchListingPage({
+    const filters: ListingFilters = {
       includeClosed: query.includeClosed ?? false,
       search: query.search ? sanitizeSearchQuery(query.search) : '',
       types: sortedCopy(query.types),
@@ -278,23 +290,50 @@ export class SupabaseEventRepository implements EventRepository {
       categories: sortedCopy(query.categories),
       locations: sortedCopy(query.locations),
       mode: query.mode ?? null,
+      cost: query.cost ?? null,
+      promoted: query.promoted ?? false,
+    };
+
+    if (sort === 'relevance') {
+      // Skor dihitung di Postgres atas SEMUA hasil filter (ADR-050). Profil
+      // cold start dinormalisasi jadi kosong supaya semua tamu & profil
+      // setengah-isi berbagi satu entri cache per halaman.
+      const profile = query.profile && !isColdStart(query.profile) ? query.profile : null;
+      const request = {
+        ...filters,
+        interests: profile ? [...profile.interests].sort() : [],
+        education: profile?.educationLevel ?? null,
+        offset: paging.offset,
+        limit: paging.pageSize,
+      };
+      let page = await this.fetchRelevancePage(request);
+      // Halaman di luar jangkauan: tidak ada baris yang membawa total_count.
+      if (page.rows.length === 0 && paging.offset > 0) {
+        page = { rows: [], count: (await this.fetchRelevancePage({ ...request, offset: 0, limit: 1 })).count };
+      }
+      return {
+        items: page.rows.map(toSummary),
+        total: page.count ?? 0,
+        page: paging.page,
+        pageSize: paging.pageSize,
+        totalPages: totalPagesFor(page.count ?? 0, paging.pageSize),
+      };
+    }
+
+    // Ukuran katalog dari statistik yang sudah di-cache — tanpa query tambahan
+    // di jalur panas. Lihat EXACT_COUNT_MAX_ACTIVE.
+    const countMode = chooseCountMode((await this.fetchStats()).totalActive, this.exactCountMaxActive);
+    const { rows, count } = await this.fetchListingPage({
+      ...filters,
       sort,
-      from,
-      to,
+      from: paging.offset,
+      to: paging.offset + paging.pageSize - 1,
       countMode,
     });
 
     const total = count ?? rows.length;
-    const summaries = rows.map(toSummary);
-    const items = rankInApp
-      ? sortSummaries(summaries, 'relevance', new Date(), query.profile).slice(
-          paging.offset,
-          paging.offset + paging.pageSize,
-        )
-      : summaries;
-
     return {
-      items,
+      items: rows.map(toSummary),
       total,
       page: paging.page,
       pageSize: paging.pageSize,
@@ -320,6 +359,69 @@ export class SupabaseEventRepository implements EventRepository {
 
   async getDeadlineWeek(): Promise<readonly DeadlineDay[]> {
     return this.fetchDeadlineWeek();
+  }
+
+  // ------------------------------------------------------------------
+  // Lencana & promosi (ADR-049) — admin saja, otorisasi di Server Action
+  // ------------------------------------------------------------------
+
+  async updateEventPresentation({ eventId, verificationBadge, featuredUntil }: EventPresentationInput): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('event_unavailable');
+    const { data, error } = await createSupabaseAdminClient()
+      .from('events')
+      .update({
+        verification_badge: verificationBadge,
+        is_featured: featuredUntil !== null,
+        featured_until: featuredUntil,
+      })
+      .eq('id', eventId)
+      // Lencana & promosi hanya untuk acara tayang — mempromosikan acara
+      // PENDING sama dengan menerbitkannya lewat pintu belakang.
+      .eq('status', 'APPROVED')
+      .select('id')
+      .returns<{ id: string }[]>();
+
+    if (error) {
+      if (sqlState(error) === '23514') throw actionError('invalid_presentation');
+      throw upstreamFailure('Gagal menyimpan lencana & promosi.', error, 500);
+    }
+    if (data.length === 0) throw actionError('event_unavailable');
+  }
+
+  async listFeaturedEvents(limit: number): Promise<readonly EventSummary[]> {
+    // `is_featured = true` dilayani index parsial idx_events_featured.
+    const { data, error } = await createSupabaseAdminClient()
+      .from('events_listing')
+      .select(LISTING_COLUMNS)
+      .eq('is_featured', true)
+      .in('status', [...PUBLIC_STATUSES])
+      .order('featured_until', { ascending: false })
+      .limit(limit)
+      .returns<EventListingRow[]>();
+
+    if (error) throw upstreamFailure('Gagal memuat daftar promosi.', error);
+    return data.map(toSummary);
+  }
+
+  // ------------------------------------------------------------------
+  // Dispatch pengingat ke kanal luar (ADR-051) — service_role saja
+  // ------------------------------------------------------------------
+
+  async claimDeadlineDispatches(limit: number): Promise<readonly DeadlineDispatch[]> {
+    const { data, error } = await createSupabaseAdminClient().rpc('claim_notification_dispatch', {
+      p_limit: Math.min(Math.max(Math.trunc(limit), 1), DISPATCH_MAX_BATCH),
+      p_lease_seconds: DISPATCH_LEASE_SECONDS,
+    });
+    if (error) throw upstreamFailure('Gagal mengambil antrean pengingat.', error, 500);
+    return rpcRows<NotificationDispatchRow>(data).flatMap(toDeadlineDispatch);
+  }
+
+  async acknowledgeDeadlineDispatches(notificationIds: readonly string[]): Promise<number> {
+    const ids = [...new Set(notificationIds)].filter(isUuid);
+    if (ids.length === 0) return 0;
+    const { data, error } = await createSupabaseAdminClient().rpc('ack_notification_dispatch', { p_ids: ids });
+    if (error) throw upstreamFailure('Gagal menandai pengingat terkirim.', error, 500);
+    return typeof data === 'number' ? data : 0;
   }
 
   async listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]> {
@@ -1756,7 +1858,11 @@ async function queryListingPage(filters: ListingFetch): Promise<ListingPage> {
   if (filters.categories.length) builder = builder.overlaps('category_slugs', [...filters.categories]);
   if (filters.locations.length) builder = builder.in('location', [...filters.locations]);
   if (filters.mode) builder = builder.eq('is_online', filters.mode === 'online');
+  if (filters.cost) builder = builder.eq('is_free', filters.cost === 'free');
 
+  // Promosi aktif dulu (ADR-049) — kolom view, bukan dihitung di sini, supaya
+  // aturannya satu dengan RPC relevansi dan `isPromoted()`.
+  if (filters.promoted) builder = builder.order('is_promoted', { ascending: false });
   builder =
     filters.sort === 'deadline'
       ? builder.order('primary_deadline_at', { ascending: true, nullsFirst: false }).order('id')
@@ -1765,6 +1871,29 @@ async function queryListingPage(filters: ListingFetch): Promise<ListingPage> {
   const { data, error, count } = await builder.range(filters.from, filters.to).returns<EventListingRow[]>();
   if (error) throw upstreamFailure('Gagal memuat daftar event.', error);
   return { rows: data, count };
+}
+
+async function queryRelevancePage(request: RelevanceFetch): Promise<ListingPage> {
+  const { data, error } = await createSupabasePublicClient()
+    .rpc('list_personalized_events', {
+      p_interests: [...request.interests],
+      p_education: request.education,
+      p_limit: request.limit,
+      p_offset: request.offset,
+      p_search: request.search || null,
+      p_types: request.types.length ? [...request.types] : null,
+      p_categories: request.categories.length ? [...request.categories] : null,
+      p_levels: request.levels.length ? [...request.levels] : null,
+      p_locations: request.locations.length ? [...request.locations] : null,
+      p_online: request.mode ? request.mode === 'online' : null,
+      p_cost: request.cost,
+      p_include_closed: request.includeClosed,
+      p_promoted: request.promoted,
+    });
+
+  if (error) throw upstreamFailure('Gagal memuat daftar event.', error);
+  const rows = rpcRows<PersonalizedEventRow>(data);
+  return { rows: [...rows], count: rows[0]?.total_count ?? 0 };
 }
 
 async function queryDetailBySlug(slug: string): Promise<EventDetail | null> {

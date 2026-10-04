@@ -44,6 +44,11 @@ const FIELD_LABEL: Record<string, string> = {
   categorySlugs: 'Bidang',
   location: 'Lokasi',
   deadlineAt: 'Tenggat pendaftaran',
+  costType: 'Biaya pendaftaran',
+  priceAmount: 'Nominal biaya',
+  guidebookUrl: 'Buku panduan',
+  organizerContact: 'Kontak panitia',
+  proofLink: 'Bukti kepanitiaan',
 };
 
 function invalidFieldLabels(raw: RawSearchParams['fields']): string[] {
@@ -205,9 +210,63 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           </div>
         </fieldset>
 
-        <Field id="description" label="Deskripsi (opsional)" hint="Syarat, hadiah, biaya, dan hal penting lain. Maksimal 5000 karakter.">
+        {/* Satu pilihan wajib, bawaannya "belum tahu": data yang jujur lebih
+            berguna daripada tebakan "gratis" (ADR-049). Nominal tetap tampil
+            untuk semua pilihan — tanpa JavaScript tidak bisa disembunyikan
+            bersyarat — dan diabaikan server kecuali "berbayar". */}
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium text-ink-soft">Biaya pendaftaran</legend>
+          <div className="flex flex-wrap gap-x-5 gap-y-1">
+            {[
+              { value: 'free', label: 'Gratis' },
+              { value: 'paid', label: 'Berbayar' },
+              { value: 'unknown', label: 'Belum tahu' },
+            ].map((option) => (
+              <label key={option.value} className="flex min-h-11 items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="costType"
+                  value={option.value}
+                  required
+                  defaultChecked={option.value === 'unknown'}
+                  className="size-4 accent-brand"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field id="priceAmount" label="Nominal biaya (jika berbayar)" hint="Contoh: 150000 atau Rp 150.000. Kosongkan kalau belum diumumkan.">
+            <TextInput id="priceAmount" name="priceAmount" inputMode="numeric" maxLength={20} placeholder="Rp" />
+          </Field>
+          <Field
+            id="guidebookUrl"
+            label="Buku panduan (opsional)"
+            hint="Tautan https ke PDF/halaman syarat & ketentuan. PDF bisa dipratinjau langsung oleh peserta."
+          >
+            <TextInput id="guidebookUrl" name="guidebookUrl" type="url" maxLength={2000} placeholder="https://" />
+          </Field>
+        </div>
+
+        <Field id="description" label="Deskripsi (opsional)" hint="Syarat, hadiah, dan hal penting lain. Maksimal 5000 karakter.">
           <TextArea id="description" name="description" rows={6} maxLength={5000} />
         </Field>
+
+        {/* Bahan verifikasi — tidak pernah disalin ke halaman publik
+            (approve_submission tidak menyalinnya). */}
+        <fieldset className="flex flex-col gap-4 rounded-card border border-line p-4">
+          <legend className="px-1 text-sm font-medium text-ink-soft">Untuk panitia (hanya dilihat moderator)</legend>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field id="organizerContact" label="Kontak panitia (opsional)" hint="Email, WhatsApp, atau akun resmi — dipakai moderator untuk konfirmasi.">
+              <TextInput id="organizerContact" name="organizerContact" maxLength={120} autoComplete="off" />
+            </Field>
+            <Field id="proofLink" label="Bukti kepanitiaan (opsional)" hint="Mis. surat tugas atau unggahan resmi yang menyebut namamu. Mempercepat verifikasi.">
+              <TextInput id="proofLink" name="proofLink" type="url" maxLength={2000} placeholder="https://" />
+            </Field>
+          </div>
+        </fieldset>
 
         <Field
           id="email"

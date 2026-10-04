@@ -102,6 +102,28 @@ async function verifyDatabase() {
       console.warn('⚠️  RPC get_distinct_organizer_count() belum dibuat. Jalankan migration 0006.');
     }
 
+    // 3b. Migration 20261003100001/02 (ADR-049/050). Aplikasi MEMBACA kolom &
+    // RPC ini di setiap listing — deploy kode sebelum migration = /events error.
+    const columnsRes = await fetch(
+      `${url}/rest/v1/events_listing?select=is_free,price_amount,is_promoted,verification_badge,guidebook_url&limit=1`,
+      { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
+    );
+    if (columnsRes.ok) {
+      console.log('✓ events_listing memuat kolom biaya/promosi/lencana/buku panduan.');
+    } else {
+      console.error('❌ events_listing belum punya kolom ADR-049. Jalankan migration 20261003100001 SEBELUM deploy.');
+    }
+    const relevanceRes = await fetch(`${url}/rest/v1/rpc/list_personalized_events`, {
+      method: 'POST',
+      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_interests: [], p_education: null, p_limit: 1, p_offset: 0 }),
+    });
+    if (relevanceRes.ok) {
+      console.log('✓ RPC list_personalized_events() bisa dipanggil tamu (urutan relevansi).');
+    } else {
+      console.error('❌ RPC list_personalized_events() tidak tersedia. Jalankan migration 20261003100002 SEBELUM deploy.');
+    }
+
     // 4. Uji tabel saved_events & application_tracker
     const savedRes = await fetch(`${url}/rest/v1/saved_events?select=event_id&limit=1`, {
       headers: {

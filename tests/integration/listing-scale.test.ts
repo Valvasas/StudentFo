@@ -1,12 +1,14 @@
 import { appendFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { noCache } from '@/lib/data/cache';
+import { EXACT_COUNT_MAX_ACTIVE } from '@/lib/data/listing';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
 import { actAs, sql } from './harness';
 
 /**
- * Seberapa mahal listEvents pada katalog besar? Menjawab kapan skor relevansi
- * perlu pindah ke SQL (ADR-021) dan kapan `count: 'exact'` perlu diganti.
+ * Seberapa mahal listEvents pada katalog besar? Dipakai memutuskan skor
+ * relevansi di SQL (ADR-050, sebelumnya ADR-021/035) dan kapan
+ * `count: 'exact'` perlu diganti.
  * Default 5.000 event (selalu jalan, ringan). BENCH_SIZES="5000,20000,50000"
  * untuk kurva lengkap — hasilnya dicetak, lalu dicatat di ADR-035.
  */
@@ -59,12 +61,17 @@ async function timed<T>(run: () => Promise<T>, repeat = 5): Promise<{ median: nu
 }
 
 describe.each(SIZES)('listEvents pada %i event APPROVED', (size) => {
-  it('relevansi (jendela 240 + skor di Node), terbaru, tenggat, pencarian, statistik', async () => {
+  it('relevansi (RPC, halaman 1 & 20, cold start), terbaru, tenggat, pencarian, statistik', async () => {
     actAs(null);
     seedCatalog(size);
     const profile = { interests: ['teknologi', 'desain'], educationLevel: 'D4_S1' as const };
 
     const relevance = await timed(() => repo.listEvents({ sort: 'relevance', profile }));
+    const relevancePage20 = await timed(() => repo.listEvents({ sort: 'relevance', profile, page: 20 }));
+    const coldStart = await timed(() => repo.listEvents({ sort: 'relevance' }));
+    const relevanceFiltered = await timed(() =>
+      repo.listEvents({ sort: 'relevance', profile, types: ['LOMBA'], categories: ['teknologi'], promoted: true }),
+    );
     const newest = await timed(() => repo.listEvents({ sort: 'newest' }));
     const deadline = await timed(() => repo.listEvents({ sort: 'deadline', page: 20 }));
     const search = await timed(() => repo.listEvents({ search: 'beasiswa mahasiswa' }));
@@ -74,6 +81,9 @@ describe.each(SIZES)('listEvents pada %i event APPROVED', (size) => {
     const result = {
       size,
       relevanceMs: relevance.median,
+      relevancePage20Ms: relevancePage20.median,
+      coldStartMs: coldStart.median,
+      relevanceFilteredMs: relevanceFiltered.median,
       newestMs: newest.median,
       deadlinePage20Ms: deadline.median,
       searchMs: search.median,
@@ -83,10 +93,12 @@ describe.each(SIZES)('listEvents pada %i event APPROVED', (size) => {
     };
     report(`[bench-listing] ${JSON.stringify(result)}`);
 
-    expect(newest.result.total).toBeGreaterThanOrEqual(size);
+    // Di atas EXACT_COUNT_MAX_ACTIVE total = perkiraan planner (ADR-035), mis. 49.997 untuk 50.000.
+    expect(newest.result.total).toBeGreaterThanOrEqual(size > EXACT_COUNT_MAX_ACTIVE ? size * 0.99 : size);
     expect(relevance.result.items).toHaveLength(12);
+    expect(relevancePage20.result.items).toHaveLength(12);
     // Batas longgar: regresi kasar (mis. N+1, jendela tanpa batas), bukan angka presisi.
-    for (const ms of [result.relevanceMs, result.newestMs, result.searchMs, result.filteredMs]) {
+    for (const ms of [result.relevanceMs, result.relevancePage20Ms, result.coldStartMs, result.newestMs, result.searchMs, result.filteredMs]) {
       expect(ms).toBeLessThan(size >= 20_000 ? 5_000 : 2_000);
     }
   }, 300_000);

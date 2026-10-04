@@ -34,6 +34,9 @@ Urutan migration (harus dijalankan berurutan):
 24. `20260930100001_optimize_event_categories_and_indexing.sql` — `events.category_slugs VARCHAR[]` (turunan `event_categories`, dijaga trigger `sync_event_category_slugs` / `sync_category_slug_rename` / `events_derive_category_slugs`) + GIN `idx_events_category_slugs`; `events_listing` membacanya langsung (ADR-047)
 25. `20260930100002_team_atomic_rpc.sql` — RPC `create_team_with_leader()` SECURITY INVOKER: tim + ketua dalam satu transaksi (ADR-047)
 26. `20260930100003_submission_owner_index.sql` — index `ugc_submissions (submitted_by, created_at DESC)` untuk "Kiriman saya" dan FK penghapusan akun
+27. `20261003100001_event_cost_promotion_badge_guidebook.sql` — kolom `events.is_free` (NULL = belum diketahui), `price_amount`, `is_featured`/`featured_until`, `verification_badge`, `guidebook_url` + CHECK konsistensi; index parsial `idx_events_featured`; `events_listing` + kolom `is_promoted` (dihitung, bergantung `now()`); `approve_submission()` menyalin biaya & buku panduan (ADR-049)
+28. `20261003100002_personalized_listing_rpc.sql` — RPC `list_personalized_events()` (INVOKER, anon boleh): skor relevansi = `rankEvents()` di SQL sebelum LIMIT/OFFSET (ADR-050)
+29. `20261003100003_notification_dispatch.sql` — `notifications.dispatch_claimed_at`/`dispatched_at` + index antrean; RPC `claim_notification_dispatch()` / `ack_notification_dispatch()` (service_role saja, ADR-051)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -127,9 +130,16 @@ olahraga, kesehatan, sosial, pendidikan, hukum).
 | saved_count | INT | denormalisasi, disinkron trigger `sync_saved_count` dari `saved_events` |
 | created_at / updated_at | TIMESTAMPTZ | |
 | search_vector | tsvector GENERATED | lihat § Full-text search di bawah |
+| is_free | BOOLEAN? | **NULL = belum diketahui** (bukan gratis). Tanpa default — hasil scraping tidak pernah tahu biaya (ADR-049) |
+| price_amount | NUMERIC(12,0)? | rupiah; `CHECK events_price_consistent`: hanya bila `is_free = false`, 1..10⁹ |
+| is_featured / featured_until | BOOLEAN / TIMESTAMPTZ? | promosi berbayar; `CHECK events_featured_has_end` (wajib ada akhir). Aktif = `events_listing.is_promoted` |
+| verification_badge | VARCHAR(20)? | `OFFICIAL_GOV`/`CAMPUS_VERIFIED`/`COMMUNITY` (CHECK, paritas `VERIFICATION_BADGES`); diatur admin |
+| guidebook_url | TEXT? | `CHECK ~* '^https://'`, ≤ 2000 |
 
 Index: `status`, `event_type`, GIN `search_vector`, GIN `education_levels`,
-partial `(created_at DESC) WHERE status='APPROVED'`. Tidak ada index
+partial `(created_at DESC) WHERE status='APPROVED'`, partial
+`idx_events_featured (is_featured, featured_until) WHERE is_featured` (daftar
+promosi admin). Tidak ada index
 terpisah untuk `dedup_hash` — constraint UNIQUE sudah membuatnya (DEVIATIONS #15).
 
 ### `event_categories` (join)
@@ -168,6 +178,12 @@ menandai dibaca. `type` adalah VARCHAR(50), **bukan enum** — jadi tidak ada
 aturan paritas tiga-tempat; penyempitannya di `toNotificationType()`.
 Partial unique index `idx_notifications_dedupe (user_id, event_id, type)
 WHERE event_id IS NOT NULL` yang membuat produsennya idempoten.
+
+Sejak `20261003100003` (ADR-051): `dispatch_claimed_at` / `dispatched_at` untuk
+antrean kirim-ke-luar (bot/email). TIDAK di-GRANT ke klien (UPDATE tetap hanya
+`is_read`). Ditulis hanya oleh `claim_notification_dispatch()` /
+`ack_notification_dispatch()`. Index parsial `idx_notifications_dispatch_pending
+(sent_at) WHERE dispatched_at IS NULL AND type IN ('DEADLINE_H3','DEADLINE_H1')`.
 
 ### `teams`, `team_members` (Phase 3 — sudah ada UI di `/teams`)
 `teams.slots_needed` punya `CHECK (BETWEEN 1 AND 50)`; batas yang sama
@@ -315,7 +331,9 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 | `public.expire_past_events()` | Jalankan via cron harian: `APPROVED` + primary deadline lewat → `EXPIRED`. **Tidak menghapus baris.** Sejak 0008 EXECUTE hanya `service_role` (sebelumnya bisa dipanggil `anon`). |
 | `public.create_deadline_notifications()` | Jalankan via cron harian. Buat notifikasi H-3/H-1 untuk event yang disimpan/dilacak. Idempoten (`ON CONFLICT DO NOTHING` + index dedupe). EXECUTE dicabut dari `anon`/`authenticated` — **hanya `service_role`**. Ambangnya diduplikasi di `src/lib/notifications.ts` (ADR-017). |
 | `public.enforce_team_capacity()` (trigger, BEFORE INSERT `team_members`) | Tolak anggota melebihi `slots_needed` dengan `RAISE EXCEPTION 'team_full'`. SECURITY DEFINER karena butuh `FOR UPDATE` atas `teams` (0008) |
-| `public.approve_submission(uuid, uuid)` | Salin kiriman ke `events` (APPROVED) + tenggat + kategori + tandai kiriman, SATU transaksi. **Hanya `service_role`** (0008) |
+| `public.approve_submission(uuid, uuid)` | Salin kiriman ke `events` (APPROVED) + tenggat + kategori + tandai kiriman, SATU transaksi. **Hanya `service_role`** (0008). Sejak `20261003100001` ikut menyalin `is_free`/`price_amount`/`guidebook_url`; kontak & bukti kepanitiaan TIDAK |
+| `public.list_personalized_events(...)` | INVOKER, `SET jit = off`. Listing urut relevansi; rumus = `rankEvents()` (personal & cold start), filter = `queryListingPage()`, `p_limit` dijepit 1..48, kolom `total_count`. anon/authenticated boleh (RLS tetap berlaku) |
+| `public.claim_notification_dispatch(int, int)` / `ack_notification_dispatch(uuid[])` | DEFINER, **hanya `service_role`**. Klaim berbasis sewa (`FOR UPDATE SKIP LOCKED`), lewati pengingat basi; ack hanya untuk baris yang sedang diklaim |
 
 ## Row Level Security
 
@@ -347,7 +365,9 @@ pemanggil, bukan RLS pemilik view) menyatukan `events` + primary deadline +
 baris — JANGAN menulisnya langsung; ubah `event_categories`, trigger yang
 menghitung ulang.
 Ini yang di-`SELECT` oleh `SupabaseEventRepository`, bukan tabel `events`
-langsung.
+langsung. Sejak `20261003100001` view juga memuat kolom biaya/promosi/lencana/
+panduan dan `is_promoted` (dihitung dengan `now()` — cermin `isPromoted()` di
+`src/lib/data/listing.ts`; ubah keduanya bersamaan).
 
 `public.team_member_profiles` — **`security_invoker` sengaja dibiarkan `off`**,
 kebalikan dari `events_listing`. View ini berjalan dengan hak pemiliknya

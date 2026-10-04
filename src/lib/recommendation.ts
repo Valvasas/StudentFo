@@ -9,6 +9,12 @@
  * "jangan sampai terlewat". Tanpa itu, kegiatan yang tutup lusa bisa kalah
  * dari kegiatan baru yang tutup tiga bulan lagi.
  *
+ * KEMBARAN SQL: `list_personalized_events()` (migration 20261003100002)
+ * menghitung rumus yang SAMA di Postgres untuk mode Supabase (ADR-050).
+ * Mengubah bobot, ambang, atau definisi komponen di sini tanpa mengubah SQL
+ * itu = urutan demo dan produksi berbeda diam-diam. Uji paritasnya:
+ * `tests/integration/listing.test.ts`.
+ *
  * Blueprint hanya menetapkan BOBOT-nya; definisi tiap komponen dibiarkan
  * terbuka. Definisi yang dipakai di sini dijelaskan per fungsi, dan semuanya
  * dinormalisasi ke rentang 0..1 — kalau salah satu komponen bisa melebihi 1,

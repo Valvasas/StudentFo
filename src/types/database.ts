@@ -39,6 +39,38 @@ export interface EventListingRow {
   primary_deadline_at: string | null;
   primary_deadline_label: DeadlineLabel | null;
   category_slugs: string[] | null;
+  // Migration 20261003100001. `price_amount` NUMERIC tiba sebagai number JSON
+  // (PostgREST); `verification_badge` VARCHAR + CHECK, disempitkan di mapper.
+  is_free: boolean | null;
+  price_amount: number | string | null;
+  is_featured: boolean;
+  featured_until: string | null;
+  verification_badge: string | null;
+  guidebook_url: string | null;
+}
+
+/** RPC `list_personalized_events()` — kolom listing + skor + total semua hasil filter. */
+export interface PersonalizedEventRow extends EventListingRow {
+  is_promoted: boolean;
+  relevance_score: number;
+  total_count: number;
+}
+
+/** RPC `claim_notification_dispatch()` (migration 20261003100003). */
+export interface NotificationDispatchRow {
+  notification_id: string;
+  notification_type: string;
+  message: string;
+  created_at: string;
+  user_id: string;
+  user_email: string | null;
+  user_full_name: string | null;
+  event_id: string;
+  event_slug: string;
+  event_title: string;
+  event_organizer: string;
+  deadline_at: string;
+  days_left: number;
 }
 
 export interface EventDeadlineRow {

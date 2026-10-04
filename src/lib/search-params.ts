@@ -1,4 +1,5 @@
 import {
+  type CostFilter,
   EDUCATION_LEVELS,
   EVENT_TYPES,
   SORT_OPTIONS,
@@ -45,8 +46,23 @@ export interface ParsedEventQuery extends EventQuery {
   readonly mode: EventMode | undefined;
   readonly sort: SortOption;
   readonly includeClosed: boolean;
+  readonly cost: CostFilter | undefined;
   readonly page: number;
   readonly pageSize: number;
+}
+
+/** Nilai URL berbahasa Indonesia ↔ nilai domain. Nilai lain dibuang (bukan error). */
+const COST_PARAM: Record<string, CostFilter> = { gratis: 'free', berbayar: 'paid' };
+const COST_PARAM_OF: Record<CostFilter, string> = { free: 'gratis', paid: 'berbayar' };
+
+export function costParam(cost: CostFilter): string {
+  return COST_PARAM_OF[cost];
+}
+
+// hasOwn, bukan `COST_PARAM[value]` saja: `?biaya=constructor` akan
+// mengembalikan fungsi dari Object.prototype dan lolos sebagai "filter".
+function parseCost(value: string | undefined): CostFilter | undefined {
+  return value !== undefined && Object.hasOwn(COST_PARAM, value) ? COST_PARAM[value] : undefined;
 }
 
 /** Nilai pertama sebuah parameter (`?a=1&a=2` → '1'); undefined bila tidak ada. */
@@ -80,6 +96,7 @@ export function parseEventQuery(params: RawSearchParams): ParsedEventQuery {
       ? (sortCandidate as SortOption)
       : 'relevance',
     includeClosed: params.tampilkan === 'semua',
+    cost: parseCost(firstParam(params.biaya)),
     page: toPositiveInt(params.page, 1),
     pageSize: DEFAULT_PAGE_SIZE,
   };
@@ -101,6 +118,7 @@ export function buildEventHref(
   if (merged.mode) params.set('mode', merged.mode === 'online' ? 'daring' : 'luring');
   if (merged.sort && merged.sort !== 'relevance') params.set('sort', merged.sort);
   if (merged.includeClosed) params.set('tampilkan', 'semua');
+  if (merged.cost) params.set('biaya', COST_PARAM_OF[merged.cost]);
   if (merged.page && merged.page > 1) params.set('page', String(merged.page));
 
   const queryString = params.toString();
@@ -129,6 +147,7 @@ export function hasActiveFilters(query: ParsedEventQuery): boolean {
     query.levels.length > 0 ||
     query.locations.length > 0 ||
     query.mode !== undefined ||
-    query.includeClosed
+    query.includeClosed ||
+    query.cost !== undefined
   );
 }

@@ -15,6 +15,10 @@ const STATIC_ROUTES = [
   '/',
   '/events',
   '/events?type=LOMBA&sort=deadline',
+  '/events?biaya=berbayar',
+  // Lencana otoritas + biaya + buku panduan + tombol kalender (ADR-049/050).
+  '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=syarat',
+  '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan',
   '/teams',
   '/submit',
   '/submit?error=invalid_submission&fields=title,email',
@@ -87,6 +91,7 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],
   ['Admin moderator', '/admin/riwayat'],
   ['Admin moderator', '/admin/kalibrasi'],
+  ['Admin moderator', '/admin/promosi'],
   ['Admin moderator', '/admin/penyelenggara'],
   ['Admin moderator', '/admin/penyelenggara?tab=klaim'],
   ['Admin moderator', '/admin/penyelenggara?tab=perubahan'],
@@ -139,6 +144,11 @@ test('tanpa pelanggaran WCAG: status pendaftaran & persiapan', async ({ page }) 
 for (const [persona, route] of SIGNED_IN_ROUTES) {
   test(`tanpa pelanggaran WCAG (${persona}): ${route}`, async ({ page }) => {
     await signInAsDemo(page, persona, route);
+    // Redirect masuk (soft navigation) menyisakan posisi gulir halaman login.
+    // Dari posisi itu target-size axe menggulir sendiri lalu "menemukan" tombol
+    // di bawah navbar lengket yang tidak pernah tertutup bagi pengguna — mulai
+    // dari atas halaman, seperti halaman yang baru dibuka.
+    await page.evaluate(() => window.scrollTo(0, 0));
     await expectNoViolations(page);
   });
 }

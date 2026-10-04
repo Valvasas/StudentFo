@@ -16,6 +16,11 @@ function payload(overrides: Partial<SubmissionPayload> = {}): SubmissionPayload 
     location: null,
     isOnline: true,
     deadlineAt: new Date(Date.now() + 10 * 86_400_000).toISOString(),
+    isFree: null,
+    priceAmount: null,
+    guidebookUrl: null,
+    organizerContact: null,
+    proofLink: null,
     ...overrides,
   };
 }
