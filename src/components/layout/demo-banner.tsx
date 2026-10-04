@@ -28,10 +28,14 @@ export function DemoBanner() {
 
   return (
     <div role="note" className="border-b border-caution-line bg-caution-soft">
-      <div className="container-page flex items-start gap-2 py-1.5 text-xs text-caution sm:items-center">
-        <Icon aria-hidden className="mt-0.5 size-4 shrink-0 sm:mt-0" />
+      <div className="container-page flex items-center gap-2 py-1.5 text-xs text-caution">
+        <Icon aria-hidden className="size-3.5 shrink-0" />
         <p>
-          <strong className="font-semibold">Mode demo</strong> — semua kegiatan &amp; tenggat di sini fiktif.{' '}
+          {/* Ponsel: satu baris ringkas. Dua baris peringatan di atas navbar
+              dua tingkat memakan seperlima layar sebelum isi apa pun tampil. */}
+          <strong className="font-semibold">Mode demo</strong>
+          <span className="sm:hidden"> · data fiktif.</span>
+          <span className="hidden sm:inline"> — semua kegiatan &amp; tenggat di sini fiktif.</span>{' '}
           {reset && (
             <span data-testid="demo-reset">
               {reset.imminent ? (
@@ -42,7 +46,8 @@ export function DemoBanner() {
                 </strong>
               ) : (
                 <>
-                  Reset pukul{' '}
+                  <span className="hidden sm:inline">Reset pukul </span>
+                  <span className="sm:hidden">Reset </span>
                   <time dateTime={reset.nextResetAt.toISOString()}>{formatTimeId(reset.nextResetAt.toISOString())}</time>.
                 </>
               )}

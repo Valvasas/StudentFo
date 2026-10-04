@@ -16,7 +16,7 @@ export function EventGrid({
   const savedSet = savedEventIds ? new Set(savedEventIds) : null;
 
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
       {events.map((event, index) => (
         <li key={event.id} className="reveal" style={{ animationDelay: `${Math.min(index, 8) * 25}ms` }}>
           <EventCard

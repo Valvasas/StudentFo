@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Bricolage_Grotesque, Caveat, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 import { headers } from 'next/headers';
 import { DemoBanner } from '@/components/layout/demo-banner';
 import { Footer } from '@/components/layout/footer';
@@ -10,15 +10,35 @@ import { NONCE_HEADER } from '@/lib/security-headers';
 import './globals.css';
 
 /**
- * Geist untuk seluruh teks (kanvas desain ADR-039): tegas seperti Notion
- * tapi tidak kaku, dan punya angka tabular — penting karena halaman ini
- * penuh hitungan hari. Geist Mono untuk angka tahun, kode, dan label kecil
- * berhuruf kapital. `display: swap` supaya teks langsung terbaca dengan huruf
- * cadangan alih-alih area kosong sambil menunggu unduhan huruf.
+ * Tipografi "buku sketsa" (ADR-052, menggantikan Geist dari ADR-039):
+ *  - Plus Jakarta Sans — teks isi. Huruf humanis buatan foundry Indonesia
+ *    (Tokotype); bentuknya lebih ramah dari grotesk teknis, x-height tinggi
+ *    sehingga tetap terbaca di 14px layar ponsel murah.
+ *  - Bricolage Grotesque — judul. Grotesk berkarakter (sudut sedikit
+ *    "tergambar", sumbu optical size) yang memberi kepribadian tanpa
+ *    terlihat main-main.
+ *  - Caveat — tulisan tangan, HANYA untuk anotasi kecil (catatan pinggir,
+ *    label coretan). Dipakai di judul/teks panjang, ia berubah dari "santai"
+ *    jadi "tidak serius".
+ *  - Geist Mono — angka hitung mundur & kode (tabular).
+ * Semuanya dihosting sendiri oleh next/font (CSP `font-src 'self'`).
  */
-const geist = Geist({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-geist',
+  variable: '--font-jakarta',
+  display: 'swap',
+});
+
+const bricolage = Bricolage_Grotesque({
+  subsets: ['latin'],
+  variable: '--font-bricolage',
+  display: 'swap',
+});
+
+const caveat = Caveat({
+  subsets: ['latin'],
+  weight: ['500', '700'],
+  variable: '--font-caveat',
   display: 'swap',
 });
 
@@ -48,8 +68,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#111110' },
+    { media: '(prefers-color-scheme: light)', color: '#faf8f3' },
+    { media: '(prefers-color-scheme: dark)', color: '#15140f' },
   ],
 };
 
@@ -60,7 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // suppressHydrationWarning: atribut data-theme sengaja diubah oleh
     // ThemeScript sebelum React jalan, jadi ketidakcocokan di elemen INI
     // memang diharapkan dan hanya di sini.
-    <html lang="id" suppressHydrationWarning className={`${geist.variable} ${geistMono.variable}`}>
+    <html lang="id" suppressHydrationWarning className={`${jakarta.variable} ${bricolage.variable} ${caveat.variable} ${geistMono.variable}`}>
       <head>
         <ThemeScript nonce={nonce} />
       </head>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { MapPin, Monitor } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
 import { shortCategoryName } from '@/components/listing/category-icon';
-import { Breadcrumb, ChipLink, PageTitle, ResultsEmpty, SaveToggle, SegmentLinks } from '@/components/listing/listing-ui';
+import { Breadcrumb, ChipLink, PageTitle, ResultsEmpty, SaveToggle, SegmentLinks, CollapsibleFilters } from '@/components/listing/listing-ui';
 import type { BoardProps } from '@/components/listing/lomba-board';
 import { daysLeftLabel, daysUntil, formatTimeId, jakartaDateKey, jakartaDateParts } from '@/lib/deadline';
 import { initialsOf } from '@/lib/initials';
@@ -52,25 +52,31 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
           </div>
           <section
             aria-label="Filter kegiatan"
-            className="enter flex flex-wrap items-center gap-3 border-t border-inverse-nested pt-6 [animation-delay:120ms] [animation-duration:900ms]"
+            className="enter border-t border-inverse-nested pt-6 [animation-delay:120ms] [animation-duration:900ms]"
           >
-            <SegmentLinks label="Cara hadir" items={modeItems} inverse />
-            <span aria-hidden className="hidden h-6 w-px bg-inverse-nested sm:block" />
-            <nav aria-label="Bidang" className="flex flex-wrap gap-1.5">
-              <ChipLink inverse href={buildEventHref(query, { categories: [], page: 1 })} active={query.categories.length === 0}>
-                Semua
-              </ChipLink>
-              {categories.map((category) => (
-                <ChipLink
-                  key={category.slug}
-                  inverse
-                  href={buildEventHref(query, { categories: query.categories.includes(category.slug) ? [] : [category.slug], page: 1 })}
-                  active={query.categories.includes(category.slug)}
-                >
-                  {shortCategoryName(category.name)}
+            <CollapsibleFilters
+              breakpoint="md"
+              activeCount={query.categories.length + (query.mode ? 1 : 0)}
+              bodyClassName="flex-wrap items-center gap-3 border-inverse-nested bg-inverse shadow-none"
+            >
+              <SegmentLinks label="Cara hadir" items={modeItems} inverse />
+              <span aria-hidden className="hidden h-6 w-px bg-inverse-nested sm:block" />
+              <nav aria-label="Bidang" className="flex flex-wrap gap-1.5">
+                <ChipLink inverse href={buildEventHref(query, { categories: [], page: 1 })} active={query.categories.length === 0}>
+                  Semua
                 </ChipLink>
-              ))}
-            </nav>
+                {categories.map((category) => (
+                  <ChipLink
+                    key={category.slug}
+                    inverse
+                    href={buildEventHref(query, { categories: query.categories.includes(category.slug) ? [] : [category.slug], page: 1 })}
+                    active={query.categories.includes(category.slug)}
+                  >
+                    {shortCategoryName(category.name)}
+                  </ChipLink>
+                ))}
+              </nav>
+            </CollapsibleFilters>
           </section>
         </div>
       </div>

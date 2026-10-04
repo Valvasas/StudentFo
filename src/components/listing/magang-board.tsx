@@ -14,6 +14,7 @@ import {
   SegmentLinks,
   levelSegments,
   type LevelOption,
+  CollapsibleFilters,
 } from '@/components/listing/listing-ui';
 import type { BoardProps } from '@/components/listing/lomba-board';
 import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
@@ -69,73 +70,78 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
       </div>
 
       <div className="container-page flex flex-wrap items-start gap-10 pb-10 pt-8">
-        <section aria-label="Filter kegiatan" className="flex w-full flex-col gap-7 lg:sticky lg:top-[92px] lg:w-[232px] lg:flex-none">
-          <div className="flex flex-col gap-1">
-            <span className="text-[13px] font-semibold">Bidang</span>
-            <ul className="flex flex-col">
-              {categories.map((category) => {
-                const on = query.categories.includes(category.slug);
-                return (
-                  <li key={category.slug}>
+        <section aria-label="Filter kegiatan" className="w-full lg:sticky lg:top-[92px] lg:w-[232px] lg:flex-none">
+          <CollapsibleFilters
+            activeCount={query.categories.length + (query.mode ? 1 : 0) + (query.levels.length > 0 ? 1 : 0)}
+            bodyClassName="flex-col gap-7"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-[13px] font-semibold">Bidang</span>
+              <ul className="flex flex-col">
+                {categories.map((category) => {
+                  const on = query.categories.includes(category.slug);
+                  return (
+                    <li key={category.slug}>
+                      <Link
+                        href={buildEventHref(query, {
+                          categories: on ? query.categories.filter((slug) => slug !== category.slug) : [...query.categories, category.slug],
+                          page: 1,
+                        })}
+                        scroll={false}
+                        aria-current={on ? 'true' : undefined}
+                        className="flex min-h-11 items-center gap-2.5 text-sm lg:min-h-9"
+                      >
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'flex size-[18px] items-center justify-center rounded-[5px] border-[1.5px] border-brand text-on-brand transition-colors duration-150',
+                            on ? 'bg-brand' : 'bg-panel',
+                          )}
+                        >
+                          {on && <Check className="size-3" strokeWidth={2.6} />}
+                        </span>
+                        <span className="flex-1">{shortCategoryName(category.name)}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <span className="text-[13px] font-semibold">Cara kerja</span>
+              <div className="flex flex-wrap gap-1.5">
+                {modeItems.map((item) => {
+                  const on = query.mode === item.mode;
+                  return (
                     <Link
-                      href={buildEventHref(query, {
-                        categories: on ? query.categories.filter((slug) => slug !== category.slug) : [...query.categories, category.slug],
-                        page: 1,
-                      })}
+                      key={item.mode}
+                      href={buildEventHref(query, { mode: on ? undefined : item.mode, locations: item.mode === 'online' ? [] : query.locations, page: 1 })}
                       scroll={false}
                       aria-current={on ? 'true' : undefined}
-                      className="flex min-h-11 items-center gap-2.5 text-sm lg:min-h-9"
+                      className={cn(
+                        'relative flex h-[30px] items-center rounded-sm border px-[11px] text-[13px] font-medium transition-colors duration-150 after:absolute after:inset-x-0 after:-inset-y-2 after:content-[""]',
+                        on ? 'border-brand bg-brand text-on-brand' : 'border-line-strong/70 bg-panel hover:border-line-strong',
+                      )}
                     >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'flex size-[18px] items-center justify-center rounded-[5px] border-[1.5px] border-brand text-on-brand transition-colors duration-150',
-                          on ? 'bg-brand' : 'bg-panel',
-                        )}
-                      >
-                        {on && <Check className="size-3" strokeWidth={2.6} />}
-                      </span>
-                      <span className="flex-1">{shortCategoryName(category.name)}</span>
+                      {item.label}
                     </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <span className="text-[13px] font-semibold">Cara kerja</span>
-            <div className="flex flex-wrap gap-1.5">
-              {modeItems.map((item) => {
-                const on = query.mode === item.mode;
-                return (
-                  <Link
-                    key={item.mode}
-                    href={buildEventHref(query, { mode: on ? undefined : item.mode, locations: item.mode === 'online' ? [] : query.locations, page: 1 })}
-                    scroll={false}
-                    aria-current={on ? 'true' : undefined}
-                    className={cn(
-                      'relative flex h-[30px] items-center rounded-sm border px-[11px] text-[13px] font-medium transition-colors duration-150 after:absolute after:inset-x-0 after:-inset-y-2 after:content-[""]',
-                      on ? 'border-brand bg-brand text-on-brand' : 'border-line-strong/70 bg-panel hover:border-line-strong',
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <span className="text-[13px] font-semibold">Jenjang</span>
-            <SegmentLinks label="Jenjang" items={levelSegments(query, MAGANG_LEVELS)} stretch />
-          </div>
-          {hasActiveFilters({ ...query, types: [] }) && (
-            <Link
-              href={buildEventHref({ types: query.types })}
-              className="inline-flex min-h-11 items-center self-start text-[13.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
-            >
-              Hapus semua filter
-            </Link>
-          )}
+            <div className="flex flex-col gap-2.5">
+              <span className="text-[13px] font-semibold">Jenjang</span>
+              <SegmentLinks label="Jenjang" items={levelSegments(query, MAGANG_LEVELS)} stretch />
+            </div>
+            {hasActiveFilters({ ...query, types: [] }) && (
+              <Link
+                href={buildEventHref({ types: query.types })}
+                className="inline-flex min-h-11 items-center self-start text-[13.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
+              >
+                Hapus semua filter
+              </Link>
+            )}
+          </CollapsibleFilters>
         </section>
 
         <div className="flex min-w-0 flex-[1_1_560px] flex-col gap-3">

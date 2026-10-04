@@ -12,6 +12,8 @@ test('filter /events lewat form & chip: URL kanonik, hasil tersaring, berfungsi 
     const page = await context.newPage();
     await page.goto('/events');
     const filters = page.getByRole('region', { name: 'Filter kegiatan' });
+    // Panel filter dilipat (ADR-052): <details> asli, terbuka tanpa JavaScript juga.
+    await filters.getByText('Saring', { exact: true }).click();
     await filters.getByRole('link', { name: 'Beasiswa', exact: true }).click();
     await expect(page).toHaveURL(/type=BEASISWA/);
     // Satu jenis = tata letak khas jenisnya (ADR-039); penandanya pindah ke tab navbar.

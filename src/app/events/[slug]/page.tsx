@@ -285,6 +285,21 @@ export default async function EventDetailPage({
                 </div>
               ))}
             </dl>
+            {/* Panel samping (bagikan, persiapan berkas) hilang di bawah 960px
+                dan bilah bawah hanya muat simpan + daftar — tanpa baris ini
+                keduanya tak terjangkau dari ponsel. Kalender ada di tab Tahapan. */}
+            <div className="-ml-3.5 flex flex-wrap items-center gap-1 min-[960px]:hidden">
+              <ShareButton title={event.title} path={detailPath} />
+              {demoFeaturesEnabled && !isClosed && (
+                <Link
+                  href={`${detailPath}/persiapan`}
+                  className="flex h-11 items-center gap-2 rounded-card px-3.5 text-sm font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested"
+                >
+                  <FileText aria-hidden className="size-4" />
+                  Siapkan berkas
+                </Link>
+              )}
+            </div>
           </header>
 
           <div className="sticky top-0 z-30 mt-8 border-b border-line bg-canvas md:top-16">
