@@ -29,6 +29,10 @@ function makeEvent(overrides: Partial<EventSummary> & { id: string }): EventSumm
     createdAt: NOW.toISOString(),
     primaryDeadlineAt: null,
     primaryDeadlineLabel: null,
+    isFree: null,
+    priceAmount: null,
+    featuredUntil: null,
+    verificationBadge: null,
     ...overrides,
   };
 }

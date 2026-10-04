@@ -12,6 +12,126 @@ terdokumentasi.
 
 ---
 
+## ADR-051 — Pengingat ke kanal luar: antrean klaim + sewa + ack (at-least-once), bukan "tandai saat dibaca"
+
+**Konteks:** Pengingat H-3/H-1 sudah dibuat `create_deadline_notifications()`
+untuk lonceng in-app (ADR-017). Brief meminta endpoint ber-`CRON_SECRET` yang
+mengembalikan pengingat "yang belum terkirim" untuk bot WhatsApp/Telegram atau
+penyedia email.
+
+**Keputusan:** Migration `20261003100003`: kolom `notifications.dispatch_claimed_at`
+dan `dispatched_at` + index parsial antrean. `claim_notification_dispatch(limit, lease)`
+(DEFINER, service_role saja) mengunci baris dengan `FOR UPDATE SKIP LOCKED`,
+menyewakannya 15 menit, dan melewati pengingat basi (kegiatan sudah tutup /
+tidak lagi APPROVED). `ack_notification_dispatch(ids)` menandai terkirim, hanya
+untuk baris yang memang sedang diklaim. Route: `POST /api/cron/dispatch-deadline-notifications`
+dan `…/ack`, `Authorization: Bearer` dibandingkan waktu-konstan, gagal tertutup
+bila `CRON_SECRET` kosong. GET → 405. Mode seed punya cermin in-memory.
+
+**Konsekuensi:** Bot yang crash di tengah batch tidak menghilangkan pengingat —
+sewa habis, baris dibagikan lagi. Harganya pesan dobel bila bot mengirim lalu
+gagal ack; itu disengaja (pengingat tenggat yang HILANG adalah kegagalan paling
+merugikan produk ini). **Yang BELUM ada dan memblokir pengiriman sungguhan:**
+(1) preferensi & persetujuan kanal per pengguna (backlog ADR-039 "Preferensi
+notifikasi") — payload memuat email, tapi mengirim email/WA tanpa opt-in
+melanggar kebijakan privasi kita sendiri; (2) nomor WA / chat id Telegram —
+tidak ada kolomnya. Endpoint ini menyiapkan antrean, bukan izin untuk mengirim.
+Kenapa bukan Vercel Cron (GET): klaim adalah mutasi; GET yang diulang proxy atau
+pemindai tautan akan "menghabiskan" pengingat tanpa pernah dikirim.
+
+---
+
+## ADR-050 — Skor relevansi pindah ke SQL (`list_personalized_events`), menggantikan jendela kandidat ADR-021
+
+**Konteks:** ADR-021 memeringkat ≤240 kandidat terbaru di Node; halaman 21+
+diam-diam jatuh ke urutan "terbaru", dan kegiatan relevan yang lebih tua dari
+240 kegiatan terakhir tidak pernah bisa muncul. ADR-035 memutuskan menunda
+pemindahan ke SQL karena belum diukur sebanding. Brief meminta RPC dengan bobot
+0.5/0.3/0.2 — itu rumus blueprint yang SUDAH direvisi ADR-026; memakainya di SQL
+sementara mode seed memakai 0.45/0.25/0.15/0.15 membuat urutan demo dan
+produksi berbeda tanpa ada yang tahu.
+
+**Keputusan:** Migration `20261003100002`: `list_personalized_events(p_interests,
+p_education, p_limit, p_offset, …filter, p_cost, p_include_closed, p_promoted)`,
+SECURITY INVOKER (RLS publik tetap penjaga), `SET jit = off`. Rumus = `rankEvents()`
+APA ADANYA, personal DAN cold start (cold start butuh popularitas relatif ke
+kandidat hasil filter = `max() OVER ()`). Skor dihitung di baris sempit dari
+`events`, diurutkan, dipotong, baru di-join `events_listing` untuk ≤48 baris
+halaman; `count(*) OVER ()` memberi total dalam satu panggilan.
+`SupabaseEventRepository` memakai RPC untuk SEMUA `sort=relevance`; profil cold
+start dinormalisasi kosong supaya tamu berbagi entri cache. Profil personal kini
+masuk kunci Data Cache (hanya minat terurut + jenjang, tanpa identitas).
+`RELEVANCE_CANDIDATE_WINDOW` dihapus.
+
+**Pengukuran** (mesin yang sama, PG16 + PostgREST lokal, median 5×, tanpa cache,
+`BENCH_SIZES=5000,20000,50000`):
+
+| Event | lama: jendela 240 | RPC hal. 1 | RPC hal. 20 | cold start | relevansi+filter lama → RPC |
+|---|---|---|---|---|---|
+| 5.000 | 100 ms | 63 ms | 53 ms | 45 ms | 64 → 13 ms |
+| 20.000 | 295 ms | 216 ms | 216 ms | 191 ms | 284 → 28 ms |
+| 50.000 | 355 ms | 689 ms | 589 ms | 544 ms | 368 → 48 ms |
+
+Versi pertama (skor di atas view lebar + JIT) = 905 ms di 50.000; baris sempit
++ JIT mati menurunkannya ±35%.
+
+**Konsekuensi:** Benar di halaman berapa pun; lebih cepat sampai ±20.000 event
+dan jauh lebih cepat saat ada filter. Di 50.000 event tanpa filter ±2× lebih
+lambat dari jendela lama (O(N) skor vs O(240)) — diterima karena hasil lama
+salah di luar halaman 20, Data Cache 5 menit menyerap kunjungan berulang, dan
+katalog nyata masih jauh di bawah itu. Bila katalog aktif > 20.000: simpan
+komponen yang tidak bergantung profil (recency, deadline_fit, popularitas) di
+kolom yang diperbarui pg_cron harian, sehingga RPC hanya menambah kecocokan
+minat/jenjang. Bobot kini hidup di DUA tempat (TS & SQL) — dikunci uji paritas
+`tests/integration/relevance-and-attributes.test.ts` (4 profil + halaman 21
+dari 260). Uji cache lama "profil tidak masuk kunci" diganti, bukan dihapus.
+
+---
+
+## ADR-049 — Biaya "belum diketahui" ≠ gratis; promosi berbayar opt-in & berlabel; lencana otoritas diberikan moderator
+
+**Konteks:** Brief: `is_free boolean DEFAULT true`, `price_amount DEFAULT 0`,
+`is_featured`/`featured_until` yang selalu di puncak, `verification_badge`, dan
+`guidebook_url` dengan embed PDF.
+
+**Keputusan & penyimpangan sadar dari brief:**
+1. `is_free` NULLABLE tanpa default, `price_amount` NULLABLE. Pipeline scraping
+   tidak pernah tahu biaya secara terstruktur; `DEFAULT true` = setiap kegiatan
+   berbayar hasil scraping tampil "Gratis" — kebohongan paling merugikan bagi
+   pengguna yang justru memakai filter ini. `NULL` tidak menampilkan lencana dan
+   tidak lolos filter gratis maupun berbayar. CHECK: nominal hanya untuk berbayar.
+2. Promosi = `is_featured` + `featured_until` (CHECK: promosi wajib punya akhir) +
+   index parsial yang diminta. Aktif hanya bila kegiatan masih buka
+   (`events_listing.is_promoted` ↔ `isPromoted()`). **Opt-in per query
+   (`promoted: true`)**: hanya daftar umum `/events`. Papan per jenis berjudul
+   "urut dari tenggat terdekat", hitungan, dan "sesuai minatmu" tidak boleh
+   disisipi iklan. Promosi tidak mengubah skor. Label berbahasa Indonesia
+   "Promosi" (bukan "Promoted" seperti di brief — copy UI berbahasa Indonesia,
+   dan pengungkapan iklan harus terbaca semua pengguna).
+3. `verification_badge` VARCHAR + CHECK (`OFFICIAL_GOV|CAMPUS_VERIFIED|COMMUNITY`),
+   diatur admin di `/admin/promosi`, bukan diklaim pengirim. Berbeda dari ADR-042
+   (akun penyelenggara terverifikasi): lencana menyatakan otoritas di balik acara.
+   Pipeline tidak menulisnya → paritas tiga tempat tidak berlaku.
+4. Buku panduan: https saja (CHECK + validasi ulang saat render). PDF disematkan
+   di balik `<details>` tertutup (tidak diunduh sebelum diminta), disembunyikan
+   di bawah `sm` (Chrome Android tidak merender PDF di iframe), tanpa `sandbox`
+   (penampil PDF Chromium menolak iframe ber-sandbox). CSP `frame-src https:`
+   hanya ditambahkan middleware untuk `/events/<slug>`, bukan global.
+5. Kiriman `/submit`: kolom audit `organizer_contact`/`proof_link` disimpan di
+   `payload` JSONB `ugc_submissions` (kontrak `submission-schema.ts`), BUKAN tabel
+   baru `event_submissions` — tabel, RLS, rate limit, Turnstile, honeypot, dan
+   antrean admin sudah ada sejak Phase 3. Keduanya tidak pernah disalin ke
+   `events`. `proof_link` ≠ `sourceUrl`: yang kedua pengumuman publik, yang pertama
+   bukti kepanitiaan privat. Teks bebas lewat `stripMarkup()`.
+
+**Konsekuensi:** Lencana "Gratis" hanya muncul bila seseorang benar-benar
+menyatakannya. Event lama & hasil scraping tampil tanpa info biaya sampai
+diisi (pipeline belum mengekstraknya — TASKS.md). Perubahan lencana/promosi
+belum tercatat di `moderation_log` (trigger hanya mencatat status) — audit
+"siapa memberi lencana resmi" masih lewat log aplikasi; tercatat di TASKS.md.
+
+---
+
 ## ADR-048 — Halaman yang tumbuh bersama data pengguna: satu tugas per layar, daftar selalu berbatas
 
 **Konteks:** Lapisan data jaringan sudah berbatas (kursor keyset, maks 500,
@@ -685,7 +805,8 @@ tidak ada index yang bisa membantu lintas join itu.
 
 **Keputusan:**
 1. Skor relevansi TETAP di Node — 159 ms di 50.000 event; pindah ke SQL/RPC
-   belum sebanding biayanya.
+   belum sebanding biayanya. *(Digantikan ADR-050: dipindah ke SQL demi
+   paginasi yang benar; angka baru ada di sana.)*
 2. `chooseCountMode()`: `exact` selama event aktif ≤ `EXACT_COUNT_MAX_ACTIVE`
    (20.000), `planned` di atasnya. Ukuran katalog diambil dari `getStats()` yang
    sudah di-cache (ADR-034) — tanpa query tambahan. Tidak memakai `estimated`
@@ -1039,6 +1160,8 @@ perubahan kontrak publik selain method baru di ADR-021/ADR-020.
 ---
 
 ## ADR-021 — Urutan `relevance` di Supabase diperingkat atas jendela kandidat, bukan per halaman
+
+> **DIGANTIKAN OLEH ADR-050** — skor kini dihitung di SQL atas semua hasil filter.
 
 **Konteks:** Skor rekomendasi (§6) dihitung di aplikasi. `SupabaseEventRepository`
 sebelumnya mengambil 12 baris terbaru lalu memeringkat ulang 12 baris itu saja

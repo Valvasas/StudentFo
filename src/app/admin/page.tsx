@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlertTriangle, BadgeCheck, Check, CheckCircle2, History, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Check, CheckCircle2, History, Megaphone, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react';
 import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -118,6 +118,11 @@ export default async function AdminPage({
           <Button asChild variant="secondary" size="sm">
             <Link href="/admin/kalibrasi">
               <Scale aria-hidden /> Kalibrasi rekomendasi
+            </Link>
+          </Button>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/admin/promosi">
+              <Megaphone aria-hidden /> Lencana & promosi
             </Link>
           </Button>
         </div>

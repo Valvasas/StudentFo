@@ -20,7 +20,7 @@ function recordingCache() {
   // Hitung miss per jenis query: listing juga membaca statistik (mode hitung, ADR-035).
   return {
     layer,
-    misses: (name = 'events-listing-v1') => misses.get(name) ?? 0,
+    misses: (name = 'events-relevance-v1') => misses.get(name) ?? 0,
     invalidate: () => store.clear(),
   };
 }
@@ -42,6 +42,15 @@ describe('cache data publik SupabaseEventRepository', () => {
     expect((await repo.listEvents({ search: token })).total).toBe(first.total + 1);
   });
 
+  it('urutan non-relevansi memakai cache listing PostgREST yang terpisah', async () => {
+    const cache = recordingCache();
+    const repo = new SupabaseEventRepository(cache.layer);
+    await repo.listEvents({ sort: 'newest' });
+    await repo.listEvents({ sort: 'newest' });
+    expect(cache.misses('events-listing-v2')).toBe(1);
+    expect(cache.misses('events-relevance-v1')).toBe(0);
+  });
+
   it('urutan filter berbeda berbagi satu entri cache', async () => {
     const cache = recordingCache();
     const repo = new SupabaseEventRepository(cache.layer);
@@ -50,18 +59,32 @@ describe('cache data publik SupabaseEventRepository', () => {
     expect(cache.misses()).toBe(1);
   });
 
-  it('profil TIDAK masuk kunci cache: kandidat dibagi, peringkat tetap personal', async () => {
+  /**
+   * Sejak ADR-050 skor dihitung di Postgres, jadi hasil BERGANTUNG profil dan
+   * profil wajib masuk kunci — tanpa itu pengguna kedua menerima peringkat
+   * pengguna pertama. Yang masuk hanya minat (terurut) + jenjang, tidak ada
+   * identitas; profil cold start (tamu, profil setengah-isi) berbagi SATU entri.
+   */
+  it('profil personal masuk kunci cache (ternormalisasi); semua cold start berbagi satu entri', async () => {
     const token = `zp${randomUUID().replace(/-/g, '').slice(0, 10)}`;
     createEvent({ title: `Magang Desain ${token}`, categories: ['desain'], levels: ['SMA_SMK'] });
     createEvent({ title: `Riset Sains ${token}`, categories: ['sains'], levels: ['S2'] });
     const cache = recordingCache();
     const repo = new SupabaseEventRepository(cache.layer);
 
-    const designer = await repo.listEvents({ search: token, profile: { interests: ['desain'], educationLevel: 'SMA_SMK' } });
+    const designer = await repo.listEvents({ search: token, profile: { interests: ['desain', 'seni'], educationLevel: 'SMA_SMK' } });
     const scientist = await repo.listEvents({ search: token, profile: { interests: ['sains'], educationLevel: 'S2' } });
-    expect(cache.misses()).toBe(1);
     expect(designer.items[0]?.title).toContain('Magang Desain');
     expect(scientist.items[0]?.title).toContain('Riset Sains');
+    expect(cache.misses()).toBe(2);
+
+    await repo.listEvents({ search: token, profile: { interests: ['seni', 'desain'], educationLevel: 'SMA_SMK' } });
+    expect(cache.misses()).toBe(2);
+
+    await repo.listEvents({ search: token, profile: null });
+    await repo.listEvents({ search: token, profile: { interests: ['desain'], educationLevel: null } });
+    await repo.listEvents({ search: token, profile: { interests: [], educationLevel: 'S2' } });
+    expect(cache.misses()).toBe(3);
   });
 
   it('data publik di-cache tanpa identitas: pengguna yang masuk tidak mengubah hasil maupun kunci', async () => {

@@ -38,7 +38,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
   const [categories, ranked, all] = await Promise.all([
     repository.listCategories(),
     repository.listEvents({ sort: 'relevance', pageSize: 48, profile }),
-    repository.listEvents({ pageSize: 1 }),
+    repository.listEvents({ pageSize: 1, sort: 'newest' }),
   ]);
   const matches = ranked.items.filter(
     (event) =>

@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { dataMode, env } from '@/lib/env';
-import { buildContentSecurityPolicy, generateNonce, NONCE_HEADER, REQUEST_PATH_HEADER } from '@/lib/security-headers';
+import {
+  allowsDocumentFrames,
+  buildContentSecurityPolicy,
+  generateNonce,
+  NONCE_HEADER,
+  REQUEST_PATH_HEADER,
+} from '@/lib/security-headers';
 import { updateSession } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
@@ -9,6 +15,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     nonce,
     isDev: process.env.NODE_ENV !== 'production',
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
+    allowDocumentFrames: allowsDocumentFrames(request.nextUrl.pathname),
   });
 
   // CSP ditaruh juga di header REQUEST: dari situlah Next.js membaca nonce

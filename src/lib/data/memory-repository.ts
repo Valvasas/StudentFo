@@ -30,6 +30,7 @@ import type {
   ConnectionPage,
   ConnectionStatus,
   DeadlineDay,
+  DeadlineDispatch,
   EventAnalytics,
   EventClaim,
   EventDetail,
@@ -62,7 +63,9 @@ import type {
   TrackerItem,
   TrackerStatus,
 } from '@/types/domain';
-import { isPubliclyVisible, paginate, resolvePaging, sortSummaries } from './listing';
+import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
+import type { EventPresentationInput } from '@/lib/event-presentation';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH } from './repository';
 import type {
   CreateSubmissionInput,
   CalibrationData,
@@ -157,6 +160,11 @@ function buildDetail(seed: SeedEvent, base: Date): EventDetail {
     registrationLink: `https://example.org/daftar/${seed.slug}`,
     sourceUrl: `https://example.org/sumber/${seed.slug}`,
     deadlines,
+    isFree: seed.isFree ?? null,
+    priceAmount: seed.isFree === false ? (seed.priceAmount ?? null) : null,
+    featuredUntil: seed.featuredForDays !== undefined ? isoOffsetDays(seed.featuredForDays, base) : null,
+    verificationBadge: seed.verificationBadge ?? null,
+    guidebookUrl: seed.guidebookUrl ?? null,
   };
 }
 
@@ -286,6 +294,9 @@ export class MemoryEventRepository implements EventRepository {
    * `recommendationSignals` supaya halaman kalibrasi admin tidak tercemar.
    */
   private readonly demoAnalyticsSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
+  /** Cermin `notifications.dispatch_claimed_at` (ms) & `dispatched_at` (ADR-051). */
+  private readonly dispatchClaims = new Map<string, number>();
+  private readonly dispatched = new Set<string>();
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
 
@@ -361,15 +372,19 @@ export class MemoryEventRepository implements EventRepository {
     const search = query.search?.trim();
     if (search) results = results.filter((event) => matchesSearch(event, search));
 
-    const { types, categories, levels, locations, mode } = query;
+    const { types, categories, levels, locations, mode, cost } = query;
     if (types?.length) results = results.filter((event) => types.includes(event.eventType));
     if (categories?.length) results = results.filter((event) => hasOverlap(categories, event.categorySlugs));
     if (levels?.length) results = results.filter((event) => hasOverlap(levels, event.educationLevels));
     // Cocok persis, sama seperti `.in('location', …)` di SupabaseEventRepository.
     if (locations?.length) results = results.filter((event) => event.location !== null && locations.includes(event.location));
     if (mode) results = results.filter((event) => event.isOnline === (mode === 'online'));
+    if (cost) results = results.filter((event) => matchesCost(event, cost));
 
-    return paginate(sortSummaries(results, query.sort ?? 'relevance', now, query.profile), resolvePaging(query));
+    return paginate(
+      sortSummaries(results, query.sort ?? 'relevance', now, query.profile, query.promoted ?? false),
+      resolvePaging(query),
+    );
   }
 
   async getEventBySlug(slug: string): Promise<EventDetail | null> {
@@ -420,6 +435,24 @@ export class MemoryEventRepository implements EventRepository {
       .filter((event) => event.status === 'APPROVED' && event.primaryDeadlineAt)
       .map((event) => event.primaryDeadlineAt as string);
     return buildDeadlineWeek(deadlines, new Date());
+  }
+
+  // ------------------------------------------------------------------
+  // Lencana & promosi (ADR-049)
+  // ------------------------------------------------------------------
+
+  async updateEventPresentation({ eventId, verificationBadge, featuredUntil }: EventPresentationInput): Promise<void> {
+    const event = this.findEvent(eventId);
+    // Cermin `.eq('status', 'APPROVED')` di SupabaseEventRepository.
+    if (!event || event.status !== 'APPROVED') throw actionError('event_unavailable');
+    this.updateEvent(eventId, (current) => ({ ...current, verificationBadge, featuredUntil }));
+  }
+
+  async listFeaturedEvents(limit: number): Promise<readonly EventSummary[]> {
+    return this.events
+      .filter((event) => event.featuredUntil !== null && isPubliclyVisible(event))
+      .sort((a, b) => new Date(b.featuredUntil ?? 0).getTime() - new Date(a.featuredUntil ?? 0).getTime())
+      .slice(0, Math.max(limit, 0));
   }
 
   async listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]> {
@@ -568,6 +601,13 @@ export class MemoryEventRepository implements EventRepository {
         deadlines: [
           { id: `${id}-d0`, label: 'registration', deadlineAt: payload.deadlineAt, isPrimary: true },
         ],
+        // Cermin approve_submission() (20261003100001): biaya & panduan ikut,
+        // kontak/bukti (bahan moderator) tidak.
+        isFree: payload.isFree,
+        priceAmount: payload.isFree === false ? payload.priceAmount : null,
+        guidebookUrl: payload.guidebookUrl,
+        featuredUntil: null,
+        verificationBadge: null,
       });
       this.logModeration({
         subjectType: 'event',
@@ -799,6 +839,61 @@ export class MemoryEventRepository implements EventRepository {
     }
 
     return notifications.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+  }
+
+  // ------------------------------------------------------------------
+  // Dispatch ke kanal luar (ADR-051) — cermin claim/ack_notification_dispatch()
+  // ------------------------------------------------------------------
+
+  async claimDeadlineDispatches(limit: number): Promise<readonly DeadlineDispatch[]> {
+    const now = new Date();
+    const leaseCutoff = now.getTime() - DISPATCH_LEASE_SECONDS * 1000;
+    const userIds = new Set<string>([...this.savedEvents.keys(), ...this.trackerEntries.keys()]);
+    const due: (DeadlineDispatch & { readonly sortKey: string })[] = [];
+
+    for (const userId of userIds) {
+      for (const notification of this.deriveNotifications(userId, now)) {
+        if (notification.type !== 'DEADLINE_H3' && notification.type !== 'DEADLINE_H1') continue;
+        if (this.dispatched.has(notification.id)) continue;
+        const claimedAt = this.dispatchClaims.get(notification.id);
+        if (claimedAt !== undefined && claimedAt >= leaseCutoff) continue;
+        const event = notification.event ? this.findEvent(notification.event.id) : undefined;
+        // Pengingat basi tidak dikirim — sama dengan `d.deadline_at >= NOW()` di SQL.
+        if (!event?.primaryDeadlineAt || new Date(event.primaryDeadlineAt).getTime() < now.getTime()) continue;
+        due.push({
+          sortKey: `${notification.sentAt}|${notification.id}`,
+          notificationId: notification.id,
+          type: notification.type,
+          message: notification.message,
+          createdAt: notification.sentAt,
+          recipient: { userId, email: null, fullName: this.people.get(userId)?.person.fullName ?? null },
+          event: {
+            id: event.id,
+            slug: event.slug,
+            title: event.title,
+            organizer: event.organizer,
+            deadlineAt: event.primaryDeadlineAt,
+            daysLeft: daysUntil(event.primaryDeadlineAt, now) ?? 0,
+          },
+        });
+      }
+    }
+
+    const batch = due
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .slice(0, Math.min(Math.max(Math.trunc(limit), 1), DISPATCH_MAX_BATCH));
+    for (const item of batch) this.dispatchClaims.set(item.notificationId, now.getTime());
+    return batch.map(({ sortKey: _sortKey, ...item }) => item);
+  }
+
+  async acknowledgeDeadlineDispatches(notificationIds: readonly string[]): Promise<number> {
+    let acked = 0;
+    for (const id of new Set(notificationIds)) {
+      if (!this.dispatchClaims.has(id) || this.dispatched.has(id)) continue;
+      this.dispatched.add(id);
+      acked += 1;
+    }
+    return acked;
   }
 
   async listNotifications(userId: string, limit: number): Promise<readonly AppNotification[]> {

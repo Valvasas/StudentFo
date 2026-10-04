@@ -1,4 +1,12 @@
-import type { Achievement, DeadlineLabel, EducationLevel, EventStatus, EventType, TrackerStatus } from '@/types/domain';
+import type {
+  Achievement,
+  DeadlineLabel,
+  EducationLevel,
+  EventStatus,
+  EventType,
+  TrackerStatus,
+  VerificationBadge,
+} from '@/types/domain';
 
 /**
  * DATA CONTOH — bukan event sungguhan.
@@ -27,12 +35,24 @@ export interface SeedEvent {
   readonly savedCount: number;
   readonly createdDaysAgo: number;
   readonly deadlines: readonly { label: DeadlineLabel; inDays: number; isPrimary: boolean }[];
+  /** Tidak diisi = biaya belum diketahui (seperti hasil scraping). */
+  readonly isFree?: boolean;
+  readonly priceAmount?: number;
+  /** Promosi berjalan sampai N hari dari sekarang (ADR-049). */
+  readonly featuredForDays?: number;
+  readonly verificationBadge?: VerificationBadge;
+  readonly guidebookUrl?: string;
 }
 
 export const SEED_EVENTS: readonly SeedEvent[] = [
   {
     id: 'e1000000-0000-4000-8000-000000000001',
     slug: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026',
+    isFree: true,
+    verificationBadge: 'CAMPUS_VERIFIED',
+    // PDF publik W3C yang stabil — supaya pratinjau buku panduan di mode demo
+    // memperlihatkan perilaku sungguhan, bukan kotak 404.
+    guidebookUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
     title: 'Kompetisi Inovasi Perangkat Lunak Nusantara 2026',
     organizer: 'Universitas Nusantara Digital',
     description:
@@ -54,6 +74,8 @@ export const SEED_EVENTS: readonly SeedEvent[] = [
   {
     id: 'e1000000-0000-4000-8000-000000000002',
     slug: 'beasiswa-unggulan-bakti-pendidikan-2026',
+    isFree: true,
+    verificationBadge: 'OFFICIAL_GOV',
     title: 'Beasiswa Unggulan Bakti Pendidikan 2026',
     organizer: 'Yayasan Bakti Pendidikan Indonesia',
     description:
@@ -74,6 +96,7 @@ export const SEED_EVENTS: readonly SeedEvent[] = [
   {
     id: 'e1000000-0000-4000-8000-000000000003',
     slug: 'program-magang-analis-data-kuartal-ii',
+    isFree: true,
     title: 'Program Magang Analis Data — Kuartal II',
     organizer: 'PT Data Rekacipta Mandiri',
     description:
@@ -91,6 +114,9 @@ export const SEED_EVENTS: readonly SeedEvent[] = [
   {
     id: 'e1000000-0000-4000-8000-000000000004',
     slug: 'workshop-riset-kualitatif-untuk-mahasiswa-tingkat-akhir',
+    isFree: false,
+    priceAmount: 75000,
+    verificationBadge: 'COMMUNITY',
     title: 'Workshop Riset Kualitatif untuk Mahasiswa Tingkat Akhir',
     organizer: 'Lembaga Kajian Sosial Wanabakti',
     description:
@@ -162,6 +188,7 @@ export const SEED_EVENTS: readonly SeedEvent[] = [
   {
     id: 'e1000000-0000-4000-8000-000000000008',
     slug: 'konferensi-mahasiswa-kesehatan-masyarakat-2026',
+    isFree: false,
     title: 'Konferensi Mahasiswa Kesehatan Masyarakat 2026',
     organizer: 'Konsorsium Kesehatan Masyarakat Antar-Kampus',
     description:
@@ -236,6 +263,10 @@ export const SEED_EVENTS: readonly SeedEvent[] = [
   {
     id: 'e1000000-0000-4000-8000-000000000012',
     slug: 'workshop-analisis-data-dengan-python-untuk-pemula',
+    isFree: false,
+    priceAmount: 150000,
+    featuredForDays: 14,
+    guidebookUrl: 'https://example.org/panduan/workshop-analisis-data-python',
     title: 'Workshop Analisis Data dengan Python untuk Pemula',
     organizer: 'Komunitas Data Terbuka Nusantara',
     description:
@@ -321,6 +352,8 @@ export const SEED_EVENTS: readonly SeedEvent[] = [
   {
     id: 'e1000000-0000-4000-8000-000000000017',
     slug: 'olimpiade-matematika-pelajar-tingkat-nasional',
+    isFree: true,
+    verificationBadge: 'OFFICIAL_GOV',
     title: 'Olimpiade Matematika Pelajar Tingkat Nasional',
     organizer: 'Perhimpunan Guru Matematika Nusantara',
     description:

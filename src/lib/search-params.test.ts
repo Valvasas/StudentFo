@@ -29,6 +29,23 @@ describe('parseEventQuery', () => {
   });
 });
 
+describe('filter biaya', () => {
+  it('?biaya=gratis|berbayar → free|paid; nilai lain (termasuk kunci prototype) dibuang', () => {
+    expect(parseEventQuery({ biaya: 'gratis' }).cost).toBe('free');
+    expect(parseEventQuery({ biaya: ['berbayar', 'gratis'] }).cost).toBe('paid');
+    expect(parseEventQuery({ biaya: 'murah' }).cost).toBeUndefined();
+    expect(parseEventQuery({ biaya: 'constructor' }).cost).toBeUndefined();
+    expect(parseEventQuery({ biaya: '__proto__' }).cost).toBeUndefined();
+  });
+
+  it('ikut di URL kanonik dan dihitung sebagai filter aktif', () => {
+    const query = parseEventQuery({ biaya: 'gratis', type: 'LOMBA' });
+    expect(buildEventHref(query)).toBe('/events?type=LOMBA&biaya=gratis');
+    expect(hasActiveFilters(query)).toBe(true);
+    expect(buildEventHref(query, { cost: undefined })).toBe('/events?type=LOMBA');
+  });
+});
+
 describe('buildEventHref', () => {
   it('menghasilkan URL bersih saat tidak ada filter', () => {
     expect(buildEventHref(parseEventQuery({}))).toBe('/events');

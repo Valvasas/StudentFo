@@ -1,5 +1,5 @@
 import { rankEvents } from '@/lib/recommendation';
-import type { EventQuery, EventStatus, EventSummary, Paginated, UserProfile } from '@/types/domain';
+import type { CostFilter, EventQuery, EventStatus, EventSummary, Paginated, UserProfile } from '@/types/domain';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from './repository';
 
 /**
@@ -48,13 +48,46 @@ export function paginate<T>(items: readonly T[], paging: Paging): Paginated<T> {
 }
 
 /**
+ * Promosi berbayar sedang berjalan DAN kegiatannya masih bisa diikuti.
+ * Cermin kolom `events_listing.is_promoted` (migration 20261003100001) —
+ * ubah keduanya bersamaan. Membandingkan waktu persis (bukan hari kalender
+ * WIB) supaya sama dengan SQL; promosi bukan label H-n yang dibaca pengguna.
+ */
+export function isPromoted(
+  event: Pick<EventSummary, 'featuredUntil' | 'status' | 'primaryDeadlineAt'>,
+  now: Date,
+): boolean {
+  if (!event.featuredUntil || event.status !== 'APPROVED') return false;
+  const at = now.getTime();
+  if (new Date(event.featuredUntil).getTime() <= at) return false;
+  return event.primaryDeadlineAt === null || new Date(event.primaryDeadlineAt).getTime() >= at;
+}
+
+/**
  * Pengurutan bersama untuk semua implementasi repository.
  *  - relevance : skor §6 (personalized kalau profil ada, cold-start kalau null)
  *  - deadline  : tenggat terdekat dulu; yang tanpa tenggat ditaruh terakhir
  *                supaya tidak "menyelinap" ke puncak lewat nilai 0
  *  - newest    : entri terbaru dulu
+ *
+ * `promoted` = kegiatan berpromosi aktif dipindah ke puncak dengan urutan
+ * relatif yang sama (partisi stabil), lalu sisanya dalam urutan aslinya.
+ * Iklan tidak pernah mengubah SKOR — kegiatan berpromosi yang tidak relevan
+ * tetap dinilai tidak relevan, hanya posisinya yang dibeli.
  */
 export function sortSummaries<T extends EventSummary>(
+  events: readonly T[],
+  sort: NonNullable<EventQuery['sort']>,
+  now: Date,
+  profile?: UserProfile | null,
+  promoted = false,
+): T[] {
+  const sorted = orderBy(events, sort, now, profile);
+  if (!promoted) return sorted;
+  return [...sorted.filter((event) => isPromoted(event, now)), ...sorted.filter((event) => !isPromoted(event, now))];
+}
+
+function orderBy<T extends EventSummary>(
   events: readonly T[],
   sort: NonNullable<EventQuery['sort']>,
   now: Date,
@@ -78,20 +111,11 @@ export function sortSummaries<T extends EventSummary>(
   return rankEvents(events, profile ?? null, now).map((scored) => scored.event as T);
 }
 
-/**
- * Berapa kandidat yang diperingkat untuk urutan `relevance` di database.
- *
- * Skor rekomendasi (§6) dihitung di aplikasi, bukan di SQL, jadi ia hanya
- * bisa memeringkat baris yang sudah ditarik. Memeringkat per halaman (12
- * baris) membuat halaman 1 hanya "12 terbaru yang diurutkan ulang" — bukan
- * 12 paling relevan. Jendela ini menarik kandidat terbaru sekali, memeringkat
- * semuanya, lalu memotong halaman dari hasil peringkat.
- *
- * Halaman di luar jendela jatuh ke urutan terbaru. Itu trade-off sadar:
- * pengguna praktis tidak membuka halaman ke-21, dan menarik seluruh tabel per
- * request tidak berskala.
- */
-export const RELEVANCE_CANDIDATE_WINDOW = 240;
+/** Saringan biaya; `isFree === null` (belum diketahui) tidak pernah lolos. Cermin `p_cost` di RPC. */
+export function matchesCost(event: Pick<EventSummary, 'isFree'>, cost: CostFilter | undefined): boolean {
+  if (!cost) return true;
+  return cost === 'free' ? event.isFree === true : event.isFree === false;
+}
 
 /**
  * Di atas jumlah event aktif ini, total listing memakai perkiraan planner

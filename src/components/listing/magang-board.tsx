@@ -1,3 +1,5 @@
+import { PriceBadge } from '@/components/event/price-badge';
+import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { Check, Clock } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
@@ -169,9 +171,13 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                           {event.title}
                         </Link>
                       </h2>
-                      <span className="text-[13.5px] text-ink-muted">
-                        {event.organizer} · {event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul')}
+                      <span className="flex items-center gap-1 text-[13.5px] text-ink-muted">
+                        {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
+                        <span>
+                          {event.organizer} · {event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul')}
+                        </span>
                       </span>
+                      <PriceBadge event={event} className="self-start" />
                     </div>
                     <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">
                       <li className="flex h-6 items-center rounded-[6px] bg-panel-nested px-[9px] text-[12.5px] font-medium text-ink-soft">

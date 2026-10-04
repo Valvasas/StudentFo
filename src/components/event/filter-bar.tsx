@@ -4,11 +4,14 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   buildEventHref,
+  costParam,
   hasActiveFilters,
   toggleFilterHref,
   type ParsedEventQuery,
 } from '@/lib/search-params';
 import {
+  COST_FILTERS,
+  type CostFilter,
   EDUCATION_LEVELS,
   EDUCATION_LEVEL_LABEL,
   EVENT_TYPES,
@@ -16,6 +19,11 @@ import {
   SORT_OPTIONS,
   type Category,
 } from '@/types/domain';
+
+const COST_LABEL: Record<CostFilter, string> = {
+  free: 'Gratis',
+  paid: 'Berbayar',
+};
 
 const SORT_LABEL: Record<(typeof SORT_OPTIONS)[number], string> = {
   relevance: 'Paling relevan',
@@ -89,6 +97,7 @@ export function HiddenFilters({ query, omit = [] }: { query: ParsedEventQuery; o
       {query.mode && !omit.includes('mode') && <input type="hidden" name="mode" value={query.mode === 'online' ? 'daring' : 'luring'} />}
       {query.sort !== 'relevance' && <input type="hidden" name="sort" value={query.sort} />}
       {query.includeClosed && <input type="hidden" name="tampilkan" value="semua" />}
+      {query.cost && <input type="hidden" name="biaya" value={costParam(query.cost)} />}
     </>
   );
 }
@@ -166,6 +175,22 @@ export function FilterBar({
             active={query.levels.includes(level)}
           >
             {EDUCATION_LEVEL_LABEL[level]}
+          </FilterChip>
+        ))}
+      </div>
+
+      {/* Satu pilihan saja (bukan multi seperti jenjang): "gratis ATAU
+          berbayar" sama dengan tanpa saringan. Kegiatan yang biayanya belum
+          diketahui sengaja tidak masuk keduanya — lihat matchesCost(). */}
+      <div className={chipRowClass}>
+        <span className="shrink-0 text-sm font-medium text-ink-soft">Biaya</span>
+        {COST_FILTERS.map((cost) => (
+          <FilterChip
+            key={cost}
+            href={buildEventHref(query, { cost: query.cost === cost ? undefined : cost, page: 1 })}
+            active={query.cost === cost}
+          >
+            {COST_LABEL[cost]}
           </FilterChip>
         ))}
       </div>

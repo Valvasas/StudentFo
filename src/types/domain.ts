@@ -229,6 +229,43 @@ export interface AppNotification {
   readonly event: NotificationEventRef | null;
 }
 
+/**
+ * Lencana otoritas penyelenggara (ADR-049) — DIBERIKAN MODERATOR, bukan
+ * diklaim penyelenggara. VARCHAR + CHECK di Postgres (migration
+ * 20261003100001), bukan enum; pipeline tidak pernah menulisnya, jadi
+ * paritas tiga tempat tidak berlaku — cukup sama dengan CHECK itu.
+ *
+ * Berbeda dari "penyelenggara terverifikasi" ADR-042 (sebuah AKUN yang
+ * boleh mengelola acara): lencana ini menjawab "siapa otoritas di balik
+ * acara ini", dan bisa diberikan walau penyelenggaranya tidak punya akun.
+ */
+export const VERIFICATION_BADGES = ['OFFICIAL_GOV', 'CAMPUS_VERIFIED', 'COMMUNITY'] as const;
+export type VerificationBadge = (typeof VERIFICATION_BADGES)[number];
+
+export const VERIFICATION_BADGE_LABEL: Record<VerificationBadge, string> = {
+  OFFICIAL_GOV: 'Instansi resmi',
+  CAMPUS_VERIFIED: 'Kampus terverifikasi',
+  COMMUNITY: 'Komunitas terperiksa',
+};
+
+/** Penjelasan tooltip — apa yang SUDAH dicek moderator, bukan janji kualitas acara. */
+export const VERIFICATION_BADGE_DESCRIPTION: Record<VerificationBadge, string> = {
+  OFFICIAL_GOV:
+    'Diselenggarakan kementerian, lembaga, atau BUMN. Moderator mencocokkan pengumuman ini dengan kanal resmi instansinya.',
+  CAMPUS_VERIFIED:
+    'Diselenggarakan perguruan tinggi atau unit resminya. Moderator mencocokkan pengumuman dengan domain atau akun resmi kampus.',
+  COMMUNITY:
+    'Diselenggarakan komunitas atau organisasi mahasiswa. Moderator memeriksa identitas penyelenggara, tapi bukan lembaga resmi.',
+};
+
+export function toVerificationBadge(value: string | null | undefined): VerificationBadge | null {
+  return (VERIFICATION_BADGES as readonly string[]).includes(value ?? '') ? (value as VerificationBadge) : null;
+}
+
+/** Saringan biaya di /events. `null` di data (biaya belum diketahui) tidak masuk keduanya. */
+export const COST_FILTERS = ['free', 'paid'] as const;
+export type CostFilter = (typeof COST_FILTERS)[number];
+
 export interface Category {
   readonly id: string;
   readonly name: string;
@@ -258,6 +295,13 @@ export interface EventSummary {
   readonly createdAt: string;
   readonly primaryDeadlineAt: string | null;
   readonly primaryDeadlineLabel: DeadlineLabel | null;
+  /** `null` = biaya belum diketahui (mis. hasil scraping) — UI tidak menebak "Gratis". */
+  readonly isFree: boolean | null;
+  /** Rupiah utuh; hanya untuk kegiatan berbayar. `null` = nominal belum diumumkan. */
+  readonly priceAmount: number | null;
+  /** Akhir masa promosi berbayar; `null` = tidak berpromosi. Lihat `isPromoted()`. */
+  readonly featuredUntil: string | null;
+  readonly verificationBadge: VerificationBadge | null;
 }
 
 /** Bentuk lengkap untuk halaman detail. */
@@ -266,6 +310,8 @@ export interface EventDetail extends EventSummary {
   readonly registrationLink: string;
   readonly sourceUrl: string;
   readonly deadlines: readonly EventDeadline[];
+  /** Buku panduan resmi, selalu https (CHECK di migration 20261003100001). */
+  readonly guidebookUrl: string | null;
 }
 
 /** Profil yang dipakai algoritma rekomendasi (§6). */
@@ -302,6 +348,16 @@ export interface SubmissionPayload {
   readonly isOnline: boolean;
   /** ISO 8601 UTC — tenggat pendaftaran, dijadikan tenggat utama saat disetujui. */
   readonly deadlineAt: string;
+  /** `null` = pengirim memilih "belum tahu". Disalin ke `events.is_free` saat disetujui. */
+  readonly isFree: boolean | null;
+  readonly priceAmount: number | null;
+  readonly guidebookUrl: string | null;
+  /**
+   * Bahan verifikasi untuk moderator — TIDAK pernah disalin ke `events`
+   * dan tidak pernah tampil publik (bisa berupa nomor WhatsApp pribadi).
+   */
+  readonly organizerContact: string | null;
+  readonly proofLink: string | null;
 }
 
 export interface Submission {
@@ -468,9 +524,39 @@ export interface EventQuery {
   readonly mode?: EventMode;
   readonly sort?: SortOption;
   readonly includeClosed?: boolean;
+  readonly cost?: CostFilter;
   readonly page?: number;
   readonly pageSize?: number;
   readonly profile?: UserProfile | null;
+  /**
+   * Angkat kegiatan berpromosi aktif ke puncak (ADR-049). OPT-IN, bukan
+   * bawaan: daftar yang menyatakan fakta ("tenggat terdekat", "sesuai
+   * minatmu", hitungan) tidak boleh diam-diam disisipi iklan. Hanya daftar
+   * jelajah utama yang memintanya.
+   */
+  readonly promoted?: boolean;
+}
+
+/** Satu pengingat tenggat yang siap dikirim ke kanal luar (ADR-051). */
+export interface DeadlineDispatch {
+  readonly notificationId: string;
+  readonly type: Extract<NotificationType, 'DEADLINE_H3' | 'DEADLINE_H1'>;
+  readonly message: string;
+  readonly createdAt: string;
+  readonly recipient: {
+    readonly userId: string;
+    /** `null` di mode seed (tidak ada tabel users). */
+    readonly email: string | null;
+    readonly fullName: string | null;
+  };
+  readonly event: {
+    readonly id: string;
+    readonly slug: string;
+    readonly title: string;
+    readonly organizer: string;
+    readonly deadlineAt: string;
+    readonly daysLeft: number;
+  };
 }
 
 export interface Paginated<T> {

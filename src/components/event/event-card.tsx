@@ -3,7 +3,10 @@ import { Building2, Globe, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DeadlineRing } from '@/components/event/deadline-ring';
 import { DeadlineTag } from '@/components/event/deadline-tag';
+import { PriceBadge, PromotedBadge } from '@/components/event/price-badge';
 import { SaveButton } from '@/components/event/save-button';
+import { VerifiedBadge } from '@/components/event/verified-badge';
+import { isPromoted } from '@/lib/data/listing';
 import { cn } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
 
@@ -55,7 +58,10 @@ export function EventCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <Badge variant="brand">{EVENT_TYPE_LABEL[event.eventType]}</Badge>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="brand">{EVENT_TYPE_LABEL[event.eventType]}</Badge>
+          {isPromoted(event, new Date()) && <PromotedBadge />}
+        </div>
         <div className="flex items-center gap-2">
           <SaveButton eventId={event.id} isSaved={isSaved} returnTo={returnTo} />
           {featured ? (
@@ -76,11 +82,16 @@ export function EventCard({
       </h3>
 
       <p className="flex items-center gap-1.5 text-sm text-ink-muted">
-        <Building2 aria-hidden className="size-3.5 shrink-0" />
+        {event.verificationBadge ? (
+          <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />
+        ) : (
+          <Building2 aria-hidden className="size-3.5 shrink-0" />
+        )}
         <span className="line-clamp-1">{event.organizer}</span>
       </p>
 
       <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-line pt-3 text-xs text-ink-muted">
+        <PriceBadge event={event} />
         <span className="flex items-center gap-1">
           {event.isOnline ? (
             <>

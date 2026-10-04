@@ -1,3 +1,5 @@
+import { PriceBadge } from '@/components/event/price-badge';
+import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { ArrowRight, Clock } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
@@ -185,8 +187,12 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                           {event.title}
                         </Link>
                       </h3>
-                      <span className="text-[13px] text-ink-muted">{event.organizer}</span>
+                      <span className="flex items-center gap-1 text-[13px] text-ink-muted">
+                        {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
+                        {event.organizer}
+                      </span>
                     </div>
+                    <PriceBadge event={event} className="self-start" />
                     <ul aria-label="Ringkasan" className="mt-auto flex flex-wrap gap-1.5">
                       {[
                         event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(' & ') || 'Terbuka umum',

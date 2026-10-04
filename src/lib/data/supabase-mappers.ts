@@ -4,6 +4,7 @@ import type { ConnectionCursor } from '@/lib/network';
 import { fromStoredRevisionChanges } from '@/lib/organizer';
 import type {
   Connection,
+  DeadlineDispatch,
   EventClaim,
   EventDetail,
   EventRevision,
@@ -18,7 +19,7 @@ import type {
   Submission,
   TeamMember,
 } from '@/types/domain';
-import { ACHIEVEMENTS, toTeamRole } from '@/types/domain';
+import { ACHIEVEMENTS, toTeamRole, toVerificationBadge } from '@/types/domain';
 import type {
   ConnectionPeerRow,
   EventClaimRow,
@@ -27,6 +28,7 @@ import type {
   EventRevisionRow,
   ModerationLogRow,
   NetworkDirectoryRow,
+  NotificationDispatchRow,
   OrganizerHistoryRow,
   OrganizerProfileRow,
   PublicPortfolioRow,
@@ -40,7 +42,14 @@ import type {
  */
 
 export const LISTING_COLUMNS =
-  'id, slug, title, organizer, description, event_type, registration_link, source_url, education_levels, location, is_online, status, saved_count, created_at, primary_deadline_at, primary_deadline_label, category_slugs';
+  'id, slug, title, organizer, description, event_type, registration_link, source_url, education_levels, location, is_online, status, saved_count, created_at, primary_deadline_at, primary_deadline_label, category_slugs, is_free, price_amount, is_featured, featured_until, verification_badge, guidebook_url';
+
+/** NUMERIC dari PostgREST: angka JSON, atau string bila presisinya melebihi double. */
+function toPriceAmount(value: number | string | null): number | null {
+  if (value === null) return null;
+  const amount = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
 
 export function toSummary(row: EventListingRow): EventSummary {
   return {
@@ -58,6 +67,10 @@ export function toSummary(row: EventListingRow): EventSummary {
     createdAt: row.created_at,
     primaryDeadlineAt: row.primary_deadline_at,
     primaryDeadlineLabel: row.primary_deadline_label,
+    isFree: row.is_free,
+    priceAmount: row.is_free === false ? toPriceAmount(row.price_amount) : null,
+    featuredUntil: row.is_featured ? row.featured_until : null,
+    verificationBadge: toVerificationBadge(row.verification_badge),
   };
 }
 
@@ -67,6 +80,7 @@ export function toDetail(row: EventListingRow, deadlines: readonly EventDeadline
     description: row.description,
     registrationLink: row.registration_link,
     sourceUrl: row.source_url,
+    guidebookUrl: row.guidebook_url,
     deadlines: deadlines.map((deadline) => ({
       id: deadline.id,
       label: deadline.label,
@@ -74,6 +88,32 @@ export function toDetail(row: EventListingRow, deadlines: readonly EventDeadline
       isPrimary: deadline.is_primary,
     })),
   };
+}
+
+/**
+ * Baris antrean dispatch → payload kanal luar. Jenis selain H-3/H-1 dibuang
+ * (bukan dipaksa): RPC hanya mengklaim dua jenis itu, jadi baris lain berarti
+ * kontrak SQL ↔ TS sudah bergeser — lebih aman tidak dikirim.
+ */
+export function toDeadlineDispatch(row: NotificationDispatchRow): DeadlineDispatch[] {
+  if (row.notification_type !== 'DEADLINE_H3' && row.notification_type !== 'DEADLINE_H1') return [];
+  return [
+    {
+      notificationId: row.notification_id,
+      type: row.notification_type,
+      message: row.message,
+      createdAt: row.created_at,
+      recipient: { userId: row.user_id, email: row.user_email, fullName: row.user_full_name },
+      event: {
+        id: row.event_id,
+        slug: row.event_slug,
+        title: row.event_title,
+        organizer: row.event_organizer,
+        deadlineAt: row.deadline_at,
+        daysLeft: row.days_left,
+      },
+    },
+  ];
 }
 
 export function toTeamMember(row: TeamMemberProfileRow): TeamMember {

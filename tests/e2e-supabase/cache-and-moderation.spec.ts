@@ -5,9 +5,13 @@ import { signJwt } from '../integration/jwt';
 
 const STACK_URL = process.env.STACK_URL ?? 'http://localhost:54321';
 
+/**
+ * Query listing ke database: urutan relevansi (bawaan /events) lewat RPC
+ * `list_personalized_events` sejak ADR-050, urutan lain lewat view.
+ */
 async function listingHits(): Promise<number> {
   const stats = (await (await fetch(`${STACK_URL}/__stats`)).json()) as Record<string, number>;
-  return stats['GET /events_listing'] ?? 0;
+  return (stats['GET /events_listing'] ?? 0) + (stats['POST /rpc/list_personalized_events'] ?? 0);
 }
 
 /** Cookie sesi @supabase/ssr untuk pengguna ini (token diverifikasi stack uji seperti GoTrue). */

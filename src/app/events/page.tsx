@@ -84,7 +84,16 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
     repository.listCategories(),
     // Workshop memuat satu halaman penuh: strip kalender menyaring per hari
     // di halaman ini, jadi semakin banyak baris yang terbawa semakin akurat.
-    repository.listEvents({ ...query, sort: boardSort, pageSize: nav?.key === 'WORKSHOP' ? 48 : nav ? 24 : query.pageSize, profile }),
+    // Promosi berbayar (ADR-049) hanya di daftar umum, yang urutannya
+    // dipilih pengguna. Papan per jenis berjudul "urut dari tenggat
+    // terdekat" — iklan di puncaknya membuat judul itu bohong.
+    repository.listEvents({
+      ...query,
+      sort: boardSort,
+      pageSize: nav?.key === 'WORKSHOP' ? 48 : nav ? 24 : query.pageSize,
+      profile,
+      promoted: !nav,
+    }),
     user ? repository.listSavedEventIds(user.id) : Promise.resolve([] as readonly string[]),
   ]);
   const board = { query, result, categories, savedIds: savedEventIds, currentHref, now };
@@ -104,9 +113,11 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
       const level = parseEligibilityLevel(rawParams, user?.educationLevel ?? null);
       // Dua hitungan terpisah dari halaman yang sedang tampil: angka "N dari M"
       // harus mencakup semua halaman, bukan 24 baris yang kebetulan terlihat.
+      // `newest`: hanya total yang dipakai — urutan relevansi (ADR-050)
+      // menskor SELURUH katalog hanya untuk dibuang.
       const [open, eligible] = await Promise.all([
-        repository.listEvents({ types: nav.types, search: query.search, pageSize: 1 }),
-        repository.listEvents({ types: nav.types, search: query.search, levels: [level, 'UMUM'], pageSize: 1 }),
+        repository.listEvents({ types: nav.types, search: query.search, pageSize: 1, sort: 'newest' }),
+        repository.listEvents({ types: nav.types, search: query.search, levels: [level, 'UMUM'], pageSize: 1, sort: 'newest' }),
       ]);
       return (
         <>
@@ -125,7 +136,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
       // Jumlah lowongan per kota untuk pemilih lokasi. Diambil dari satu
       // halaman terbesar yang diizinkan (MAX_PAGE_SIZE): cukup untuk
       // mengurutkan kota di pemilih; di atas 48 lowongan angkanya perkiraan.
-      const all = await repository.listEvents({ types: nav.types, pageSize: 48 });
+      const all = await repository.listEvents({ types: nav.types, pageSize: 48, sort: 'newest' });
       const locationCounts: Record<string, number> = { __all__: all.total, __online__: 0 };
       for (const event of all.items) {
         if (event.isOnline) locationCounts.__online__ = (locationCounts.__online__ ?? 0) + 1;

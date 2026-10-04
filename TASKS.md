@@ -237,6 +237,48 @@ Belum / butuh keputusan atau akses pemilik:
 - [ ] Uji beban nyata (k6/autocannon) terhadap staging: detail acara kini memanggil 2 RPC per kunjungan (ADR-043).
 - [ ] Fase berikut yang diminta: audit visual & animasi menyeluruh, uji skalabilitas ribuan postingan (EXPLAIN ANALYZE), review DB & login.
 
+## Monetisasi, kepercayaan, kalender, dispatch 2026-10-03 (@claude) — ADR-049/050/051
+
+Brief "8 modul". Baseline sebelum mulai: verify 421/421, db:test lolos, integrasi 64/64.
+
+- [x] **Modul 0** — RPC `list_personalized_events` (migration `20261003100002`): rumus `rankEvents()`
+      (ADR-026, BUKAN 0.5/0.3/0.2 brief) di SQL sebelum LIMIT/OFFSET, personal + cold start;
+      jendela 240 dihapus. Paritas SQL↔Node 4 profil + halaman 21/260 (`relevance-and-attributes.test.ts`).
+      Diukur ulang 5k/20k/50k di mesin yang sama — angka & trade-off di ADR-050.
+- [x] **Modul 1** — `/submit` diperluas (biaya, nominal, buku panduan, kontak & bukti panitia privat),
+      `stripMarkup()`, kartu moderasi menampilkan semuanya. Tabel/RLS/rate limit/antrean sudah ada (Phase 3) —
+      TIDAK membuat `event_submissions` baru (ADR-049 #5).
+- [x] **Modul 2** — `lib/calendar.ts` (Google URL + .ics RFC 5545), `GET /api/events/[slug]/calendar`,
+      `AddToCalendarButton` di panel samping & tab Tahapan.
+- [x] **Modul 3** — `is_free` NULLABLE (bukan DEFAULT true — ADR-049 #1), `price_amount`, `?biaya=`,
+      chip FilterBar, `PriceBadge` di EventCard + 5 papan per jenis + detail.
+- [x] **Modul 4** — promosi `is_featured`/`featured_until` + index parsial, `is_promoted` di view, opt-in
+      `promoted` hanya daftar umum, label "Promosi", `/admin/promosi`.
+- [x] **Modul 5** — `verification_badge` (VARCHAR+CHECK), `VerifiedBadge` + tooltip CSS tanpa JS.
+- [x] **Modul 6** — `guidebook_url` (https), `GuidebookViewer` (PDF di balik <details>, CSP frame-src
+      hanya di rute detail).
+- [x] **Modul 7** — antrean dispatch klaim/sewa/ack (`20261003100003`), route POST + `/ack`, `CRON_SECRET`.
+- [x] Uji: `93_cost_promotion_dispatch.test.sql` (mutation-tested), unit 421 → 468, integrasi 64 → 76,
+      e2e `cost-calendar-promotion.spec.ts`, axe & target sentuh untuk halaman baru. Playwright penuh
+      (3 proyek) + e2e Supabase 5/5 hijau. Uji cache e2e-supabase kini ikut menghitung hit RPC; axe
+      persona memulai dari atas halaman (sisa gulir redirect login memicu target-size palsu).
+- [x] Ikut dibetulkan: tautan remah roti "Lomba" di detail 41px → ≥44px; asersi bench >20k (total perkiraan).
+
+Belum / butuh keputusan pemilik:
+- [ ] **BUTUH KONFIRMASI.** Apply migration `20261003100001..03` ke staging, lalu `npm run db:verify`.
+      Urutan rilis WAJIB: migration dulu, baru deploy kode — kode ini membaca kolom & RPC baru di setiap
+      listing; terbalik = `/events` error. `db:verify` kini memeriksa keduanya.
+- [ ] **Jangan nyalakan bot pengirim** sebelum ada preferensi & persetujuan kanal per pengguna (backlog
+      "Preferensi notifikasi") dan kolom nomor WA / chat id Telegram — payload memuat email (ADR-051).
+- [ ] Bot konsumen antrean dispatch (Telegram/WA/email) — keputusan penyedia & biaya.
+- [ ] Pipeline: ekstrak biaya & buku panduan (`models.py` + `stage_scraped_event`); sampai itu event hasil
+      scraping tampil tanpa info biaya (disengaja, bukan "Gratis").
+- [ ] Revisi penyelenggara (`EventRevisionChanges`) belum bisa mengubah biaya / buku panduan.
+- [ ] Audit lencana & promosi: perubahan belum masuk `moderation_log` (trigger hanya status).
+- [ ] `/submit` masih satu tenggat (pendaftaran); brief menyebut "deadlines" jamak — butuh desain form tahapan.
+- [ ] Ditemukan uji baru, utang lama: chip filter `/events` 36px & judul kartu stretched-link < 44px.
+- [ ] Bila katalog aktif > 20.000: komponen skor non-profil dihitung harian via pg_cron (ADR-050).
+
 ## Template tugas baru
 
 ```md

@@ -54,6 +54,7 @@ export const ACTION_ERROR_CODES = [
   'portfolio_not_eligible',
   'invalid_portfolio',
   'moderation_not_rejected',
+  'invalid_presentation',
   'invalid_request',
   'unknown',
 ] as const;
@@ -109,6 +110,8 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   portfolio_not_eligible: 'Hasil hanya bisa diisi untuk kegiatan yang sudah kamu tandai "Sudah daftar".',
   invalid_portfolio: 'Periksa isian: pilih hasil yang sesuai jenis kegiatan, catatan maks. 120 karakter, tautan bukti harus https://.',
   moderation_not_rejected: 'Item itu sudah tidak berstatus ditolak — mungkin sudah dipulihkan admin lain.',
+  invalid_presentation:
+    'Periksa isian: pilih lencana dari daftar, dan tanggal akhir promosi mulai hari ini sampai paling lama 1 tahun ke depan.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -135,6 +138,7 @@ export const ACTION_NOTICE_CODES = [
   'revision_reviewed',
   'portfolio_saved',
   'moderation_restored',
+  'presentation_saved',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -163,6 +167,7 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   network_profile_saved: 'Pengaturan jaringan disimpan.',
   portfolio_saved: 'Portofolio diperbarui.',
   moderation_restored: 'Dikembalikan ke antrean moderasi dan tercatat di riwayat.',
+  presentation_saved: 'Lencana & promosi disimpan. Katalog publik ikut diperbarui.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

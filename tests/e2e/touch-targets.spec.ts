@@ -68,6 +68,20 @@ test('halaman detail kegiatan: setiap target di <main> ≥ 44px', async ({ page 
   expect(await smallTargets(page, 'main')).toEqual([]);
 });
 
+test('lencana, kalender, buku panduan, dan /admin/promosi: setiap target ≥ 44px', async ({ page }) => {
+  // Hanya baris penyelenggara (tombol lencana): chip filter /events (36px) dan
+  // judul stretched-link adalah utang lama yang tercatat terpisah di TASKS.md.
+  await page.goto('/events');
+  expect(await smallTargets(page, 'main article p')).toEqual([]);
+  await page.goto('/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan');
+  await page.locator('main section summary').filter({ hasText: 'Tambah ke kalender' }).click();
+  expect(await smallTargets(page, 'main')).toEqual([]);
+  await page.goto('/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=syarat');
+  expect(await smallTargets(page, 'main')).toEqual([]);
+  await signInAsDemo(page, 'Admin moderator', '/admin/promosi');
+  expect(await smallTargets(page, 'main')).toEqual([]);
+});
+
 test('kartu tracker (ubah tahap, hapus): setiap target ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/events');
   const href = await page.locator('main a[href^="/events/"]').first().getAttribute('href');

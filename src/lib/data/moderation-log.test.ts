@@ -17,6 +17,11 @@ const payload: SubmissionPayload = {
   location: null,
   isOnline: true,
   deadlineAt: new Date(Date.now() + 10 * 86_400_000).toISOString(),
+  isFree: null,
+  priceAmount: null,
+  guidebookUrl: null,
+  organizerContact: null,
+  proofLink: null,
 };
 
 describe('MemoryEventRepository — log moderasi (cermin trigger moderation_log)', () => {

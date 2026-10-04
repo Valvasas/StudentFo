@@ -5,6 +5,7 @@ import type {
   ConnectionCounts,
   ConnectionPage,
   DeadlineDay,
+  DeadlineDispatch,
   EducationLevel,
   EventAnalytics,
   EventClaim,
@@ -35,6 +36,7 @@ import type {
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
 import type { OrganizerApplicationInput } from '@/lib/organizer';
 import type { PortfolioInput } from '@/lib/portfolio';
+import type { EventPresentationInput } from '@/lib/event-presentation';
 import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 
 /**
@@ -64,7 +66,9 @@ export interface EventRepository
     NetworkRepository,
     OrganizerRepository,
     RateLimitRepository,
-    RecommendationSignalRepository {}
+    RecommendationSignalRepository,
+    EventPresentationRepository,
+    NotificationDispatchRepository {}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {
@@ -330,6 +334,37 @@ export interface ReviewTrustInput<D extends string> {
   readonly reviewerName?: string;
   readonly note: string | null;
 }
+
+/**
+ * Lencana otoritas penyelenggara & promosi berbayar untuk acara tayang
+ * (ADR-049). Admin saja: method tulis dipanggil Server Action SETELAH
+ * `checkAdminAccess()`, dan implementasi tidak memeriksa peran lagi (sama
+ * dengan `reviewEvent`). Perubahan ini TIDAK tercatat di `moderation_log`
+ * (trigger hanya mencatat perubahan status) — lihat TASKS.md.
+ */
+export interface EventPresentationRepository {
+  /** Hanya acara APPROVED — selain itu `event_unavailable`. */
+  updateEventPresentation(input: EventPresentationInput): Promise<void>;
+  /** Acara yang dijadwalkan promosi (aktif maupun sudah lewat), akhir promosi terbaru dulu. */
+  listFeaturedEvents(limit: number): Promise<readonly EventSummary[]>;
+}
+
+/**
+ * Antrean pengingat tenggat ke kanal luar (bot WhatsApp/Telegram, email) —
+ * ADR-051. Semantik at-least-once: `claim` menyewakan baris selama
+ * `DISPATCH_LEASE_SECONDS`; yang tidak di-`acknowledge` sebelum sewa habis
+ * dibagikan lagi. Hanya untuk route cron ber-`CRON_SECRET`, tidak pernah UI.
+ */
+export interface NotificationDispatchRepository {
+  claimDeadlineDispatches(limit: number): Promise<readonly DeadlineDispatch[]>;
+  /** Mengembalikan jumlah yang benar-benar ditandai terkirim (id asing/belum diklaim diabaikan). */
+  acknowledgeDeadlineDispatches(notificationIds: readonly string[]): Promise<number>;
+}
+
+/** Sewa klaim dispatch — cermin default `p_lease_seconds` di migration 20261003100003. */
+export const DISPATCH_LEASE_SECONDS = 900;
+/** Batas satu klaim — cermin `LEAST(..., 500)` di SQL. */
+export const DISPATCH_MAX_BATCH = 500;
 
 /** Penghitung pembatas laju (ADR-028). */
 export interface RateLimitRepository {
