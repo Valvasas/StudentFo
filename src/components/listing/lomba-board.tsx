@@ -8,6 +8,7 @@ import { Countdown } from '@/components/listing/countdown';
 import {
   Breadcrumb,
   ChipLink,
+  CollapsibleFilters,
   levelSegments,
   PageTitle,
   ResultsEmpty,
@@ -106,7 +107,6 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
           <div className="flex w-full max-w-[400px] flex-[1_1_280px]">
             <SearchBox query={query} placeholder="Cari nama lomba atau penyelenggara" />
           </div>
-          <SegmentLinks label="Jenjang" items={levelSegments(query)} />
           {hasActiveFilters({ ...query, types: [] }) && (
             <Link
               href={buildEventHref({ types: query.types, sort: query.sort })}
@@ -116,21 +116,28 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
             </Link>
           )}
         </div>
-        <nav aria-label="Bidang" className="flex flex-wrap gap-2">
-          <ChipLink href={buildEventHref(query, { categories: [], page: 1 })} active={query.categories.length === 0}>
-            <CategoryIcon slug={undefined} /> Semua
-          </ChipLink>
-          {categories.map((category) => (
-            <ChipLink
-              key={category.slug}
-              href={buildEventHref(query, { categories: query.categories.includes(category.slug) ? [] : [category.slug], page: 1 })}
-              active={query.categories.includes(category.slug)}
-            >
-              <CategoryIcon slug={category.slug} />
-              {shortCategoryName(category.name)}
+        <CollapsibleFilters
+          breakpoint="md"
+          activeCount={query.levels.length > 0 ? query.categories.length + 1 : query.categories.length}
+          bodyClassName="flex-col gap-3.5"
+        >
+          <SegmentLinks label="Jenjang" items={levelSegments(query)} className="self-start" />
+          <nav aria-label="Bidang" className="flex flex-wrap gap-2">
+            <ChipLink href={buildEventHref(query, { categories: [], page: 1 })} active={query.categories.length === 0}>
+              <CategoryIcon slug={undefined} /> Semua
             </ChipLink>
-          ))}
-        </nav>
+            {categories.map((category) => (
+              <ChipLink
+                key={category.slug}
+                href={buildEventHref(query, { categories: query.categories.includes(category.slug) ? [] : [category.slug], page: 1 })}
+                active={query.categories.includes(category.slug)}
+              >
+                <CategoryIcon slug={category.slug} />
+                {shortCategoryName(category.name)}
+              </ChipLink>
+            ))}
+          </nav>
+        </CollapsibleFilters>
       </section>
 
       <div className="flex flex-col gap-14 pb-10 pt-10">

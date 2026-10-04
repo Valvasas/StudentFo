@@ -1,12 +1,15 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { ACCOUNT_SIDEBAR_COOKIE, ACCOUNT_SIDEBAR_MAX_AGE, isSidebarCollapsed } from '@/lib/account-sidebar';
 import { type AuthErrorCode } from '@/lib/auth-messages';
 import { profileSchema } from '@/lib/auth-schema';
 import { updateDemoProfile } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
 import { formList, formTrimmed as text } from '@/lib/form-data';
+import { safeNextPath } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/domain';
 
@@ -79,4 +82,22 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
 
   revalidatePath('/', 'layout');
   redirect(`${returnTo}?notice=profile_saved`);
+}
+
+/**
+ * Lipat/buka sidebar akun. Hanya preferensi tampilan — tidak butuh sesi,
+ * jadi tidak ada pemeriksaan otorisasi. Tujuan kembali lewat safeNextPath():
+ * nilai `returnTo` datang dari form dan bisa dipalsukan.
+ */
+export async function toggleAccountSidebarAction(formData: FormData): Promise<void> {
+  const store = await cookies();
+  const collapsed = isSidebarCollapsed(store.get(ACCOUNT_SIDEBAR_COOKIE)?.value);
+  store.set(ACCOUNT_SIDEBAR_COOKIE, collapsed ? 'expanded' : 'collapsed', {
+    path: '/',
+    maxAge: ACCOUNT_SIDEBAR_MAX_AGE,
+    sameSite: 'lax',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+  });
+  redirect(safeNextPath(text(formData, 'returnTo'), '/profile'));
 }

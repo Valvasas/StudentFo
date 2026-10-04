@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { EmptyState } from '@/components/event/empty-state';
 import { EventGrid } from '@/components/event/event-grid';
+import { HandNote } from '@/components/ui/sketch';
 import { FilterBar } from '@/components/event/filter-bar';
 import { Pagination } from '@/components/event/pagination';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -165,13 +166,16 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
       );
     default:
       return (
-        <div className="container-page py-12">
-          <header className="enter mb-8 flex flex-col gap-3">
+        <div className="container-page pb-16 pt-8 sm:pt-12">
+          <header className="enter mb-8 flex flex-col gap-3 sm:mb-10">
             <Breadcrumb current="Semua kegiatan" />
             <PageTitle>Semua kegiatan</PageTitle>
             <p className="max-w-2xl text-base leading-relaxed text-ink-muted">
               Lomba, beasiswa, magang, dan pelatihan yang sudah ditinjau — saring sesuai jenjang dan minatmu.
             </p>
+            <HandNote className="mt-1 self-start text-[18px]">
+              psst — label hitam = pendaftaran tutup ≤ 7 hari lagi
+            </HandNote>
           </header>
           <ActionFeedback params={rawParams} className="mb-6 max-w-2xl" />
           <FilterBar query={query} categories={categories} resultCount={result.total} />

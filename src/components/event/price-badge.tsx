@@ -36,8 +36,12 @@ export function PriceBadge({
  */
 export function PromotedBadge() {
   return (
-    <Badge variant="outline" title="Ditampilkan di atas karena kemitraan berbayar. Isinya tetap ditinjau moderator.">
-      <Megaphone aria-hidden className="size-3.5" />
+    <Badge
+      variant="outline"
+      className="h-[22px] gap-1 px-1.5 text-[11.5px] leading-none"
+      title="Ditampilkan di atas karena kemitraan berbayar. Isinya tetap ditinjau moderator."
+    >
+      <Megaphone aria-hidden className="size-3" />
       Promosi
       <span className="sr-only"> — ditampilkan di atas karena kemitraan berbayar</span>
     </Badge>

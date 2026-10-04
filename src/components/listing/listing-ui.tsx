@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Bookmark, Search, SearchX } from 'lucide-react';
+import { Bookmark, ChevronDown, Search, SearchX, SlidersHorizontal } from 'lucide-react';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { HiddenFilters } from '@/components/event/filter-bar';
 import { buildEventHref, type ParsedEventQuery } from '@/lib/search-params';
@@ -19,7 +19,9 @@ import type { EducationLevel } from '@/types/domain';
 
 export function Breadcrumb({ current, inverse = false }: { current: string; inverse?: boolean }) {
   return (
-    <nav aria-label="Remah roti" className={cn('flex items-center gap-2 text-[13px]', inverse ? 'text-on-inverse-muted' : 'text-ink-muted')}>
+    // Disembunyikan di ponsel: tab navbar sudah menandai halaman ini, dan
+    // remah roti dua tingkat hanya menambah satu baris sebelum judul.
+    <nav aria-label="Remah roti" className={cn('hidden items-center gap-2 text-[13px] sm:flex', inverse ? 'text-on-inverse-muted' : 'text-ink-muted')}>
       <Link href="/" className={cn('inline-flex min-h-11 items-center', inverse ? 'hover:text-on-inverse' : 'hover:text-ink')}>
         Beranda
       </Link>
@@ -33,7 +35,7 @@ export function Breadcrumb({ current, inverse = false }: { current: string; inve
 
 export function PageTitle({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <h1 className={cn('text-[clamp(36px,6vw,52px)] leading-none tracking-[-0.045em]', className)}>{children}</h1>
+    <h1 className={cn('text-[clamp(32px,6vw,54px)] leading-[1.02] tracking-[-0.035em]', className)}>{children}</h1>
   );
 }
 
@@ -248,4 +250,58 @@ export function levelSegments(query: ParsedEventQuery, options: readonly LevelOp
     href: buildEventHref(query, { levels: option.levels, page: 1 }),
     active: sameSet(query.levels, option.levels),
   }));
+}
+
+/**
+ * Filter papan yang dilipat di layar sempit (ADR-052).
+ *
+ * Di bawah `breakpoint` isinya ada di balik tombol "Saring (n)" — tanpa ini
+ * 12 bidang + jenjang + cara kerja menumpuk di ATAS hasil dan pengguna ponsel
+ * menggulir dua layar sebelum melihat satu lowongan pun. Di layar lebar isinya
+ * tampil biasa (sidebar/baris filter), karena di sana ruangnya ada.
+ *
+ * Isinya dirender DUA KALI (satu per lebar) alih-alih satu <details> yang
+ * "dibuka paksa" di desktop: CSS belum bisa menampilkan isi <details> yang
+ * tertutup secara andal di semua browser, dan salinan yang `display: none`
+ * tidak ikut terbaca pembaca layar maupun tab — jadi tidak ada duplikat yang
+ * benar-benar dihadapi pengguna.
+ */
+export function CollapsibleFilters({
+  activeCount,
+  children,
+  className,
+  bodyClassName,
+  breakpoint = 'lg',
+}: {
+  activeCount: number;
+  children: ReactNode;
+  className?: string;
+  /** Tata letak isi saat tampil penuh di layar lebar. */
+  bodyClassName?: string;
+  breakpoint?: 'md' | 'lg';
+}) {
+  return (
+    <div className={className}>
+      <details className={cn('group/saring', breakpoint === 'lg' ? 'lg:hidden' : 'md:hidden')}>
+        <summary
+          className={cn(
+            'inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-card border px-4 text-sm font-semibold transition-colors duration-150 ease-snap [&::-webkit-details-marker]:hidden',
+            activeCount > 0 ? 'border-brand bg-brand text-on-brand' : 'border-line bg-panel hover:border-line-strong',
+          )}
+        >
+          <SlidersHorizontal aria-hidden className="size-4" />
+          Saring
+          {activeCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-pill bg-highlight px-1.5 text-xs font-bold text-[#1d1b17]">
+              {activeCount}
+              <span className="sr-only"> aktif</span>
+            </span>
+          )}
+          <ChevronDown aria-hidden className="size-4 transition-transform duration-150 ease-snap group-open/saring:rotate-180" />
+        </summary>
+        <div className={cn('mt-3 flex flex-col gap-6 rounded-panel border border-line bg-panel p-5 shadow-raised', bodyClassName)}>{children}</div>
+      </details>
+      <div className={cn('hidden', breakpoint === 'lg' ? 'lg:flex' : 'md:flex', bodyClassName)}>{children}</div>
+    </div>
+  );
 }

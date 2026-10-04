@@ -88,7 +88,7 @@ const FAQS = [
 ] as const;
 
 const sectionClass = 'container-page max-w-[1120px] pt-[clamp(96px,12vw,144px)]';
-const eyebrowClass = 'font-mono text-[13px] text-ink-muted';
+const eyebrowClass = 'hand -rotate-1 self-start text-[21px] leading-none text-ink-muted';
 const h2Class = 'text-[clamp(32px,5vw,44px)] font-bold leading-[1.08] tracking-[-0.035em]';
 const delay = (ms: number) => ({ ['--reveal-delay' as string]: `${ms}ms` });
 
@@ -98,7 +98,7 @@ export default function HomePage() {
       <RevealObserver />
       <LandingHero />
 
-      <div className="pt-[120px]">
+      <div className="pt-[clamp(72px,10vw,120px)]">
         <div data-reveal="" className="flex flex-col items-center gap-7 border-y border-line py-10">
           <span className="text-[13px] font-medium text-ink-muted">Jenis sumber yang kami kumpulkan</span>
           <div className="w-full overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]">

@@ -37,7 +37,8 @@ di `/admin` yang mengubah status jadi `APPROVED`/`REJECTED`.
 ```
 .github/workflows/              CI (verify + build + a11y + tes pipeline) dan job terjadwal:
                                 scraper 02:00, expiry 00:05, notifikasi 07:00 WIB
-scripts/                        check-contrast.mjs, verify-database.ts
+scripts/                        check-contrast.mjs, verify-database.ts, crawl-links.mjs (penelusur tautan
+                                per persona demo: HTTP ≥400, error konsol, exception — ADR-052)
 tests/a11y/                     Audit axe-core (Playwright) — `npm run test:a11y`, konfigurasi di playwright.config.ts
 supabase/
 ├── migrations/                 10 file, berurutan (lihat SCHEMA.md)
@@ -69,7 +70,8 @@ src/
 │
 ├── components/
 │   ├── ui/                     Primitif tanpa domain-knowledge (Button, Badge, Card,
-│   │                           Skeleton, Field/TextInput/SelectInput/TextArea/FormAlert)
+│   │                           Skeleton, Field/TextInput/SelectInput/TextArea/FormAlert),
+│   │                           sketch.tsx (SketchArrow, Scribble, HandNote — hiasan ADR-052)
 │   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
 │   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
@@ -81,7 +83,8 @@ src/
 │   ├── admin/                  SubmissionReviewCard
 │   ├── auth/                   GoogleButton, AuthFeedback
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,
-│                               ThemeToggle, ThemeScript, DemoBanner
+│                               ThemeToggle, ThemeScript, DemoBanner, AccountShell (menu akun
+│                               bisa dilipat jadi rel ikon — cookie `sf_sidebar`, ADR-052)
 │
 ├── lib/
 │   ├── data/                   ← lapisan repository, lihat di bawah

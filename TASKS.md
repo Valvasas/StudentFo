@@ -440,3 +440,14 @@ audit skala terukur 10k pengguna / 100k event, desain Fase 1–6). Menunggu pers
 - [ ] `reviewed_by` terbaca pemilik profil/klaim/revisi penyelenggara (hak SELECT se-tabel) — Fase 3.
 - [ ] Sitemap hanya 4.800 URL; retensi `notifications`/`recommendation_signals`/email kiriman belum ada.
 - [ ] Konfirmasi status migration produksi (brief vs catatan di atas tidak konsisten).
+
+## Redesain "buku sketsa" 2026-10-04 (@claude) — ADR-052
+
+- [x] Tipografi (Jakarta Sans + Bricolage + Caveat), palet kertas hangat, aksen stabilo, utilitas `hand`/`marker`/`sketch-box`.
+- [x] `/events`: filter dilipat ke "Saring" + menu "Urutkan", chip filter aktif yang bisa dihapus, hitungan hasil.
+- [x] Papan Lomba/Magang/Seminar/Workshop: filter dilipat di ponsel (`CollapsibleFilters`); Beasiswa 320px tanpa tumpang-tindih.
+- [x] Kartu kegiatan didesain ulang (tidak ada badge bertabrakan), grid lebih lega.
+- [x] Menu akun bisa dilipat jadi rel ikon (cookie `sf_sidebar`, tanpa JS).
+- [x] Beranda (pratinjau ponsel 4:3, eyebrow tulisan tangan), detail (bagikan + persiapan di ponsel), `/submit` (kolom opsional dilipat).
+- [x] Audit navigasi `scripts/crawl-links.mjs` (tamu + 4 persona).
+- [ ] Ilustrasi/coretan tambahan untuk empty state & 404 (sengaja belum — jaga hemat).

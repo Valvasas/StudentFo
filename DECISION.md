@@ -12,6 +12,60 @@ terdokumentasi.
 
 ---
 
+## ADR-052 — Bahasa visual "buku sketsa": tipografi santai, kontrol sekunder dilipat, layar ponsel untuk isi
+
+**Konteks:** Umpan balik pemilik setelah modul 0–7: tampilan "terasa buatan
+AI" (grotesk netral + mono di mana-mana, abu-abu dingin, semua kontrol
+tampil sekaligus), kurang ruang napas, dan di ponsel dinding filter
+(`/events` ±2 layar, Magang 12 kotak centang, Lomba 13 chip) mendorong
+kartu pertama jauh ke bawah. Kartu kegiatan menumpuk jenis + promosi +
+lencana + simpan di satu baris sempit (terbaca sebagai badge bertabrakan),
+dan di Beasiswa 320px lencana kelayakan melebarkan kolom otomatis sampai
+judul menimpa tombol simpan.
+
+**Keputusan:**
+- Tipografi: Plus Jakarta Sans (teks), Bricolage Grotesque (judul,
+  `font-display`), Caveat (`hand` — catatan pinggir), lewat `next/font`
+  (di-host sendiri; CSP `font-src 'self'` tetap). Mono hanya untuk angka/kode.
+- Palet kertas hangat (`#faf8f3`, tinta `#1d1b17`) + satu aksen stabilo
+  `--color-highlight` (#ffd95a; gelap #b8901d). Stabilo hanya HIASAN
+  (`.marker`, `Scribble`, titik hitungan filter) — tidak pernah satu-satunya
+  pembawa makna, jadi tidak ikut pasangan kontras teks.
+- Coretan (`SketchArrow`, `Scribble`, `HandNote`) SVG `currentColor`,
+  `aria-hidden`, dipakai hemat: maksimal satu per layar penting.
+- Kontrol sekunder dilipat ke `<details>` tanpa JS: "Saring"/"Urutkan" di
+  `/events` (chip filter aktif + "N kegiatan ditemukan" tetap terlihat),
+  `CollapsibleFilters` di papan (terbuka di ≥ md/lg). `CollapsibleFilters`
+  merender isinya DUA kali (satu di `<details>` ponsel, satu di sidebar
+  desktop) — `<details>` tidak bisa "selalu terbuka di desktop" tanpa JS,
+  dan salinan yang `display:none` tidak masuk pohon aksesibilitas maupun
+  urutan tab. Biayanya: HTML tautan filter ganda.
+- Kolom opsional `/submit` dilipat ke "Detail tambahan". Kolom tautan di
+  dalamnya bukan `type="url"`: validasi bawaan Chromium pada kontrol di
+  `<details>` tertutup memblokir kirim tanpa pesan ("not focusable") —
+  terbukti lewat uji manual. Server (Zod) yang memvalidasi, dan lipatan
+  terbuka otomatis bila `?fields=` menyebut salah satu kolomnya.
+- Menu akun bisa dilipat jadi rel ikon 56px: `<form>` + Server Action yang
+  membalik cookie `sf_sidebar` (httpOnly, 1 tahun) lalu redirect ke
+  `returnTo` (disaring `safeNextPath`). Dirender server sejak awal — tanpa
+  kedip, tanpa JS. Bukan `localStorage`: server tidak bisa membacanya.
+- Kartu kegiatan: baris atas hanya jenis (+ promosi ringkas) vs simpan;
+  lencana penyelenggara pindah ke baris penyelenggara; harga & tenggat di
+  kaki kartu.
+- Di ponsel: remah roti listing disembunyikan, banner demo dipersingkat,
+  pratinjau beranda 4:3 (16:7 selebar 350px memotong kartunya), bagikan &
+  "Siapkan berkas" di detail diberi baris sendiri (panel samping tersembunyi
+  < 960px dan sebelumnya tak terjangkau dari ponsel).
+
+**Konsekuensi:** Tiga font = ±60 KB woff2 tambahan (swap, subset latin).
+Filter terlipat butuh satu ketukan ekstra untuk menyaring — diimbangi chip
+aktif yang selalu terlihat dan bisa dihapus satu-satu. Uji e2e yang
+mengklik filter/kolom opsional sekarang membuka lipatannya dulu.
+`scripts/crawl-links.mjs` ditambahkan untuk mengaudit alur navigasi
+(tamu + 4 persona) setelah perubahan tata letak besar.
+
+---
+
 ## ADR-051 — Pengingat ke kanal luar: antrean klaim + sewa + ack (at-least-once), bukan "tandai saat dibaca"
 
 **Konteks:** Pengingat H-3/H-1 sudah dibuat `create_deadline_notifications()`

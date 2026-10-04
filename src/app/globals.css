@@ -30,24 +30,24 @@
   color-scheme: light;
 
   /* ===== Base — Light (default) ===== */
-  --color-bg: #ffffff;
-  --color-surface: #ffffff;         /* kartu dibedakan border, bukan level warna — sesuai kanvas */
-  --color-surface-nested: #f7f7f5;  /* panel bersarang (kartu kelengkapan profil, menu terbuka) */
-  --color-border: #e3e3e0;
-  --color-border-strong: #bdbdb8;   /* garis putus-putus "tambah …" & batas input saat hover */
-  --color-text-primary: #191919;
-  --color-text-secondary: #3f3f3c;
-  --color-text-muted: #5f5e5b;      /* 6.36:1 di atas putih, 5.97:1 di atas panel bersarang */
-  --color-text-placeholder: #6f6e69; /* kanvas memakai #77766F (4.61:1 di atas putih) tapi hanya
+  --color-bg: #faf8f3;
+  --color-surface: #ffffff;         /* kartu = kertas putih di atas meja krem: beda nada, bukan bayangan */
+  --color-surface-nested: #f3f0e8;  /* panel bersarang (kartu kelengkapan profil, menu terbuka) */
+  --color-border: #e6e1d6;
+  --color-border-strong: #b9b2a3;   /* garis putus-putus "tambah …" & batas input saat hover */
+  --color-text-primary: #1d1b17;
+  --color-text-secondary: #3e3a33;
+  --color-text-muted: #605a50;      /* hangat; ≥ 5.6:1 di atas kertas, putih, & panel bersarang */
+  --color-text-placeholder: #6b655a; /* kanvas memakai #77766F (4.61:1 di atas putih) tapi hanya
                                         4.32:1 di atas panel bersarang — digelapkan supaya lolos
                                         di kedua latar. */
 
   /* ===== Accent — hitam. Satu-satunya warna aksi. ===== */
-  --color-accent: #191919;
-  --color-accent-hover: #3a3a38;
+  --color-accent: #1d1b17;
+  --color-accent-hover: #3e3a33;
   --color-accent-pressed: #000000;
-  --color-accent-soft: #f1f1ef;     /* chip aktif, hitungan di tab */
-  --color-accent-text: #191919;
+  --color-accent-soft: #efebe1;     /* chip aktif, hitungan di tab */
+  --color-accent-text: #1d1b17;
   --color-accent-foreground: #ffffff;
 
   /* ===== Semantic — toast, validasi form, alert admin ===== */
@@ -64,34 +64,40 @@
   --color-warning-border: rgb(138 82 32 / 0.3);
 
   /* Info tidak punya hue sendiri di palet monokrom: ia netral. */
-  --color-info: #191919;
-  --color-info-container: #f7f7f5;
-  --color-info-border: #e3e3e0;
+  --color-info: #1d1b17;
+  --color-info-container: #f3f0e8;
+  --color-info-border: #e6e1d6;
 
   /* ===== Deadline — namespace SENGAJA dipisah dari semantic.
      Di palet monokrom, "urgent" dibedakan lewat bentuk (DeadlineTag
      merendernya sebagai label terisi), token di sini hanya menjamin
      teksnya terbaca di atas latar mana pun ia diletakkan. ===== */
-  --color-deadline-safe: #5f5e5b;
-  --color-deadline-warning: #191919;
-  --color-deadline-urgent: #191919;
-  --color-deadline-safe-soft: #f7f7f5;
-  --color-deadline-warning-soft: #f1f1ef;
-  --color-deadline-urgent-soft: #e3e3e0;
+  --color-deadline-safe: #605a50;
+  --color-deadline-warning: #1d1b17;
+  --color-deadline-urgent: #1d1b17;
+  --color-deadline-safe-soft: #f3f0e8;
+  --color-deadline-warning-soft: #efebe1;
+  --color-deadline-urgent-soft: #e6e1d6;
+
+  /* ===== Stabilo (ADR-052) — HANYA dekorasi penekanan: coretan di bawah
+     kata kunci, latar "ditandai". Tidak pernah satu-satunya pembawa makna dan
+     tidak pernah warna teks; teks di atasnya tetap tinta (#1d1b17, 13:1). ===== */
+  --color-highlight: #ffd95a;
+  --color-highlight-soft: #fff1b8;
 
   /* ===== Focus ring ===== */
-  --focus-ring: #191919;
+  --focus-ring: #1d1b17;
   --focus-ring-offset: 2px;
 
   /* ===== Elevation — hanya untuk lapisan melayang (menu, popover).
      Kartu di kanvas desain datar: border 1px, tanpa bayangan. ===== */
-  --shadow-card: none;
-  --shadow-raised: 0 6px 16px rgb(0 0 0 / 0.06);
+  --shadow-card: 0 1px 0 rgb(29 27 23 / 0.04), 0 1px 3px rgb(29 27 23 / 0.04);
+  --shadow-raised: 0 8px 24px rgb(29 27 23 / 0.07);
   --shadow-overlay: 0 22px 50px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.05);
 
-  --tracking-heading: -0.02em;
-  --leading-heading: 1.1;
-  --leading-body: 1.55;
+  --tracking-heading: -0.025em;
+  --leading-heading: 1.08;
+  --leading-body: 1.6;
 
   /* ===== Spacing scale (kelipatan 4/8) ===== */
   --space-1: 4px;
@@ -105,9 +111,9 @@
 
   /* ===== Radius — tombol/isian 10, menu 14, kartu besar 18–20 (kanvas). ===== */
   --radius-sm: 8px;
-  --radius-card: 10px;
+  --radius-card: 12px;
   --radius-modal: 14px;
-  --radius-panel: 18px;
+  --radius-panel: 22px;
   --radius-pill: 999px;
 
   /* ===== Motion =====
@@ -122,14 +128,14 @@
   --easing-enter: cubic-bezier(0.2, 0.65, 0.2, 1);
 
   /* ===== Permukaan gelap-selalu (footer, panel CTA, banner tampilan publik) ===== */
-  --color-inverse-surface: #191919;
-  --color-inverse-nested: #2e2e2c;
-  --color-inverse-text: #ffffff;
-  --color-inverse-text-muted: #a3a29c;
+  --color-inverse-surface: #1d1b17;
+  --color-inverse-nested: #34312a;
+  --color-inverse-text: #faf8f3;
+  --color-inverse-text-muted: #b3ad9f;
 
   /* ===== Layout ===== */
   --spacing-card-padding: var(--space-5);
-  --layout-max: 1240px;
+  --layout-max: 1200px;
 }
 
 /* Dark mode tidak ada di kanvas desain; diturunkan dengan membalik skala
@@ -138,22 +144,22 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-bg: #111110;
-  --color-surface: #111110;
-  --color-surface-nested: #1c1c1b;
-  --color-border: #2e2e2c;
-  --color-border-strong: #4a4a47;
-  --color-text-primary: #ededeb;
-  --color-text-secondary: #cfcfcb;
-  --color-text-muted: #a3a29c;
-  --color-text-placeholder: #a3a29c;
+  --color-bg: #15140f;
+  --color-surface: #1b1a15;
+  --color-surface-nested: #24221c;
+  --color-border: #35322a;
+  --color-border-strong: #575245;
+  --color-text-primary: #efebe1;
+  --color-text-secondary: #d3cec2;
+  --color-text-muted: #aaa496;
+  --color-text-placeholder: #aaa496;
 
-  --color-accent: #ededeb;
-  --color-accent-hover: #cfcfcb;
+  --color-accent: #efebe1;
+  --color-accent-hover: #d3cec2;
   --color-accent-pressed: #ffffff;
-  --color-accent-soft: #262625;
-  --color-accent-text: #ededeb;
-  --color-accent-foreground: #111110;
+  --color-accent-soft: #2b2922;
+  --color-accent-text: #efebe1;
+  --color-accent-foreground: #15140f;
 
   --color-success: #6bc9a4;
   --color-success-container: rgb(46 158 119 / 0.18);
@@ -167,28 +173,35 @@
   --color-warning-container: rgb(240 184 114 / 0.14);
   --color-warning-border: rgb(240 184 114 / 0.32);
 
-  --color-info: #ededeb;
-  --color-info-container: #1c1c1b;
-  --color-info-border: #2e2e2c;
+  --color-info: #efebe1;
+  --color-info-container: #24221c;
+  --color-info-border: #35322a;
 
-  --color-deadline-safe: #a3a29c;
-  --color-deadline-warning: #ededeb;
-  --color-deadline-urgent: #ededeb;
-  --color-deadline-safe-soft: #1c1c1b;
-  --color-deadline-warning-soft: #262625;
-  --color-deadline-urgent-soft: #2e2e2c;
+  --color-deadline-safe: #aaa496;
+  --color-deadline-warning: #efebe1;
+  --color-deadline-urgent: #efebe1;
+  --color-deadline-safe-soft: #24221c;
+  --color-deadline-warning-soft: #2b2922;
+  --color-deadline-urgent-soft: #35322a;
 
-  --focus-ring: #ededeb;
+  --focus-ring: #efebe1;
 
+  /* Stabilo di gelap: kuning redup dengan teks terang di atasnya akan gagal
+     kontras, jadi coretan dipakai sebagai GARIS (bukan latar teks) di sini. */
+  --color-highlight: #b8901d;
+  --color-highlight-soft: rgb(184 144 29 / 0.28);
+  --marker-color: rgb(184 144 29 / 0.55);
+
+  --shadow-card: none;
   --shadow-raised: none;
   --shadow-overlay: 0 16px 40px rgb(0 0 0 / 0.55);
 
   /* Footer & panel CTA tetap lebih gelap dari halaman supaya batas
      "isi halaman" vs "penutup" tidak hilang di tema gelap. */
-  --color-inverse-surface: #000000;
-  --color-inverse-nested: #262625;
-  --color-inverse-text: #ededeb;
-  --color-inverse-text-muted: #a3a29c;
+  --color-inverse-surface: #0d0c09;
+  --color-inverse-nested: #2b2922;
+  --color-inverse-text: #efebe1;
+  --color-inverse-text-muted: #aaa496;
 }
 
 /* =====================================================================
@@ -255,9 +268,12 @@
   --color-focus: var(--focus-ring);
   --ease-snap: var(--easing);
 
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-bricolage), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-hand: var(--font-caveat), 'Segoe Print', 'Bradley Hand', cursive;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
+  --color-highlight: var(--color-highlight);
+  --color-highlight-soft: var(--color-highlight-soft);
   --ease-enter: var(--easing-enter);
 
   --container-page: var(--layout-max);
@@ -320,7 +336,7 @@
      ikut dirapatkan — di ukuran kecil huruf yang dirapatkan saling tabrak. */
   h1 {
     font-weight: 700;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.035em;
   }
 
   p {
@@ -365,7 +381,60 @@
   width: 100%;
   max-width: var(--layout-max);
   margin-inline: auto;
-  padding-inline: var(--space-4);
+  /* 20px di ponsel (bukan 16): teks yang menempel ke tepi layar terasa
+     sesak; 4px ekstra di kedua sisi masih menyisakan 280px isi di 320px. */
+  padding-inline: 1.25rem;
+
+  @media (width >= 40rem) {
+    padding-inline: 2rem;
+  }
+}
+
+/* =====================================================================
+   SENTUHAN SKETSA (ADR-052) — dipakai HEMAT. Satu-dua per layar; kalau
+   setiap judul dicoret dan setiap kotak miring, kesannya berubah dari
+   "buku catatan yang rapi" jadi "tugas prakarya".
+   ===================================================================== */
+
+/* Catatan pinggir bertulisan tangan. Caveat tampak kecil di ukuran yang
+   sama dengan sans, jadi ukurannya dinaikkan ±25% dan barisnya dirapatkan. */
+@utility hand {
+  font-family: var(--font-hand);
+  font-weight: 600;
+  font-size: 1.25em;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+/* Stabilo di belakang kata: bukan blok penuh, hanya pita di 1/3 bawah —
+   seperti ditandai pulpen stabilo di buku catatan. Pita rata (bukan gradien
+   berujung transparan): di kata pendek seperti logo, ujung transparan membuat
+   pita terlihat seperti noda. `clone` = kata yang terbungkus tetap ditandai
+   di kedua baris. */
+@utility marker {
+  background-image: linear-gradient(var(--marker-color, var(--color-highlight)), var(--marker-color, var(--color-highlight)));
+  background-repeat: no-repeat;
+  background-size: 100% 0.36em;
+  background-position: 0 86%;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding-inline: 0.08em;
+  margin-inline: -0.08em;
+}
+
+/* Kotak bergaris tangan: radius tidak simetris = tepi yang "digambar",
+   bukan dicetak. Untuk satu kotak sorotan per halaman (callout, kosong). */
+@utility sketch-box {
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px;
+}
+
+/* Garis putus-putus tipis gaya pensil untuk pemisah bagian. */
+@utility pencil-rule {
+  border: 0;
+  height: 1px;
+  background-image: linear-gradient(90deg, var(--color-border-strong) 50%, transparent 50%);
+  background-size: 8px 1px;
 }
 
 /* Panah <select> milik sendiri. Panah bawaan peramban berbeda di tiap OS
@@ -373,11 +442,11 @@
    itu yang membuat form terlihat setengah jadi. Elemennya TETAP <select>
    native: di ponsel ia membuka pemilih sistem yang jauh lebih mudah dipakai
    daripada dropdown JavaScript, dan form tetap jalan tanpa JavaScript.
-   Warna panah = --color-text-muted (terang #5f5e5b / gelap #a3a29c); data
+   Warna panah = --color-text-muted (terang #605a50 / gelap #aaa496); data
    URI tidak bisa membaca variabel CSS, jadi nilainya ditulis ulang di sini. */
 @utility select-chevron {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235f5e5b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23605a50' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 1rem;
@@ -385,7 +454,7 @@
   text-overflow: ellipsis;
 
   :root[data-theme='dark'] & {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23a3a29c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23aaa496' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
   }
 }
 

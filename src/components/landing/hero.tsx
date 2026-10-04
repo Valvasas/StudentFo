@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, BadgeCheck, Bell, GraduationCap, Play } from 'lucide-react';
+import { HandNote, Scribble, SketchArrow } from '@/components/ui/sketch';
 
 const ROTATING_WORDS = ['lomba', 'beasiswa', 'magang', 'workshop', 'seminar'] as const;
 
@@ -54,7 +55,12 @@ export function LandingHero() {
               </span>
             ))}
           </span>{' '}
-          yang rapi, dari sumber yang jelas.
+          yang{' '}
+          <span className="relative inline-block">
+            rapi,
+            <Scribble className="absolute -bottom-[0.12em] left-0 h-[0.28em] w-[96%] text-highlight" />
+          </span>{' '}
+          dari sumber yang jelas.
         </span>
       </h1>
 
@@ -86,14 +92,15 @@ export function LandingHero() {
         </Link>
       </div>
       <p
-        className="mt-[18px] text-[13px] text-ink-muted"
+        className="mt-5 flex items-center gap-2 text-ink-muted"
         style={{ animation: 'sf-rise 1.1s var(--easing-enter) 560ms both' }}
       >
-        Gratis. Cari kegiatan tanpa perlu membuat akun.
+        <SketchArrow className="hidden -rotate-12 text-ink-muted sm:block" />
+        <HandNote className="text-[19px]">gratis, cari tanpa perlu bikin akun</HandNote>
       </p>
 
       <div
-        className="relative mt-20 w-full max-w-[960px]"
+        className="relative mt-14 w-full max-w-[960px] sm:mt-20"
         style={{ animation: 'sf-rise 1.4s var(--easing-enter) 700ms both' }}
       >
         <HeroPreview />
@@ -144,7 +151,8 @@ const PREVIEW_ROWS = [
 ] as const;
 
 /**
- * Pratinjau produk di bingkai 16:7 kanvas. Kanvasnya menyisakan slot
+ * Pratinjau produk di bingkai 16:7 kanvas (4:3 di ponsel — 16:7 selebar
+ * 350px hanya 150px tinggi dan memotong kartu setelah baris pertama). Kanvasnya menyisakan slot
  * ilustrasi kosong; slot kosong berteks "ilustrasi di sini" tidak boleh
  * tayang, jadi diisi potongan antarmuka sungguhan dengan data contoh yang
  * jelas bukan kegiatan nyata. Seluruhnya hiasan (`aria-hidden`).
@@ -153,7 +161,7 @@ function HeroPreview() {
   return (
     <div
       aria-hidden
-      className="relative aspect-[16/7] w-full overflow-hidden rounded-2xl bg-panel-nested [background-image:radial-gradient(var(--color-border)_1px,transparent_1px)] [background-size:22px_22px]"
+      className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl sm:aspect-[16/7] bg-panel-nested [background-image:radial-gradient(var(--color-border)_1px,transparent_1px)] [background-size:22px_22px]"
     >
       <div className="absolute inset-x-[9%] bottom-0 top-[12%] flex flex-col rounded-t-[14px] border border-b-0 border-line bg-panel p-[3%] text-left shadow-[0_18px_40px_rgba(0,0,0,.06)]">
         <span className="text-[clamp(13px,2vw,20px)] font-bold tracking-[-0.025em]">Info lomba</span>

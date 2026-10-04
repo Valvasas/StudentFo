@@ -43,14 +43,14 @@ export async function Navbar() {
       <div className="container-page flex flex-wrap items-center gap-x-6 md:h-16 md:flex-nowrap lg:gap-x-9">
         <Link
           href="/"
-          className="order-1 flex h-14 shrink-0 items-center text-[17px] font-bold tracking-[-0.03em] md:h-auto"
+          className="order-1 flex h-14 shrink-0 items-center font-display text-[19px] font-bold tracking-[-0.035em] md:h-auto"
         >
-          StudentFo
+          Student<span className="marker">Fo</span>
         </Link>
 
         <nav
           aria-label="Navigasi utama"
-          className="order-3 -mx-4 flex w-[calc(100%+2rem)] items-center overflow-x-auto border-t border-line px-1 [scrollbar-width:none] md:order-2 md:mx-0 md:w-auto md:border-t-0 md:px-0"
+          className="order-3 -mx-5 flex w-[calc(100%+2.5rem)] items-center overflow-x-auto border-t border-line px-2 [scrollbar-width:none] sm:-mx-8 sm:w-[calc(100%+4rem)] sm:px-5 md:order-2 md:mx-0 md:w-auto md:border-t-0 md:px-0"
         >
           <Suspense fallback={<NavLinkList pathname={requestUrl.pathname} activeKey={activeKey} />}>
             <NavLinks />

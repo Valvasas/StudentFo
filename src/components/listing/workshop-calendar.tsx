@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
-import { Breadcrumb, ChipLink, PageTitle, ResultsEmpty, SaveToggle } from '@/components/listing/listing-ui';
+import { Breadcrumb, ChipLink, PageTitle, ResultsEmpty, SaveToggle, CollapsibleFilters } from '@/components/listing/listing-ui';
 import type { BoardProps } from '@/components/listing/lomba-board';
 import { daysLeftLabel, daysUntil, jakartaDateKey, jakartaDateParts } from '@/lib/deadline';
 import { buildEventHref, type RawSearchParams } from '@/lib/search-params';
@@ -58,7 +58,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
   const base = buildEventHref(query, { page: 1 });
 
   return (
-    <div className="container-page pb-10 pt-12">
+    <div className="container-page pb-16 pt-8 sm:pt-12">
       <div className="enter flex max-w-[620px] flex-col gap-3 [animation-duration:900ms]">
         <Breadcrumb current="Workshop" />
         <PageTitle>Kalender kelas praktik</PageTitle>
@@ -115,21 +115,23 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
             );
           })}
         </nav>
-        <nav aria-label="Bidang" className="mt-6 flex flex-wrap gap-2 border-b border-line pb-6">
-          <ChipLink href={withDay(buildEventHref(query, { categories: [], page: 1 }), day)} active={query.categories.length === 0}>
-            <CategoryIcon slug={undefined} /> Semua
-          </ChipLink>
-          {categories.map((category) => (
-            <ChipLink
-              key={category.slug}
-              href={withDay(buildEventHref(query, { categories: query.categories.includes(category.slug) ? [] : [category.slug], page: 1 }), day)}
-              active={query.categories.includes(category.slug)}
-            >
-              <CategoryIcon slug={category.slug} />
-              {shortCategoryName(category.name)}
+        <CollapsibleFilters breakpoint="md" activeCount={query.categories.length} className="mt-6 border-b border-line pb-6">
+          <nav aria-label="Bidang" className="flex flex-wrap gap-2">
+            <ChipLink href={withDay(buildEventHref(query, { categories: [], page: 1 }), day)} active={query.categories.length === 0}>
+              <CategoryIcon slug={undefined} /> Semua
             </ChipLink>
-          ))}
-        </nav>
+            {categories.map((category) => (
+              <ChipLink
+                key={category.slug}
+                href={withDay(buildEventHref(query, { categories: query.categories.includes(category.slug) ? [] : [category.slug], page: 1 }), day)}
+                active={query.categories.includes(category.slug)}
+              >
+                <CategoryIcon slug={category.slug} />
+                {shortCategoryName(category.name)}
+              </ChipLink>
+            ))}
+          </nav>
+        </CollapsibleFilters>
       </section>
 
       <div className="mt-7 flex items-baseline justify-between gap-3">

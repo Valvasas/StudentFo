@@ -42,7 +42,7 @@ export function BeasiswaBoard({
   const baseHref = buildEventHref({ types: query.types, search: query.search });
 
   return (
-    <div className="container-page pb-10 pt-12">
+    <div className="container-page pb-16 pt-8 sm:pt-12">
       <div className="enter flex max-w-[640px] flex-col gap-3 [animation-duration:900ms]">
         <Breadcrumb current="Beasiswa" />
         <PageTitle>Beasiswa yang bisa kamu ajukan</PageTitle>
@@ -58,7 +58,10 @@ export function BeasiswaBoard({
       >
         <div className="flex flex-col gap-3 bg-panel-nested px-6 py-[22px] sm:col-span-2">
           <span className="font-mono text-xs tracking-[.06em] text-ink-muted">01 · JENJANG KAMU</span>
-          <nav aria-label="Jenjang untuk cek kelayakan" className="flex flex-wrap gap-0.5 self-start rounded-sm bg-line p-[3px]">
+          <nav
+            aria-label="Jenjang untuk cek kelayakan"
+            className="flex max-w-full gap-0.5 self-start overflow-x-auto rounded-sm bg-line p-[3px] [scrollbar-width:none]"
+          >
             {ELIGIBILITY_LEVELS.map((option) => {
               const active = option === level;
               return (
@@ -68,7 +71,7 @@ export function BeasiswaBoard({
                   scroll={false}
                   aria-current={active ? 'true' : undefined}
                   className={cn(
-                    'flex min-h-11 items-center rounded-[6px] px-4 text-sm font-medium transition-colors duration-150 ease-snap sm:min-h-[34px]',
+                    'flex min-h-11 shrink-0 items-center rounded-[6px] px-3.5 text-sm font-medium transition-colors duration-150 ease-snap sm:min-h-[34px] sm:px-4',
                     active ? 'bg-panel text-ink shadow-[0_1px_2px_rgba(0,0,0,.1)]' : 'text-ink-muted hover:text-ink',
                   )}
                 >
@@ -94,7 +97,9 @@ export function BeasiswaBoard({
         <div className="flex w-full max-w-[360px] flex-[1_1_260px]">
           <SearchBox query={query} placeholder="Cari beasiswa atau penyelenggara" />
         </div>
-        <div className="flex items-center gap-4 text-[13px] text-ink-muted">
+        {/* Legenda hanya di layar lebar: di ponsel tiap baris sudah memuat
+            lencananya sendiri ("Memenuhi syarat" / alasannya). */}
+        <div className="hidden items-center gap-4 text-[13px] text-ink-muted sm:flex">
           <span className="flex items-center gap-1.5">
             <span aria-hidden className="flex size-[18px] items-center justify-center rounded-pill bg-brand text-on-brand">
               <Check className="size-[11px]" strokeWidth={2.6} />
@@ -134,7 +139,9 @@ export function BeasiswaBoard({
                 style={{ animationDelay: `${index * 60}ms` }}
               >
                 <div className="flex min-w-0 items-center gap-3.5">
-                  <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-brand font-mono text-[13px] font-medium">
+                  {/* Avatar inisial hanya hiasan; di ponsel ia memakan 58px dari
+                      kolom judul dan membuat judul pecah jadi 4–5 baris. */}
+                  <span aria-hidden className="hidden size-11 shrink-0 items-center justify-center rounded-[10px] border border-brand font-mono text-[13px] font-medium sm:flex">
                     {initialsOf(event.organizer)}
                   </span>
                   <div className="flex min-w-0 flex-col gap-[3px]">
@@ -160,7 +167,9 @@ export function BeasiswaBoard({
                   <span className="text-sm font-semibold">{event.primaryDeadlineAt ? formatDateId(event.primaryDeadlineAt) : 'Belum diumumkan'}</span>
                   <span className="text-[12.5px] text-ink-muted">{daysLeftLabel(days)}</span>
                 </span>
-                <span className="flex items-center justify-between gap-2">
+                {/* col-span-2 di ponsel: kalau lencana ini menempati kolom kedua,
+                    kolom itu melebar ±140px dan menjepit judul jadi 5 baris. */}
+                <span className="col-span-2 flex items-center justify-between gap-2 md:col-span-1">
                   {why ? (
                     <span className="inline-flex h-7 items-center whitespace-nowrap rounded-sm border border-dashed border-ink-muted px-2.5 text-[12.5px] font-medium text-ink-soft">
                       {why}

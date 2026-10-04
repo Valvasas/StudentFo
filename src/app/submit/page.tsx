@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { BadgeCheck, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, ChevronDown, ShieldCheck } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { MySubmissions } from '@/components/submit/my-submissions';
 import { TurnstileWidget } from '@/components/submit/turnstile-widget';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
+import { HandNote } from '@/components/ui/sketch';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -51,6 +52,10 @@ const FIELD_LABEL: Record<string, string> = {
   proofLink: 'Bukti kepanitiaan',
 };
 
+const OPTIONAL_DETAIL_LABELS = new Set(
+  ['guidebookUrl', 'description', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]),
+);
+
 function invalidFieldLabels(raw: RawSearchParams['fields']): string[] {
   const value = Array.isArray(raw) ? raw[0] : raw;
   return (value ?? '')
@@ -75,6 +80,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   ]);
   const verifiedOrg = organizerProfile?.status === 'VERIFIED' ? organizerProfile.orgName : null;
   const invalidFields = invalidFieldLabels(params.fields);
+  const optionalInvalid = invalidFields.some((label) => OPTIONAL_DETAIL_LABELS.has(label));
   const today = jakartaDateKey(new Date());
 
   return (
@@ -200,10 +206,10 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
 
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-medium text-ink-soft">Bidang (opsional)</legend>
-          <div className="flex flex-wrap gap-x-5 gap-y-1">
+          <div className="grid grid-cols-2 gap-x-4 sm:flex sm:flex-wrap sm:gap-x-5 sm:gap-y-1">
             {categories.map((category) => (
-              <label key={category.slug} className="flex min-h-11 items-center gap-2 text-sm">
-                <input type="checkbox" name="categorySlugs" value={category.slug} className="size-4 accent-brand" />
+              <label key={category.slug} className="flex min-h-11 items-center gap-2 text-sm leading-snug">
+                <input type="checkbox" name="categorySlugs" value={category.slug} className="size-4 shrink-0 accent-brand" />
                 {category.name}
               </label>
             ))}
@@ -237,36 +243,55 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           </div>
         </fieldset>
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="sm:max-w-[calc(50%-0.625rem)]">
           <Field id="priceAmount" label="Nominal biaya (jika berbayar)" hint="Contoh: 150000 atau Rp 150.000. Kosongkan kalau belum diumumkan.">
             <TextInput id="priceAmount" name="priceAmount" inputMode="numeric" maxLength={20} placeholder="Rp" />
           </Field>
-          <Field
-            id="guidebookUrl"
-            label="Buku panduan (opsional)"
-            hint="Tautan https ke PDF/halaman syarat & ketentuan. PDF bisa dipratinjau langsung oleh peserta."
-          >
-            <TextInput id="guidebookUrl" name="guidebookUrl" type="url" maxLength={2000} placeholder="https://" />
-          </Field>
         </div>
 
-        <Field id="description" label="Deskripsi (opsional)" hint="Syarat, hadiah, dan hal penting lain. Maksimal 5000 karakter.">
-          <TextArea id="description" name="description" rows={6} maxLength={5000} />
-        </Field>
+        {/* Kolom opsional yang jarang diisi dilipat supaya form inti muat
+            ±1,5 layar ponsel. Terbuka otomatis bila server menolak salah satu
+            isinya — kolom bermasalah tidak boleh tersembunyi. Kolom tautan di
+            dalamnya sengaja bukan `type="url"`: validasi bawaan browser pada
+            kontrol di <details> tertutup memblokir kirim TANPA pesan apa pun
+            ("not focusable"). Formatnya divalidasi server (Zod). */}
+        <details open={optionalInvalid} className="group/opsional rounded-card border border-line bg-panel">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+            <span className="flex flex-1 flex-col">
+              <span className="text-sm font-semibold">Detail tambahan (opsional)</span>
+              <span className="text-xs text-ink-muted">Buku panduan, deskripsi, kontak panitia</span>
+            </span>
+            <HandNote className="hidden text-[17px] sm:inline-block">makin lengkap, makin cepat dicek</HandNote>
+            <ChevronDown aria-hidden className="size-4 shrink-0 text-ink-muted transition-transform duration-150 ease-snap group-open/opsional:rotate-180" />
+          </summary>
+          <div className="flex flex-col gap-5 border-t border-line p-4">
+            <Field
+              id="guidebookUrl"
+              label="Buku panduan (opsional)"
+              hint="Tautan https ke PDF/halaman syarat & ketentuan. PDF bisa dipratinjau langsung oleh peserta."
+            >
+              <TextInput id="guidebookUrl" name="guidebookUrl" inputMode="url" maxLength={2000} placeholder="https://" />
+            </Field>
 
-        {/* Bahan verifikasi — tidak pernah disalin ke halaman publik
-            (approve_submission tidak menyalinnya). */}
-        <fieldset className="flex flex-col gap-4 rounded-card border border-line p-4">
-          <legend className="px-1 text-sm font-medium text-ink-soft">Untuk panitia (hanya dilihat moderator)</legend>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field id="organizerContact" label="Kontak panitia (opsional)" hint="Email, WhatsApp, atau akun resmi — dipakai moderator untuk konfirmasi.">
-              <TextInput id="organizerContact" name="organizerContact" maxLength={120} autoComplete="off" />
+            <Field id="description" label="Deskripsi (opsional)" hint="Syarat, hadiah, dan hal penting lain. Maksimal 5000 karakter.">
+              <TextArea id="description" name="description" rows={6} maxLength={5000} />
             </Field>
-            <Field id="proofLink" label="Bukti kepanitiaan (opsional)" hint="Mis. surat tugas atau unggahan resmi yang menyebut namamu. Mempercepat verifikasi.">
-              <TextInput id="proofLink" name="proofLink" type="url" maxLength={2000} placeholder="https://" />
-            </Field>
+
+            {/* Bahan verifikasi — tidak pernah disalin ke halaman publik
+                (approve_submission tidak menyalinnya). */}
+            <fieldset className="flex flex-col gap-4 rounded-card border border-line p-4">
+              <legend className="px-1 text-sm font-medium text-ink-soft">Untuk panitia (hanya dilihat moderator)</legend>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field id="organizerContact" label="Kontak panitia (opsional)" hint="Email, WhatsApp, atau akun resmi — dipakai moderator untuk konfirmasi.">
+                  <TextInput id="organizerContact" name="organizerContact" maxLength={120} autoComplete="off" />
+                </Field>
+                <Field id="proofLink" label="Bukti kepanitiaan (opsional)" hint="Mis. surat tugas atau unggahan resmi yang menyebut namamu. Mempercepat verifikasi.">
+                  <TextInput id="proofLink" name="proofLink" inputMode="url" maxLength={2000} placeholder="https://" />
+                </Field>
+              </div>
+            </fieldset>
           </div>
-        </fieldset>
+        </details>
 
         <Field
           id="email"
