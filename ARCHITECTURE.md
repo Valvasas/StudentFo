@@ -57,7 +57,7 @@ src/
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
 │   ├── profile/                Akun: profil, minat, ganti kata sandi
 │   ├── tracker/                Papan lamaran + actions.ts (simpan, ubah tahap, hapus)
-│   ├── teams/                  Cari rekan tim + [id] detail + actions.ts
+│   ├── teams/                  Cari rekan tim + baru/ (buka tim, halaman sendiri — ADR-054) + [id] detail + actions.ts
 │   ├── connections/            Koneksi, satu tab per tugas (?tab= untukmu|koneksi|ajakan|peta|pengaturan) + actions.ts (ADR-040, ADR-048)
 │   ├── orang/[id]/             Profil publik + portofolio orang lain, wajib masuk, 404 seragam (ADR-046)
 │   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara, analitik (ADR-042/043/046)
@@ -72,13 +72,16 @@ src/
 │   ├── ui/                     Primitif tanpa domain-knowledge (Button, Badge, Card,
 │   │                           Field/TextInput/SelectInput/TextArea/FormAlert),
 │   │                           sketch.tsx (SketchArrow, Scribble, HandNote — hiasan ADR-052),
-│   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053)
+│   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053),
+│   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
+│   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
+│   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054)
 │   ├── home/                   PersonalHome — beranda pengguna masuk (perlu tindakan, pantauan, minggu ini, sesuai minat)
 │   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
 │   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
 │   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS)
-│   ├── team/                   TeamCard, TeamSlotsBadge
+│   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings, blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
 │   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
@@ -122,6 +125,8 @@ src/
 │   ├── errors.ts               AppError, ERROR_CODES, toApiError(), upstreamFailure()
 │   ├── utils.ts                cn(), sanitizeExternalUrl(), safeHostname()
 │   ├── greeting.ts             Sapaan & tanggal menurut jam WIB untuk beranda pribadi [teruji]
+│   ├── tint.ts                 tintOf()/coverTintOf() — tint identitas deterministik (ADR-054) [teruji]
+│   ├── initials.ts             initialsOf() (orang), monogramOf() (grup/kegiatan) [teruji]
 │   └── supabase/
 │       ├── server.ts           Klien Server Component & admin (service_role)
 │       ├── middleware.ts       Klien khusus middleware (tanpa `server-only`)
@@ -253,8 +258,8 @@ sentuh ≥44px, dll).
   `src/lib/search-params.ts` untuk parsing/serialisasi query.
 - `DeadlineTag`/`DeadlineRing` adalah Server Component — dihitung ulang tiap
   request lewat `force-dynamic`, bukan dikirim sebagai JS klien.
-- Transisi dibatasi 150–200ms, tanpa `translate`/`scale` (produk ini dipindai,
-  bukan dinikmati).
+- Transisi dibatasi 150–200ms, tanpa `translate`/`scale` pada target klik (produk
+  ini dipindai, bukan dinikmati). Animasi masuk & hiasan fitur unggulan: ADR-054.
 
 ## Fase produk (dari blueprint, lihat juga `TASKS.md`)
 

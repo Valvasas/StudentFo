@@ -84,6 +84,20 @@
      tidak pernah warna teks; teks di atasnya tetap tinta (#1d1b17, 13:1). ===== */
   --color-highlight: #ffd95a;
   --color-highlight-soft: #fff1b8;
+  /* Tinta DI ATAS stabilo pekat (badge hitungan): tetap gelap di kedua tema.
+     Teks terang di atas stabilo gelap #b8901d hanya 2,5:1; tinta ini 5,8:1. */
+  --color-highlight-ink: #1d1b17;
+
+  /* ===== Tint catatan tempel (ADR-054) — identitas, BUKAN makna. Avatar
+     orang/grup dan sampul kartu diberi satu tint yang diturunkan dari id-nya
+     (`tintOf()`), supaya orang yang sama selalu berwarna sama di setiap
+     halaman — pengganti foto yang memang tidak kita punya. Teks di atasnya
+     selalu tinta primer (≥ 11:1, diperiksa check:contrast). ===== */
+  --color-tint-sun: #fbe7a1;
+  --color-tint-mint: #cdebd9;
+  --color-tint-peach: #f9d6c1;
+  --color-tint-sky: #cde0f2;
+  --color-tint-lilac: #e0d8f3;
 
   /* ===== Focus ring ===== */
   --focus-ring: #1d1b17;
@@ -192,6 +206,13 @@
   --color-highlight-soft: rgb(184 144 29 / 0.28);
   --marker-color: rgb(184 144 29 / 0.55);
 
+  /* Tint gelap: nada yang sama diredupkan jauh, teks terang di atasnya. */
+  --color-tint-sun: #4b3f17;
+  --color-tint-mint: #1e3b2f;
+  --color-tint-peach: #4a2d1f;
+  --color-tint-sky: #1d3247;
+  --color-tint-lilac: #342c4b;
+
   --shadow-card: none;
   --shadow-raised: none;
   --shadow-overlay: 0 16px 40px rgb(0 0 0 / 0.55);
@@ -274,6 +295,12 @@
   --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
   --color-highlight: var(--color-highlight);
   --color-highlight-soft: var(--color-highlight-soft);
+  --color-on-highlight: var(--color-highlight-ink);
+  --color-tint-sun: var(--color-tint-sun);
+  --color-tint-mint: var(--color-tint-mint);
+  --color-tint-peach: var(--color-tint-peach);
+  --color-tint-sky: var(--color-tint-sky);
+  --color-tint-lilac: var(--color-tint-lilac);
   --ease-enter: var(--easing-enter);
 
   --container-page: var(--layout-max);
@@ -665,4 +692,122 @@ html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
 @keyframes sf-progress-done {
   0% { width: 100%; opacity: 1; }
   100% { width: 100%; opacity: 0; }
+}
+
+/* =====================================================================
+   8. KOSAKATA GERAK FITUR UNGGULAN (ADR-054) — tim, koneksi, kotak masuk.
+   Aturan dasarnya tetap ADR-039: TARGET KLIK tidak pernah bergeser karena
+   hover. Yang bergerak hanya (a) animasi masuk sekali jalan, (b) hiasan
+   `aria-hidden` yang tidak bisa diklik, dan (c) anak dekoratif di dalam
+   target (panah yang mengangguk) — kotak sentuhnya sendiri tetap diam.
+   Semuanya jatuh ke keadaan akhir lewat aturan reduced-motion di §3.
+   ===================================================================== */
+
+/* Kartu daftar muncul bertahap: `style={{ '--i': index }}`. Dibatasi 10
+   langkah supaya kartu ke-40 tidak menunggu 2 detik untuk terlihat. */
+@utility rise {
+  animation: sf-rise 640ms var(--easing-enter) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 55ms);
+}
+
+/* Tinta yang "tergambar" di ilustrasi: path WAJIB ber-`pathLength="1"`.
+   Isian warna langsung tampil, garisnya menyusul — seperti sketsa yang
+   ditebalkan pulpen. Jeda per garis lewat `--d`. */
+@utility ink-draw {
+  stroke-dasharray: 1;
+  animation: sf-draw 1300ms var(--easing-enter) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-drift {
+  from { transform: translateY(0) rotate(var(--r0, 0deg)); }
+  to { transform: translateY(-9px) rotate(var(--r1, 0deg)); }
+}
+
+/* Coretan melayang pelan di sekitar ilustrasi. 5–7 dtk: cukup lambat untuk
+   tidak menarik mata dari isi halaman. */
+@utility drift {
+  /* fill-box: di <g> SVG, rotasi berporos di pusat bentuknya sendiri, bukan di pojok kiri-atas viewBox. */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-drift 5.6s ease-in-out infinite alternate;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.78); }
+}
+
+@utility twinkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-twinkle 3.4s ease-in-out infinite;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* Kursi kosong "bernapas": undangan, bukan alarm — opasitas saja, 3 dtk. */
+@utility breathe {
+  animation: sf-breathe 3s ease-in-out infinite;
+}
+
+@keyframes sf-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+@utility typing-dot {
+  animation: sf-typing 1.2s ease-in-out infinite;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-sheet-in {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Lembar samping (info percakapan) masuk dari tepi kanan. */
+@utility sheet-in {
+  animation: sf-sheet-in 320ms var(--easing-enter) both;
+}
+
+@utility fade-in {
+  animation: sf-fade 240ms var(--easing) both;
+}
+
+@keyframes sf-stamp {
+  0% { opacity: 0; transform: scale(1.7) rotate(-16deg); }
+  55% { opacity: 1; transform: scale(0.93) rotate(-4deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-6deg); }
+}
+
+/* Cap "berhasil" (tim dibuka): sekali, lalu diam miring seperti stempel. */
+@utility stamp {
+  animation: sf-stamp 720ms var(--easing-enter) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-confetti {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x, 0px), var(--y, 120px)) rotate(var(--rot, 180deg)); }
+}
+
+/* Konfeti: span absolut `aria-hidden`. Di reduced-motion langsung ke
+   keadaan akhir (opasitas 0) — hiasan perayaan tidak membawa informasi. */
+@utility confetti-bit {
+  animation: sf-confetti 1.7s cubic-bezier(0.15, 0.6, 0.35, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* Kisi titik halus untuk sampul kartu, panggung ilustrasi, dan latar
+   obrolan. Warna dari token, jadi ikut tema gelap. */
+@utility dot-grid {
+  background-image: radial-gradient(color-mix(in oklab, var(--color-border-strong) 60%, transparent) 1px, transparent 1.5px);
+  background-size: 18px 18px;
 }

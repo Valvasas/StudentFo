@@ -50,13 +50,16 @@ test('tim: buat tim → anggota lain bergabung → keluar; ketua melihat jumlah 
   const leader = await leaderContext.newPage();
   await signInAsDemo(leader, 'Mahasiswa', '/teams');
   const teamTitle = `Tim Uji Perjalanan ${Date.now()}`;
-  await leader.getByText('Buka tim baru').click(); // <details> tertutup secara bawaan
+  // Membuka tim punya halamannya sendiri (ADR-054), bukan form terlipat di samping daftar.
+  await leader.getByRole('link', { name: 'Buka tim baru' }).click();
+  await expect(leader).toHaveURL(/\/teams\/baru$/);
   await leader.locator('#eventId').selectOption({ index: 1 });
   await leader.getByLabel('Judul tim').fill(teamTitle);
   await leader.getByLabel('Total anggota yang dibutuhkan').fill('3');
-  await leader.getByRole('button', { name: 'Buka tim' }).click();
-  await expect(leader).toHaveURL(/\/teams\/[0-9a-f-]{36}/);
-  const teamUrl = leader.url();
+  await leader.getByRole('button', { name: 'Buka tim', exact: true }).click();
+  await expect(leader).toHaveURL(/\/teams\/[0-9a-f-]{36}\?notice=team_created$/);
+  await expect(leader.getByRole('heading', { name: 'Timmu sudah tampil di Cari Tim!' })).toBeVisible();
+  const teamUrl = leader.url().split('?')[0]!;
   await expect(leader.getByText('1 dari 3 orang')).toBeVisible();
 
   const memberContext = await browser.newContext();

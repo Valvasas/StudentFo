@@ -118,14 +118,25 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
 - Warna tidak pernah satu-satunya pembawa makna — selalu sertai ikon+teks.
 - Ilustrasi (`components/ui/illustrations.tsx`) hanya di titik berhenti
   (404, error, kosong) — satu per layar, `aria-hidden`, tanpa teks di SVG,
-  warna lewat `currentColor`/token supaya ikut tema gelap (ADR-053).
+  warna lewat `currentColor`/token supaya ikut tema gelap (ADR-053). Kepala
+  halaman fitur unggulan (tim, koneksi, kotak masuk) boleh memakai ilustrasi
+  dari `feature-illustrations.tsx` — tetap satu per layar (ADR-054).
+- Tint catatan tempel (`--color-tint-*`, `Avatar`, `tintOf()`/`coverTintOf()`
+  di `lib/tint.ts`) = IDENTITAS orang/grup/tim, bukan makna. Jangan memetakan
+  status ke tint; teks di atas tint selalu tinta primer (ADR-054).
 - Namespace warna semantik (`--color-danger`, dst) dan warna deadline
   (`--color-deadline-*`) terpisah — jangan dipertukarkan.
 - Target sentuh minimal 44px; focus ring di semua elemen fokusable.
-- Transisi 150–200ms, tanpa `translate`/`scale`. Pengecualiannya
+- Transisi 150–200ms, tanpa `translate`/`scale` pada TARGET klik. Pengecualiannya
   **animasi** (bukan transisi) yang berjalan sendiri dan tidak pernah
-  menggeser target klik: `ticker-track` (pita tenggat), `reveal`, dan bilah
-  progres navigasi (`sf-progress`, ADR-053).
+  menggeser target klik: `ticker-track` (pita tenggat), `reveal`, bilah
+  progres navigasi (`sf-progress`, ADR-053), dan kosakata ADR-054 (`rise`,
+  `ink-draw`, `drift`, `twinkle`, `breathe`, `typing-dot`, `sheet-in`,
+  `stamp`, `confetti-bit`). Anak dekoratif DI DALAM target (ikon panah) boleh
+  bergeser saat hover — kotak sentuhnya sendiri tetap diam.
+- Pemilih/tab/rangkaian chip yang menggulir horizontal: wadah gulirnya harus
+  `relative`, kalau tidak teks `sr-only` (absolut) di dalamnya lolos dari
+  kliping dan melebarkan halaman di 320px (ADR-054).
   Keduanya patuh `prefers-reduced-motion` lewat aturan global di
   `globals.css` §3.
 - **Jangan mengubah nilai token warna tanpa menjalankan

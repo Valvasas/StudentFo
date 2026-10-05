@@ -43,8 +43,10 @@ test('/admin sebagai admin demo (panel demo, kartu tinjauan, tautan riwayat): se
 test('halaman tim & detail tim: setiap target ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/teams');
   expect(await smallTargets(page, 'main')).toEqual([]);
-  const href = await page.locator('main a[href^="/teams/"]').first().getAttribute('href');
+  const href = await page.locator('main a[href^="/teams/"]:not([href^="/teams/baru"])').first().getAttribute('href');
   await page.goto(href!);
+  expect(await smallTargets(page, 'main')).toEqual([]);
+  await page.goto('/teams/baru');
   expect(await smallTargets(page, 'main')).toEqual([]);
 });
 

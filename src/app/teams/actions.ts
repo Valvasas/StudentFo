@@ -30,7 +30,7 @@ function redirectWithError(returnTo: string, error: unknown): never {
 }
 
 export async function createTeamAction(formData: FormData): Promise<void> {
-  const returnTo = safeNextPath(formText(formData, 'returnTo'), '/teams');
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), '/teams/baru');
   const user = await requireUser(returnTo);
 
   const parsed = parseCreateTeamForm(formData);
@@ -49,7 +49,7 @@ export async function createTeamAction(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/teams');
-  redirect(`/teams/${teamId}`);
+  redirect(withQuery(`/teams/${teamId}`, { notice: 'team_created' }));
 }
 
 export async function joinTeamAction(formData: FormData): Promise<void> {

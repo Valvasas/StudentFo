@@ -12,6 +12,87 @@ terdokumentasi.
 
 ---
 
+## ADR-054 — Fitur unggulan (tim, koneksi, kotak masuk): layar per tugas, tint catatan tempel, ilustrasi & gerak per fitur
+
+**Konteks:** Umpan balik pemilik setelah ADR-053: tim, koneksi, dan diskusi
+masih "terasa buatan AI" — form "Buka tim baru" terlipat di kolom samping
+300px di halaman yang sama dengan daftar tim, UX kaku, tata letak sesak, dan
+minim elemen visual. Audit tangkapan layar menemukan penyebab konkret:
+(1) keseragaman — semua avatar hitam, enam tombol "Hubungkan" hitam penuh
+berjejer, setiap kartu identik; (2) form di kolom samping memaksa daftar tim
+berbagi lebar; (3) penulis utas diskusi menyembul di atas daftar dan seluruh
+state kotak masuk hanya di memori (tombol kembali ponsel keluar dari halaman);
+(4) /connections di ponsel 4.652px. Ditemukan juga bug: judul kegiatan di
+panel gelap detail tim tak terlihat (h2 mewarisi tinta gelap lapisan dasar),
+bilah progres navigasi macet 15 dtk setiap kali form kotak masuk dikirim
+(form tanpa `method` = GET, didengar di fase capture sebelum `preventDefault`
+React), dan `/connections` melebar 31–100px di ponsel (teks `sr-only` absolut
+di badge tab lolos dari kliping gulir karena `<nav>` tidak berposisi).
+
+**Keputusan:**
+- **Membuka tim = halaman sendiri** (`/teams/baru`, `?kegiatan=` memilihkan
+  kegiatannya). Tiga langkah bernomor + pratinjau yang memakai `TeamCard`
+  SUNGGUHAN (`inert`). Tetap `<form action={createTeamAction}>` dengan nama
+  kolom yang sama — tanpa JS jalan; JS hanya menambah pratinjau, −/+ jumlah,
+  dan chip bantu-tulis. Chip peran menulis ke keterangan (tidak ada kolom
+  peran; tidak berpura-pura jadi data terstruktur). Gagal → kembali ke
+  `/teams/baru`; berhasil → `/teams/[id]?notice=team_created` yang dirender
+  sebagai perayaan (konfeti CSS + cap), bukan kalimat notice biasa.
+- **Tint catatan tempel** `--color-tint-{sun,mint,peach,sky,lilac}` (+ versi
+  gelap) untuk IDENTITAS, bukan makna: `tintOf(id)` (FNV-1a, deterministik,
+  aman hidrasi) mewarnai avatar orang/grup; `coverTintOf(id)` = tint sampul
+  yang dijamin beda dari avatarnya. Teks di atas tint selalu tinta primer
+  (≥ 8,7:1 di kedua tema, masuk `check:contrast`). Akun resmi (panitia,
+  penyelenggara) sengaja tinta pekat, bukan tint. Yang diblokir tanpa tint.
+  Badge hitungan berlatar stabilo pekat memakai `--color-highlight-ink`
+  (`text-on-highlight`, tetap gelap di kedua tema): teks terang di atas
+  stabilo gelap hanya 2,5:1 — axe meloloskannya, `check:contrast` kini tidak.
+- **Hierarki tombol:** hitam pekat hanya untuk aksi yang ditunggu orang lain
+  (Terima ajakan, Gabung tim, Kirim). "Hubungkan" di kartu saran = garis
+  tinta yang terisi saat disentuh.
+- **Ilustrasi per fitur** (`feature-illustrations.tsx`): kepala /teams,
+  /teams/baru, /connections (layar lebar saja), kosong & composer kotak
+  masuk, perayaan. Ini MEMPERLUAS aturan ADR-053 ("hanya di titik berhenti")
+  ke kepala halaman fitur unggulan — tetap maksimal satu ilustrasi per layar,
+  `aria-hidden`, tanpa teks, warna dari token.
+- **Kosakata gerak** (`globals.css` §8): `rise` (bertahap via `--i`, maks 10
+  langkah), `ink-draw` (garis ilustrasi tergambar sekali), `drift`/`twinkle`
+  (hiasan melayang pelan), `breathe` (kursi kosong), `typing-dot`, `sheet-in`,
+  `stamp`, `confetti-bit`, `dot-grid`. Aturan ADR-039 tetap: TARGET KLIK tidak
+  bergeser saat hover — yang bergerak hanya animasi masuk sekali jalan, hiasan
+  yang tidak bisa diklik, dan anak dekoratif di dalam target (panah yang
+  mengangguk). Semua jatuh ke keadaan akhir di reduced-motion.
+- **Kotak masuk:** posisi di Ruang diskusi hidup di URL (`?grup=`, `?kanal=`,
+  `?utas=`, `?tulis=1`) lewat `history.pushState` yang diselaraskan Next.js
+  ke `useSearchParams` tanpa memuat ulang. Kembali = `history.back()` hanya
+  bila entri sebelumnya ditandai milik kotak masuk; utas baru MENGGANTI entri
+  "menulis". Jebakan yang sudah terjadi: `replaceState` WAJIB diberi objek
+  state baru — salinan `history.state` membawa `__NA` milik Next, dan versi
+  Next lalu menganggapnya panggilan internal: URL berganti, layar tidak.
+  Dikunci `tests/e2e/inbox.spec.ts`. Menulis utas = layar sendiri (kanal sebagai ubin berikon +
+  penjelasan). Info percakapan di Pesan = Radix Dialog (fokus terkunci, Esc,
+  fokus kembali) — dependency yang sudah ada tapi belum pernah dipakai.
+- **Ponsel:** saran koneksi = satu baris geser ber-snap (CSS murni, 4.652 →
+  2.800px); statistik /teams tiga ubin satu baris.
+- Kartu tim & baris utas bisa diklik penuh lewat judul yang direntangkan
+  (`after:inset-0`); aksi di dalamnya (`Gabung`, suara) duduk di `z-10`.
+- Membubarkan tim & mengeluarkan anggota kini di balik satu langkah konfirmasi
+  `<details>` (tanpa JS); nama orang di tombol konfirmasi lewat `aria-label`
+  (pola block-person: teks di lipatan tertutup ikut cocok di pencarian halaman).
+
+**Ditolak:** warna tint sebagai penanda status (mis. mint = terhubung) —
+pembaca buta warna kehilangan informasinya dan namespace warna semantik
+sudah ada. Foto profil sungguhan — butuh unggah berkas + moderasi (backlog).
+Animasi `translate` pada kartu saat hover — menggeser target klik.
+
+**Konsekuensi:** Tiga ilustrasi baru ±6 KB SVG inline per halaman fitur.
+`DiscussionsApp` bergantung pada integrasi `history.pushState` Next ≥ 14.1.
+Tautan `/teams/baru` kini muncul lebih dulu dari tautan detail tim di `<main>`
+— uji a11y/target sentuh memilih detail dengan `:not([href^="/teams/baru"])`.
+Statistik "kursi kosong" dihitung dari daftar yang sudah dimuat, bukan query baru.
+
+---
+
 ## ADR-053 — Beranda pribadi, ilustrasi sketsa, progres navigasi; pengerasan cookie & verifikasi ulang
 
 **Konteks:** Audit penyelesaian sebelum hosting (`docs/audit-fitur-enterprise.md`).

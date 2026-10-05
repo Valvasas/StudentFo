@@ -229,24 +229,39 @@ export function rankSuggestions(
 }
 
 /** Alasan yang dibaca manusia, urut dari yang paling kuat. Maksimal tiga supaya kartu tetap bisa dipindai. */
+/** Jenis alasan saran — UI memilih ikonnya dari sini, bukan dari mencocokkan kalimat. */
+export type SuggestionReasonKind = 'team' | 'mutual' | 'interest' | 'major' | 'level';
+
+export interface SuggestionReason {
+  readonly kind: SuggestionReasonKind;
+  readonly text: string;
+}
+
+export function suggestionReasonItems(
+  suggestion: PeopleSuggestion,
+  categoryName: (slug: string) => string,
+): SuggestionReason[] {
+  const reasons: SuggestionReason[] = [];
+  const [firstEvent] = suggestion.sharedEvents;
+  if (firstEvent) reasons.push({ kind: 'team', text: `Ikut tim di ${firstEvent.title}` });
+  if (suggestion.mutualCount > 0) reasons.push({ kind: 'mutual', text: `${suggestion.mutualCount} koneksi bersama` });
+  if (suggestion.sharedInterests.length > 0) {
+    const names = suggestion.sharedInterests.slice(0, 2).map(categoryName);
+    const rest = suggestion.sharedInterests.length - names.length;
+    reasons.push({ kind: 'interest', text: `Minat sama: ${names.join(', ')}${rest > 0 ? ` +${rest}` : ''}` });
+  }
+  if (suggestion.sameMajor) reasons.push({ kind: 'major', text: 'Jurusan sama' });
+  else if (suggestion.sameLevel && suggestion.person.educationLevel) {
+    reasons.push({ kind: 'level', text: `Sama-sama ${EDUCATION_LEVEL_LABEL[suggestion.person.educationLevel]}` });
+  }
+  return reasons.slice(0, 3);
+}
+
 export function suggestionReasons(
   suggestion: PeopleSuggestion,
   categoryName: (slug: string) => string,
 ): string[] {
-  const reasons: string[] = [];
-  const [firstEvent] = suggestion.sharedEvents;
-  if (firstEvent) reasons.push(`Ikut tim di ${firstEvent.title}`);
-  if (suggestion.mutualCount > 0) reasons.push(`${suggestion.mutualCount} koneksi bersama`);
-  if (suggestion.sharedInterests.length > 0) {
-    const names = suggestion.sharedInterests.slice(0, 2).map(categoryName);
-    const rest = suggestion.sharedInterests.length - names.length;
-    reasons.push(`Minat sama: ${names.join(', ')}${rest > 0 ? ` +${rest}` : ''}`);
-  }
-  if (suggestion.sameMajor) reasons.push('Jurusan sama');
-  else if (suggestion.sameLevel && suggestion.person.educationLevel) {
-    reasons.push(`Sama-sama ${EDUCATION_LEVEL_LABEL[suggestion.person.educationLevel]}`);
-  }
-  return reasons.slice(0, 3);
+  return suggestionReasonItems(suggestion, categoryName).map((reason) => reason.text);
 }
 
 export function personMeta(person: Pick<NetworkPerson, 'major' | 'educationLevel'>): string {
