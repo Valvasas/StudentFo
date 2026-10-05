@@ -208,7 +208,7 @@ export function FilterBar({
             <SlidersHorizontal aria-hidden className="size-4" />
             Saring
             {panelCount > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-pill bg-highlight px-1.5 text-xs font-bold text-[#1d1b17]">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-pill bg-highlight px-1.5 text-xs font-bold text-on-highlight">
                 {panelCount}
                 <span className="sr-only"> aktif</span>
               </span>

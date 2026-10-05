@@ -159,6 +159,15 @@ const PAIRS = [
   ['Lencana brand / accent soft', '--color-accent-text', '--color-accent-soft', 4.5],
   ['Teks sekunder / panel bersarang (lencana netral)', '--color-text-secondary', '--color-surface-nested', 4.5],
   ['Peringatan / panel bersarang (<code> di panel admin demo)', '--color-warning', '--color-surface-nested', 4.5],
+  // Badge hitungan di atas stabilo pekat & label di atas stabilo lembut (ADR-054).
+  ['Tinta stabilo / stabilo pekat (badge hitungan)', '--color-highlight-ink', '--color-highlight', 4.5],
+  ['Teks utama / stabilo lembut', '--color-text-primary', '--color-highlight-soft', 4.5],
+  // Tint catatan tempel (ADR-054): inisial avatar & teks di sampul kartu.
+  ['Teks utama / tint matahari', '--color-text-primary', '--color-tint-sun', 4.5],
+  ['Teks utama / tint mint', '--color-text-primary', '--color-tint-mint', 4.5],
+  ['Teks utama / tint persik', '--color-text-primary', '--color-tint-peach', 4.5],
+  ['Teks utama / tint langit', '--color-text-primary', '--color-tint-sky', 4.5],
+  ['Teks utama / tint lila', '--color-text-primary', '--color-tint-lilac', 4.5],
 ];
 
 let failures = 0;

@@ -14,16 +14,16 @@ import { cn } from '@/lib/utils';
  * berhenti (kosong, tersesat, gagal) — bukan sebagai hiasan di setiap kartu.
  */
 
-const PAPER = 'var(--color-surface)';
-const PAPER_SHADE = 'var(--color-surface-nested)';
-const HIGHLIGHT = 'var(--color-highlight)';
-const PENCIL = 'var(--color-border-strong)';
+export const PAPER = 'var(--color-surface)';
+export const PAPER_SHADE = 'var(--color-surface-nested)';
+export const HIGHLIGHT = 'var(--color-highlight)';
+export const PENCIL = 'var(--color-border-strong)';
 
 interface IllustrationProps {
   className?: string;
 }
 
-function Svg({ viewBox, className, children }: { viewBox: string; className?: string; children: React.ReactNode }) {
+export function Svg({ viewBox, className, children }: { viewBox: string; className?: string; children: React.ReactNode }) {
   return (
     <svg
       aria-hidden

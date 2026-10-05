@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 export const BLOCK_CONSEQUENCE = 'Koneksi & ajakan di antara kalian dihapus, dan kalian tidak bisa saling menemukan atau mengajak lagi. Dia tidak diberi tahu.';
 
 export const blockButton =
-  'flex h-11 w-full items-center justify-center gap-1.5 rounded-card border border-danger-line bg-danger-soft text-[13.5px] font-semibold text-danger';
+  'flex h-11 w-full items-center justify-center gap-1.5 rounded-pill border border-danger-line bg-danger-soft text-[13.5px] font-semibold text-danger';
 
 export function BlockPersonForm({ targetId, name, returnTo }: { targetId: string; name: string; returnTo: string }) {
   return (

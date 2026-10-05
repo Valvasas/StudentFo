@@ -39,7 +39,7 @@ export default async function MessagesPage() {
     // Tanpa AccountShell (ADR-048): kotak masuk sudah punya kolom daftarnya
     // sendiri; menu akun di kiri membuatnya tiga kolom dan memotong nama
     // percakapan. Tujuan menu itu tetap ada di menu akun navbar.
-    <div className="container-page flex flex-col gap-6 pb-16 pt-8">
+    <div className="container-page flex flex-col gap-8 pb-20 pt-8 sm:pt-10">
       <h1 className="sr-only">Pesan</h1>
       <InboxTabs active="pesan" description="Percakapan pribadi, tim, dan penyelenggara kegiatan." />
       <MessagesApp events={events} />

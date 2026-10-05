@@ -1,17 +1,24 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Heart, Search, ShieldCheck, Sparkles, UserPlus, Users, X } from 'lucide-react';
+import type { CSSProperties } from 'react';
+import { ArrowRight, Heart, Inbox, Network, Search, Settings2, ShieldCheck, Sparkles, UserPlus, Users, UsersRound, X, type LucideIcon } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { NetworkGraphView } from '@/components/network/network-graph';
 import { HiddenProfileBanner, NetworkSettings } from '@/components/network/network-settings';
 import { BlockedRow, ConnectionRow, IncomingRequestCard, OutgoingRow, SuggestionCard } from '@/components/network/person-cards';
+import { TINT_BG } from '@/components/ui/avatar';
+import { IllustrationStage } from '@/components/ui/feature-hero';
+import { ConnectSketch } from '@/components/ui/feature-illustrations';
 import { SelectInput } from '@/components/ui/field';
+import { EmptyNotebookSketch } from '@/components/ui/illustrations';
+import { HandNote } from '@/components/ui/sketch';
 import { getSessionUser, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import type { EventRepository } from '@/lib/data/repository';
-import { decodeConnectionCursor, NETWORK_LIMITS, normalizeConnectionSearch, suggestionReasons } from '@/lib/network';
+import { decodeConnectionCursor, NETWORK_LIMITS, normalizeConnectionSearch, suggestionReasonItems } from '@/lib/network';
 import { buildNetworkGraph, buildPreviewGraph } from '@/lib/network-graph';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
+import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 import type { Category, ConnectionCounts, NetworkEventRef } from '@/types/domain';
 
@@ -40,12 +47,12 @@ export const metadata: Metadata = {
 };
 
 const TABS = [
-  { key: 'untukmu', label: 'Untukmu' },
-  { key: 'koneksi', label: 'Koneksimu' },
-  { key: 'ajakan', label: 'Ajakan' },
-  { key: 'peta', label: 'Peta' },
-  { key: 'pengaturan', label: 'Pengaturan' },
-] as const;
+  { key: 'untukmu', label: 'Untukmu', icon: Sparkles },
+  { key: 'koneksi', label: 'Koneksimu', icon: UsersRound },
+  { key: 'ajakan', label: 'Ajakan', icon: Inbox },
+  { key: 'peta', label: 'Peta', icon: Network },
+  { key: 'pengaturan', label: 'Pengaturan', icon: Settings2 },
+] as const satisfies readonly { key: string; label: string; icon: LucideIcon }[];
 type TabKey = (typeof TABS)[number]['key'];
 
 /** Sekilas di "Untukmu"; sisanya satu klik ke tab/halaman lengkapnya. */
@@ -101,16 +108,27 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
   };
 
   return (
-    <div className="container-page pb-20 pt-10">
-      <header className="enter flex flex-col gap-2 [animation-duration:900ms]">
-        <h1 className="text-[clamp(32px,4.5vw,44px)] leading-[1.05]">Koneksi</h1>
-        <p className="max-w-[56ch] text-[15.5px] leading-relaxed text-ink-muted">
-          Temukan orang dengan minat yang sama, lalu ajak mereka satu tim.
-        </p>
+    <div className="container-page pb-24 pt-8 sm:pt-12">
+      <header className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+        <div className="enter flex flex-col gap-3 [animation-duration:900ms]">
+          <HandNote className="text-[22px] text-ink-muted">satu minat, satu tim</HandNote>
+          <h1 className="-mt-1 text-[clamp(38px,5.2vw,58px)] leading-[1]">
+            <span className="marker">Koneksi</span>
+          </h1>
+          <p className="max-w-[52ch] text-[16px] leading-relaxed text-ink-muted">
+            Temukan orang dengan minat yang sama, lalu ajak mereka satu tim — sebelum tenggat lomba berikutnya datang.
+          </p>
+        </div>
+        {/* Halaman kerja: ilustrasi hanya di layar lebar, supaya di ponsel daftar orang langsung terlihat. */}
+        <IllustrationStage tint="lilac" className="enter hidden pb-2 pt-5 [animation-delay:140ms] lg:flex">
+          <ConnectSketch className="max-w-[300px]" />
+        </IllustrationStage>
       </header>
 
-      <nav aria-label="Bagian koneksi" className="-mx-4 mt-8 overflow-x-auto border-b border-line px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
-        <ul className="flex w-max gap-1">
+      {/* `relative`: teks sr-only di badge hitungan berposisi absolut; tanpa wadah
+          berposisi ia lolos dari kliping gulir ini dan melebarkan halaman di 320px. */}
+      <nav aria-label="Bagian koneksi" className="relative -mx-5 mt-8 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
+        <ul className="flex w-max gap-1 rounded-pill border border-line bg-panel p-1.5">
           {TABS.map((item) => {
             const on = item.key === tab;
             const count = item.key === 'koneksi' ? counts.accepted : item.key === 'ajakan' ? counts.incoming : null;
@@ -120,17 +138,18 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
                   href={tabHref(item.key)}
                   aria-current={on ? 'page' : undefined}
                   className={cn(
-                    'flex h-12 items-center gap-2 whitespace-nowrap px-3 text-[15px] transition-colors duration-150',
-                    on ? 'font-semibold text-ink shadow-[inset_0_-2px_0_var(--color-text-primary)]' : 'font-medium text-ink-muted hover:text-ink',
+                    'flex h-11 items-center gap-2 whitespace-nowrap rounded-pill px-4 text-[14.5px] transition-colors duration-200 ease-snap',
+                    on ? 'bg-brand font-semibold text-on-brand' : 'font-medium text-ink-muted hover:bg-panel-nested hover:text-ink',
                   )}
                 >
+                  <item.icon aria-hidden className="size-4" />
                   {item.label}
                   {count !== null && count > 0 && (
                     // Ajakan masuk menunggu jawaban pembaca → satu-satunya angka yang ditonjolkan.
                     <span
                       className={cn(
-                        'flex h-5 min-w-5 items-center justify-center rounded-[10px] px-1.5 text-[11px] font-semibold',
-                        item.key === 'ajakan' ? 'bg-brand text-on-brand' : 'bg-panel-nested text-ink-soft',
+                        'flex h-5 min-w-5 items-center justify-center rounded-pill px-1.5 text-[11px] font-semibold',
+                        on ? 'bg-on-brand text-brand' : item.key === 'ajakan' ? 'bg-highlight text-on-highlight' : 'bg-panel-nested text-ink-soft',
                       )}
                     >
                       {count}
@@ -146,7 +165,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
 
       <ActionFeedback params={params} className="mt-6 max-w-2xl" />
 
-      <div className="mt-8">
+      <div className="mt-10">
         {tab === 'untukmu' && <ForYouTab {...context} />}
         {tab === 'koneksi' && <ConnectionsTab {...context} />}
         {tab === 'ajakan' && <InvitationsTab {...context} />}
@@ -202,9 +221,9 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
             count={counts.incoming}
             action={counts.incoming > incoming.length ? { href: tabHref('ajakan'), label: `Lihat semua ${counts.incoming}` } : undefined}
           />
-          <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr))]">
-            {incoming.map((connection) => (
-              <li key={connection.id}>
+          <ul className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))]">
+            {incoming.map((connection, index) => (
+              <li key={connection.id} className="rise" style={{ '--i': index } as CSSProperties}>
                 <IncomingRequestCard connection={connection} categoryName={categoryName} viewerInterests={user.interests} returnTo={returnTo} now={now} />
               </li>
             ))}
@@ -217,22 +236,28 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
 
         {/* Satu baris: kata kunci + minat + tombol. Dua belas chip minat yang
             dulu berjejer di sini bersaing dengan hasil yang dicari. */}
-        <form method="get" action="/connections" role="search" className="flex flex-col gap-2 sm:flex-row">
+        <form
+          method="get"
+          action="/connections"
+          role="search"
+          className="flex flex-col gap-1.5 rounded-[24px] border border-line bg-panel p-1.5 transition-colors duration-150 focus-within:border-line-strong sm:flex-row sm:items-center sm:rounded-pill"
+        >
           <label className="relative flex flex-1 items-center">
             <span className="sr-only">Cari nama, jurusan, atau keahlian</span>
-            <Search aria-hidden className="pointer-events-none absolute left-3.5 size-4 text-ink-muted" />
+            <Search aria-hidden className="pointer-events-none absolute left-4 size-[18px] text-ink-muted" />
             <input
               type="search"
               name="q"
               defaultValue={search}
               maxLength={80}
               placeholder="Nama, jurusan, atau keahlian…"
-              className="h-11 w-full rounded-card border border-line-strong/70 bg-panel pl-10 pr-3.5 text-base transition-colors duration-150 hover:border-line-strong focus-visible:border-brand"
+              className="h-12 w-full rounded-pill bg-transparent pl-11 pr-4 text-base"
             />
           </label>
+          <span aria-hidden className="hidden h-7 w-px bg-line sm:block" />
           <label className="sm:w-56">
             <span className="sr-only">Saring minat</span>
-            <SelectInput name="minat" defaultValue={interest ?? ''}>
+            <SelectInput name="minat" defaultValue={interest ?? ''} className="h-12 rounded-pill border-transparent bg-panel-nested pl-4 hover:border-transparent sm:bg-transparent">
               <option value="">Semua minat</option>
               {mine.length > 0 && (
                 <optgroup label="Minatmu">
@@ -252,20 +277,21 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
               </optgroup>
             </SelectInput>
           </label>
-          <button type="submit" className="flex h-11 items-center justify-center rounded-card bg-brand px-5 text-sm font-semibold text-on-brand hover:bg-brand-hover">
+          <button type="submit" className="flex h-12 items-center justify-center rounded-pill bg-brand px-6 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover">
             Cari
           </button>
         </form>
         {filtered && (
-          <Link href="/connections" className="-mt-2 flex min-h-11 items-center gap-1.5 self-start text-[13px] font-medium text-ink-muted hover:text-ink">
+          <Link href="/connections" className="-mt-2 flex min-h-11 w-fit items-center gap-1.5 rounded-pill px-2 text-[13px] font-medium text-ink-muted hover:text-ink">
             <X aria-hidden className="size-3.5" /> Hapus saringan
           </Link>
         )}
 
         {suggestions.length === 0 ? (
-          <div className="flex flex-col items-start gap-2 rounded-[18px] border border-dashed border-line-strong p-6">
-            <p className="text-[15px] font-semibold">{filtered ? 'Belum ada yang cocok dengan saringan ini.' : 'Belum ada saran untukmu saat ini.'}</p>
-            <p className="text-sm leading-relaxed text-ink-muted">
+          <div className="flex flex-col items-center gap-2 rounded-[28px] border border-dashed border-line-strong px-6 py-10 text-center">
+            {filtered ? <EmptyNotebookSketch className="mb-2 text-ink-soft" /> : <ConnectSketch className="mb-2 max-w-[220px] text-ink-soft" />}
+            <p className="font-display text-lg font-semibold">{filtered ? 'Belum ada yang cocok dengan saringan ini.' : 'Belum ada saran untukmu saat ini.'}</p>
+            <p className="max-w-[46ch] text-sm leading-relaxed text-ink-muted">
               {filtered
                 ? 'Coba kata kunci lain, atau pilih minat yang lebih umum.'
                 : 'Saran hanya berisi orang yang memilih bisa ditemukan. Cek lagi nanti, atau buka tim di Cari Tim agar orang yang cocok datang padamu.'}
@@ -278,12 +304,14 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
           </div>
         ) : (
           <>
-            <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr))]">
-              {shown.map((suggestion) => (
-                <li key={suggestion.person.userId}>
+            {/* Ponsel: satu baris geser ber-snap (CSS murni). Enam kartu setinggi
+                ±400px yang ditumpuk mendorong apa pun di bawahnya ke layar keenam. */}
+            <ul className="relative -mx-5 grid snap-x snap-mandatory auto-cols-[min(82%,300px)] grid-flow-col gap-4 overflow-x-auto px-5 pb-3 [scroll-padding-inline:1.25rem] sm:mx-0 sm:snap-none sm:auto-cols-auto sm:grid-flow-row sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0 sm:[grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+              {shown.map((suggestion, index) => (
+                <li key={suggestion.person.userId} className="rise snap-start" style={{ '--i': index } as CSSProperties}>
                   <SuggestionCard
                     person={suggestion.person}
-                    reasons={suggestionReasons(suggestion, categoryName)}
+                    reasons={suggestionReasonItems(suggestion, categoryName)}
                     viewerInterests={user.interests}
                     categoryName={categoryName}
                     returnTo={returnTo}
@@ -294,7 +322,7 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
             {shown.length < suggestions.length && (
               <Link
                 href={`${tabHref('untukmu', { lagi: '1' })}#cari-koneksi`}
-                className="flex min-h-11 items-center gap-1.5 self-center rounded-card border border-line-strong/70 px-5 text-sm font-semibold transition-colors duration-150 hover:bg-panel-nested"
+                className="flex min-h-12 items-center gap-1.5 self-center rounded-pill border border-line-strong/70 bg-panel px-6 text-sm font-semibold transition-colors duration-150 hover:bg-panel-nested"
               >
                 Tampilkan {suggestions.length - shown.length} saran lainnya
               </Link>
@@ -304,7 +332,7 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
       </section>
 
       {counts.accepted === 0 && counts.incoming === 0 && user.interests.length === 0 && (
-        <p className="flex items-start gap-2 text-[13.5px] leading-relaxed text-ink-muted">
+        <p className="flex items-start gap-2 rounded-[18px] bg-panel-nested p-4 text-[13.5px] leading-relaxed text-ink-muted">
           <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0" />
           Saran di atas lebih nyambung kalau kamu mengisi peminatan.
           <Link href="/profile/interests" className="shrink-0 font-semibold text-ink underline underline-offset-[3px]">
@@ -338,21 +366,21 @@ async function ConnectionsTab({ user, repository, params, counts, now }: TabCont
         />
       ) : (
         <>
-          <form method="get" action="/connections" role="search" className="flex gap-2">
+          <form method="get" action="/connections" role="search" className="flex gap-1.5 rounded-pill border border-line bg-panel p-1.5 transition-colors duration-150 focus-within:border-line-strong">
             <input type="hidden" name="tab" value="koneksi" />
             <label className="relative flex flex-1 items-center">
               <span className="sr-only">Cari di antara koneksimu</span>
-              <Search aria-hidden className="pointer-events-none absolute left-3.5 size-4 text-ink-muted" />
+              <Search aria-hidden className="pointer-events-none absolute left-4 size-[18px] text-ink-muted" />
               <input
                 type="search"
                 name="cari"
                 defaultValue={search}
                 maxLength={60}
                 placeholder={`Cari di antara ${counts.accepted} koneksi…`}
-                className="h-11 w-full rounded-card border border-line-strong/70 bg-panel pl-10 pr-3.5 text-base transition-colors duration-150 hover:border-line-strong focus-visible:border-brand"
+                className="h-11 w-full rounded-pill bg-transparent pl-11 pr-3.5 text-base"
               />
             </label>
-            <button type="submit" className="flex h-11 items-center rounded-card bg-brand px-4 text-sm font-semibold text-on-brand hover:bg-brand-hover">
+            <button type="submit" className="flex h-11 items-center rounded-pill bg-brand px-5 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover">
               Cari
             </button>
           </form>
@@ -365,7 +393,7 @@ async function ConnectionsTab({ user, repository, params, counts, now }: TabCont
               </Link>
             </p>
           ) : (
-            <ul className="flex flex-col divide-y divide-line rounded-[18px] border border-line px-5">
+            <ul className="flex flex-col divide-y divide-line rounded-[22px] border border-line bg-panel p-2">
               {items.map((connection) => (
                 <ConnectionRow key={connection.id} connection={connection} returnTo={returnTo} now={now} />
               ))}
@@ -395,7 +423,7 @@ async function InvitationsTab({ user, repository, params, categoryName, counts, 
 
   return (
     <div className="flex flex-col gap-6">
-      <nav aria-label="Arah ajakan" className="flex gap-1.5">
+      <nav aria-label="Arah ajakan" className="flex w-fit gap-1 rounded-pill border border-line bg-panel p-1.5">
         {(
           [
             ['masuk', 'Masuk', counts.incoming],
@@ -407,8 +435,8 @@ async function InvitationsTab({ user, repository, params, categoryName, counts, 
             href={tabHref('ajakan', { arah: key })}
             aria-current={direction === key ? 'page' : undefined}
             className={cn(
-              'flex min-h-11 items-center gap-2 rounded-sm border px-4 text-[13.5px] font-medium transition-colors duration-150',
-              direction === key ? 'border-brand bg-brand text-on-brand' : 'border-line hover:border-line-strong',
+              'flex min-h-11 items-center gap-2 rounded-pill px-5 text-[14px] font-medium transition-colors duration-200 ease-snap',
+              direction === key ? 'bg-brand font-semibold text-on-brand' : 'text-ink-muted hover:bg-panel-nested hover:text-ink',
             )}
           >
             {label}
@@ -427,9 +455,9 @@ async function InvitationsTab({ user, repository, params, categoryName, counts, 
           ) : (
             <>
               <p className="text-[13.5px] text-ink-muted">Terima atau tolak — pengirim tidak diberi tahu alasannya.</p>
-              <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr))]">
-                {page.items.map((connection) => (
-                  <li key={connection.id}>
+              <ul className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))]">
+                {page.items.map((connection, index) => (
+                  <li key={connection.id} className="rise" style={{ '--i': index } as CSSProperties}>
                     <IncomingRequestCard connection={connection} categoryName={categoryName} viewerInterests={user.interests} returnTo={returnTo} now={now} />
                   </li>
                 ))}
@@ -445,7 +473,7 @@ async function InvitationsTab({ user, repository, params, categoryName, counts, 
           {page.items.length === 0 ? (
             <EmptyNote title="Tidak ada ajakan yang menunggu jawaban" body="Ajakan yang kamu kirim muncul di sini sampai diterima atau ditolak." />
           ) : (
-            <ul className="flex flex-col divide-y divide-line rounded-[18px] border border-line px-5">
+            <ul className="flex flex-col divide-y divide-line rounded-[22px] border border-line bg-panel p-2">
               {page.items.map((connection) => (
                 <OutgoingRow key={connection.id} connection={connection} returnTo={returnTo} now={now} />
               ))}
@@ -517,7 +545,7 @@ async function SettingsTab({ user, repository, categoryName, now }: TabContext) 
             Belum ada. Blokir lewat menu opsi di daftar koneksi, kartu ajakan, atau panel peta.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-line rounded-[18px] border border-line px-5">
+          <ul className="flex flex-col divide-y divide-line rounded-[22px] border border-line bg-panel p-2">
             {blocked.map((person) => (
               <BlockedRow key={person.userId} person={person} returnTo={returnTo} now={now} />
             ))}
@@ -571,9 +599,9 @@ function Pager({ first, next, label }: { first: string | null; next: string | nu
       {next && (
         <Link
           href={next}
-          className="flex min-h-11 items-center gap-1.5 rounded-card border border-line-strong/70 px-4 text-sm font-semibold transition-colors duration-150 hover:bg-panel-nested"
+          className="group flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong/70 bg-panel px-5 text-sm font-semibold transition-colors duration-150 hover:bg-panel-nested"
         >
-          Berikutnya<span className="sr-only"> {label}</span> <ArrowRight aria-hidden className="size-4" />
+          Berikutnya<span className="sr-only"> {label}</span> <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
         </Link>
       )}
     </nav>
@@ -582,41 +610,47 @@ function Pager({ first, next, label }: { first: string | null; next: string | nu
 
 function EmptyNote({ title, body, action }: { title: string; body: string; action?: { href: string; label: string } }) {
   return (
-    <div className="flex flex-col items-start gap-2 rounded-[18px] border border-dashed border-line-strong p-6">
-      <p className="text-[15px] font-semibold">{title}</p>
-      <p className="text-sm leading-relaxed text-ink-muted">{body}</p>
+    <div className="flex flex-col items-center gap-2 rounded-[28px] border border-dashed border-line-strong px-6 py-10 text-center">
+      <ConnectSketch className="mb-2 max-w-[200px] text-ink-soft" />
+      <p className="font-display text-lg font-semibold">{title}</p>
+      <p className="max-w-[46ch] text-sm leading-relaxed text-ink-muted">{body}</p>
       {action && (
-        <Link href={action.href} className="mt-1 flex min-h-11 items-center gap-1.5 text-sm font-semibold underline underline-offset-[3px]">
-          {action.label} <ArrowRight aria-hidden className="size-4" />
+        <Link
+          href={action.href}
+          className="group mt-2 flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong/70 bg-panel px-5 text-sm font-semibold transition-colors duration-150 hover:bg-panel-nested"
+        >
+          {action.label} <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
         </Link>
       )}
     </div>
   );
 }
 
-const GUEST_POINTS = [
-  { icon: Heart, title: 'Disarankan dari minat', body: 'Orang dengan minat, jurusan, dan kegiatan yang sama muncul lebih dulu — lengkap dengan alasannya.' },
-  { icon: UserPlus, title: 'Ajakan dua arah', body: 'Terhubung hanya kalau kedua pihak setuju. Kalau sama-sama mengajak, kalian langsung terhubung.' },
-  { icon: ShieldCheck, title: 'Kamu yang memilih terlihat', body: 'Tersembunyi secara bawaan. Email dan kegiatan yang kamu simpan tidak pernah ditampilkan.' },
-] as const;
+const GUEST_POINTS: readonly { icon: LucideIcon; tint: Tint; title: string; body: string }[] = [
+  { icon: Heart, tint: 'peach', title: 'Disarankan dari minat', body: 'Orang dengan minat, jurusan, dan kegiatan yang sama muncul lebih dulu — lengkap dengan alasannya.' },
+  { icon: UserPlus, tint: 'mint', title: 'Ajakan dua arah', body: 'Terhubung hanya kalau kedua pihak setuju. Kalau sama-sama mengajak, kalian langsung terhubung.' },
+  { icon: ShieldCheck, tint: 'sky', title: 'Kamu yang memilih terlihat', body: 'Tersembunyi secara bawaan. Email dan kegiatan yang kamu simpan tidak pernah ditampilkan.' },
+];
 
 function GuestConnections({ categories }: { categories: Parameters<typeof buildPreviewGraph>[0] }) {
   const preview = buildPreviewGraph(categories);
   return (
-    <div className="container-page pb-16 pt-10">
+    <div className="container-page pb-24 pt-10 sm:pt-14">
       <div className="grid items-center gap-10 [grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr))]">
         <header className="enter flex flex-col gap-4 [animation-duration:900ms]">
-          <span className="font-mono text-[13px] text-ink-muted">Jaringan</span>
-          <h1 className="text-[clamp(36px,5vw,56px)] leading-[1.02]">Temukan rekan satu minat, lihat semua sambungannya.</h1>
+          <HandNote className="text-[22px] text-ink-muted">jaringan pelajar & mahasiswa</HandNote>
+          <h1 className="-mt-1 text-[clamp(36px,5vw,58px)] leading-[1.02]">
+            Temukan rekan <span className="marker">satu minat</span>, lihat semua sambungannya.
+          </h1>
           <p className="max-w-[48ch] text-[16px] leading-relaxed text-ink-muted">
             Koneksi memetakan orang, minat, dan kegiatan jadi satu graf — supaya kamu tahu siapa yang bisa diajak satu tim sebelum
             tenggat lomba datang.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Link href="/login?next=%2Fconnections" className="flex h-11 items-center rounded-card bg-brand px-5 text-sm font-semibold text-on-brand hover:bg-brand-hover">
+            <Link href="/login?next=%2Fconnections" className="flex h-12 items-center rounded-pill bg-brand px-6 text-[15px] font-semibold text-on-brand hover:bg-brand-hover">
               Masuk untuk mulai
             </Link>
-            <Link href="/register" className="flex h-11 items-center rounded-card border border-line-strong/70 px-5 text-sm font-semibold hover:bg-panel-nested">
+            <Link href="/register" className="flex h-12 items-center rounded-pill border border-line-strong/70 bg-panel px-6 text-[15px] font-semibold hover:bg-panel-nested">
               Buat akun gratis
             </Link>
           </div>
@@ -627,11 +661,11 @@ function GuestConnections({ categories }: { categories: Parameters<typeof buildP
         </div>
       </div>
 
-      <ul className="mt-16 grid gap-8 border-t border-line pt-10 [grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))]">
-        {GUEST_POINTS.map((point) => (
-          <li key={point.title} className="flex flex-col gap-2.5">
-            <span className="flex size-10 items-center justify-center rounded-card bg-panel-nested">
-              <point.icon aria-hidden className="size-[18px]" />
+      <ul className="mt-16 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))]">
+        {GUEST_POINTS.map((point, index) => (
+          <li key={point.title} style={{ '--i': index + 2 } as CSSProperties} className="rise flex flex-col gap-3 rounded-[24px] border border-line bg-panel p-6">
+            <span className={cn('dot-grid flex size-12 items-center justify-center rounded-[16px]', TINT_BG[point.tint])}>
+              <point.icon aria-hidden className="size-5" />
             </span>
             <h2 className="text-[17px] font-semibold tracking-[-0.015em]">{point.title}</h2>
             <p className="text-[14.5px] leading-relaxed text-ink-muted">{point.body}</p>

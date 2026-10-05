@@ -59,7 +59,8 @@ for (const [listing, linkPrefix] of [
 ] as const) {
   test(`tanpa pelanggaran WCAG: detail pertama dari ${listing}`, async ({ page }) => {
     await page.goto(listing);
-    const href = await page.locator(`main a[href^="${linkPrefix}"]`).first().getAttribute('href');
+    // `/teams/baru` adalah form, bukan detail — diaudit terpisah di SIGNED_IN_ROUTES.
+    const href = await page.locator(`main a[href^="${linkPrefix}"]:not([href="/teams/baru"])`).first().getAttribute('href');
     expect(href).toBeTruthy();
     await page.goto(href!);
     await expectNoViolations(page);
@@ -107,6 +108,8 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/tracker'],
   ['Mahasiswa', '/profile'],
   ['Mahasiswa', '/teams'],
+  ['Mahasiswa', '/teams/baru'],
+  ['Mahasiswa', '/teams/baru?error=invalid_team_form'],
   ['Mahasiswa', '/profile/details'],
   ['Mahasiswa', '/profile/details?ubah=pendidikan'],
   ['Mahasiswa', '/profile/interests'],
@@ -166,7 +169,12 @@ test('beranda pribadi dengan pintasan peran (Penyelenggara) tanpa pelanggaran WC
 
 test('koneksi: opsi putus/blokir terbuka & daftar blokir terisi tanpa pelanggaran WCAG', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/connections');
-  await page.locator('section[aria-labelledby="ajakan-masuk"] article summary').first().click();
+  const blockSummary = page.locator('section[aria-labelledby="ajakan-masuk"] article summary').first();
+  await blockSummary.click();
+  // Klik menggulir seperlunya, sehingga kepala kartu ajakan bisa berhenti tepat
+  // di bawah navbar lengket — axe lalu menganggap tautan nama "tertutupi" oleh
+  // tautan navbar. Itu posisi gulir, bukan tata letak; periksa di posisi baca.
+  await blockSummary.evaluate((element) => element.closest('article')?.scrollIntoView({ block: 'center' }));
   await expectNoViolations(page);
   await page.goto('/connections?tab=koneksi');
   await page.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();

@@ -69,7 +69,13 @@ export function NavigationProgress() {
     const onSubmit = (event: SubmitEvent) => {
       const form = event.target;
       if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== 'get') return;
-      start();
+      // Form tanpa `method` juga GET — termasuk form yang ditangani klien
+      // (kotak masuk demo: onSubmit + preventDefault) dan tidak pernah
+      // berpindah halaman. Listener ini jalan di fase capture, SEBELUM handler
+      // React, jadi keputusannya ditunda satu tick sampai preventDefault terbaca.
+      window.setTimeout(() => {
+        if (!event.defaultPrevented) start();
+      }, 0);
     };
 
     // Form GET = muat penuh. Bila pengguna menekan Kembali, halaman lama bisa

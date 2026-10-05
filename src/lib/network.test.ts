@@ -16,6 +16,7 @@ import {
   personMeta,
   rankSuggestions,
   scoreSuggestion,
+  suggestionReasonItems,
   suggestionReasons,
   type NetworkViewer,
 } from './network';
@@ -92,11 +93,13 @@ describe('suggestionReasons', () => {
       '2 koneksi bersama',
       'Minat sama: TEKNOLOGI, DESAIN +1',
     ]);
+    expect(suggestionReasonItems(suggestion, String).map((reason) => reason.kind)).toEqual(['team', 'mutual', 'interest']);
   });
 
   it('jenjang dipakai hanya kalau jurusan tidak sama', () => {
     const suggestion = scoreSuggestion(viewer, { person: person({ userId: 'a', fullName: 'A', educationLevel: 'D4_S1' }), mutualCount: 0, sharedEvents: [] });
     expect(suggestionReasons(suggestion, String)).toEqual(['Sama-sama D4/S1']);
+    expect(suggestionReasonItems(suggestion, String)).toEqual([{ kind: 'level', text: 'Sama-sama D4/S1' }]);
   });
 });
 

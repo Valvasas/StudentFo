@@ -29,7 +29,7 @@ export default async function DiscussionsPage() {
 
   return (
     // Tanpa AccountShell — alasan yang sama dengan /messages (ADR-048).
-    <div className="container-page flex flex-col gap-6 pb-16 pt-8">
+    <div className="container-page flex flex-col gap-8 pb-20 pt-8 sm:pt-10">
       <h1 className="sr-only">Ruang diskusi</h1>
       <InboxTabs active="diskusi" description="Satu grup untuk setiap kegiatan yang kamu ikuti. Panitia menjawab langsung di sini." />
       <DiscussionsApp events={events} userName={user.fullName} />

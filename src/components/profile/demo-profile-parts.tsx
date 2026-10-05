@@ -230,6 +230,21 @@ export function DemoTeamCard() {
   );
 }
 
+/** Peran tim dalam satu baris chip — versi ringkas `DemoTeamCard` untuk kepala /teams. */
+export function DemoTeamRoles() {
+  const [extras] = useExtras();
+  if (extras.roles.length === 0) return null;
+  return (
+    <ul aria-label="Peranmu di tim" className="flex flex-wrap gap-1.5">
+      {extras.roles.map((role) => (
+        <li key={role} className="flex h-7 items-center rounded-pill bg-panel-nested px-3 text-[12.5px] font-semibold">
+          {role}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function DemoPhone() {
   const [extras] = useExtras();
   if (!extras.phone) return null;

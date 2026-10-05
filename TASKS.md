@@ -472,3 +472,18 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] **P1** CAPTCHA Supabase Auth di daftar & lupa sandi; MFA wajib untuk ADMIN.
 - [ ] **P1** Laporkan kegiatan + antrean laporan; pengingat email + preferensi kanal (ADR-051).
 - [ ] **P2** `markNotificationReadAction`: batasi `revalidatePath` ke path yang dikenal.
+
+## Fitur unggulan: tim, koneksi, kotak masuk 2026-10-05 (@claude) — ADR-054
+
+- [x] `/teams/baru`: form buka tim di halamannya sendiri (3 langkah, pratinjau `TeamCard` asli, −/+, chip bantu-tulis).
+- [x] `/teams`: kepala berilustrasi, "kamu tampil sebagai", statistik, "Tim kamu", grid kartu bersampul tint.
+- [x] `/teams/[id]`: sampul, kartu anggota & kursi kosong, perayaan `team_created`, konfirmasi bubarkan/keluarkan; bug judul kegiatan tak terlihat di panel gelap.
+- [x] `/connections`: kepala berilustrasi, tab pil berikon, kartu saran bersampul + alasan berikon (`suggestionReasonItems`), ajakan bergelembung, carousel ponsel, pratinjau pengaturan = kartu asli; bug overflow `sr-only` 31–100px.
+- [x] `/discussions`: state di URL (back button), composer layar sendiri, sampul grup + monogram, baris utas bisa diklik penuh, linimasa balasan.
+- [x] `/messages`: avatar per jenis, latar kisi, animasi pesan baru, info = Radix Dialog.
+- [x] Bilah progres navigasi tidak lagi macet pada form klien (`preventDefault`).
+- [x] Token tint + `check:contrast`, `lib/tint.ts`, `monogramOf`, `Avatar`/`AvatarStack`, `FeatureHero`/`IllustrationStage`/`StatTile`.
+- [ ] **P2** Halaman lain belum memakai `Avatar` bertint (profil `/orang/[id]`, menu akun, panel peta) — samakan bila disentuh.
+- [ ] **P2** Peta koneksi (kanvas) masih monokrom; simpul orang bisa memakai `tintOf` yang sama dengan kartunya.
+- [ ] **P2** Formulir `/teams/baru`: kegiatan > 48 butuh pemilih dengan pencarian (`Picker`) alih-alih `<select>`.
+

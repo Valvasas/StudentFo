@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowLeft, BadgeCheck, ChevronRight, FileText, Info, Search, Send, ShieldCheck, X } from 'lucide-react';
 import { useDemoStore } from '@/components/demo/use-demo-store';
+import { Avatar as InitialsAvatar, type AvatarSize } from '@/components/ui/avatar';
+import { ChatSketch } from '@/components/ui/feature-illustrations';
 import { DEMO_UNREAD_DEFAULT, DEMO_UNREAD_KEY, readDemoNumber, writeDemoJson } from '@/lib/demo/browser-store';
 import {
   CONVERSATION_FILTERS,
@@ -16,7 +19,6 @@ import {
   type DemoMessage,
   type StoredMessages,
 } from '@/lib/demo/conversations';
-import { initialsOf } from '@/lib/initials';
 import { cn } from '@/lib/utils';
 
 const READ_KEY = 'sf-demo-read';
@@ -30,22 +32,16 @@ export interface RelatedEvent {
   readonly closes: string | null;
 }
 
-function Avatar({ conversation, size = 'md' }: { conversation: DemoConversation; size?: 'md' | 'sm' }) {
+/** Tim & penyelenggara berbentuk kotak (kelompok/lembaga), orang berbentuk lingkaran. Akun resmi bertinta pekat, bukan tint. */
+function Avatar({ conversation, size = 'md' }: { conversation: DemoConversation; size?: AvatarSize }) {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        'flex shrink-0 items-center justify-center border font-mono font-medium',
-        size === 'md' ? 'size-11 text-[13px]' : 'size-9 text-xs',
-        conversation.kind === 'Tim'
-          ? 'rounded-[12px] border-brand bg-brand text-on-brand'
-          : conversation.official
-            ? 'rounded-[10px] border-brand bg-panel'
-            : 'rounded-full border-panel-nested bg-panel-nested',
-      )}
-    >
-      {initialsOf(conversation.name)}
-    </span>
+    <InitialsAvatar
+      name={conversation.name}
+      seed={conversation.id}
+      size={size}
+      shape={conversation.kind === 'Pribadi' ? 'circle' : 'square'}
+      className={conversation.official ? 'bg-brand text-on-brand' : undefined}
+    />
   );
 }
 
@@ -88,13 +84,6 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' });
   }, [thread.length, selected, typing]);
-
-  useEffect(() => {
-    if (!info) return;
-    const onKey = (event: globalThis.KeyboardEvent) => event.key === 'Escape' && setInfo(false);
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [info]);
 
   const open = (conversation: DemoConversation) => {
     setSelected(conversation.id);
@@ -142,22 +131,22 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
   };
 
   return (
-    <div className="grid h-[clamp(520px,calc(100dvh-290px),760px)] grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[18px] border border-line bg-panel md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
+    <div className="enter grid h-[clamp(540px,calc(100dvh-280px),780px)] grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[26px] border border-line bg-panel shadow-card [animation-delay:100ms] md:grid-cols-[320px_minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
       {/* Daftar percakapan */}
       <section aria-label="Daftar percakapan" className={cn('min-h-0 flex-col border-line md:flex md:border-r', pane === 'list' ? 'flex' : 'hidden')}>
         <div className="flex flex-col gap-3 border-b border-line p-4">
           <label className="relative flex items-center">
             <span className="sr-only">Cari percakapan</span>
-            <Search aria-hidden className="pointer-events-none absolute left-3 size-4 text-ink-muted" />
+            <Search aria-hidden className="pointer-events-none absolute left-3.5 size-4 text-ink-muted" />
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Cari nama atau tim"
-              className="h-11 w-full rounded-card border border-line-strong/70 bg-panel pl-9 pr-3 text-base focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              className="h-11 w-full rounded-pill border border-transparent bg-panel-nested pl-10 pr-4 text-base transition-colors duration-150 hover:border-line-strong focus-visible:border-brand focus-visible:bg-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             />
           </label>
-          <div role="group" aria-label="Saring percakapan" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5">
+          <div role="group" aria-label="Saring percakapan" className="relative -mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]">
             {CONVERSATION_FILTERS.map((item) => (
               <button
                 key={item}
@@ -165,8 +154,8 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
                 aria-pressed={filter === item}
                 onClick={() => setFilter(item)}
                 className={cn(
-                  'flex h-9 shrink-0 items-center rounded-sm px-3 text-[13px] font-medium transition-colors duration-150',
-                  filter === item ? 'bg-brand text-on-brand' : 'bg-panel-nested text-ink-soft hover:text-ink',
+                  'flex h-9 shrink-0 items-center rounded-pill px-3.5 text-[13px] font-medium transition-colors duration-200 ease-snap',
+                  filter === item ? 'bg-brand text-on-brand' : 'border border-line text-ink-soft hover:border-line-strong hover:text-ink',
                 )}
               >
                 {item}
@@ -185,7 +174,10 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
                   type="button"
                   onClick={() => open(conversation)}
                   aria-current={active ? 'true' : undefined}
-                  className={cn('flex w-full items-start gap-3 border-b border-line/70 px-4 py-3.5 text-left transition-colors duration-150', active ? 'bg-panel-nested' : 'hover:bg-panel-nested/60')}
+                  className={cn(
+                    'flex w-full items-start gap-3 border-b border-line/70 px-4 py-3.5 text-left transition-colors duration-150',
+                    active ? 'bg-panel-nested shadow-[inset_3px_0_0_var(--color-text-primary)]' : 'hover:bg-panel-nested/60',
+                  )}
                 >
                   <Avatar conversation={conversation} />
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -202,7 +194,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
                         {last?.file ? 'mengirim berkas' : last?.text}
                       </span>
                       {unread > 0 && (
-                        <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-[10px] bg-brand px-1.5 text-[11px] font-semibold text-on-brand">
+                        <span className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-pill bg-highlight px-1.5 text-[11px] font-semibold text-on-highlight">
                           {unread}
                           <span className="sr-only"> belum dibaca</span>
                         </span>
@@ -214,18 +206,24 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
               </li>
             );
           })}
-          {list.length === 0 && <li className="p-6 text-center text-sm text-ink-muted">Tidak ada percakapan yang cocok.</li>}
+          {list.length === 0 && (
+            <li className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+              <ChatSketch className="max-w-[160px] text-ink-soft" />
+              <span className="text-sm font-semibold">Tidak ada percakapan yang cocok.</span>
+              <span className="text-[12.5px] text-ink-muted">Coba nama lain, atau pilih saringan &ldquo;Semua&rdquo;.</span>
+            </li>
+          )}
         </ul>
       </section>
 
       {/* Utas */}
       <section aria-label={`Percakapan dengan ${current.name}`} className={cn('min-h-0 min-w-0 flex-col md:flex', pane === 'chat' ? 'flex' : 'hidden')}>
-        <header className="flex items-center gap-3 border-b border-line px-3 py-3 sm:px-4">
-          <button type="button" onClick={() => setPane('list')} className="flex size-11 shrink-0 items-center justify-center rounded-sm hover:bg-panel-nested md:hidden">
+        <header className="flex items-center gap-3 border-b border-line px-3 py-3 sm:px-5">
+          <button type="button" onClick={() => setPane('list')} className="flex size-11 shrink-0 items-center justify-center rounded-pill hover:bg-panel-nested md:hidden">
             <ArrowLeft aria-hidden className="size-5" />
             <span className="sr-only">Kembali ke daftar percakapan</span>
           </button>
-          <Avatar conversation={current} size="sm" />
+          <Avatar conversation={current} size="md" />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="flex items-center gap-1 truncate text-[15px] font-semibold">
               {current.name}
@@ -233,15 +231,13 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
             </span>
             <span className="truncate text-[12.5px] text-ink-muted">{current.sub}</span>
           </span>
-          <button
-            type="button"
-            aria-expanded={info}
-            onClick={() => setInfo((value) => !value)}
-            className={cn('flex size-11 shrink-0 items-center justify-center rounded-sm hover:bg-panel-nested', info && 'bg-panel-nested')}
-          >
-            <Info aria-hidden className="size-5" />
-            <span className="sr-only">Info percakapan</span>
-          </button>
+          <Dialog.Root open={info} onOpenChange={setInfo}>
+            <Dialog.Trigger className={cn('flex size-11 shrink-0 items-center justify-center rounded-pill hover:bg-panel-nested', info && 'bg-panel-nested')}>
+              <Info aria-hidden className="size-5" />
+              <span className="sr-only">Info percakapan</span>
+            </Dialog.Trigger>
+            <InfoSheet conversation={current} event={event} />
+          </Dialog.Root>
         </header>
 
         {/* tabIndex: wilayah gulir harus bisa dicapai & digulir dengan keyboard (WCAG 2.1.1). */}
@@ -250,32 +246,43 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
           tabIndex={0}
           role="log"
           aria-label={`Pesan dengan ${current.name}`}
-          className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto bg-panel-nested/40 px-4 py-5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
+          className="dot-grid flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto bg-panel-nested/40 px-4 py-5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus sm:px-6"
         >
           {current.official && (
-            <p className="mx-auto mb-3 flex max-w-[460px] items-start gap-2 rounded-card border border-line bg-panel px-3.5 py-2.5 text-[12.5px] leading-snug text-ink-soft">
+            <p className="mx-auto mb-3 flex max-w-[460px] items-start gap-2 rounded-[16px] border border-line bg-panel px-4 py-3 text-[12.5px] leading-snug text-ink-soft">
               <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
               Percakapan contoh dari penyelenggara. StudentFo tidak pernah meminta transfer ke rekening pribadi.
             </p>
           )}
-          <p className="mb-2 self-center rounded-pill bg-panel px-3 py-1 text-[11.5px] font-medium text-ink-muted">Contoh percakapan · mode demo</p>
+          <p className="mb-2 self-center rounded-pill border border-line bg-panel px-3.5 py-1 text-[11.5px] font-medium text-ink-muted">Contoh percakapan · mode demo</p>
           {thread.map((message, index) => {
             const mine = message.from === 'me';
             const previous = thread[index - 1];
             const grouped = previous?.from === message.from;
             return (
-              <div key={`${index}-${message.time}`} className={cn('flex max-w-[78%] flex-col gap-1', mine ? 'items-end self-end' : 'items-start self-start', !grouped && 'mt-2.5')}>
+              <div
+                key={`${index}-${message.time}`}
+                // Pesan yang baru masuk (ketikanmu & balasan contoh) muncul dari bawah; riwayat awal tidak ikut beranimasi.
+                className={cn('flex max-w-[78%] flex-col gap-1', mine ? 'items-end self-end' : 'items-start self-start', !grouped && 'mt-3', index >= current.messages.length && 'pop')}
+              >
                 {!mine && !grouped && current.kind !== 'Pribadi' && <span className="px-1 text-[12px] font-semibold text-ink-muted">{message.from}</span>}
                 {message.file ? (
-                  <span className="flex items-center gap-3 rounded-[14px] border border-line bg-panel px-3.5 py-3">
-                    <FileText aria-hidden className="size-5" />
+                  <span className="flex items-center gap-3 rounded-[18px] border border-line bg-panel px-3.5 py-3 shadow-card">
+                    <span aria-hidden className="flex size-10 items-center justify-center rounded-[12px] bg-tint-peach">
+                      <FileText className="size-5" />
+                    </span>
                     <span className="flex flex-col">
                       <span className="text-sm font-semibold">{message.text}</span>
                       <span className="text-xs text-ink-muted">{message.file.size} · contoh berkas</span>
                     </span>
                   </span>
                 ) : (
-                  <p className={cn('whitespace-pre-wrap break-words rounded-[16px] px-3.5 py-2.5 text-[14.5px] leading-snug', mine ? 'rounded-br-[6px] bg-brand text-on-brand' : 'rounded-bl-[6px] bg-panel shadow-[0_1px_2px_rgba(0,0,0,.06)]')}>
+                  <p
+                    className={cn(
+                      'whitespace-pre-wrap break-words rounded-[20px] px-4 py-2.5 text-[14.5px] leading-snug',
+                      mine ? 'rounded-br-[6px] bg-brand text-on-brand' : 'rounded-bl-[6px] border border-line bg-panel shadow-card',
+                    )}
+                  >
                     {message.text}
                   </p>
                 )}
@@ -284,10 +291,10 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
             );
           })}
           {typing && (
-            <p className="mt-2 flex items-center gap-2 self-start text-[12.5px] text-ink-muted">
-              <span aria-hidden className="flex gap-1 rounded-[14px] bg-panel px-3 py-2.5">
+            <p className="pop mt-3 flex items-center gap-2 self-start text-[12.5px] text-ink-muted">
+              <span aria-hidden className="flex gap-1 rounded-[18px] rounded-bl-[6px] border border-line bg-panel px-3.5 py-3">
                 {[0, 1, 2].map((dot) => (
-                  <span key={dot} className="size-1.5 animate-pulse rounded-full bg-ink-muted motion-reduce:animate-none" style={{ animationDelay: `${dot * 160}ms` }} />
+                  <span key={dot} className="typing-dot size-1.5 rounded-full bg-ink-muted" style={{ '--d': `${dot * 160}ms` } as React.CSSProperties} />
                 ))}
               </span>
               {typing} sedang mengetik…
@@ -303,7 +310,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
                 type="button"
                 disabled={!loaded}
                 onClick={() => send(text)}
-                className="flex h-9 shrink-0 items-center rounded-pill border border-line-strong/70 px-3 text-[13px] font-medium hover:bg-panel-nested"
+                className="flex h-9 shrink-0 items-center rounded-pill border border-line-strong/70 bg-panel px-3.5 text-[13px] font-medium transition-colors duration-150 hover:bg-brand hover:text-on-brand"
               >
                 {text}
               </button>
@@ -314,7 +321,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
               event.preventDefault();
               send(draft);
             }}
-            className="flex items-end gap-2"
+            className="flex items-end gap-2 rounded-[24px] border border-line-strong/70 bg-panel p-1.5 pl-2 transition-colors duration-150 focus-within:border-brand"
           >
             <label htmlFor="composer" className="sr-only">
               Tulis pesan ke {current.name}
@@ -328,12 +335,12 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={onKey}
               placeholder="Tulis pesan…"
-              className="max-h-32 min-h-11 flex-1 resize-none rounded-card border border-line-strong/70 bg-panel px-3.5 py-2.5 text-base leading-snug field-sizing-content focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              className="max-h-32 min-h-11 flex-1 resize-none rounded-[18px] bg-transparent px-2.5 py-2.5 text-base leading-snug field-sizing-content"
             />
             <button
               type="submit"
               disabled={!draft.trim() || !loaded}
-              className="flex size-11 shrink-0 items-center justify-center rounded-card bg-brand text-on-brand transition-opacity duration-150 hover:bg-brand-hover disabled:opacity-40"
+              className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-brand text-on-brand transition-[opacity,background-color] duration-150 hover:bg-brand-hover disabled:opacity-40"
             >
               <Send aria-hidden className="size-4" />
               <span className="sr-only">Kirim</span>
@@ -342,56 +349,74 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
           <p className="text-[11.5px] text-ink-faint">Enter untuk kirim, Shift+Enter untuk baris baru. Pesan demo hanya tersimpan di perangkat ini.</p>
         </div>
       </section>
-
-      {/* Panel info: lembar dari kanan, ditutup dengan Esc atau tombol tutup. */}
-      {info && (
-        <aside
-          aria-label="Info percakapan"
-          className="fixed inset-y-0 right-0 z-50 flex w-[min(320px,100vw)] flex-col gap-5 overflow-y-auto border-l border-line bg-panel p-5 shadow-overlay"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">Info percakapan</h2>
-            <button type="button" onClick={() => setInfo(false)} className="flex size-11 items-center justify-center rounded-sm hover:bg-panel-nested">
-              <X aria-hidden className="size-5" />
-              <span className="sr-only">Tutup info</span>
-            </button>
-          </div>
-          {event && (
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-[11px] tracking-[.08em] text-ink-muted">KEGIATAN TERKAIT</span>
-              <div className="flex flex-col gap-1 rounded-card bg-panel-nested p-3.5">
-                <span className="text-[12px] text-ink-muted">{event.type}</span>
-                <span className="text-sm font-semibold leading-snug">{event.title}</span>
-                {event.closes && <span className="text-[12.5px] text-ink-muted">Tutup {event.closes}</span>}
-              </div>
-              <Link href={`/events/${event.slug}`} className="flex min-h-11 items-center justify-between border-b border-line text-sm font-medium">
-                Detail kegiatan <ChevronRight aria-hidden className="size-4" />
-              </Link>
-              <Link href="/discussions" className="flex min-h-11 items-center justify-between border-b border-line text-sm font-medium">
-                Ruang diskusi <ChevronRight aria-hidden className="size-4" />
-              </Link>
-            </div>
-          )}
-          {current.members && (
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-[11px] tracking-[.08em] text-ink-muted">ANGGOTA</span>
-              <ul className="flex flex-col">
-                {[...current.members, ['Kamu', 'Anggota'] as const].map(([name, role]) => (
-                  <li key={name} className="flex items-center gap-3 py-2">
-                    <span aria-hidden className="flex size-8 items-center justify-center rounded-full bg-brand font-mono text-[11px] text-on-brand">
-                      {initialsOf(name)}
-                    </span>
-                    <span className="flex flex-col">
-                      <span className="text-sm font-medium">{name}</span>
-                      <span className="text-[12px] text-ink-muted">{role}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </aside>
-      )}
     </div>
+  );
+}
+
+/**
+ * Info percakapan sebagai dialog lembar-samping (Radix): fokus pindah ke
+ * dalamnya dan terkunci di sana, Esc / klik latar menutup, fokus kembali ke
+ * tombol info. Versi sebelumnya `<aside fixed>` tanpa latar — pembaca layar
+ * dan papan ketik bisa tersesat ke percakapan di belakangnya.
+ */
+function InfoSheet({ conversation, event }: { conversation: DemoConversation; event: RelatedEvent | undefined }) {
+  return (
+    <Dialog.Portal>
+      <Dialog.Overlay className="fade-in fixed inset-0 z-50 bg-[rgb(29_27_23/0.32)]" />
+      <Dialog.Content
+        aria-describedby={undefined}
+        className="sheet-in fixed inset-y-0 right-0 z-50 flex w-[min(360px,100vw)] flex-col gap-6 overflow-y-auto border-l border-line bg-panel p-6 shadow-overlay focus:outline-none"
+      >
+        <div className="flex items-center justify-between">
+          <Dialog.Title className="text-base font-semibold">Info percakapan</Dialog.Title>
+          <Dialog.Close className="flex size-11 items-center justify-center rounded-pill hover:bg-panel-nested">
+            <X aria-hidden className="size-5" />
+            <span className="sr-only">Tutup info</span>
+          </Dialog.Close>
+        </div>
+        <div className="flex flex-col items-center gap-2 text-center">
+          <Avatar conversation={conversation} size="xl" />
+          <span className="mt-1 flex items-center gap-1 text-[17px] font-semibold">
+            {conversation.name}
+            {conversation.official && <BadgeCheck aria-label="terverifikasi" className="size-4" />}
+          </span>
+          <span className="text-[13px] text-ink-muted">
+            {conversation.kind} · {conversation.sub}
+          </span>
+        </div>
+        {event && (
+          <div className="flex flex-col gap-2">
+            <span className="font-mono text-[11px] tracking-[.08em] text-ink-muted">KEGIATAN TERKAIT</span>
+            <div className="flex flex-col gap-1 rounded-[16px] bg-panel-nested p-4">
+              <span className="text-[12px] text-ink-muted">{event.type}</span>
+              <span className="text-sm font-semibold leading-snug">{event.title}</span>
+              {event.closes && <span className="text-[12.5px] text-ink-muted">Tutup {event.closes}</span>}
+            </div>
+            <Link href={`/events/${event.slug}`} className="flex min-h-11 items-center justify-between border-b border-line text-sm font-medium hover:underline">
+              Detail kegiatan <ChevronRight aria-hidden className="size-4" />
+            </Link>
+            <Link href="/discussions" className="flex min-h-11 items-center justify-between border-b border-line text-sm font-medium hover:underline">
+              Ruang diskusi <ChevronRight aria-hidden className="size-4" />
+            </Link>
+          </div>
+        )}
+        {conversation.members && (
+          <div className="flex flex-col gap-2">
+            <span className="font-mono text-[11px] tracking-[.08em] text-ink-muted">ANGGOTA</span>
+            <ul className="flex flex-col">
+              {[...conversation.members, ['Kamu', 'Anggota'] as const].map(([name, role]) => (
+                <li key={name} className="flex items-center gap-3 py-2">
+                  <InitialsAvatar name={name} size="sm" />
+                  <span className="flex flex-col">
+                    <span className="text-sm font-medium">{name}</span>
+                    <span className="text-[12px] text-ink-muted">{role}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Dialog.Content>
+    </Dialog.Portal>
   );
 }
