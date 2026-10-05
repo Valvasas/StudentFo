@@ -98,7 +98,11 @@ export const STATIC_SECURITY_HEADERS: readonly { key: string; value: string }[] 
   // Tetap dikirim walau CSP punya frame-ancestors: browser lama hanya kenal ini.
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  // Juga membatasi iframe: pratinjau buku panduan memuat PDF dari host https
+  // MANA PUN (ADR-049), dan fitur yang dimatikan di sini tidak bisa dipakai
+  // dokumen sematan itu. Hanya nama fitur yang dikenal Chromium — nama asing
+  // dicetak sebagai error konsol di setiap halaman.
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 

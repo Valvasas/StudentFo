@@ -95,6 +95,9 @@ import {
 
 const MS_PER_DAY = 86_400_000;
 
+/** Batas identitas demo yang menerima data awal per siklus data demo (lihat `admitDemoSeed`). */
+export const DEMO_SEEDED_USER_LIMIT = 2_000;
+
 function isoOffsetDays(days: number, base: Date): string {
   return new Date(base.getTime() + days * MS_PER_DAY).toISOString();
 }
@@ -299,8 +302,12 @@ export class MemoryEventRepository implements EventRepository {
   private readonly dispatched = new Set<string>();
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
+  /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
+  private readonly demoSeededUsers = new Set<string>();
+  private readonly demoSeedLimit: number;
 
-  constructor(base: Date = new Date()) {
+  constructor(base: Date = new Date(), { demoSeedLimit = DEMO_SEEDED_USER_LIMIT }: { demoSeedLimit?: number } = {}) {
+    this.demoSeedLimit = demoSeedLimit;
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
     this.seedTeams(base);
     this.seedPeople(base);
@@ -1100,13 +1107,30 @@ export class MemoryEventRepository implements EventRepository {
     });
   }
 
+  /**
+   * Satu kali masuk demo = satu POST yang menulis puluhan baris (koneksi,
+   * notifikasi, portofolio, hak kelola acara) ke memori proses bersama. Tanpa
+   * batas, skrip yang mengulang masuk demo menghabiskan memori server pratinjau
+   * jauh sebelum reset 6 jam (`DEMO_DATA_TTL_MS`). Batasnya per identitas, bukan
+   * per IP: di belakang `next start` semua penguji lokal berbagi satu IP.
+   * Identitas yang sudah pernah diisi tetap boleh diisi ulang (masuk ulang).
+   */
+  private admitDemoSeed(userId: string): boolean {
+    if (this.demoSeededUsers.has(userId)) return true;
+    if (this.demoSeededUsers.size >= this.demoSeedLimit) return false;
+    this.demoSeededUsers.add(userId);
+    return true;
+  }
+
   /** Riwayat awal persona demo "Mahasiswa" (ADR-046). Hanya mode seed. */
   seedDemoPortfolio(userId: string, now: Date = new Date()): void {
+    if (!this.admitDemoSeed(userId)) return;
     for (const entry of DEMO_STARTER_PORTFOLIO) this.seedPortfolioEntry(userId, entry, now);
   }
 
   /** Jaringan awal persona demo "Mahasiswa". Hanya mode seed — tidak ada padanannya di produksi. */
   seedDemoNetwork(userId: string, now: Date = new Date()): void {
+    if (!this.admitDemoSeed(userId)) return;
     const stamp = (daysAgo: number) => isoOffsetDays(-daysAgo, now);
     DEMO_STARTER_NETWORK.accepted.forEach((peerId, index) => {
       const id = this.nextId();
@@ -1760,6 +1784,7 @@ export class MemoryEventRepository implements EventRepository {
    * dasbor bisa dinilai. Hanya mode seed — tidak ada padanannya di produksi.
    */
   seedDemoOrganizer(user: { id: string; fullName: string; email: string }, now: Date = new Date()): void {
+    if (!this.admitDemoSeed(user.id)) return;
     const since = new Date(now.getTime() - 60 * MS_PER_DAY).toISOString();
     this.organizers.set(user.id, {
       userId: user.id,

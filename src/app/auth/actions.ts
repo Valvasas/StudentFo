@@ -16,7 +16,7 @@ import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
 import { RATE_LIMITS } from '@/lib/rate-limit';
-import { currentClientIp, isRateLimited } from '@/lib/rate-limit-server';
+import { currentClientIp, isAccountRateLimited, isRateLimited } from '@/lib/rate-limit-server';
 import { safeNextPath } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -331,6 +331,19 @@ export async function changePasswordAction(formData: FormData): Promise<void> {
 
       if (!userData.user?.email) {
         failure = 'session_missing';
+      } else if (
+        // Verifikasi ulang = tebakan sandi lewat pintu samping. Tanpa batas di
+        // sini, pemegang sesi curian bisa menebak sandi lama tanpa henti — dan
+        // karena semua panggilan berasal dari IP server, kuota masuk Supabase
+        // seluruh pengguna ikut habis (alasan yang sama dengan ADR-028).
+        (
+          await Promise.all([
+            signInRateLimited(userData.user.email),
+            isAccountRateLimited(userData.user.id, RATE_LIMITS.reauthPerAccount),
+          ])
+        ).some(Boolean)
+      ) {
+        failure = 'rate_limited';
       } else {
         // Kata sandi lama diverifikasi ulang sebelum diganti. Tanpa langkah
         // ini, laptop yang ditinggal terbuka di perpustakaan cukup untuk

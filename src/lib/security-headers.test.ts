@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allowsDocumentFrames, buildContentSecurityPolicy, generateNonce, HSTS_VALUE } from './security-headers';
+import { allowsDocumentFrames, buildContentSecurityPolicy, generateNonce, HSTS_VALUE, STATIC_SECURITY_HEADERS } from './security-headers';
 
 function directives(csp: string): Map<string, string[]> {
   return new Map(
@@ -75,4 +75,11 @@ it('HSTS: minimal 1 tahun + includeSubDomains + preload', () => {
   expect(maxAge).toBeGreaterThanOrEqual(31_536_000);
   expect(HSTS_VALUE).toContain('includeSubDomains');
   expect(HSTS_VALUE).toContain('preload');
+});
+
+it('Permissions-Policy mematikan fitur sensitif, termasuk untuk iframe buku panduan dari host lain', () => {
+  const policy = STATIC_SECURITY_HEADERS.find((header) => header.key === 'Permissions-Policy')?.value ?? '';
+  for (const feature of ['camera', 'microphone', 'geolocation', 'payment', 'usb']) {
+    expect(policy, feature).toContain(`${feature}=()`);
+  }
 });
