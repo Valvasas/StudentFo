@@ -100,6 +100,10 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001?range=90'],
   ['Mahasiswa', '/penyelenggara'],
   ['Mahasiswa', '/'],
+  // Beranda pribadi punya varian per persona (ADR-053): ajakan lengkapi profil
+  // & pintasan peran sebagai tombol utama.
+  ['Siswa baru', '/'],
+  ['Penyelenggara', '/'],
   ['Mahasiswa', '/tracker'],
   ['Mahasiswa', '/profile'],
   ['Mahasiswa', '/teams'],

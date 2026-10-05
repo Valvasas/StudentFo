@@ -134,7 +134,7 @@ export function LogoMark({ className }: IllustrationProps) {
   );
 }
 
-/* Coretan kecil di sekitar judul beranda (hanya ≥ lg). Masing-masing satu
+/* Coretan kecil di sekitar judul beranda (hanya ≥ xl). Masing-masing satu
    simbol dari isi produk: lomba, beasiswa/kampus, pengiriman berkas. */
 
 export function TrophyDoodle({ className }: IllustrationProps) {

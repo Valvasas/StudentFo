@@ -72,12 +72,23 @@ export function NavigationProgress() {
       start();
     };
 
+    // Form GET = muat penuh. Bila pengguna menekan Kembali, halaman lama bisa
+    // dipulihkan dari bfcache lengkap dengan state "loading" yang membeku.
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      clearTimers();
+      pending.current = false;
+      setPhase('idle');
+    };
+
     document.addEventListener('click', onClick, true);
     document.addEventListener('submit', onSubmit, true);
+    window.addEventListener('pageshow', onPageShow);
     return () => {
       clearTimers();
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('submit', onSubmit, true);
+      window.removeEventListener('pageshow', onPageShow);
     };
   }, []);
 

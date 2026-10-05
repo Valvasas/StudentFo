@@ -148,9 +148,9 @@ export function LandingHero() {
 
 /**
  * Coretan pinggir di sekitar judul: piala (lomba), toga (beasiswa/kampus),
- * pesawat kertas (berkas terkirim). Hanya ≥ lg, tempat margin kiri-kanan
- * judul cukup lebar (±130px di 1024px) sehingga tidak pernah menimpa teks;
- * di bawah itu ruangnya dipakai judul. Melayang pelan dengan animasi yang
+ * pesawat kertas (berkas terkirim). Hanya ≥ xl: di 1024px paragraf 54ch
+ * sudah menyentuh pesawat dan bintang kecil menimpa "jelas" (dicek lewat
+ * tangkapan layar); mulai 1280px margin kiri-kanan ±260px cukup lega. Melayang pelan dengan animasi yang
  * sama dengan kartu pratinjau — reduced-motion menghentikannya (§3 globals).
  */
 function HeroDoodles() {
@@ -158,7 +158,7 @@ function HeroDoodles() {
     animation: `sf-float ${seconds}s ease-in-out ${delay}s infinite alternate`,
   });
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 hidden h-[460px] text-ink-muted lg:block">
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 hidden h-[460px] text-ink-muted xl:block">
       <SparkleDoodle className="absolute left-[19%] top-[64px] size-5 rotate-12" />
       <div className="absolute left-[5%] top-[190px] -rotate-12" style={float(7, -2)}>
         <TrophyDoodle className="size-16" />

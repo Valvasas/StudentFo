@@ -19,6 +19,7 @@ import { CalendarSketch } from '@/components/ui/illustrations';
 import { HandNote } from '@/components/ui/sketch';
 import { type AuthUser, isProfileComplete } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import { parseEventQuery } from '@/lib/search-params';
 import { needsActionSoon } from '@/lib/tracker-progress';
@@ -62,7 +63,10 @@ export async function PersonalHome({ user }: { user: AuthUser }) {
     }),
     repository.getDeadlineWeek(),
     repository.listCategories(),
-    repository.getOrganizerProfile(user.id),
+    // Pendukung, bukan inti: satu tabel penyelenggara yang bermasalah tidak
+    // boleh menjatuhkan beranda SEMUA pengguna — paling buruk pintasan studio
+    // tidak tampil (ADR-047).
+    withFallback('profil penyelenggara', () => repository.getOrganizerProfile(user.id), null),
   ]);
 
   const trackedIds = new Set(tracker.map((item) => item.eventId));

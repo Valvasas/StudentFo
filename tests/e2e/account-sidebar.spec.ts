@@ -18,6 +18,10 @@ test('menu akun bisa dilipat jadi rel ikon dan dibuka lagi', async ({ page }, te
   await expect(menu.getByRole('link', { name: 'Pendaftaran' })).toHaveAttribute('aria-current', 'page');
 
   await menu.getByRole('link', { name: 'Pengaturan' }).click();
+  // Tombol "Lebarkan" juga ada di halaman LAMA yang tetap tampil selama
+  // navigasi; tanpa menunggu URL, klik berikutnya bisa mengenai form halaman
+  // lama (returnTo=/tracker) saat server sedang sibuk.
+  await expect(page).toHaveURL(/\/profile\/settings$/);
   await expect(page.getByRole('navigation', { name: 'Menu akun' }).getByRole('button', { name: 'Lebarkan menu akun' })).toBeVisible();
 
   await page.getByRole('navigation', { name: 'Menu akun' }).getByRole('button', { name: 'Lebarkan menu akun' }).click();

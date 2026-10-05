@@ -49,7 +49,7 @@ src/
 ├── middleware.ts               Penyegaran sesi Supabase (no-op di mode seed)
 ├── app/                        Next.js App Router — page.tsx HANYA menyusun komponen
 │   ├── layout.tsx              Root layout: navbar, footer, theme script
-│   ├── page.tsx                Beranda — sorotan, pita "Minggu ini", terbaru
+│   ├── page.tsx                Beranda — pemasaran untuk tamu; ringkasan pribadi (PersonalHome) bila masuk (ADR-053)
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
 │   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail
@@ -70,8 +70,10 @@ src/
 │
 ├── components/
 │   ├── ui/                     Primitif tanpa domain-knowledge (Button, Badge, Card,
-│   │                           Skeleton, Field/TextInput/SelectInput/TextArea/FormAlert),
-│   │                           sketch.tsx (SketchArrow, Scribble, HandNote — hiasan ADR-052)
+│   │                           Field/TextInput/SelectInput/TextArea/FormAlert),
+│   │                           sketch.tsx (SketchArrow, Scribble, HandNote — hiasan ADR-052),
+│   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053)
+│   ├── home/                   PersonalHome — beranda pengguna masuk (perlu tindakan, pantauan, minggu ini, sesuai minat)
 │   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
 │   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
@@ -84,7 +86,8 @@ src/
 │   ├── auth/                   GoogleButton, AuthFeedback
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,
 │                               ThemeToggle, ThemeScript, DemoBanner, AccountShell (menu akun
-│                               bisa dilipat jadi rel ikon — cookie `sf_sidebar`, ADR-052)
+│                               bisa dilipat jadi rel ikon — cookie `sf_sidebar`, ADR-052),
+│                               NavigationProgress (bilah progres pengganti skeleton, ADR-053)
 │
 ├── lib/
 │   ├── data/                   ← lapisan repository, lihat di bawah
@@ -118,9 +121,11 @@ src/
 │   ├── env.ts                  Validasi env (Zod) + penentuan dataMode
 │   ├── errors.ts               AppError, ERROR_CODES, toApiError(), upstreamFailure()
 │   ├── utils.ts                cn(), sanitizeExternalUrl(), safeHostname()
+│   ├── greeting.ts             Sapaan & tanggal menurut jam WIB untuk beranda pribadi [teruji]
 │   └── supabase/
 │       ├── server.ts           Klien Server Component & admin (service_role)
-│       └── middleware.ts       Klien khusus middleware (tanpa `server-only`)
+│       ├── middleware.ts       Klien khusus middleware (tanpa `server-only`)
+│       └── cookie-options.ts   Atribut cookie sesi: httpOnly + Secure di produksi (ADR-053) [teruji]
 │
 └── types/
     ├── domain.ts                Bentuk data sisi aplikasi — sumber kebenaran
