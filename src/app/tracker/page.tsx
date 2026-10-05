@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlarmClock, ArrowRight, BookmarkCheck, Clock, Plus, Send, Trophy, Users } from 'lucide-react';
+import { AlarmClock, ArrowRight, BookmarkCheck, Plus, Send, Trophy, Users } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { TrackerCard } from '@/components/tracker/tracker-card';
+import { CalendarSketch } from '@/components/ui/illustrations';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, formatDateId } from '@/lib/deadline';
@@ -41,9 +42,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
     return (
       <div className="container-page py-16">
         <div className="enter mx-auto flex max-w-2xl flex-col items-center gap-4 text-center [animation-duration:900ms]">
-          <span aria-hidden className="flex size-12 items-center justify-center rounded-[14px] bg-brand text-on-brand">
-            <Clock className="size-5" />
-          </span>
+          <CalendarSketch className="text-ink" />
           <h1 className="text-[clamp(32px,5vw,44px)] leading-[1.05]">Lacak semua pendaftaranmu di satu papan</h1>
           <p className="max-w-[52ch] text-[15.5px] leading-relaxed text-ink-muted">
             Berhenti mengandalkan ingatan dan tangkapan layar. Simpan peluang, tandai saat sudah mendaftar, dan lihat mana yang masuk tahap seleksi —

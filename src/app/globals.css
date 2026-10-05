@@ -648,3 +648,21 @@ html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
 @utility chart-fade {
   animation: sf-fade 900ms var(--easing-enter) both;
 }
+
+/* =====================================================================
+   7. PROGRES NAVIGASI (ADR-053) — pengganti kerangka/skeleton. Animasi,
+   bukan transisi: bilah maju sendiri tanpa tahu persen sebenarnya, cepat
+   di awal lalu melambat, tidak pernah mencapai 100% sebelum halaman baru
+   benar-benar tiba. Reduced-motion (§3) melompat ke keadaan akhirnya —
+   bilah diam 85%, tetap jadi penanda "sedang memuat".
+   ===================================================================== */
+@keyframes sf-progress {
+  0% { width: 0; }
+  12% { width: 34%; }
+  100% { width: 85%; }
+}
+
+@keyframes sf-progress-done {
+  0% { width: 100%; opacity: 1; }
+  100% { width: 100%; opacity: 0; }
+}

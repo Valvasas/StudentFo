@@ -450,4 +450,25 @@ audit skala terukur 10k pengguna / 100k event, desain Fase 1–6). Menunggu pers
 - [x] Menu akun bisa dilipat jadi rel ikon (cookie `sf_sidebar`, tanpa JS).
 - [x] Beranda (pratinjau ponsel 4:3, eyebrow tulisan tangan), detail (bagikan + persiapan di ponsel), `/submit` (kolom opsional dilipat).
 - [x] Audit navigasi `scripts/crawl-links.mjs` (tamu + 4 persona).
-- [ ] Ilustrasi/coretan tambahan untuk empty state & 404 (sengaja belum — jaga hemat).
+- [x] Ilustrasi/coretan tambahan untuk empty state & 404 — dikerjakan di ADR-053.
+
+## Penyelesaian sebelum hosting 2026-10-05 (@claude) — ADR-053
+
+Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan per peran).
+
+- [x] Cookie sesi Supabase `httpOnly` + `Secure` (produksi) di server & middleware.
+- [x] Batas verifikasi ulang sandi (per IP+email & per akun) di `changePasswordAction`.
+- [x] Batas identitas demo yang di-seed (`DEMO_SEEDED_USER_LIMIT`).
+- [x] `Permissions-Policy` + `payment=()`/`usb=()`.
+- [x] Beranda pribadi untuk pengguna masuk (`PersonalHome`), `DeadlineWeek` dipakai lagi.
+- [x] Bilah progres navigasi (pengganti skeleton, tanpa `loading.tsx`).
+- [x] Ilustrasi sketsa: 404 (+ cari & jenis kegiatan), error, hasil kosong, tracker tamu, logomark navbar/footer, coretan hero.
+- [x] Pesan hasil kosong menyebut penyebab sebenarnya (kata kunci vs filter).
+- [x] Ponsel: tepi pudar tab kategori; navigasi `/admin` satu baris geser + petak antrean 2 kolom.
+- [ ] **P0** Syarat & Ketentuan (halaman belum ada) — butuh tinjauan legal pemilik.
+- [ ] **P0** Pemantauan error (Sentry = dependency baru, butuh persetujuan) + `/api/health` + alarm pg_cron.
+- [ ] **P0** Manajemen pengguna admin (cari, tangguhkan, cabut peran) + jejak audit lencana/promosi.
+- [ ] **P0** Buat acara langsung dari studio penyelenggara (semua kolom, termasuk biaya & buku panduan).
+- [ ] **P1** CAPTCHA Supabase Auth di daftar & lupa sandi; MFA wajib untuk ADMIN.
+- [ ] **P1** Laporkan kegiatan + antrean laporan; pengingat email + preferensi kanal (ADR-051).
+- [ ] **P2** `markNotificationReadAction`: batasi `revalidatePath` ke path yang dikenal.

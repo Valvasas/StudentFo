@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import { Bricolage_Grotesque, Caveat, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 import { headers } from 'next/headers';
+import { Suspense } from 'react';
 import { DemoBanner } from '@/components/layout/demo-banner';
 import { Footer } from '@/components/layout/footer';
 import { Navbar } from '@/components/layout/navbar';
+import { NavigationProgress } from '@/components/layout/navigation-progress';
 import { ThemeScript } from '@/components/layout/theme-script';
 import { siteUrl } from '@/lib/env';
 import { NONCE_HEADER } from '@/lib/security-headers';
@@ -88,6 +90,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <a href="#konten" className="skip-link rounded-card bg-brand px-4 py-2 text-on-brand">
           Lompat ke konten utama
         </a>
+        {/* Suspense: `useSearchParams` di dalamnya; tanpa batas ini seluruh
+            layout ikut ditunda sampai parameter tersedia di klien. */}
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <DemoBanner />
         <Navbar />
         <main id="konten" className="flex-1">

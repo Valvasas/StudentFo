@@ -12,6 +12,62 @@ terdokumentasi.
 
 ---
 
+## ADR-053 — Beranda pribadi, ilustrasi sketsa, progres navigasi; pengerasan cookie & verifikasi ulang
+
+**Konteks:** Audit penyelesaian sebelum hosting (`docs/audit-fitur-enterprise.md`).
+Uji demo 600 halaman bersih secara teknis, tetapi: (1) `/` adalah halaman
+pemasaran untuk SEMUA orang — pengguna yang sudah masuk disambut "Buat akun dalam
+satu menit", dan `DeadlineWeek`/`DeadlineTicker` sudah menjadi kode mati sejak
+ADR-039; (2) tanpa `loading.tsx` (sengaja, soft-404 & no-JS) klik tautan tidak
+memberi tanda apa pun selama 0,3–1 detik; (3) 404/error/kosong berupa ikon
+generik. Audit keamanan menemukan cookie sesi Supabase terbaca JavaScript,
+verifikasi ulang sandi tanpa batas laju, dan seed demo tanpa batas.
+
+**Keputusan:**
+- **`/` bercabang menurut sesi**: tamu → halaman pemasaran (tidak berubah);
+  pengguna masuk → `PersonalHome`. Isinya hanya menyusun aturan yang sudah ada:
+  "Perlu tindakan" = `needsActionSoon` atas baris tracker + simpanan (didedup),
+  "Sesuai minatmu" = `listEvents({ sort: 'relevance', profile })` tanpa yang
+  sudah disimpan/dilacak, "Minggu ini" = `getDeadlineWeek()`. Tidak ada method
+  repository baru. Teks alasan urutan mengikuti rumus `recommendation.ts` apa
+  adanya (cold start ≠ "paling banyak disimpan"). Sesi gagal dibaca → tamu
+  (`withFallback`, pola navbar). Pintasan peran (moderasi/studio) = tombol utama.
+  Statistik tracker disembunyikan bila semuanya nol; label "Menunggu kabar"
+  sengaja berbeda dari kolom "Sudah Daftar" papan supaya angka tidak bertentangan.
+- **Bilah progres navigasi** (`NavigationProgress`, klien) sebagai pengganti
+  kerangka: mulai pada klik tautan internal (fase capture — `<Link>` memanggil
+  `preventDefault` sebelum event mencapai document) & kirim form GET, selesai
+  saat path/query berubah, muncul hanya bila > 120 ms, menyerah setelah 15 dtk.
+  Animasi (bukan transisi), patuh reduced-motion. HTML awal, status HTTP, dan
+  perilaku tanpa JS tidak berubah — keputusan soft-404 tetap utuh.
+- **Ilustrasi** (`components/ui/illustrations.tsx`): tinta `currentColor` +
+  token permukaan + satu aksen stabilo, tanpa teks di SVG, `aria-hidden`. Satu
+  per layar, hanya di titik berhenti (404, error, kosong, tracker tamu, "aman")
+  + coretan hero ≥ xl + logomark. `global-error.tsx` sengaja tidak memakainya
+  (tanpa impor proyek, ADR-047).
+- **Cookie sesi Supabase `httpOnly`** (+ `Secure` di produksi) lewat
+  `supabaseCookieOptions()` di server & middleware. Bawaan pustaka `false` hanya
+  berguna untuk klien browser yang memang tidak ada (ADR-010). Menambah klien
+  browser kelak = keputusan ini ditinjau dulu.
+- **Verifikasi ulang sandi** dibatasi ember masuk per IP+email DAN ember per akun
+  (`reauthPerAccount`). Ember per akun aman di sini karena hanya pemegang sesi
+  akun itu yang bisa mengisinya (beda dengan batas per-email di halaman masuk).
+- **Seed demo dibatasi per identitas** (`DEMO_SEEDED_USER_LIMIT`), bukan rate
+  limit per IP: Next.js mengisi `x-forwarded-for` dengan alamat soket, jadi di
+  `next start` lokal seluruh suite e2e berbagi satu IP.
+
+**Ditolak:** `noindex` untuk `/tracker`/`/connections` — tamu hanya melihat
+halaman penjelas fitur yang memang ingin diindeks; data pribadi tidak pernah
+dirender untuk crawler. Skeleton per halaman — butuh Suspense/`loading.tsx`
+yang dilarang (lihat `src/app/events/page.tsx`).
+
+**Konsekuensi:** Beranda pengguna masuk = 6 query paralel (semuanya sudah
+dipakai halaman lain, sebagian ter-cache). Bilah progres menambah ±1 KB JS di
+setiap halaman. Lewat batas seed, persona demo tetap bisa masuk tetapi tanpa
+data awal — tercatat di sini supaya tidak dikira bug.
+
+---
+
 ## ADR-052 — Bahasa visual "buku sketsa": tipografi santai, kontrol sekunder dilipat, layar ponsel untuk isi
 
 **Konteks:** Umpan balik pemilik setelah modul 0–7: tampilan "terasa buatan

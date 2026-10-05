@@ -98,7 +98,9 @@ export default async function AdminPage({
             pendaftaran dan tenggatnya dicek ke sumber aslinya.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Di ponsel empat tombol ini memakan tiga baris di atas antrean — tugas
+            utama halaman ini. Jadi satu baris yang bisa digeser, tepi kanan memudar. */}
+        <div className="flex items-center gap-3 max-sm:-mx-5 max-sm:w-[calc(100%+2.5rem)] max-sm:overflow-x-auto max-sm:px-5 max-sm:py-1 max-sm:pr-12 max-sm:[mask-image:linear-gradient(90deg,#000_calc(100%-44px),transparent)] max-sm:[scrollbar-width:none] sm:flex-wrap [&>*]:shrink-0">
           <Button asChild variant="secondary" size="sm">
             <Link href="/admin/penyelenggara">
               <BadgeCheck aria-hidden /> Penyelenggara
@@ -144,12 +146,14 @@ export default async function AdminPage({
         <h2 id="kondisi-antrean" className="mb-3 text-sm font-medium text-ink-muted">
           Kondisi antrean · batas tunggu {REVIEW_SLA_HOURS} jam
         </h2>
-        <ul className="grid gap-px overflow-hidden rounded-card border border-line bg-line [grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))]">
+        {/* Dua kolom di ponsel: empat petak bertumpuk selebar layar mendorong item
+            antrean pertama dua layar ke bawah. */}
+        <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line bg-line lg:grid-cols-4">
           <QueueTile href="#antrean-acara" label="Acara hasil scraping" health={health.events} capped={pending.length >= QUEUE_LIMIT} />
           <QueueTile href="#kiriman-komunitas" label="Kiriman komunitas" health={health.submissions} capped={submissions.length >= QUEUE_LIMIT} />
           <QueueTile href="/admin/penyelenggara" label="Penyelenggara, klaim & revisi" health={health.trust} capped={false} />
           <li className="bg-panel">
-            <Link href="/admin/riwayat" className="flex h-full flex-col gap-1 px-5 py-4 transition-colors duration-150 ease-snap hover:bg-panel-nested">
+            <Link href="/admin/riwayat" className="flex h-full flex-col gap-1 px-4 py-3 transition-colors duration-150 ease-snap hover:bg-panel-nested sm:px-5 sm:py-4">
               <span className="text-[13px] text-ink-muted">Keputusan {decisions.windowDays} hari terakhir</span>
               <span className="text-2xl font-semibold tracking-[-0.03em]">{decisions.approved + decisions.rejected}</span>
               <span className="text-[13px] text-ink-soft">
@@ -245,7 +249,7 @@ export default async function AdminPage({
 function QueueTile({ href, label, health, capped }: { href: string; label: string; health: QueueHealth; capped: boolean }) {
   return (
     <li className="bg-panel">
-      <Link href={href} className="flex h-full flex-col gap-1 px-5 py-4 transition-colors duration-150 ease-snap hover:bg-panel-nested">
+      <Link href={href} className="flex h-full flex-col gap-1 px-4 py-3 transition-colors duration-150 ease-snap hover:bg-panel-nested sm:px-5 sm:py-4">
         <span className="text-[13px] text-ink-muted">{label}</span>
         <span className="text-2xl font-semibold tracking-[-0.03em]">
           {health.count}

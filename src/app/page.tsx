@@ -1,12 +1,20 @@
 import Link from 'next/link';
 import { BadgeCheck, CalendarClock, Check, Link2, Plus, ShieldCheck } from 'lucide-react';
+import { PersonalHome } from '@/components/home/personal-home';
 import { LandingHero } from '@/components/landing/hero';
 import { RevealObserver } from '@/components/landing/reveal-observer';
 import { LandingTour } from '@/components/landing/tour';
+import { getSessionUser } from '@/lib/auth';
 import { dataMode } from '@/lib/env';
+import { withFallback } from '@/lib/fallback';
 
 /**
- * Beranda pemasaran (kanvas desain Landing v2, ADR-039).
+ * Beranda: pemasaran untuk tamu (kanvas desain Landing v2, ADR-039),
+ * ringkasan pribadi untuk yang sudah masuk (ADR-053). Satu URL, dua isi —
+ * `/` adalah tujuan logo & setelah masuk, jadi bagi pengguna terdaftar ia
+ * harus menjadi "rumah", bukan iklan untuk produk yang sudah ia pakai.
+ * Sesi gagal dibaca → diperlakukan sebagai tamu (pola navbar, ADR-047),
+ * bukan halaman error.
  *
  * Isinya statis dan tidak memuat hitungan H-n; dinamisnya halaman ini
  * datang dari CSP bernonce di layout (ADR-027), bukan dari datanya.
@@ -92,7 +100,10 @@ const eyebrowClass = 'hand -rotate-1 self-start text-[21px] leading-none text-in
 const h2Class = 'text-[clamp(32px,5vw,44px)] font-bold leading-[1.08] tracking-[-0.035em]';
 const delay = (ms: number) => ({ ['--reveal-delay' as string]: `${ms}ms` });
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await withFallback('sesi pengguna', getSessionUser, null);
+  if (user) return <PersonalHome user={user} />;
+
   return (
     <div className="overflow-x-clip">
       <RevealObserver />

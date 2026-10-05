@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
+import { supabaseCookieOptions } from './cookie-options';
 
 /**
  * Penyegaran sesi.
@@ -24,6 +25,7 @@ export async function updateSession(request: NextRequest, requestHeaders: Header
     env.NEXT_PUBLIC_SUPABASE_URL!,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: supabaseCookieOptions(env.NODE_ENV),
       cookies: {
         getAll() {
           return request.cookies.getAll();

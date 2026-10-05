@@ -100,6 +100,10 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001?range=90'],
   ['Mahasiswa', '/penyelenggara'],
   ['Mahasiswa', '/'],
+  // Beranda pribadi punya varian per persona (ADR-053): ajakan lengkapi profil.
+  // Varian pintasan peran diuji terpisah di bawah — persona Penyelenggara yang
+  // masuk dengan next=/ sengaja diarahkan ke studionya.
+  ['Siswa baru', '/'],
   ['Mahasiswa', '/tracker'],
   ['Mahasiswa', '/profile'],
   ['Mahasiswa', '/teams'],
@@ -152,6 +156,13 @@ for (const [persona, route] of SIGNED_IN_ROUTES) {
     await expectNoViolations(page);
   });
 }
+
+test('beranda pribadi dengan pintasan peran (Penyelenggara) tanpa pelanggaran WCAG', async ({ page }) => {
+  await signInAsDemo(page, 'Penyelenggara', '/penyelenggara');
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: 'Buka studio penyelenggara' })).toBeVisible();
+  await expectNoViolations(page);
+});
 
 test('koneksi: opsi putus/blokir terbuka & daftar blokir terisi tanpa pelanggaran WCAG', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/connections');

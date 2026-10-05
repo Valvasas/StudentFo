@@ -190,9 +190,18 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
             ) : (
               <EmptyState
                 description={
-                  hasActiveFilters(query)
+                  hasActiveFilters({ ...query, search: '' })
                     ? 'Filter yang kamu pasang terlalu sempit. Coba kurangi satu-dua filter, atau pakai kata kunci yang lebih umum.'
-                    : 'Belum ada kegiatan yang tayang. Data baru masuk setiap hari lewat proses verifikasi.'
+                    : query.search
+                      ? `Belum ada kegiatan yang cocok dengan “${query.search}”. Periksa ejaannya, atau coba kata yang lebih umum — mis. nama bidang, bukan nama acara lengkap.`
+                      : 'Belum ada kegiatan yang tayang. Data baru masuk setiap hari lewat proses verifikasi.'
+                }
+                actionLabel={
+                  hasActiveFilters({ ...query, search: '' })
+                    ? 'Hapus semua filter'
+                    : query.search
+                      ? 'Hapus kata kunci'
+                      : 'Muat ulang daftar'
                 }
               />
             )}

@@ -52,6 +52,17 @@ export async function isRateLimited(
   return results.some((allowed) => !allowed);
 }
 
+/**
+ * Ember per akun, tidak bergantung IP. Hanya untuk aksi yang SUDAH mensyaratkan
+ * sesi akun itu — ember yang bisa diisi orang lain lewat id/email korban
+ * berubah jadi tombol pengunci akun.
+ */
+export async function isAccountRateLimited(userId: string, rule: RateLimitRule): Promise<boolean> {
+  const repository = await getEventRepository();
+  const bucket = await rateLimitBucket(rule, bucketSecret(), 'account', userId);
+  return !(await repository.consumeRateLimit(bucket, rule.limit, rule.windowSeconds));
+}
+
 let warnedUnknownIp = false;
 function warnUnknownIpOnce(): void {
   if (warnedUnknownIp) return;

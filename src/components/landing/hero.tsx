@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, BadgeCheck, Bell, GraduationCap, Play } from 'lucide-react';
+import { GradCapDoodle, PaperPlaneDoodle, SparkleDoodle, TrophyDoodle } from '@/components/ui/illustrations';
 import { HandNote, Scribble, SketchArrow } from '@/components/ui/sketch';
 
 const ROTATING_WORDS = ['lomba', 'beasiswa', 'magang', 'workshop', 'seminar'] as const;
@@ -18,7 +19,8 @@ const ROTATING_WORDS = ['lomba', 'beasiswa', 'magang', 'workshop', 'seminar'] as
  */
 export function LandingHero() {
   return (
-    <section className="container-page flex flex-col items-center pt-[clamp(72px,11vw,120px)] text-center">
+    <section className="container-page relative flex flex-col items-center pt-[clamp(52px,11vw,120px)] text-center">
+      <HeroDoodles />
       <span
         className="flex h-[30px] items-center gap-2 rounded-sm border border-line px-3 text-[13px] font-medium text-ink-muted"
         style={{ animation: 'sf-rise 1s var(--easing-enter) 50ms both' }}
@@ -141,6 +143,34 @@ export function LandingHero() {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Coretan pinggir di sekitar judul: piala (lomba), toga (beasiswa/kampus),
+ * pesawat kertas (berkas terkirim). Hanya ≥ xl: di 1024px paragraf 54ch
+ * sudah menyentuh pesawat dan bintang kecil menimpa "jelas" (dicek lewat
+ * tangkapan layar); mulai 1280px margin kiri-kanan ±260px cukup lega. Melayang pelan dengan animasi yang
+ * sama dengan kartu pratinjau — reduced-motion menghentikannya (§3 globals).
+ */
+function HeroDoodles() {
+  const float = (seconds: number, delay: number) => ({
+    animation: `sf-float ${seconds}s ease-in-out ${delay}s infinite alternate`,
+  });
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 hidden h-[460px] text-ink-muted xl:block">
+      <SparkleDoodle className="absolute left-[19%] top-[64px] size-5 rotate-12" />
+      <div className="absolute left-[5%] top-[190px] -rotate-12" style={float(7, -2)}>
+        <TrophyDoodle className="size-16" />
+      </div>
+      <div className="absolute right-[6%] top-[120px] rotate-[10deg]" style={float(8, -4)}>
+        <GradCapDoodle className="size-16" />
+      </div>
+      <div className="absolute right-[9%] top-[330px] -rotate-6" style={float(9, -1)}>
+        <PaperPlaneDoodle className="h-14 w-16" />
+      </div>
+      <SparkleDoodle className="absolute right-[18%] top-[260px] size-4 -rotate-6" />
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { SearchX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyNotebookSketch } from '@/components/ui/illustrations';
 
 /**
  * Keadaan kosong.
@@ -22,8 +22,8 @@ export function EmptyState({
   actionLabel?: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-line bg-panel px-6 py-16 text-center">
-      <SearchX aria-hidden className="size-8 text-ink-faint" />
+    <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-line bg-panel px-6 py-12 text-center sm:py-14">
+      <EmptyNotebookSketch className="mb-1 text-ink-soft" />
       <h3 className="text-lg font-semibold">{title}</h3>
       <p className="max-w-md text-sm text-ink-muted">{description}</p>
       <Button asChild variant="secondary" size="sm" className="mt-2">

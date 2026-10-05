@@ -116,12 +116,16 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
 ## Desain / aksesibilitas (ringkas — detail di `README.md` § Sistem desain)
 
 - Warna tidak pernah satu-satunya pembawa makna — selalu sertai ikon+teks.
+- Ilustrasi (`components/ui/illustrations.tsx`) hanya di titik berhenti
+  (404, error, kosong) — satu per layar, `aria-hidden`, tanpa teks di SVG,
+  warna lewat `currentColor`/token supaya ikut tema gelap (ADR-053).
 - Namespace warna semantik (`--color-danger`, dst) dan warna deadline
   (`--color-deadline-*`) terpisah — jangan dipertukarkan.
 - Target sentuh minimal 44px; focus ring di semua elemen fokusable.
-- Transisi 150–200ms, tanpa `translate`/`scale`. Pengecualiannya dua
+- Transisi 150–200ms, tanpa `translate`/`scale`. Pengecualiannya
   **animasi** (bukan transisi) yang berjalan sendiri dan tidak pernah
-  menggeser target klik: `ticker-track` (pita tenggat) dan `reveal`.
+  menggeser target klik: `ticker-track` (pita tenggat), `reveal`, dan bilah
+  progres navigasi (`sf-progress`, ADR-053).
   Keduanya patuh `prefers-reduced-motion` lewat aturan global di
   `globals.css` §3.
 - **Jangan mengubah nilai token warna tanpa menjalankan
