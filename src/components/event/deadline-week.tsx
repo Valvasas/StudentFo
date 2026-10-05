@@ -47,7 +47,19 @@ export function DeadlineWeek({ days }: { days: readonly DeadlineDay[] }) {
                   isToday ? 'border-brand' : 'border-line',
                 )}
               >
-                <span className="text-xs text-ink-muted">{isToday ? 'Hari ini' : weekdayFormatter.format(date)}</span>
+                {/* "Hari ini" patah dua baris di kolom ±45px (ponsel) dan membuat kolom
+                    pertama lebih tinggi dari yang lain; di sana hari ini cukup ditandai
+                    bingkainya — nama lengkapnya ada di aria-label tautan. */}
+                <span className="text-xs text-ink-muted">
+                  {isToday ? (
+                    <>
+                      <span className="sm:hidden">{weekdayFormatter.format(date)}</span>
+                      <span className="hidden font-semibold text-ink sm:inline">Hari ini</span>
+                    </>
+                  ) : (
+                    weekdayFormatter.format(date)
+                  )}
+                </span>
                 <span className="font-display text-lg font-semibold tabular-nums">{dayFormatter.format(date)}</span>
                 <span aria-hidden className="flex h-12 w-3 items-end rounded-pill bg-panel-nested">
                   <span

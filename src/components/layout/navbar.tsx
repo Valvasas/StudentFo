@@ -7,6 +7,7 @@ import { AccountMenu } from '@/components/layout/account-menu';
 import { NavLinkList, NavLinks } from '@/components/layout/nav-links';
 import { NotificationMenu } from '@/components/layout/notification-menu';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
+import { LogoMark } from '@/components/ui/illustrations';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
@@ -43,14 +44,20 @@ export async function Navbar() {
       <div className="container-page flex flex-wrap items-center gap-x-6 md:h-16 md:flex-nowrap lg:gap-x-9">
         <Link
           href="/"
-          className="order-1 flex h-14 shrink-0 items-center font-display text-[19px] font-bold tracking-[-0.035em] md:h-auto"
+          className="order-1 flex h-14 shrink-0 items-center gap-2 font-display text-[19px] font-bold tracking-[-0.035em] md:h-auto"
         >
-          Student<span className="marker">Fo</span>
+          <LogoMark className="size-[26px] -rotate-3" />
+          <span>
+            Student<span className="marker">Fo</span>
+          </span>
         </Link>
 
+        {/* Di ponsel tab terakhir ("Seminar") terpotong tanpa tanda bisa digeser;
+            tepi kanan yang memudar adalah petunjuknya, dan `pr-12` memberi ruang
+            supaya tab terakhir bisa digeser keluar dari area pudar. */}
         <nav
           aria-label="Navigasi utama"
-          className="order-3 -mx-5 flex w-[calc(100%+2.5rem)] items-center overflow-x-auto border-t border-line px-2 [scrollbar-width:none] sm:-mx-8 sm:w-[calc(100%+4rem)] sm:px-5 md:order-2 md:mx-0 md:w-auto md:border-t-0 md:px-0"
+          className="order-3 -mx-5 flex w-[calc(100%+2.5rem)] items-center overflow-x-auto border-t border-line px-2 [scrollbar-width:none] max-md:pr-12 max-md:[mask-image:linear-gradient(90deg,#000_calc(100%-44px),transparent)] sm:-mx-8 sm:w-[calc(100%+4rem)] sm:px-5 md:order-2 md:mx-0 md:w-auto md:border-t-0 md:px-0"
         >
           <Suspense fallback={<NavLinkList pathname={requestUrl.pathname} activeKey={activeKey} />}>
             <NavLinks />
