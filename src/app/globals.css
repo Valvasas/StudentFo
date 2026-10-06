@@ -811,3 +811,37 @@ html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
   background-image: radial-gradient(color-mix(in oklab, var(--color-border-strong) 60%, transparent) 1px, transparent 1.5px);
   background-size: 18px 18px;
 }
+
+/* =====================================================================
+   9. PENDAFTARAN LANGSUNG (ADR-055) — tiket & dasbor. Kosakatanya tetap
+   §8; yang baru hanya bentuk tiket bertakik dan batang yang tumbuh ke atas.
+   ===================================================================== */
+
+/* Takik setengah lingkaran di ujung garis sobek tiket. `--cut` = posisi
+   garis sobek. Mask (bukan pseudo-elemen bulat berwarna latar) supaya
+   takiknya benar-benar berlubang di atas latar apa pun, termasuk kisi
+   titik dan tema gelap. Bayangan pakai drop-shadow di PEMBUNGKUS — mask
+   ikut memotong box-shadow elemen itu sendiri. */
+@utility ticket-notch-x {
+  mask:
+    radial-gradient(circle var(--notch, 13px) at var(--cut, 70%) 0, #0000 calc(100% - 0.5px), #000) top / 100% 51% no-repeat,
+    radial-gradient(circle var(--notch, 13px) at var(--cut, 70%) 100%, #0000 calc(100% - 0.5px), #000) bottom / 100% 51% no-repeat;
+}
+
+@utility ticket-notch-y {
+  mask:
+    radial-gradient(circle var(--notch, 13px) at 0 var(--cut, 70%), #0000 calc(100% - 0.5px), #000) left / 51% 100% no-repeat,
+    radial-gradient(circle var(--notch, 13px) at 100% var(--cut, 70%), #0000 calc(100% - 0.5px), #000) right / 51% 100% no-repeat;
+}
+
+@keyframes sf-grow-y {
+  from { transform: scaleY(0); }
+  to { transform: none; }
+}
+
+/* Batang grafik vertikal tumbuh dari dasarnya; jeda per batang lewat `--d`. */
+@utility grow-y {
+  transform-origin: bottom center;
+  animation: sf-grow-y 760ms var(--easing-enter) both;
+  animation-delay: var(--d, 0ms);
+}

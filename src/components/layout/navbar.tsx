@@ -40,7 +40,7 @@ export async function Navbar() {
     requestUrl.pathname === '/events' ? (eventTypeNavFor(requestUrl.searchParams.getAll('type') as EventType[])?.key ?? null) : null;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line bg-canvas/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-line bg-canvas/95 backdrop-blur-sm print:hidden">
       <div className="container-page flex flex-wrap items-center gap-x-6 md:h-16 md:flex-nowrap lg:gap-x-9">
         <Link
           href="/"

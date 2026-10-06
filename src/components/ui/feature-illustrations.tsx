@@ -5,7 +5,8 @@ import type { Tint } from '@/lib/tint';
 
 /**
  * Ilustrasi fitur unggulan (ADR-054): Cari tim, Koneksi, kotak masuk, buka
- * tim, dan perayaan. Aturan ADR-053 tetap: tinta `currentColor`, isian dari
+ * tim, dan perayaan — ditambah empat untuk pendaftaran langsung (ADR-055):
+ * tiket, jam pasir antrean, papan klip formulir, dan grafik dasbor. Aturan ADR-053 tetap: tinta `currentColor`, isian dari
  * token (ikut tema gelap), tanpa teks di SVG, `aria-hidden` lewat `Svg`.
  *
  * Yang baru: garis utama "tergambar" sekali saat tampil (`ink-draw`), dan
@@ -202,6 +203,118 @@ export function CelebrateSketch({ className }: IllustrationProps) {
       <circle cx="98" cy="54" r="4.5" fill={HIGHLIGHT} />
       <Sparkle x={58} y={74} scale={0.8} wait={200} />
       <Sparkle x={214} y={20} scale={0.7} wait={1100} />
+    </Svg>
+  );
+}
+
+/* ---------------------------------------------------------------- */
+/* Pendaftaran langsung (ADR-055)                                    */
+/* ---------------------------------------------------------------- */
+
+/** Stempel SVG berporos di pusatnya sendiri — `stamp` memakai scale + rotate. */
+const stampBox = (wait: number) => ({ transformBox: 'fill-box', transformOrigin: 'center', ...delay(wait) }) as CSSProperties;
+
+const TICKET_EDGE = 'M36 64 H304 V104 A14 14 0 0 0 304 132 V172 H36 V132 A14 14 0 0 0 36 104 Z';
+
+/** Tiket bertakik dengan sobekan putus-putus dan cap stabilo — halaman daftar & tiket. */
+export function TicketSketch({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="0 0 340 230" className={cn('h-auto w-full max-w-[340px]', className)}>
+      <ellipse cx="170" cy="214" rx="138" ry="8" fill={PAPER_SHADE} stroke="none" />
+      <g transform="rotate(-7 170 118)">
+        <Ink d={TICKET_EDGE} fill={PAPER} wait={0} />
+        <path d="M233 65 H303 V104 A14 14 0 0 0 303 132 V171 H233 Z" fill={tint('sky')} stroke="none" />
+        <Ink d={TICKET_EDGE} wait={0} />
+        <path d="M232 72 V164" strokeDasharray="3 7" />
+        <path d="M64 94 H176" stroke={PENCIL} strokeWidth="6" pathLength={1} className="ink-draw" style={delay(500)} />
+        <path d="M64 116 H204" stroke={PENCIL} strokeWidth="6" pathLength={1} className="ink-draw" style={delay(650)} />
+        <path d="M64 138 H136" stroke={PENCIL} strokeWidth="6" pathLength={1} className="ink-draw" style={delay(800)} />
+        <Sparkle x={268} y={118} scale={1.05} wait={400} />
+      </g>
+      <g className="stamp" style={stampBox(1100)}>
+        <circle cx="200" cy="164" r="27" fill={HIGHLIGHT} />
+        <circle cx="200" cy="164" r="20" strokeDasharray="2 5" />
+        <path d="M189 164 L197 172 L212 155" strokeWidth="3.2" />
+      </g>
+      <Sparkle x={34} y={36} scale={0.8} wait={200} />
+      <Sparkle x={312} y={200} scale={0.6} wait={1500} />
+    </Svg>
+  );
+}
+
+/** Jam pasir: menunggu ditinjau atau di daftar tunggu — tenang, bukan alarm. */
+export function HourglassSketch({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="0 0 220 220" className={cn('h-auto w-full max-w-[200px]', className)}>
+      <ellipse cx="110" cy="204" rx="78" ry="7" fill={PAPER_SHADE} stroke="none" />
+      <Ink d="M62 28 H158 M62 188 H158" width={4} wait={0} />
+      <Ink d="M74 32 C74 84 104 92 104 108 C104 124 74 132 74 184 H146 C146 132 116 124 116 108 C116 92 146 84 146 32 Z" fill={PAPER} wait={200} />
+      <path d="M86 58 C92 82 104 88 110 98 C116 88 128 82 134 58 Z" fill={HIGHLIGHT} stroke="none" />
+      <path d="M80 182 C84 158 98 150 110 146 C122 150 136 158 140 182 Z" fill={tint('peach')} stroke="none" />
+      <path d="M110 108 V140" strokeDasharray="1 6" className="breathe" />
+      <Sparkle x={176} y={70} scale={0.8} wait={600} />
+      <Sparkle x={40} y={120} scale={0.6} wait={1300} />
+    </Svg>
+  );
+}
+
+/** Papan klip berisi daftar centang dan pensil — penyusun formulir penyelenggara. */
+export function ClipboardSketch({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="0 0 300 230" className={cn('h-auto w-full max-w-[300px]', className)}>
+      <ellipse cx="150" cy="216" rx="116" ry="8" fill={PAPER_SHADE} stroke="none" />
+      <Ink d="M78 30 H202 Q212 30 212 40 V198 Q212 206 202 206 H78 Q68 206 68 198 V40 Q68 30 78 30 Z" fill={tint('mint')} wait={0} />
+      <Ink d="M84 46 H196 V192 H84 Z" fill={PAPER} wait={150} />
+      <path d="M116 22 H164 V42 H116 Z" fill={PAPER_SHADE} />
+      {[78, 112, 146].map((y, index) => (
+        <g key={y}>
+          <rect x="98" y={y - 8} width="16" height="16" rx="4" fill={index === 0 ? HIGHLIGHT : PAPER} />
+          {index === 0 && <path d={`M101 ${y} L105 ${y + 4} L112 ${y - 4}`} strokeWidth="2.4" />}
+          <path d={`M124 ${y} H${index === 1 ? 168 : 182}`} stroke={PENCIL} strokeWidth="5" pathLength={1} className="ink-draw" style={delay(400 + index * 160)} />
+        </g>
+      ))}
+      <path d="M98 172 H150" stroke={PENCIL} strokeWidth="5" strokeDasharray="1 9" />
+      <g className="drift" style={{ '--r0': '0deg', '--r1': '6deg', '--d': '300ms' } as CSSProperties}>
+        <path d="M214 150 L262 102 L274 114 L226 162 Z" fill={tint('sun')} />
+        <path d="M214 150 L208 168 L226 162" fill={PAPER} />
+        <path d="M254 110 L266 122" />
+      </g>
+      <Sparkle x={42} y={60} scale={0.85} wait={500} />
+      <Sparkle x={250} y={46} scale={0.6} wait={1200} />
+    </Svg>
+  );
+}
+
+/** Batang yang naik dan garis tren dengan bendera di puncak — dasbor performa pendaftaran. */
+export function ChartRiseSketch({ className }: IllustrationProps) {
+  const bars: readonly { x: number; h: number; color: Tint }[] = [
+    { x: 64, h: 44, color: 'sky' },
+    { x: 108, h: 70, color: 'lilac' },
+    { x: 152, h: 62, color: 'peach' },
+    { x: 196, h: 104, color: 'mint' },
+  ];
+  return (
+    <Svg viewBox="0 0 300 220" className={cn('h-auto w-full max-w-[300px]', className)}>
+      <ellipse cx="150" cy="206" rx="122" ry="7" fill={PAPER_SHADE} stroke="none" />
+      <Ink d="M40 186 H262 M40 186 V40" wait={0} />
+      {bars.map((bar, index) => (
+        <rect
+          key={bar.x}
+          x={bar.x}
+          y={186 - bar.h}
+          width="30"
+          height={bar.h}
+          rx="5"
+          fill={tint(bar.color)}
+          className="grow-y"
+          style={{ ...delay(200 + index * 120), transformBox: 'fill-box', transformOrigin: 'bottom' } as CSSProperties}
+        />
+      ))}
+      <Ink d="M70 128 C100 116 118 96 138 104 C158 112 176 92 214 60" wait={700} />
+      <Ink d="M214 60 L214 22" width={3} wait={1100} />
+      <Ink d="M214 24 C228 18 238 32 254 24 L254 50 C238 58 228 44 214 50 Z" fill={HIGHLIGHT} wait={1250} />
+      <Sparkle x={262} y={84} scale={0.75} wait={1500} />
+      <Sparkle x={28} y={24} scale={0.6} wait={400} />
     </Svg>
   );
 }

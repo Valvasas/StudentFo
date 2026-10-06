@@ -16,6 +16,7 @@ import {
   MapPin,
   ShieldCheck,
   Ticket,
+  TicketCheck,
   Users,
 } from 'lucide-react';
 import { claimEventAction } from '@/app/penyelenggara/actions';
@@ -27,6 +28,7 @@ import { RequirementsChecklist } from '@/components/event/requirements-checklist
 import { SaveButton } from '@/components/event/save-button';
 import { ShareButton } from '@/components/event/share-button';
 import { VerifiedBadge } from '@/components/event/verified-badge';
+import { SeatMeter } from '@/components/registration/seat-meter';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
 import { InlineCountdown } from '@/components/listing/countdown';
@@ -36,6 +38,8 @@ import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { isPromoted } from '@/lib/data/listing';
+import type { EventRepository } from '@/lib/data/repository';
+import { registrationGate } from '@/lib/registration';
 import { priceLabel } from '@/lib/currency';
 import { recordEventView } from '@/lib/event-views';
 import { ORGANIZER_LIMITS } from '@/lib/organizer';
@@ -56,6 +60,7 @@ import {
   DEADLINE_LABEL_TEXT,
   EDUCATION_LEVEL_LABEL,
   EVENT_TYPE_LABEL,
+  REGISTRATION_STATUS_LABEL,
   TRACKER_STATUS_LABEL,
   type EventDetail,
   type OrganizerProfile,
@@ -125,7 +130,7 @@ export default async function EventDetailPage({
   const requestHeaders = await headers();
   after(() => recordEventView(event.id, requestHeaders));
 
-  const [isSaved, trackerItems, categories, similar, verifiedOrganizers, organizerProfile] = await Promise.all([
+  const [isSaved, trackerItems, categories, similar, verifiedOrganizers, organizerProfile, registration] = await Promise.all([
     user ? repository.isEventSaved(user.id, event.id) : Promise.resolve(false),
     user ? repository.listTrackerItems(user.id) : Promise.resolve([]),
     repository.listCategories(),
@@ -133,6 +138,7 @@ export default async function EventDetailPage({
     repository.listVerifiedOrganizers([event.id]),
     // Hanya di tab Penyelenggara, tempat ajakan klaim tampil.
     user && tab === 'penyelenggara' ? repository.getOrganizerProfile(user.id) : Promise.resolve(null),
+    loadRegistration(repository, event.id, user?.id ?? null),
   ]);
   const verifiedOrg = verifiedOrganizers.get(event.id) ?? null;
   const tracked = trackerItems.find((item) => item.eventId === event.id);
@@ -141,6 +147,11 @@ export default async function EventDetailPage({
   const now = new Date();
   const state = getDeadlineState(event.primaryDeadlineAt, now);
   const isClosed = state.urgency === 'closed' || event.status === 'EXPIRED';
+  const nativeOpen = registration.form !== null && registrationGate(registration.form, event, now).ok;
+  const ticketHref = `/events/${event.slug}/pendaftaran/tiket`;
+  const formHref = `/events/${event.slug}/pendaftaran`;
+  const mine = registration.mine;
+  const holdsTicket = mine !== null && mine.status !== 'CANCELLED';
   // Tautan berasal dari sumber pihak ketiga hasil scraping. Divalidasi ulang
   // di titik render — bukan diasumsikan aman karena "kan sudah divalidasi
   // di pipeline". Satu lapis saja tidak cukup untuk data yang tidak kita tulis.
@@ -163,7 +174,7 @@ export default async function EventDetailPage({
     levels.length > 0 ? `Pelajar/mahasiswa aktif jenjang ${levels.join(' atau ')}` : 'Terbuka untuk semua jenjang',
     event.isOnline ? 'Bisa mengikuti kegiatan secara daring' : `Bisa hadir di ${place}`,
     ...(isTeamEvent ? ['Memenuhi ketentuan jumlah anggota tim dari penyelenggara'] : []),
-    'Mendaftar sebelum tenggat melalui tautan resmi penyelenggara',
+    nativeOpen ? 'Mendaftar sebelum tenggat lewat formulir StudentFo' : 'Mendaftar sebelum tenggat melalui tautan resmi penyelenggara',
   ];
 
   const price = priceLabel(event);
@@ -179,7 +190,37 @@ export default async function EventDetailPage({
       : []),
   ];
 
-  const register = isClosed ? (
+  const register = holdsTicket ? (
+    <Link
+      href={ticketHref}
+      className="flex h-12 items-center justify-center gap-2 rounded-card bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
+    >
+      <TicketCheck aria-hidden className="size-4" />
+      Lihat tiketmu · {REGISTRATION_STATUS_LABEL[mine.status]}
+    </Link>
+  ) : nativeOpen ? (
+    <div className="flex flex-col gap-2">
+      <Link
+        href={formHref}
+        className="group flex h-12 items-center justify-center gap-2 rounded-card bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
+      >
+        {mine?.status === 'CANCELLED' ? 'Daftar lagi di StudentFo' : 'Daftar di StudentFo'}
+        <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
+      </Link>
+      {registrationUrl && (
+        // Jalur luar tetap ada: sebagian peserta wajib memakai formulir resmi (mis. berkas besar).
+        <a
+          href={`${detailPath}/daftar`}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className="flex min-h-11 items-center justify-center gap-1 text-[13px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
+        >
+          atau lewat situs penyelenggara <ArrowUpRight aria-hidden className="size-3.5" />
+          <span className="sr-only">(tab baru)</span>
+        </a>
+      )}
+    </div>
+  ) : isClosed ? (
     // `disabled` tidak berefek pada <a>, jadi kegiatan yang ditutup tidak diberi tautan sama sekali.
     <span className="flex h-12 items-center justify-center rounded-card bg-panel-nested text-[15px] font-semibold text-ink-muted">
       Pendaftaran sudah ditutup
@@ -518,6 +559,9 @@ export default async function EventDetailPage({
             </div>
             <div className="flex flex-col gap-2">
               {register}
+              {nativeOpen && !holdsTicket && registration.form && (
+                <SeatMeter seats={registration.seats} waitlist={registration.form.waitlist} className="rounded-card bg-panel-nested p-3.5" />
+              )}
               <div className="flex gap-2">
                 <SaveButton eventId={event.id} isSaved={isSaved} returnTo={detailPath} variant="full" className="flex-1" />
                 <ShareButton title={event.title} path={detailPath} />
@@ -571,7 +615,9 @@ export default async function EventDetailPage({
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-canvas shadow-[0_-8px_24px_rgba(0,0,0,.06)] min-[960px]:hidden">
         <div className="mx-auto flex max-w-[720px] items-center gap-2.5 px-4 py-3">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-sm font-semibold">{isClosed ? 'Pendaftaran ditutup' : daysLeftLabel(state.daysLeft)}</span>
+            <span className="text-sm font-semibold">
+              {holdsTicket ? REGISTRATION_STATUS_LABEL[mine.status] : isClosed ? 'Pendaftaran ditutup' : daysLeftLabel(state.daysLeft)}
+            </span>
             <span className="truncate text-[12.5px] text-ink-muted">
               {event.primaryDeadlineAt ? `Tutup ${formatDateId(event.primaryDeadlineAt)}` : event.organizer}
             </span>
@@ -587,21 +633,56 @@ export default async function EventDetailPage({
               <Bookmark aria-hidden className={cn('size-4', isSaved && 'fill-current')} />
             </button>
           </form>
-          {!isClosed && registrationUrl && (
-            <a
-              href={`${detailPath}/daftar`}
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-              aria-label="Daftar sekarang (membuka situs penyelenggara di tab baru)"
-              className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand"
+          {holdsTicket ? (
+            <Link
+              href={ticketHref}
+              aria-label={`Lihat tiketmu (${REGISTRATION_STATUS_LABEL[mine.status]})`}
+              className="flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand"
             >
+              <TicketCheck aria-hidden className="size-4" /> Tiket
+            </Link>
+          ) : nativeOpen ? (
+            <Link href={formHref} className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand">
               Daftar
-            </a>
+            </Link>
+          ) : (
+            !isClosed &&
+            registrationUrl && (
+              <a
+                href={`${detailPath}/daftar`}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                aria-label="Daftar sekarang (membuka situs penyelenggara di tab baru)"
+                className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand"
+              >
+                Daftar
+              </a>
+            )
           )}
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * Pendaftaran langsung (ADR-055) untuk halaman detail. Gagal membaca =
+ * halaman tetap tampil dengan tombol tautan luar: formulir adalah tambahan,
+ * dan kode yang terpasang sebelum migration-nya diterapkan tidak boleh
+ * membuat SEMUA halaman acara jadi 500.
+ */
+async function loadRegistration(repository: EventRepository, eventId: string, userId: string | null) {
+  try {
+    const [form, seats, mine] = await Promise.all([
+      repository.getRegistrationForm(eventId),
+      repository.getRegistrationSeats(eventId),
+      userId ? repository.getMyRegistration(userId, eventId) : Promise.resolve(null),
+    ]);
+    return { form, seats, mine };
+  } catch (error) {
+    console.error('[registration] detail acara tanpa pendaftaran langsung:', error);
+    return { form: null, seats: { capacity: null, taken: 0, waitlisted: 0 }, mine: null };
+  }
 }
 
 /**

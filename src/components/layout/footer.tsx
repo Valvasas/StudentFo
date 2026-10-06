@@ -13,7 +13,7 @@ const FOOTER_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="container-page mt-24 pb-12">
+    <footer className="container-page mt-24 pb-12 print:hidden">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-t border-line pt-8">
         <span className="flex flex-col">
           <Link href="/" className="inline-flex min-h-11 items-center gap-2 font-display text-base font-bold tracking-[-0.03em]">
