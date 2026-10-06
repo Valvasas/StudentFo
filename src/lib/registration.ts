@@ -62,6 +62,20 @@ export function registrationGate(
   return { ok: true };
 }
 
+/**
+ * Acara yang layak berlencana "Daftar di StudentFo": formulirnya OPEN *dan*
+ * gerbangnya terbuka. Status OPEN saja tidak cukup — formulir yang lupa
+ * ditutup panitia setelah tenggat tetap OPEN di database, dan lencana di
+ * kartunya akan menjanjikan pendaftaran yang pasti ditolak.
+ */
+export function nativeRegistrationIds(
+  events: readonly Pick<EventSummary, 'id' | 'status' | 'primaryDeadlineAt'>[],
+  openIds: ReadonlySet<string>,
+  now: Date = new Date(),
+): ReadonlySet<string> {
+  return new Set(events.filter((event) => openIds.has(event.id) && registrationGate({ status: 'OPEN' }, event, now).ok).map((event) => event.id));
+}
+
 /** Status yang memegang kursi. Daftar tunggu & yang keluar tidak. */
 export function holdsSeat(status: RegistrationStatus): boolean {
   return status === 'PENDING' || status === 'CONFIRMED';

@@ -10,7 +10,8 @@ const BROWSER_UA =
  * mengalihkan ke luar situs.
  */
 test('tombol Daftar menunjuk pengalih internal yang mengarah ke tautan pendaftaran event', async ({ page, request }) => {
-  await page.goto('/events');
+  // Beasiswa contoh tidak memakai pendaftaran langsung (ADR-055), jadi tombol utamanya tetap tautan luar.
+  await page.goto('/events?type=BEASISWA');
   const href = await page.locator('main a[href^="/events/"]').first().getAttribute('href');
   await page.goto(href!);
 
@@ -22,6 +23,15 @@ test('tombol Daftar menunjuk pengalih internal yang mengarah ke tautan pendaftar
   expect(response.status()).toBe(303);
   expect(response.headers()['location']).toMatch(/^https?:\/\//);
   expect(new URL(response.headers()['location']!).host).not.toBe(new URL(page.url()).host);
+});
+
+test('acara berpendaftaran langsung: tautan luar sekunder tetap lewat pengalih yang sama', async ({ page }) => {
+  const href = '/events/workshop-analisis-data-dengan-python-untuk-pemula';
+  await page.goto(href);
+  await expect(page.getByRole('link', { name: /^Daftar (lagi )?di StudentFo/ }).first()).toHaveAttribute('href', `${href}/pendaftaran`);
+  const external = page.getByRole('link', { name: /lewat situs penyelenggara/ }).first();
+  await expect(external).toHaveAttribute('href', `${href}/daftar`);
+  await expect(external).toHaveAttribute('rel', /noopener/);
 });
 
 test('slug tak dikenal & parameter tujuan palsu tidak pernah mengalihkan ke luar situs', async ({ request, baseURL }) => {

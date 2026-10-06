@@ -15,6 +15,7 @@ import { WorkshopCalendar } from '@/components/listing/workshop-calendar';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { eventTypeNavFor } from '@/lib/event-type-nav';
+import { nativeRegistrationIds } from '@/lib/registration';
 import {
   buildEventHref,
   hasActiveFilters,
@@ -98,7 +99,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
     user ? repository.listSavedEventIds(user.id) : Promise.resolve([] as readonly string[]),
   ]);
   // Lencana "Daftar di StudentFo" (ADR-055); repository mengembalikan set kosong bila gagal.
-  const nativeIds = await repository.listOpenRegistrationEventIds(result.items.map((event) => event.id));
+  const nativeIds = nativeRegistrationIds(result.items, await repository.listOpenRegistrationEventIds(result.items.map((event) => event.id)), now);
   const board = { query, result, categories, savedIds: savedEventIds, currentHref, now, nativeIds };
   const feedback = <ActionFeedback params={rawParams} className="container-page mt-6 max-w-2xl" />;
 

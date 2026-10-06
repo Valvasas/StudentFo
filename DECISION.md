@@ -92,9 +92,13 @@ dan pemolesan semua halaman jenis kegiatan.
 - Moderator belum bisa menangguhkan formulir secara khusus (hanya mencabut
   verifikasi penyelenggara, yang otomatis menutup akses studio) — tugas
   lanjutan P1 di TASKS.md.
-- Migration `20261006100001` sudah lolos `npm run db:test` di Postgres 16
-  lokal, tetapi BELUM diterapkan ke proyek Supabase mana pun (butuh
-  persetujuan eksplisit, AGENTS.md).
+- Migration `20261006100001` sudah lolos `npm run db:test` dan
+  `npm run test:integration` (PostgREST + Postgres 16 lokal), tetapi BELUM
+  diterapkan ke proyek Supabase mana pun (butuh persetujuan eksplisit,
+  AGENTS.md).
+- Lencana katalog = formulir OPEN *dan* gerbang terbuka: formulir yang lupa
+  ditutup setelah tenggat tetap OPEN di database, dan studio menyebutnya
+  "Tertutup otomatis" alih-alih "Dibuka".
 - Catatan dev: elemen server yang dioper sebagai prop ke komponen klien bisa
   di-stream sebagai potongan lazy, dan React dev lalu melaporkan "key hilang"
   palsu — oper data, bukan elemen (lihat `SeatMeter`).

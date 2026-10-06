@@ -54,7 +54,9 @@ test('penyelenggara: analitik, lalu perubahan acara baru tayang setelah diterapk
   const admin = await adminContext.newPage();
 
   await signInAsDemo(org, 'Penyelenggara', '/penyelenggara');
-  await org.locator(`a[href="${MANAGED}"]`).click();
+  // Acara berformulir pendaftaran langsung membuka Performa pendaftaran dulu (ADR-055); analitik halaman satu tab di sebelahnya.
+  await org.locator(`a[href^="${MANAGED}"]`).first().click();
+  await org.getByRole('navigation', { name: 'Studio acara' }).getByRole('link', { name: 'Analitik halaman' }).click();
   await expect(org.getByRole('img', { name: /Grafik kunjungan harian, 30 hari/ })).toBeVisible();
   await org.getByRole('link', { name: '7 hari' }).click();
   await expect(org.getByRole('img', { name: /Grafik kunjungan harian, 7 hari/ })).toBeVisible();

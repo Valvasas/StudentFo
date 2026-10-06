@@ -168,13 +168,17 @@ function ControlCenter({
   publicPath: string;
   title: string;
 }) {
-  const copy = STATUS_COPY[form.status];
+  // OPEN di database tetapi tenggat sudah lewat: gerbang menolak semua pendaftar baru — jangan tulis "Dibuka".
+  const lapsed = form.status === 'OPEN' && !canOpen;
+  const copy = lapsed
+    ? { label: 'Tertutup otomatis', text: 'Tenggat acara sudah lewat, jadi formulir tidak menerima pendaftar baru. Pendaftar yang ada tetap bisa kamu kelola.', dot: 'bg-caution' }
+    : STATUS_COPY[form.status];
   const next = form.status === 'OPEN' ? 'CLOSED' : 'OPEN';
   return (
     <section aria-labelledby="kendali" className="flex flex-wrap items-center justify-between gap-5 rounded-[24px] border border-line bg-panel p-5 sm:p-6">
       <div className="flex min-w-0 max-w-xl items-start gap-4">
         <span aria-hidden className="relative mt-1 flex size-3 shrink-0">
-          {form.status === 'OPEN' && <span className="absolute inset-0 animate-ping rounded-pill bg-success opacity-40 motion-reduce:hidden" />}
+          {form.status === 'OPEN' && !lapsed && <span className="absolute inset-0 animate-ping rounded-pill bg-success opacity-40 motion-reduce:hidden" />}
           <span className={cn('relative size-3 rounded-pill', copy.dot)} />
         </span>
         <span className="flex flex-col gap-1">
@@ -194,7 +198,7 @@ function ControlCenter({
         <Link href={formHref} className={buttonVariants({ variant: 'secondary' })}>
           <PencilLine aria-hidden /> Edit formulir
         </Link>
-        {form.status === 'OPEN' && <ShareButton title={title} path={publicPath} label="Bagikan tautan daftar" />}
+        {form.status === 'OPEN' && !lapsed && <ShareButton title={title} path={publicPath} label="Bagikan tautan daftar" />}
         {(next === 'CLOSED' || canOpen) && (
           <form action={setRegistrationFormStatusAction}>
             <input type="hidden" name="eventId" value={eventId} />

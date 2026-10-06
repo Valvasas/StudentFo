@@ -8,6 +8,7 @@ import {
   formIssueFields,
   generateTicketCode,
   initialStatus,
+  nativeRegistrationIds,
   normalizePhone,
   parseRegistrationForm,
   parseRegistrationStats,
@@ -325,5 +326,18 @@ describe('formIssueFields', () => {
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
     expect(formIssueFields(data, parsed.error.issues).sort()).toEqual(['capacity', 'q2_options', 'q5_label']);
+  });
+});
+
+describe('nativeRegistrationIds', () => {
+  it('formulir OPEN di acara yang lewat tenggat atau tidak tayang tidak berlencana', () => {
+    const now = new Date('2026-10-05T05:00:00Z');
+    const events = [
+      { id: 'buka', status: 'APPROVED' as const, primaryDeadlineAt: '2026-10-20T16:59:00Z' },
+      { id: 'lewat', status: 'APPROVED' as const, primaryDeadlineAt: '2026-10-01T16:59:00Z' },
+      { id: 'kedaluwarsa', status: 'EXPIRED' as const, primaryDeadlineAt: null },
+      { id: 'tanpa-formulir', status: 'APPROVED' as const, primaryDeadlineAt: null },
+    ];
+    expect([...nativeRegistrationIds(events, new Set(['buka', 'lewat', 'kedaluwarsa']), now)]).toEqual(['buka']);
   });
 });

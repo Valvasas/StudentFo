@@ -19,6 +19,7 @@ import { CalendarSketch } from '@/components/ui/illustrations';
 import { HandNote } from '@/components/ui/sketch';
 import { type AuthUser, isProfileComplete } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { nativeRegistrationIds } from '@/lib/registration';
 import { withFallback } from '@/lib/fallback';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import { parseEventQuery } from '@/lib/search-params';
@@ -81,7 +82,7 @@ export async function PersonalHome({ user }: { user: AuthUser }) {
     now,
   ).slice(0, ACTION_LIMIT);
   const picks = recommended.items.filter((event) => !trackedIds.has(event.id) && !savedIds.has(event.id)).slice(0, RECOMMENDATION_LIMIT);
-  const nativeIds = await repository.listOpenRegistrationEventIds(picks.map((event) => event.id));
+  const nativeIds = nativeRegistrationIds(picks, await repository.listOpenRegistrationEventIds(picks.map((event) => event.id)));
 
   const counts = {
     watched: tracker.length,

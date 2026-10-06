@@ -331,6 +331,19 @@ export default async function EventDetailPage({
                 keduanya tak terjangkau dari ponsel. Kalender ada di tab Tahapan. */}
             <div className="-ml-3.5 flex flex-wrap items-center gap-1 min-[960px]:hidden">
               <ShareButton title={event.title} path={detailPath} />
+              {nativeOpen && !holdsTicket && registrationUrl && (
+                // Panel samping (tempat tautan luar sekunder) hilang di bawah 960px — jalur luar tetap terjangkau dari ponsel.
+                <a
+                  href={`${detailPath}/daftar`}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="flex h-11 items-center gap-1.5 rounded-card px-3.5 text-sm font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested"
+                >
+                  <ArrowUpRight aria-hidden className="size-4" />
+                  Daftar lewat situs penyelenggara
+                  <span className="sr-only">(tab baru)</span>
+                </a>
+              )}
               {demoFeaturesEnabled && !isClosed && (
                 <Link
                   href={`${detailPath}/persiapan`}
@@ -642,7 +655,11 @@ export default async function EventDetailPage({
               <TicketCheck aria-hidden className="size-4" /> Tiket
             </Link>
           ) : nativeOpen ? (
-            <Link href={formHref} className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand">
+            <Link
+              href={formHref}
+              aria-label={mine?.status === 'CANCELLED' ? 'Daftar lagi di StudentFo' : 'Daftar di StudentFo'}
+              className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand"
+            >
               Daftar
             </Link>
           ) : (

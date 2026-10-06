@@ -495,8 +495,9 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Peserta: CTA & meter kursi di detail acara, wizard `/events/[slug]/pendaftaran` (tanpa JS tetap jalan), tiket `/…/tiket`, batal & daftar ulang, pelacak → "Sudah daftar".
 - [x] Penyelenggara: tab studio, dasbor performa, pendaftar (saring/cari/keputusan berurutan), penyusun formulir (ide cepat, peringatan data sensitif, pratinjau), ekspor CSV privat, ringkasan di `/penyelenggara`.
 - [x] Katalog: lencana "Daftar di StudentFo" di semua papan, daftar umum, beranda; hero workshop & magang berilustrasi; perbaikan kontras strip tanggal workshop & tombol "Saring" di kepala gelap seminar.
-- [x] Uji: `tests/e2e/registration.spec.ts` (wizard, tanpa JS + daftar tunggu, keputusan sampai ke peserta, CSV 403, data sensitif ditolak) + 18 rute baru di audit axe (tiga proyek).
-- [ ] **BUTUH KONFIRMASI PEMILIK.** Apply migration `20261006100001_event_registrations.sql` ke Supabase, lalu jalankan `npm run test:integration` (paritas) dan coba alur penuh dengan akun penyelenggara sungguhan.
+- [x] Uji: `tests/e2e/registration.spec.ts` (wizard, tanpa JS + daftar tunggu, keputusan sampai ke peserta, CSV 403, data sensitif ditolak), 18 rute baru di audit axe (tiga proyek), dan `tests/integration/registrations.test.ts` — 13 metode Supabase lewat PostgREST + Postgres 16 sungguhan (`npm run test:integration`, 79/79).
+- [x] Lencana katalog hanya untuk formulir OPEN yang gerbangnya terbuka (`nativeRegistrationIds`); studio menulis "Tertutup otomatis" untuk formulir OPEN yang lewat tenggat; tautan luar sekunder & nama tombol daftar setara di ponsel.
+- [ ] **BUTUH KONFIRMASI PEMILIK.** Apply migration `20261006100001_event_registrations.sql` ke proyek Supabase, lalu coba alur penuh dengan akun penyelenggara sungguhan (uji lokal PostgREST sudah lolos).
 - [ ] **P1** Moderator bisa menangguhkan satu formulir (status `SUSPENDED` + log moderasi) tanpa mencabut verifikasi lembaganya — formulir saat ini tayang tanpa moderasi per formulir (ADR-055).
 - [ ] **P1** Tinjau hukum kebijakan privasi bagian "data pendaftaran ke penyelenggara" (bersama tugas kebijakan privasi di atas).
 - [ ] **P2** Kirim email/WhatsApp untuk keputusan pendaftaran (saat ini hanya lonceng notifikasi) — ikut antrean dispatch ADR-051.
