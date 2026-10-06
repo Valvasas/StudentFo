@@ -19,6 +19,13 @@ const STATIC_ROUTES = [
   // Lencana otoritas + biaya + buku panduan + tombol kalender (ADR-049/050).
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=syarat',
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan',
+  // Papan per jenis + lencana "Daftar di StudentFo", CTA & meter kursi, ajakan masuk (ADR-055).
+  '/events?type=BEASISWA',
+  '/events?type=MAGANG',
+  '/events?type=WORKSHOP&type=PELATIHAN',
+  '/events?type=KONFERENSI',
+  '/events/workshop-analisis-data-dengan-python-untuk-pemula',
+  '/events/workshop-analisis-data-dengan-python-untuk-pemula/pendaftaran',
   '/teams',
   '/submit',
   '/submit?error=invalid_submission&fields=title,email',
@@ -133,6 +140,17 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/profile?tampilan=publik&tab=portofolio'],
   ['Mahasiswa', '/tracker/lomba-desain-ui-ux-nasional-edisi-lalu'],
   ['Mahasiswa', '/orang/seed-user-1'],
+  // Pendaftaran langsung (ADR-055): wizard, mode tim, kesalahan dari server.
+  ['Mahasiswa', '/events/konferensi-mahasiswa-kesehatan-masyarakat-2026/pendaftaran'],
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026/pendaftaran'],
+  ['Mahasiswa', '/events/workshop-riset-kualitatif-untuk-mahasiswa-tingkat-akhir/pendaftaran?error=invalid_registration&fields=phone,q2'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000003/pendaftaran'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000003/pendaftaran?range=90'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000003/pendaftar'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000003/pendaftar?status=PENDING&r=seed-reg-0003-1'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000003/pendaftaran/formulir'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000003/pendaftaran/formulir?error=invalid_registration_form&fields=capacity,q2_options'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000002/pendaftaran'],
 ];
 
 test('tanpa pelanggaran WCAG: status pendaftaran & persiapan', async ({ page }) => {

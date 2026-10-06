@@ -38,7 +38,7 @@ const PRINCIPLES = [
 ] as const;
 
 const NOT_YET = [
-  'StudentFo bukan penyelenggara. Kami tidak menerima pendaftaran atau pembayaran — tombol "Daftar" selalu membawamu ke situs resmi.',
+  'StudentFo bukan penyelenggara dan tidak menerima pembayaran. Pendaftaran langsung hanya ada di kegiatan bertanda "Daftar di StudentFo" yang dibuka penyelenggara terverifikasi; selebihnya tombol "Daftar" membawamu ke situs resmi.',
   'Pengingat tenggat baru muncul di dalam aplikasi (lonceng notifikasi), belum lewat email atau WhatsApp.',
   'Cakupan sumber masih bertumbuh. Kalau tahu kegiatan yang belum ada, kirimkan — setiap kiriman tetap ditinjau manual.',
   'Kebijakan privasi masih berstatus draf sampai ditinjau bersama penasihat hukum.',

@@ -88,12 +88,12 @@ const CHAPTERS: readonly Chapter[] = [
   },
   {
     title: 'Daftar',
-    detail: 'Siapkan data & berkas, lalu daftar di situs resmi.',
+    detail: 'Siapkan data & berkas, lalu daftar — langsung di StudentFo bila tersedia, atau di situs resmi.',
     url: 'events/hackathon-layanan-publik/persiapan',
     beats: [
       { x: 300, y: 180, cap: 'Data dari profilmu siap disalin ke formulir resmi.', set: { fill: 1 }, focus: [296, 230, 1.5], dur: 2800 },
       { x: 500, y: 400, click: true, cap: 'Siapkan berkas yang diminta penyelenggara.', set: { up: 1 }, zoom: 1.7, dur: 2200 },
-      { x: 480, y: 474, click: true, cap: 'Daftar di situs penyelenggara, lalu pantau tahapannya di sini.', set: { sent: 1 }, hitWide: true, dur: 3000 },
+      { x: 480, y: 474, click: true, cap: 'Daftar di StudentFo atau situs penyelenggara, lalu pantau tahapannya di sini.', set: { sent: 1 }, hitWide: true, dur: 3000 },
     ],
   },
   {

@@ -11,7 +11,8 @@ I/O pipeline Python. Semua ada di sini.
 > **Sejak 2026-09-26** `EventRepository` adalah gabungan interface per domain
 > (`EventCatalogRepository`, `ModerationRepository`, `SubmissionRepository`,
 > `SavedEventRepository`, `TrackerRepository`, `NotificationRepository`,
-> `TeamRepository`, `NetworkRepository`, `RateLimitRepository`, `RecommendationSignalRepository`) di
+> `TeamRepository`, `NetworkRepository`, `RateLimitRepository`, `RecommendationSignalRepository`,
+> `RegistrationRepository`) di
 > `src/lib/data/repository.ts` — sumber kebenaran tanda tangan method. Blok di
 > bawah adalah ringkasan historis; method baru sejak itu (antrean detail,
 > `listModerationLog`, `consumeRateLimit`, sinyal & kalibrasi) hanya tercatat
@@ -85,6 +86,37 @@ untuk `authenticated`. UI memakai `memberCount` untuk hitungan dan slot.
 Ambil instance lewat `getEventRepository()` (`src/lib/data/index.ts`) —
 jangan `new MemoryEventRepository()` / `new SupabaseEventRepository()`
 langsung di kode aplikasi (boleh di test).
+
+**Kontrak pendaftaran langsung (ADR-055)** — `RegistrationRepository`:
+
+```ts
+interface RegistrationRepository {
+  // Publik/peserta
+  getRegistrationForm(eventId): Promise<RegistrationForm | null>;      // hanya OPEN/CLOSED, tidak pernah DRAFT
+  getRegistrationSeats(eventId): Promise<RegistrationSeats>;           // angka saja: capacity, taken (PENDING+CONFIRMED), waitlisted
+  listOpenRegistrationEventIds(eventIds): Promise<ReadonlySet<string>>; // lencana kartu; gagal = set kosong
+  getMyRegistration(userId, eventId): Promise<Registration | null>;
+  submitRegistration(actor, eventId, input: RegistrationSubmission): Promise<Registration>;
+  cancelRegistration(userId, eventId): Promise<void>;
+  // Studio (pengelola terverifikasi; selain itu actionError('not_event_manager'))
+  getManagedRegistrationForm(actorId, eventId): Promise<RegistrationForm | null>; // termasuk DRAFT
+  saveRegistrationForm(actorId, eventId, input: RegistrationFormInput): Promise<void>;
+  setRegistrationFormStatus(actorId, eventId, 'OPEN' | 'CLOSED'): Promise<void>;
+  listRegistrations(actorId, eventId): Promise<readonly Registration[]>;   // terbaru dulu, maks 2.000
+  decideRegistration(actorId, registrationId, 'CONFIRM' | 'REJECT' | 'REOPEN', note): Promise<void>;
+  getRegistrationStats(actorId, eventId, days): Promise<RegistrationStats>; // 7..90 hari WIB
+  listRegistrationSummaries(actorId, eventIds): Promise<ReadonlyMap<string, RegistrationSummary>>;
+}
+```
+
+Penolakan yang dikenal dilempar sebagai `actionError()`: `registration_closed`,
+`registration_full`, `registration_exists`, `registration_rejected_before`,
+`registration_not_eligible`, `registration_rate_limited` (10/jam/orang),
+`invalid_registration`, `registration_team_invalid`, `registration_not_found`
+(juga untuk "bukan acaramu" — tidak membocorkan id), `registration_invalid_transition`,
+`invalid_registration_form`, `registration_form_unavailable`, `not_event_manager`,
+`organizer_rate_limited`. Aturan (gerbang, status awal, promosi FIFO, transisi)
+ada di `src/lib/registration.ts`; kembaran SQL-nya RPC migration `20261006100001`.
 
 **Kontrak notifikasi.** Repository hanya MEMBACA dan menandai dibaca; ia
 tidak pernah membuat notifikasi. Produsennya ada di luar (fungsi Postgres
@@ -241,6 +273,19 @@ kedua repository — dikunci test paritas. Angka di halaman diambil dari
 
 Selisih revisi dihitung terhadap data acara SAAT INI di server
 (`buildRevisionChanges`), bukan nilai lama dari form.
+
+### Aksi pendaftaran langsung — peserta `src/app/events/[slug]/pendaftaran/actions.ts`, studio `src/app/penyelenggara/registration-actions.ts` (ADR-055)
+
+| Aksi | Field form | Sukses (`?notice=`) | Gagal (`?error=`) |
+|---|---|---|---|
+| `submitRegistrationAction` | `slug`, `phone`, `institution`, `major?`, `educationLevel`, `q1`…`q6` sesuai formulir, `teamId` (mode tim), `consent=on` | → `/…/pendaftaran/tiket?notice=registration_submitted` | `invalid_registration` + `fields=phone,q2,consent,…` (kunci kolom, bukan teks), dan semua penolakan repository di atas |
+| `cancelRegistrationAction` | `slug` | `registration_cancelled` | `registration_not_found` |
+| `saveRegistrationFormAction` | `eventId`, `reviewMode`, `capacity?`, `waitlist=on`, `teamMode=team`, `teamMin`, `teamMax`, `q{n}_label/_kind/_required/_options` (pilihan dipisah baris), `intro?`, `confirmationNote?`, `intent=save\|open` | `registration_form_saved` / `registration_form_opened` (ke dasbor) | `invalid_registration_form` + `fields=capacity,q3_options,…` (indeks pertanyaan dipetakan ke SLOT oleh `formIssueFields`) |
+| `setRegistrationFormStatusAction` | `eventId`, `status` (`OPEN`\|`CLOSED`), `returnTo` | `registration_form_opened` / `registration_form_closed` | `registration_form_unavailable`, `not_event_manager` |
+| `decideRegistrationAction` | `eventId`, `registrationId`, `decision` (`CONFIRM`\|`REJECT`\|`REOPEN`), `note?` (≤ 300, ikut notifikasi), `returnTo` | `registration_decided` | `registration_invalid_transition`, `registration_not_found` |
+
+Rute `slug`/`eventId` dari form hanya untuk MENCARI; redirect dirakit dari data
+server. `returnTo` keputusan biasanya menunjuk pendaftar BERIKUTNYA (`?r=`).
 
 ### Aksi admin penyelenggara — `src/app/admin/actions.ts` (ADR-042)
 
@@ -402,6 +447,13 @@ tanggal WIB, pengingat 09.00 H-3 & H-1 untuk pendaftaran/pengumpulan.
 `200 text/calendar; charset=utf-8` + `Content-Disposition: attachment`;
 `404 { error, code: 'NOT_FOUND' }` bila kegiatan tidak ada/tidak tayang atau
 belum punya jadwal. Publik, `Cache-Control: public, max-age=300`.
+
+### `GET /penyelenggara/acara/[id]/pendaftar/ekspor` (ADR-055)
+
+CSV pendaftar (BOM UTF-8, sel `= + - @` diberi apostrof). Hanya pengelola
+terverifikasi acara itu: tamu → 303 ke `/login?next=…`, bukan pengelola → 403,
+belum ada formulir → 404. Selalu `Cache-Control: private, no-store` +
+`Content-Disposition: attachment; filename="pendaftar-<slug>-<YYYY-MM-DD>.csv"`.
 
 ### `POST /api/cron/dispatch-deadline-notifications?limit=100` (ADR-051)
 

@@ -19,8 +19,9 @@ export const metadata: Metadata = {
  * Privasi & data (kanvas Privasi). Bagian atas menyebut apa yang BENAR
  * terlihat oleh orang lain hari ini (dari RLS & view team_member_profiles);
  * kendali per kolom di bawahnya mode data contoh. Kanvas punya log "data
- * yang dibagikan ke penyelenggara" — aplikasi ini tidak meneruskan data ke
- * penyelenggara, jadi yang tampil adalah pernyataan itu, bukan log fiktif.
+ * yang dibagikan ke penyelenggara" — yang dibagikan hanya pendaftaran
+ * langsung yang kamu setujui (ADR-055), dan tiketnya sendiri sudah menjadi
+ * catatannya; yang tampil adalah pernyataan itu, bukan log fiktif.
  */
 export default async function PrivacyPage() {
   const user = await requireUser('/profile/privacy');
@@ -65,7 +66,11 @@ export default async function PrivacyPage() {
             rows={[
               { label: 'Anggota tim yang sama', value: 'Nama dan peranmu di tim itu' },
               { label: 'Pengguna lain & tamu', value: 'Tidak ada data pribadimu' },
-              { label: 'Penyelenggara kegiatan', value: 'Tidak ada — pendaftaran terjadi di situs mereka, kami tidak meneruskan datamu', wide: true },
+              {
+                label: 'Penyelenggara kegiatan',
+                value: 'Hanya penyelenggara kegiatan yang kamu daftari langsung di StudentFo, setelah kamu menyetujuinya — data pendaftaranmu untuk kegiatan itu. Pendaftaran lewat situs mereka tidak melalui kami.',
+                wide: true,
+              },
               { label: 'Tersimpan di akunmu', value: `${saved.length} kegiatan tersimpan · ${tracker.length} catatan pendaftaran`, wide: true },
             ]}
           />

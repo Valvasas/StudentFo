@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 const SUMMARY = [
   'Kami tidak menjual datamu dan tidak memasang iklan atau pelacak pihak ketiga.',
-  'Pendaftaran terjadi di situs penyelenggara. StudentFo tidak meneruskan data dirimu ke mereka.',
+  'Data pendaftaran hanya dibagikan ke penyelenggara saat kamu mendaftar langsung di StudentFo dan menyetujuinya di formulir. Selain itu, pendaftaran terjadi di situs penyelenggara.',
   'Anggota timmu hanya melihat nama dan peranmu. Tamu yang belum masuk tidak melihat nama siapa pun.',
   'Kamu bisa melihat dan memperbaiki datamu kapan saja dari halaman akun.',
 ];
@@ -34,6 +34,11 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
             <strong>Aktivitas:</strong> kegiatan yang kamu simpan, status yang kamu catat di Pendaftaran, dan tim yang kamu buat atau ikuti.
           </li>
           <li>
+            <strong>Pendaftaran langsung:</strong> untuk kegiatan bertanda &ldquo;Daftar di StudentFo&rdquo; — nomor WhatsApp, institusi, jurusan,
+            jenjang, jawabanmu atas pertanyaan penyelenggara, tim yang kamu daftarkan, kode tiket, status, dan waktu persetujuanmu. Nama dan
+            email disalin dari akunmu saat mendaftar.
+          </li>
+          <li>
             <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
           </li>
           <li>
@@ -52,7 +57,8 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
     body: (
       <p>
         Jenjang dan minatmu dipakai untuk mengurutkan dan menandai kegiatan yang cocok. Kegiatan yang kamu simpan dipakai untuk pengingat tenggat di
-        dalam aplikasi. Kiriman kegiatan dibaca moderator sebelum tayang. Kami tidak memakai datamu untuk iklan.
+        dalam aplikasi. Data pendaftaran langsung dipakai penyelenggara untuk memproses pendaftaranmu, dan kami memakainya untuk mengabarimu
+        perubahan status. Kiriman kegiatan dibaca moderator sebelum tayang. Kami tidak memakai datamu untuk iklan.
       </p>
     ),
   },
@@ -65,6 +71,11 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
             <strong>Anggota tim yang sama:</strong> nama dan peranmu di tim tersebut.
           </li>
           <li>
+            <strong>Penyelenggara terverifikasi kegiatan yang kamu daftari langsung:</strong> seluruh data pendaftaranmu untuk kegiatan itu
+            (termasuk nama, email, dan nomor WhatsApp), setelah kamu menyetujuinya di formulir. Mereka bisa mengunduhnya (CSV) untuk keperluan
+            kegiatan tersebut. Penyelenggara kegiatan lain tidak bisa melihatnya.
+          </li>
+          <li>
             <strong>Moderator:</strong> kiriman kegiatan beserta email pengirimnya, untuk verifikasi.
           </li>
           <li>
@@ -72,8 +83,9 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
           </li>
         </ul>
         <Callout>
-          Tombol &ldquo;Daftar sekarang&rdquo; membuka situs resmi penyelenggara. Apa pun yang kamu isi di sana tunduk pada kebijakan privasi
-          penyelenggara tersebut, bukan kebijakan ini.
+          Tombol &ldquo;Daftar sekarang&rdquo; dan &ldquo;lewat situs penyelenggara&rdquo; membuka situs resmi penyelenggara. Apa pun yang kamu
+          isi di sana tunduk pada kebijakan privasi penyelenggara tersebut, bukan kebijakan ini. Formulir di StudentFo tidak pernah meminta kata
+          sandi, OTP, NIK, atau nomor rekening — laporkan bila ada yang memintanya.
         </Callout>
       </>
     ),
@@ -84,7 +96,8 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
       <p>
         Pilihan tema tersimpan di peramban (localStorage). Di mode data contoh, fitur yang belum punya penyimpanan server — profil publik, dokumen,
         pesan, catatan persiapan — hanya tersimpan di peramban perangkatmu dan bisa dihapus dari Pengaturan. Nama berkas dokumen dicatat, isinya tidak
-        pernah dibaca atau dikirim.
+        pernah dibaca atau dikirim. Isian formulir pendaftaran yang belum terkirim disimpan sementara di tab peramban itu saja (sessionStorage) dan
+        hilang saat tab ditutup atau tiketmu terbit.
       </p>
     ),
   },
@@ -93,8 +106,9 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
     body: (
       <p>
         Data akun disimpan selama akunmu aktif. Saat akun dihapus, profil, kegiatan tersimpan, catatan pendaftaran, keanggotaan tim, dan
-        notifikasimu ikut terhapus. Tim yang kamu buat dan sinyal rekomendasi tetap ada tanpa tautan ke akunmu. Email di kiriman kegiatan tetap
-        tersimpan sebagai arsip moderasi.
+        notifikasimu ikut terhapus — begitu pula pendaftaran langsungmu. Salinan yang sudah diunduh penyelenggara berada di tangan mereka; minta
+        penghapusannya langsung ke penyelenggara. Tim yang kamu buat dan sinyal rekomendasi tetap ada tanpa tautan ke akunmu. Email di kiriman
+        kegiatan tetap tersimpan sebagai arsip moderasi.
       </p>
     ),
   },

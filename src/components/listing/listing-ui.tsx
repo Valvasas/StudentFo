@@ -286,7 +286,8 @@ export function CollapsibleFilters({
         <summary
           className={cn(
             'inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-card border px-4 text-sm font-semibold transition-colors duration-150 ease-snap [&::-webkit-details-marker]:hidden',
-            activeCount > 0 ? 'border-brand bg-brand text-on-brand' : 'border-line bg-panel hover:border-line-strong',
+            // Warna teks eksplisit: di kepala gelap (seminar) teks terang ikut terwariskan ke tombol berlatar kertas.
+            activeCount > 0 ? 'border-brand bg-brand text-on-brand' : 'border-line bg-panel text-ink hover:border-line-strong',
           )}
         >
           <SlidersHorizontal aria-hidden className="size-4" />

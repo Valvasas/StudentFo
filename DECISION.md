@@ -12,6 +12,95 @@ terdokumentasi.
 
 ---
 
+## ADR-055 — Pendaftaran langsung di StudentFo: formulir per acara dari penyelenggara terverifikasi, kuota terkunci di Postgres, tiket & studio
+
+**Konteks:** Sampai ADR-054 setiap tombol "Daftar" melempar peserta ke
+formulir luar (Google Form, situs kampus). Penyelenggara tidak bisa melihat
+siapa yang benar-benar mendaftar (analitik ADR-043 hanya punya "klik Daftar"
+dan "menandai sudah daftar" sebagai batas bawah), peserta mengisi data yang
+sama berulang kali, dan formulir luar tanpa batas pertanyaan menjadi celah
+phishing (meminta NIK/rekening atas nama lembaga). Pemilik meminta pendaftaran
+di dalam web yang terasa profesional, dasbor performa untuk penyelenggara,
+dan pemolesan semua halaman jenis kegiatan.
+
+**Keputusan:**
+- **Opsional per acara**, berdampingan dengan tautan luar: tabel
+  `event_registration_forms` (satu per acara, `DRAFT|OPEN|CLOSED`) dan
+  `event_registrations` (satu baris per acara+orang). Hanya pengelola
+  TERVERIFIKASI (`manages_event()`) yang menyusun/membuka formulir. Formulir
+  tayang **tanpa moderasi per formulir** — penyimpangan sadar dari prinsip
+  "semua perubahan lewat moderator" ADR-042, dimitigasi: kolom data diri
+  tetap (nama/email dari akun, WhatsApp, institusi, jenjang), maksimal 6
+  pertanyaan `SHORT|LONG|CHOICE|URL`, dan pertanyaan/pilihan/sapaan yang
+  meminta kata sandi, OTP, NIK/KTP, KK, CVV, atau rekening DITOLAK di
+  aplikasi (`asksForSensitiveData`) DAN di SQL (`registration_text_is_sensitive`).
+- **Aturan di satu tempat per lapis**: `src/lib/registration.ts` (gerbang,
+  status awal, promosi FIFO, transisi keputusan, statistik) dipakai repository
+  memori; RPC `SECURITY DEFINER` di migration `20261006100001` adalah
+  kembarannya untuk produksi. Klien TIDAK punya hak tulis ke kedua tabel.
+  Kuota diserialkan dengan `SELECT … FOR UPDATE` atas baris formulir — dua
+  orang yang berebut kursi terakhir: satu terdaftar, satu antre.
+- **Status** `PENDING|CONFIRMED|WAITLISTED|REJECTED|CANCELLED`. PENDING ikut
+  memegang kursi (mode tinjau MANUAL tidak boleh menjanjikan kursi yang
+  belum ada). Kursi lepas (batal, ditolak, kuota naik/dihapus) langsung
+  diberikan ke antrean (created_at, id) di transaksi yang sama, dengan
+  notifikasi `REGISTRATION_PROMOTED`. Daftar ulang setelah batal memakai
+  KODE TIKET yang sama tetapi antre dari belakang; REJECTED tidak bisa
+  mendaftar ulang sendiri (penyelenggara bisa "Buka lagi" — orangnya kembali
+  ke posisi kedatangan aslinya, bukan dihukum). Konfirmasi manual dari antrean
+  tetap tunduk pada kuota.
+- **Data diri disalin** ke baris pendaftaran (beserta label pertanyaan):
+  yang dilihat penyelenggara adalah yang dikirim peserta. Persetujuan berbagi
+  data (`consent_at`) wajib per pendaftaran; nomor WhatsApp dinormalisasi ke
+  `+628…` (nomor non-Indonesia ditolak — panitia menghubungi lewat WA).
+  Kebijakan privasi diperbarui. Ekspor CSV lewat Route Handler
+  `private, no-store`, sel diawali `= + - @` diberi apostrof (formula
+  injection), ber-BOM untuk Excel.
+- **Pelacak** naik ke "Sudah daftar" (APPLIED) saat mendaftar, tidak pernah
+  turun dari tahap lebih jauh. Notifikasi keputusan memakai indeks dedupe
+  yang ada (`ON CONFLICT … DO UPDATE`): keputusan terbaru menimpa yang lama.
+- **Alur peserta** `/events/[slug]/pendaftaran`: wizard bertahap yang tetap
+  SATU `<form>` — server merender langkah aktif saja (tanpa kilatan saat
+  hidrasi) dan `<noscript>` membuka semua langkah untuk peramban tanpa JS.
+  Pratinjau tiket terisi sambil mengetik; draf di `sessionStorage` (per tab,
+  dihapus saat tiket terbit) supaya isian tidak hilang saat server menolak.
+  Tiket `/…/pendaftaran/tiket`: kode 8 karakter tanpa 0/O/1/I/L, cap status,
+  linimasa; TANPA QR palsu (kode yang tidak bisa dipindai hanya menyesatkan);
+  konfeti hanya untuk yang langsung terdaftar. Tata letak tiket mengikuti
+  lebar WADAH (container query), bukan layar.
+- **Studio** `/penyelenggara/acara/[id]/{pendaftaran,pendaftar,pendaftaran/formulir}`
+  dengan tab bersama analitik halaman. Pendaftar: semua keadaan di URL,
+  keputusan otomatis lanjut ke pendaftar berikutnya. Dasbor: grafik dipilih
+  dengan panduan dataviz — palet status situs (hijau/cokelat/abu) GAGAL
+  validator CVD untuk bar bertumpuk 5 status (ΔE 14,9), jadi status & asal
+  pendaftar digambar sebagai bar satu warna berlabel; kurva harian satu seri
+  dengan tooltip CSS + tabel sr-only.
+- **Degradasi**: halaman detail & katalog tetap tampil bila tabel pendaftaran
+  belum ada (kode terpasang sebelum migration diterapkan): formulir dianggap
+  tidak ada, lencana tidak tampil.
+- **Katalog**: lencana "Daftar di StudentFo" di kelima papan, daftar umum,
+  dan rekomendasi beranda; hero Workshop & Magang mendapat panggung ilustrasi.
+
+**Konsekuensi:**
+- Belum ada unggah berkas (pakai pertanyaan URL), pembayaran, atau check-in
+  QR; acara yang butuh itu tetap memakai tautan luar.
+- PENDING memegang kursi: penyelenggara MANUAL yang lambat memutuskan
+  menahan kursi — dasbor memberi saran bila ≥ 5 menunggu.
+- Studio memuat maksimal 2.000 pendaftar per acara (`listMax`); posisi antrean
+  di studio dihitung dari baris yang dimuat.
+- Satu kuota per acara (tanpa kuota per sesi/tiket bertingkat).
+- Moderator belum bisa menangguhkan formulir secara khusus (hanya mencabut
+  verifikasi penyelenggara, yang otomatis menutup akses studio) — tugas
+  lanjutan P1 di TASKS.md.
+- Migration `20261006100001` sudah lolos `npm run db:test` di Postgres 16
+  lokal, tetapi BELUM diterapkan ke proyek Supabase mana pun (butuh
+  persetujuan eksplisit, AGENTS.md).
+- Catatan dev: elemen server yang dioper sebagai prop ke komponen klien bisa
+  di-stream sebagai potongan lazy, dan React dev lalu melaporkan "key hilang"
+  palsu — oper data, bukan elemen (lihat `SeatMeter`).
+
+---
+
 ## ADR-054 — Fitur unggulan (tim, koneksi, kotak masuk): layar per tugas, tint catatan tempel, ilustrasi & gerak per fitur
 
 **Konteks:** Umpan balik pemilik setelah ADR-053: tim, koneksi, dan diskusi

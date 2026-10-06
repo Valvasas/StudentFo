@@ -52,7 +52,8 @@ src/
 │   ├── page.tsx                Beranda — pemasaran untuk tamu; ringkasan pribadi (PersonalHome) bila masuk (ADR-053)
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
-│   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail
+│   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail,
+│   │                           [slug]/pendaftaran (wizard pendaftaran langsung) + /tiket + actions.ts (ADR-055)
 │   ├── (auth)/                 Route group — login, register, forgot/reset password
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
 │   ├── profile/                Akun: profil, minat, ganti kata sandi
@@ -60,7 +61,9 @@ src/
 │   ├── teams/                  Cari rekan tim + baru/ (buka tim, halaman sendiri — ADR-054) + [id] detail + actions.ts
 │   ├── connections/            Koneksi, satu tab per tugas (?tab= untukmu|koneksi|ajakan|peta|pengaturan) + actions.ts (ADR-040, ADR-048)
 │   ├── orang/[id]/             Profil publik + portofolio orang lain, wajib masuk, 404 seragam (ADR-046)
-│   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara, analitik (ADR-042/043/046)
+│   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara, analitik (ADR-042/043/046);
+│   │                           acara/[id]/{pendaftaran, pendaftar, pendaftaran/formulir, pendaftar/ekspor}
+│   │                           + registration-actions.ts — studio pendaftaran langsung (ADR-055)
 │   ├── about/                  Tentang — angka dari getStats(), klaim sesuai perilaku sistem
 │   ├── submit/                 Kirim kegiatan (kiriman komunitas, boleh tamu) + actions.ts
 │   ├── notifications/          actions.ts (tandai dibaca)
@@ -75,13 +78,17 @@ src/
 │   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053),
 │   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
-│   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054)
+│   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054; tiket, jam pasir,
+│   │                           papan klip, grafik naik, koper — ADR-055)
 │   ├── home/                   PersonalHome — beranda pengguna masuk (perlu tindakan, pantauan, minggu ini, sesuai minat)
 │   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
 │   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
 │   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS)
 │   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
+│   ├── registration/           Ticket (container query), RegistrationWizard (klien, noscript), SeatMeter,
+│   │                           RegistrationState, RegistrationStatusChip, NativeRegistrationBadge/CardBadges (ADR-055)
+│   ├── organizer/              StudioEventHeader (tab studio), grafik analitik & pendaftaran, RegistrationFormBuilder (ADR-055)
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings, blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
 │   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
@@ -98,6 +105,7 @@ src/
 │   │   ├── index.ts            getEventRepository() — pemilih implementasi
 │   │   ├── listing.ts          Paging, sort, visibilitas publik — DIPAKAI KEDUA implementasi [teruji]
 │   │   ├── memory-repository.ts   Mode seed (in-process)
+│   │   ├── memory-registrations.ts Pendaftaran langsung mode seed + data contoh (ADR-055) [teruji]
 │   │   ├── supabase-repository.ts Produksi (PostgREST, server-only)
 │   │   ├── supabase-mappers.ts    Baris → domain, isUuid, sanitizeSearchQuery [teruji]
 │   │   └── seed-data.ts        Data contoh (event, kategori, tim)
@@ -126,6 +134,9 @@ src/
 │   ├── utils.ts                cn(), sanitizeExternalUrl(), safeHostname()
 │   ├── greeting.ts             Sapaan & tanggal menurut jam WIB untuk beranda pribadi [teruji]
 │   ├── tint.ts                 tintOf()/coverTintOf() — tint identitas deterministik (ADR-054) [teruji]
+│   ├── registration.ts         Aturan pendaftaran langsung: gerbang, kuota, antrean FIFO, keputusan, form (Zod), CSV, statistik (ADR-055) [teruji]
+│   ├── registration-basics.ts  Bagian aman-klien: batas, kode tiket, nomor WhatsApp (tanpa zod)
+│   ├── registration-view.ts    Teks tiket (agenda, tempat, cap) yang dipakai halaman daftar & tiket
 │   ├── initials.ts             initialsOf() (orang), monogramOf() (grup/kegiatan) [teruji]
 │   └── supabase/
 │       ├── server.ts           Klien Server Component & admin (service_role)

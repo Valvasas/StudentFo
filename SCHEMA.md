@@ -309,6 +309,37 @@ pemanggil yang sudah tutup (EXPIRED, atau APPROVED lewat tenggat) beserta
 total seumur acara (views, visitors, saves, clicks, applied), hanya selama
 penyelenggara VERIFIED.
 
+### `event_registration_forms`, `event_registrations` (Pendaftaran langsung — ADR-055)
+`event_registration_forms`: `event_id` PK, `status DRAFT|OPEN|CLOSED`,
+`review_mode AUTO|MANUAL`, `capacity` 1..10.000 atau NULL (tanpa batas),
+`waitlist`, `team_min/team_max` 1..10 (keduanya NULL = perorangan),
+`questions` JSONB array ≤ 6 (`{id: q1..q6, label, kind SHORT|LONG|CHOICE|URL,
+required, options[]}`, divalidasi RPC), `intro` ≤ 400, `confirmation_note`
+≤ 600, `opened_at`. RLS: anon membaca yang bukan DRAFT; authenticated juga
+DRAFT miliknya (`manages_event`) & admin. Klien tidak punya hak tulis.
+
+`event_registrations`: `UNIQUE (event_id, user_id)` (daftar ulang memakai
+baris lama), `code CHAR(8) UNIQUE` alfabet tanpa 0/O/1/I/L, `status
+PENDING|CONFIRMED|WAITLISTED|REJECTED|CANCELLED`, salinan `full_name`,
+`email`, `phone` (`^\+628[0-9]{8,12}$`), `institution`, `major`,
+`education_level`, `answers` JSONB ≤ 6 `{questionId, label, value}`,
+`team_id/team_title/team_members` (salinan), `decision_note` ≤ 300,
+`consent_at` wajib, `decided_at`, `cancelled_at`. Indeks parsial antrean
+`(event_id, created_at, id) WHERE status='WAITLISTED'`. RLS SELECT: pemilik,
+pengelola acara, admin. Klien tidak punya hak tulis.
+
+RPC (semua DEFINER, REVOKE dari PUBLIC/anon/authenticated lalu GRANT seperlunya):
+`registration_seats(uuid[])` (anon+authenticated, angka saja),
+`submit_event_registration(...)`, `cancel_event_registration(uuid)`,
+`my_waitlist_position(uuid)` (peserta); `save_registration_form(...)`,
+`set_registration_form_status(uuid, text)`, `decide_event_registration(uuid,
+text, text)`, `registration_stats(uuid, int)` → JSONB,
+`registration_summaries(uuid[])` (pengelola). Internal tanpa grant:
+`promote_event_waitlist`, `notify_registration`, `event_deadline_passed`,
+`registration_text_is_sensitive`. Pesan RAISE = kode aksi (ADR-019),
+dipetakan utuh oleh `registrationErrorCode()`.
+Uji: `supabase/tests/94_registrations.test.sql`, `src/lib/data/registrations.test.ts`.
+
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat
 DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom
@@ -352,6 +383,8 @@ anon key). Ringkasan policy:
 | ugc_submissions | admin saja (privasi email) | INSERT publik, hanya kolom email + payload; persetujuan via `approve_submission()` |
 | teams | publik read | INSERT pemilik untuk event APPROVED; UPDATE/DELETE pemilik atau admin (0008) |
 | team_members | authenticated read | self-join INSERT sebagai `member` (kapasitas dijaga trigger), self/owner DELETE |
+| event_registration_forms | anon: bukan DRAFT; authenticated: + DRAFT miliknya, admin | tidak ada — hanya RPC (ADR-055) |
+| event_registrations | pemilik, pengelola acara (`manages_event`), admin | tidak ada — hanya RPC; kuota dikunci `FOR UPDATE` |
 
 Semua policy `FOR ALL` menulis `WITH CHECK` eksplisit (bukan hanya `USING`) —
 tanpa itu user bisa INSERT baris atas nama `user_id` orang lain (DEVIATIONS #6).

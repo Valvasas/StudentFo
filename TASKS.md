@@ -487,3 +487,19 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] **P2** Peta koneksi (kanvas) masih monokrom; simpul orang bisa memakai `tintOf` yang sama dengan kartunya.
 - [ ] **P2** Formulir `/teams/baru`: kegiatan > 48 butuh pemilih dengan pencarian (`Picker`) alih-alih `<select>`.
 
+
+## Pendaftaran langsung + studio performa 2026-10-06 (@claude) — ADR-055
+
+- [x] Domain & aturan: `lib/registration.ts` (gerbang, kuota, antrean FIFO, transisi keputusan, form Zod, CSV aman, statistik, saran) + `registration-basics.ts` (aman-klien). 35 uji.
+- [x] Repository memori (`memory-registrations.ts`, 5 formulir contoh) & Supabase (13 metode, pemetaan RAISE utuh) + migration `20261006100001` + `supabase/tests/94_registrations.test.sql` (lolos `npm run db:test` di Postgres 16; uji dicek dengan mutasi FIFO).
+- [x] Peserta: CTA & meter kursi di detail acara, wizard `/events/[slug]/pendaftaran` (tanpa JS tetap jalan), tiket `/…/tiket`, batal & daftar ulang, pelacak → "Sudah daftar".
+- [x] Penyelenggara: tab studio, dasbor performa, pendaftar (saring/cari/keputusan berurutan), penyusun formulir (ide cepat, peringatan data sensitif, pratinjau), ekspor CSV privat, ringkasan di `/penyelenggara`.
+- [x] Katalog: lencana "Daftar di StudentFo" di semua papan, daftar umum, beranda; hero workshop & magang berilustrasi; perbaikan kontras strip tanggal workshop & tombol "Saring" di kepala gelap seminar.
+- [x] Uji: `tests/e2e/registration.spec.ts` (wizard, tanpa JS + daftar tunggu, keputusan sampai ke peserta, CSV 403, data sensitif ditolak) + 18 rute baru di audit axe (tiga proyek).
+- [ ] **BUTUH KONFIRMASI PEMILIK.** Apply migration `20261006100001_event_registrations.sql` ke Supabase, lalu jalankan `npm run test:integration` (paritas) dan coba alur penuh dengan akun penyelenggara sungguhan.
+- [ ] **P1** Moderator bisa menangguhkan satu formulir (status `SUSPENDED` + log moderasi) tanpa mencabut verifikasi lembaganya — formulir saat ini tayang tanpa moderasi per formulir (ADR-055).
+- [ ] **P1** Tinjau hukum kebijakan privasi bagian "data pendaftaran ke penyelenggara" (bersama tugas kebijakan privasi di atas).
+- [ ] **P2** Kirim email/WhatsApp untuk keputusan pendaftaran (saat ini hanya lonceng notifikasi) — ikut antrean dispatch ADR-051.
+- [ ] **P2** Unggah berkas di formulir (Storage privat + pemindaian) — sekarang lewat pertanyaan tautan.
+- [ ] **P2** Kuota per sesi/tiket bertingkat dan check-in hari H (pemindai kode) — keduanya butuh desain dulu.
+- [ ] **P3** Studio > 2.000 pendaftar: paginasi server untuk daftar & ekspor bertahap.

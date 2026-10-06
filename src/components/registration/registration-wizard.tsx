@@ -364,7 +364,7 @@ export function RegistrationWizard({
       id={id}
       className={cn(
         'shrink-0 rounded-pill px-2 py-0.5 text-[11.5px] font-semibold',
-        question.required ? 'bg-highlight-soft text-on-highlight' : 'bg-panel-nested text-ink-muted',
+        question.required ? 'bg-highlight-soft text-ink' : 'bg-panel-nested text-ink-muted',
       )}
     >
       {question.required ? 'Wajib' : 'Opsional'}
@@ -588,7 +588,7 @@ export function RegistrationWizard({
                   <input type="radio" name="teamId" value={team.id} required disabled={team.problem !== null} className={cn(radioDot, 'mt-1')} />
                   <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <span className="text-[15px] font-semibold leading-snug">{team.title}</span>
-                    <span className="flex flex-wrap items-center gap-2.5 text-[12.5px] text-ink-muted">
+                    <span className="flex flex-wrap items-center gap-2.5 text-[12.5px] text-ink-soft">
                       <AvatarStack people={team.members} size="xs" />
                       {team.members.length} orang · {team.members.map((member) => member.name.split(' ')[0]).join(', ')}
                     </span>

@@ -155,7 +155,7 @@ export function RegistrationFormBuilder({
                 <span className="flex items-center gap-1.5 text-[15px] font-semibold">
                   <Zap aria-hidden className="size-4" /> Langsung diterima
                 </span>
-                <span className="text-[13px] leading-relaxed text-ink-muted">Tiket aktif begitu dikirim. Cocok untuk seminar, workshop, dan acara terbuka.</span>
+                <span className="text-[13px] leading-relaxed text-ink-soft">Tiket aktif begitu dikirim. Cocok untuk seminar, workshop, dan acara terbuka.</span>
               </span>
             </label>
             <label className={radioCard}>
@@ -164,7 +164,7 @@ export function RegistrationFormBuilder({
                 <span className="flex items-center gap-1.5 text-[15px] font-semibold">
                   <ClipboardCheck aria-hidden className="size-4" /> Ditinjau dulu
                 </span>
-                <span className="text-[13px] leading-relaxed text-ink-muted">Kamu memutuskan tiap pendaftar. Cocok untuk magang, beasiswa, dan seleksi lomba.</span>
+                <span className="text-[13px] leading-relaxed text-ink-soft">Kamu memutuskan tiap pendaftar. Cocok untuk magang, beasiswa, dan seleksi lomba.</span>
               </span>
             </label>
           </fieldset>
@@ -201,7 +201,7 @@ export function RegistrationFormBuilder({
               />
               <span className="flex flex-col gap-0.5">
                 <span className="text-[14.5px] font-semibold">Buka daftar tunggu saat penuh</span>
-                <span className="text-[12.5px] leading-relaxed text-ink-muted">Yang antre naik otomatis (urut kedatangan) saat ada yang batal atau kuota ditambah.</span>
+                <span className="text-[12.5px] leading-relaxed text-ink-soft">Yang antre naik otomatis (urut kedatangan) saat ada yang batal atau kuota ditambah.</span>
               </span>
             </label>
           </div>
@@ -452,7 +452,7 @@ export function RegistrationFormBuilder({
                 <li key={question.slot} className="flex flex-col gap-1.5">
                   <span className="flex items-start justify-between gap-2 text-[13px] font-semibold leading-snug">
                     {question.label}
-                    <span className={cn('shrink-0 rounded-pill px-1.5 text-[10.5px]', question.required ? 'bg-highlight-soft text-on-highlight' : 'bg-panel-nested text-ink-muted')}>
+                    <span className={cn('shrink-0 rounded-pill px-1.5 text-[10.5px]', question.required ? 'bg-highlight-soft text-ink' : 'bg-panel-nested text-ink-muted')}>
                       {question.required ? 'Wajib' : 'Opsional'}
                     </span>
                   </span>

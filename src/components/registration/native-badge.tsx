@@ -10,7 +10,7 @@ import type { EventSummary } from '@/types/domain';
  */
 export function NativeRegistrationBadge({ className }: { className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-sm bg-highlight-soft px-2 py-0.5 text-xs font-semibold leading-5 text-on-highlight', className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-sm bg-highlight-soft px-2 py-0.5 text-xs font-semibold leading-5 text-ink', className)}>
       <ClipboardCheck aria-hidden className="size-3.5" />
       Daftar di StudentFo
     </span>

@@ -111,7 +111,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
                   !on && cell.count === 0 && 'text-ink-muted',
                 )}
               >
-                <span className="text-[11.5px] font-medium opacity-75">{cell.label}</span>
+                <span className="text-[11.5px] font-medium">{cell.label}</span>
                 <span className="text-[22px] font-semibold leading-none tracking-[-0.03em]">{cell.day}</span>
                 <span className="mt-1 flex h-[5px] gap-[3px]">
                   {Array.from({ length: Math.min(cell.count, 4) }, (_, index) => (

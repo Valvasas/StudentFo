@@ -224,7 +224,7 @@ export default async function RegistrantsPage({
                           aria-current={active ? 'true' : undefined}
                           className={cn(
                             'flex items-center gap-3.5 px-4 py-3.5 transition-colors duration-150 ease-snap',
-                            active ? 'bg-highlight-soft' : 'hover:bg-panel-nested',
+                            active ? 'bg-panel-nested shadow-[inset_4px_0_0_var(--color-highlight)]' : 'hover:bg-panel-nested',
                           )}
                         >
                           <Avatar name={registration.fullName} seed={registration.userId} size="sm" />
