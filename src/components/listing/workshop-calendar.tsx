@@ -1,4 +1,6 @@
-import { PriceBadge } from '@/components/event/price-badge';
+import { CardBadges } from '@/components/registration/native-badge';
+import { IllustrationStage } from '@/components/ui/feature-hero';
+import { CalendarSketch } from '@/components/ui/illustrations';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
@@ -34,7 +36,7 @@ function withDay(href: string, day: string | null): string {
  * tanggal tutup pendaftaran — dan menyebutnya begitu, supaya tidak ada
  * yang datang ke acara pada tanggal yang salah.
  */
-export function WorkshopCalendar({ query, result, categories, savedIds, currentHref, now, rawParams }: BoardProps & { rawParams: RawSearchParams }) {
+export function WorkshopCalendar({ query, result, categories, savedIds, currentHref, now, nativeIds, rawParams }: BoardProps & { rawParams: RawSearchParams }) {
   const day = parseDay(rawParams);
   const keyed = result.items.map((event) => ({
     event,
@@ -59,13 +61,18 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
 
   return (
     <div className="container-page pb-16 pt-8 sm:pt-12">
-      <div className="enter flex max-w-[620px] flex-col gap-3 [animation-duration:900ms]">
-        <Breadcrumb current="Workshop" />
-        <PageTitle>Kalender kelas praktik</PageTitle>
-        <p className="text-base leading-relaxed text-ink-muted">
-          Workshop dan pelatihan disusun per tanggal tutup pendaftaran. Pilih tanggal di bawah untuk melihat yang ditutup hari
-          itu.
-        </p>
+      <div className="grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,300px)] lg:gap-14">
+        <div className="enter flex max-w-[620px] flex-col gap-3 [animation-duration:900ms]">
+          <Breadcrumb current="Workshop" />
+          <PageTitle>Kalender kelas praktik</PageTitle>
+          <p className="text-base leading-relaxed text-ink-muted">
+            Workshop dan pelatihan disusun per tanggal tutup pendaftaran. Pilih tanggal di bawah untuk melihat yang ditutup hari
+            itu.
+          </p>
+        </div>
+        <IllustrationStage tint="sky" className="enter hidden min-h-[200px] [animation-delay:140ms] md:flex">
+          <CalendarSketch className="h-auto w-full max-w-[220px]" />
+        </IllustrationStage>
       </div>
 
       <section aria-label="Filter kegiatan">
@@ -183,7 +190,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
                       {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
                       {event.organizer}
                     </span>
-                    <PriceBadge event={event} className="self-start" />
+                    <CardBadges event={event} native={nativeIds?.has(event.id)} className="self-start" />
                   </div>
                   <p className="text-[12.5px] text-ink-soft">
                     Untuk {event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(', ') || 'semua jenjang'}

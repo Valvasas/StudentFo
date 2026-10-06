@@ -1,4 +1,4 @@
-import { PriceBadge } from '@/components/event/price-badge';
+import { CardBadges } from '@/components/registration/native-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { MapPin, Monitor } from 'lucide-react';
@@ -20,7 +20,7 @@ import { EDUCATION_LEVEL_LABEL, type EventSummary } from '@/types/domain';
  * jam menampilkan jam tutupnya — disebut terang-terangan, bukan dibiarkan
  * terbaca sebagai jam acara.
  */
-export function SeminarAgenda({ query, result, categories, savedIds, currentHref, now }: BoardProps) {
+export function SeminarAgenda({ query, result, categories, savedIds, currentHref, now, nativeIds }: BoardProps) {
   const groups = new Map<string, EventSummary[]>();
   for (const event of result.items) {
     const key = event.primaryDeadlineAt ? jakartaDateKey(new Date(event.primaryDeadlineAt)) : 'tba';
@@ -112,7 +112,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                     >
                       <div className="col-span-2 flex items-baseline gap-2 pt-0.5 sm:col-span-1 sm:flex-col sm:gap-0.5">
                         <span className="font-mono text-[15px] font-medium">{event.primaryDeadlineAt ? formatTimeId(event.primaryDeadlineAt).replace(' WIB', '') : '–'}</span>
-                        <span className="font-mono text-[12.5px] text-ink-muted">tutup, WIB</span>
+                        <span className="font-mono text-[12.5px] text-ink-muted">WIB · tutup</span>
                       </div>
                       <div className="flex min-w-0 flex-col gap-3">
                         <div className="flex flex-col gap-1">
@@ -137,7 +137,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                             <span className="text-[12.5px] text-ink-muted">Penyelenggara</span>
                           </span>
                         </div>
-                        <PriceBadge event={event} className="self-start" />
+                        <CardBadges event={event} native={nativeIds?.has(event.id)} className="self-start" />
                         <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">
                           <li className="flex h-6 items-center gap-[5px] rounded-[6px] border border-line px-[9px] text-xs font-medium">
                             {event.isOnline ? <Monitor aria-hidden className="size-3" /> : <MapPin aria-hidden className="size-3" />}

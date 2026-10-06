@@ -81,6 +81,7 @@ export async function PersonalHome({ user }: { user: AuthUser }) {
     now,
   ).slice(0, ACTION_LIMIT);
   const picks = recommended.items.filter((event) => !trackedIds.has(event.id) && !savedIds.has(event.id)).slice(0, RECOMMENDATION_LIMIT);
+  const nativeIds = await repository.listOpenRegistrationEventIds(picks.map((event) => event.id));
 
   const counts = {
     watched: tracker.length,
@@ -274,7 +275,7 @@ export async function PersonalHome({ user }: { user: AuthUser }) {
         {picks.length > 0 ? (
           // Di ponsel tiga kartu cukup — enam kartu bertumpuk = enam layar gulir.
           <div className="max-sm:[&>ul>li:nth-child(n+4)]:hidden">
-            <EventGrid events={picks} savedEventIds={[...savedIds]} returnTo="/" />
+            <EventGrid events={picks} savedEventIds={[...savedIds]} returnTo="/" nativeIds={nativeIds} />
           </div>
         ) : (
           <EmptyPicks />

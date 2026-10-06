@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { Building2, Globe, MapPin } from 'lucide-react';
 import { DeadlineRing } from '@/components/event/deadline-ring';
 import { DeadlineTag } from '@/components/event/deadline-tag';
-import { PriceBadge, PromotedBadge } from '@/components/event/price-badge';
+import { PromotedBadge } from '@/components/event/price-badge';
+import { CardBadges } from '@/components/registration/native-badge';
 import { SaveButton } from '@/components/event/save-button';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import { isPromoted } from '@/lib/data/listing';
@@ -36,6 +37,8 @@ export interface EventCardProps {
   featured?: boolean;
   isSaved?: boolean;
   returnTo?: string;
+  /** Pendaftaran langsung di StudentFo sedang dibuka (ADR-055). */
+  native?: boolean;
   className?: string;
 }
 
@@ -44,6 +47,7 @@ export function EventCard({
   featured = false,
   isSaved = false,
   returnTo = '/events',
+  native = false,
   className,
 }: EventCardProps) {
   const promoted = isPromoted(event, new Date());
@@ -100,7 +104,7 @@ export function EventCard({
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-6">
         <DeadlineTag deadlineAt={event.primaryDeadlineAt} />
-        <PriceBadge event={event} />
+        <CardBadges event={event} native={native} />
       </div>
     </article>
   );

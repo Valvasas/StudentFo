@@ -6,7 +6,8 @@ import type { Tint } from '@/lib/tint';
 /**
  * Ilustrasi fitur unggulan (ADR-054): Cari tim, Koneksi, kotak masuk, buka
  * tim, dan perayaan — ditambah empat untuk pendaftaran langsung (ADR-055):
- * tiket, jam pasir antrean, papan klip formulir, dan grafik dasbor. Aturan ADR-053 tetap: tinta `currentColor`, isian dari
+ * tiket, jam pasir antrean, papan klip formulir, dan grafik dasbor — serta
+ * koper untuk papan magang. Aturan ADR-053 tetap: tinta `currentColor`, isian dari
  * token (ikut tema gelap), tanpa teks di SVG, `aria-hidden` lewat `Svg`.
  *
  * Yang baru: garis utama "tergambar" sekali saat tampil (`ink-draw`), dan
@@ -315,6 +316,26 @@ export function ChartRiseSketch({ className }: IllustrationProps) {
       <Ink d="M214 24 C228 18 238 32 254 24 L254 50 C238 58 228 44 214 50 Z" fill={HIGHLIGHT} wait={1250} />
       <Sparkle x={262} y={84} scale={0.75} wait={1500} />
       <Sparkle x={28} y={24} scale={0.6} wait={400} />
+    </Svg>
+  );
+}
+
+/** Koper kerja dengan label nama dan bintang — papan magang. */
+export function BriefcaseSketch({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="0 0 300 220" className={cn('h-auto w-full max-w-[300px]', className)}>
+      <ellipse cx="150" cy="204" rx="110" ry="8" fill={PAPER_SHADE} stroke="none" />
+      <Ink d="M120 66 V50 Q120 40 130 40 H170 Q180 40 180 50 V66" width={3} wait={0} />
+      <Ink d="M62 74 Q62 66 70 66 H230 Q238 66 238 74 V184 Q238 192 230 192 H70 Q62 192 62 184 Z" fill={tint('peach')} wait={150} />
+      <Ink d="M62 114 Q150 140 238 114" wait={450} />
+      <path d="M136 120 H164 V140 H136 Z" fill={HIGHLIGHT} />
+      <g className="drift" style={{ '--r0': '-8deg', '--r1': '4deg', '--d': '300ms' } as CSSProperties}>
+        <path d="M232 132 L270 150 L262 168 L224 150 Z" fill={PAPER} />
+        <circle cx="236" cy="146" r="3" fill="currentColor" stroke="none" />
+        <path d="M244 152 L258 158" stroke={PENCIL} strokeWidth="4" />
+      </g>
+      <Sparkle x={52} y={44} scale={0.9} wait={400} />
+      <Sparkle x={262} y={60} scale={0.6} wait={1300} />
     </Svg>
   );
 }

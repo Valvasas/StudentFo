@@ -1,4 +1,6 @@
-import { PriceBadge } from '@/components/event/price-badge';
+import { CardBadges } from '@/components/registration/native-badge';
+import { IllustrationStage } from '@/components/ui/feature-hero';
+import { BriefcaseSketch } from '@/components/ui/feature-illustrations';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { Check, Clock } from 'lucide-react';
@@ -37,7 +39,7 @@ const MAGANG_LEVELS: readonly LevelOption[] = [
  * "Uang saku disebutkan". Data uang saku belum ada di skema (ADR-039), jadi
  * kolom kanan menampilkan tanggal tutup — bukan angka rekaan.
  */
-export function MagangBoard({ query, result, categories, savedIds, currentHref, now, locationCounts }: BoardProps & { locationCounts: Readonly<Record<string, number>> }) {
+export function MagangBoard({ query, result, categories, savedIds, currentHref, now, nativeIds, locationCounts }: BoardProps & { locationCounts: Readonly<Record<string, number>> }) {
   const sortItems = [
     { label: 'Paling cocok', href: buildEventHref(query, { sort: 'relevance', page: 1 }), active: query.sort === 'relevance' },
     { label: 'Tenggat terdekat', href: buildEventHref(query, { sort: 'deadline', page: 1 }), active: query.sort === 'deadline' },
@@ -51,12 +53,17 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
     <>
       <div className="border-b border-line bg-panel-nested">
         <div className="container-page flex flex-col gap-7 pb-10 pt-12">
-          <div className="enter flex max-w-[640px] flex-col gap-3 [animation-duration:900ms]">
-            <Breadcrumb current="Magang" />
-            <PageTitle>Magang pertama, dari penyelenggara yang jelas.</PageTitle>
-            <p className="text-base leading-relaxed text-ink-muted">
-              Lowongan yang sudah ditinjau manual, lengkap dengan lokasi, jenjang, dan tanggal tutupnya sejak awal.
-            </p>
+          <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,280px)] lg:gap-14">
+            <div className="enter flex max-w-[640px] flex-col gap-3 [animation-duration:900ms]">
+              <Breadcrumb current="Magang" />
+              <PageTitle>Magang pertama, dari penyelenggara yang jelas.</PageTitle>
+              <p className="text-base leading-relaxed text-ink-muted">
+                Lowongan yang sudah ditinjau manual, lengkap dengan lokasi, jenjang, dan tanggal tutupnya sejak awal.
+              </p>
+            </div>
+            <IllustrationStage tint="mint" className="enter hidden min-h-[190px] [animation-delay:140ms] lg:flex">
+              <BriefcaseSketch className="max-w-[240px]" />
+            </IllustrationStage>
           </div>
           <div className="enter relative z-20 flex flex-wrap gap-2 rounded-[14px] border border-line-strong/70 bg-panel p-2 shadow-[0_10px_30px_rgba(0,0,0,.05)] [animation-delay:120ms] [animation-duration:900ms]">
             <div className="flex min-w-0 flex-[1_1_320px]">
@@ -183,7 +190,7 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                           {event.organizer} · {event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul')}
                         </span>
                       </span>
-                      <PriceBadge event={event} className="self-start" />
+                      <CardBadges event={event} native={nativeIds?.has(event.id)} className="self-start" />
                     </div>
                     <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">
                       <li className="flex h-6 items-center rounded-[6px] bg-panel-nested px-[9px] text-[12.5px] font-medium text-ink-soft">

@@ -1,4 +1,4 @@
-import { PriceBadge } from '@/components/event/price-badge';
+import { CardBadges } from '@/components/registration/native-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { Check, ChevronRight } from 'lucide-react';
@@ -30,6 +30,7 @@ export function BeasiswaBoard({
   savedIds,
   currentHref,
   now,
+  nativeIds,
   level,
   userLevel,
   totalOpen,
@@ -156,7 +157,7 @@ export function BeasiswaBoard({
                         {event.organizer} · {event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul')}
                       </span>
                     </span>
-                    <PriceBadge event={event} className="self-start" />
+                    <CardBadges event={event} native={nativeIds?.has(event.id)} className="self-start" />
                   </div>
                 </div>
                 <SaveToggle eventId={event.id} isSaved={savedIds.includes(event.id)} returnTo={currentHref} className="md:hidden" />

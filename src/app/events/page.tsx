@@ -97,7 +97,9 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
     }),
     user ? repository.listSavedEventIds(user.id) : Promise.resolve([] as readonly string[]),
   ]);
-  const board = { query, result, categories, savedIds: savedEventIds, currentHref, now };
+  // Lencana "Daftar di StudentFo" (ADR-055); repository mengembalikan set kosong bila gagal.
+  const nativeIds = await repository.listOpenRegistrationEventIds(result.items.map((event) => event.id));
+  const board = { query, result, categories, savedIds: savedEventIds, currentHref, now, nativeIds };
   const feedback = <ActionFeedback params={rawParams} className="container-page mt-6 max-w-2xl" />;
 
   switch (nav?.key) {
@@ -182,7 +184,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           <div className="mt-8">
             {result.items.length > 0 ? (
               <>
-                <EventGrid events={result.items} savedEventIds={savedEventIds} returnTo={currentHref} />
+                <EventGrid events={result.items} savedEventIds={savedEventIds} returnTo={currentHref} nativeIds={nativeIds} />
                 <div className="mt-8">
                   <Pagination query={query} totalPages={result.totalPages} />
                 </div>

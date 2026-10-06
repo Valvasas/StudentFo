@@ -1,4 +1,4 @@
-import { PriceBadge } from '@/components/event/price-badge';
+import { CardBadges } from '@/components/registration/native-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { ArrowRight, Clock } from 'lucide-react';
@@ -27,6 +27,8 @@ export interface BoardProps {
   readonly savedIds: readonly string[];
   readonly currentHref: string;
   readonly now: Date;
+  /** Acara yang pendaftaran langsungnya sedang dibuka (ADR-055). */
+  readonly nativeIds?: ReadonlySet<string>;
 }
 
 const GROUPS = [
@@ -45,7 +47,7 @@ const addDays = (now: Date, days: number) => new Date(now.getTime() + days * 86_
  * ada di skema (ADR-039), jadi angka besarnya diganti hal yang benar-benar
  * kita tahu dan sama berguna untuk memutuskan: tanggal tutup.
  */
-export function LombaBoard({ query, result, categories, savedIds, currentHref, now, top }: BoardProps & { top: EventSummary | null }) {
+export function LombaBoard({ query, result, categories, savedIds, currentHref, now, nativeIds, top }: BoardProps & { top: EventSummary | null }) {
   const withDays = result.items.map((event) => ({
     event,
     days: event.primaryDeadlineAt ? (daysUntil(event.primaryDeadlineAt, now) ?? 999) : 999,
@@ -199,7 +201,7 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                         {event.organizer}
                       </span>
                     </div>
-                    <PriceBadge event={event} className="self-start" />
+                    <CardBadges event={event} native={nativeIds?.has(event.id)} className="self-start" />
                     <ul aria-label="Ringkasan" className="mt-auto flex flex-wrap gap-1.5">
                       {[
                         event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(' & ') || 'Terbuka umum',

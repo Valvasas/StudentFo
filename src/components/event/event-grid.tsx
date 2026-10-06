@@ -6,12 +6,15 @@ export function EventGrid({
   featuredCount = 0,
   savedEventIds,
   returnTo,
+  nativeIds,
 }: {
   events: readonly EventSummary[];
   /** Berapa kartu pertama yang memakai cincin tenggat. */
   featuredCount?: number;
   savedEventIds?: readonly string[];
   returnTo?: string;
+  /** Acara yang pendaftaran langsungnya dibuka (ADR-055). */
+  nativeIds?: ReadonlySet<string>;
 }) {
   const savedSet = savedEventIds ? new Set(savedEventIds) : null;
 
@@ -24,6 +27,7 @@ export function EventGrid({
             featured={index < featuredCount}
             isSaved={savedSet ? savedSet.has(event.id) : false}
             returnTo={returnTo}
+            native={nativeIds?.has(event.id) ?? false}
             className="h-full"
           />
         </li>
