@@ -56,6 +56,18 @@ export const ACTION_ERROR_CODES = [
   'moderation_not_rejected',
   'invalid_presentation',
   'invalid_request',
+  'registration_closed',
+  'registration_full',
+  'registration_exists',
+  'registration_rejected_before',
+  'registration_not_eligible',
+  'registration_rate_limited',
+  'invalid_registration',
+  'registration_team_invalid',
+  'registration_not_found',
+  'registration_invalid_transition',
+  'invalid_registration_form',
+  'registration_form_unavailable',
   'unknown',
 ] as const;
 
@@ -113,6 +125,18 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   invalid_presentation:
     'Periksa isian: pilih lencana dari daftar, dan tanggal akhir promosi mulai hari ini sampai paling lama 1 tahun ke depan.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
+  registration_closed: 'Pendaftaran untuk acara ini sedang tidak dibuka.',
+  registration_full: 'Kuota pendaftaran sudah penuh dan penyelenggara tidak membuka daftar tunggu.',
+  registration_exists: 'Kamu sudah terdaftar di acara ini. Tiketmu ada di bawah.',
+  registration_rejected_before: 'Pendaftaranmu untuk acara ini sudah diputuskan tidak diterima oleh penyelenggara.',
+  registration_not_eligible: 'Jenjang pendidikanmu belum termasuk yang dibuka penyelenggara untuk acara ini.',
+  registration_rate_limited: 'Terlalu banyak pendaftaran dalam satu jam terakhir. Coba lagi sebentar lagi.',
+  invalid_registration: 'Ada isian yang belum benar. Periksa kolom yang ditandai, lalu kirim ulang.',
+  registration_team_invalid: 'Pilih tim yang kamu ketuai untuk acara ini, dengan jumlah anggota sesuai ketentuan penyelenggara.',
+  registration_not_found: 'Pendaftaran itu sudah tidak ada atau sudah diubah.',
+  registration_invalid_transition: 'Keputusan itu tidak berlaku untuk status pendaftar saat ini (atau kuota sudah penuh). Muat ulang daftarnya.',
+  invalid_registration_form: 'Pengaturan formulir belum valid. Periksa kolom yang ditandai.',
+  registration_form_unavailable: 'Formulir hanya bisa dibuka untuk acara yang tayang dan tenggatnya belum lewat.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
 
@@ -140,6 +164,11 @@ export const ACTION_NOTICE_CODES = [
   'moderation_restored',
   'presentation_saved',
   'team_created',
+  'registration_cancelled',
+  'registration_form_saved',
+  'registration_form_opened',
+  'registration_form_closed',
+  'registration_decided',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -170,6 +199,11 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   moderation_restored: 'Dikembalikan ke antrean moderasi dan tercatat di riwayat.',
   presentation_saved: 'Lencana & promosi disimpan. Katalog publik ikut diperbarui.',
   team_created: 'Tim dibuka dan sudah tampil di Cari Tim. Bagikan tautannya ke orang yang kamu incar.',
+  registration_cancelled: 'Pendaftaran dibatalkan. Kursimu diberikan ke orang berikutnya di daftar tunggu.',
+  registration_form_saved: 'Formulir pendaftaran disimpan.',
+  registration_form_opened: 'Pendaftaran dibuka. Tombol "Daftar di StudentFo" kini tampil di halaman acara.',
+  registration_form_closed: 'Pendaftaran ditutup. Pendaftar yang sudah ada tetap tersimpan.',
+  registration_decided: 'Keputusan disimpan dan pendaftar sudah dikabari lewat notifikasi.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {
@@ -195,7 +229,7 @@ export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError
     code === 'organizer_revoked' ||
     code === 'not_event_manager'
       ? 403
-      : code === 'submission_rate_limited' || code === 'connection_rate_limited' || code === 'organizer_rate_limited'
+      : code === 'submission_rate_limited' || code === 'connection_rate_limited' || code === 'organizer_rate_limited' || code === 'registration_rate_limited'
         ? 429
         : code.endsWith('not_found')
           ? 404

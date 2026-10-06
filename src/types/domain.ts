@@ -202,6 +202,10 @@ export const NOTIFICATION_TYPES = [
   'CLAIM_REJECTED',
   'REVISION_APPROVED',
   'REVISION_REJECTED',
+  /** Pendaftaran langsung (RPC *_event_registration, ADR-055): keputusan penyelenggara & naik dari daftar tunggu. */
+  'REGISTRATION_CONFIRMED',
+  'REGISTRATION_REJECTED',
+  'REGISTRATION_PROMOTED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -649,4 +653,127 @@ export interface PeopleSuggestion {
   readonly sharedEvents: readonly NetworkEventRef[];
   readonly sameMajor: boolean;
   readonly sameLevel: boolean;
+}
+
+/* =====================================================================
+   PENDAFTARAN LANGSUNG (ADR-055) — penyelenggara terverifikasi membuka
+   formulir di StudentFo sebagai pengganti/pendamping tautan luar.
+   Kolom-kolomnya VARCHAR + CHECK di Postgres (migration 20261006100001),
+   bukan enum, jadi paritas tiga-tempat (AGENTS.md §2) tidak berlaku:
+   pipeline tidak pernah menyentuhnya. Daftar di sini HARUS sama dengan
+   CHECK di migration itu.
+   ===================================================================== */
+
+export const REGISTRATION_FORM_STATUSES = ['DRAFT', 'OPEN', 'CLOSED'] as const;
+export type RegistrationFormStatus = (typeof REGISTRATION_FORM_STATUSES)[number];
+
+/** AUTO = langsung terdaftar bila ada kursi; MANUAL = penyelenggara meninjau dulu. */
+export const REGISTRATION_REVIEW_MODES = ['AUTO', 'MANUAL'] as const;
+export type RegistrationReviewMode = (typeof REGISTRATION_REVIEW_MODES)[number];
+
+export const REGISTRATION_QUESTION_KINDS = ['SHORT', 'LONG', 'CHOICE', 'URL'] as const;
+export type RegistrationQuestionKind = (typeof REGISTRATION_QUESTION_KINDS)[number];
+
+export interface RegistrationQuestion {
+  /** Stabil antarpenyuntingan (`q1`…`q6`), supaya jawaban lama tetap tertaut ke pertanyaannya. */
+  readonly id: string;
+  readonly label: string;
+  readonly kind: RegistrationQuestionKind;
+  readonly required: boolean;
+  /** Hanya untuk CHOICE; kosong untuk jenis lain. */
+  readonly options: readonly string[];
+}
+
+export interface RegistrationForm {
+  readonly eventId: string;
+  readonly status: RegistrationFormStatus;
+  readonly reviewMode: RegistrationReviewMode;
+  /** `null` = tanpa batas kursi. */
+  readonly capacity: number | null;
+  /** Saat kursi penuh: masuk daftar tunggu (true) atau ditolak "kuota penuh" (false). */
+  readonly waitlist: boolean;
+  /** `null` = perorangan; selain itu wajib mendaftar sebagai tim StudentFo berukuran min..max. */
+  readonly teamSize: { readonly min: number; readonly max: number } | null;
+  readonly questions: readonly RegistrationQuestion[];
+  /** Sapaan di atas formulir, dari penyelenggara. */
+  readonly intro: string | null;
+  /** Pesan di tiket setelah terdaftar (langkah berikutnya, grup koordinasi, dst.). */
+  readonly confirmationNote: string | null;
+  readonly openedAt: string | null;
+  readonly updatedAt: string;
+}
+
+/** Hitungan kursi yang boleh dibaca publik — tanpa data orang. */
+export interface RegistrationSeats {
+  readonly capacity: number | null;
+  /** PENDING + CONFIRMED: yang memegang kursi. */
+  readonly taken: number;
+  readonly waitlisted: number;
+}
+
+export const REGISTRATION_STATUSES = ['PENDING', 'CONFIRMED', 'WAITLISTED', 'REJECTED', 'CANCELLED'] as const;
+export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
+
+export const REGISTRATION_STATUS_LABEL: Record<RegistrationStatus, string> = {
+  PENDING: 'Menunggu ditinjau',
+  CONFIRMED: 'Terdaftar',
+  WAITLISTED: 'Daftar tunggu',
+  REJECTED: 'Tidak diterima',
+  CANCELLED: 'Dibatalkan',
+};
+
+export interface RegistrationAnswer {
+  readonly questionId: string;
+  /** Salinan label saat dijawab — pertanyaan bisa diubah setelahnya. */
+  readonly label: string;
+  readonly value: string;
+}
+
+export interface Registration {
+  readonly id: string;
+  readonly eventId: string;
+  readonly userId: string;
+  /** Kode tiket 8 karakter tanpa huruf/angka yang mirip (0/O, 1/I/L). */
+  readonly code: string;
+  readonly status: RegistrationStatus;
+  /** Salinan data diri saat mendaftar — yang dilihat penyelenggara adalah yang dikirim, bukan profil terkini. */
+  readonly fullName: string;
+  readonly email: string;
+  readonly phone: string;
+  readonly institution: string;
+  readonly major: string | null;
+  readonly educationLevel: EducationLevel;
+  readonly answers: readonly RegistrationAnswer[];
+  readonly team: { readonly id: string; readonly title: string; readonly members: readonly string[] } | null;
+  /** Urutan di daftar tunggu (1 = berikutnya naik); `null` di luar daftar tunggu. */
+  readonly waitlistPosition: number | null;
+  /** Alasan penolakan / catatan keputusan untuk peserta. */
+  readonly decisionNote: string | null;
+  readonly createdAt: string;
+  readonly decidedAt: string | null;
+}
+
+export interface RegistrationDay {
+  /** `YYYY-MM-DD` hari kalender WIB. */
+  readonly day: string;
+  readonly submitted: number;
+  readonly cancelled: number;
+}
+
+export interface RegistrationCount {
+  readonly label: string;
+  readonly count: number;
+}
+
+export interface RegistrationStats {
+  readonly days: number;
+  readonly series: readonly RegistrationDay[];
+  readonly byStatus: Readonly<Record<RegistrationStatus, number>>;
+  readonly capacity: number | null;
+  /** Pengunjung unik (per hari, dijumlah) di rentang yang sama — penyebut konversi. */
+  readonly visitors: number;
+  readonly levels: readonly RegistrationCount[];
+  readonly institutions: readonly RegistrationCount[];
+  /** Median jam dari terkirim → diputuskan, untuk mode MANUAL; `null` bila belum ada keputusan. */
+  readonly medianDecisionHours: number | null;
 }

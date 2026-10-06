@@ -8,6 +8,9 @@ import type {
   ModerationStatus,
   ModerationSubject,
   OrganizerStatus,
+  RegistrationFormStatus,
+  RegistrationReviewMode,
+  RegistrationStatus,
   TrackerStatus,
   TrustRequestStatus,
 } from './domain';
@@ -326,4 +329,56 @@ export interface EventManagerRow {
   event_id: string;
   source: ManagerSource;
   created_at: string;
+}
+
+/** Tabel `event_registration_forms` (ADR-055). `questions` diperiksa bentuknya di mapper. */
+export interface RegistrationFormRow {
+  event_id: string;
+  status: RegistrationFormStatus;
+  review_mode: RegistrationReviewMode;
+  capacity: number | null;
+  waitlist: boolean;
+  team_min: number | null;
+  team_max: number | null;
+  questions: unknown;
+  intro: string | null;
+  confirmation_note: string | null;
+  opened_at: string | null;
+  updated_at: string;
+}
+
+/** Tabel `event_registrations` — kolom yang dibaca peserta (miliknya) dan pengelola acara. */
+export interface RegistrationRow {
+  id: string;
+  event_id: string;
+  user_id: string;
+  code: string;
+  status: RegistrationStatus;
+  full_name: string;
+  email: string;
+  phone: string;
+  institution: string;
+  major: string | null;
+  education_level: EducationLevel;
+  answers: unknown;
+  team_id: string | null;
+  team_title: string | null;
+  team_members: string[] | null;
+  decision_note: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+/** RPC `registration_seats` — angka saja, boleh dibaca tamu. */
+export interface RegistrationSeatsRow {
+  event_id: string;
+  capacity: number | null;
+  taken: number;
+  waitlisted: number;
+}
+
+/** RPC `registration_summaries` — hanya acara yang dikelola pemanggil. */
+export interface RegistrationSummaryRow extends RegistrationSeatsRow {
+  status: string;
+  pending: number;
 }

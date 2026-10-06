@@ -56,6 +56,11 @@ import type {
   PortfolioFields,
   ProfileRelation,
   PublicProfile,
+  Registration,
+  RegistrationForm,
+  RegistrationFormStatus,
+  RegistrationSeats,
+  RegistrationStats,
   Submission,
   Team,
   TeamLink,
@@ -64,6 +69,8 @@ import type {
   TrackerStatus,
 } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
+import { MemoryRegistrations } from './memory-registrations';
+import type { RegistrationDecision, RegistrationFormInput, RegistrationSubmission } from '@/lib/registration';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH } from './repository';
 import type {
@@ -74,6 +81,8 @@ import type {
   EventRepository,
   OrganizerActor,
   PeopleFilter,
+  RegistrationActor,
+  RegistrationSummary,
   RepositoryStats,
   ReviewEventInput,
   ReviewSubmissionInput,
@@ -305,12 +314,23 @@ export class MemoryEventRepository implements EventRepository {
   /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
   private readonly demoSeededUsers = new Set<string>();
   private readonly demoSeedLimit: number;
+  private readonly registrations: MemoryRegistrations;
 
   constructor(base: Date = new Date(), { demoSeedLimit = DEMO_SEEDED_USER_LIMIT }: { demoSeedLimit?: number } = {}) {
     this.demoSeedLimit = demoSeedLimit;
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
     this.seedTeams(base);
     this.seedPeople(base);
+    this.registrations = new MemoryRegistrations({
+      findEvent: (eventId) => this.findEvent(eventId),
+      findTeam: (teamId) => this.teams.get(teamId),
+      managesEvent: (userId, eventId) => this.managesEvent(userId, eventId),
+      consumeRateLimit: (bucket, limit, windowSeconds) => this.rateLimiter.consume(bucket, limit, windowSeconds),
+      notify: (userId, notification) => getOrCreate(this.storedNotifications, userId, () => []).push(notification),
+      markApplied: (userId, eventId) => this.markApplied(userId, eventId),
+      visitorsSince: (eventId, days) => this.visitorsSince(eventId, days),
+    });
+    this.registrations.seed(this.events, base);
   }
 
   /** UUID, bukan penghitung: skema form (mis. `createTeamSchema`) memvalidasi id sebagai UUID, sama seperti produksi. */
@@ -1874,5 +1894,83 @@ export class MemoryEventRepository implements EventRepository {
         .map(({ eventId, createdAt, interests, educationLevel }) => ({ eventId, createdAt, interests, educationLevel })),
       events: this.events.filter(isPubliclyVisible),
     };
+  }
+
+  // ------------------------------------------------------------------
+  // Pendaftaran langsung (ADR-055) — aturan di lib/registration.ts
+  // ------------------------------------------------------------------
+
+  async getRegistrationForm(eventId: string): Promise<RegistrationForm | null> {
+    return this.registrations.publicForm(eventId);
+  }
+
+  async getRegistrationSeats(eventId: string): Promise<RegistrationSeats> {
+    return this.registrations.seats(eventId);
+  }
+
+  async listOpenRegistrationEventIds(eventIds: readonly string[]): Promise<ReadonlySet<string>> {
+    return this.registrations.openEventIds(eventIds);
+  }
+
+  async getMyRegistration(userId: string, eventId: string): Promise<Registration | null> {
+    return this.registrations.mine(userId, eventId);
+  }
+
+  async submitRegistration(actor: RegistrationActor, eventId: string, input: RegistrationSubmission): Promise<Registration> {
+    return this.registrations.submit(actor, eventId, input);
+  }
+
+  async cancelRegistration(userId: string, eventId: string): Promise<void> {
+    this.registrations.cancel(userId, eventId);
+  }
+
+  async getManagedRegistrationForm(actorId: string, eventId: string): Promise<RegistrationForm | null> {
+    return this.registrations.managedForm(actorId, eventId);
+  }
+
+  async saveRegistrationForm(actorId: string, eventId: string, input: RegistrationFormInput): Promise<void> {
+    this.registrations.save(actorId, eventId, input);
+  }
+
+  async setRegistrationFormStatus(actorId: string, eventId: string, status: Exclude<RegistrationFormStatus, 'DRAFT'>): Promise<void> {
+    this.registrations.setStatus(actorId, eventId, status);
+  }
+
+  async listRegistrations(actorId: string, eventId: string): Promise<readonly Registration[]> {
+    return this.registrations.list(actorId, eventId);
+  }
+
+  async decideRegistration(actorId: string, registrationId: string, decision: RegistrationDecision, note: string | null): Promise<void> {
+    this.registrations.decide(actorId, registrationId, decision, note);
+  }
+
+  async getRegistrationStats(actorId: string, eventId: string, days: number): Promise<RegistrationStats> {
+    return this.registrations.stats(actorId, eventId, days);
+  }
+
+  async listRegistrationSummaries(actorId: string, eventIds: readonly string[]): Promise<ReadonlyMap<string, RegistrationSummary>> {
+    return this.registrations.summaries(actorId, eventIds);
+  }
+
+  /** Pelacak naik ke "Sudah daftar" — tidak pernah MENURUNKAN tahap yang sudah lebih jauh (wawancara, diterima). */
+  private markApplied(userId: string, eventId: string): void {
+    const entries = getOrCreate(this.trackerEntries, userId, () => new Map<string, TrackerEntry>());
+    const existing = entries.get(eventId);
+    if (existing && existing.status !== 'SAVED') return;
+    const now = new Date().toISOString();
+    entries.set(
+      eventId,
+      existing
+        ? { ...existing, status: 'APPLIED', updatedAt: now }
+        : { id: `tracker-${userId}-${eventId}`, status: 'APPLIED', notes: null, createdAt: now, updatedAt: now, ...EMPTY_PORTFOLIO },
+    );
+  }
+
+  private visitorsSince(eventId: string, days: number): number {
+    let total = 0;
+    for (let back = 0; back < days; back += 1) {
+      total += this.dailyStats.get(`${eventId}|${jakartaDateKey(new Date(Date.now() - back * MS_PER_DAY))}`)?.visitors ?? 0;
+    }
+    return total;
   }
 }

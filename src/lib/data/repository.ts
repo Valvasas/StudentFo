@@ -26,6 +26,11 @@ import type {
   Paginated,
   PeopleSuggestion,
   PublicProfile,
+  Registration,
+  RegistrationForm,
+  RegistrationFormStatus,
+  RegistrationSeats,
+  RegistrationStats,
   Submission,
   SubmissionPayload,
   Team,
@@ -36,6 +41,7 @@ import type {
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
 import type { OrganizerApplicationInput } from '@/lib/organizer';
 import type { PortfolioInput } from '@/lib/portfolio';
+import type { RegistrationDecision, RegistrationFormInput, RegistrationSubmission } from '@/lib/registration';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 
@@ -65,6 +71,7 @@ export interface EventRepository
     TeamRepository,
     NetworkRepository,
     OrganizerRepository,
+    RegistrationRepository,
     RateLimitRepository,
     RecommendationSignalRepository,
     EventPresentationRepository,
@@ -318,6 +325,50 @@ export interface OrganizerRepository {
   reviewRevision(input: ReviewTrustInput<'APPROVED' | 'REJECTED'> & { revisionId: string }): Promise<void>;
   /** Status penyelenggara para pengirim — lencana "terverifikasi" di antrean kiriman. */
   listOrganizerStatuses(userIds: readonly string[]): Promise<ReadonlyMap<string, Pick<OrganizerProfile, 'orgName' | 'status'>>>;
+}
+
+/**
+ * Pendaftaran langsung di StudentFo (ADR-055). Penyelenggara terverifikasi
+ * yang mengelola acara (`manages_event`) membuka formulir; peserta mendaftar
+ * di dalam aplikasi. Kuota, daftar tunggu FIFO, dan transisi status
+ * mengikuti `lib/registration.ts` — di Supabase ditegakkan ulang oleh RPC
+ * yang mengunci baris formulir, jadi dua pendaftar terakhir tidak pernah
+ * sama-sama mendapat kursi terakhir.
+ */
+export interface RegistrationRepository {
+  /** Formulir yang boleh dilihat publik (OPEN/CLOSED). DRAFT = `null`. */
+  getRegistrationForm(eventId: string): Promise<RegistrationForm | null>;
+  /** Hitungan kursi tanpa data orang — boleh dibaca siapa pun. */
+  getRegistrationSeats(eventId: string): Promise<RegistrationSeats>;
+  /** Dari daftar id, acara yang formulirnya sedang OPEN (lencana "Daftar di StudentFo"). */
+  listOpenRegistrationEventIds(eventIds: readonly string[]): Promise<ReadonlySet<string>>;
+  getMyRegistration(userId: string, eventId: string): Promise<Registration | null>;
+  submitRegistration(actor: RegistrationActor, eventId: string, input: RegistrationSubmission): Promise<Registration>;
+  cancelRegistration(userId: string, eventId: string): Promise<void>;
+
+  // Studio penyelenggara — setiap metode memeriksa hak kelola sendiri.
+  getManagedRegistrationForm(actorId: string, eventId: string): Promise<RegistrationForm | null>;
+  saveRegistrationForm(actorId: string, eventId: string, input: RegistrationFormInput): Promise<void>;
+  setRegistrationFormStatus(actorId: string, eventId: string, status: Exclude<RegistrationFormStatus, 'DRAFT'>): Promise<void>;
+  /** Terbaru dulu, maksimal `REGISTRATION_LIMITS.listMax`. */
+  listRegistrations(actorId: string, eventId: string): Promise<readonly Registration[]>;
+  decideRegistration(actorId: string, registrationId: string, decision: RegistrationDecision, note: string | null): Promise<void>;
+  getRegistrationStats(actorId: string, eventId: string, days: number): Promise<RegistrationStats>;
+  /** Ringkasan per acara kelolaan untuk kartu studio. Acara tanpa formulir tidak ada di peta. */
+  listRegistrationSummaries(actorId: string, eventIds: readonly string[]): Promise<ReadonlyMap<string, RegistrationSummary>>;
+}
+
+export interface RegistrationSummary {
+  readonly status: RegistrationFormStatus;
+  readonly seats: RegistrationSeats;
+  readonly pending: number;
+}
+
+/** Nama & email disalin ke pendaftaran saat mendaftar — yang dilihat penyelenggara adalah yang dikirim. */
+export interface RegistrationActor {
+  readonly id: string;
+  readonly fullName: string;
+  readonly email: string;
 }
 
 /** Mode seed tidak punya tabel `users`; nama pelaku dicatat saat ia bertindak (pola NetworkViewer). */

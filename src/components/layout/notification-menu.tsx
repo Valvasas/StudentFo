@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Megaphone,
   ShieldAlert,
+  Ticket,
+  TrendingUp,
   UserPlus,
   Users,
   XCircle,
@@ -50,6 +52,9 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   CLAIM_REJECTED: XCircle,
   REVISION_APPROVED: CheckCircle2,
   REVISION_REJECTED: XCircle,
+  REGISTRATION_CONFIRMED: Ticket,
+  REGISTRATION_REJECTED: XCircle,
+  REGISTRATION_PROMOTED: TrendingUp,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {

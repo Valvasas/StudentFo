@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toSubmission } from './supabase-mappers';
+import { isUuid, keysetAfter, registrationErrorCode, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toRegistration, toRegistrationQuestions, toSubmission } from './supabase-mappers';
 
 describe('isUuid', () => {
   it('menerima UUID dan menolak selainnya sebelum sampai ke Postgres', () => {
@@ -92,5 +92,54 @@ describe('portofolio & riwayat', () => {
   it('angka BIGINT riwayat jadi number', () => {
     const row = { event_id: 'e1', slug: 's', title: 't', event_type: 'LOMBA' as const, status: 'EXPIRED' as const, closed_at: null, views: 10, visitors: 7, saves: 3, clicks: 2, applied: 1 };
     expect(toOrganizerHistoryEntry({ ...row, views: '10' as unknown as number })).toMatchObject({ views: 10, applied: 1 });
+  });
+});
+
+describe('pendaftaran (ADR-055)', () => {
+  it('pesan RAISE dicocokkan utuh — invalid_registration_form bukan invalid_registration', () => {
+    expect(registrationErrorCode({ message: 'invalid_registration_form' })).toBe('invalid_registration_form');
+    expect(registrationErrorCode({ message: 'invalid_registration' })).toBe('invalid_registration');
+    expect(registrationErrorCode({ message: 'analytics_forbidden' })).toBe('not_event_manager');
+    expect(registrationErrorCode({ message: 'duplicate key value violates unique constraint' })).toBeNull();
+    expect(registrationErrorCode(null)).toBeNull();
+  });
+
+  it('pertanyaan JSONB yang bentuknya rusak dibuang', () => {
+    expect(
+      toRegistrationQuestions([
+        { id: 'q1', label: 'Ukuran kaos', kind: 'CHOICE', required: true, options: ['S', 2, 'M'] },
+        { id: 'q2', label: 'Tanpa jenis' },
+        { id: 'q3', label: 'Jenis asing', kind: 'FILE', required: false, options: [] },
+        'bukan objek',
+      ]),
+    ).toEqual([{ id: 'q1', label: 'Ukuran kaos', kind: 'CHOICE', required: true, options: ['S', 'M'] }]);
+    expect(toRegistrationQuestions(null)).toEqual([]);
+  });
+
+  it('kode CHAR(8) dirapikan; posisi antre hanya untuk WAITLISTED', () => {
+    const row = {
+      id: 'r1',
+      event_id: 'e1',
+      user_id: 'u1',
+      code: 'ABCD2345',
+      status: 'CONFIRMED' as const,
+      full_name: 'Sekar',
+      email: 's@contoh.id',
+      phone: '+6281234567890',
+      institution: 'ITB',
+      major: null,
+      education_level: 'D4_S1' as const,
+      answers: [{ questionId: 'q1', label: 'Ukuran', value: 'M' }, { questionId: 'q2' }],
+      team_id: null,
+      team_title: null,
+      team_members: null,
+      decision_note: null,
+      created_at: '2026-10-05T00:00:00Z',
+      decided_at: null,
+    };
+    const mapped = toRegistration(row, 3);
+    expect(mapped.waitlistPosition).toBeNull();
+    expect(mapped.answers).toEqual([{ questionId: 'q1', label: 'Ukuran', value: 'M' }]);
+    expect(toRegistration({ ...row, status: 'WAITLISTED' }, 3).waitlistPosition).toBe(3);
   });
 });

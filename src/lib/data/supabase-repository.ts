@@ -21,6 +21,14 @@ import {
 import { type OrganizerApplicationInput, toStoredRevisionChanges } from '@/lib/organizer';
 import { parseEventAnalytics } from '@/lib/organizer-analytics';
 import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
+import {
+  parseRegistrationStats,
+  REGISTRATION_LIMITS,
+  waitlistPositions,
+  type RegistrationDecision,
+  type RegistrationFormInput,
+  type RegistrationSubmission,
+} from '@/lib/registration';
 import { isColdStart } from '@/lib/recommendation';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { toStoredPayload } from '@/lib/submission-schema';
@@ -57,6 +65,11 @@ import type {
   Paginated,
   PeopleSuggestion,
   PublicProfile,
+  Registration,
+  RegistrationForm,
+  RegistrationFormStatus,
+  RegistrationSeats,
+  RegistrationStats,
   Submission,
   Team,
   TeamLink,
@@ -92,6 +105,10 @@ import type {
   OrganizerHistoryRow,
   PublicPortfolioRow,
   PublicProfileRow,
+  RegistrationFormRow,
+  RegistrationRow,
+  RegistrationSeatsRow,
+  RegistrationSummaryRow,
   TrackerRow,
 } from '@/types/database';
 import {
@@ -112,6 +129,8 @@ import type {
   EventRepository,
   OrganizerActor,
   PeopleFilter,
+  RegistrationActor,
+  RegistrationSummary,
   RepositoryStats,
   ReviewEventInput,
   ReviewSubmissionInput,
@@ -127,6 +146,9 @@ import {
   ORGANIZER_COLUMNS,
   organizerErrorCode,
   peopleSearchTerm,
+  REGISTRATION_COLUMNS,
+  REGISTRATION_FORM_COLUMNS,
+  registrationErrorCode,
   REVISION_COLUMNS,
   sanitizeSearchQuery,
   sqlState,
@@ -145,6 +167,10 @@ import {
   toPortfolioFields,
   toPublicPortfolioEntry,
   rpcRows,
+  toRegistration,
+  toRegistrationForm,
+  toRegistrationFormStatus,
+  toRegistrationSeats,
   toTeamMember,
 } from './supabase-mappers';
 
@@ -173,6 +199,12 @@ const CALIBRATION_ROW_LIMIT = 50_000;
 const MANAGED_EVENTS_LIMIT = 200;
 /** Riwayat klaim/perubahan milik sendiri — yang lebih lama tetap ada di log admin. */
 const TRUST_LIST_LIMIT = 50;
+
+/** Penolakan yang dikenal dari RPC pendaftaran (pesan RAISE = kode aksi) → kode aksi; sisanya 500. */
+function registrationFailure(error: PostgrestError, message: string): AppError {
+  const code = registrationErrorCode(error);
+  return code ? actionError(code) : upstreamFailure(message, error, 500);
+}
 
 /** Penolakan yang dikenal dari trigger/RPC penyelenggara → kode aksi; sisanya 500. */
 function organizerFailure(error: PostgrestError, message: string): AppError {
@@ -1824,6 +1856,201 @@ export class SupabaseEventRepository implements EventRepository {
       })),
       events: events.map(toSummary),
     };
+  }
+
+  // ---------------------------------------------------------------- pendaftaran langsung (ADR-055)
+  // Semua penulisan lewat RPC dengan klien PENGGUNA: fungsi memeriksa
+  // auth.uid() sendiri — actorId dari aplikasi tidak dipercaya di sini.
+
+  async getRegistrationForm(eventId: string): Promise<RegistrationForm | null> {
+    if (!isUuid(eventId)) return null;
+    // Klien publik: formulir tayang memang untuk tamu, dan DRAFT tidak boleh
+    // bocor ke halaman publik walau yang membuka kebetulan pengelolanya.
+    const { data, error } = await createSupabasePublicClient()
+      .from('event_registration_forms')
+      .select(REGISTRATION_FORM_COLUMNS)
+      .eq('event_id', eventId)
+      .neq('status', 'DRAFT')
+      .returns<RegistrationFormRow[]>()
+      .maybeSingle();
+    if (error) throw upstreamFailure('Gagal memuat formulir pendaftaran.', error);
+    return data ? toRegistrationForm(data) : null;
+  }
+
+  async getRegistrationSeats(eventId: string): Promise<RegistrationSeats> {
+    const empty: RegistrationSeats = { capacity: null, taken: 0, waitlisted: 0 };
+    if (!isUuid(eventId)) return empty;
+    const { data, error } = await createSupabasePublicClient().rpc('registration_seats', { p_events: [eventId] });
+    if (error) throw upstreamFailure('Gagal memuat kursi pendaftaran.', error);
+    const row = rpcRows<RegistrationSeatsRow>(data)[0];
+    return row ? toRegistrationSeats(row) : empty;
+  }
+
+  async listOpenRegistrationEventIds(eventIds: readonly string[]): Promise<ReadonlySet<string>> {
+    const open = new Set<string>();
+    const supabase = createSupabasePublicClient();
+    for (const part of chunks([...new Set(eventIds)].filter(isUuid), IN_CHUNK)) {
+      const { data, error } = await supabase
+        .from('event_registration_forms')
+        .select('event_id')
+        .in('event_id', part)
+        .eq('status', 'OPEN')
+        .returns<{ event_id: string }[]>();
+      // Lencana "Daftar di StudentFo" di kartu = hiasan; gagal = tanpa lencana, bukan listing 500.
+      if (error) {
+        console.error('[registration] listOpenRegistrationEventIds gagal:', error);
+        return new Set();
+      }
+      for (const row of data) open.add(row.event_id);
+    }
+    return open;
+  }
+
+  async getMyRegistration(userId: string, eventId: string): Promise<Registration | null> {
+    if (!isUuid(eventId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_registrations')
+      .select(REGISTRATION_COLUMNS)
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .returns<RegistrationRow[]>()
+      .maybeSingle();
+    if (error) throw upstreamFailure('Gagal memuat pendaftaranmu.', error);
+    if (!data) return null;
+    if (data.status !== 'WAITLISTED') return toRegistration(data, null);
+    const position = await supabase.rpc('my_waitlist_position', { p_event: eventId });
+    if (position.error) throw upstreamFailure('Gagal memuat posisi daftar tunggu.', position.error);
+    const value = Number(position.data);
+    return toRegistration(data, Number.isInteger(value) && value > 0 ? value : null);
+  }
+
+  async submitRegistration(actor: RegistrationActor, eventId: string, input: RegistrationSubmission): Promise<Registration> {
+    if (!isUuid(eventId)) throw actionError('registration_closed');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('submit_event_registration', {
+      p_event: eventId,
+      p_phone: input.phone,
+      p_institution: input.institution,
+      p_major: input.major,
+      p_level: input.educationLevel,
+      p_answers: input.answers.map(({ questionId, value }) => ({ questionId, value })),
+      p_team: input.teamId && isUuid(input.teamId) ? input.teamId : null,
+    });
+    if (error) throw registrationFailure(error, 'Gagal mengirim pendaftaran.');
+    const saved = await this.getMyRegistration(actor.id, eventId);
+    if (!saved) throw upstreamFailure('Pendaftaran tersimpan tetapi tidak terbaca kembali.', null, 500);
+    return saved;
+  }
+
+  async cancelRegistration(_userId: string, eventId: string): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('registration_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('cancel_event_registration', { p_event: eventId });
+    if (error) throw registrationFailure(error, 'Gagal membatalkan pendaftaran.');
+  }
+
+  async getManagedRegistrationForm(_actorId: string, eventId: string): Promise<RegistrationForm | null> {
+    const supabase = await this.requireEventManager(eventId);
+    const { data, error } = await supabase
+      .from('event_registration_forms')
+      .select(REGISTRATION_FORM_COLUMNS)
+      .eq('event_id', eventId)
+      .returns<RegistrationFormRow[]>()
+      .maybeSingle();
+    if (error) throw upstreamFailure('Gagal memuat formulir pendaftaran.', error);
+    return data ? toRegistrationForm(data) : null;
+  }
+
+  async saveRegistrationForm(_actorId: string, eventId: string, input: RegistrationFormInput): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('save_registration_form', {
+      p_event: eventId,
+      p_review_mode: input.reviewMode,
+      p_capacity: input.capacity,
+      p_waitlist: input.waitlist,
+      p_team_min: input.teamSize?.min ?? null,
+      p_team_max: input.teamSize?.max ?? null,
+      p_questions: input.questions,
+      p_intro: input.intro,
+      p_confirmation: input.confirmationNote,
+    });
+    if (error) throw registrationFailure(error, 'Gagal menyimpan formulir pendaftaran.');
+  }
+
+  async setRegistrationFormStatus(_actorId: string, eventId: string, status: Exclude<RegistrationFormStatus, 'DRAFT'>): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('set_registration_form_status', { p_event: eventId, p_status: status });
+    if (error) throw registrationFailure(error, 'Gagal mengubah status formulir.');
+  }
+
+  async listRegistrations(_actorId: string, eventId: string): Promise<readonly Registration[]> {
+    const supabase = await this.requireEventManager(eventId);
+    const { data, error } = await supabase
+      .from('event_registrations')
+      .select(REGISTRATION_COLUMNS)
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(REGISTRATION_LIMITS.listMax)
+      .returns<RegistrationRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat pendaftar.', error);
+    const positions = waitlistPositions(data.map((row) => ({ id: row.id, status: row.status, createdAt: row.created_at })));
+    return data.map((row) => toRegistration(row, positions.get(row.id) ?? null));
+  }
+
+  async decideRegistration(_actorId: string, registrationId: string, decision: RegistrationDecision, note: string | null): Promise<void> {
+    if (!isUuid(registrationId)) throw actionError('registration_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('decide_event_registration', {
+      p_registration: registrationId,
+      p_decision: decision,
+      p_note: note,
+    });
+    if (error) throw registrationFailure(error, 'Gagal menyimpan keputusan pendaftaran.');
+  }
+
+  async getRegistrationStats(_actorId: string, eventId: string, days: number): Promise<RegistrationStats> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('registration_stats', { p_event: eventId, p_days: days });
+    if (error) {
+      if (sqlState(error) === '42501') throw actionError('not_event_manager');
+      throw registrationFailure(error, 'Gagal memuat statistik pendaftaran.');
+    }
+    const stats = parseRegistrationStats(data);
+    if (!stats) throw upstreamFailure('Bentuk statistik pendaftaran tidak dikenali.', data, 500);
+    return stats;
+  }
+
+  async listRegistrationSummaries(_actorId: string, eventIds: readonly string[]): Promise<ReadonlyMap<string, RegistrationSummary>> {
+    const ids = [...new Set(eventIds)].filter(isUuid);
+    const result = new Map<string, RegistrationSummary>();
+    if (!ids.length) return result;
+    const supabase = await createSupabaseServerClient();
+    // Fungsi memotong di 200 id = MANAGED_EVENTS_LIMIT; tidak perlu dipecah.
+    const { data, error } = await supabase.rpc('registration_summaries', { p_events: ids });
+    if (error) throw registrationFailure(error, 'Gagal memuat ringkasan pendaftaran.');
+    for (const row of rpcRows<RegistrationSummaryRow>(data)) {
+      result.set(row.event_id, { status: toRegistrationFormStatus(row.status), seats: toRegistrationSeats(row), pending: Number(row.pending) });
+    }
+    return result;
+  }
+
+  /**
+   * Bacaan studio langsung ke tabel: RLS sudah membatasi baris ke pengelola,
+   * tetapi tanpa pemeriksaan ini orang lain mendapat daftar KOSONG (terlihat
+   * seperti "belum ada pendaftar") alih-alih penolakan yang jujur.
+   */
+  private async requireEventManager(eventId: string) {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('manages_event', { p_event: eventId });
+    if (error) throw upstreamFailure('Gagal memeriksa hak kelola acara.', error);
+    if (data !== true) throw actionError('not_event_manager');
+    return supabase;
   }
 }
 

@@ -16,10 +16,22 @@ import type {
   OrganizerProfile,
   PortfolioEntry,
   PortfolioFields,
+  Registration,
+  RegistrationAnswer,
+  RegistrationForm,
+  RegistrationFormStatus,
+  RegistrationQuestion,
+  RegistrationSeats,
   Submission,
   TeamMember,
 } from '@/types/domain';
-import { ACHIEVEMENTS, toTeamRole, toVerificationBadge } from '@/types/domain';
+import {
+  ACHIEVEMENTS,
+  REGISTRATION_FORM_STATUSES,
+  REGISTRATION_QUESTION_KINDS,
+  toTeamRole,
+  toVerificationBadge,
+} from '@/types/domain';
 import type {
   ConnectionPeerRow,
   EventClaimRow,
@@ -32,6 +44,9 @@ import type {
   OrganizerHistoryRow,
   OrganizerProfileRow,
   PublicPortfolioRow,
+  RegistrationFormRow,
+  RegistrationRow,
+  RegistrationSeatsRow,
   SubmissionRow,
   TeamMemberProfileRow,
 } from '@/types/database';
@@ -403,4 +418,121 @@ export function toOrganizerHistoryEntry(row: OrganizerHistoryRow): OrganizerHist
  */
 export function rpcRows<Row>(data: unknown): readonly Row[] {
   return Array.isArray(data) ? (data as Row[]) : [];
+}
+
+/* ---------------------------------------------------------------- */
+/* Pendaftaran langsung (ADR-055)                                    */
+/* ---------------------------------------------------------------- */
+
+export const REGISTRATION_FORM_COLUMNS =
+  'event_id, status, review_mode, capacity, waitlist, team_min, team_max, questions, intro, confirmation_note, opened_at, updated_at';
+export const REGISTRATION_COLUMNS =
+  'id, event_id, user_id, code, status, full_name, email, phone, institution, major, education_level, answers, team_id, team_title, team_members, decision_note, created_at, decided_at';
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+/**
+ * JSONB `questions`: RPC sudah memvalidasinya, tetapi kolom JSONB tidak
+ * punya skema — pertanyaan yang bentuknya rusak dibuang, bukan dirender
+ * jadi input tanpa label.
+ */
+export function toRegistrationQuestions(value: unknown): RegistrationQuestion[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): RegistrationQuestion[] => {
+    if (!isRecord(item)) return [];
+    const { id, label, kind, required, options } = item;
+    if (typeof id !== 'string' || typeof label !== 'string' || typeof kind !== 'string') return [];
+    if (!(REGISTRATION_QUESTION_KINDS as readonly string[]).includes(kind)) return [];
+    return [
+      {
+        id,
+        label,
+        kind: kind as RegistrationQuestion['kind'],
+        required: required === true,
+        options: Array.isArray(options) ? options.filter((option): option is string => typeof option === 'string') : [],
+      },
+    ];
+  });
+}
+
+export function toRegistrationForm(row: RegistrationFormRow): RegistrationForm {
+  return {
+    eventId: row.event_id,
+    status: row.status,
+    reviewMode: row.review_mode,
+    capacity: row.capacity,
+    waitlist: row.waitlist,
+    teamSize: row.team_min !== null && row.team_max !== null ? { min: row.team_min, max: row.team_max } : null,
+    questions: toRegistrationQuestions(row.questions),
+    intro: row.intro,
+    confirmationNote: row.confirmation_note,
+    openedAt: row.opened_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toRegistrationAnswers(value: unknown): RegistrationAnswer[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): RegistrationAnswer[] =>
+    isRecord(item) && typeof item.questionId === 'string' && typeof item.label === 'string' && typeof item.value === 'string'
+      ? [{ questionId: item.questionId, label: item.label, value: item.value }]
+      : [],
+  );
+}
+
+export function toRegistration(row: RegistrationRow, waitlistPosition: number | null): Registration {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    userId: row.user_id,
+    code: row.code.trim(),
+    status: row.status,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone,
+    institution: row.institution,
+    major: row.major,
+    educationLevel: row.education_level,
+    answers: toRegistrationAnswers(row.answers),
+    team: row.team_id && row.team_title ? { id: row.team_id, title: row.team_title, members: row.team_members ?? [] } : null,
+    waitlistPosition: row.status === 'WAITLISTED' ? waitlistPosition : null,
+    decisionNote: row.decision_note,
+    createdAt: row.created_at,
+    decidedAt: row.decided_at,
+  };
+}
+
+export function toRegistrationSeats(row: RegistrationSeatsRow): RegistrationSeats {
+  return { capacity: row.capacity, taken: Number(row.taken), waitlisted: Number(row.waitlisted) };
+}
+
+export function toRegistrationFormStatus(value: string): RegistrationFormStatus {
+  return (REGISTRATION_FORM_STATUSES as readonly string[]).includes(value) ? (value as RegistrationFormStatus) : 'DRAFT';
+}
+
+/**
+ * Pesan RAISE migration 20261006100001 = kode aksinya sendiri (ADR-019),
+ * jadi dicocokkan UTUH — `includes()` akan salah membaca
+ * `invalid_registration_form` sebagai `invalid_registration`.
+ */
+const REGISTRATION_RAISES = new Map<string, Exclude<ActionErrorCode, 'unknown'>>([
+  ['registration_closed', 'registration_closed'],
+  ['registration_full', 'registration_full'],
+  ['registration_exists', 'registration_exists'],
+  ['registration_rejected_before', 'registration_rejected_before'],
+  ['registration_not_eligible', 'registration_not_eligible'],
+  ['registration_rate_limited', 'registration_rate_limited'],
+  ['invalid_registration', 'invalid_registration'],
+  ['registration_team_invalid', 'registration_team_invalid'],
+  ['registration_not_found', 'registration_not_found'],
+  ['registration_invalid_transition', 'registration_invalid_transition'],
+  ['invalid_registration_form', 'invalid_registration_form'],
+  ['registration_form_unavailable', 'registration_form_unavailable'],
+  ['not_event_manager', 'not_event_manager'],
+  ['analytics_forbidden', 'not_event_manager'],
+  ['organizer_rate_limited', 'organizer_rate_limited'],
+]);
+
+export function registrationErrorCode(error: { message?: string } | null): Exclude<ActionErrorCode, 'unknown'> | null {
+  return REGISTRATION_RAISES.get((error?.message ?? '').trim()) ?? null;
 }
