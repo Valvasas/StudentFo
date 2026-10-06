@@ -114,6 +114,7 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/profile/details?ubah=pendidikan'],
   ['Mahasiswa', '/profile/interests'],
   ['Mahasiswa', '/profile/settings'],
+  ['Mahasiswa', '/profile/personalization'],
   ['Mahasiswa', '/profile/privacy'],
   ['Mahasiswa', '/messages'],
   ['Mahasiswa', '/discussions'],

@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { requestPasswordResetAction } from '@/app/auth/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { Field, TextInput } from '@/components/ui/field';
 import type { RawSearchParams } from '@/lib/search-params';
 
@@ -48,9 +49,9 @@ export default async function ForgotPasswordPage({
           />
         </Field>
 
-        <Button type="submit" size="lg" className="w-full">
+        <SubmitButton pendingLabel="Mengirim…" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
           Kirim tautan penyetelan ulang
-        </Button>
+        </SubmitButton>
       </form>
 
       <p className="text-sm text-ink-muted">

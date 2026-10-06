@@ -140,6 +140,8 @@ export const ACTION_NOTICE_CODES = [
   'moderation_restored',
   'presentation_saved',
   'team_created',
+  'tracker_applied',
+  'tracker_accepted',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -170,6 +172,8 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   moderation_restored: 'Dikembalikan ke antrean moderasi dan tercatat di riwayat.',
   presentation_saved: 'Lencana & promosi disimpan. Katalog publik ikut diperbarui.',
   team_created: 'Tim dibuka dan sudah tampil di Cari Tim. Bagikan tautannya ke orang yang kamu incar.',
+  tracker_applied: 'Dicatat sebagai "Sudah Daftar". Pindahkan tahapnya begitu ada kabar dari penyelenggara.',
+  tracker_accepted: 'Dicatat sebagai "Diterima". Isi hasilnya di portofolio kalau ingin ditampilkan di profilmu.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

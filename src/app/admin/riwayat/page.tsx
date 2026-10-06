@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, History, RotateCcw, ShieldCheck } from 'lucide-react';
+import { AdminNav } from '@/components/admin/admin-nav';
+import { History, RotateCcw, ShieldCheck } from 'lucide-react';
 import { restoreRejectedAction } from '@/app/admin/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
@@ -90,13 +91,8 @@ export default async function ModerationHistoryPage({ searchParams }: { searchPa
 
   return (
     <div className="container-page py-8">
-      <Link
-        href="/admin"
-        className="inline-flex min-h-11 items-center gap-1 text-sm text-brand-text hover:underline"
-      >
-        <ArrowLeft aria-hidden className="size-4" /> Kembali ke antrean
-      </Link>
-      <header className="mb-6 mt-2">
+      <AdminNav active="riwayat" />
+      <header className="mb-6">
         <h1 className="flex items-center gap-2 text-3xl">
           <History aria-hidden className="size-7 text-ink-muted" />
           Riwayat moderasi

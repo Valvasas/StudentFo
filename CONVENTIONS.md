@@ -132,12 +132,27 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   menggeser target klik: `ticker-track` (pita tenggat), `reveal`, bilah
   progres navigasi (`sf-progress`, ADR-053), dan kosakata ADR-054 (`rise`,
   `ink-draw`, `drift`, `twinkle`, `breathe`, `typing-dot`, `sheet-in`,
-  `stamp`, `confetti-bit`). Anak dekoratif DI DALAM target (ikon panah) boleh
+  `stamp`, `confetti-bit`) + ADR-055 (`page-enter`, `loader-in`, `bob`, `fly`,
+  `sweep`, `turn`, `dash-flow`, `celebrate-in/out`, `launch`,
+  `progress-sheen`). Anak dekoratif DI DALAM target (ikon panah) boleh
   bergeser saat hover — kotak sentuhnya sendiri tetap diam.
+- Tombol "ditekan" = bayangan inset + isi turun 1px (`active:pt-0.5` hanya pada
+  tombol bertinggi tetap tanpa `py-*`), BUKAN `scale` — tombol yang menciut
+  kehilangan klik di tepinya (ADR-055). Tombol isi-penuh (`bg-brand`) otomatis
+  mendapatkannya; tombol bergaris pakai `press`.
+- Isian baru: pakai `controlClass`/`TextInput`/`SelectInput` (bukan kelas
+  isian tulisan tangan); kotak centang & radio pakai `check`, pilihan berbentuk
+  chip pakai `choice`; form panjang dipecah dengan `FormStep`.
+- Hasil aksi yang ditunggu orang dirayakan lewat daftar tertutup
+  `lib/celebration.ts` — tambah kodenya di sana, jangan menaruh konfeti
+  langsung di halaman. Kabar netral/sensitif tidak pernah dirayakan.
+- Pembungkus halaman (`template.tsx`) hanya boleh menganimasikan opasitas:
+  `transform` di pembungkus merusak `position: fixed` di dalamnya.
 - Pemilih/tab/rangkaian chip yang menggulir horizontal: wadah gulirnya harus
   `relative`, kalau tidak teks `sr-only` (absolut) di dalamnya lolos dari
   kliping dan melebarkan halaman di 320px (ADR-054).
-  Keduanya patuh `prefers-reduced-motion` lewat aturan global di
+  Keduanya patuh `prefers-reduced-motion` — dan pilihan "Kurangi gerak" di
+  Personalisasi (`:root[data-motion='reduce']`) — lewat aturan global di
   `globals.css` §3.
 - **Jangan mengubah nilai token warna tanpa menjalankan
   `npm run check:contrast`.** Nilai yang "kelihatan cukup gelap" berulang kali

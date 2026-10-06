@@ -101,7 +101,7 @@ export function PortfolioPanel({ item, returnTo }: { item: TrackerItem; returnTo
       </div>
 
       <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-card bg-panel-nested px-3.5 py-3">
-        <input type="checkbox" name="visible" defaultChecked={visible} className="mt-0.5 size-4 shrink-0 accent-[var(--color-accent)]" />
+        <input type="checkbox" name="visible" defaultChecked={visible} className="check mt-0.5" />
         <span className="flex flex-col gap-0.5 text-sm">
           <span className="flex items-center gap-1.5 font-semibold">
             <Eye aria-hidden className="size-4" /> Tampilkan di profil publik

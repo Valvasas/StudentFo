@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { ArrowRight, Heart, Inbox, Network, Search, Settings2, ShieldCheck, Sparkles, UserPlus, Users, UsersRound, X, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Ban, Heart, Inbox, Network, Search, Settings2, ShieldCheck, Sparkles, UserPlus, Users, UsersRound, X, type LucideIcon } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { NetworkGraphView } from '@/components/network/network-graph';
 import { HiddenProfileBanner, NetworkSettings } from '@/components/network/network-settings';
@@ -9,6 +9,7 @@ import { BlockedRow, ConnectionRow, IncomingRequestCard, OutgoingRow, Suggestion
 import { TINT_BG } from '@/components/ui/avatar';
 import { IllustrationStage } from '@/components/ui/feature-hero';
 import { ConnectSketch } from '@/components/ui/feature-illustrations';
+import { ScrollRail } from '@/components/ui/scroll-rail';
 import { SelectInput } from '@/components/ui/field';
 import { EmptyNotebookSketch } from '@/components/ui/illustrations';
 import { HandNote } from '@/components/ui/sketch';
@@ -127,7 +128,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
 
       {/* `relative`: teks sr-only di badge hitungan berposisi absolut; tanpa wadah
           berposisi ia lolos dari kliping gulir ini dan melebarkan halaman di 320px. */}
-      <nav aria-label="Bagian koneksi" className="relative -mx-5 mt-8 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
+      <ScrollRail aria-label="Bagian koneksi" className="relative -mx-5 mt-8 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
         <ul className="flex w-max gap-1 rounded-pill border border-line bg-panel p-1.5">
           {TABS.map((item) => {
             const on = item.key === tab;
@@ -161,11 +162,13 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
             );
           })}
         </ul>
-      </nav>
+      </ScrollRail>
 
       <ActionFeedback params={params} className="mt-6 max-w-2xl" />
 
-      <div className="mt-10">
+      {/* Dikunci per tab: isi tab baru dipasang ulang, jadi animasi masuknya
+          berjalan setiap pindah tab — bukan hanya saat halaman pertama dibuka. */}
+      <div key={tab} className="enter mt-10 [animation-duration:520ms]">
         {tab === 'untukmu' && <ForYouTab {...context} />}
         {tab === 'koneksi' && <ConnectionsTab {...context} />}
         {tab === 'ajakan' && <InvitationsTab {...context} />}
@@ -535,17 +538,29 @@ async function SettingsTab({ user, repository, categoryName, now }: TabContext) 
   const returnTo = tabHref('pengaturan');
 
   return (
-    <div className="flex max-w-3xl flex-col gap-14">
+    <div className="flex max-w-3xl flex-col gap-5">
       <NetworkSettings viewer={user} profile={profile} categoryName={categoryName} returnTo={returnTo} />
 
-      <section id="diblokir" aria-labelledby="diblokir-title" className="flex scroll-mt-28 flex-col gap-4">
-        <SectionTitle id="diblokir-title" title="Diblokir" count={blocked.length} hint="Mereka tidak bisa menemukan atau mengajakmu, dan tidak diberi tahu" />
+      <section id="diblokir" aria-labelledby="diblokir-title" className="scroll-mt-28 overflow-hidden rounded-[24px] border border-line bg-panel">
+        <div className="flex items-start gap-3.5 p-5 sm:p-6">
+          <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-panel-nested">
+            <Ban className="size-5" />
+          </span>
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <h2 id="diblokir-title" className="flex items-baseline gap-2 text-[17px] font-semibold">
+              Diblokir
+              <span className="font-mono text-[13px] font-normal text-ink-muted">{blocked.length}</span>
+            </h2>
+            <span className="text-[13px] text-ink-muted">Mereka tidak bisa menemukan atau mengajakmu, dan tidak diberi tahu.</span>
+          </span>
+        </div>
         {blocked.length === 0 ? (
-          <p className="text-[13.5px] leading-relaxed text-ink-muted">
-            Belum ada. Blokir lewat menu opsi di daftar koneksi, kartu ajakan, atau panel peta.
+          <p className="flex items-start gap-2 border-t border-line px-5 py-4 text-[13.5px] leading-relaxed text-ink-muted sm:px-6">
+            <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-success" />
+            Belum ada. Kalau perlu, blokir lewat menu opsi di daftar koneksi, kartu ajakan, atau panel peta.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-line rounded-[22px] border border-line bg-panel p-2">
+          <ul className="flex flex-col divide-y divide-line border-t border-line p-2">
             {blocked.map((person) => (
               <BlockedRow key={person.userId} person={person} returnTo={returnTo} now={now} />
             ))}

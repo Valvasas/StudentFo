@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, Megaphone, Search, ShieldCheck } from 'lucide-react';
+import { AdminNav } from '@/components/admin/admin-nav';
+import { Megaphone, Search, ShieldCheck } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { SelectInput, TextInput } from '@/components/ui/field';
@@ -79,10 +80,8 @@ export default async function PresentationPage({ searchParams }: { searchParams:
     // dan kontrol yang digulir/difokus tidak boleh mendarat di bawah navbar
     // lengket 64px (WCAG 2.2 — 2.4.11 Focus Not Obscured).
     <div className="container-page py-8 [&_:is(a,button,input,select)]:scroll-mt-24">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-1 text-sm text-brand-text hover:underline">
-        <ArrowLeft aria-hidden className="size-4" /> Kembali ke antrean
-      </Link>
-      <header className="mb-6 mt-2">
+      <AdminNav active="promosi" />
+      <header className="mb-6">
         <h1 className="flex items-center gap-2 text-3xl">
           <Megaphone aria-hidden className="size-7 text-ink-muted" />
           Lencana & promosi

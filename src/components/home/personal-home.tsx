@@ -11,6 +11,7 @@ import {
   Ticket,
   UsersRound,
 } from 'lucide-react';
+import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { DeadlineWeek } from '@/components/event/deadline-week';
 import { EventGrid } from '@/components/event/event-grid';
@@ -21,7 +22,7 @@ import { type AuthUser, isProfileComplete } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
-import { parseEventQuery } from '@/lib/search-params';
+import { parseEventQuery, type RawSearchParams } from '@/lib/search-params';
 import { needsActionSoon } from '@/lib/tracker-progress';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type TrackerStatus } from '@/types/domain';
 
@@ -49,7 +50,7 @@ const RECOMMENDATION_LIMIT = 6;
  * aturan baru — "perlu tindakan" = `needsActionSoon` (papan Pendaftaran),
  * "sesuai minatmu" = urutan `relevance` yang sama dengan /events.
  */
-export async function PersonalHome({ user }: { user: AuthUser }) {
+export async function PersonalHome({ user, params }: { user: AuthUser; params: RawSearchParams }) {
   const repository = await getEventRepository();
   const now = new Date();
   const [tracker, saved, recommended, week, categories, organizer] = await Promise.all([
@@ -111,6 +112,11 @@ export async function PersonalHome({ user }: { user: AuthUser }) {
 
   return (
     <div className="container-page pb-8 pt-8 sm:pt-12">
+      {/* Tautan konfirmasi email mendarat di sini (`/?notice=email_confirmed`) —
+          tanpa ini sambutan untuk pengguna baru hilang diam-diam. */}
+      <div className="mb-6 max-w-2xl empty:hidden">
+        <AuthFeedback params={params} />
+      </div>
       <header className="enter flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex max-w-2xl flex-col gap-2">
           <HandNote className="self-start text-[19px] text-ink-muted">{todayLabel(now)}</HandNote>

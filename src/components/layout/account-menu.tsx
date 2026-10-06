@@ -10,6 +10,7 @@ import {
   Lock,
   LogOut,
   MessageCircle,
+  Palette,
   Settings,
   ShieldCheck,
   Ticket,
@@ -42,6 +43,8 @@ interface MenuItem {
 export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: number }) {
   const { percent } = profileCompleteness(user);
 
+  // Urutan & pengelompokan sama dengan menu samping AccountShell (ADR-055):
+  // orang yang pindah dari ponsel ke laptop menemukan tujuan di tempat yang sama.
   const groups: readonly (readonly MenuItem[])[] = [
     [
       { href: '/profile', label: 'Profil saya', icon: UserRound },
@@ -49,21 +52,24 @@ export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: 
       { href: '/profile/interests', label: 'Peminatan', icon: Heart },
     ],
     [
-      { href: '/tracker', label: 'Pendaftaran saya', icon: Ticket },
-      { href: '/connections', label: 'Koneksi', icon: Users },
-      { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, badge: 'saved' },
-      { href: '/penyelenggara', label: 'Studio penyelenggara', icon: BadgeCheck },
       ...(demoFeaturesEnabled
         ? [
             { href: '/messages', label: 'Pesan', icon: MessageCircle, badge: 'unread' as const },
             { href: '/discussions', label: 'Ruang diskusi', icon: Hash },
           ]
         : []),
+      { href: '/tracker', label: 'Pendaftaran saya', icon: Ticket },
+      { href: '/connections', label: 'Koneksi', icon: Users },
+      { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, badge: 'saved' },
     ],
     [
+      { href: '/penyelenggara', label: 'Studio penyelenggara', icon: BadgeCheck },
+      ...(user.role === 'ADMIN' ? [{ href: '/admin', label: 'Antrean moderasi', icon: ShieldCheck }] : []),
+    ],
+    [
+      { href: '/profile/personalization', label: 'Personalisasi', icon: Palette },
       { href: '/profile/settings', label: 'Pengaturan', icon: Settings },
       { href: '/profile/privacy', label: 'Privasi & data', icon: Lock },
-      ...(user.role === 'ADMIN' ? [{ href: '/admin', label: 'Antrean moderasi', icon: ShieldCheck }] : []),
     ],
   ];
 

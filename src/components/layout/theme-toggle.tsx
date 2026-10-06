@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { THEME_STORAGE_KEY } from '@/lib/appearance';
 
 type Theme = 'light' | 'dark';
 
@@ -20,8 +21,14 @@ export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme | null>(null);
 
   useEffect(() => {
-    const current = document.documentElement.getAttribute('data-theme');
-    setTheme(current === 'dark' ? 'dark' : 'light');
+    const root = document.documentElement;
+    const sync = () => setTheme(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+    sync();
+    // Tema juga bisa diganti dari halaman Personalisasi (atau mengikuti OS);
+    // tanpa ini ikon di navbar menunjukkan tema yang sudah tidak berlaku.
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
   }, []);
 
   function toggle() {
@@ -29,7 +36,7 @@ export function ThemeToggle() {
     setTheme(next);
     document.documentElement.setAttribute('data-theme', next);
     try {
-      localStorage.setItem('sf-theme', next);
+      localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {
       // Penyimpanan diblokir (mode penyamaran / izin situs). Tema tetap
       // berubah untuk sesi ini; hanya preferensinya yang tidak tersimpan.

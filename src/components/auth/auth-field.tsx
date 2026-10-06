@@ -1,18 +1,20 @@
 import type { InputHTMLAttributes, ReactNode } from 'react';
+import { controlClass } from '@/components/ui/field';
+import { cn } from '@/lib/utils';
 
 /** Isian form akun sesuai kanvas: label 13.5px di atas, isian 44px. */
 export function AuthField({ id, label, aside, hint, children }: { id: string; label: string; aside?: ReactNode; hint?: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-[13.5px] font-medium">
+        <label htmlFor={id} className="text-[13.5px] font-semibold">
           {label}
         </label>
         {aside}
       </span>
       {children}
       {hint && (
-        <p id={`${id}-hint`} className="text-[12.5px] text-ink-muted">
+        <p id={`${id}-hint`} className="text-[12.5px] leading-snug text-ink-muted">
           {hint}
         </p>
       )}
@@ -20,13 +22,8 @@ export function AuthField({ id, label, aside, hint, children }: { id: string; la
   );
 }
 
-export function AuthInput(props: InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className="h-11 w-full rounded-sm border border-line-strong/70 bg-panel px-3 text-base text-ink transition-colors duration-150 ease-snap placeholder:text-ink-faint hover:border-line-strong focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-    />
-  );
+export function AuthInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={cn(controlClass, className)} />;
 }
 
 export function AuthDivider() {

@@ -140,6 +140,17 @@
   --duration-enter: 600ms;
   --easing: cubic-bezier(0.4, 0, 0.2, 1);
   --easing-enter: cubic-bezier(0.2, 0.65, 0.2, 1);
+  /* Lenting kecil untuk balikan tekan & cap — melewati target 4% lalu kembali. */
+  --easing-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* ===== Tombol taktil (ADR-055) — bibir "tuts" di dalam kotak tombol.
+     Bayangan INSET: tidak pernah memperbesar/menggeser kotak sentuh. ===== */
+  --press-lip: rgb(0 0 0 / 0.32);
+  --press-gloss: rgb(255 255 255 / 0.14);
+  --press-lip-soft: rgb(29 27 23 / 0.09);
+  --press-drop: 0 1px 2px rgb(29 27 23 / 0.14), 0 4px 12px -4px rgb(29 27 23 / 0.22);
+  /* Halo fokus isian: pelengkap garis fokus 2px, bukan penggantinya. */
+  --focus-halo: rgb(29 27 23 / 0.08);
 
   /* ===== Permukaan gelap-selalu (footer, panel CTA, banner tampilan publik) ===== */
   --color-inverse-surface: #1d1b17;
@@ -216,6 +227,13 @@
   --shadow-card: none;
   --shadow-raised: none;
   --shadow-overlay: 0 16px 40px rgb(0 0 0 / 0.55);
+
+  /* Tombol primer gelap = kertas terang: bibirnya cukup bayangan tipis. */
+  --press-lip: rgb(0 0 0 / 0.22);
+  --press-gloss: rgb(255 255 255 / 0.5);
+  --press-lip-soft: rgb(0 0 0 / 0.35);
+  --press-drop: 0 0 0 transparent;
+  --focus-halo: rgb(239 235 225 / 0.1);
 
   /* Footer & panel CTA tetap lebih gelap dari halaman supaya batas
      "isi halaman" vs "penutup" tidak hilang di tema gelap. */
@@ -397,6 +415,51 @@
       animation-delay: 0s !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Pilihan "Kurangi gerak" di Personalisasi (ADR-055) = aturan yang SAMA
+     dengan media query di atas, untuk orang yang perangkatnya tidak
+     menyetelnya (laptop kampus, ponsel pinjaman). Atributnya dipasang
+     ThemeScript sebelum paint pertama, jadi tidak ada animasi yang sempat
+     berjalan lalu berhenti. */
+  :root[data-motion='reduce'] {
+    scroll-behavior: auto;
+
+    & *, & *::before, & *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0s !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Kilatan abu-abu bawaan WebKit saat mengetuk menutupi bentuk tombol dan
+     terlihat murahan; penggantinya keadaan :active milik tiap tombol (iOS
+     baru menyalakan :active bila ada pendengar touchstart — dipasang
+     ThemeScript). */
+  :where(a, button, summary, label, [role='button']) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Tombol isi-penuh di seluruh aplikasi (±110 tempat, banyak yang ditulis
+     dengan kelas mentah, bukan <Button>) otomatis jadi "tuts" taktil. Dipilih
+     lewat kelas `bg-brand` utuh (`~=`), bukan substring: `hover:bg-brand-hover`
+     dan `bg-brand-soft` tidak ikut. Lihat `press` di §4. */
+  :where(a, button, summary)[class~='bg-brand']:not(:disabled) {
+    box-shadow: inset 0 1px 0 var(--press-gloss), inset 0 -2px 0 var(--press-lip);
+    transition-property: color, background-color, border-color, box-shadow, opacity;
+    transition-duration: var(--duration-micro);
+    transition-timing-function: var(--easing);
+
+    &:hover {
+      box-shadow: inset 0 1px 0 var(--press-gloss), inset 0 -2px 0 var(--press-lip), var(--press-drop);
+    }
+
+    &:active:not(:disabled, [aria-disabled='true']) {
+      background-color: var(--color-accent-pressed);
+      box-shadow: inset 0 2px 3px var(--press-lip);
+      transition-duration: 40ms;
     }
   }
 }
@@ -615,6 +678,11 @@ html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
   }
 }
 
+html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed]) {
+  opacity: 1;
+  transform: none;
+}
+
 @keyframes sf-word {
   0% { opacity: 0; transform: translateY(0.45em); }
   4%, 18% { opacity: 1; transform: none; }
@@ -810,4 +878,273 @@ html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
 @utility dot-grid {
   background-image: radial-gradient(color-mix(in oklab, var(--color-border-strong) 60%, transparent) 1px, transparent 1.5px);
   background-size: 18px 18px;
+}
+
+/* =====================================================================
+   9. TOMBOL TAKTIL, ISIAN, TRANSISI HALAMAN, PERAYAAN (ADR-055)
+   Aturan ADR-039 tetap: kotak sentuh tidak pernah bergeser atau mengecil.
+   `scale(.97)` saat ditekan — tren yang lazim — sengaja TIDAK dipakai:
+   tombol yang menciut menjauh dari jari di tepinya, `mouseup` jatuh di luar
+   tombol, dan peramban tidak mengirim `click`. Rasa "tertekan" dibawa
+   bayangan inset (bibir tuts pindah dari bawah ke atas) dan isi yang turun
+   1px di dalam kotak yang diam.
+   ===================================================================== */
+
+/* Untuk tombol bergaris/sekunder; tombol isi-penuh sudah otomatis (§3). */
+@utility press {
+  box-shadow: inset 0 -2px 0 var(--press-lip-soft);
+
+  &:hover {
+    box-shadow: inset 0 -2px 0 var(--press-lip-soft), 0 1px 2px rgb(29 27 23 / 0.06);
+  }
+
+  &:active:not(:disabled, [aria-disabled='true']) {
+    box-shadow: inset 0 2px 2px var(--press-lip-soft);
+    transition-duration: 40ms;
+  }
+}
+
+/* Isian (input/select/textarea): satu garis fokus 2px yang MENUMPUK di
+   garis tepi (offset negatif) + halo lembut — bukan cincin kedua berjarak
+   2px yang membuat form terlihat bergaris ganda. Garis 2px tinta tetap
+   ≥ 3:1 terhadap latar (WCAG 1.4.11/2.4.7). */
+@utility field-control {
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -1px;
+    border-color: var(--focus-ring);
+    box-shadow: 0 0 0 4px var(--focus-halo);
+  }
+}
+
+/* Kotak centang & radio milik sendiri. Tetap <input> native (bisa
+   difokus, dicentang lewat Spasi, dibaca pembaca layar, ikut FormData tanpa
+   JS); hanya rupanya yang diganti supaya tidak bergaya OS 2010 dan ikut tema.
+   Tanda centang "tumbuh" lewat background-size — gambar di DALAM kotak yang
+   membesar, bukan kotaknya. */
+@keyframes sf-check-in {
+  from { background-size: 0 0; }
+  to { background-size: 100% 100%; }
+}
+
+@utility check {
+  appearance: none;
+  box-sizing: border-box;
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 5px;
+  background-color: var(--color-surface);
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-micro) var(--easing),
+    border-color var(--duration-micro) var(--easing),
+    border-width var(--duration-transition) var(--easing-spring);
+
+  &:hover {
+    border-color: var(--color-text-muted);
+  }
+
+  &:checked {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3.6 8.4 2.9 2.9 5.9-6.3'/%3E%3C/svg%3E");
+    animation: sf-check-in 180ms var(--easing-spring) both;
+  }
+
+  :root[data-theme='dark'] &:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2315140f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3.6 8.4 2.9 2.9 5.9-6.3'/%3E%3C/svg%3E");
+  }
+
+  &[type='radio'] {
+    border-radius: var(--radius-pill);
+  }
+
+  &[type='radio']:checked {
+    border-width: 5.5px;
+    background-color: var(--color-surface);
+    background-image: none;
+    animation: none;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+}
+
+/* Pilihan berbentuk chip: <label> yang membungkus `.check`. Seluruh chip
+   jadi target sentuh 44px; cincin fokus pindah dari kotak kecil ke chip. */
+@utility choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--duration-micro) var(--easing),
+    border-color var(--duration-micro) var(--easing),
+    color var(--duration-micro) var(--easing);
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+
+  &:has(:checked) {
+    border-color: var(--color-text-primary);
+    background-color: var(--color-accent-soft);
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+
+  &:has(:focus-visible) {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  & input:focus-visible {
+    outline: none;
+  }
+
+  &:has(:disabled) {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+/* Masuk halaman: HANYA opasitas. `transform` di pembungkus halaman membuat
+   elemen `position: fixed` di dalamnya (bilah daftar ponsel di detail
+   kegiatan, toast) menempel ke pembungkus selama animasi lalu melompat.
+   Fill-mode `backwards`, bukan `both`: setelah selesai tidak ada sisa
+   opasitas yang terus membentuk stacking context. */
+@keyframes sf-page-in {
+  from { opacity: 0; }
+}
+
+@utility page-enter {
+  animation: sf-page-in 280ms var(--easing) backwards;
+}
+
+/* Kartu pemuat navigasi (NavigationProgress): muncul dari bawah, sekali. */
+@keyframes sf-loader-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@utility loader-in {
+  animation: sf-loader-in 300ms var(--easing-enter) both;
+}
+
+@keyframes sf-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@utility bob {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-bob 1.6s ease-in-out infinite;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-fly {
+  0% { opacity: 0; transform: translate(-16px, 10px) rotate(-8deg); }
+  18%, 78% { opacity: 1; }
+  100% { opacity: 0; transform: translate(20px, -12px) rotate(6deg); }
+}
+
+/* Pesawat kertas yang terus berangkat — pemuat "sedang mengirim/membuka". */
+@utility fly {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-fly 1.9s var(--easing) infinite;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-dash-flow {
+  to { stroke-dashoffset: -26; }
+}
+
+/* Garis putus-putus yang mengalir (rute, sambungan peta). */
+@utility dash-flow {
+  animation: sf-dash-flow 1.2s linear infinite;
+}
+
+@keyframes sf-sweep {
+  from { transform: translateX(-7px) rotate(-6deg); }
+  to { transform: translateX(7px) rotate(6deg); }
+}
+
+@utility sweep {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-sweep 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes sf-turn {
+  to { transform: rotate(360deg); }
+}
+
+@utility turn {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-turn 3.2s linear infinite;
+}
+
+/* Lapisan perayaan (CelebrationLayer): turun dari atas dengan sedikit
+   lenting, diam ±3 dtk, lalu memudar naik. */
+@keyframes sf-celebrate-in {
+  0% { opacity: 0; transform: translateY(-16px) scale(0.96); }
+  60% { opacity: 1; transform: translateY(2px) scale(1.01); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes sf-celebrate-out {
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+@utility celebrate-in {
+  animation: sf-celebrate-in 520ms var(--easing-enter) both;
+}
+
+@utility celebrate-out {
+  animation: sf-celebrate-out 260ms var(--easing) both;
+}
+
+@keyframes sf-launch {
+  0% { opacity: 0; transform: translate(-30px, 26px) rotate(-14deg); }
+  20% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+
+/* Pesawat kertas yang meluncur masuk ke posisinya (kartu "formulir dibuka"). */
+@utility launch {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-launch 900ms var(--easing-enter) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-progress-sheen {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(260%); }
+}
+
+/* Kilau yang menyapu bilah progres — tanda "masih bekerja" saat bilahnya melambat. */
+@utility progress-sheen {
+  animation: sf-progress-sheen 1.3s var(--easing) infinite;
 }

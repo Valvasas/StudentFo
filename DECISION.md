@@ -12,6 +12,93 @@ terdokumentasi.
 
 ---
 
+## ADR-055 — Polesan UX: transisi berilustrasi, perayaan hasil aksi, tombol taktil, form bersih, menu wajib per peran
+
+**Konteks:** Permintaan pemilik: animasi pemuat & ilustrasi tiap pindah halaman,
+animasi setelah mendaftar / mengirim lamaran / mendaftar lomba, form yang lebih
+bersih dan profesional di ponsel & desktop, menu wajib (profil, pengaturan,
+personalisasi) dari pelajar sampai admin, pengaturan & animasi Koneksi yang
+matang, dan tombol yang "memuaskan" saat ditekan. Batasan yang sudah ada tidak
+berubah: tanpa `loading.tsx` (soft-404), alur tanpa JS tetap jalan, kotak sentuh
+tidak bergeser (ADR-039), satu ilustrasi per layar (ADR-053/054). Audit
+tangkapan layar menemukan juga: `/submit` dinding kolom datar dengan kotak
+centang/radio bawaan OS, tab aktif "Pengaturan" di /connections tersembunyi di
+luar layar ponsel, panah `<select>` menimpa "07:00 WIB", menu akun tanpa
+personalisasi / studio / moderasi, dan sambutan `email_confirmed` yang tidak
+pernah tampil karena beranda pribadi tidak merender `AuthFeedback`.
+
+**Keputusan:**
+- **Transisi halaman tanpa layar pemuat penuh.** `src/app/template.tsx`
+  memasang ulang pembungkus per navigasi dengan animasi masuk OPASITAS saja —
+  `transform` di pembungkus membuat elemen `position: fixed` (bilah daftar
+  ponsel, toast) menempel ke pembungkus selama animasi; fill-mode `backwards`
+  supaya tidak tersisa stacking context. Tidak memasang Suspense, jadi status
+  HTTP & `notFound()` tidak berubah. Navigasi > 450 ms mendapat kartu kecil di
+  bawah layar dari `NavigationProgress`: sketsa + kalimat tentang TUJUAN
+  (`routeSceneFor`, murni & teruji, cocok per segmen). Kartu `aria-hidden`
+  (route announcer Next sudah mengumumkan halaman), tidak menangkap klik.
+  Layar pemuat penuh ditolak: menutupi halaman yang masih bisa dipakai dan
+  membuat setiap klik terasa lebih lambat.
+- **Perayaan = daftar tertutup** (`lib/celebration.ts`), dipicu kode notice
+  yang sudah ada + `tracker_applied`/`tracker_accepted` (hanya saat tahap
+  BERPINDAH; simpan catatan tidak merayakan). `ActionFeedback`/`AuthFeedback`
+  merender `CelebrationBurst` dengan kunci `randomUUID()` per render server:
+  aksi yang sama dua kali tetap dirayakan dua kali; Kembali/Maju (kunci sama /
+  `popstate`) dan muat ulang (lahir saat hidrasi dokumen bertipe `reload`,
+  dibedakan lewat snapshot server `useSyncExternalStore`) tidak. URL tidak
+  diubah — puluhan uji e2e membaca `notice=` dari URL. Kabar netral/sensitif
+  (blokir, putus koneksi, ditolak) sengaja tidak dirayakan.
+- **"Daftar lomba"**: tautan Daftar tetap `<a target="_blank">` lewat `/daftar`
+  (ADR-032). Karena tab StudentFo tetap terbuka, `RegisterLaunch` menampilkan
+  kartu "Formulir resmi dibuka di tab baru" dengan "Sudah, tandai terdaftar"
+  (Server Action papan yang sama) → perayaan. Tidak merebut fokus.
+- **Tombol taktil tanpa `scale`.** `scale(.97)` saat ditekan menjauhkan tepi
+  tombol dari jari; `mouseup` jatuh di luar dan `click` tidak terkirim. Rasa
+  ditekan dibawa bayangan inset (bibir tuts pindah bawah → atas) dan isi turun
+  1px (`active:pt-0.5`, hanya pada tombol bertinggi tetap). Tombol isi-penuh
+  mentah (±110 tempat) mendapatkannya otomatis lewat `[class~='bg-brand']` di
+  lapisan base; tombol bergaris memakai utilitas `press`. ThemeScript memasang
+  pendengar `touchstart` kosong supaya Safari iOS menyalakan `:active`.
+- **Form:** satu `controlClass` untuk semua isian; fokus = garis 2px menumpuk
+  di tepi + halo (bukan cincin kedua berjarak 2px); `check` (kotak centang &
+  radio milik sendiri, tetap `<input>` native) dan `choice` (chip 44px);
+  `FormStep`/`ChoiceGroup` untuk form panjang (dipakai `/teams/baru` dan
+  `/submit`, yang kini 4 langkah). Nama kolom, nilai, dan validasi tidak
+  berubah. `SelectInput` memaksa `pr-10`.
+- **Personalisasi** (`/profile/personalization`): tema (ikuti perangkat /
+  terang / gelap) dan "Kurangi gerak" per PERANGKAT (localStorage, dipasang
+  ThemeScript sebelum paint; `:root[data-motion='reduce']` = aturan yang sama
+  dengan `prefers-reduced-motion`); rekomendasi per AKUN ditampilkan dengan
+  status dari `isColdStart` dan ditautkan ke halaman ubahnya (tanpa form
+  ganda). Ukuran huruf sengaja tidak ditawarkan — banyak teks px tetap; zoom
+  peramban melakukannya dengan benar. "Paksa gerak penuh" walau OS meminta
+  dikurangi juga tidak ditawarkan.
+- **Menu wajib per peran:** menu samping & dropdown navbar kini isi dan
+  urutannya sama: Akun · Aktivitas · Ruang kerja (Studio penyelenggara untuk
+  semua — tempat mengajukan diri; Antrean moderasi untuk ADMIN) · Lainnya
+  (Personalisasi, Pengaturan, Privasi & data). `AdminNav` menggantikan tautan
+  "Kembali ke antrean" di semua halaman /admin. Menu samping dibatasi tinggi
+  layar dan bergulir sendiri.
+- **Koneksi:** pratinjau pengaturan hidup (`NetworkSettingsForm`; nama bidang
+  dioper sebagai data karena fungsi tidak bisa menyeberang ke komponen klien),
+  `ScrollRail` menggeser rel tab supaya tab aktif terlihat (geser `scrollLeft`,
+  bukan `scrollIntoView` yang ikut menggulir halaman), isi tab dikunci per
+  tab supaya animasi masuknya berjalan setiap pindah tab.
+
+**Ditolak:** skeleton/`loading.tsx` per halaman (ADR-053), View Transitions
+API (`experimental.viewTransition` masih eksperimental di Next 15),
+penghapusan `?notice=` dari URL setelah perayaan (mengubah perilaku yang
+dikunci uji, dan halaman yang dibagikan kehilangan kabarnya), pustaka animasi
+(puluhan KB JS klien untuk efek yang bisa dibuat CSS murni).
+
+**Konsekuensi:** Bundel klien bersama naik beberapa KB (sketsa adegan +
+perayaan + `ScrollRail`). Satu query tambahan (`listTrackerItems`) per ubah
+tahap tracker untuk membandingkan tahap lama. Teks keadaan kosong "Diblokir"
+tetap diawali "Belum ada." — dikunci uji e2e. Halaman baru masuk audit axe &
+lebar 375px.
+
+---
+
 ## ADR-054 — Fitur unggulan (tim, koneksi, kotak masuk): layar per tugas, tint catatan tempel, ilustrasi & gerak per fitur
 
 **Konteks:** Umpan balik pemilik setelah ADR-053: tim, koneksi, dan diskusi

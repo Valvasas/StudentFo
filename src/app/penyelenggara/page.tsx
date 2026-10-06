@@ -198,7 +198,7 @@ function ApplicationForm({ profile, submitLabel }: { profile: OrganizerProfile |
           defaultValue={profile?.evidence ?? ''}
         />
       </Field>
-      <SubmitButton className={buttonVariants({ className: 'self-start' })}>{submitLabel}</SubmitButton>
+      <SubmitButton pendingLabel="Mengirim…" className={buttonVariants({ className: 'self-start' })}>{submitLabel}</SubmitButton>
     </form>
   );
 }

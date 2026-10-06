@@ -2,15 +2,18 @@ import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import {
+  BadgeCheck,
   Hash,
   Heart,
   IdCard,
   Lock,
   LogOut,
   MessageCircle,
+  Palette,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  ShieldCheck,
   Ticket,
   UserRound,
   Users,
@@ -28,7 +31,26 @@ import { profileCompleteness } from '@/lib/profile-completeness';
 import { cn } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL } from '@/types/domain';
 
-export type AccountSection = 'profil' | 'data' | 'minat' | 'pesan' | 'diskusi' | 'daftar' | 'koneksi' | 'pengaturan' | 'privasi';
+export type AccountSection =
+  | 'profil'
+  | 'data'
+  | 'minat'
+  | 'pesan'
+  | 'diskusi'
+  | 'daftar'
+  | 'koneksi'
+  | 'personalisasi'
+  | 'pengaturan'
+  | 'privasi';
+
+/** Ruang kerja punya kerangka halamannya sendiri, jadi tidak pernah "aktif" di menu akun. */
+interface WorkspaceItem {
+  readonly key: 'studio' | 'moderasi';
+  readonly label: string;
+  readonly href: string;
+  readonly icon: LucideIcon;
+  readonly unread?: undefined;
+}
 
 interface Item {
   readonly key: AccountSection;
@@ -47,13 +69,18 @@ interface Item {
  * Bisa dilipat jadi rel ikon 56px (ADR-052) supaya ruang kerja (pesan,
  * pendaftaran, koneksi) lega. Sakelarnya <form> + cookie: keadaan terlipat
  * dirender server sejak awal (tanpa kedip) dan bekerja tanpa JavaScript.
+ *
+ * Isinya sama untuk semua peran (profil, personalisasi, pengaturan, privasi
+ * — ADR-055), ditambah "Ruang kerja": studio penyelenggara untuk semua akun
+ * (tempat mengajukan diri), antrean moderasi hanya untuk ADMIN. Tujuan yang
+ * sama juga ada di menu akun navbar, satu-satunya menu di bawah 960px.
  */
 export async function AccountShell({ user, active, children }: { user: AuthUser; active: AccountSection; children: ReactNode }) {
   const { percent } = profileCompleteness(user);
   const [cookieStore, requestHeaders] = await Promise.all([cookies(), headers()]);
   const collapsed = isSidebarCollapsed(cookieStore.get(ACCOUNT_SIDEBAR_COOKIE)?.value);
   const returnTo = requestHeaders.get(REQUEST_PATH_HEADER) ?? '/profile';
-  const groups: readonly { title: string; items: readonly Item[] }[] = [
+  const groups: readonly { title: string; items: readonly (Item | WorkspaceItem)[] }[] = [
     {
       title: 'AKUN',
       items: [
@@ -76,8 +103,16 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
       ],
     },
     {
+      title: 'RUANG KERJA',
+      items: [
+        { key: 'studio', label: 'Studio penyelenggara', href: '/penyelenggara', icon: BadgeCheck },
+        ...(user.role === 'ADMIN' ? [{ key: 'moderasi' as const, label: 'Antrean moderasi', href: '/admin', icon: ShieldCheck }] : []),
+      ],
+    },
+    {
       title: 'LAINNYA',
       items: [
+        { key: 'personalisasi', label: 'Personalisasi', href: '/profile/personalization', icon: Palette },
         { key: 'pengaturan', label: 'Pengaturan', href: '/profile/settings', icon: Settings },
         { key: 'privasi', label: 'Privasi & data', href: '/profile/privacy', icon: Lock },
       ],
@@ -89,23 +124,12 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
       <nav
         aria-label="Menu akun"
         className={cn(
-          'sticky top-[92px] hidden flex-none flex-col gap-6 transition-[width] duration-200 ease-snap min-[960px]:flex',
+          // Lebih tinggi dari layar laptop 768–900px bila semua grup tampil; tanpa
+          // batas + gulir sendiri, "Keluar" tertahan di luar layar selama menempel.
+          'sticky top-[92px] -mx-1 hidden max-h-[calc(100dvh-108px)] flex-none flex-col gap-4 overflow-y-auto overscroll-contain px-1 pb-2 transition-[width] duration-200 ease-snap [scrollbar-width:thin] min-[960px]:flex',
           collapsed ? 'w-14 items-center' : 'w-[212px]',
         )}
       >
-        <form action={toggleAccountSidebarAction} className={cn('flex', collapsed ? 'justify-center' : 'justify-end')}>
-          <input type="hidden" name="returnTo" value={returnTo} />
-          <button
-            type="submit"
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? 'Lebarkan menu akun' : 'Ciutkan menu akun'}
-            title={collapsed ? 'Lebarkan menu' : 'Ciutkan menu'}
-            className="flex size-11 items-center justify-center rounded-card text-ink-muted transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
-          >
-            {collapsed ? <PanelLeftOpen aria-hidden className="size-[18px]" /> : <PanelLeftClose aria-hidden className="size-[18px]" />}
-          </button>
-        </form>
-
         <Link
           href="/profile"
           aria-label={collapsed ? `Profil ${user.fullName}` : undefined}
@@ -143,7 +167,7 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
             {collapsed ? (
               <span aria-hidden className="mb-1 h-px w-6 bg-line" />
             ) : (
-              <span className="hand px-2.5 pb-1 text-[17px] text-ink-muted">{group.title.toLowerCase()}</span>
+              <span className="hand px-2.5 text-[16px] text-ink-muted">{group.title.toLowerCase()}</span>
             )}
             {group.items.map((item) => {
               const on = item.key === active;
@@ -178,19 +202,36 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
           </div>
         ))}
 
-        <form action={signOutAction} className={cn('-mt-2 border-t border-line pt-1', collapsed && 'w-11')}>
-          <button
-            type="submit"
-            title={collapsed ? 'Keluar' : undefined}
-            className={cn(
-              'flex min-h-11 w-full items-center gap-2.5 rounded-[10px] text-sm font-medium text-ink-muted transition-colors duration-200 ease-snap hover:bg-panel-nested hover:text-ink',
-              collapsed ? 'justify-center' : 'px-2.5',
-            )}
-          >
-            <LogOut aria-hidden className="size-[17px]" />
-            <span className={collapsed ? 'sr-only' : undefined}>Keluar</span>
-          </button>
-        </form>
+        {/* Keluar + ciutkan berbagi satu baris di dasar menu: sakelar di baris
+            sendiri di puncak memakan 68px yang membuat "Keluar" terdorong
+            keluar layar laptop 900px. */}
+        <div className={cn('-mt-1 flex border-t border-line pt-1', collapsed ? 'w-11 flex-col items-center' : 'items-center gap-1')}>
+          <form action={signOutAction} className={collapsed ? 'w-11' : 'min-w-0 flex-1'}>
+            <button
+              type="submit"
+              title={collapsed ? 'Keluar' : undefined}
+              className={cn(
+                'flex min-h-11 w-full items-center gap-2.5 rounded-[10px] text-sm font-medium text-ink-muted transition-colors duration-200 ease-snap hover:bg-panel-nested hover:text-ink',
+                collapsed ? 'justify-center' : 'px-2.5',
+              )}
+            >
+              <LogOut aria-hidden className="size-[17px]" />
+              <span className={collapsed ? 'sr-only' : undefined}>Keluar</span>
+            </button>
+          </form>
+          <form action={toggleAccountSidebarAction} className="flex">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <button
+              type="submit"
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? 'Lebarkan menu akun' : 'Ciutkan menu akun'}
+              title={collapsed ? 'Lebarkan menu' : 'Ciutkan menu'}
+              className="flex size-11 items-center justify-center rounded-[10px] text-ink-muted transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
+            >
+              {collapsed ? <PanelLeftOpen aria-hidden className="size-[18px]" /> : <PanelLeftClose aria-hidden className="size-[18px]" />}
+            </button>
+          </form>
+        </div>
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col gap-6">{children}</div>

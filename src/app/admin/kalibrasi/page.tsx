@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, Scale, ShieldCheck } from 'lucide-react';
+import { AdminNav } from '@/components/admin/admin-nav';
+import { Scale, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { checkAdminAccess } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -100,10 +101,8 @@ export default async function CalibrationPage() {
 
   return (
     <div className="container-page py-8">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-1 text-sm text-brand-text hover:underline">
-        <ArrowLeft aria-hidden className="size-4" /> Kembali ke antrean
-      </Link>
-      <header className="mb-6 mt-2">
+      <AdminNav active="kalibrasi" />
+      <header className="mb-6">
         <h1 className="flex items-center gap-2 text-3xl">
           <Scale aria-hidden className="size-7 text-ink-muted" />
           Kalibrasi rekomendasi

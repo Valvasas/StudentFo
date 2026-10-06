@@ -49,13 +49,14 @@ src/
 ├── middleware.ts               Penyegaran sesi Supabase (no-op di mode seed)
 ├── app/                        Next.js App Router — page.tsx HANYA menyusun komponen
 │   ├── layout.tsx              Root layout: navbar, footer, theme script
+│   ├── template.tsx            Pembungkus per navigasi: animasi masuk halaman (opasitas saja, ADR-055)
 │   ├── page.tsx                Beranda — pemasaran untuk tamu; ringkasan pribadi (PersonalHome) bila masuk (ADR-053)
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
 │   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail
 │   ├── (auth)/                 Route group — login, register, forgot/reset password
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
-│   ├── profile/                Akun: profil, minat, ganti kata sandi
+│   ├── profile/                Akun: profil, data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), pengaturan, privasi
 │   ├── tracker/                Papan lamaran + actions.ts (simpan, ubah tahap, hapus)
 │   ├── teams/                  Cari rekan tim + baru/ (buka tim, halaman sendiri — ADR-054) + [id] detail + actions.ts
 │   ├── connections/            Koneksi, satu tab per tugas (?tab= untukmu|koneksi|ajakan|peta|pengaturan) + actions.ts (ADR-040, ADR-048)
@@ -66,31 +67,34 @@ src/
 │   ├── notifications/          actions.ts (tandai dibaca)
 │   ├── api/events/[slug]/calendar/   GET berkas .ics semua tenggat (RFC 5545, ADR-049)
 │   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
-│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); actions.ts (auth di dalam)
+│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055)
 │
 ├── components/
 │   ├── ui/                     Primitif tanpa domain-knowledge (Button, Badge, Card,
-│   │                           Field/TextInput/SelectInput/TextArea/FormAlert),
+│   │                           Field/TextInput/SelectInput/TextArea/FormAlert + controlClass),
+│   │                           form-step.tsx (FormStep, ChoiceGroup), scroll-rail.tsx (rel tab, ADR-055),
 │   │                           sketch.tsx (SketchArrow, Scribble, HandNote — hiasan ADR-052),
 │   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053),
 │   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
 │   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054)
 │   ├── home/                   PersonalHome — beranda pengguna masuk (perlu tindakan, pantauan, minggu ini, sesuai minat)
-│   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup)
+│   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup); CelebrationBurst (perayaan hasil aksi, ADR-055)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
 │   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
-│   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS)
+│   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS),
+│   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055)
 │   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
-│   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings, blokir (BlockPersonDetails)
+│   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
 │   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
-│   ├── admin/                  SubmissionReviewCard
+│   ├── admin/                  SubmissionReviewCard, AdminNav
 │   ├── auth/                   GoogleButton, AuthFeedback
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,
 │                               ThemeToggle, ThemeScript, DemoBanner, AccountShell (menu akun
 │                               bisa dilipat jadi rel ikon — cookie `sf_sidebar`, ADR-052),
-│                               NavigationProgress (bilah progres pengganti skeleton, ADR-053)
+│                               NavigationProgress (bilah progres + kartu pemuat berilustrasi per tujuan, ADR-053/055),
+│                               route-scene-art.tsx (sketsa mini per adegan rute)
 │
 ├── lib/
 │   ├── data/                   ← lapisan repository, lihat di bawah
@@ -126,6 +130,9 @@ src/
 │   ├── utils.ts                cn(), sanitizeExternalUrl(), safeHostname()
 │   ├── greeting.ts             Sapaan & tanggal menurut jam WIB untuk beranda pribadi [teruji]
 │   ├── tint.ts                 tintOf()/coverTintOf() — tint identitas deterministik (ADR-054) [teruji]
+│   ├── route-scene.ts          Rute tujuan → adegan pemuat navigasi, cocok per segmen (ADR-055) [teruji]
+│   ├── celebration.ts          Daftar tertutup notice yang dirayakan (ADR-055) [teruji]
+│   ├── appearance.ts           Preferensi tema & gerak per perangkat, kunci localStorage (ADR-055) [teruji]
 │   ├── initials.ts             initialsOf() (orang), monogramOf() (grup/kegiatan) [teruji]
 │   └── supabase/
 │       ├── server.ts           Klien Server Component & admin (service_role)

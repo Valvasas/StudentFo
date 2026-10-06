@@ -8,6 +8,7 @@ import { AuthModeSwitch } from '@/components/auth/auth-mode-switch';
 import { DemoLogin } from '@/components/auth/demo-login';
 import { GoogleButton } from '@/components/auth/google-button';
 import { PasswordInput } from '@/components/auth/password-input';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { dataMode } from '@/lib/env';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -90,12 +91,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               terhadap pemakaian ulang sandi. */}
           <PasswordInput id="password" name="password" autoComplete="current-password" required maxLength={72} placeholder="Kata sandi kamu" />
         </AuthField>
-        <button
-          type="submit"
-          className="mt-2 flex h-[46px] items-center justify-center rounded-sm bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
-        >
+        <SubmitButton pendingLabel="Memeriksa…" className="mt-2 flex h-[46px] items-center justify-center rounded-sm bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover active:pt-0.5">
           Masuk
-        </button>
+        </SubmitButton>
       </form>
     </>
   );

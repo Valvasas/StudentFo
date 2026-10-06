@@ -32,6 +32,7 @@ import { CategoryIcon, shortCategoryName } from '@/components/listing/category-i
 import { InlineCountdown } from '@/components/listing/countdown';
 import { buttonVariants } from '@/components/ui/button';
 import { TextArea } from '@/components/ui/field';
+import { RegisterLaunch } from '@/components/event/register-launch';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -179,6 +180,7 @@ export default async function EventDetailPage({
       : []),
   ];
 
+  const launchContext = { eventId: event.id, returnTo: detailPath, signedIn: user !== null, status: tracked?.status ?? null };
   const register = isClosed ? (
     // `disabled` tidak berefek pada <a>, jadi kegiatan yang ditutup tidak diberi tautan sama sekali.
     <span className="flex h-12 items-center justify-center rounded-card bg-panel-nested text-[15px] font-semibold text-ink-muted">
@@ -188,16 +190,15 @@ export default async function EventDetailPage({
     // Lewat /daftar supaya klik tercatat untuk kalibrasi (ADR-032); <a>
     // biasa, bukan <Link>, supaya prefetch tidak ikut tercatat.
     // rel="noopener": tanpa ini, halaman tujuan bisa mengakses window.opener.
-    <a
+    <RegisterLaunch
       href={`${detailPath}/daftar`}
-      target="_blank"
-      rel="noopener noreferrer nofollow"
-      className="flex h-12 items-center justify-center gap-2 rounded-card bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
+      className="group flex h-12 items-center justify-center gap-2 rounded-card bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover active:pt-0.5"
+      {...launchContext}
     >
       Daftar sekarang
-      <ArrowUpRight aria-hidden className="size-4" />
+      <ArrowUpRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       <span className="sr-only">(membuka situs penyelenggara di tab baru)</span>
-    </a>
+    </RegisterLaunch>
   ) : (
     <p className="rounded-card bg-caution-soft p-3 text-sm text-caution">
       Tautan pendaftaran belum tersedia atau tidak valid. Cek langsung ke situs penyelenggara.
@@ -588,15 +589,14 @@ export default async function EventDetailPage({
             </button>
           </form>
           {!isClosed && registrationUrl && (
-            <a
+            <RegisterLaunch
               href={`${detailPath}/daftar`}
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-              aria-label="Daftar sekarang (membuka situs penyelenggara di tab baru)"
-              className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand"
+              ariaLabel="Daftar sekarang (membuka situs penyelenggara di tab baru)"
+              className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand active:pt-0.5"
+              {...launchContext}
             >
               Daftar
-            </a>
+            </RegisterLaunch>
           )}
         </div>
       </div>
@@ -647,7 +647,7 @@ function OrganizerCallout({
           <p id="claim-evidence-hint" className="text-[13px] text-ink-muted">
             Contoh: tautan pengumuman resmi yang mencantumkan nama/kontak lembagamu. Moderator mengecek sebelum acara masuk dasbormu.
           </p>
-          <SubmitButton className={buttonVariants({ className: 'self-start' })}>Kirim klaim</SubmitButton>
+          <SubmitButton pendingLabel="Mengirim…" className={buttonVariants({ className: 'self-start' })}>Kirim klaim</SubmitButton>
         </form>
       </details>
     );
