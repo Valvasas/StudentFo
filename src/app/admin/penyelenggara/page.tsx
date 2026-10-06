@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, BadgeCheck, Check, ExternalLink, ShieldCheck, ShieldOff, X } from 'lucide-react';
+import { AdminNav } from '@/components/admin/admin-nav';
+import { BadgeCheck, Check, ExternalLink, ShieldCheck, ShieldOff, X } from 'lucide-react';
 import { reviewClaimAction, reviewOrganizerAction, reviewRevisionAction } from '@/app/admin/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { RevisionChanges } from '@/components/organizer/revision-changes';
@@ -149,10 +150,8 @@ export default async function OrganizerQueuePage({ searchParams }: { searchParam
 
   return (
     <div className="container-page py-8">
-      <Link href="/admin" className="inline-flex min-h-11 items-center gap-1 text-sm text-brand-text hover:underline">
-        <ArrowLeft aria-hidden className="size-4" /> Kembali ke antrean
-      </Link>
-      <header className="mb-6 mt-2">
+      <AdminNav active="penyelenggara" />
+      <header className="mb-6">
         <h1 className="flex items-center gap-2 text-3xl">
           <BadgeCheck aria-hidden className="size-7 text-ink-muted" />
           Penyelenggara

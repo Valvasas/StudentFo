@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Check, Lightbulb, Minus, Plus } from 'lucide-react';
 import { createTeamAction } from '@/app/teams/actions';
 import { EventTypeIcon } from '@/components/event/event-type-icon';
 import { TeamCard } from '@/components/team/team-card';
 import { Avatar } from '@/components/ui/avatar';
 import { SelectInput, TextArea, TextInput } from '@/components/ui/field';
+import { FormStep } from '@/components/ui/form-step';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { daysLeftLabel, daysUntil, formatDateId } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
@@ -22,26 +23,6 @@ const SLOTS_MAX = 50;
 const SEATS_DRAWN = 12;
 
 const roleLine = (role: string) => `• ${role}`;
-
-function Step({ number, title, hint, children }: { number: number; title: string; hint: string; children: ReactNode }) {
-  return (
-    <section aria-labelledby={`langkah-${number}`} className="rise flex flex-col gap-5 rounded-[24px] border border-line bg-panel p-5 sm:p-7" style={{ '--i': number } as React.CSSProperties}>
-      <div className="flex items-start gap-4">
-        <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand font-display text-[15px] font-bold text-on-brand">
-          {number}
-        </span>
-        <span className="flex flex-col gap-0.5">
-          <h2 id={`langkah-${number}`} className="text-[19px] font-bold tracking-[-0.02em]">
-            <span className="sr-only">Langkah {number}: </span>
-            {title}
-          </h2>
-          <span className="text-[13.5px] text-ink-muted">{hint}</span>
-        </span>
-      </div>
-      {children}
-    </section>
-  );
-}
 
 /**
  * Form "Buka tim baru" di halamannya sendiri (ADR-054).
@@ -109,7 +90,7 @@ export function CreateTeamForm({
       <input type="hidden" name="returnTo" value={returnTo} />
 
       <div className="flex min-w-0 flex-col gap-5">
-        <Step number={1} title="Untuk kegiatan apa?" hint="Hanya kegiatan yang pendaftarannya masih buka, urut dari tenggat terdekat.">
+        <FormStep number={1} title="Untuk kegiatan apa?" hint="Hanya kegiatan yang pendaftarannya masih buka, urut dari tenggat terdekat.">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="eventId" className="text-[13.5px] font-semibold">
               Kegiatan
@@ -147,9 +128,9 @@ export function CreateTeamForm({
           ) : (
             <p className="text-[13px] text-ink-muted">Tidak menemukan kegiatanmu? Tim hanya bisa dibuka untuk kegiatan yang sudah tayang di katalog.</p>
           )}
-        </Step>
+        </FormStep>
 
-        <Step number={2} title="Kenalkan timmu" hint="Judul dibaca dalam sedetik — sebut peran yang kamu cari.">
+        <FormStep number={2} title="Kenalkan timmu" hint="Judul dibaca dalam sedetik — sebut peran yang kamu cari.">
           <div className="flex flex-col gap-2">
             <label htmlFor="title" className="text-[13.5px] font-semibold">
               Judul tim
@@ -225,9 +206,9 @@ export function CreateTeamForm({
               </div>
             </div>
           </div>
-        </Step>
+        </FormStep>
 
-        <Step number={3} title="Berapa orang?" hint="Termasuk kamu sebagai ketua. Tim 3–5 orang paling cepat terisi.">
+        <FormStep number={3} title="Berapa orang?" hint="Termasuk kamu sebagai ketua. Tim 3–5 orang paling cepat terisi.">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="slotsNeeded" className="text-[13.5px] font-semibold">
@@ -283,13 +264,13 @@ export function CreateTeamForm({
           <p id="slots-hint" className="text-[13px] text-ink-muted">
             {slots === 1 ? 'Hanya kamu — tim langsung terhitung penuh.' : `Kamu + ${slots - 1} kursi kosong yang bisa diisi orang lain.`} Maksimal {SLOTS_MAX}.
           </p>
-        </Step>
+        </FormStep>
 
         <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center">
           <Link href={cancelHref} className="flex h-12 items-center justify-center rounded-pill px-5 text-[15px] font-semibold text-ink-muted hover:bg-panel-nested hover:text-ink">
             Batal
           </Link>
-          <SubmitButton className="flex h-12 items-center justify-center gap-2 rounded-pill bg-brand px-8 text-[15px] font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover sm:ml-auto">
+          <SubmitButton pendingLabel="Membuka tim…" className="flex h-12 items-center justify-center gap-2 rounded-pill bg-brand px-8 text-[15px] font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover sm:ml-auto">
             Buka tim
           </SubmitButton>
         </div>

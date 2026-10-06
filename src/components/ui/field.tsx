@@ -21,21 +21,31 @@ import { cn } from '@/lib/utils';
  * seperti Button.
  */
 
-const controlClass = [
-  'h-11 w-full rounded-card border border-line-strong/70 bg-panel px-3 text-base',
-  'text-ink placeholder:text-ink-faint',
-  'transition-colors duration-150 ease-snap hover:border-line-strong',
-  'focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+/**
+ * Kelas isian bersama — dipakai juga `AuthInput`, `PasswordInput`, dan kartu
+ * Data diri, supaya semua isian di aplikasi punya tepi, tinggi, dan cincin
+ * fokus yang sama (`field-control`, globals.css §9).
+ */
+export const controlClass = cn(
+  'field-control h-11 w-full rounded-card border border-line-strong/70 bg-panel px-3 text-base text-ink',
+  'placeholder:text-ink-faint',
+  'transition-[border-color,box-shadow,background-color] duration-150 ease-snap hover:border-line-strong',
+  'aria-[invalid=true]:border-danger',
   'disabled:cursor-not-allowed disabled:bg-panel-nested disabled:text-ink-muted',
-];
+);
 
 export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(controlClass, className)} {...props} />;
 }
 
-/** Satu-satunya <select> di aplikasi — jangan menulis ulang kelasnya per halaman. */
+/**
+ * Satu-satunya <select> di aplikasi — jangan menulis ulang kelasnya per halaman.
+ * `pr-10` eksplisit: `px-3` dari `controlClass` menimpa padding kanan milik
+ * `select-chevron`, dan pada select selebar isinya (`w-auto`) panah jadi
+ * menimpa teks pilihan ("07:00 WIB").
+ */
 export function SelectInput({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(controlClass, 'select-chevron cursor-pointer', className)} {...props} />;
+  return <select className={cn(controlClass, 'select-chevron cursor-pointer pr-10', className)} {...props} />;
 }
 
 export function TextArea({ className, rows = 4, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -63,13 +73,13 @@ export function Field({
       : children;
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-ink-soft">
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <label htmlFor={id} className="text-[13.5px] font-semibold text-ink">
         {label}
       </label>
       {control}
       {hint && (
-        <p id={hintId} className="text-xs text-ink-muted">
+        <p id={hintId} className="text-[12.5px] leading-snug text-ink-muted">
           {hint}
         </p>
       )}
@@ -87,7 +97,7 @@ export function FormAlert({ tone, children }: { tone: 'error' | 'notice'; childr
       // baik itu berlebihan dan memotong pembacaan yang sedang berjalan.
       role={isError ? 'alert' : 'status'}
       className={cn(
-        'flex items-start gap-2 rounded-card border p-3 text-sm',
+        'fade-in flex items-start gap-2.5 rounded-card border px-3.5 py-3 text-sm leading-relaxed',
         isError
           ? 'border-danger-line bg-danger-soft text-danger'
           : 'border-success-line bg-success-soft text-success',

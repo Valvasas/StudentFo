@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlertTriangle, BadgeCheck, Check, CheckCircle2, History, Megaphone, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react';
+import { AdminNav } from '@/components/admin/admin-nav';
+import { AlertTriangle, Check, CheckCircle2, RotateCcw, ShieldCheck, Users } from 'lucide-react';
 import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -90,6 +91,7 @@ export default async function AdminPage({
 
   return (
     <div className="container-page py-8">
+      <AdminNav active="antrean" trustWaiting={trustWaiting} />
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl">Antrean moderasi</h1>
@@ -97,36 +99,6 @@ export default async function AdminPage({
             Hasil ekstraksi otomatis menunggu verifikasi manusia. Setujui hanya setelah tautan
             pendaftaran dan tenggatnya dicek ke sumber aslinya.
           </p>
-        </div>
-        {/* Di ponsel empat tombol ini memakan tiga baris di atas antrean — tugas
-            utama halaman ini. Jadi satu baris yang bisa digeser, tepi kanan memudar. */}
-        <div className="flex items-center gap-3 max-sm:-mx-5 max-sm:w-[calc(100%+2.5rem)] max-sm:overflow-x-auto max-sm:px-5 max-sm:py-1 max-sm:pr-12 max-sm:[mask-image:linear-gradient(90deg,#000_calc(100%-44px),transparent)] max-sm:[scrollbar-width:none] sm:flex-wrap [&>*]:shrink-0">
-          <Button asChild variant="secondary" size="sm">
-            <Link href="/admin/penyelenggara">
-              <BadgeCheck aria-hidden /> Penyelenggara
-              {trustWaiting > 0 && (
-                <span className="rounded-pill bg-caution-soft px-1.5 text-xs font-semibold text-caution">
-                  {trustWaiting}
-                  <span className="sr-only"> menunggu</span>
-                </span>
-              )}
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" size="sm">
-            <Link href="/admin/riwayat">
-              <History aria-hidden /> Riwayat moderasi
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" size="sm">
-            <Link href="/admin/kalibrasi">
-              <Scale aria-hidden /> Kalibrasi rekomendasi
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" size="sm">
-            <Link href="/admin/promosi">
-              <Megaphone aria-hidden /> Lencana & promosi
-            </Link>
-          </Button>
         </div>
       </header>
 

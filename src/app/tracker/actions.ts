@@ -70,8 +70,10 @@ export async function updateTrackerStatusAction(formData: FormData): Promise<voi
   }
 
   let failure: ActionErrorCode | null = null;
+  let previous: TrackerStatus | null = null;
   try {
     const repository = await getEventRepository();
+    previous = (await repository.listTrackerItems(user.id)).find((item) => item.eventId === eventId)?.status ?? null;
     await repository.upsertTrackerItem(user.id, eventId, status, notes);
   } catch (error) {
     failure = toActionErrorCode(error);
@@ -79,7 +81,19 @@ export async function updateTrackerStatusAction(formData: FormData): Promise<voi
 
   if (failure) redirect(withQuery(returnTo, { error: failure }));
   revalidatePath('/tracker');
-  redirect(returnTo);
+  redirect(withQuery(returnTo, { notice: milestoneNotice(previous, status) }));
+}
+
+/**
+ * Hanya PERPINDAHAN ke "Sudah Daftar"/"Diterima" yang dirayakan (ADR-055).
+ * Form catatan di halaman persiapan mengirim ulang tahap yang sama — tanpa
+ * pembanding ini setiap simpan catatan memicu konfeti.
+ */
+function milestoneNotice(previous: TrackerStatus | null, next: TrackerStatus): 'tracker_applied' | 'tracker_accepted' | undefined {
+  if (previous === next) return undefined;
+  if (next === 'APPLIED') return 'tracker_applied';
+  if (next === 'ACCEPTED') return 'tracker_accepted';
+  return undefined;
 }
 
 export async function removeTrackerAction(formData: FormData): Promise<void> {

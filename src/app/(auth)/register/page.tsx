@@ -8,6 +8,7 @@ import { AuthModeSwitch } from '@/components/auth/auth-mode-switch';
 import { DemoLogin } from '@/components/auth/demo-login';
 import { GoogleButton } from '@/components/auth/google-button';
 import { PasswordInput } from '@/components/auth/password-input';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { dataMode } from '@/lib/env';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -72,12 +73,9 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
             aria-describedby="password-hint"
           />
         </AuthField>
-        <button
-          type="submit"
-          className="mt-2 flex h-[46px] items-center justify-center rounded-sm bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
-        >
+        <SubmitButton pendingLabel="Membuat akun…" className="mt-2 flex h-[46px] items-center justify-center rounded-sm bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover active:pt-0.5">
           Buat akun
-        </button>
+        </SubmitButton>
         <p className="text-[12.5px] leading-normal text-ink-muted">
           Dengan mendaftar, kamu menyetujui{' '}
           <Link href="/privacy-policy" className="text-ink underline underline-offset-[3px]">

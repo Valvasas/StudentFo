@@ -15,14 +15,18 @@ import { cn } from '@/lib/utils';
  * tidak berubah.
  *
  * Label tetap di tempatnya (hanya disembunyikan) supaya lebar tombol tidak
- * melompat; nama aksesibelnya berganti jadi "Memproses…" selama menunggu.
+ * melompat; nama aksesibelnya berganti jadi `pendingLabel` (bawaan
+ * "Memproses…") selama menunggu. `pendingLabel` yang terlihat dipakai untuk
+ * aksi yang ditunggu orang ("Mengirim…") — tulis pendek: teks yang lebih
+ * lebar dari label aslinya dipotong, bukan melebarkan tombol.
  */
 export function SubmitButton({
   children,
   className,
   disabled,
+  pendingLabel,
   ...props
-}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'>) {
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> & { pendingLabel?: string }) {
   const { pending } = useFormStatus();
 
   return (
@@ -37,9 +41,9 @@ export function SubmitButton({
       {/* `contents`: anak tetap ikut tata letak flex/gap tombol. `invisible` diwariskan ke node teks juga. */}
       <span className={cn('contents', pending && 'invisible')}>{children}</span>
       {pending && (
-        <span className="absolute inset-0 flex items-center justify-center">
-          <LoaderCircle aria-hidden className="size-4 animate-spin" />
-          <span className="sr-only">Memproses…</span>
+        <span className="fade-in absolute inset-0 flex items-center justify-center gap-2 overflow-hidden px-3">
+          <LoaderCircle aria-hidden className="size-4 shrink-0 animate-spin" />
+          {pendingLabel ? <span className="truncate">{pendingLabel}</span> : <span className="sr-only">Memproses…</span>}
         </span>
       )}
     </button>

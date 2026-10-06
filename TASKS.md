@@ -487,3 +487,17 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] **P2** Peta koneksi (kanvas) masih monokrom; simpul orang bisa memakai `tintOf` yang sama dengan kartunya.
 - [ ] **P2** Formulir `/teams/baru`: kegiatan > 48 butuh pemilih dengan pencarian (`Picker`) alih-alih `<select>`.
 
+
+## Polesan UX: transisi, perayaan, tombol taktil, form, menu per peran 2026-10-06 (@claude) — ADR-055
+
+- [x] Transisi halaman: `template.tsx` (masuk halaman, opasitas saja) + kartu pemuat berilustrasi per tujuan di `NavigationProgress` (`lib/route-scene.ts`, `route-scene-art.tsx`), kilau di bilah progres.
+- [x] Perayaan hasil aksi: `CelebrationBurst` dari `ActionFeedback`/`AuthFeedback` (daftar tertutup `lib/celebration.ts`); tidak diputar ulang saat refresh/Kembali. Notice baru `tracker_applied`/`tracker_accepted` (hanya saat tahap BERPINDAH).
+- [x] "Daftar sekarang" → kartu "Formulir resmi dibuka di tab baru" + "Sudah, tandai terdaftar" (`RegisterLaunch`), dikunci `tests/e2e/celebration.spec.ts`.
+- [x] Bug: sambutan `email_confirmed` setelah konfirmasi email tidak pernah tampil (beranda pribadi tidak merender `AuthFeedback`).
+- [x] Tombol taktil: bibir tuts inset + isi turun 1px (tanpa `scale`), otomatis untuk tombol `bg-brand` mentah; `SubmitButton` punya `pendingLabel`; tombol kirim akun pakai `SubmitButton`.
+- [x] Form: `controlClass` bersama (isian akun, Data diri, headline koneksi), fokus 2px menumpuk di tepi + halo, `check`/`choice` (kotak centang & radio sendiri, chip), `FormStep`/`ChoiceGroup`; `/submit` jadi 4 langkah; bug panah `<select>` menimpa teks ("07:00 WIB").
+- [x] Menu wajib per peran: halaman `/profile/personalization` (tema 3 pilihan + "Kurangi gerak" per perangkat, status rekomendasi dari `isColdStart`), grup "Ruang kerja" (studio; moderasi untuk ADMIN) di menu samping & dropdown, urutan dropdown = menu samping, `AdminNav` di semua halaman /admin.
+- [x] Koneksi: pratinjau pengaturan HIDUP (`NetworkSettingsForm`: ketikan, sakelar, "Belum disimpan", hitungan karakter), tab aktif selalu terlihat di ponsel (`ScrollRail`), animasi masuk per tab, kartu "Diblokir".
+- [ ] **P2** Preferensi notifikasi di produksi (kanal & jam) belum ada backend — Personalisasi hanya memuat preferensi PERANGKAT (tema, gerak) dan ringkasan rekomendasi akun.
+- [ ] **P2** Form lain yang panjang (pengajuan penyelenggara, revisi acara, promosi admin) belum memakai `FormStep`; samakan bila disentuh.
+- [ ] **P3** Mode demo: menu samping akun (12 tujuan) melebihi tinggi layar 900px dan bergulir sendiri; di produksi (tanpa Pesan/Ruang diskusi) muat.

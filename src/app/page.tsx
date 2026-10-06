@@ -7,6 +7,7 @@ import { LandingTour } from '@/components/landing/tour';
 import { getSessionUser } from '@/lib/auth';
 import { dataMode } from '@/lib/env';
 import { withFallback } from '@/lib/fallback';
+import type { RawSearchParams } from '@/lib/search-params';
 
 /**
  * Beranda: pemasaran untuk tamu (kanvas desain Landing v2, ADR-039),
@@ -100,9 +101,9 @@ const eyebrowClass = 'hand -rotate-1 self-start text-[21px] leading-none text-in
 const h2Class = 'text-[clamp(32px,5vw,44px)] font-bold leading-[1.08] tracking-[-0.035em]';
 const delay = (ms: number) => ({ ['--reveal-delay' as string]: `${ms}ms` });
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const user = await withFallback('sesi pengguna', getSessionUser, null);
-  if (user) return <PersonalHome user={user} />;
+  if (user) return <PersonalHome user={user} params={await searchParams} />;
 
   return (
     <div className="overflow-x-clip">

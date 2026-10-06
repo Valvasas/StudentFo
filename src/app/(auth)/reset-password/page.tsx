@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { KeyRound, LinkIcon } from 'lucide-react';
 import { updatePasswordAction } from '@/app/auth/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { Field, TextInput } from '@/components/ui/field';
 import { getSessionUser } from '@/lib/auth';
 import { dataMode } from '@/lib/env';
@@ -94,10 +95,10 @@ export default async function ResetPasswordPage({
           />
         </Field>
 
-        <Button type="submit" size="lg" className="w-full">
+        <SubmitButton pendingLabel="Menyimpan…" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
           <KeyRound aria-hidden />
           Simpan kata sandi baru
-        </Button>
+        </SubmitButton>
       </form>
 
       <p className="text-sm text-ink-muted">

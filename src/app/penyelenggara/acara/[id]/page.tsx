@@ -433,20 +433,17 @@ function RevisionSection({ event, revisions, returnTo }: { event: EventDetail; r
             <Field id="rev-location" label="Lokasi">
               <TextInput id="rev-location" name="location" maxLength={ORGANIZER_LIMITS.locationMax} defaultValue={event.location ?? ''} />
             </Field>
-            <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
-              <input type="checkbox" name="isOnline" defaultChecked={event.isOnline} className="size-5 accent-[var(--color-accent)]" />
+            <label className="choice">
+              <input type="checkbox" name="isOnline" defaultChecked={event.isOnline} className="check" />
               Daring
             </label>
           </div>
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium text-ink-soft">Jenjang peserta (minimal satu)</legend>
+            <legend className="mb-1 text-[13.5px] font-semibold">Jenjang peserta (minimal satu)</legend>
             <div className="flex flex-wrap gap-2">
               {EDUCATION_LEVELS.map((level) => (
-                <label
-                  key={level}
-                  className="flex min-h-11 items-center gap-2 rounded-card border border-line px-3 text-sm has-[:checked]:border-brand has-[:checked]:bg-brand-soft"
-                >
-                  <input type="checkbox" name="educationLevels" value={level} defaultChecked={event.educationLevels.includes(level)} className="size-4 accent-[var(--color-accent)]" />
+                <label key={level} className="choice">
+                  <input type="checkbox" name="educationLevels" value={level} defaultChecked={event.educationLevels.includes(level)} className="check" />
                   {EDUCATION_LEVEL_LABEL[level]}
                 </label>
               ))}
@@ -455,7 +452,7 @@ function RevisionSection({ event, revisions, returnTo }: { event: EventDetail; r
           <Field id="rev-note" label="Catatan untuk moderator (opsional)" hint="Mis. tautan pengumuman perpanjangan resmi — mempercepat pengecekan.">
             <TextArea id="rev-note" name="note" rows={2} maxLength={ORGANIZER_LIMITS.noteMax} />
           </Field>
-          <SubmitButton className={buttonVariants({ className: 'self-start' })}>Kirim ke moderator</SubmitButton>
+          <SubmitButton pendingLabel="Mengirim…" className={buttonVariants({ className: 'self-start' })}>Kirim ke moderator</SubmitButton>
         </form>
       </details>
 
