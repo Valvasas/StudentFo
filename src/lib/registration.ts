@@ -252,6 +252,19 @@ export function issueFields(issues: readonly z.ZodIssue[]): string[] {
   return [...new Set(issues.map((issue) => issue.path.map(String).join('_') || 'form'))].slice(0, 12);
 }
 
+/**
+ * Seperti `issueFields`, tetapi indeks pertanyaan (`questions_1_label`)
+ * dipetakan balik ke SLOT-nya (`q3_label`): slot kosong dilewati saat
+ * parsing, jadi indeks ke-1 belum tentu slot q2 — dan yang ditandai di
+ * layar adalah kolom slotnya.
+ */
+export function formIssueFields(formData: FormData, issues: readonly z.ZodIssue[]): string[] {
+  const filled = QUESTION_SLOTS.filter((id) => formTrimmed(formData, `${id}_label`));
+  return issueFields(issues).map((field) =>
+    field.replace(/^questions_(\d+)(?:_(\w+))?$/, (_match, index: string, rest?: string) => `${filled[Number(index)] ?? 'q1'}_${rest ?? 'label'}`),
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Isian peserta                                                       */
 /* ------------------------------------------------------------------ */

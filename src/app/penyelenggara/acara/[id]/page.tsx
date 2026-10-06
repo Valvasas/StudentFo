@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   ArrowDownRight,
-  ArrowLeft,
   ArrowUpRight,
   Bookmark,
   Eye,
@@ -16,6 +15,8 @@ import {
 } from 'lucide-react';
 import { proposeRevisionAction } from '@/app/penyelenggara/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { NotManaging } from '@/components/organizer/not-managing';
+import { StudioEventHeader } from '@/components/organizer/studio-event-header';
 import { Sparkbars, VisitsChart } from '@/components/organizer/analytics-chart';
 import { RevisionChanges } from '@/components/organizer/revision-changes';
 import { Badge } from '@/components/ui/badge';
@@ -103,23 +104,7 @@ export default async function EventAnalyticsPage({
 
   return (
     <div className="container-page flex flex-col gap-8 py-8">
-      <div className="flex flex-col gap-3">
-        <Link href="/penyelenggara" className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-brand-text hover:underline">
-          <ArrowLeft aria-hidden className="size-4" /> Studio penyelenggara
-        </Link>
-        <header className="enter flex flex-wrap items-end justify-between gap-4">
-          <div className="flex min-w-0 max-w-3xl flex-col gap-2">
-            <span className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-              <Badge variant={isClosed ? 'neutral' : 'success'}>{isClosed ? 'Pendaftaran ditutup' : 'Tayang'}</Badge>
-              {event.primaryDeadlineAt && <span>Tutup {formatDateTimeId(event.primaryDeadlineAt)}</span>}
-            </span>
-            <h1 className="text-[clamp(26px,3.6vw,36px)] leading-tight">{event.title}</h1>
-          </div>
-          <Link href={`/events/${event.slug}`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
-            Lihat halaman publik <ArrowUpRight aria-hidden />
-          </Link>
-        </header>
-      </div>
+      <StudioEventHeader event={event} active="analitik" />
 
       <ActionFeedback params={query} className="max-w-2xl" />
 
@@ -149,22 +134,6 @@ export default async function EventAnalyticsPage({
       )}
 
       <RevisionSection event={event} revisions={revisions} returnTo={rangePath} />
-    </div>
-  );
-}
-
-function NotManaging() {
-  return (
-    <div className="container-page flex flex-col items-center gap-3 py-24 text-center">
-      <Lock aria-hidden className="size-10 text-ink-faint" />
-      <h1 className="text-2xl">Acara ini tidak ada di dasbormu</h1>
-      <p className="max-w-md text-ink-muted">
-        Analitik hanya untuk penyelenggara terverifikasi yang mengelola acara ini. Klaim acaranya dari tab Penyelenggara
-        di halaman acara.
-      </p>
-      <Link href="/penyelenggara" className={buttonVariants()}>
-        Ke studio penyelenggara
-      </Link>
     </div>
   );
 }

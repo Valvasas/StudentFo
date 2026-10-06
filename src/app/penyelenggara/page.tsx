@@ -7,9 +7,11 @@ import {
   CalendarClock,
   Clock,
   FilePlus2,
+  Gauge,
   Link2,
   ShieldAlert,
   ShieldCheck,
+  Ticket,
 } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { MySubmissions } from '@/components/submit/my-submissions';
@@ -19,6 +21,7 @@ import { Field, TextArea, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import type { RegistrationSummary } from '@/lib/data/repository';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId } from '@/lib/deadline';
 import { ORGANIZER_LIMITS, ORGANIZER_STATUS_LABEL } from '@/lib/organizer';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -84,6 +87,13 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
   // dengan acara yang masih butuh perhatian.
   const closedIds = new Set(history.map((entry) => entry.eventId));
   const active = managed.filter(({ event }) => !closedIds.has(event.id));
+  // Ringkasan pendaftaran langsung (ADR-055) = pelengkap kartu; gagal dimuat → kartu tanpa ringkasan.
+  const summaries = active.length
+    ? await repository.listRegistrationSummaries(user.id, active.map(({ event }) => event.id)).catch((error: unknown) => {
+        console.error('[registration] ringkasan studio gagal:', error);
+        return new Map<string, RegistrationSummary>();
+      })
+    : new Map<string, RegistrationSummary>();
 
   return (
     <div className="container-page flex flex-col gap-10 py-8">
@@ -97,7 +107,7 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
           </h1>
           <p className="text-ink-soft">
             {verified
-              ? 'Pantau jangkauan acaramu, klaim acara yang sudah tayang, dan ajukan pembaruan — semuanya tetap dicek moderator supaya peserta bisa percaya.'
+              ? 'Terima pendaftar langsung di StudentFo, pantau jangkauan acaramu, dan ajukan pembaruan — perubahan informasi acara tetap dicek moderator supaya peserta bisa percaya.'
               : 'Penyelenggara terverifikasi bisa melihat analitik acaranya, mendapat lencana terverifikasi, dan mengajukan pembaruan tanpa menunggu moderator menemukannya sendiri.'}
           </p>
         </div>
@@ -109,7 +119,7 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
       {verified ? (
         <>
           <QuickActions />
-          <ManagedEventsSection managed={active} hasHistory={history.length > 0} />
+          <ManagedEventsSection managed={active} hasHistory={history.length > 0} summaries={summaries} />
           <MySubmissions submissions={openSubmissions} title="Menunggu atau tidak disetujui moderator" />
           <ClaimsSection claims={claims} />
           <HistorySection history={history} />
@@ -290,7 +300,17 @@ function QuickActions() {
   );
 }
 
-function ManagedEventsSection({ managed, hasHistory }: { managed: readonly ManagedEvent[]; hasHistory: boolean }) {
+const FORM_STATUS_TEXT: Record<RegistrationSummary['status'], string> = { DRAFT: 'Draf', OPEN: 'Dibuka', CLOSED: 'Ditutup' };
+
+function ManagedEventsSection({
+  managed,
+  hasHistory,
+  summaries,
+}: {
+  managed: readonly ManagedEvent[];
+  hasHistory: boolean;
+  summaries: ReadonlyMap<string, RegistrationSummary>;
+}) {
   const now = new Date();
   return (
     <section aria-labelledby="acara-saya" className="flex flex-col gap-4">
@@ -309,10 +329,12 @@ function ManagedEventsSection({ managed, hasHistory }: { managed: readonly Manag
           {managed.map(({ event, source, since }, index) => {
             const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
             const closed = event.status === 'EXPIRED' || (days !== null && days < 0);
+            const summary = summaries.get(event.id);
+            const seats = summary?.seats;
             return (
               <li key={event.id} className="reveal" style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}>
                 <Link
-                  href={`/penyelenggara/acara/${event.id}`}
+                  href={summary ? `/penyelenggara/acara/${event.id}/pendaftaran` : `/penyelenggara/acara/${event.id}`}
                   className="group flex h-full flex-col gap-3 rounded-panel border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap hover:border-brand hover:shadow-raised"
                 >
                   <span className="flex flex-wrap items-center gap-2 text-xs">
@@ -321,13 +343,43 @@ function ManagedEventsSection({ managed, hasHistory }: { managed: readonly Manag
                     <span className="text-ink-muted">{SOURCE_TEXT[source]} · {formatDateId(since)}</span>
                   </span>
                   <span className="text-base font-semibold leading-snug">{event.title}</span>
+                  {summary && seats && (
+                    <span className="flex flex-col gap-2 rounded-card bg-panel-nested p-3">
+                      <span className="flex items-center justify-between gap-2 text-[12.5px]">
+                        <span className="flex items-center gap-1.5 font-semibold">
+                          <Ticket aria-hidden className="size-3.5" />
+                          Pendaftaran {FORM_STATUS_TEXT[summary.status].toLowerCase()}
+                        </span>
+                        <span className="tabular-nums text-ink-muted">
+                          {seats.capacity === null ? `${seats.taken} terdaftar` : `${seats.taken}/${seats.capacity} kursi`}
+                          {seats.waitlisted > 0 && ` · ${seats.waitlisted} antre`}
+                        </span>
+                      </span>
+                      {seats.capacity !== null && (
+                        <span aria-hidden className="h-1.5 overflow-hidden rounded-pill bg-panel">
+                          <span className="grow-x block h-full rounded-pill bg-ink" style={{ width: `${Math.min((seats.taken / seats.capacity) * 100, 100)}%` }} />
+                        </span>
+                      )}
+                      {summary.pending > 0 && (
+                        <span className="text-[12.5px] font-semibold text-caution">{summary.pending} menunggu keputusanmu</span>
+                      )}
+                    </span>
+                  )}
                   <span className="mt-auto flex items-center justify-between gap-2 text-sm text-ink-muted">
                     <span className="flex items-center gap-1.5">
                       <CalendarClock aria-hidden className="size-4" />
                       {closed ? 'Pendaftaran ditutup' : daysLeftLabel(days)}
                     </span>
                     <span className="flex items-center gap-1 font-medium text-ink">
-                      <BarChart3 aria-hidden className="size-4" /> Analitik
+                      {summary ? (
+                        <>
+                          <Gauge aria-hidden className="size-4" /> Kelola pendaftaran
+                        </>
+                      ) : (
+                        <>
+                          <BarChart3 aria-hidden className="size-4" /> Studio acara
+                        </>
+                      )}
                     </span>
                   </span>
                 </Link>

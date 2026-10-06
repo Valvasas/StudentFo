@@ -5,6 +5,7 @@ import {
   decideTransition,
   displayPhone,
   formatTicketCode,
+  formIssueFields,
   generateTicketCode,
   initialStatus,
   normalizePhone,
@@ -309,5 +310,20 @@ describe('parseRegistrationStats (JSON RPC)', () => {
     expect(parseRegistrationStats(null)).toBeNull();
     expect(parseRegistrationStats({ ...raw, series: [{ day: 'kemarin', submitted: 1, cancelled: 0 }] })).toBeNull();
     expect(parseRegistrationStats({ ...raw, medianDecisionHours: 'x' })?.medianDecisionHours).toBeNull();
+  });
+});
+
+describe('formIssueFields', () => {
+  it('indeks pertanyaan dipetakan ke slot yang terisi, bukan urutan', () => {
+    const data = new FormData();
+    data.set('q2_label', 'Ukuran kaos');
+    data.set('q2_kind', 'CHOICE');
+    data.set('q2_options', 'S');
+    data.set('q5_label', 'NIK kamu');
+    data.set('capacity', '0');
+    const parsed = parseRegistrationForm(data);
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(formIssueFields(data, parsed.error.issues).sort()).toEqual(['capacity', 'q2_options', 'q5_label']);
   });
 });

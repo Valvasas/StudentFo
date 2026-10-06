@@ -341,13 +341,15 @@ export class MemoryRegistrations {
         ? event.educationLevels.filter((level) => level !== 'UMUM')
         : ['D4_S1'];
 
+      // Nama unik per acara: daftar yang memuat "Tegar Halim" dua kali langsung terbaca sebagai data palsu.
+      const usedNames = new Set<string>();
       for (let index = 0; index < plan.count; index += 1) {
         // Lebih rapat menjelang hari ini — kurva pendaftaran acara kampus sungguhan.
         const daysAgo = Math.floor(plan.spreadDays * (1 - Math.sqrt(random())));
         const createdAt = new Date(base.getTime() - daysAgo * MS_PER_DAY - Math.floor(random() * 10 * 3_600_000));
-        const first = pick(FIRST_NAMES);
-        const last = pick(LAST_NAMES);
-        const fullName = `${first} ${last}`;
+        let fullName = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+        for (let retry = 0; retry < 20 && usedNames.has(fullName); retry += 1) fullName = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+        usedNames.add(fullName);
         const seats = this.seats(event.id);
         let status = initialStatus(form, seats) ?? 'WAITLISTED';
         const roll = random();
@@ -362,7 +364,7 @@ export class MemoryRegistrations {
           code: this.uniqueCode(random),
           status,
           fullName,
-          email: `${first}.${last}${index}@contoh.ac.id`.toLowerCase(),
+          email: `${fullName.replace(" ", ".")}${index}@contoh.ac.id`.toLowerCase(),
           phone: `+628${Math.floor(1_000_000_000 + random() * 8_999_999_999)}`.slice(0, 14),
           institution: pick(INSTITUTIONS),
           major: pick(MAJORS),

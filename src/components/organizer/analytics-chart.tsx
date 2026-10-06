@@ -6,7 +6,7 @@ const HEIGHT = 220;
 const PAD_TOP = 12;
 
 /** Batas atas sumbu yang "bulat" (1/2/5 × 10^n) supaya garis bantu terbaca. */
-function niceMax(value: number): number {
+export function niceMax(value: number): number {
   if (value <= 4) return 4;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const step = [1, 2, 5, 10].find((factor) => factor * magnitude >= value) ?? 10;
