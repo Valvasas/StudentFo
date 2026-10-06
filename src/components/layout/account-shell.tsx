@@ -134,7 +134,9 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
           href="/profile"
           aria-label={collapsed ? `Profil ${user.fullName}` : undefined}
           className={cn(
-            'flex flex-col gap-3 rounded-[16px] bg-panel-nested transition-colors duration-200 ease-snap hover:bg-brand-soft',
+            // Layar pendek (laptop 768–900px): kartu ini disembunyikan supaya "Keluar"
+            // tidak terdorong keluar layar. Tujuannya tetap ada sebagai item "Profil".
+            'flex flex-col gap-3 rounded-[16px] bg-panel-nested transition-colors duration-200 ease-snap hover:bg-brand-soft [@media(max-height:940px)]:hidden',
             collapsed ? 'p-1.5' : 'p-3.5',
           )}
         >
