@@ -34,6 +34,10 @@ const STATIC_ROUTES = [
 ];
 
 async function expectNoViolations(page: Page) {
+  // Next 15.5 men-stream metadata ke peramban non-bot: <title> bisa terpasang
+  // sesaat setelah `load`. Tunggu dulu — kalau judulnya memang tidak pernah
+  // ada, penantian ini sendiri yang gagal.
+  await expect(page).toHaveTitle(/\S/);
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
   const summary = results.violations.map(
     (v) =>
