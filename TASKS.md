@@ -287,10 +287,11 @@ tampilan per peran, bersihkan kesan "buatan AI", login produksi, pemuat di tenga
 - [x] Migration `20261014100001` (formulir, pendaftaran, foto, RPC, bucket privat) + `94_registrations.test.sql` (mutation-tested)
 - [x] `lib/registration-form.ts` (skema, jawaban, transisi, CSV aman) & `lib/image-file.ts` (byte-sniff, buang EXIF/GPS) + uji
 - [x] `RegistrationRepository`/`GalleryRepository` di memori & Supabase; uji paritas memori (`registrations.test.ts`) & integrasi PostgREST
-- [~] Studio: Formulir (penyusun) · Pendaftar (verifikasi bayar, CSV) · Galeri; rute `/media/foto`, `/media/bukti`
-- [~] Peserta: `/events/[slug]/formulir`, `/pembayaran`, `/pembayaran/[id]`, CTA & galeri di detail acara
-- [~] Beranda & navigasi per peran (peserta / penyelenggara / admin)
-- [~] Bersihkan landing & halaman dari hiasan/teks bertele-tele; pemuat navigasi di tengah
+- [x] Studio: Formulir (penyusun) · Pendaftar (verifikasi bayar, CSV) · Galeri; rute `/media/foto`, `/media/bukti`
+- [x] Peserta: `/events/[slug]/formulir`, `/pembayaran`, `/pembayaran/[id]`, CTA & galeri di detail acara; e2e lintas peran `registration-payment.spec.ts`
+- [x] Beranda & navigasi per peran (peserta / penyelenggara / admin); menu akun satu daftar (`accountMenuGroups`)
+- [x] Bersihkan landing & halaman dari hiasan/teks bertele-tele (tur, testimoni, catatan tangan, font Caveat); pemuat navigasi di tengah
+- [x] Navbar tamu satu baris di 360–375px; audit axe & viewport sempit mencakup halaman baru
 - [~] Login/daftar: jenis akun, CAPTCHA daftar & lupa sandi, kirim ulang konfirmasi, tata letak tanpa hiasan palsu
 
 Belum / butuh keputusan atau akses pemilik:

@@ -49,8 +49,9 @@ memintanya eksplisit; keputusan di bawah membuat bebannya bisa dipikul.
 - **Berkas di bucket Storage PRIVAT, disajikan server setelah cek hak di
   baris metadata.** Tidak ada policy `storage.objects` dan URL Storage tidak
   pernah keluar ke peramban: `/media/foto/[id]` publik (hanya foto acara
-  tayang, `Cache-Control: immutable` — foto tidak pernah diubah, hapus = id
-  hilang) dan `/media/bukti/[id]` privat (pemilik, pengelola acara, admin;
+  tayang, `Cache-Control: public, max-age=86400` — BUKAN `immutable`: foto
+  yang dihapus panitia, atau acara yang diturunkan, harus hilang dari cache
+  peramban/CDN dalam sehari, bukan setahun) dan `/media/bukti/[id]` privat (pemilik, pengelola acara, admin;
   `no-store`; orang lain = 404, bukan 403). Respons berkas membawa
   `nosniff` + CSP `sandbox`.
 - **Gambar diperiksa dari byte & dibersihkan di server** (`lib/image-file.ts`):
@@ -86,6 +87,38 @@ supaya halaman tetap tampil, tapi fitur hilang). Retensi data pendaftar
 (mis. anonimkan N hari setelah acara) belum ada — butuh keputusan pemilik
 (TASKS.md). Detail halaman per peran, login, dan pemuat: lihat bagian
 lanjutan di bawah.
+
+### ADR-056 (lanjutan) — tampilan per peran, pemuat di tengah, bersih dari kesan "AI"
+
+- **Peran TAMPILAN ≠ hak akses.** `accountRoleOf()` memetakan akun ke
+  `participant` / `organizer` (profil penyelenggara terverifikasi) / `admin`
+  hanya untuk memilih beranda, tombol ruang kerja di navbar, dan urutan menu
+  akun. Setiap halaman & Server Action tetap memeriksa haknya sendiri
+  (`manages_event`, `is_admin`, RLS); salah tebak peran paling buruk menampilkan
+  menu yang benar-benar ditolak saat diklik. Gagal memuat profil penyelenggara
+  = tampilan peserta, bukan situs jatuh (navbar ada di root layout, ADR-047).
+- **Satu tujuan utama per peran di layar pertama.** Peserta: tagihan yang
+  belum dibayar & pendaftaran aktif paling atas, lalu tenggat. Penyelenggara:
+  bukti bayar yang menunggu, pendaftar baru 7 hari, acara aktif — dengan
+  tombol ke studio. Admin: angka antrean moderasi (dihitung terbatas — "50+"
+  — supaya beranda tidak menjalankan COUNT penuh), keputusan terakhir.
+  Navbar penyelenggara/admin menukar "Tersimpan" dengan Studio/Moderasi
+  (Tersimpan tetap di menu akun). Dropdown akun & menu samping akun membaca
+  SATU daftar (`accountMenuGroups`) — urutannya tidak bisa lagi berbeda.
+- **Pemuat navigasi di tengah layar** (mengubah ADR-055 atas permintaan
+  pemilik): kartu yang sama, tetap hanya muncul setelah 450 ms, kini di tengah
+  viewport dengan selubung warna kanvas 35% — cukup untuk memberi tanda
+  "sedang berpindah" tanpa menyembunyikan halaman. Seluruh lapisan
+  `pointer-events: none` dan `aria-hidden`, jadi alasan ADR-055 menolak layar
+  pemuat penuh (menghalangi halaman yang masih bisa dipakai) tetap terpenuhi.
+- **Bersih dari kesan "buatan AI":** tur animasi & mockup peramban palsu,
+  testimoni ilustrasi, marquee sumber, doodle melayang, dan catatan tulisan
+  tangan dihapus (beserta `sketch.tsx`, `tour.tsx`, font Caveat). Pratinjau
+  "Segera ditutup" di beranda tamu memakai data nyata (`listClosingSoon`);
+  klaim di /about disesuaikan dengan perilaku sistem sekarang. Prinsip:
+  setiap elemen di layar harus bisa diklik ke sesuatu yang nyata atau
+  menjawab pertanyaan pengguna — hiasan yang menjelaskan dirinya sendiri
+  adalah tanda produk yang belum yakin dengan isinya.
 
 ---
 

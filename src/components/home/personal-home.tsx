@@ -137,7 +137,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
                 <li key={item.event.id} className="flex items-center gap-3 py-3">
                   <DeadlineTag deadlineAt={item.event.primaryDeadlineAt} className="shrink-0" />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <Link href={`/events/${item.event.slug}`} className="truncate font-semibold hover:underline">
+                    <Link href={`/events/${item.event.slug}`} className="line-clamp-2 font-semibold hover:underline">
                       {item.event.title}
                     </Link>
                     <span className="truncate text-[13px] text-ink-muted">
@@ -264,11 +264,9 @@ function PaymentRow({ registration }: { registration: EventRegistration }) {
           Tagihan
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-semibold group-hover:underline">
-            {action} · {registration.event.title}
-          </span>
+          <span className="line-clamp-2 font-semibold group-hover:underline">{registration.event.title}</span>
           <span className="truncate text-[13px] text-ink-muted">
-            {registration.event.organizer} · {registration.code}
+            <span className="font-semibold text-ink">{action}</span> · {registration.code}
           </span>
         </span>
         <ArrowRight aria-hidden className="size-4 shrink-0 text-ink-muted" />
