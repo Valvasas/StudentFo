@@ -5,10 +5,15 @@ import { redirect } from 'next/navigation';
 import { mapSupabaseAuthError, type AuthErrorCode } from '@/lib/auth-messages';
 import {
   changePasswordSchema,
+  firstIssue,
   newPasswordSchema,
+  parseAccountType,
+  postSignUpPath,
+  PRIVACY_CONSENT_VALUE,
   resetRequestSchema,
   signInSchema,
   signUpSchema,
+  type AccountType,
 } from '@/lib/auth-schema';
 import { seedDemoNetwork, seedDemoOrganizer, seedDemoPortfolio } from '@/lib/data';
 import { DEMO_PERSONAS, isDemoPersonaId } from '@/lib/demo/personas';
@@ -16,7 +21,7 @@ import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
 import { RATE_LIMITS } from '@/lib/rate-limit';
-import { currentClientIp, isAccountRateLimited, isRateLimited } from '@/lib/rate-limit-server';
+import { currentClientIp, isAccountRateLimited, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
 import { safeNextPath } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -50,6 +55,16 @@ function echoEmail(raw: string): string | undefined {
 
 function callbackUrl(next: string): string {
   return `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`;
+}
+
+/** Kembali ke /register dengan pilihan jenis akun & tujuan tetap utuh. */
+function registerHref(failure: AuthErrorCode, email: string, accountType: AccountType | null, next: string): string {
+  return authHref('/register', {
+    error: failure,
+    email: echoEmail(email),
+    type: accountType === 'organizer' ? accountType : undefined,
+    next: next === '/' ? undefined : next,
+  });
 }
 
 /**
@@ -109,6 +124,8 @@ export async function signInAction(formData: FormData): Promise<void> {
 export async function signUpAction(formData: FormData): Promise<void> {
   const next = safeNextPath(field(formData, 'next'));
   const email = field(formData, 'email');
+  const accountType = parseAccountType(field(formData, 'accountType'));
+  const destination = postSignUpPath(accountType ?? 'participant', next);
   let failure: AuthErrorCode | null = null;
   let hasSession = false;
 
@@ -116,24 +133,33 @@ export async function signUpAction(formData: FormData): Promise<void> {
     failure = 'unavailable';
   } else {
     const parsed = signUpSchema.safeParse({
+      accountType: field(formData, 'accountType'),
       fullName: field(formData, 'fullName'),
       email,
       password: field(formData, 'password'),
+      privacyConsent: field(formData, 'privacyConsent'),
     });
+    const ip = await currentClientIp();
 
     if (!parsed.success) {
-      failure = 'validation';
-    } else if (await isRateLimited(await currentClientIp(), [[RATE_LIMITS.signUpPerIp]])) {
+      failure = firstIssue(parsed.error, 'privacyConsent') ? 'consent_required' : 'validation';
+    } else if (await isRateLimited(ip, [[RATE_LIMITS.signUpPerIp]])) {
       failure = 'rate_limited';
+    } else if (!(await passesCaptcha(formData, ip))) {
+      // Setelah pembatas laju (pola /submit): banjir dari satu mesin tidak
+      // ikut menghabiskan kuota verifikasi Turnstile.
+      failure = 'captcha_failed';
     } else {
       const supabase = await createSupabaseServerClient();
       const { data, error } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
         options: {
-          // Dibaca trigger handle_new_user() untuk mengisi users.full_name.
-          data: { full_name: parsed.data.fullName },
-          emailRedirectTo: callbackUrl(next),
+          // full_name dibaca trigger handle_new_user(). account_type hanya
+          // catatan: user metadata bisa diubah pemiliknya sendiri, jadi tidak
+          // pernah dipakai untuk izin apa pun.
+          data: { full_name: parsed.data.fullName, account_type: parsed.data.accountType },
+          emailRedirectTo: callbackUrl(destination),
         },
       });
 
@@ -146,30 +172,36 @@ export async function signUpAction(formData: FormData): Promise<void> {
   }
 
   if (failure) {
-    redirect(authHref('/register', { error: failure, email: echoEmail(email) }));
+    redirect(registerHref(failure, email, accountType, next));
   }
 
   // Kalau konfirmasi email dimatikan di project Supabase, signUp langsung
   // memberi sesi dan pengguna tidak perlu dilempar ke halaman "cek email".
   if (hasSession) {
     revalidatePath('/', 'layout');
-    redirect(next);
+    redirect(destination);
   }
 
   // TIDAK ada percabangan untuk "email sudah terdaftar" di sini, meski
   // Supabase menandainya lewat `identities: []`. Menampilkan pesan berbeda
   // untuk kasus itu mengubah halaman daftar jadi alat pemeriksa keanggotaan:
   // ketik email siapa pun, baca balasannya, tahu dia punya akun atau tidak.
-  redirect(authHref('/login', { notice: 'check_email', email: echoEmail(email) }));
+  redirect(authHref('/verify-email', { email: echoEmail(email), next: destination === '/' ? undefined : destination }));
 }
 
 export async function signInWithGoogleAction(formData: FormData): Promise<void> {
-  const next = safeNextPath(field(formData, 'next'));
+  // Dari /register tombol Google berada di form daftar yang sama, jadi ikut
+  // mengirim jenis akun & persetujuan; dari /login keduanya tidak ada.
+  const accountType = parseAccountType(field(formData, 'accountType'));
+  const requested = safeNextPath(field(formData, 'next'));
+  const next = accountType ? postSignUpPath(accountType, requested) : requested;
   let destination: string | null = null;
   let failure: AuthErrorCode | null = null;
 
   if (dataMode === 'seed') {
     failure = 'unavailable';
+  } else if (accountType && field(formData, 'privacyConsent') !== PRIVACY_CONSENT_VALUE) {
+    failure = 'consent_required';
   } else {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -188,7 +220,11 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
   }
 
   if (failure) {
-    redirect(authHref('/login', { error: failure, next: next === '/' ? undefined : next }));
+    redirect(
+      accountType
+        ? registerHref(failure, field(formData, 'email'), accountType, requested)
+        : authHref('/login', { error: failure, next: next === '/' ? undefined : next }),
+    );
   }
 
   redirect(destination!);
@@ -242,19 +278,25 @@ export async function requestPasswordResetAction(formData: FormData): Promise<vo
     failure = 'unavailable';
   } else {
     const parsed = resetRequestSchema.safeParse({ email });
+    const ip = await currentClientIp();
     // Dihitung per IP untuk SETIAP permintaan, valid atau tidak — kalau hanya
     // email valid yang dihitung, lama respons membedakan keduanya.
-    if (await isRateLimited(await currentClientIp(), [[RATE_LIMITS.passwordResetPerIp]])) {
+    if (await isRateLimited(ip, [[RATE_LIMITS.passwordResetPerIp]])) {
       failure = 'rate_limited';
+    } else if (!(await passesCaptcha(formData, ip))) {
+      failure = 'captcha_failed';
     } else if (parsed.success) {
       const supabase = await createSupabaseServerClient();
       const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
         redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent('/reset-password')}`,
       });
-      // Hanya pembatasan laju yang dilaporkan apa adanya — informasinya soal
-      // perilaku kita, bukan soal keberadaan akun, dan tanpa itu pengguna
-      // yang kena limit akan terus menekan tombol tanpa tahu apa yang salah.
-      if (error && mapSupabaseAuthError(error) === 'rate_limited') failure = 'rate_limited';
+      // Jeda per alamat dari Supabase TIDAK diteruskan: GoTrue hanya
+      // memasangnya untuk akun yang ada, jadi dua permintaan beruntun akan
+      // membedakan "terdaftar" dari "tidak" (ADR-011, diperketat ADR-056).
+      // Email pertama sudah terkirim; batas per IP di atas tetap dilaporkan.
+      if (error && mapSupabaseAuthError(error) === 'unknown') {
+        console.error('[auth] permintaan atur ulang sandi gagal:', error.code ?? error.status);
+      }
     }
     // Email tidak valid atau tidak terdaftar tetap berujung pada pesan yang
     // sama persis. Halaman "lupa sandi" adalah tempat paling klasik untuk
@@ -266,6 +308,44 @@ export async function requestPasswordResetAction(formData: FormData): Promise<vo
   }
 
   redirect(authHref('/forgot-password', { notice: 'reset_email_sent' }));
+}
+
+export async function resendConfirmationAction(formData: FormData): Promise<void> {
+  const email = field(formData, 'email');
+  const next = safeNextPath(field(formData, 'next'));
+  let failure: AuthErrorCode | null = null;
+
+  if (dataMode === 'seed') {
+    failure = 'unavailable';
+  } else {
+    const ip = await currentClientIp();
+    if (await isRateLimited(ip, [[RATE_LIMITS.resendConfirmationPerIp]])) {
+      failure = 'rate_limited';
+    } else if (!(await passesCaptcha(formData, ip))) {
+      failure = 'captcha_failed';
+    } else {
+      const parsed = resetRequestSchema.safeParse({ email });
+      if (parsed.success) {
+        const supabase = await createSupabaseServerClient();
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email: parsed.data.email,
+          options: { emailRedirectTo: callbackUrl(next) },
+        });
+        // Beda dengan lupa sandi, batas laju Supabase di sini TIDAK
+        // diteruskan: jeda kirim ulangnya per alamat dan hanya berlaku untuk
+        // akun yang memang ada & belum dikonfirmasi — meneruskannya membuka
+        // oracle keanggotaan. Hanya batas per IP kita yang dilaporkan.
+        if (error && mapSupabaseAuthError(error) === 'unknown') {
+          console.error('[auth] kirim ulang konfirmasi gagal:', error.code ?? error.status);
+        }
+      }
+    }
+  }
+
+  const keep = { email: echoEmail(email), next: next === '/' ? undefined : next };
+  if (failure) redirect(authHref('/verify-email', { error: failure, ...keep }));
+  redirect(authHref('/verify-email', { notice: 'confirmation_resent', ...keep }));
 }
 
 export async function updatePasswordAction(formData: FormData): Promise<void> {

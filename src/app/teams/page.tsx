@@ -72,7 +72,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
       )}
 
       <FeatureHero
-        note={scoped ? `${EVENT_TYPE_LABEL[scoped.eventType].toLowerCase()} oleh ${scoped.organizer}` : 'cari kawan seperjuangan'}
+        note={scoped ? `${EVENT_TYPE_LABEL[scoped.eventType]} · ${scoped.organizer}` : undefined}
         title={
           <>
             Cari <span className="marker">tim</span>
@@ -80,8 +80,8 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
         }
         description={
           scoped
-            ? `Tim untuk ${scoped.title}. Gabung ke tim yang masih butuh orang, atau buka timmu sendiri dan sebutkan peran yang kamu cari.`
-            : 'Banyak lomba mensyaratkan tim. Buka timmu, sebutkan siapa yang kamu cari, lalu biarkan orang yang cocok bergabung.'
+            ? `Tim untuk ${scoped.title}. Gabung ke tim yang masih butuh orang, atau buka timmu sendiri.`
+            : 'Gabung ke tim yang masih butuh orang, atau buka timmu sendiri dan sebutkan peran yang kamu cari.'
         }
         actions={
           user ? (

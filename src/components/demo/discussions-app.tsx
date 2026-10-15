@@ -570,7 +570,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
                 <ChatSketch />
               </IllustrationStage>
               <div className="flex flex-col gap-2 px-1 text-[13px] leading-relaxed text-ink-soft">
-                <span className="hand text-[20px] text-ink-muted">biar cepat dijawab</span>
+                <span className="text-[13px] font-semibold text-ink">Supaya cepat dijawab</span>
                 <span>Satu pertanyaan per utas.</span>
                 <span>Cek utas yang disematkan dulu — mungkin sudah dijawab.</span>
                 <span>Pilih kanal yang tepat supaya panitia menemukannya.</span>

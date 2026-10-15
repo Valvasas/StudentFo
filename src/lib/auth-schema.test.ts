@@ -4,7 +4,9 @@ import {
   emailSchema,
   fullNameSchema,
   newPasswordSchema,
+  parseAccountType,
   passwordSchema,
+  postSignUpPath,
   profileSchema,
   signUpSchema,
 } from './auth-schema';
@@ -55,12 +57,42 @@ describe('fullNameSchema', () => {
 describe('signUpSchema', () => {
   it('mengembalikan nilai yang sudah dinormalkan, bukan masukan mentah', () => {
     const result = signUpSchema.parse({
+      accountType: 'participant',
       fullName: ' Siti  Aminah ',
       email: ' SITI@kampus.ac.id ',
       password: 'rahasia123',
+      privacyConsent: 'yes',
     });
     expect(result.fullName).toBe('Siti Aminah');
     expect(result.email).toBe('siti@kampus.ac.id');
+  });
+
+  const valid = { accountType: 'organizer', fullName: 'Siti', email: 'siti@kampus.ac.id', password: 'rahasia123', privacyConsent: 'yes' };
+
+  it('persetujuan Kebijakan privasi wajib — kotak tak dicentang tidak terkirim sama sekali', () => {
+    const result = signUpSchema.safeParse({ ...valid, privacyConsent: '' });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['privacyConsent']);
+  });
+
+  it('jenis akun hanya dari daftar tertutup', () => {
+    expect(signUpSchema.safeParse({ ...valid, accountType: 'admin' }).success).toBe(false);
+    expect(signUpSchema.safeParse({ ...valid, accountType: '' }).success).toBe(false);
+  });
+});
+
+describe('parseAccountType & postSignUpPath', () => {
+  it('nilai URL/form asing diabaikan', () => {
+    expect(parseAccountType('organizer')).toBe('organizer');
+    expect(parseAccountType(['participant', 'organizer'])).toBe('participant');
+    expect(parseAccountType('ADMIN')).toBeNull();
+    expect(parseAccountType(undefined)).toBeNull();
+  });
+
+  it('penyelenggara selalu ke studio; peserta ke tujuan yang sudah aman', () => {
+    expect(postSignUpPath('organizer', '/events/x/formulir')).toBe('/penyelenggara');
+    expect(postSignUpPath('participant', '/events/x/formulir')).toBe('/events/x/formulir');
+    expect(postSignUpPath('participant', '/')).toBe('/');
   });
 });
 

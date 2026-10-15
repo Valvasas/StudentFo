@@ -202,6 +202,11 @@ export const NOTIFICATION_TYPES = [
   'CLAIM_REJECTED',
   'REVISION_APPROVED',
   'REVISION_REJECTED',
+  /** Pendaftaran internal & pembayaran (fungsi review/submit di migration 20261014100001, ADR-056). */
+  'REGISTRATION_CONFIRMED',
+  'REGISTRATION_REJECTED',
+  'PAYMENT_REJECTED',
+  'PAYMENT_SUBMITTED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -649,4 +654,126 @@ export interface PeopleSuggestion {
   readonly sharedEvents: readonly NetworkEventRef[];
   readonly sameMajor: boolean;
   readonly sameLevel: boolean;
+}
+
+/**
+ * Formulir pendaftaran internal (ADR-056). Jenis kolom disimpan di JSONB
+ * `event_registration_forms.fields`, bukan enum Postgres — paritasnya dengan
+ * `isFormField()` di `lib/registration-form.ts`, tidak dengan pipeline.
+ */
+export const FORM_FIELD_TYPES = [
+  'short_text',
+  'long_text',
+  'email',
+  'phone',
+  'number',
+  'date',
+  'url',
+  'select',
+  'multi_select',
+  'checkbox',
+] as const;
+export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
+
+export const FORM_FIELD_TYPE_LABEL: Record<FormFieldType, string> = {
+  short_text: 'Jawaban singkat',
+  long_text: 'Paragraf',
+  email: 'Email',
+  phone: 'Nomor telepon',
+  number: 'Angka',
+  date: 'Tanggal',
+  url: 'Tautan',
+  select: 'Pilihan ganda',
+  multi_select: 'Kotak centang',
+  checkbox: 'Persetujuan',
+};
+
+export interface FormField {
+  /** Stabil antar-penyuntingan (`f_…`): jawaban lama tetap cocok dengan kolomnya walau label diganti. */
+  readonly id: string;
+  readonly type: FormFieldType;
+  readonly label: string;
+  readonly help: string | null;
+  readonly required: boolean;
+  /** Hanya untuk `select` & `multi_select`. */
+  readonly options: readonly string[];
+}
+
+export interface RegistrationForm {
+  readonly eventId: string;
+  readonly isOpen: boolean;
+  readonly intro: string | null;
+  readonly fields: readonly FormField[];
+  /** null = tanpa batas kuota. */
+  readonly capacity: number | null;
+  /** Rupiah utuh; null = gratis. */
+  readonly feeAmount: number | null;
+  /** Rekening/e-wallet/QRIS tujuan — ditampilkan ke pendaftar saja. */
+  readonly paymentInstructions: string | null;
+  /** Pendaftar aktif (bukan dibatalkan/ditolak) — untuk sisa kuota. */
+  readonly activeCount: number;
+  readonly updatedAt: string;
+}
+
+export type AnswerValue = string | number | boolean | readonly string[];
+
+/**
+ * Status pendaftaran internal. VARCHAR + CHECK (migration 20261014100001),
+ * bukan enum — pipeline tidak pernah menyentuhnya.
+ */
+export const REGISTRATION_STATUSES = ['AWAITING_PAYMENT', 'PAYMENT_REVIEW', 'CONFIRMED', 'REJECTED', 'CANCELLED'] as const;
+export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
+
+export const REGISTRATION_STATUS_LABEL: Record<RegistrationStatus, string> = {
+  AWAITING_PAYMENT: 'Menunggu pembayaran',
+  PAYMENT_REVIEW: 'Pembayaran diperiksa',
+  CONFIRMED: 'Terkonfirmasi',
+  REJECTED: 'Ditolak',
+  CANCELLED: 'Dibatalkan',
+};
+
+export interface EventRegistration {
+  readonly id: string;
+  /** Kode yang disebut peserta ke panitia, mis. `SF-7F3A09C2`. */
+  readonly code: string;
+  readonly event: Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer' | 'primaryDeadlineAt'>;
+  readonly userId: string;
+  /** Salinan saat mendaftar — penyelenggara tidak membaca tabel `users`. */
+  readonly fullName: string;
+  readonly email: string;
+  readonly answers: Readonly<Record<string, AnswerValue>>;
+  readonly status: RegistrationStatus;
+  /** Biaya saat mendaftar (perubahan biaya kemudian tidak menagih ulang). */
+  readonly feeAmount: number | null;
+  readonly proofUploadedAt: string | null;
+  readonly reviewNote: string | null;
+  readonly reviewedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** Ringkasan per acara untuk dasbor penyelenggara. */
+export interface RegistrationStats {
+  readonly eventId: string;
+  readonly total: number;
+  readonly confirmed: number;
+  readonly awaitingPayment: number;
+  readonly paymentReview: number;
+  /** Masuk 7 hari terakhir. */
+  readonly recent: number;
+}
+
+export interface EventPhoto {
+  readonly id: string;
+  readonly eventId: string;
+  readonly width: number;
+  readonly height: number;
+  readonly caption: string | null;
+  readonly createdAt: string;
+}
+
+/** Isi berkas yang disajikan rute `/media/*`. */
+export interface StoredFile {
+  readonly bytes: Uint8Array;
+  readonly contentType: string;
 }

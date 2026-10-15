@@ -62,6 +62,13 @@ const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/tracker/lomba-desain-ui-ux-nasional-edisi-lalu'],
   ['Mahasiswa', '/orang/seed-user-1'],
   ['Penyelenggara', '/penyelenggara'],
+  ['Penyelenggara', '/'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/formulir'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/pendaftar'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001/galeri'],
+  ['Admin moderator', '/'],
+  ['Mahasiswa', '/pembayaran'],
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026/formulir'],
 ];
 
 for (const width of WIDTHS) {
@@ -85,6 +92,10 @@ for (const width of WIDTHS) {
           await page.goto(href!);
           await page.getByRole('button', { name: 'Simpan ke Tracker' }).click();
           await expect(page.getByRole('button', { name: 'Tersimpan di Tracker' })).toBeVisible();
+          await page.goto(route);
+        } else if (route === '/' && (persona === 'Penyelenggara' || persona === 'Admin moderator')) {
+          // Persona ini sengaja mendarat di ruang kerjanya saat next=/.
+          await signInAsDemo(page, persona, persona === 'Penyelenggara' ? '/penyelenggara' : '/admin');
           await page.goto(route);
         } else {
           await signInAsDemo(page, persona, route);

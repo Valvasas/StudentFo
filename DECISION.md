@@ -12,6 +12,146 @@ terdokumentasi.
 
 ---
 
+## ADR-056 — Formulir pendaftaran internal, pembayaran transfer terverifikasi, galeri acara, beranda per peran
+
+**Konteks:** Permintaan pemilik menjelang produksi: penyelenggara bisa membuat
+formulir pendaftaran di StudentFo, galeri foto per acara (kredibilitas), menu
+pembayaran, tampilan & dasbor berbeda per peran, situs yang tidak "terkesan
+buatan AI", login yang matang, dan pemuat di tengah layar. Audit 2026-10-05
+(`docs/audit-fitur-enterprise.md` §5.2) sempat menandai formulir internal
+"belum disarankan" karena menampung data peserta = beban UU PDP. Pemilik kini
+memintanya eksplisit; keputusan di bawah membuat bebannya bisa dipikul.
+
+**Keputusan:**
+- **Formulir = data milik penyelenggara, disimpan minimal.** Satu formulir per
+  acara (`event_registration_forms`), kolom JSONB yang dikontrak
+  `formFieldsSchema` (10 jenis, maks 25 kolom, id `f_…` stabil sehingga ganti
+  label tidak memutus jawaban lama). Nama & email peserta DISALIN dari akun
+  saat mendaftar — penyelenggara tidak pernah diberi akses ke `users`.
+  Persetujuan berbagi data ke penyelenggara wajib dicentang di setiap
+  pendaftaran. Formulir ditolak berbayar tanpa instruksi pembayaran (CHECK).
+- **Semua perubahan status lewat RPC DEFINER, klien tanpa hak tulis tabel.**
+  Mesin transisi satu definisi (`registrationTransition()`) dengan kembaran
+  SQL; `register_for_event` mengunci baris formulir (`FOR UPDATE`) sehingga
+  kuota tidak terlampaui oleh klik bersamaan, membatasi 10 pendaftaran/jam,
+  dan memajukan papan pendaftaran pribadi ke "Sudah daftar" tanpa memundurkan
+  tahap yang lebih jauh. Pendaftaran yang DITOLAK panitia final (indeks unik
+  hanya mengecualikan CANCELLED).
+- **Pembayaran = transfer/QRIS ke penyelenggara + bukti + verifikasi panitia,
+  BUKAN payment gateway.** StudentFo tidak memegang uang: tidak ada izin PJP,
+  rekonsiliasi, atau refund yang harus kita tanggung; ini juga alur yang sudah
+  dipakai mayoritas lomba/seminar pelajar. Status: Menunggu pembayaran →
+  Pembayaran diperiksa → Terkonfirmasi (atau bukti ditolak dengan catatan
+  wajib → kembali menunggu). Panitia bisa "tandai lunas" tanpa bukti (bayar
+  tunai). Biaya dibekukan per pendaftaran. Gateway (Midtrans/Xendit) tetap
+  opsi berikutnya di balik antarmuka yang sama — butuh akun merchant & kunci
+  pemilik.
+- **Berkas di bucket Storage PRIVAT, disajikan server setelah cek hak di
+  baris metadata.** Tidak ada policy `storage.objects` dan URL Storage tidak
+  pernah keluar ke peramban: `/media/foto/[id]` publik (hanya foto acara
+  tayang, `Cache-Control: public, max-age=86400` — BUKAN `immutable`: foto
+  yang dihapus panitia, atau acara yang diturunkan, harus hilang dari cache
+  peramban/CDN dalam sehari, bukan setahun) dan `/media/bukti/[id]` privat (pemilik, pengelola acara, admin;
+  `no-store`; orang lain = 404, bukan 403). Respons berkas membawa
+  `nosniff` + CSP `sandbox`.
+- **Gambar diperiksa dari byte & dibersihkan di server** (`lib/image-file.ts`):
+  hanya JPEG/PNG/WebP, ≤5 MB, ≥32 px, ≤40 MP (bom dekompresi); EXIF/XMP/IPTC
+  /komentar dibuang — foto ponsel membawa koordinat GPS — kecuali tag
+  Orientation (ditulis ulang minimal supaya foto potret tidak miring).
+  Peramban ber-JS memperkecil foto lebih dulu (`ImageUploadField`: sisi
+  terpanjang 1920 px, JPEG 85%) — unggahan seluler ±0,5 MB, metadata hilang
+  karena digambar ulang di kanvas. Batas badan Server Action dinaikkan ke
+  25 MB (6 foto tanpa JS); batas per berkas & jumlah tetap diperiksa di aksi.
+- **Galeri:** maks 30 foto per acara (trigger + kunci advisory), hanya
+  pengelola terverifikasi/admin yang mengunggah; tampil di tab Ringkasan
+  halaman acara dengan lightbox; tanpa JS tiap thumbnail menautkan berkas penuh.
+- **Ruang kerja acara di studio** (`EventWorkspaceHeader`): Ringkasan
+  (analitik) · Formulir · Pendaftar · Galeri — satu tugas per tab, URL per
+  tugas, angka bukti yang menunggu di tab Pendaftar. Ekspor CSV pendaftar
+  menetralkan rumus spreadsheet (CSV injection) dan memakai BOM UTF-8.
+- **Mode seed setara produksi**: memori menegakkan aturan yang sama (hak,
+  transisi, kuota, batas laju, batas galeri) + batas 150 MB berkas di memori
+  supaya server pratinjau tidak bisa dibanjiri unggahan. Persona Penyelenggara
+  mendapat satu acara berbayar dengan pendaftar & bukti contoh (struk PNG yang
+  digambar dari kotak — jelas contoh, tanpa aset biner).
+
+**Ditolak:** payment gateway sekarang (alasan di atas); URL publik Storage
+(bypass otorisasi per baris & tidak bisa dicabut per foto); menyimpan bukti
+di tabel sebagai bytea (membengkakkan backup & PostgREST); formulir tanpa
+login (spam & tidak bisa melacak status); kolom unggah berkas di formulir
+peserta (KTP/KTM = data paling sensitif; ditunda sampai ada kebijakan retensi).
+
+**Konsekuensi:** Migration `20261014100001` HARUS diterapkan sebelum kode ini
+dirilis (halaman acara membaca formulir & galeri — kegagalannya ditangkap
+supaya halaman tetap tampil, tapi fitur hilang). Retensi data pendaftar
+(mis. anonimkan N hari setelah acara) belum ada — butuh keputusan pemilik
+(TASKS.md). Detail halaman per peran, login, dan pemuat: lihat bagian
+lanjutan di bawah.
+
+### ADR-056 (lanjutan) — tampilan per peran, pemuat di tengah, bersih dari kesan "AI"
+
+- **Peran TAMPILAN ≠ hak akses.** `accountRoleOf()` memetakan akun ke
+  `participant` / `organizer` (profil penyelenggara terverifikasi) / `admin`
+  hanya untuk memilih beranda, tombol ruang kerja di navbar, dan urutan menu
+  akun. Setiap halaman & Server Action tetap memeriksa haknya sendiri
+  (`manages_event`, `is_admin`, RLS); salah tebak peran paling buruk menampilkan
+  menu yang benar-benar ditolak saat diklik. Gagal memuat profil penyelenggara
+  = tampilan peserta, bukan situs jatuh (navbar ada di root layout, ADR-047).
+- **Satu tujuan utama per peran di layar pertama.** Peserta: tagihan yang
+  belum dibayar & pendaftaran aktif paling atas, lalu tenggat. Penyelenggara:
+  bukti bayar yang menunggu, pendaftar baru 7 hari, acara aktif — dengan
+  tombol ke studio. Admin: angka antrean moderasi (dihitung terbatas — "50+"
+  — supaya beranda tidak menjalankan COUNT penuh), keputusan terakhir.
+  Navbar penyelenggara/admin menukar "Tersimpan" dengan Studio/Moderasi
+  (Tersimpan tetap di menu akun). Dropdown akun & menu samping akun membaca
+  SATU daftar (`accountMenuGroups`) — urutannya tidak bisa lagi berbeda.
+- **Pemuat navigasi di tengah layar** (mengubah ADR-055 atas permintaan
+  pemilik): kartu yang sama, tetap hanya muncul setelah 450 ms, kini di tengah
+  viewport dengan selubung warna kanvas 35% — cukup untuk memberi tanda
+  "sedang berpindah" tanpa menyembunyikan halaman. Seluruh lapisan
+  `pointer-events: none` dan `aria-hidden`, jadi alasan ADR-055 menolak layar
+  pemuat penuh (menghalangi halaman yang masih bisa dipakai) tetap terpenuhi.
+- **Bersih dari kesan "buatan AI":** tur animasi & mockup peramban palsu,
+  testimoni ilustrasi, marquee sumber, doodle melayang, dan catatan tulisan
+  tangan dihapus (beserta `sketch.tsx`, `tour.tsx`, font Caveat). Pratinjau
+  "Segera ditutup" di beranda tamu memakai data nyata (`listClosingSoon`);
+  klaim di /about disesuaikan dengan perilaku sistem sekarang. Prinsip:
+  setiap elemen di layar harus bisa diklik ke sesuatu yang nyata atau
+  menjawab pertanyaan pengguna — hiasan yang menjelaskan dirinya sendiri
+  adalah tanda produk yang belum yakin dengan isinya.
+- **Akun produksi (memperluas ADR-012/028):**
+  - Satu kartu terpusat per halaman akun (logo, judul, satu kalimat). Kalender
+    palsu & panel penjelas dibuang. Tab Masuk|Daftar diganti tautan "Belum
+    punya akun? Daftar".
+  - `/register` dimulai dari **jenis akun** (Peserta / Penyelenggara;
+    `?type=organizer` memilih kartu kedua). Penyelenggara selalu mendarat di
+    `/penyelenggara` untuk mengajukan verifikasi; peserta ke `next` lewat
+    `safeNextPath`. `account_type` disimpan di user metadata HANYA sebagai
+    catatan — pemilik akun bisa mengubahnya, jadi tidak pernah dipakai untuk
+    izin (hak penyelenggara tetap dari `organizer_profiles` VERIFIED).
+  - Persetujuan Kebijakan privasi wajib dicentang dan diperiksa server di
+    kedua jalur daftar. Tombol "Daftar dengan Google" berada di form yang sama
+    (`formAction` + `formNoValidate`), sehingga jenis akun & persetujuan ikut
+    terkirim tanpa JS. Google dari `/login` bisa sekaligus membuat akun dan
+    tidak bisa dipaksa mencentang, jadi pemberitahuan persetujuan ditulis di
+    bawah tombolnya.
+  - Setelah daftar → `/verify-email` ("Cek email kamu") dengan **kirim ulang
+    konfirmasi** (batas 5/jam per IP, jawaban selalu seragam). Jeda per alamat
+    dari Supabase tidak diteruskan, baik di kirim ulang maupun lupa sandi:
+    GoTrue hanya memasangnya untuk akun yang ada, jadi meneruskannya membuka
+    oracle keanggotaan (ADR-011 diperketat).
+  - **Turnstile** kini juga di daftar, lupa sandi, dan kirim ulang
+    (`passesCaptcha`, diperiksa SETELAH batas laju, sebelum Supabase). Kunci
+    kosong = widget tidak tampil & lolos (dev/seed). Diverifikasi oleh server
+    kita, jadi **CAPTCHA bawaan Supabase Auth jangan diaktifkan** di dashboard
+    — kalau diaktifkan, `signUp` tanpa `captchaToken` akan ditolak. Dengan
+    CAPTCHA aktif ketiga form itu butuh JavaScript (perluasan pengecualian
+    ADR-028).
+  - Indikator kekuatan sandi memakai aturan yang sama dengan server
+    (`lib/password-rules.ts`, dijaga uji), ditandai ikon + teks, bukan warna.
+
+---
+
 ## ADR-055 — Polesan UX: transisi berilustrasi, perayaan hasil aksi, tombol taktil, form bersih, menu wajib per peran
 
 **Konteks:** Permintaan pemilik: animasi pemuat & ilustrasi tiap pindah halaman,
@@ -1716,7 +1856,9 @@ tidak ditemukan, **dan** email yang formatnya tidak valid. `signUpAction`
 sengaja tidak bercabang meski Supabase menandai email duplikat lewat
 `identities: []`. `requestPasswordResetAction` selalu menjawab sama,
 kecuali untuk pembatasan laju — informasi itu soal perilaku kita, bukan
-soal keberadaan akun.
+soal keberadaan akun. *(Diperketat ADR-056: hanya batas per IP milik kita
+yang dilaporkan. Jeda per alamat dari Supabase ternyata hanya berlaku untuk
+akun yang ada, jadi meneruskannya justru membocorkan keanggotaan.)*
 
 **Konsekuensi:** pengguna yang salah ketik email tidak diberi tahu bahwa
 akunnya tidak ada, dan itu memang sedikit lebih membingungkan. Ditukar

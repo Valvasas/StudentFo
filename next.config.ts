@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
   // supaya tidak menimpa build mode seed yang dipakai audit aksesibilitas.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
+  // Optimizer gambar hanya untuk foto galeri (ADR-056) — tanpa daftar ini
+  // `/_next/image` mau mengubah ukuran rute lokal APA PUN, termasuk rute yang
+  // mahal dirender, sehingga jadi pengganda beban bagi siapa saja.
+  images: {
+    localPatterns: [{ pathname: '/media/foto/**', search: '' }],
+  },
   poweredByHeader: false,
   // typedRoutes sengaja tidak diaktifkan: href dinamis di produk ini dibangun
   // dari slug (`/events/${slug}`), dan typedRoutes menolak template string
@@ -49,6 +55,11 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react'],
     serverActions: {
       allowedOrigins: serverActionOrigins(),
+      // Bawaan 1 MB menolak satu foto ponsel pun. 25 MB = 6 foto galeri ×
+      // ±4 MB tanpa JavaScript (dengan JS foto diperkecil di peramban ke
+      // ±0,5 MB). Batas per berkas (5 MB), jenis, & jumlah tetap diperiksa
+      // di Server Action — ini hanya plafon ukuran badan permintaan (ADR-056).
+      bodySizeLimit: '25mb',
     },
   },
   async headers() {

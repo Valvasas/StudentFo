@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Bricolage_Grotesque, Caveat, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
+import { Bricolage_Grotesque, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { DemoBanner } from '@/components/layout/demo-banner';
@@ -19,9 +19,6 @@ import './globals.css';
  *  - Bricolage Grotesque — judul. Grotesk berkarakter (sudut sedikit
  *    "tergambar", sumbu optical size) yang memberi kepribadian tanpa
  *    terlihat main-main.
- *  - Caveat — tulisan tangan, HANYA untuk anotasi kecil (catatan pinggir,
- *    label coretan). Dipakai di judul/teks panjang, ia berubah dari "santai"
- *    jadi "tidak serius".
  *  - Geist Mono — angka hitung mundur & kode (tabular).
  * Semuanya dihosting sendiri oleh next/font (CSP `font-src 'self'`).
  */
@@ -34,13 +31,6 @@ const jakarta = Plus_Jakarta_Sans({
 const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
   variable: '--font-bricolage',
-  display: 'swap',
-});
-
-const caveat = Caveat({
-  subsets: ['latin'],
-  weight: ['500', '700'],
-  variable: '--font-caveat',
   display: 'swap',
 });
 
@@ -82,7 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     // suppressHydrationWarning: atribut data-theme sengaja diubah oleh
     // ThemeScript sebelum React jalan, jadi ketidakcocokan di elemen INI
     // memang diharapkan dan hanya di sini.
-    <html lang="id" suppressHydrationWarning className={`${jakarta.variable} ${bricolage.variable} ${caveat.variable} ${geistMono.variable}`}>
+    <html lang="id" suppressHydrationWarning className={`${jakarta.variable} ${bricolage.variable} ${geistMono.variable}`}>
       <head>
         <ThemeScript nonce={nonce} />
       </head>

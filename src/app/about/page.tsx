@@ -31,14 +31,14 @@ const FLOW = [
 ] as const;
 
 const PRINCIPLES = [
-  { icon: Gift, title: 'Gratis untuk pelajar', body: 'Cari, simpan, pengingat, papan pendaftaran, cari tim, dan koneksi — tanpa biaya dan tanpa iklan berbayar di daftar.' },
+  { icon: Gift, title: 'Gratis untuk pelajar', body: 'Cari, simpan, pengingat, papan pendaftaran, cari tim, dan koneksi — tanpa biaya. Kegiatan yang dipromosikan selalu berlabel "Promosi".' },
   { icon: Lock, title: 'Datamu bukan dagangan', body: 'Setiap akun hanya bisa membaca datanya sendiri di tingkat database. Profil jaringan tersembunyi sampai kamu memilih terlihat.' },
   { icon: FileSearch, title: 'Sumber selalu bisa dicek', body: 'Setiap kegiatan menautkan pengumuman aslinya. Kalau ada yang janggal, kamu bisa memastikannya sendiri sebelum membayar apa pun.' },
   { icon: Accessibility, title: 'Bisa dipakai siapa saja', body: 'Tetap jalan tanpa JavaScript, di layar 320px, dengan keyboard, dan dengan pembaca layar. Kontras warna diuji otomatis.' },
 ] as const;
 
 const NOT_YET = [
-  'StudentFo bukan penyelenggara. Kami tidak menerima pendaftaran atau pembayaran — tombol "Daftar" selalu membawamu ke situs resmi.',
+  'Kami tidak memegang uang peserta. Biaya pendaftaran (kalau ada) ditransfer langsung ke penyelenggara dan diverifikasi panitianya — belum ada pembayaran otomatis lewat kartu atau dompet digital.',
   'Pengingat tenggat baru muncul di dalam aplikasi (lonceng notifikasi), belum lewat email atau WhatsApp.',
   'Cakupan sumber masih bertumbuh. Kalau tahu kegiatan yang belum ada, kirimkan — setiap kiriman tetap ditinjau manual.',
   'Kebijakan privasi masih berstatus draf sampai ditinjau bersama penasihat hukum.',
@@ -92,7 +92,6 @@ export default async function AboutPage() {
 
       <section aria-labelledby="alur-title" className={sectionClass}>
         <div data-reveal="" className="flex max-w-[640px] flex-col gap-3.5">
-          <span className={eyebrowClass}>Cara kerja</span>
           <h2 id="alur-title" className={h2Class}>
             Dari pengumuman sampai ke layarmu, ada satu manusia di tengahnya.
           </h2>
@@ -115,7 +114,6 @@ export default async function AboutPage() {
 
       <section aria-labelledby="prinsip-title" className={sectionClass}>
         <div data-reveal="" className="flex max-w-[640px] flex-col gap-3.5">
-          <span className={eyebrowClass}>Prinsip</span>
           <h2 id="prinsip-title" className={h2Class}>
             Empat hal yang tidak kami tawar.
           </h2>
@@ -136,13 +134,9 @@ export default async function AboutPage() {
       <section aria-labelledby="belum-title" className={sectionClass}>
         <div className="grid items-start gap-x-16 gap-y-8 [grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))]">
           <div data-reveal="" className="flex flex-col gap-3.5">
-            <span className={eyebrowClass}>Terus terang</span>
             <h2 id="belum-title" className={h2Class}>
               Yang belum kami lakukan.
             </h2>
-            <p className="max-w-[40ch] text-base leading-relaxed text-ink-muted">
-              Lebih baik kamu tahu batasnya dari kami sekarang, daripada kecewa belakangan.
-            </p>
           </div>
           <ul className="flex flex-col border-t border-line">
             {NOT_YET.map((item, index) => (

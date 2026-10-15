@@ -1,64 +1,18 @@
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import type { ReactNode } from 'react';
-import {
-  BadgeCheck,
-  Hash,
-  Heart,
-  IdCard,
-  Lock,
-  LogOut,
-  MessageCircle,
-  Palette,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Settings,
-  ShieldCheck,
-  Ticket,
-  UserRound,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+import { LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { signOutAction } from '@/app/auth/actions';
 import { toggleAccountSidebarAction } from '@/app/profile/actions';
-import { ACCOUNT_SIDEBAR_COOKIE, isSidebarCollapsed } from '@/lib/account-sidebar';
+import { loadAccountBadges, loadAccountRole } from '@/components/home/account-role';
+import { AccountMenuBadge, accountSubtitle } from '@/components/layout/account-menu';
+import { ACCOUNT_SIDEBAR_COOKIE, accountMenuGroups, isSidebarCollapsed, type AccountSection } from '@/lib/account-sidebar';
 import { REQUEST_PATH_HEADER } from '@/lib/security-headers';
-import { DemoUnreadCount } from '@/components/demo/unread-count';
 import type { AuthUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { initialsOf } from '@/lib/initials';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import { cn } from '@/lib/utils';
-import { EDUCATION_LEVEL_LABEL } from '@/types/domain';
-
-export type AccountSection =
-  | 'profil'
-  | 'data'
-  | 'minat'
-  | 'pesan'
-  | 'diskusi'
-  | 'daftar'
-  | 'koneksi'
-  | 'personalisasi'
-  | 'pengaturan'
-  | 'privasi';
-
-/** Ruang kerja punya kerangka halamannya sendiri, jadi tidak pernah "aktif" di menu akun. */
-interface WorkspaceItem {
-  readonly key: 'studio' | 'moderasi';
-  readonly label: string;
-  readonly href: string;
-  readonly icon: LucideIcon;
-  readonly unread?: undefined;
-}
-
-interface Item {
-  readonly key: AccountSection;
-  readonly label: string;
-  readonly href: string;
-  readonly icon: LucideIcon;
-  readonly unread?: boolean;
-}
 
 /**
  * Kerangka halaman akun (kanvas desain `StudentHubSidebar`): kolom menu
@@ -70,54 +24,21 @@ interface Item {
  * pendaftaran, koneksi) lega. Sakelarnya <form> + cookie: keadaan terlipat
  * dirender server sejak awal (tanpa kedip) dan bekerja tanpa JavaScript.
  *
- * Isinya sama untuk semua peran (profil, personalisasi, pengaturan, privasi
- * — ADR-055), ditambah "Ruang kerja": studio penyelenggara untuk semua akun
- * (tempat mengajukan diri), antrean moderasi hanya untuk ADMIN. Tujuan yang
- * sama juga ada di menu akun navbar, satu-satunya menu di bawah 960px.
+ * Isi & urutannya dari `accountMenuGroups` — definisi yang sama dengan menu
+ * akun navbar (ADR-055/056). Ruang kerja (studio, moderasi) punya kerangka
+ * halamannya sendiri, jadi tidak pernah "aktif" di sini.
  */
 export async function AccountShell({ user, active, children }: { user: AuthUser; active: AccountSection; children: ReactNode }) {
   const { percent } = profileCompleteness(user);
-  const [cookieStore, requestHeaders] = await Promise.all([cookies(), headers()]);
+  const [cookieStore, requestHeaders, context, counts] = await Promise.all([
+    cookies(),
+    headers(),
+    loadAccountRole(user),
+    loadAccountBadges(user.id),
+  ]);
   const collapsed = isSidebarCollapsed(cookieStore.get(ACCOUNT_SIDEBAR_COOKIE)?.value);
   const returnTo = requestHeaders.get(REQUEST_PATH_HEADER) ?? '/profile';
-  const groups: readonly { title: string; items: readonly (Item | WorkspaceItem)[] }[] = [
-    {
-      title: 'AKUN',
-      items: [
-        { key: 'profil', label: 'Profil', href: '/profile', icon: UserRound },
-        { key: 'data', label: 'Data diri', href: '/profile/details', icon: IdCard },
-        { key: 'minat', label: 'Peminatan', href: '/profile/interests', icon: Heart },
-      ],
-    },
-    {
-      title: 'AKTIVITAS',
-      items: [
-        ...(demoFeaturesEnabled
-          ? [
-              { key: 'pesan' as const, label: 'Pesan', href: '/messages', icon: MessageCircle, unread: true },
-              { key: 'diskusi' as const, label: 'Ruang diskusi', href: '/discussions', icon: Hash },
-            ]
-          : []),
-        { key: 'daftar', label: 'Pendaftaran', href: '/tracker', icon: Ticket },
-        { key: 'koneksi', label: 'Koneksi', href: '/connections', icon: Users },
-      ],
-    },
-    {
-      title: 'RUANG KERJA',
-      items: [
-        { key: 'studio', label: 'Studio penyelenggara', href: '/penyelenggara', icon: BadgeCheck },
-        ...(user.role === 'ADMIN' ? [{ key: 'moderasi' as const, label: 'Antrean moderasi', href: '/admin', icon: ShieldCheck }] : []),
-      ],
-    },
-    {
-      title: 'LAINNYA',
-      items: [
-        { key: 'personalisasi', label: 'Personalisasi', href: '/profile/personalization', icon: Palette },
-        { key: 'pengaturan', label: 'Pengaturan', href: '/profile/settings', icon: Settings },
-        { key: 'privasi', label: 'Privasi & data', href: '/profile/privacy', icon: Lock },
-      ],
-    },
-  ];
+  const groups = accountMenuGroups(context.role, { demoFeatures: demoFeaturesEnabled });
 
   return (
     <div className={cn('container-page flex items-start pb-16 pt-8', collapsed ? 'gap-6' : 'gap-10')}>
@@ -147,7 +68,7 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
             {!collapsed && (
               <span className="flex min-w-0 flex-col gap-px">
                 <span className="truncate text-sm font-semibold">{user.fullName}</span>
-                <span className="text-xs text-ink-muted">{user.educationLevel ? EDUCATION_LEVEL_LABEL[user.educationLevel] : 'Jenjang belum diisi'}</span>
+                <span className="truncate text-xs text-ink-muted">{accountSubtitle(user, context)}</span>
               </span>
             )}
           </span>
@@ -165,11 +86,11 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
         </Link>
 
         {groups.map((group) => (
-          <div key={group.title} className={cn('flex flex-col gap-0.5', collapsed && 'items-center')}>
+          <div key={group.key} className={cn('flex flex-col gap-0.5', collapsed && 'items-center')}>
             {collapsed ? (
               <span aria-hidden className="mb-1 h-px w-6 bg-line" />
             ) : (
-              <span className="hand px-2.5 text-[16px] text-ink-muted">{group.title.toLowerCase()}</span>
+              <span className="px-2.5 pb-0.5 text-xs font-medium text-ink-muted">{group.title}</span>
             )}
             {group.items.map((item) => {
               const on = item.key === active;
@@ -187,17 +108,11 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
                 >
                   <item.icon aria-hidden className="size-[17px] shrink-0" />
                   <span className={collapsed ? 'sr-only' : 'flex-1'}>{item.label}</span>
-                  {item.unread && (
-                    <DemoUnreadCount
-                      srSuffix="belum dibaca"
-                      className={cn(
-                        'flex items-center justify-center bg-brand font-semibold text-on-brand',
-                        collapsed
-                          ? 'absolute right-0.5 top-0.5 h-4 min-w-4 rounded-pill px-1 text-[9.5px]'
-                          : 'h-5 min-w-5 rounded-[10px] px-1.5 text-[11.5px]',
-                      )}
-                    />
-                  )}
+                  <AccountMenuBadge
+                    badge={item.badge}
+                    counts={counts}
+                    className={collapsed ? 'absolute right-0.5 top-0.5 h-4 min-w-4 px-1 text-[9.5px]' : 'h-5 min-w-5 px-1.5 text-[11.5px]'}
+                  />
                 </Link>
               );
             })}

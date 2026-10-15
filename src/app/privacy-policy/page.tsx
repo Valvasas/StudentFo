@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 const SUMMARY = [
   'Kami tidak menjual datamu dan tidak memasang iklan atau pelacak pihak ketiga.',
-  'Pendaftaran terjadi di situs penyelenggara. StudentFo tidak meneruskan data dirimu ke mereka.',
+  'Data dirimu hanya sampai ke penyelenggara bila kamu sendiri mengisi formulir pendaftaran mereka di StudentFo.',
   'Anggota timmu hanya melihat nama dan peranmu. Tamu yang belum masuk tidak melihat nama siapa pun.',
   'Kamu bisa melihat dan memperbaiki datamu kapan saja dari halaman akun.',
 ];
@@ -37,6 +37,10 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
             <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
           </li>
           <li>
+            <strong>Pendaftaran lewat formulir StudentFo:</strong> nama dan email akunmu, jawaban yang kamu isi, status pendaftaran, dan — untuk
+            acara berbayar — foto bukti pembayaran yang kamu unggah. Metadata foto (termasuk lokasi GPS) dibuang sebelum disimpan.
+          </li>
+          <li>
             <strong>Sinyal rekomendasi:</strong> catatan bahwa sebuah kegiatan disimpan atau tombol daftarnya diklik, dipakai untuk mengurutkan
             rekomendasi.
           </li>
@@ -52,7 +56,8 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
     body: (
       <p>
         Jenjang dan minatmu dipakai untuk mengurutkan dan menandai kegiatan yang cocok. Kegiatan yang kamu simpan dipakai untuk pengingat tenggat di
-        dalam aplikasi. Kiriman kegiatan dibaca moderator sebelum tayang. Kami tidak memakai datamu untuk iklan.
+        dalam aplikasi. Kiriman kegiatan dibaca moderator sebelum tayang. Jawaban formulir pendaftaran dan bukti pembayaran hanya dipakai
+        penyelenggara acara itu untuk memproses pendaftaranmu. Kami tidak memakai datamu untuk iklan.
       </p>
     ),
   },
@@ -65,6 +70,10 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
             <strong>Anggota tim yang sama:</strong> nama dan peranmu di tim tersebut.
           </li>
           <li>
+            <strong>Penyelenggara terverifikasi acara yang kamu daftari:</strong> nama, email, jawaban formulir, status, dan bukti pembayaranmu
+            untuk acara itu saja — tidak data akunmu yang lain. Penyelenggara bisa mengunduh daftar pendaftar acaranya.
+          </li>
+          <li>
             <strong>Moderator:</strong> kiriman kegiatan beserta email pengirimnya, untuk verifikasi.
           </li>
           <li>
@@ -72,8 +81,9 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
           </li>
         </ul>
         <Callout>
-          Tombol &ldquo;Daftar sekarang&rdquo; membuka situs resmi penyelenggara. Apa pun yang kamu isi di sana tunduk pada kebijakan privasi
-          penyelenggara tersebut, bukan kebijakan ini.
+          Bila acara tidak memakai formulir StudentFo, tombol &ldquo;Daftar sekarang&rdquo; membuka situs resmi penyelenggara. Apa pun yang kamu
+          isi di sana tunduk pada kebijakan privasi penyelenggara tersebut, bukan kebijakan ini. StudentFo tidak memegang uang pendaftaran:
+          pembayaran langsung ke rekening penyelenggara.
         </Callout>
       </>
     ),
@@ -93,8 +103,9 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
     body: (
       <p>
         Data akun disimpan selama akunmu aktif. Saat akun dihapus, profil, kegiatan tersimpan, catatan pendaftaran, keanggotaan tim, dan
-        notifikasimu ikut terhapus. Tim yang kamu buat dan sinyal rekomendasi tetap ada tanpa tautan ke akunmu. Email di kiriman kegiatan tetap
-        tersimpan sebagai arsip moderasi.
+        notifikasimu ikut terhapus. Pendaftaran lewat formulir StudentFo beserta bukti pembayarannya juga ikut terhapus — salinan yang sudah
+        diunduh penyelenggara tunduk pada kebijakan penyelenggara. Tim yang kamu buat dan sinyal rekomendasi tetap ada tanpa tautan ke akunmu.
+        Email di kiriman kegiatan tetap tersimpan sebagai arsip moderasi.
       </p>
     ),
   },
@@ -165,7 +176,7 @@ export default function PrivacyPolicyPage() {
         <span className="font-mono text-xs tracking-[.08em] text-ink-muted">DOKUMEN · DRAF</span>
         <h1 className="text-[clamp(36px,6vw,56px)] leading-[1.02]">Kebijakan privasi</h1>
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-ink-muted">
-          <span>Draf 26 September 2026</span>
+          <span>Draf 15 Oktober 2026</span>
           <span aria-hidden>·</span>
           <span>Waktu baca sekitar 4 menit</span>
         </p>

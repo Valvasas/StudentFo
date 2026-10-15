@@ -6,6 +6,7 @@ import {
   CheckCheck,
   CheckCircle2,
   Megaphone,
+  Receipt,
   ShieldAlert,
   UserPlus,
   Users,
@@ -50,6 +51,10 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   CLAIM_REJECTED: XCircle,
   REVISION_APPROVED: CheckCircle2,
   REVISION_REJECTED: XCircle,
+  REGISTRATION_CONFIRMED: CheckCircle2,
+  REGISTRATION_REJECTED: XCircle,
+  PAYMENT_REJECTED: XCircle,
+  PAYMENT_SUBMITTED: Receipt,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {
@@ -117,7 +122,11 @@ export async function NotificationMenu() {
               const Icon = TYPE_ICON[notification.type];
               const target = /^(ORGANIZER|CLAIM|REVISION)_/.test(notification.type)
                 ? '/penyelenggara'
-                : notification.event
+                : notification.type === 'PAYMENT_SUBMITTED' && notification.event
+                  ? `/penyelenggara/acara/${notification.event.id}/pendaftar?status=PAYMENT_REVIEW`
+                  : /^(REGISTRATION|PAYMENT)_/.test(notification.type)
+                    ? '/pembayaran'
+                    : notification.event
                   ? `/events/${notification.event.slug}`
                   : notification.type.startsWith('CONNECTION_')
                     ? '/connections'

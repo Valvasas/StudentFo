@@ -11,7 +11,8 @@ I/O pipeline Python. Semua ada di sini.
 > **Sejak 2026-09-26** `EventRepository` adalah gabungan interface per domain
 > (`EventCatalogRepository`, `ModerationRepository`, `SubmissionRepository`,
 > `SavedEventRepository`, `TrackerRepository`, `NotificationRepository`,
-> `TeamRepository`, `NetworkRepository`, `RateLimitRepository`, `RecommendationSignalRepository`) di
+> `TeamRepository`, `NetworkRepository`, `RateLimitRepository`, `RecommendationSignalRepository`,
+> dan sejak ADR-056 `RegistrationRepository` & `GalleryRepository`) di
 > `src/lib/data/repository.ts` — sumber kebenaran tanda tangan method. Blok di
 > bawah adalah ringkasan historis; method baru sejak itu (antrean detail,
 > `listModerationLog`, `consumeRateLimit`, sinyal & kalibrasi) hanya tercatat
@@ -161,6 +162,43 @@ acara APPROVED (`event_unavailable`); `listFeaturedEvents(limit)`.
 `NotificationDispatchRepository` (server saja, route ber-`CRON_SECRET`):
 `claimDeadlineDispatches(limit)` → `DeadlineDispatch[]` (sewa 15 menit),
 `acknowledgeDeadlineDispatches(ids)` → jumlah yang benar-benar ditandai.
+
+### Formulir pendaftaran, pembayaran, galeri (ADR-056)
+
+`RegistrationRepository` & `GalleryRepository` — pelaku `EventActor { id,
+fullName, email, isAdmin }` dari `toEventActor(user)` (`src/lib/auth.ts`);
+`isAdmin` hanya dipakai mode seed, produksi membaca `is_admin()` di database.
+
+| Method | Siapa | Gagal |
+|---|---|---|
+| `getRegistrationForm(eventId)` | publik (acara tayang) | `null` bila belum ada; `activeCount` = pendaftar hidup |
+| `saveRegistrationForm(actor, eventId, input)` | pengelola terverifikasi / admin | `not_event_manager`, `invalid_registration_form` (CHECK DB) |
+| `registerForEvent(actor, eventId, answers)` | pengguna masuk; jawaban SUDAH lolos `readAnswers()` | `registration_closed` → `registration_exists` → `registration_full` → `registration_rate_limited` (urutan ini di kedua implementasi) |
+| `getMyRegistration(userId, eventId)` / `listMyRegistrations(userId)` | pemilik | — |
+| `getRegistration(actor, id)` | pemilik / pengelola / admin | `null` untuk selain itu (tidak membedakan "ada tapi bukan milikmu") |
+| `listEventRegistrations(actor, eventId)` / `listRegistrationStats(actor, ids)` | pengelola / admin | `[]` untuk selain itu |
+| `submitPaymentProof(actor, id, image)` | pemilik, status AWAITING_PAYMENT/PAYMENT_REVIEW | `registration_not_found`, `registration_invalid_transition` |
+| `getPaymentProof(actor, id)` | pemilik / pengelola / admin | `null` |
+| `reviewRegistration(actor, id, 'confirm'\|'reject_payment'\|'reject', note)` | pengelola / admin | `registration_not_found`, `review_note_required`, `registration_invalid_transition` |
+| `cancelRegistration(actor, id)` | pemilik | `registration_not_found`, `registration_invalid_transition` |
+| `listEventPhotos(eventId)` / `getEventPhotoFile(photoId)` | publik (acara tayang) | `[]` / `null` |
+| `addEventPhotos(actor, eventId, images, caption)` / `deleteEventPhoto(actor, photoId)` | pengelola / admin | `not_event_manager`, `gallery_full` (30/acara), `photo_not_found` |
+
+Transisi status (satu definisi: `registrationTransition()` di
+`src/lib/registration-form.ts`, kembar SQL di migration `20261014100001`):
+
+```
+daftar ──(gratis)──────────────────────────────▶ CONFIRMED
+      └─(berbayar)─▶ AWAITING_PAYMENT ─bukti─▶ PAYMENT_REVIEW ─confirm─▶ CONFIRMED
+                          ▲   └──────confirm (tandai lunas)──────────────▲
+                          └──reject_payment (catatan wajib)──┘
+AWAITING_PAYMENT | PAYMENT_REVIEW | CONFIRMED ─reject (catatan)─▶ REJECTED (final)
+                                              ─cancel (pemilik)─▶ CANCELLED (boleh daftar ulang)
+```
+
+Gambar unggahan selalu lewat `readImageUpload()` (`src/lib/image-file.ts`):
+jenis dari byte (JPEG/PNG/WebP), ≤5 MB, 32 px..10.000 px, ≤40 MP, metadata
+dibuang kecuali Orientation.
 
 ### `ReviewEventInput`
 

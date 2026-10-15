@@ -147,17 +147,6 @@ export function TrophyDoodle({ className }: IllustrationProps) {
   );
 }
 
-export function GradCapDoodle({ className }: IllustrationProps) {
-  return (
-    <Svg viewBox="0 0 48 48" className={cn('size-12', className)}>
-      <path d="M4 19 L24 10 L44 19 L24 28 Z" fill={PAPER} />
-      <path d="M12 23 L12 32 Q24 39 36 32 L36 23" />
-      <path d="M44 19 L44 31" />
-      <circle cx="44" cy="33.5" r="2.5" fill={HIGHLIGHT} />
-    </Svg>
-  );
-}
-
 export function PaperPlaneDoodle({ className }: IllustrationProps) {
   return (
     <Svg viewBox="0 0 56 48" className={cn('h-12 w-14', className)}>

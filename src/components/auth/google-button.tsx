@@ -1,7 +1,8 @@
 import { headers } from 'next/headers';
 import { ExternalLink } from 'lucide-react';
 import { signInWithGoogleAction } from '@/app/auth/actions';
-import { Button } from '@/components/ui/button';
+import { IntentSubmitButton } from '@/components/auth/intent-submit';
+import { buttonVariants } from '@/components/ui/button';
 import { detectInAppBrowser } from '@/lib/in-app-browser';
 
 /**
@@ -36,31 +37,44 @@ function GoogleMark() {
  * Di browser dalam aplikasi (Instagram, TikTok, …) Google menolak OAuth
  * dengan halaman error 403. Tombol yang pasti gagal diganti petunjuk membuka
  * halaman di browser sungguhan; masuk dengan email & sandi tetap tersedia.
+ *
+ * `withinForm`: tombol saja, untuk diletakkan di dalam form daftar supaya
+ * pilihan jenis akun & persetujuan ikut terkirim. `formNoValidate` karena
+ * isian email/sandi di form itu tidak relevan untuk jalur Google.
  */
-export async function GoogleButton({ next, label }: { next: string; label: string }) {
+export async function GoogleButton({ next, label, withinForm = false }: { next: string; label: string; withinForm?: boolean }) {
   const inApp = detectInAppBrowser((await headers()).get('user-agent'));
 
   if (inApp) {
     return (
-      <div role="note" className="flex items-start gap-2 rounded-card border border-line bg-panel-nested p-4 text-sm text-ink-soft">
+      <div role="note" className="flex items-start gap-2 rounded-card border border-line bg-panel-nested p-3.5 text-sm text-ink-soft">
         <ExternalLink aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-muted" />
         <p>
-          <strong className="font-semibold text-ink">Masuk dengan Google tidak tersedia di dalam {inApp}.</strong>{' '}
-          Google memblokir login dari browser bawaan aplikasi. Ketuk menu <span aria-hidden>⋯</span>
-          <span className="sr-only">(titik tiga)</span> lalu pilih &quot;Buka di browser&quot;, atau masuk dengan
-          email di bawah.
+          Google tidak mengizinkan masuk dari dalam {inApp}. Buka menu <span aria-hidden>⋯</span>
+          <span className="sr-only">(titik tiga)</span> → &quot;Buka di browser&quot;, atau pakai email.
         </p>
       </div>
     );
   }
 
+  const button = (
+    <IntentSubmitButton
+      formAction={signInWithGoogleAction}
+      formNoValidate
+      pendingLabel="Membuka Google…"
+      className={buttonVariants({ variant: 'secondary', size: 'lg', className: 'w-full' })}
+    >
+      <GoogleMark />
+      {label}
+    </IntentSubmitButton>
+  );
+
+  if (withinForm) return button;
+
   return (
     <form action={signInWithGoogleAction}>
       <input type="hidden" name="next" value={next} />
-      <Button type="submit" variant="secondary" size="lg" className="w-full">
-        <GoogleMark />
-        {label}
-      </Button>
+      {button}
     </form>
   );
 }

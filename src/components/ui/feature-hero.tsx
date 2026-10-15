@@ -2,7 +2,6 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { TINT_BG } from '@/components/ui/avatar';
 import { SparkleDoodle } from '@/components/ui/illustrations';
-import { HandNote } from '@/components/ui/sketch';
 import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +22,7 @@ export function FeatureHero({
   children,
   className,
 }: {
-  /** Catatan pinggir bertulisan tangan di atas judul — satu-satunya di layar. */
+  /** Konteks singkat di atas judul (mis. kegiatan yang sedang dipilih). */
   note?: string;
   title: ReactNode;
   description: ReactNode;
@@ -35,8 +34,8 @@ export function FeatureHero({
   return (
     <header className={cn('grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14', className)}>
       <div className="enter flex min-w-0 flex-col gap-5 [animation-duration:900ms]">
-        {note && <HandNote className="text-[22px] text-ink-muted">{note}</HandNote>}
-        <h1 className="-mt-2 text-[clamp(38px,5.6vw,62px)] leading-[0.98]">{title}</h1>
+        {note && <p className="-mb-2 text-[13.5px] font-medium text-ink-muted">{note}</p>}
+        <h1 className="text-[clamp(36px,5.2vw,56px)] leading-[1]">{title}</h1>
         <p className="max-w-[50ch] text-[16.5px] leading-relaxed text-ink-muted">{description}</p>
         {actions && <div className="mt-1 flex flex-wrap items-center gap-3">{actions}</div>}
         {children}

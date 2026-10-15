@@ -12,7 +12,6 @@ import { ConnectSketch } from '@/components/ui/feature-illustrations';
 import { ScrollRail } from '@/components/ui/scroll-rail';
 import { SelectInput } from '@/components/ui/field';
 import { EmptyNotebookSketch } from '@/components/ui/illustrations';
-import { HandNote } from '@/components/ui/sketch';
 import { getSessionUser, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import type { EventRepository } from '@/lib/data/repository';
@@ -112,12 +111,11 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
     <div className="container-page pb-24 pt-8 sm:pt-12">
       <header className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
         <div className="enter flex flex-col gap-3 [animation-duration:900ms]">
-          <HandNote className="text-[22px] text-ink-muted">satu minat, satu tim</HandNote>
-          <h1 className="-mt-1 text-[clamp(38px,5.2vw,58px)] leading-[1]">
+          <h1 className="text-[clamp(36px,5.2vw,56px)] leading-[1]">
             <span className="marker">Koneksi</span>
           </h1>
           <p className="max-w-[52ch] text-[16px] leading-relaxed text-ink-muted">
-            Temukan orang dengan minat yang sama, lalu ajak mereka satu tim — sebelum tenggat lomba berikutnya datang.
+            Temukan orang dengan minat yang sama, lalu ajak mereka satu tim.
           </p>
         </div>
         {/* Halaman kerja: ilustrasi hanya di layar lebar, supaya di ponsel daftar orang langsung terlihat. */}
@@ -653,20 +651,18 @@ function GuestConnections({ categories }: { categories: Parameters<typeof buildP
     <div className="container-page pb-24 pt-10 sm:pt-14">
       <div className="grid items-center gap-10 [grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr))]">
         <header className="enter flex flex-col gap-4 [animation-duration:900ms]">
-          <HandNote className="text-[22px] text-ink-muted">jaringan pelajar & mahasiswa</HandNote>
-          <h1 className="-mt-1 text-[clamp(36px,5vw,58px)] leading-[1.02]">
+          <h1 className="text-[clamp(34px,5vw,54px)] leading-[1.04]">
             Temukan rekan <span className="marker">satu minat</span>, lihat semua sambungannya.
           </h1>
           <p className="max-w-[48ch] text-[16px] leading-relaxed text-ink-muted">
-            Koneksi memetakan orang, minat, dan kegiatan jadi satu graf — supaya kamu tahu siapa yang bisa diajak satu tim sebelum
-            tenggat lomba datang.
+            Lihat siapa yang punya minat dan kegiatan yang sama denganmu, lalu ajak mereka satu tim.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Link href="/login?next=%2Fconnections" className="flex h-12 items-center rounded-pill bg-brand px-6 text-[15px] font-semibold text-on-brand hover:bg-brand-hover">
               Masuk untuk mulai
             </Link>
             <Link href="/register" className="flex h-12 items-center rounded-pill border border-line-strong/70 bg-panel px-6 text-[15px] font-semibold hover:bg-panel-nested">
-              Buat akun gratis
+              Buat akun
             </Link>
           </div>
         </header>

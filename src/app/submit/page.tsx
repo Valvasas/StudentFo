@@ -9,7 +9,6 @@ import { TurnstileWidget } from '@/components/submit/turnstile-widget';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
 import { ChoiceGroup, FormStep } from '@/components/ui/form-step';
-import { HandNote } from '@/components/ui/sketch';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -272,7 +271,6 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
               <span className="text-[15px] font-semibold">Detail tambahan (opsional)</span>
               <span className="text-[12.5px] text-ink-muted">Buku panduan, deskripsi, kontak panitia</span>
             </span>
-            <HandNote className="hidden text-[17px] sm:inline-block">makin lengkap, makin cepat dicek</HandNote>
             <ChevronDown aria-hidden className="size-4 shrink-0 text-ink-muted transition-transform duration-150 ease-snap group-open/opsional:rotate-180" />
           </summary>
           <div className="flex flex-col gap-5 border-t border-line px-5 pb-6 pt-5 sm:px-7">

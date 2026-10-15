@@ -33,7 +33,7 @@ export const DEMO_PERSONAS: Readonly<Record<DemoPersonaId, DemoPersona>> = {
   mahasiswa: {
     id: 'mahasiswa',
     label: 'Mahasiswa',
-    summary: 'Profil lengkap (D4/S1, teknologi & desain) — rekomendasi personal & jaringan contoh aktif.',
+    summary: 'Profil lengkap & rekomendasi personal',
     fullName: 'Dinda Pratiwi',
     role: 'USER',
     educationLevel: 'D4_S1',
@@ -43,7 +43,7 @@ export const DEMO_PERSONAS: Readonly<Record<DemoPersonaId, DemoPersona>> = {
   'siswa-baru': {
     id: 'siswa-baru',
     label: 'Siswa baru',
-    summary: 'Profil belum diisi — lihat urutan cold start, lalu lengkapi profilnya.',
+    summary: 'Akun baru dengan profil kosong',
     fullName: 'Raka Aditya',
     role: 'USER',
     educationLevel: null,
@@ -53,7 +53,7 @@ export const DEMO_PERSONAS: Readonly<Record<DemoPersonaId, DemoPersona>> = {
   admin: {
     id: 'admin',
     label: 'Admin moderator',
-    summary: 'Buka dasbor /admin untuk menyetujui atau menolak kegiatan dan kiriman.',
+    summary: 'Tinjau dan setujui kegiatan masuk',
     fullName: 'Admin Moderator',
     role: 'ADMIN',
     educationLevel: 'UMUM',
@@ -63,7 +63,7 @@ export const DEMO_PERSONAS: Readonly<Record<DemoPersonaId, DemoPersona>> = {
   penyelenggara: {
     id: 'penyelenggara',
     label: 'Penyelenggara',
-    summary: 'Penyelenggara terverifikasi — dasbor analitik acara, klaim, dan permintaan perubahan.',
+    summary: 'Studio acara: pendaftar, galeri, analitik',
     fullName: 'Sekar Ayu (Himpunan Informatika)',
     role: 'USER',
     educationLevel: 'D4_S1',

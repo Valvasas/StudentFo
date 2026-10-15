@@ -34,6 +34,10 @@ const STATIC_ROUTES = [
 ];
 
 async function expectNoViolations(page: Page) {
+  // Next 15.5 men-stream metadata ke peramban non-bot: <title> bisa terpasang
+  // sesaat setelah `load`. Tunggu dulu — kalau judulnya memang tidak pernah
+  // ada, penantian ini sendiri yang gagal.
+  await expect(page).toHaveTitle(/\S/);
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
   const summary = results.violations.map(
     (v) =>
@@ -99,6 +103,14 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Penyelenggara', '/penyelenggara'],
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001'],
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001?range=90'],
+  // Formulir internal, pendaftar & bukti bayar, galeri (ADR-056). Acara …004
+  // berbayar dan sudah punya pendaftar contoh di semua status.
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/formulir'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/pendaftar'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/pendaftar?status=diperiksa'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001/galeri'],
+  ['Mahasiswa', '/pembayaran'],
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026/formulir'],
   ['Mahasiswa', '/penyelenggara'],
   ['Mahasiswa', '/'],
   // Beranda pribadi punya varian per persona (ADR-053): ajakan lengkapi profil.
@@ -161,10 +173,17 @@ for (const [persona, route] of SIGNED_IN_ROUTES) {
   });
 }
 
-test('beranda pribadi dengan pintasan peran (Penyelenggara) tanpa pelanggaran WCAG', async ({ page }) => {
+test('beranda penyelenggara tanpa pelanggaran WCAG', async ({ page }) => {
   await signInAsDemo(page, 'Penyelenggara', '/penyelenggara');
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'Buka studio penyelenggara' })).toBeVisible();
+  await expectNoViolations(page);
+});
+
+test('beranda admin tanpa pelanggaran WCAG', async ({ page }) => {
+  await signInAsDemo(page, 'Admin moderator', '/admin');
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: 'Buka antrean moderasi' })).toBeVisible();
   await expectNoViolations(page);
 });
 

@@ -21,6 +21,7 @@ import {
 import { claimEventAction } from '@/app/penyelenggara/actions';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
+import { EventGallery } from '@/components/event/event-gallery';
 import { GuidebookViewer } from '@/components/event/guidebook-viewer';
 import { PromotedBadge } from '@/components/event/price-badge';
 import { RequirementsChecklist } from '@/components/event/requirements-checklist';
@@ -30,6 +31,9 @@ import { VerifiedBadge } from '@/components/event/verified-badge';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
 import { InlineCountdown } from '@/components/listing/countdown';
+import { RegistrationStatusBadge } from '@/components/organizer/registration-row';
+import { RegistrationCtaBarAction, RegistrationCtaPanel } from '@/components/registration/registration-cta';
+import { registrationCta, registrationEventClosed } from '@/components/registration/registration-view';
 import { buttonVariants } from '@/components/ui/button';
 import { TextArea } from '@/components/ui/field';
 import { RegisterLaunch } from '@/components/event/register-launch';
@@ -37,7 +41,7 @@ import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { isPromoted } from '@/lib/data/listing';
-import { priceLabel } from '@/lib/currency';
+import { formatRupiah, priceLabel, type PriceLabel } from '@/lib/currency';
 import { recordEventView } from '@/lib/event-views';
 import { ORGANIZER_LIMITS } from '@/lib/organizer';
 import {
@@ -59,7 +63,10 @@ import {
   EVENT_TYPE_LABEL,
   TRACKER_STATUS_LABEL,
   type EventDetail,
+  type EventPhoto,
+  type EventRegistration,
   type OrganizerProfile,
+  type RegistrationForm,
 } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -95,6 +102,20 @@ type TabKey = (typeof TABS)[number]['key'];
 const headingClass = 'text-[22px] font-bold tracking-[-0.025em]';
 
 /**
+ * Formulir, galeri, dan pendaftaran sendiri adalah pelengkap: gagal dimuat
+ * (mis. migration ADR-056 belum diterapkan) = fitur itu hilang, bukan
+ * halaman acara yang jatuh.
+ */
+async function optional<T>(load: () => Promise<T>, fallback: T, label: string): Promise<T> {
+  try {
+    return await load();
+  } catch (error) {
+    console.error(`[acara] ${label} gagal dimuat:`, error);
+    return fallback;
+  }
+}
+
+/**
  * Detail kegiatan (kanvas desain Detail, versi bertab — chat8).
  *
  * Tab memakai `?tab=` dan tautan biasa, bukan state klien: tautan yang
@@ -126,7 +147,7 @@ export default async function EventDetailPage({
   const requestHeaders = await headers();
   after(() => recordEventView(event.id, requestHeaders));
 
-  const [isSaved, trackerItems, categories, similar, verifiedOrganizers, organizerProfile] = await Promise.all([
+  const [isSaved, trackerItems, categories, similar, verifiedOrganizers, organizerProfile, form, photos, myRegistration] = await Promise.all([
     user ? repository.isEventSaved(user.id, event.id) : Promise.resolve(false),
     user ? repository.listTrackerItems(user.id) : Promise.resolve([]),
     repository.listCategories(),
@@ -134,6 +155,12 @@ export default async function EventDetailPage({
     repository.listVerifiedOrganizers([event.id]),
     // Hanya di tab Penyelenggara, tempat ajakan klaim tampil.
     user && tab === 'penyelenggara' ? repository.getOrganizerProfile(user.id) : Promise.resolve(null),
+    optional<RegistrationForm | null>(() => repository.getRegistrationForm(event.id), null, 'formulir pendaftaran'),
+    // Galeri hanya tampil di tab Ringkasan.
+    tab === 'ringkasan' ? optional<readonly EventPhoto[]>(() => repository.listEventPhotos(event.id), [], 'galeri') : Promise.resolve([]),
+    user
+      ? optional<EventRegistration | null>(() => repository.getMyRegistration(user.id, event.id), null, 'pendaftaran sendiri')
+      : Promise.resolve(null),
   ]);
   const verifiedOrg = verifiedOrganizers.get(event.id) ?? null;
   const tracked = trackerItems.find((item) => item.eventId === event.id);
@@ -142,6 +169,10 @@ export default async function EventDetailPage({
   const now = new Date();
   const state = getDeadlineState(event.primaryDeadlineAt, now);
   const isClosed = state.urgency === 'closed' || event.status === 'EXPIRED';
+  const cta = registrationCta(form, myRegistration, isClosed || registrationEventClosed(event, now));
+  // Formulir StudentFo yang aktif menggantikan tautan luar; biayanya pun yang berlaku.
+  const internalForm = form?.isOpen ? form : null;
+  const formHref = `/events/${event.slug}/formulir`;
   // Tautan berasal dari sumber pihak ketiga hasil scraping. Divalidasi ulang
   // di titik render — bukan diasumsikan aman karena "kan sudah divalidasi
   // di pipeline". Satu lapis saja tidak cukup untuk data yang tidak kita tulis.
@@ -164,10 +195,14 @@ export default async function EventDetailPage({
     levels.length > 0 ? `Pelajar/mahasiswa aktif jenjang ${levels.join(' atau ')}` : 'Terbuka untuk semua jenjang',
     event.isOnline ? 'Bisa mengikuti kegiatan secara daring' : `Bisa hadir di ${place}`,
     ...(isTeamEvent ? ['Memenuhi ketentuan jumlah anggota tim dari penyelenggara'] : []),
-    'Mendaftar sebelum tenggat melalui tautan resmi penyelenggara',
+    internalForm ? 'Mendaftar sebelum tenggat lewat formulir pendaftaran di StudentFo' : 'Mendaftar sebelum tenggat melalui tautan resmi penyelenggara',
   ];
 
-  const price = priceLabel(event);
+  const price: PriceLabel = !internalForm
+    ? priceLabel(event)
+    : internalForm.feeAmount
+      ? { kind: 'paid', text: formatRupiah(internalForm.feeAmount) }
+      : { kind: 'free', text: 'Gratis' };
   const facts = [
     { icon: GraduationCap, label: 'Jenjang', value: levels.join(', ') || 'Semua jenjang' },
     { icon: MapPin, label: 'Pelaksanaan', value: place },
@@ -181,7 +216,9 @@ export default async function EventDetailPage({
   ];
 
   const launchContext = { eventId: event.id, returnTo: detailPath, signedIn: user !== null, status: tracked?.status ?? null };
-  const register = isClosed ? (
+  const register = cta ? (
+    <RegistrationCtaPanel cta={cta} formHref={formHref} />
+  ) : isClosed ? (
     // `disabled` tidak berefek pada <a>, jadi kegiatan yang ditutup tidak diberi tautan sama sekali.
     <span className="flex h-12 items-center justify-center rounded-card bg-panel-nested text-[15px] font-semibold text-ink-muted">
       Pendaftaran sudah ditutup
@@ -350,6 +387,8 @@ export default async function EventDetailPage({
                   )}
                 </div>
 
+                <EventGallery photos={photos} eventTitle={event.title} />
+
                 {isTeamEvent && !isClosed && (
                   <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] bg-panel-nested p-[18px]">
                     <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-brand text-on-brand">
@@ -479,8 +518,9 @@ export default async function EventDetailPage({
                 <div role="note" className="flex gap-3 rounded-[12px] border border-dashed border-ink-muted p-4 text-sm leading-normal">
                   <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
                   <span>
-                    Jangan transfer biaya pendaftaran ke rekening pribadi, dan pastikan formulir yang kamu isi berada di domain resmi
-                    penyelenggara. Ada yang janggal? Bandingkan dengan pengumuman aslinya.
+                    {internalForm
+                      ? 'Untuk pendaftaran lewat StudentFo, bayar hanya ke tujuan yang tertulis di halaman pembayaranmu. StudentFo tidak pernah meminta OTP, PIN, atau kata sandi.'
+                      : 'Jangan transfer biaya pendaftaran ke rekening pribadi, dan pastikan formulir yang kamu isi berada di domain resmi penyelenggara. Ada yang janggal? Bandingkan dengan pengumuman aslinya.'}
                   </span>
                 </div>
                 {sourceUrl && (
@@ -571,12 +611,19 @@ export default async function EventDetailPage({
           disembunyikan di lebar ini), jadi alur & uji tidak bercabang. */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-canvas shadow-[0_-8px_24px_rgba(0,0,0,.06)] min-[960px]:hidden">
         <div className="mx-auto flex max-w-[720px] items-center gap-2.5 px-4 py-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-sm font-semibold">{isClosed ? 'Pendaftaran ditutup' : daysLeftLabel(state.daysLeft)}</span>
-            <span className="truncate text-[12.5px] text-ink-muted">
-              {event.primaryDeadlineAt ? `Tutup ${formatDateId(event.primaryDeadlineAt)}` : event.organizer}
-            </span>
-          </div>
+          {cta?.kind === 'mine' ? (
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+              <span className="text-[12.5px] text-ink-muted">Status pendaftaranmu</span>
+              <RegistrationStatusBadge status={cta.status} />
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm font-semibold">{isClosed ? 'Pendaftaran ditutup' : daysLeftLabel(state.daysLeft)}</span>
+              <span className="truncate text-[12.5px] text-ink-muted">
+                {event.primaryDeadlineAt ? `Tutup ${formatDateId(event.primaryDeadlineAt)}` : event.organizer}
+              </span>
+            </div>
+          )}
           <form action={toggleSaveEventAction}>
             <input type="hidden" name="eventId" value={event.id} />
             <input type="hidden" name="returnTo" value={detailPath} />
@@ -588,7 +635,9 @@ export default async function EventDetailPage({
               <Bookmark aria-hidden className={cn('size-4', isSaved && 'fill-current')} />
             </button>
           </form>
-          {!isClosed && registrationUrl && (
+          {cta ? (
+            <RegistrationCtaBarAction cta={cta} formHref={formHref} />
+          ) : !isClosed && registrationUrl && (
             <RegisterLaunch
               href={`${detailPath}/daftar`}
               ariaLabel="Daftar sekarang (membuka situs penyelenggara di tab baru)"

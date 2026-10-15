@@ -32,6 +32,20 @@ export function allowsDocumentFrames(pathname: string): boolean {
   return /^\/events\/[^/]+\/?$/.test(pathname);
 }
 
+/**
+ * Berkas unggahan yang disajikan `/media/*` (foto galeri, bukti bayar —
+ * ADR-056). CSP halaman (skrip bernonce) tidak bermakna untuk sebuah gambar;
+ * yang dibutuhkan kebalikannya: dokumen tanpa kemampuan apa pun. Kalaupun
+ * byte non-gambar lolos ke penyimpanan, membukanya langsung di tab tidak
+ * menjalankan apa pun di origin kita. `style-src 'unsafe-inline'` hanya untuk
+ * penampil gambar bawaan peramban.
+ */
+export const MEDIA_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
+export function isMediaPath(pathname: string): boolean {
+  return pathname.startsWith('/media/');
+}
+
 export const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
 const GOOGLE_ACCOUNTS_ORIGIN = 'https://accounts.google.com';
 

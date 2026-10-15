@@ -279,6 +279,30 @@ Belum / butuh keputusan pemilik:
 - [ ] Ditemukan uji baru, utang lama: chip filter `/events` 36px & judul kartu stretched-link < 44px.
 - [ ] Bila katalog aktif > 20.000: komponen skor non-profil dihitung harian via pg_cron (ADR-050).
 
+## Polish produksi 2026-10-14 (@claude) — ADR-056
+
+Permintaan pemilik: formulir pendaftaran internal, galeri foto, menu pembayaran,
+tampilan per peran, bersihkan kesan "buatan AI", login produksi, pemuat di tengah.
+
+- [x] Migration `20261014100001` (formulir, pendaftaran, foto, RPC, bucket privat) + `94_registrations.test.sql` (mutation-tested)
+- [x] `lib/registration-form.ts` (skema, jawaban, transisi, CSV aman) & `lib/image-file.ts` (byte-sniff, buang EXIF/GPS) + uji
+- [x] `RegistrationRepository`/`GalleryRepository` di memori & Supabase; uji paritas memori (`registrations.test.ts`) & integrasi PostgREST
+- [x] Studio: Formulir (penyusun) · Pendaftar (verifikasi bayar, CSV) · Galeri; rute `/media/foto`, `/media/bukti`
+- [x] Peserta: `/events/[slug]/formulir`, `/pembayaran`, `/pembayaran/[id]`, CTA & galeri di detail acara; e2e lintas peran `registration-payment.spec.ts`
+- [x] Beranda & navigasi per peran (peserta / penyelenggara / admin); menu akun satu daftar (`accountMenuGroups`)
+- [x] Bersihkan landing & halaman dari hiasan/teks bertele-tele (tur, testimoni, catatan tangan, font Caveat); pemuat navigasi di tengah
+- [x] Navbar tamu satu baris di 360–375px; audit axe & viewport sempit mencakup halaman baru
+- [x] Login/daftar: jenis akun, persetujuan privasi, CAPTCHA daftar/lupa sandi/kirim ulang, `/verify-email` + kirim ulang konfirmasi, indikator sandi, tata letak satu kartu (audit S5 selesai)
+- [ ] **BUTUH AKSES PEMILIK.** Uji jalur Supabase sungguhan di staging: daftar email + konfirmasi, kirim ulang, Google OAuth (dengan & tanpa jenis akun), Turnstile dengan kunci asli. Pastikan CAPTCHA bawaan Supabase Auth TIDAK diaktifkan (kita memverifikasi sendiri).
+
+Belum / butuh keputusan atau akses pemilik:
+- [ ] **BUTUH KONFIRMASI.** Apply `20261014100001` ke staging (membuat bucket `event-photos` & `payment-proofs`), `npm run db:verify`, uji unggah sungguhan ke Storage. Urutan rilis: migration dulu, baru kode.
+- [ ] Retensi data pendaftar & bukti bayar (mis. anonimkan/hapus N hari setelah acara selesai) — butuh keputusan pemilik + job pg_cron.
+- [ ] Hapus akun (produksi, Fase 6a) wajib ikut menghapus berkas bukti di Storage — baris terhapus CASCADE, berkasnya tidak.
+- [ ] Payment gateway (Midtrans/Xendit) bila diinginkan: akun merchant & kunci pemilik; antarmuka status sudah siap.
+- [ ] Pengumuman ke pendaftar (email massal dari panitia) — butuh pengirim email & batas laju.
+- [ ] Syarat & Ketentuan (tetap P0 audit 2026-10-05), kini juga mengatur tanggung jawab penyelenggara atas data pendaftar.
+
 ## Template tugas baru
 
 ```md

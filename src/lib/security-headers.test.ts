@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { allowsDocumentFrames, buildContentSecurityPolicy, generateNonce, HSTS_VALUE, STATIC_SECURITY_HEADERS } from './security-headers';
+import {
+  allowsDocumentFrames,
+  buildContentSecurityPolicy,
+  generateNonce,
+  HSTS_VALUE,
+  isMediaPath,
+  MEDIA_CONTENT_SECURITY_POLICY,
+  STATIC_SECURITY_HEADERS,
+} from './security-headers';
 
 function directives(csp: string): Map<string, string[]> {
   return new Map(
@@ -82,4 +90,15 @@ it('Permissions-Policy mematikan fitur sensitif, termasuk untuk iframe buku pand
   for (const feature of ['camera', 'microphone', 'geolocation', 'payment', 'usb']) {
     expect(policy, feature).toContain(`${feature}=()`);
   }
+});
+
+describe('CSP berkas /media', () => {
+  it('rute berkas mendapat dokumen tanpa kemampuan apa pun', () => {
+    expect(isMediaPath('/media/foto/abc')).toBe(true);
+    expect(isMediaPath('/media/bukti/abc')).toBe(true);
+    expect(isMediaPath('/events/media')).toBe(false);
+    expect(MEDIA_CONTENT_SECURITY_POLICY).toContain("default-src 'none'");
+    expect(MEDIA_CONTENT_SECURITY_POLICY).toContain('sandbox');
+    expect(MEDIA_CONTENT_SECURITY_POLICY).not.toContain('script-src');
+  });
 });

@@ -1,59 +1,45 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Bookmark,
-  Building2,
-  Heart,
-  type LucideIcon,
-  Send,
-  ShieldCheck,
-  Ticket,
-  UsersRound,
-} from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bookmark, Heart, Hourglass, type LucideIcon, ReceiptText, Ticket, UsersRound } from 'lucide-react';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { DeadlineWeek } from '@/components/event/deadline-week';
 import { EventGrid } from '@/components/event/event-grid';
+import { loadMyRegistrations } from '@/components/home/account-role';
 import { SearchBox } from '@/components/listing/listing-ui';
-import { CalendarSketch } from '@/components/ui/illustrations';
-import { HandNote } from '@/components/ui/sketch';
+import { registrationHref } from '@/components/registration/registration-cta';
 import { type AuthUser, isProfileComplete } from '@/lib/auth';
+import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
-import { withFallback } from '@/lib/fallback';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import { parseEventQuery, type RawSearchParams } from '@/lib/search-params';
 import { needsActionSoon } from '@/lib/tracker-progress';
-import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type TrackerStatus } from '@/types/domain';
+import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type EventRegistration, type TrackerStatus } from '@/types/domain';
 
-const ACTION_LIMIT = 5;
+const ACTION_LIMIT = 6;
+const RECOMMENDATION_LIMIT = 6;
 
 interface Shortcut {
   readonly href: string;
   readonly label: string;
   readonly icon: LucideIcon;
-  readonly note?: string;
+  readonly count?: number;
+  readonly countLabel?: string;
 }
-const RECOMMENDATION_LIMIT = 6;
 
 /**
- * Beranda untuk pengguna yang sudah masuk (ADR-053).
+ * Beranda peserta (ADR-053, ADR-056): tujuan utamanya menemukan & mendaftar
+ * kegiatan serta melacak tenggat & pembayaran. Urut menurut urgensi:
+ * (1) tagihan & incaran yang tutup ≤ 7 hari, (2) posisi pendaftaran,
+ * (3) kegiatan baru yang cocok.
  *
- * Sebelumnya `/` menampilkan halaman pemasaran yang sama untuk semua orang —
- * pengguna yang sudah punya akun disambut "Buat akun dalam satu menit" dan
- * harus menggali menu untuk tahu apa yang perlu ia kerjakan. Halaman ini
- * menjawab tiga pertanyaan orang yang kembali, berurutan menurut urgensi:
- * (1) apa yang tutup sebentar lagi dari incaranku, (2) bagaimana posisi
- * pendaftaranku, (3) apa yang baru dan cocok untukku.
- *
- * Semua data lewat repository yang sama dengan halaman lain; tidak ada
- * aturan baru — "perlu tindakan" = `needsActionSoon` (papan Pendaftaran),
- * "sesuai minatmu" = urutan `relevance` yang sama dengan /events.
+ * Tidak ada aturan baru — "perlu tindakan" = `needsActionSoon` (papan
+ * Pendaftaran) + tagihan dari menu Pembayaran, "sesuai minatmu" = urutan
+ * `relevance` yang sama dengan /events.
  */
 export async function PersonalHome({ user, params }: { user: AuthUser; params: RawSearchParams }) {
   const repository = await getEventRepository();
   const now = new Date();
-  const [tracker, saved, recommended, week, categories, organizer] = await Promise.all([
+  const [tracker, saved, recommended, week, categories, registrations] = await Promise.all([
     repository.listTrackerItems(user.id),
     repository.listSavedEvents(user.id),
     repository.listEvents({
@@ -64,23 +50,23 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     }),
     repository.getDeadlineWeek(),
     repository.listCategories(),
-    // Pendukung, bukan inti: satu tabel penyelenggara yang bermasalah tidak
-    // boleh menjatuhkan beranda SEMUA pengguna — paling buruk pintasan studio
-    // tidak tampil (ADR-047).
-    withFallback('profil penyelenggara', () => repository.getOrganizerProfile(user.id), null),
+    loadMyRegistrations(user.id),
   ]);
 
   const trackedIds = new Set(tracker.map((item) => item.eventId));
   const savedIds = new Set(saved.map((event) => event.id));
+  const allUnpaid = registrations.filter((registration) => registration.status === 'AWAITING_PAYMENT');
+  const unpaid = allUnpaid.slice(0, ACTION_LIMIT);
+  const inReview = registrations.filter((registration) => registration.status === 'PAYMENT_REVIEW');
   // Simpanan (penanda) dan baris tracker "Disimpan" sama-sama berarti "belum
   // didaftar"; satu kegiatan yang ada di keduanya cukup muncul sekali.
-  const actions = needsActionSoon(
+  const deadlines = needsActionSoon(
     [
       ...tracker,
       ...saved.filter((event) => !trackedIds.has(event.id)).map((event) => ({ status: 'SAVED' as TrackerStatus, event })),
     ],
     now,
-  ).slice(0, ACTION_LIMIT);
+  ).slice(0, ACTION_LIMIT - unpaid.length);
   const picks = recommended.items.filter((event) => !trackedIds.has(event.id) && !savedIds.has(event.id)).slice(0, RECOMMENDATION_LIMIT);
 
   const counts = {
@@ -97,17 +83,11 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     .slice(0, 3);
   const profileReady = isProfileComplete(user);
 
-  // Pintasan peran (moderator, penyelenggara) didahulukan selebar penuh: bagi
-  // mereka itulah pekerjaan utamanya, bukan pintasan kelima yang terpotong.
-  const roleShortcuts: Shortcut[] = [
-    ...(user.role === 'ADMIN' ? [{ href: '/admin', label: 'Buka antrean moderasi', icon: ShieldCheck }] : []),
-    ...(organizer?.status === 'VERIFIED' ? [{ href: '/penyelenggara', label: 'Buka studio penyelenggara', icon: Building2 }] : []),
-  ];
   const shortcuts: Shortcut[] = [
     { href: '/tracker', label: 'Pendaftaran', icon: Ticket },
-    { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, note: saved.length > 0 ? String(saved.length) : undefined },
+    { href: '/pembayaran', label: 'Pembayaran', icon: ReceiptText, count: allUnpaid.length, countLabel: 'belum dibayar' },
+    { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, count: saved.length, countLabel: 'tersimpan' },
     { href: '/teams', label: 'Cari tim', icon: UsersRound },
-    { href: '/submit', label: 'Kirim kegiatan', icon: Send },
   ];
 
   return (
@@ -118,16 +98,11 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
         <AuthFeedback params={params} />
       </div>
       <header className="enter flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex max-w-2xl flex-col gap-2">
-          <HandNote className="self-start text-[19px] text-ink-muted">{todayLabel(now)}</HandNote>
-          <h1 className="text-[clamp(32px,5vw,48px)] leading-[1.05]">
-            {greetingFor(now)}, <span className="marker">{firstNameOf(user.fullName)}</span>.
+        <div className="flex max-w-2xl flex-col gap-1.5">
+          <p className="text-sm text-ink-muted">{todayLabel(now)}</p>
+          <h1 className="text-[clamp(30px,4.6vw,44px)] leading-[1.05]">
+            {greetingFor(now)}, {firstNameOf(user.fullName)}.
           </h1>
-          <p className="text-[17px] leading-relaxed text-ink-muted">
-            {actions.length > 0
-              ? `${actions.length} kegiatan incaranmu tutup dalam 7 hari. Selesaikan pendaftarannya dulu, ya.`
-              : 'Tidak ada tenggat mendesak di daftarmu. Waktu yang pas untuk mencari peluang baru.'}
-          </p>
         </div>
         <div className="flex w-full lg:max-w-md">
           <SearchBox query={parseEventQuery({})} placeholder="Cari lomba, beasiswa, magang…" />
@@ -137,37 +112,32 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
       {!profileReady && (
         <Link
           href="/profile/interests"
-          className="sketch-box mt-8 flex items-center gap-4 bg-panel px-5 py-4 transition-colors duration-150 ease-snap hover:bg-panel-nested"
+          className="mt-8 flex items-center gap-4 rounded-card border border-line bg-panel px-5 py-4 transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested"
         >
           <Heart aria-hidden className="size-5 shrink-0" />
           <span className="flex flex-1 flex-col">
             <span className="font-semibold">Pilih minat & jenjangmu</span>
-            <span className="text-sm text-ink-muted">
-              Dua isian ini yang menentukan urutan &ldquo;Sesuai minatmu&rdquo; dan pengingat yang kamu terima.
-            </span>
+            <span className="text-sm text-ink-muted">Rekomendasi dan pengingat menyesuaikan pilihanmu.</span>
           </span>
           <ArrowRight aria-hidden className="size-4 shrink-0" />
         </Link>
       )}
 
-      <div className="mt-10 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-        <section aria-labelledby="perlu-tindakan" className="rounded-panel border border-line bg-panel p-5 sm:p-6">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 id="perlu-tindakan" className="text-xl">
-              Perlu tindakan
-            </h2>
-            <Link href="/tracker" className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-ink-muted hover:text-ink">
-              Papan pendaftaran <ArrowRight aria-hidden className="size-3.5" />
-            </Link>
-          </div>
-          <p className="text-sm text-ink-muted">Incaranmu yang belum didaftar dan tutup ≤ 7 hari lagi.</p>
-          {actions.length > 0 ? (
-            <ul className="mt-4 flex flex-col divide-y divide-line border-t border-line">
-              {actions.map(({ item }) => (
+      <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <section aria-labelledby="perlu-tindakan" className="min-w-0 rounded-panel border border-line bg-panel p-5 sm:p-6">
+          <h2 id="perlu-tindakan" className="text-xl">
+            Perlu tindakan
+          </h2>
+          {unpaid.length + deadlines.length > 0 ? (
+            <ul className="mt-3 flex flex-col divide-y divide-line border-t border-line">
+              {unpaid.map((registration) => (
+                <PaymentRow key={registration.id} registration={registration} />
+              ))}
+              {deadlines.map(({ item }) => (
                 <li key={item.event.id} className="flex items-center gap-3 py-3">
                   <DeadlineTag deadlineAt={item.event.primaryDeadlineAt} className="shrink-0" />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <Link href={`/events/${item.event.slug}`} className="truncate font-semibold hover:underline">
+                    <Link href={`/events/${item.event.slug}`} className="line-clamp-2 font-semibold hover:underline">
                       {item.event.title}
                     </Link>
                     <span className="truncate text-[13px] text-ink-muted">
@@ -187,34 +157,31 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
               ))}
             </ul>
           ) : (
-            <div className="mt-4 flex flex-col items-center gap-2 rounded-card bg-panel-nested px-4 py-6 text-center sm:flex-row sm:gap-5 sm:text-left">
-              <CalendarSketch className="h-[84px] w-[105px] text-ink-soft sm:h-[112px] sm:w-[140px]" />
-              <div className="flex flex-col gap-1">
-                <p className="font-semibold">Aman, tidak ada yang mepet.</p>
-                <p className="text-sm text-ink-muted">
-                  Simpan kegiatan yang kamu incar — kalau tenggatnya tinggal seminggu, ia muncul di sini dan di lonceng
-                  notifikasi.
-                </p>
-              </div>
+            <div className="mt-3 rounded-card bg-panel-nested px-4 py-5 text-sm">
+              <p className="font-semibold">Tidak ada yang mendesak.</p>
+              <p className="mt-0.5 text-ink-muted">Kegiatan yang kamu simpan muncul di sini saat tenggatnya tinggal 7 hari.</p>
             </div>
+          )}
+          {inReview.length > 0 && (
+            <Link
+              href={inReview.length === 1 && inReview[0] ? registrationHref(inReview[0].id) : '/pembayaran'}
+              className="mt-3 flex min-h-11 items-center gap-2.5 rounded-sm px-1 text-sm text-ink-soft hover:text-ink"
+            >
+              <Hourglass aria-hidden className="size-4 shrink-0 text-ink-muted" />
+              <span className="min-w-0 flex-1 truncate">
+                {inReview.length === 1 && inReview[0]
+                  ? `Bukti bayar ${inReview[0].event.title} sedang diperiksa`
+                  : `${inReview.length} bukti bayar sedang diperiksa`}
+              </span>
+              <ArrowRight aria-hidden className="size-3.5 shrink-0" />
+            </Link>
           )}
         </section>
 
-        <section aria-labelledby="pantauanmu" className="flex flex-col rounded-panel border border-line bg-panel p-5 sm:p-6">
+        <section aria-labelledby="pantauanmu" className="flex min-w-0 flex-col rounded-panel border border-line bg-panel p-5 sm:p-6">
           <h2 id="pantauanmu" className="text-xl">
             Pantauanmu
           </h2>
-          {roleShortcuts.map((shortcut) => (
-            <Link
-              key={shortcut.href}
-              href={shortcut.href}
-              className="mt-4 flex min-h-12 items-center gap-2.5 rounded-sm bg-brand px-4 text-sm font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
-            >
-              <shortcut.icon aria-hidden className="size-4 shrink-0" />
-              <span className="flex-1">{shortcut.label}</span>
-              <ArrowRight aria-hidden className="size-4 shrink-0" />
-            </Link>
-          ))}
           {counts.watched > 0 ? (
             <dl className="mt-4 grid grid-cols-3 divide-x divide-line rounded-card border border-line">
               {[
@@ -229,15 +196,10 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
               ))}
             </dl>
           ) : (
-            // Tiga angka nol tidak memberi tahu apa pun; kalimat ini memberi tahu
-            // cara mengisinya.
-            <p className="mt-2 text-sm text-ink-muted">
-              Belum ada kegiatan yang kamu pantau. Tekan ikon simpan{' '}
-              <Bookmark aria-hidden className="inline size-3.5 align-[-2px]" /> di kartu kegiatan — ia langsung masuk
-              papan Pendaftaran, tempat kamu menandai tahapnya.
-            </p>
+            // Tiga angka nol tidak memberi tahu apa pun; kalimat ini memberi tahu cara mengisinya.
+            <p className="mt-2 text-sm text-ink-muted">Simpan kegiatan untuk memantau tenggat dan tahap pendaftarannya.</p>
           )}
-          <nav aria-label="Pintasan" className="mt-4 grid grid-cols-2 gap-2">
+          <nav aria-label="Akses cepat" className="mt-4 grid grid-cols-2 gap-2">
             {shortcuts.map((shortcut) => (
               <Link
                 key={shortcut.href}
@@ -246,8 +208,11 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
               >
                 <shortcut.icon aria-hidden className="size-4 shrink-0 text-ink-muted" />
                 <span className="min-w-0 flex-1 truncate">{shortcut.label}</span>
-                {shortcut.note && (
-                  <span className="rounded-[6px] bg-panel-nested px-1.5 text-xs font-semibold tabular-nums">{shortcut.note}</span>
+                {shortcut.count !== undefined && shortcut.count > 0 && (
+                  <span className="rounded-[6px] bg-panel-nested px-1.5 text-xs font-semibold tabular-nums">
+                    {shortcut.count}
+                    <span className="sr-only"> {shortcut.countLabel}</span>
+                  </span>
                 )}
               </Link>
             ))}
@@ -265,13 +230,12 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
             <h2 id="untukmu" className="text-2xl">
               Sesuai minatmu
             </h2>
-            <p className="text-sm text-ink-muted">
-              {profileReady
-                ? `Diurutkan dari minat ${interestNames.join(', ') || 'pilihanmu'}${
-                    user.educationLevel ? ` dan jenjang ${EDUCATION_LEVEL_LABEL[user.educationLevel]}` : ''
-                  }, lalu kedekatan tenggat dan kebaruannya.`
-                : 'Minat atau jenjangmu belum diisi — sementara ini diurutkan dari yang terbaru, paling banyak disimpan, dan tenggatnya masih sempat dikejar.'}
-            </p>
+            {profileReady && interestNames.length > 0 && (
+              <p className="text-sm text-ink-muted">
+                {interestNames.join(', ')}
+                {user.educationLevel ? ` · ${EDUCATION_LEVEL_LABEL[user.educationLevel]}` : ''}
+              </p>
+            )}
           </div>
           <Link href="/events" className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold">
             Lihat semua kegiatan <ArrowRight aria-hidden className="size-4" />
@@ -290,6 +254,27 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
   );
 }
 
+function PaymentRow({ registration }: { registration: EventRegistration }) {
+  const action = registration.feeAmount ? `Bayar ${formatRupiah(registration.feeAmount)}` : 'Selesaikan pembayaran';
+  return (
+    <li>
+      <Link href={registrationHref(registration.id)} className="group flex min-h-11 items-center gap-3 py-3">
+        <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] bg-highlight-soft px-2 text-xs font-semibold">
+          <ReceiptText aria-hidden className="size-3.5" />
+          Tagihan
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="line-clamp-2 font-semibold group-hover:underline">{registration.event.title}</span>
+          <span className="truncate text-[13px] text-ink-muted">
+            <span className="font-semibold text-ink">{action}</span> · {registration.code}
+          </span>
+        </span>
+        <ArrowRight aria-hidden className="size-4 shrink-0 text-ink-muted" />
+      </Link>
+    </li>
+  );
+}
+
 function EmptyPicks() {
   return (
     <p className="rounded-card border border-dashed border-line bg-panel px-5 py-8 text-center text-sm text-ink-muted">
@@ -301,4 +286,3 @@ function EmptyPicks() {
     </p>
   );
 }
-

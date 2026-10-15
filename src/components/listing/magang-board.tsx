@@ -55,7 +55,7 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
             <Breadcrumb current="Magang" />
             <PageTitle>Magang pertama, dari penyelenggara yang jelas.</PageTitle>
             <p className="text-base leading-relaxed text-ink-muted">
-              Lowongan yang sudah ditinjau manual, lengkap dengan lokasi, jenjang, dan tanggal tutupnya sejak awal.
+              Lowongan yang sudah ditinjau, lengkap dengan lokasi dan tanggal tutupnya.
             </p>
           </div>
           <div className="enter relative z-20 flex flex-wrap gap-2 rounded-[14px] border border-line-strong/70 bg-panel p-2 shadow-[0_10px_30px_rgba(0,0,0,.05)] [animation-delay:120ms] [animation-duration:900ms]">

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AUTH_ERROR_MESSAGE,
+  AUTH_NOTICE_MESSAGE,
   mapSupabaseAuthError,
   parseAuthErrorCode,
   parseAuthNoticeCode,
@@ -48,6 +49,20 @@ describe('parseAuthErrorCode', () => {
 
   it('memakai nilai pertama kalau parameter diulang', () => {
     expect(parseAuthErrorCode(['validation', 'unknown'])).toBe('validation');
+  });
+});
+
+describe('kode baru form daftar & lupa sandi', () => {
+  it('CAPTCHA & persetujuan punya kode sendiri dari daftar tertutup', () => {
+    expect(parseAuthErrorCode('captcha_failed')).toBe('captcha_failed');
+    expect(parseAuthErrorCode('consent_required')).toBe('consent_required');
+  });
+
+  it('kabar kirim ulang konfirmasi tidak membocorkan keberadaan akun', () => {
+    expect(parseAuthNoticeCode('confirmation_resent')).toBe('confirmation_resent');
+    // Berlaku untuk alamat apa pun — jadi harus berbentuk pengandaian.
+    expect(AUTH_NOTICE_MESSAGE.confirmation_resent).toMatch(/^Kalau /);
+    expect(AUTH_NOTICE_MESSAGE.confirmation_resent).not.toMatch(/tidak terdaftar|belum terdaftar|tidak ditemukan/i);
   });
 });
 

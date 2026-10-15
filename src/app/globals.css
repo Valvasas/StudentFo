@@ -309,7 +309,6 @@
 
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: var(--font-bricolage), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
-  --font-hand: var(--font-caveat), 'Segoe Print', 'Bradley Hand', cursive;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
   --color-highlight: var(--color-highlight);
   --color-highlight-soft: var(--color-highlight-soft);
@@ -486,16 +485,6 @@
    "buku catatan yang rapi" jadi "tugas prakarya".
    ===================================================================== */
 
-/* Catatan pinggir bertulisan tangan. Caveat tampak kecil di ukuran yang
-   sama dengan sans, jadi ukurannya dinaikkan ±25% dan barisnya dirapatkan. */
-@utility hand {
-  font-family: var(--font-hand);
-  font-weight: 600;
-  font-size: 1.25em;
-  line-height: 1.1;
-  letter-spacing: 0;
-}
-
 /* Stabilo di belakang kata: bukan blok penuh, hanya pita di 1/3 bawah —
    seperti ditandai pulpen stabilo di buku catatan. Pita rata (bukan gradien
    berujung transparan): di kata pendek seperti logo, ujung transparan membuat
@@ -663,13 +652,6 @@ html[data-reveal-ready] [data-reveal='scale']:not([data-revealed]) {
 html[data-reveal-ready] [data-reveal='left']:not([data-revealed]) {
   transform: translateX(-24px);
 }
-html[data-reveal-ready] [data-reveal='stamp']:not([data-revealed]) {
-  transform: scale(1.35);
-}
-html[data-reveal-ready] [data-reveal='line']:not([data-revealed]) {
-  transform: scaleX(0);
-  transform-origin: left center;
-}
 
 @media (prefers-reduced-motion: reduce) {
   html[data-reveal-ready] [data-reveal]:not([data-revealed]) {
@@ -683,30 +665,9 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   transform: none;
 }
 
-@keyframes sf-word {
-  0% { opacity: 0; transform: translateY(0.45em); }
-  4%, 18% { opacity: 1; transform: none; }
-  23%, 100% { opacity: 0; transform: translateY(-0.45em); }
-}
-
-@keyframes sf-float {
-  from { transform: translateY(0); }
-  to { transform: translateY(-12px); }
-}
-
 @keyframes sf-rise {
   from { opacity: 0; transform: translateY(22px); }
   to { opacity: 1; transform: none; }
-}
-
-@keyframes sf-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-
-@keyframes sf-pulse-ring {
-  0% { transform: scale(1); opacity: 0.5; }
-  100% { transform: scale(2.6); opacity: 0; }
 }
 
 /* =====================================================================
@@ -1039,14 +1000,31 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   animation: sf-page-in 280ms var(--easing) backwards;
 }
 
-/* Kartu pemuat navigasi (NavigationProgress): muncul dari bawah, sekali. */
+/* Pemuat navigasi (NavigationProgress) di tengah layar. Lapisannya hanya
+   memudar; kartunya sedikit membesar — tanpa geser, supaya tidak terasa
+   "datang dari" bagian mana pun halaman. */
 @keyframes sf-loader-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.98); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+}
+
+@keyframes sf-loader-card-in {
+  from { transform: scale(0.96); }
+}
+
+@keyframes sf-loader-out {
+  to { opacity: 0; }
 }
 
 @utility loader-in {
-  animation: sf-loader-in 300ms var(--easing-enter) both;
+  animation: sf-loader-in 240ms var(--easing-enter) both;
+
+  & > :last-child {
+    animation: sf-loader-card-in 320ms var(--easing-enter) both;
+  }
+}
+
+@utility loader-out {
+  animation: sf-loader-out 200ms var(--easing) both;
 }
 
 @keyframes sf-bob {

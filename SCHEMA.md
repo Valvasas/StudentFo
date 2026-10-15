@@ -309,6 +309,47 @@ pemanggil yang sudah tutup (EXPIRED, atau APPROVED lewat tenggat) beserta
 total seumur acara (views, visitors, saves, clicks, applied), hanya selama
 penyelenggara VERIFIED.
 
+### `event_registration_forms`, `event_registrations`, `event_photos` (Formulir internal, pembayaran, galeri — ADR-056)
+Migration `20261014100001`. Uji: `supabase/tests/94_registrations.test.sql`
+(mutation-tested: kuota, hak kolom `reviewed_by`, batas galeri).
+
+`event_registration_forms`: PK `event_id`, `is_open`, `intro` ≤1000, `fields`
+JSONB array ≤25 & ≤64 KB (bentuk tiap kolom dikontrak `formFieldsSchema` di
+`src/lib/registration-form.ts`), `capacity` 1..100000, `fee_amount` 1..100 jt
+(NULL = gratis), `payment_instructions` ≤1000 — **wajib ≥10 karakter bila
+berbayar** (CHECK). `updated_by`/`updated_at` diisi trigger. SELECT publik
+untuk acara APPROVED/EXPIRED (policy terpisah untuk `anon` — `anon` tidak
+punya EXECUTE `manages_event`/`is_admin`); INSERT/UPDATE hanya
+`manages_event()` atau admin. Hak kolom: `updated_by` tidak terbaca & tidak
+tertulis klien.
+
+`event_registrations`: `code` `SF-XXXXXXXX` unik, salinan `full_name`/`email`
+saat mendaftar (penyelenggara tidak membaca `users`), `answers` JSONB objek
+≤64 KB, `status` `AWAITING_PAYMENT|PAYMENT_REVIEW|CONFIRMED|REJECTED|CANCELLED`,
+`fee_amount` (dibekukan saat daftar), `proof_path` (bucket privat), catatan
+& jejak tinjauan. Unik satu baris hidup per (acara, orang) kecuali CANCELLED —
+yang DITOLAK tidak bisa mendaftar ulang. SELECT: pemilik, `manages_event()`,
+admin; **tanpa hak tulis klien** — semua lewat RPC DEFINER
+`register_for_event` (kunci baris formulir → kuota tidak terlampaui, batas
+10/jam, ikut memajukan `application_tracker` ke APPLIED),
+`submit_payment_proof`, `review_event_registration` (catatan wajib saat
+menolak), `cancel_event_registration`. Kabar lewat `notify_registration()`
+(satu notifikasi per orang×acara×jenis yang disegarkan). Hitungan publik
+`event_registration_count()`; ringkasan studio `registration_stats()` (INVOKER,
+hanya acara kelolaan). `reviewed_by` tidak diberi hak SELECT.
+
+`event_photos`: maksimal 30 per acara (trigger DEFINER + kunci advisory),
+`uploaded_by` diisi trigger & tidak terbaca, `storage_path`
+`<event_id>/<uuid>.<ext>`, ukuran piksel untuk tata letak tanpa CLS. SELECT
+publik untuk acara tayang; INSERT/DELETE `manages_event()`/admin.
+
+Storage: bucket **privat** `event-photos` & `payment-proofs` (5 MB,
+JPEG/PNG/WebP) tanpa policy `storage.objects` — hanya service_role (server)
+yang membaca/menulis, SETELAH aplikasi membuktikan hak lewat baris metadata
+di atas. Disajikan `/media/foto/[id]` (publik, cache immutable) dan
+`/media/bukti/[id]` (privat, no-store). Insert bucket dijaga `to_regclass`
+supaya migration tetap jalan di Postgres polos (db:test).
+
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat
 DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom
@@ -333,6 +374,8 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 | `public.enforce_team_capacity()` (trigger, BEFORE INSERT `team_members`) | Tolak anggota melebihi `slots_needed` dengan `RAISE EXCEPTION 'team_full'`. SECURITY DEFINER karena butuh `FOR UPDATE` atas `teams` (0008) |
 | `public.approve_submission(uuid, uuid)` | Salin kiriman ke `events` (APPROVED) + tenggat + kategori + tandai kiriman, SATU transaksi. **Hanya `service_role`** (0008). Sejak `20261003100001` ikut menyalin `is_free`/`price_amount`/`guidebook_url`; kontak & bukti kepanitiaan TIDAK |
 | `public.list_personalized_events(...)` | INVOKER, `SET jit = off`. Listing urut relevansi; rumus = `rankEvents()` (personal & cold start), filter = `queryListingPage()`, `p_limit` dijepit 1..48, kolom `total_count`. anon/authenticated boleh (RLS tetap berlaku) |
+| `public.register_for_event(uuid, jsonb)` / `submit_payment_proof(uuid, text)` / `review_event_registration(uuid, text, text)` / `cancel_event_registration(uuid)` | DEFINER, `authenticated`. Satu-satunya jalur tulis `event_registrations`; transisi kembar `registrationTransition()` (ADR-056) |
+| `public.event_registration_count(uuid)` / `registration_stats(uuid[])` | Sisa kuota (publik) / ringkasan studio (INVOKER, hanya acara kelolaan) |
 | `public.claim_notification_dispatch(int, int)` / `ack_notification_dispatch(uuid[])` | DEFINER, **hanya `service_role`**. Klaim berbasis sewa (`FOR UPDATE SKIP LOCKED`), lewati pengingat basi; ack hanya untuk baris yang sedang diklaim |
 
 ## Row Level Security

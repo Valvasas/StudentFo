@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { Hash, MessageCircle } from 'lucide-react';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
-import { HandNote } from '@/components/ui/sketch';
 import { cn } from '@/lib/utils';
 
 /** Tab Pesan / Ruang diskusi di kepala kedua halaman (kanvas Pesan & Ruang Diskusi). */
@@ -12,8 +11,10 @@ export function InboxTabs({ active, description }: { active: 'pesan' | 'diskusi'
   ] as const;
   return (
     <div className="enter flex flex-col gap-4 [animation-duration:800ms] sm:flex-row sm:items-end sm:justify-between">
-      <div className="flex flex-col gap-1">
-        <HandNote className="text-[20px] text-ink-muted">kotak masuk</HandNote>
+      <div className="flex flex-col gap-2">
+        <p className="font-display text-[clamp(28px,4vw,36px)] font-bold leading-none tracking-[-0.03em]">
+          Kotak masuk
+        </p>
         <p className="max-w-[52ch] text-[15px] leading-relaxed text-ink-muted">{description}</p>
       </div>
       <nav aria-label="Kotak masuk" className="relative">

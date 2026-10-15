@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EDUCATION_LEVELS } from '@/types/domain';
+import { PASSWORD_DIGIT, PASSWORD_LETTER, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './password-rules';
 
 /**
  * Aturan validasi form akun.
@@ -29,10 +30,10 @@ export const emailSchema = z
  */
 export const passwordSchema = z
   .string()
-  .min(8, 'Kata sandi minimal 8 karakter.')
-  .max(72, 'Kata sandi maksimal 72 karakter.')
-  .regex(/[a-zA-Z]/, 'Kata sandi harus memuat setidaknya satu huruf.')
-  .regex(/[0-9]/, 'Kata sandi harus memuat setidaknya satu angka.');
+  .min(PASSWORD_MIN_LENGTH, `Kata sandi minimal ${PASSWORD_MIN_LENGTH} karakter.`)
+  .max(PASSWORD_MAX_LENGTH, `Kata sandi maksimal ${PASSWORD_MAX_LENGTH} karakter.`)
+  .regex(PASSWORD_LETTER, 'Kata sandi harus memuat setidaknya satu huruf.')
+  .regex(PASSWORD_DIGIT, 'Kata sandi harus memuat setidaknya satu angka.');
 
 export const fullNameSchema = z
   .string()
@@ -50,11 +51,41 @@ export const signInSchema = z.object({
   password: z.string().min(1, 'Kata sandi wajib diisi.'),
 });
 
+/**
+ * Jenis akun yang dipilih saat daftar. Hanya menentukan tujuan pertama
+ * setelah konfirmasi dan disimpan di user metadata sebagai catatan —
+ * BUKAN izin: status penyelenggara tetap lewat pengajuan & verifikasi admin.
+ */
+export const ACCOUNT_TYPES = ['participant', 'organizer'] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+export function parseAccountType(value: unknown): AccountType | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return (ACCOUNT_TYPES as readonly unknown[]).includes(raw) ? (raw as AccountType) : null;
+}
+
+/** Nilai kotak centang persetujuan Kebijakan privasi di form daftar. */
+export const PRIVACY_CONSENT_VALUE = 'yes';
+
 export const signUpSchema = z.object({
+  accountType: z.enum(ACCOUNT_TYPES),
   fullName: fullNameSchema,
   email: emailSchema,
   password: passwordSchema,
+  privacyConsent: z.literal(PRIVACY_CONSENT_VALUE, {
+    errorMap: () => ({ message: 'Setujui Kebijakan privasi untuk membuat akun.' }),
+  }),
 });
+
+/**
+ * Tujuan pertama setelah akun aktif. Penyelenggara selalu ke studio, tempat
+ * pengajuan verifikasinya dimulai; peserta ke `next` (sudah lolos
+ * `safeNextPath`), yang bawaannya beranda pribadi — di sana ada ajakan
+ * mengisi minat & jenjang dan sambutan `email_confirmed`.
+ */
+export function postSignUpPath(accountType: AccountType, next: string): string {
+  return accountType === 'organizer' ? '/penyelenggara' : next;
+}
 
 export const resetRequestSchema = z.object({
   email: emailSchema,

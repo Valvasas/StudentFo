@@ -47,8 +47,7 @@ export function BeasiswaBoard({
         <Breadcrumb current="Beasiswa" />
         <PageTitle>Beasiswa yang bisa kamu ajukan</PageTitle>
         <p className="text-base leading-relaxed text-ink-muted">
-          Pilih jenjangmu. Kami tandai beasiswa yang terbuka untuk jenjang itu, dan beasiswa lain tetap terlihat beserta
-          alasannya.
+          Pilih jenjangmu untuk melihat beasiswa yang terbuka untukmu.
         </p>
       </div>
 
@@ -57,7 +56,7 @@ export function BeasiswaBoard({
         className="enter mt-10 grid gap-px overflow-hidden rounded-2xl border border-line bg-line [animation-delay:120ms] [animation-duration:900ms] [grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))]"
       >
         <div className="flex flex-col gap-3 bg-panel-nested px-6 py-[22px] sm:col-span-2">
-          <span className="font-mono text-xs tracking-[.06em] text-ink-muted">01 · JENJANG KAMU</span>
+          <span className="font-mono text-xs tracking-[.06em] text-ink-muted">JENJANG KAMU</span>
           <nav
             aria-label="Jenjang untuk cek kelayakan"
             className="flex max-w-full gap-0.5 self-start overflow-x-auto rounded-sm bg-line p-[3px] [scrollbar-width:none]"
@@ -195,8 +194,7 @@ export function BeasiswaBoard({
       )}
 
       <p className="mt-5 max-w-[70ch] text-[13px] leading-relaxed text-ink-muted">
-        Pengecekan ini hanya membaca jenjang. Syarat lain seperti IPK, usia, atau kondisi ekonomi tercantum di halaman detail
-        dan pengumuman resmi masing-masing beasiswa.
+        Hanya jenjang yang dicek. Syarat lain (IPK, usia, kondisi ekonomi) ada di halaman detail tiap beasiswa.
       </p>
 
       {result.totalPages > 1 && (

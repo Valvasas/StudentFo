@@ -162,29 +162,6 @@ export function ChatSketch({ className }: IllustrationProps) {
   );
 }
 
-/** Buka tim: bendera ditancapkan di bukit, pensil siap, dan kursi yang menunggu diisi. */
-export function PlantFlagSketch({ className }: IllustrationProps) {
-  return (
-    <Svg viewBox="0 0 320 220" className={cn('h-auto w-full max-w-[320px]', className)}>
-      <ellipse cx="160" cy="206" rx="134" ry="8" fill={PAPER_SHADE} stroke="none" />
-      <Ink d="M24 198 Q106 116 190 198 Z" fill={PAPER_SHADE} wait={0} />
-      <Ink d="M108 152 L108 34" width={3} wait={300} />
-      <Ink d="M108 38 C128 28 144 48 170 38 L170 78 C144 88 128 68 108 78 Z" fill={HIGHLIGHT} wait={500} />
-      <path d="M137 50 L137 66 M129 58 L145 58" strokeWidth="2.6" />
-      <Person x={214} head={152} base={198} color="sun" hair="arc" r={12} wait={700} />
-      <GhostSeat x={252} head={152} base={198} r={12} />
-      <GhostSeat x={290} head={152} base={198} r={12} />
-      <g className="drift" style={{ '--r0': '0deg', '--r1': '-6deg', '--d': '400ms' } as CSSProperties}>
-        <path d="M228 66 L272 22 L282 32 L238 76 Z" fill={PAPER} />
-        <path d="M228 66 L222 82 L238 76" fill={PAPER_SHADE} />
-        <path d="M264 30 L274 40" />
-      </g>
-      <Sparkle x={58} y={50} scale={0.9} wait={300} />
-      <Sparkle x={196} y={104} scale={0.6} wait={1400} />
-    </Svg>
-  );
-}
-
 /** Perayaan: terompet konfeti. Konfeti yang beterbangan dirender terpisah (`Confetti`). */
 export function CelebrateSketch({ className }: IllustrationProps) {
   return (

@@ -4,6 +4,8 @@ import {
   allowsDocumentFrames,
   buildContentSecurityPolicy,
   generateNonce,
+  isMediaPath,
+  MEDIA_CONTENT_SECURITY_POLICY,
   NONCE_HEADER,
   REQUEST_PATH_HEADER,
 } from '@/lib/security-headers';
@@ -36,7 +38,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       ? NextResponse.next({ request: { headers: requestHeaders } })
       : await updateSession(request, requestHeaders);
 
-  response.headers.set('Content-Security-Policy', csp);
+  // Rute berkas tetap lewat middleware (penyegaran sesi dibutuhkan bukti
+  // bayar privat), tapi CSP halaman di sini akan MENIMPA CSP sandbox rutenya.
+  response.headers.set('Content-Security-Policy', isMediaPath(request.nextUrl.pathname) ? MEDIA_CONTENT_SECURITY_POLICY : csp);
   return response;
 }
 
