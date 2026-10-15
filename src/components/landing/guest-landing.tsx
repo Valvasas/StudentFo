@@ -1,82 +1,45 @@
 import Link from 'next/link';
-import { BadgeCheck, CalendarClock, Check, Link2, Plus, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CalendarClock, Link2, Plus, ShieldCheck } from 'lucide-react';
+import { EventCard } from '@/components/event/event-card';
+import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
+import { cn } from '@/lib/utils';
 import { LandingHero } from './hero';
 import { RevealObserver } from './reveal-observer';
-import { LandingTour } from './tour';
-import { dataMode } from '@/lib/env';
 
 /**
- * Beranda: pemasaran untuk tamu (kanvas desain Landing v2, ADR-039),
- * ringkasan pribadi untuk yang sudah masuk (ADR-053). Satu URL, dua isi —
- * `/` adalah tujuan logo & setelah masuk, jadi bagi pengguna terdaftar ia
- * harus menjadi "rumah", bukan iklan untuk produk yang sudah ia pakai.
- * Sesi gagal dibaca → diperlakukan sebagai tamu (pola navbar, ADR-047),
- * bukan halaman error.
- *
- * Isinya statis dan tidak memuat hitungan H-n; dinamisnya halaman ini
- * datang dari CSP bernonce di layout (ADR-027), bukan dari datanya.
- *
- * Kanvas juga memuat bagian "Fitur utama" (empat kartu animasi); isinya
- * sudah dicakup penuh oleh Tur singkat tepat di atasnya, jadi dua demo
- * berturut-turut untuk hal yang sama dihapus (ADR-044).
- *
- * Salinan kanvas yang mengklaim hal yang belum benar untuk produk ini
- * (daftar lembaga yang "dicek setiap hari", sinkron tiap 6 jam, pengingat
- * H-7, testimoni bernama) disesuaikan dengan perilaku sistem yang
- * sesungguhnya — klaim yang tidak bisa dipertanggungjawabkan di halaman
- * pemasaran adalah kerugian nyata bagi yang mempercayainya.
+ * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. Pratinjaunya
+ * kegiatan sungguhan dari repository (bukan tangkapan antarmuka buatan), dan
+ * setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem — klaim
+ * pemasaran yang tidak bisa dipertanggungjawabkan adalah kerugian nyata bagi
+ * yang mempercayainya (ADR-039 #4).
  */
-const SOURCE_KINDS = [
-  'Kementerian & lembaga',
-  'Perguruan tinggi',
-  'Pusat prestasi nasional',
-  'Yayasan beasiswa',
-  'BUMN & perusahaan',
-  'Komunitas terverifikasi',
-  'Pemerintah daerah',
-  'Kiriman penyelenggara',
-] as const;
-
 const CHECKS = [
   {
     icon: Link2,
-    title: 'Sumber publik yang bisa dicek',
-    body: 'Setiap kegiatan menautkan pengumuman aslinya, jadi kamu selalu bisa memastikan langsung ke penyelenggara.',
+    title: 'Tautan ke sumber resmi',
+    body: 'Setiap kegiatan menautkan pengumuman aslinya, jadi kamu bisa memastikan langsung ke penyelenggara.',
   },
   {
     icon: ShieldCheck,
-    title: 'Ditinjau manusia sebelum tayang',
-    body: 'Hasil pengumpulan otomatis dicocokkan moderator dengan sumbernya. Tidak ada kegiatan yang terbit tanpa persetujuan.',
+    title: 'Ditinjau moderator',
+    body: 'Setiap kegiatan dicocokkan dengan sumbernya. Tidak ada yang tayang tanpa persetujuan.',
   },
   {
     icon: CalendarClock,
-    title: 'Sisa waktu dihitung ulang',
-    body: 'Hitungan hari diperbarui di setiap kunjungan dalam zona waktu WIB, bukan angka yang membeku.',
-  },
-] as const;
-
-const QUOTES = [
-  {
-    name: 'Contoh: mahasiswa ilmu komputer',
-    mono: 'MK',
-    text: '“Dulu tautan lomba saya simpan di catatan ponsel, lalu lupa semuanya. Pengingat sebelum tutup yang bikin berkas saya sempat selesai.”',
-  },
-  {
-    name: 'Contoh: siswa SMA',
-    mono: 'SS',
-    text: '“Saya tahu soal olimpiade dari sini, lengkap dengan tahapan seleksinya. Tidak perlu tanya ke lima grup WhatsApp lagi.”',
-  },
-  {
-    name: 'Contoh: mahasiswa manajemen',
-    mono: 'MM',
-    text: '“Sebelum membayar biaya pendaftaran, saya cek dulu sumber aslinya di sini. Ternyata pengumumannya tidak pernah ada.”',
+    title: 'Sisa waktu selalu terkini',
+    body: 'Sisa hari dihitung ulang setiap kali halaman dibuka, dalam zona waktu WIB.',
   },
 ] as const;
 
 const FAQS = [
   {
     q: 'Apakah StudentFo berbayar?',
-    a: 'Tidak. Pencarian, simpan, pengingat, dan papan pendaftaran gratis untuk pelajar dan mahasiswa.',
+    a: 'Tidak untuk pelajar. Mencari, menyimpan, pengingat, dan papan pendaftaran gratis. Kalau sebuah kegiatan memungut biaya pendaftaran, biaya itu ditetapkan dan diterima langsung oleh penyelenggaranya.',
+  },
+  {
+    q: 'Bagaimana cara mendaftar ke sebuah kegiatan?',
+    a: 'Sebagian kegiatan menerima pendaftaran lewat formulir di StudentFo. Sisanya diarahkan ke situs resmi penyelenggara — tautannya selalu ada di halaman kegiatan.',
   },
   {
     q: 'Bagaimana kalau ada kegiatan palsu?',
@@ -84,7 +47,7 @@ const FAQS = [
   },
   {
     q: 'Seakurat apa tanggal tenggatnya?',
-    a: 'Tanggal diambil dari pengumuman resmi penyelenggara saat ditinjau. Sisa harinya dihitung ulang di setiap kunjungan dalam zona waktu WIB. Tetap cek ulang ke situs resmi sebelum mendaftar.',
+    a: 'Tanggal diambil dari pengumuman resmi saat ditinjau. Tetap cek ulang ke situs penyelenggara sebelum mendaftar.',
   },
   {
     q: 'Saya siswa SMA, bisa ikut?',
@@ -92,138 +55,77 @@ const FAQS = [
   },
 ] as const;
 
-const sectionClass = 'container-page max-w-[1120px] pt-[clamp(96px,12vw,144px)]';
-const eyebrowClass = 'hand -rotate-1 self-start text-[21px] leading-none text-ink-muted';
-const h2Class = 'text-[clamp(32px,5vw,44px)] font-bold leading-[1.08] tracking-[-0.035em]';
-const delay = (ms: number) => ({ ['--reveal-delay' as string]: `${ms}ms` });
+const PREVIEW_LIMIT = 6;
 
-export function GuestLanding() {
+const sectionClass = 'container-page max-w-[1120px] pt-[clamp(72px,9vw,112px)]';
+const h2Class = 'text-[clamp(28px,4.4vw,40px)] font-bold leading-[1.1] tracking-[-0.03em]';
+
+export async function GuestLanding() {
+  const closingSoon = await withFallback(
+    'pratinjau tenggat terdekat',
+    async () => (await getEventRepository()).listClosingSoon(PREVIEW_LIMIT),
+    [],
+  );
+
   return (
     <div className="overflow-x-clip">
       <RevealObserver />
       <LandingHero />
 
-      <div className="pt-[clamp(72px,10vw,120px)]">
-        <div data-reveal="" className="flex flex-col items-center gap-7 border-y border-line py-10">
-          <span className="text-[13px] font-medium text-ink-muted">Jenis sumber yang kami kumpulkan</span>
-          <div className="w-full overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]">
-            <div aria-hidden className="flex w-max" style={{ animation: 'sf-marquee 52s linear infinite' }}>
-              {[...SOURCE_KINDS, ...SOURCE_KINDS].map((kind, index) => (
-                <span key={index} className="flex items-center gap-12 whitespace-nowrap pr-12 text-[17px] font-semibold tracking-[-0.02em] text-ink-muted">
-                  {kind}
-                  <span className="size-1 rounded-pill bg-line-strong" />
-                </span>
-              ))}
-            </div>
-            <ul className="sr-only">
-              {SOURCE_KINDS.map((kind) => (
-                <li key={kind}>{kind}</li>
-              ))}
-            </ul>
+      {closingSoon.length > 0 && (
+        <section aria-labelledby="tenggat-title" className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')}>
+          <div className="flex items-end justify-between gap-4">
+            <h2 id="tenggat-title" className="text-[clamp(22px,3vw,28px)] font-bold tracking-[-0.025em]">
+              Segera ditutup
+            </h2>
+            <Link
+              href="/events?sort=deadline"
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold text-ink-soft transition-colors duration-150 ease-snap hover:text-ink"
+            >
+              Lihat semua <ArrowRight aria-hidden className="size-4" />
+            </Link>
           </div>
-        </div>
-      </div>
-
-      <section id="cara-kerja" aria-labelledby="cara-kerja-title" className={`${sectionClass} scroll-mt-20`}>
-        <div data-reveal="" className="flex max-w-[640px] flex-col gap-3.5">
-          <span className={eyebrowClass}>Tur singkat</span>
-          <h2 id="cara-kerja-title" className={h2Class}>
-            Lihat cara pakainya dalam satu menit.
-          </h2>
-          <p className="text-[17px] leading-relaxed text-ink-muted">
-            Pemandu kami menunjukkan alurnya, dari memilih minat sampai mengajak rekan tim. Klik langkah mana pun untuk
-            melompat.
-          </p>
-        </div>
-        <LandingTour />
-      </section>
-
-      <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>
-        <div className="grid items-center gap-16 [grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))]">
-          <div className="flex flex-col gap-3.5">
-            <div data-reveal="" className="flex flex-col gap-3.5">
-              <span className={eyebrowClass}>Verifikasi</span>
-              <h2 id="verifikasi-title" className={h2Class}>
-                Setiap kegiatan dicek manual sebelum tayang.
-              </h2>
-              <p className="max-w-[46ch] text-[17px] leading-relaxed text-ink-muted">
-                Lomba berbayar dengan penyelenggara tidak jelas masih sering beredar. Karena itu tiga hal ini berlaku untuk
-                setiap kegiatan di StudentFo.
-              </p>
-            </div>
-            <ul className="mt-6 flex flex-col border-t border-line">
-              {CHECKS.map((check, index) => (
-                <li key={check.title} data-reveal="left" style={delay(100 + index * 220)} className="flex gap-4 border-b border-line py-5">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-panel-nested">
-                    <check.icon aria-hidden className="size-[18px]" />
-                  </span>
-                  <span className="flex flex-1 flex-col gap-1">
-                    <span className="text-base font-semibold tracking-[-0.01em]">{check.title}</span>
-                    <span className="text-[14.5px] leading-normal text-ink-muted">{check.body}</span>
-                  </span>
-                  <span aria-hidden className="mt-1.5 flex size-[22px] shrink-0 items-center justify-center rounded-pill bg-brand text-on-brand">
-                    <Check className="size-3" strokeWidth={2.4} />
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div
-            data-reveal="scale"
-            style={delay(100)}
-            aria-hidden
-            className="relative aspect-square w-full rounded-2xl bg-panel-nested [background-image:radial-gradient(var(--color-border)_1px,transparent_1px)] [background-size:22px_22px]"
-          >
-            <VerificationSheet />
-            <div className="absolute bottom-7 right-7 -rotate-[7deg]">
-              <div data-reveal="stamp" style={delay(900)} className="flex items-center gap-3 rounded-[10px] border-2 border-brand bg-panel p-1.5">
-                <div className="flex items-center gap-2.5 rounded-[6px] border border-brand px-3.5 py-2.5">
-                  <BadgeCheck className="size-[22px]" />
-                  <div className="flex flex-col gap-0.5 text-left">
-                    <span className="font-mono text-sm font-medium tracking-[.12em]">TERVERIFIKASI</span>
-                    <span className="font-mono text-[11px] tracking-[.08em] text-ink-muted">STUDENTFO · DITINJAU MANUAL</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimoni kanvas desain berisi kutipan orang yang tidak ada. Di
-          produksi bagian ini tidak tampil sampai ada kutipan sungguhan
-          (dengan izin); di mode data contoh tampil berlabel ilustrasi. */}
-      {dataMode === 'seed' && (
-        <section aria-labelledby="testimoni-title" className={sectionClass}>
-          <h2 id="testimoni-title" data-reveal="" className="text-[32px] font-bold tracking-[-0.03em]">
-            Dari pelajar yang sudah mencoba
-          </h2>
-          <p className="mt-2 text-sm text-ink-muted">Contoh tata letak — kutipan ilustrasi, bukan testimoni sungguhan.</p>
-          <div className="mt-12 grid gap-x-10 gap-y-12 [grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))]">
-            {QUOTES.map((quote, index) => (
-              <figure key={quote.mono} className="flex flex-col gap-6">
-                <div data-reveal="line" style={delay(index * 200)} className="h-px bg-brand" />
-                <div data-reveal="" style={delay(index * 200 + 150)} className="flex flex-col gap-6">
-                  <blockquote className="text-lg font-medium leading-normal tracking-[-0.015em]">{quote.text}</blockquote>
-                  <figcaption className="flex items-center gap-3">
-                    <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-panel-nested text-[12.5px] font-semibold">
-                      {quote.mono}
-                    </span>
-                    <span className="flex flex-col gap-0.5">
-                      <span className="text-sm font-semibold">{quote.name}</span>
-                      <span className="text-[13px] text-ink-muted">Testimoni ilustrasi</span>
-                    </span>
-                  </figcaption>
-                </div>
-              </figure>
+          {/* 3 kartu di ponsel, 4 di dua kolom, 6 di tiga kolom: baris yang
+              terisi penuh di setiap lebar, tanpa enam layar gulir di ponsel. */}
+          <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {closingSoon.map((event, index) => (
+              <li key={event.id} className={index === 3 ? 'hidden sm:block' : index > 3 ? 'hidden lg:block' : undefined}>
+                <EventCard event={event} returnTo="/" className="h-full" />
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       )}
 
+      <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>
+        <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div data-reveal="" className="flex flex-col gap-3.5">
+            <h2 id="verifikasi-title" className={h2Class}>
+              Dicek dulu, baru tayang.
+            </h2>
+            <p className="max-w-[42ch] text-[16.5px] leading-relaxed text-ink-muted">
+              Info lomba berbayar dari penyelenggara yang tidak jelas masih sering beredar. Ini yang berlaku untuk setiap
+              kegiatan di StudentFo.
+            </p>
+          </div>
+          <ul data-reveal="" className="flex flex-col border-t border-line">
+            {CHECKS.map((check) => (
+              <li key={check.title} className="flex gap-4 border-b border-line py-5">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-sm bg-panel-nested">
+                  <check.icon aria-hidden className="size-[18px]" />
+                </span>
+                <span className="flex flex-1 flex-col gap-1">
+                  <span className="text-base font-semibold tracking-[-0.01em]">{check.title}</span>
+                  <span className="text-[14.5px] leading-normal text-ink-muted">{check.body}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       <section id="faq" aria-labelledby="faq-title" className={`${sectionClass} scroll-mt-20`}>
-        <div className="grid items-start gap-x-20 gap-y-12 [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
+        <div className="grid items-start gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div data-reveal="" className="flex flex-col gap-3.5">
             <h2 id="faq-title" className={h2Class}>
               Pertanyaan umum
@@ -238,67 +140,48 @@ export function GuestLanding() {
           </div>
           {/* <details> supaya tetap bisa dibuka tanpa JavaScript dan dibacakan
               sebagai kontrol yang bisa diperluas oleh pembaca layar. */}
-          <div data-reveal="" style={delay(150)} className="flex flex-col border-t border-line">
+          <div data-reveal="" className="flex flex-col border-t border-line">
             {FAQS.map((faq, index) => (
               <details key={faq.q} name="faq" open={index === 0} className="group border-b border-line">
-                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-[22px] text-[17px] font-semibold tracking-[-0.015em] [&::-webkit-details-marker]:hidden">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-5 text-[16.5px] font-semibold tracking-[-0.015em] [&::-webkit-details-marker]:hidden">
                   <span>{faq.q}</span>
                   <Plus aria-hidden className="size-[18px] shrink-0 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-45" />
                 </summary>
-                <p className="enter pb-6 pr-10 text-[15.5px] leading-relaxed text-ink-muted [animation-duration:450ms]">{faq.a}</p>
+                <p className="enter pb-6 pr-10 text-[15px] leading-relaxed text-ink-muted [animation-duration:450ms]">{faq.a}</p>
               </details>
             ))}
           </div>
         </div>
       </section>
 
-      <section aria-labelledby="cta-title" className={sectionClass}>
-        <div data-reveal="scale" className="relative overflow-hidden rounded-[20px] bg-inverse text-on-inverse">
-          {/* Tanpa teks latar berjalan: dua baris kata raksasa yang bergerak di
-              belakang judul bersaing dengan judul itu sendiri, dan satu-satunya
-              tugas bagian ini adalah membuat dua tombolnya terbaca. */}
-          <div className="relative flex flex-col items-center gap-5 px-6 py-[clamp(64px,9vw,96px)] text-center">
-            <h2 id="cta-title" className="max-w-[18ch] text-[clamp(34px,5.4vw,48px)] font-bold leading-[1.06] tracking-[-0.04em] text-on-inverse">
-              Tenggat berikutnya mungkin minggu ini.
-            </h2>
-            <p className="max-w-[44ch] text-[17px] leading-relaxed text-on-inverse-muted">
-              Buat akun dalam satu menit dan lihat kegiatan yang sesuai dengan minat dan jenjangmu.
-            </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-3">
-              <Link
-                href="/register"
-                className="flex h-12 items-center rounded-sm bg-on-inverse px-[22px] text-[15px] font-semibold text-inverse transition-opacity duration-200 ease-snap hover:opacity-90"
-              >
-                Mulai gratis
-              </Link>
-              <Link
-                href="/submit"
-                className="flex h-12 items-center rounded-sm border border-white/25 px-5 text-[15px] font-semibold text-on-inverse transition-colors duration-200 ease-snap hover:bg-white/10"
-              >
-                Pasang kegiatan sebagai penyelenggara
-              </Link>
-            </div>
-          </div>
+      <section aria-labelledby="cta-title" className={`${sectionClass} grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]`}>
+        <div data-reveal="" className="flex flex-col items-start gap-4 rounded-[20px] bg-inverse px-[clamp(24px,5vw,48px)] py-[clamp(32px,5vw,48px)] text-on-inverse">
+          <h2 id="cta-title" className="max-w-[20ch] text-[clamp(26px,3.6vw,36px)] font-bold leading-[1.1] tracking-[-0.03em] text-on-inverse">
+            Tenggat berikutnya mungkin minggu ini.
+          </h2>
+          <p className="max-w-[44ch] text-[16px] leading-relaxed text-on-inverse-muted">
+            Simpan kegiatan yang kamu incar dan dapatkan pengingat sebelum pendaftarannya ditutup.
+          </p>
+          <Link
+            href="/register"
+            className="mt-2 flex h-12 items-center rounded-sm bg-on-inverse px-[22px] text-[15px] font-semibold text-inverse transition-opacity duration-200 ease-snap hover:opacity-90"
+          >
+            Buat akun
+          </Link>
+        </div>
+        <div data-reveal="" className="flex flex-col items-start gap-4 rounded-[20px] border border-line bg-panel px-[clamp(24px,4vw,40px)] py-[clamp(32px,5vw,48px)]">
+          <h2 className="text-[22px] font-bold leading-tight tracking-[-0.025em]">Untuk penyelenggara</h2>
+          <p className="max-w-[40ch] text-[15.5px] leading-relaxed text-ink-muted">
+            Buat formulir pendaftaran, terima bukti pembayaran peserta, dan kelola pendaftar dari satu studio.
+          </p>
+          <Link
+            href="/penyelenggara"
+            className="press mt-auto flex h-12 items-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
+          >
+            Buka studio penyelenggara <ArrowRight aria-hidden className="size-4" />
+          </Link>
         </div>
       </section>
-    </div>
-  );
-}
-
-/** Lembar dokumen berstempel — pengganti slot ilustrasi kosong di kanvas. */
-function VerificationSheet() {
-  return (
-    <div className="absolute left-[12%] top-[10%] flex h-[70%] w-[62%] -rotate-2 flex-col gap-[6%] rounded-[12px] border border-line bg-panel p-[7%] shadow-[0_18px_40px_rgba(0,0,0,.06)]">
-      <span className="h-[5%] w-1/2 rounded bg-line" />
-      <span className="h-[3%] w-4/5 rounded bg-panel-nested" />
-      <span className="h-[3%] w-3/4 rounded bg-panel-nested" />
-      <span className="h-[3%] w-2/3 rounded bg-panel-nested" />
-      <span className="mt-auto flex items-center gap-[6%]">
-        <span className="flex aspect-square w-[14%] items-center justify-center rounded-pill bg-brand text-on-brand">
-          <Check className="size-1/2" strokeWidth={2.4} />
-        </span>
-        <span className="h-[14%] min-h-2 w-1/2 rounded bg-panel-nested" />
-      </span>
     </div>
   );
 }

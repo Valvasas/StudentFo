@@ -10,9 +10,9 @@ import { signInAsDemo } from './helpers';
 test('daftar ke formulir resmi → tandai terdaftar → dirayakan sekali, tidak diulang saat dimuat ulang', async ({ page, context }) => {
   // Formulir resmi ada di situs luar; uji ini tidak butuh isinya.
   await context.route(/^(?!http:\/\/localhost)/, (route) => route.abort());
-  await signInAsDemo(page, 'Mahasiswa', '/events?type=LOMBA');
-  const href = await page.locator('main a[href^="/events/"]').first().getAttribute('href');
-  await page.goto(href!);
+  // Acara contoh tanpa formulir StudentFo — yang berformulir (ADR-056) tidak
+  // membuka tab baru sama sekali.
+  await signInAsDemo(page, 'Mahasiswa', '/events/olimpiade-matematika-pelajar-tingkat-nasional');
 
   const popup = page.waitForEvent('popup');
   await page.getByRole('link', { name: /Daftar sekarang/ }).click();

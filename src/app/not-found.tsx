@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { SearchBox } from '@/components/listing/listing-ui';
 import { Button } from '@/components/ui/button';
 import { LostMapSketch } from '@/components/ui/illustrations';
-import { HandNote } from '@/components/ui/sketch';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { parseEventQuery } from '@/lib/search-params';
 
@@ -19,11 +18,9 @@ export default function NotFound() {
   return (
     <div className="container-page flex flex-col items-center py-16 text-center sm:py-24">
       <LostMapSketch className="text-ink" />
-      <HandNote className="mt-6 text-[19px]">eh, rutenya buntu</HandNote>
-      <h1 className="mt-2 text-[clamp(28px,5vw,40px)]">Halaman ini tidak ada</h1>
+      <h1 className="mt-6 text-[clamp(28px,5vw,40px)]">Halaman ini tidak ada</h1>
       <p className="mt-3 max-w-md text-ink-muted">
-        Mungkin kegiatannya sudah ditarik penyelenggara, atau tautannya salah ketik. Coba cari judulnya, atau mulai
-        dari jenis kegiatan yang kamu incar.
+        Kegiatannya mungkin sudah ditarik, atau tautannya salah ketik. Coba cari judulnya.
       </p>
 
       <div className="mt-8 flex w-full max-w-md">

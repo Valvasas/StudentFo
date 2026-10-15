@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RouteSceneArt } from '@/components/layout/route-scene-art';
 import { routeSceneFor, type RouteScene, type RouteSceneKey } from '@/lib/route-scene';
 import type { Tint } from '@/lib/tint';
@@ -12,7 +12,7 @@ type Phase = 'idle' | 'loading' | 'finishing';
 /** Di bawah ini navigasi dianggap instan — bilah yang berkedip 50 ms lebih mengganggu daripada tidak ada. */
 const SHOW_AFTER_MS = 120;
 /**
- * Kartu berilustrasi hanya untuk navigasi yang benar-benar terasa lambat.
+ * Kartu pemuat hanya untuk navigasi yang benar-benar terasa lambat.
  * Di bawah ±0,4 dtk bilah tipis sudah cukup; kartu yang muncul-hilang di
  * setiap klik justru membuat aplikasi terasa LEBIH lambat.
  */
@@ -21,7 +21,7 @@ const CARD_AFTER_MS = 450;
 const GIVE_UP_AFTER_MS = 15_000;
 const FINISH_MS = 260;
 
-/** Latar panggung kartu: hiasan pembeda antar-tujuan, bukan penanda makna (ADR-054). */
+/** Latar ilustrasi kartu: hiasan pembeda antar-tujuan, bukan penanda makna (ADR-054). */
 const STAGE_TINT: Record<RouteSceneKey, Tint> = {
   home: 'sun',
   catalog: 'sky',
@@ -65,11 +65,11 @@ const TINT_BG: Record<Tint, string> = {
  * ditangani di sini; tombolnya sendiri sudah menandai "Memproses…"
  * (`SubmitButton`).
  *
- * Navigasi yang lewat dari `CARD_AFTER_MS` mendapat kartu kecil di bawah
- * layar: sketsa + kalimat tentang TUJUANNYA (`routeSceneFor`, ADR-055) —
- * pengganti "loading screen" yang tidak bisa kita pasang tanpa
- * `loading.tsx`. Kartu tidak menutupi halaman dan tidak menangkap klik:
- * orang yang berubah pikiran tetap bisa mengeklik tautan lain.
+ * Navigasi yang lewat dari `CARD_AFTER_MS` mendapat kartu pemuat di TENGAH
+ * layar: ilustrasi kecil + "Memuat <tujuan>…" (`routeSceneFor`) — pengganti
+ * layar pemuat yang tidak bisa kita pasang tanpa `loading.tsx` (soft-404,
+ * ADR-053/055). Seluruh lapisan `pointer-events: none`: orang yang berubah
+ * pikiran tetap bisa mengeklik tautan lain di halaman lama.
  */
 export function NavigationProgress() {
   const pathname = usePathname();
@@ -187,26 +187,20 @@ export function NavigationProgress() {
       {scene && (
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-x-0 bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-[60] flex justify-center px-4 max-[959px]:bottom-24"
+          className={cn(
+            'pointer-events-none fixed inset-0 z-[60] grid place-items-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]',
+            finishing ? 'loader-out' : 'loader-in',
+          )}
         >
-          <div
-            className={cn(
-              'flex max-w-[360px] items-center gap-3 rounded-[18px] border border-line bg-panel py-2 pl-2 pr-5 shadow-overlay',
-              finishing ? 'celebrate-out' : 'loader-in',
-            )}
-          >
-            <span className={cn('dot-grid flex h-12 w-16 shrink-0 items-center justify-center rounded-[12px] text-ink', TINT_BG[STAGE_TINT[scene.key]])}>
-              <RouteSceneArt scene={scene.key} className="h-10 w-[54px]" />
+          {/* Selubung warna kanvas yang sangat tipis, bukan scrim gelap: scrim
+              gelap berarti "modal, tunggu dulu", padahal halaman lama tetap
+              bisa dipakai. Cukup untuk memisahkan kartu dari isi di bawahnya. */}
+          <div className="absolute inset-0 bg-canvas/35" />
+          <div className="relative flex w-[min(15rem,100%)] flex-col items-center gap-3 rounded-[20px] border border-line bg-panel px-6 pb-5 pt-6 text-center shadow-overlay">
+            <span className={cn('dot-grid flex h-[72px] w-24 items-center justify-center rounded-[14px] text-ink', TINT_BG[STAGE_TINT[scene.key]])}>
+              <RouteSceneArt scene={scene.key} className="h-12 w-16" />
             </span>
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate text-[14px] font-semibold tracking-[-0.01em] text-ink">{scene.label}</span>
-              <span className="flex items-center gap-1 text-[12.5px] text-ink-muted">
-                sebentar lagi
-                {[0, 160, 320].map((delay) => (
-                  <span key={delay} className="typing-dot inline-block size-1 rounded-pill bg-current" style={{ '--d': `${delay}ms` } as CSSProperties} />
-                ))}
-              </span>
-            </span>
+            <span className="text-[14.5px] font-semibold tracking-[-0.01em] text-ink">{scene.label}</span>
           </div>
         </div>
       )}

@@ -10,9 +10,9 @@ const BROWSER_UA =
  * mengalihkan ke luar situs.
  */
 test('tombol Daftar menunjuk pengalih internal yang mengarah ke tautan pendaftaran event', async ({ page, request }) => {
-  await page.goto('/events');
-  const href = await page.locator('main a[href^="/events/"]').first().getAttribute('href');
-  await page.goto(href!);
+  // Acara contoh tanpa formulir StudentFo (ADR-056): yang berformulir menautkan /formulir, bukan /daftar.
+  const href = '/events/program-relawan-literasi-desa-angkatan-7';
+  await page.goto(href);
 
   const register = page.getByRole('link', { name: /Daftar sekarang/ });
   await expect(register).toHaveAttribute('href', `${href}/daftar`);

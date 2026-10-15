@@ -70,8 +70,7 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
           <Breadcrumb current="Lomba" />
           <PageTitle>Papan tenggat lomba</PageTitle>
           <p className="max-w-[52ch] text-base leading-relaxed text-ink-muted">
-            Lomba yang masih buka, dikelompokkan dari yang paling cepat ditutup. Jenjang dan bidangnya terlihat sejak awal
-            supaya kamu bisa langsung memutuskan.
+            Lomba yang masih buka, dari yang paling cepat ditutup.
           </p>
         </div>
 

@@ -41,8 +41,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
               <Breadcrumb current="Seminar" inverse />
               <PageTitle className="text-on-inverse">Agenda seminar</PageTitle>
               <p className="text-base leading-relaxed text-on-inverse-muted">
-                Disusun seperti buku acara, per tanggal tutup pendaftaran. Seminar dan konferensi dari penyelenggara yang
-                sudah ditinjau.
+                Seminar dan konferensi yang sudah ditinjau, per tanggal tutup pendaftaran.
               </p>
             </div>
             <div className="flex flex-col items-end gap-1">

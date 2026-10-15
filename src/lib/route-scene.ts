@@ -1,7 +1,7 @@
 /**
- * Adegan pemuat navigasi (ADR-055): ilustrasi + kalimat pendek tentang
- * TUJUAN klik, bukan "Memuat…" generik. Murni dari path supaya bisa diuji
- * dan dipanggil di fase capture klik, sebelum halaman baru ada.
+ * Isi kartu pemuat navigasi (ADR-055, ADR-056): ilustrasi kecil + "Memuat
+ * <tujuan>…". Murni dari path supaya bisa diuji dan dipanggil di fase
+ * capture klik, sebelum halaman baru ada.
  *
  * Kalimatnya hiasan (`aria-hidden` di pemuatnya): pembaca layar sudah diberi
  * tahu perpindahan halaman oleh route announcer Next.js, dan pengumuman
@@ -36,31 +36,35 @@ export interface RouteScene {
 /** Cocok per SEGMEN: `/teams` dan `/teams/baru`, tapi bukan `/teams-lama`. */
 const under = (prefix: string) => (path: string) => path === prefix || path.startsWith(`${prefix}/`);
 
+const scene = (key: RouteSceneKey, target: string): RouteScene => ({ key, label: `Memuat ${target}…` });
+
 const RULES: readonly { test: (path: string) => boolean; scene: RouteScene }[] = [
-  { test: (path) => path === '/', scene: { key: 'home', label: 'Menyiapkan berandamu' } },
-  { test: (path) => /^\/events\/[^/]+\/daftar$/.test(path), scene: { key: 'register', label: 'Mengantarmu ke formulir resmi' } },
-  { test: (path) => /^\/events\/[^/]+\/persiapan$/.test(path), scene: { key: 'event', label: 'Menyiapkan daftar berkas' } },
-  { test: (path) => /^\/events\/[^/]+$/.test(path), scene: { key: 'event', label: 'Membuka detail kegiatan' } },
-  { test: (path) => path === '/events', scene: { key: 'catalog', label: 'Menyusun daftar kegiatan' } },
-  { test: under('/tracker'), scene: { key: 'tracker', label: 'Menata papan pendaftaranmu' } },
-  { test: (path) => path === '/teams/baru', scene: { key: 'teams', label: 'Menyiapkan meja tim baru' } },
-  { test: under('/teams'), scene: { key: 'teams', label: 'Mengumpulkan tim terbuka' } },
-  { test: under('/orang'), scene: { key: 'network', label: 'Membuka profil' } },
-  { test: under('/connections'), scene: { key: 'network', label: 'Merangkai koneksimu' } },
-  { test: (path) => under('/messages')(path) || under('/discussions')(path), scene: { key: 'inbox', label: 'Membuka kotak masuk' } },
-  { test: (path) => path === '/profile/settings', scene: { key: 'settings', label: 'Membuka pengaturan' } },
-  { test: (path) => path === '/profile/personalization', scene: { key: 'settings', label: 'Menyiapkan tampilanmu' } },
-  { test: under('/profile'), scene: { key: 'profile', label: 'Membuka profilmu' } },
-  { test: under('/admin'), scene: { key: 'admin', label: 'Membuka meja moderasi' } },
-  { test: under('/penyelenggara'), scene: { key: 'studio', label: 'Membuka studio penyelenggara' } },
-  { test: (path) => path === '/submit', scene: { key: 'submit', label: 'Menyiapkan formulir kiriman' } },
-  {
-    test: (path) => ['/login', '/register', '/forgot-password', '/reset-password'].includes(path),
-    scene: { key: 'auth', label: 'Membuka pintu masuk' },
-  },
+  { test: (path) => path === '/', scene: scene('home', 'beranda') },
+  { test: (path) => /^\/events\/[^/]+\/daftar$/.test(path), scene: scene('register', 'situs penyelenggara') },
+  { test: (path) => /^\/events\/[^/]+\/formulir$/.test(path), scene: scene('register', 'formulir pendaftaran') },
+  { test: (path) => /^\/events\/[^/]+\/persiapan$/.test(path), scene: scene('event', 'daftar berkas') },
+  { test: (path) => /^\/events\/[^/]+$/.test(path), scene: scene('event', 'detail kegiatan') },
+  { test: (path) => path === '/events', scene: scene('catalog', 'daftar kegiatan') },
+  { test: under('/pembayaran'), scene: scene('tracker', 'pembayaran') },
+  { test: under('/tracker'), scene: scene('tracker', 'papan pendaftaran') },
+  { test: (path) => path === '/teams/baru', scene: scene('teams', 'formulir tim baru') },
+  { test: under('/teams'), scene: scene('teams', 'daftar tim') },
+  { test: under('/orang'), scene: scene('network', 'profil') },
+  { test: under('/connections'), scene: scene('network', 'koneksi') },
+  { test: (path) => under('/messages')(path) || under('/discussions')(path), scene: scene('inbox', 'kotak masuk') },
+  { test: (path) => path === '/profile/settings', scene: scene('settings', 'pengaturan') },
+  { test: (path) => path === '/profile/personalization', scene: scene('settings', 'personalisasi') },
+  { test: under('/profile'), scene: scene('profile', 'profilmu') },
+  { test: under('/admin'), scene: scene('admin', 'antrean moderasi') },
+  { test: under('/penyelenggara/acara'), scene: scene('studio', 'ruang kerja acara') },
+  { test: under('/penyelenggara'), scene: scene('studio', 'studio penyelenggara') },
+  { test: (path) => path === '/submit', scene: scene('submit', 'formulir kiriman') },
+  { test: (path) => path === '/register', scene: scene('auth', 'pendaftaran akun') },
+  { test: (path) => ['/forgot-password', '/reset-password'].includes(path), scene: scene('auth', 'pemulihan akun') },
+  { test: under('/login'), scene: scene('auth', 'halaman masuk') },
 ];
 
-const FALLBACK: RouteScene = { key: 'page', label: 'Membuka halaman' };
+const FALLBACK: RouteScene = scene('page', 'halaman');
 
 export function routeSceneFor(pathname: string): RouteScene {
   // Garis miring penutup (`/tracker/`) dan kapital tidak boleh jatuh ke adegan generik.

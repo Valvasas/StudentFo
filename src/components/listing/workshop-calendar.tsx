@@ -63,8 +63,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
         <Breadcrumb current="Workshop" />
         <PageTitle>Kalender kelas praktik</PageTitle>
         <p className="text-base leading-relaxed text-ink-muted">
-          Workshop dan pelatihan disusun per tanggal tutup pendaftaran. Pilih tanggal di bawah untuk melihat yang ditutup hari
-          itu.
+          Workshop dan pelatihan, per tanggal tutup pendaftaran.
         </p>
       </div>
 

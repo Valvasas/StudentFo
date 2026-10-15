@@ -3,9 +3,6 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CreateTeamForm } from '@/components/team/create-team-form';
-import { IllustrationStage } from '@/components/ui/feature-hero';
-import { PlantFlagSketch } from '@/components/ui/feature-illustrations';
-import { HandNote } from '@/components/ui/sketch';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { firstParam, parseEventQuery, type RawSearchParams } from '@/lib/search-params';
@@ -49,19 +46,11 @@ export default async function NewTeamPage({ searchParams }: { searchParams: Prom
         <ArrowLeft aria-hidden className="size-4" /> Cari tim
       </Link>
 
-      <header className="grid items-center gap-6 md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-12">
-        <div className="enter flex flex-col gap-4 [animation-duration:900ms]">
-          <HandNote className="text-[22px] text-ink-muted">tiga langkah, ±1 menit</HandNote>
-          <h1 className="-mt-1 text-[clamp(36px,5vw,56px)] leading-[1]">
-            Buka <span className="marker">tim baru</span>
-          </h1>
-          <p className="max-w-[52ch] text-[16px] leading-relaxed text-ink-muted">
-            Pilih kegiatannya, ceritakan siapa yang kamu cari, lalu tentukan jumlah kursinya. Timmu langsung tampil di Cari Tim dan di halaman kegiatannya.
-          </p>
-        </div>
-        <IllustrationStage tint="mint" className="enter hidden pb-3 pt-6 [animation-delay:140ms] md:flex">
-          <PlantFlagSketch />
-        </IllustrationStage>
+      <header className="enter flex flex-col gap-3 [animation-duration:900ms]">
+        <h1 className="text-[clamp(32px,4.6vw,48px)] leading-[1]">
+          Buka <span className="marker">tim baru</span>
+        </h1>
+        <p className="max-w-[52ch] text-[16px] leading-relaxed text-ink-muted">Timmu langsung tampil di Cari Tim dan di halaman kegiatannya.</p>
       </header>
 
       <ActionFeedback params={params} className="mt-8 max-w-2xl" />
