@@ -7,17 +7,19 @@ import {
   CalendarClock,
   Clock,
   FilePlus2,
-  Link2,
+  ReceiptText,
   ShieldAlert,
   ShieldCheck,
+  Users,
 } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { isEventClosed, WORKSPACE_TABS, workspacePath } from '@/components/organizer/event-workspace';
 import { MySubmissions } from '@/components/submit/my-submissions';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
-import { requireUser } from '@/lib/auth';
+import { requireUser, toEventActor, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId } from '@/lib/deadline';
 import { ORGANIZER_LIMITS, ORGANIZER_STATUS_LABEL } from '@/lib/organizer';
@@ -29,6 +31,8 @@ import {
   type ManagedEvent,
   type OrganizerHistoryEntry,
   type OrganizerProfile,
+  type RegistrationForm,
+  type RegistrationStats,
   type TrustRequestStatus,
 } from '@/types/domain';
 import { applyOrganizerAction } from './actions';
@@ -48,11 +52,10 @@ const REQUEST_BADGE: Record<TrustRequestStatus, { text: string; variant: 'warnin
   REJECTED: { text: 'Ditolak', variant: 'danger' },
 };
 
-const SOURCE_TEXT: Record<ManagedEvent['source'], string> = {
-  SUBMISSION: 'Dikirim lembagamu',
-  CLAIM: 'Diklaim',
-  ADMIN: 'Ditetapkan moderator',
-};
+interface RegistrationSummary {
+  readonly stats: RegistrationStats | null;
+  readonly form: RegistrationForm | null;
+}
 
 /**
  * Studio penyelenggara (ADR-042/043).
@@ -84,32 +87,37 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
   // dengan acara yang masih butuh perhatian.
   const closedIds = new Set(history.map((entry) => entry.eventId));
   const active = managed.filter(({ event }) => !closedIds.has(event.id));
+  const registrations = verified ? await loadRegistrationSummaries(user, repository, active) : new Map<string, RegistrationSummary>();
 
   return (
     <div className="container-page flex flex-col gap-10 py-8">
       <header className="enter flex flex-wrap items-end justify-between gap-4">
-        <div className="flex max-w-2xl flex-col gap-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[.08em] text-ink-muted">
-            Studio penyelenggara
-          </p>
+        <div className="flex min-w-0 max-w-2xl flex-col gap-2">
+          <p className="font-mono text-xs uppercase tracking-[.08em] text-ink-muted">Studio penyelenggara</p>
           <h1 className="text-[clamp(28px,4vw,38px)] leading-tight">
             {verified ? profile.orgName : 'Kelola acaramu di StudentFo'}
           </h1>
-          <p className="text-ink-soft">
-            {verified
-              ? 'Pantau jangkauan acaramu, klaim acara yang sudah tayang, dan ajukan pembaruan — semuanya tetap dicek moderator supaya peserta bisa percaya.'
-              : 'Penyelenggara terverifikasi bisa melihat analitik acaranya, mendapat lencana terverifikasi, dan mengajukan pembaruan tanpa menunggu moderator menemukannya sendiri.'}
-          </p>
+          {!verified && profile?.status !== 'REVOKED' && (
+            <p className="text-ink-soft">
+              Penyelenggara terverifikasi bisa membuka pendaftaran, memeriksa pembayaran, dan melihat analitik acaranya.
+            </p>
+          )}
         </div>
-        {profile && <StatusBadge profile={profile} />}
+        <div className="flex flex-wrap items-center gap-3">
+          {profile && <StatusBadge profile={profile} />}
+          {verified && (
+            <Link href="/submit" className={buttonVariants()}>
+              <FilePlus2 aria-hidden /> Kirim acara baru
+            </Link>
+          )}
+        </div>
       </header>
 
       <ActionFeedback params={params} className="max-w-2xl" />
 
       {verified ? (
         <>
-          <QuickActions />
-          <ManagedEventsSection managed={active} hasHistory={history.length > 0} />
+          <ManagedEventsSection managed={active} registrations={registrations} hasHistory={history.length > 0} />
           <MySubmissions submissions={openSubmissions} title="Menunggu atau tidak disetujui moderator" />
           <ClaimsSection claims={claims} />
           <HistorySection history={history} />
@@ -212,17 +220,16 @@ function TrustSteps({ status }: { status: OrganizerProfile['status'] | null }) {
       done: false,
       current: status === 'PENDING',
     },
-    { title: 'Kelola acara', body: 'Klaim acara lembagamu, lihat analitik, ajukan pembaruan.', done: false },
+    { title: 'Kelola acara', body: 'Buka pendaftaran, periksa pembayaran, lihat analitik.', done: false },
   ];
   return (
     <aside aria-labelledby="alur" className="enter flex flex-col gap-4 [animation-delay:80ms]">
       <h2 id="alur" className="flex items-center gap-2 text-xl">
         <ShieldCheck aria-hidden className="size-5 text-ink-muted" />
-        Kenapa harus diverifikasi?
+        Alur verifikasi
       </h2>
       <p className="text-sm text-ink-soft">
-        Ribuan pelajar mengandalkan informasi di sini untuk mendaftar. Verifikasi mencegah orang mengaku sebagai
-        penyelenggara lalu mengganti tautan pendaftaran ke formulir palsu.
+        Verifikasi mencegah orang lain mengaku sebagai panitia lalu mengganti tautan pendaftaran.
       </p>
       <ol className="flex flex-col">
         {steps.map((step, index) => (
@@ -252,45 +259,33 @@ function TrustSteps({ status }: { status: OrganizerProfile['status'] | null }) {
   );
 }
 
-function QuickActions() {
-  const actions = [
-    {
-      href: '/submit',
-      icon: FilePlus2,
-      title: 'Kirim acara baru',
-      body: 'Masuk antrean moderator; setelah disetujui otomatis masuk dasbor ini.',
-    },
-    {
-      href: '/events',
-      icon: Link2,
-      title: 'Klaim acara yang sudah tayang',
-      body: 'Buka acaranya, lalu tab Penyelenggara → Klaim.',
-    },
-  ];
-  return (
-    <ul className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))]">
-      {actions.map((action, index) => (
-        <li key={action.href} className="enter" style={{ animationDelay: `${index * 60}ms` }}>
-          <Link
-            href={action.href}
-            className="group flex h-full items-start gap-3 rounded-panel border border-line bg-panel p-5 transition-[border-color,transform,box-shadow] duration-200 ease-snap hover:-translate-y-0.5 hover:border-brand hover:shadow-raised"
-          >
-            <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-card bg-brand-soft text-brand-text">
-              <action.icon className="size-5" />
-            </span>
-            <span className="flex flex-1 flex-col gap-1">
-              <span className="font-semibold">{action.title}</span>
-              <span className="text-sm text-ink-muted">{action.body}</span>
-            </span>
-            <ArrowRight aria-hidden className="mt-1 size-4 text-ink-muted transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
+async function loadRegistrationSummaries(
+  user: AuthUser,
+  repository: Awaited<ReturnType<typeof getEventRepository>>,
+  active: readonly ManagedEvent[],
+): Promise<ReadonlyMap<string, RegistrationSummary>> {
+  const ids = active.map(({ event }) => event.id);
+  if (ids.length === 0) return new Map();
+  // Angka pendaftar pelengkap: gagal dimuat = kartu tanpa angka, bukan studio yang error.
+  const [stats, forms] = await Promise.all([
+    repository.listRegistrationStats(toEventActor(user), ids).catch((error: unknown) => {
+      console.error('[studio] ringkasan pendaftar gagal dimuat:', error);
+      return [] as readonly RegistrationStats[];
+    }),
+    Promise.all(ids.map((id) => repository.getRegistrationForm(id).catch(() => null))),
+  ]);
+  return new Map(ids.map((id, index) => [id, { stats: stats.find((entry) => entry.eventId === id) ?? null, form: forms[index] ?? null }]));
 }
 
-function ManagedEventsSection({ managed, hasHistory }: { managed: readonly ManagedEvent[]; hasHistory: boolean }) {
+function ManagedEventsSection({
+  managed,
+  registrations,
+  hasHistory,
+}: {
+  managed: readonly ManagedEvent[];
+  registrations: ReadonlyMap<string, RegistrationSummary>;
+  hasHistory: boolean;
+}) {
   const now = new Date();
   return (
     <section aria-labelledby="acara-saya" className="flex flex-col gap-4">
@@ -299,44 +294,84 @@ function ManagedEventsSection({ managed, hasHistory }: { managed: readonly Manag
         <span className="text-sm text-ink-muted">{managed.length} acara</span>
       </div>
       {managed.length === 0 ? (
-        <p className="rounded-panel border border-dashed border-line bg-panel px-6 py-10 text-center text-sm text-ink-muted">
-          {hasHistory
-            ? 'Tidak ada acara yang sedang buka. Rekap acara sebelumnya ada di Riwayat acara di bawah.'
-            : 'Belum ada. Kirim acara baru atau klaim acara lembagamu yang sudah tayang.'}
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-panel border border-dashed border-line bg-panel px-6 py-10 text-center text-sm text-ink-muted">
+          <p>{hasHistory ? 'Tidak ada acara yang sedang buka. Rekap acara sebelumnya ada di Riwayat acara.' : 'Belum ada acara di studiomu.'}</p>
+          <p>Kirim acara baru, atau klaim acara lembagamu dari tab Penyelenggara di halaman acaranya.</p>
+        </div>
       ) : (
-        <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))]">
-          {managed.map(({ event, source, since }, index) => {
+        <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr))]">
+          {managed.map(({ event }, index) => {
             const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
-            const closed = event.status === 'EXPIRED' || (days !== null && days < 0);
+            const closed = isEventClosed(event, now);
+            const summary = registrations.get(event.id);
             return (
-              <li key={event.id} className="reveal" style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}>
-                <Link
-                  href={`/penyelenggara/acara/${event.id}`}
-                  className="group flex h-full flex-col gap-3 rounded-panel border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap hover:border-brand hover:shadow-raised"
-                >
+              <li
+                key={event.id}
+                className="reveal flex flex-col rounded-panel border border-line bg-panel transition-[border-color,box-shadow] duration-200 ease-snap hover:border-line-strong hover:shadow-card"
+                style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+              >
+                <div className="flex flex-1 flex-col gap-3 p-5">
                   <span className="flex flex-wrap items-center gap-2 text-xs">
                     <Badge variant="brand">{EVENT_TYPE_LABEL[event.eventType]}</Badge>
                     <Badge variant={closed ? 'neutral' : 'success'}>{closed ? 'Ditutup' : 'Tayang'}</Badge>
-                    <span className="text-ink-muted">{SOURCE_TEXT[source]} · {formatDateId(since)}</span>
-                  </span>
-                  <span className="text-base font-semibold leading-snug">{event.title}</span>
-                  <span className="mt-auto flex items-center justify-between gap-2 text-sm text-ink-muted">
-                    <span className="flex items-center gap-1.5">
-                      <CalendarClock aria-hidden className="size-4" />
+                    <span className="flex items-center gap-1 text-ink-muted">
+                      <CalendarClock aria-hidden className="size-3.5" />
                       {closed ? 'Pendaftaran ditutup' : daysLeftLabel(days)}
                     </span>
-                    <span className="flex items-center gap-1 font-medium text-ink">
-                      <BarChart3 aria-hidden className="size-4" /> Analitik
-                    </span>
                   </span>
-                </Link>
+                  <Link href={workspacePath(event.id)} className="text-base font-semibold leading-snug hover:underline">
+                    {event.title}
+                  </Link>
+                  <RegistrationLine eventId={event.id} summary={summary} />
+                </div>
+                <nav aria-label={`Kelola ${event.title}`} className="grid grid-cols-4 divide-x divide-line border-t border-line">
+                  {WORKSPACE_TABS.map((tab) => (
+                    <Link
+                      key={tab.key}
+                      href={workspacePath(event.id, tab.key)}
+                      className="flex min-h-11 items-center justify-center px-1 text-[13px] font-medium text-ink-muted transition-colors duration-150 ease-snap first:rounded-bl-panel last:rounded-br-panel hover:bg-panel-nested hover:text-ink"
+                    >
+                      {tab.label}
+                      <span className="sr-only"> — {event.title}</span>
+                    </Link>
+                  ))}
+                </nav>
               </li>
             );
           })}
         </ul>
       )}
     </section>
+  );
+}
+
+function RegistrationLine({ eventId, summary }: { eventId: string; summary: RegistrationSummary | undefined }) {
+  if (!summary) return null;
+  const { stats, form } = summary;
+  const total = stats?.total ?? 0;
+  if (!form && total === 0) {
+    return <span className="text-sm text-ink-muted">Belum memakai formulir StudentFo</span>;
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink-muted">
+      <span className="flex items-center gap-1.5">
+        <Users aria-hidden className="size-4" />
+        <span>
+          <strong className="font-semibold text-ink tabular-nums">{total.toLocaleString('id-ID')}</strong> pendaftar
+          {stats && stats.confirmed > 0 && stats.confirmed !== total && <> · {stats.confirmed.toLocaleString('id-ID')} terkonfirmasi</>}
+        </span>
+      </span>
+      {form && !form.isOpen && <span>Formulir ditutup</span>}
+      {stats && stats.paymentReview > 0 && (
+        <Link
+          href={`${workspacePath(eventId, 'pendaftar')}?status=diperiksa`}
+          className="relative inline-flex min-h-9 items-center gap-1.5 rounded-sm bg-caution-soft px-2 text-[13px] font-semibold text-caution after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:underline"
+        >
+          <ReceiptText aria-hidden className="size-4" />
+          {stats.paymentReview.toLocaleString('id-ID')} bukti bayar perlu dicek
+        </Link>
+      )}
+    </span>
   );
 }
 
@@ -393,8 +428,7 @@ function HistorySection({ history }: { history: readonly OrganizerHistoryEntry[]
         })}
       </ul>
       <p className="text-[12.5px] text-ink-muted">
-        &ldquo;Menandai sudah daftar&rdquo; hanya menghitung peserta yang mencatatnya di StudentFo — bukan jumlah pendaftar
-        resmimu.
+        &ldquo;Menandai sudah daftar&rdquo; hanya dari peserta yang mencatatnya di StudentFo.
       </p>
     </section>
   );
