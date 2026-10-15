@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { registerForPaidDemoEvent, signInAsDemo, uploadDemoPaymentProof } from './helpers';
 
 /**
  * `/` bercabang menurut sesi & peran (ADR-053, ADR-056): tamu melihat halaman
@@ -46,7 +46,14 @@ test('admin: beranda = jumlah antrean + keputusan terakhir', async ({ page }) =>
   await expect(main.getByRole('heading', { name: 'Sesuai minatmu' })).toHaveCount(0);
 });
 
-test('penyelenggara: beranda = ringkasan acara + tindakan, studio selangkah', async ({ page }) => {
+test('penyelenggara: beranda = ringkasan acara + tindakan, studio selangkah', async ({ page, browser }) => {
+  // Bukti contoh bisa sudah diproses tes studio yang berjalan paralel — siapkan sendiri.
+  const student = await browser.newContext();
+  const studentPage = await student.newPage();
+  await registerForPaidDemoEvent(studentPage);
+  await uploadDemoPaymentProof(studentPage);
+  await student.close();
+
   await signInAsDemo(page, 'Penyelenggara', '/penyelenggara');
   await page.goto('/');
   const main = page.locator('main');
@@ -54,7 +61,6 @@ test('penyelenggara: beranda = ringkasan acara + tindakan, studio selangkah', as
   await expect(main.getByRole('link', { name: 'Buka studio penyelenggara' })).toHaveAttribute('href', '/penyelenggara');
   await expect(main.getByRole('heading', { name: 'Perlu tindakan' })).toBeVisible();
   await expect(main.getByRole('heading', { name: 'Acara aktif' })).toBeVisible();
-  // Persona punya acara berbayar dengan bukti bayar contoh yang menunggu diperiksa.
   await expect(main.getByRole('link', { name: /Periksa \d+ bukti bayar/ }).first()).toHaveAttribute('href', /\/pendaftar\?status=diperiksa$/);
 });
 
