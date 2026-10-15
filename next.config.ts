@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
   // supaya tidak menimpa build mode seed yang dipakai audit aksesibilitas.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
+  // Optimizer gambar hanya untuk foto galeri (ADR-056) — tanpa daftar ini
+  // `/_next/image` mau mengubah ukuran rute lokal APA PUN, termasuk rute yang
+  // mahal dirender, sehingga jadi pengganda beban bagi siapa saja.
+  images: {
+    localPatterns: [{ pathname: '/media/foto/**', search: '' }],
+  },
   poweredByHeader: false,
   // typedRoutes sengaja tidak diaktifkan: href dinamis di produk ini dibangun
   // dari slug (`/events/${slug}`), dan typedRoutes menolak template string

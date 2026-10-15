@@ -427,7 +427,9 @@ BEGIN
     RAISE EXCEPTION 'gallery_full' USING ERRCODE = 'P0001';
   END IF;
   NEW.uploaded_by := auth.uid();
-  NEW.created_at := now();
+  -- clock_timestamp, bukan now(): semua baris satu INSERT berbagi now() dan
+  -- urutan galeri (created_at DESC) jadi acak di antara foto satu unggahan.
+  NEW.created_at := clock_timestamp();
   RETURN NEW;
 END;
 $$;
