@@ -41,7 +41,7 @@ export const REGISTRATION_FORM_LIMITS = {
 /** Pendaftaran per pengguna per jam — cermin `consume_rate_limit` di `register_for_event()`. */
 export const REGISTRATION_RATE_LIMIT = { perHour: 10 } as const;
 
-const FIELD_ID = /^f_[a-z0-9]{4,16}$/;
+const FIELD_ID = /^f_[a-z0-9]{1,24}$/;
 
 /** Karakter kendali & tak terlihat dibuang, markup dilucuti — jawaban juga mengalir ke CSV & email panitia. */
 function cleanText(value: string): string {

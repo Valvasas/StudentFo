@@ -2011,18 +2011,22 @@ export class MemoryEventRepository implements EventRepository {
     const event = this.findEvent(eventId);
     const form = this.registrationForms.get(eventId);
     const deadlinePassed = event?.primaryDeadlineAt ? new Date(event.primaryDeadlineAt).getTime() < Date.now() : false;
-    if (!event || !form || event.status !== 'APPROVED') throw actionError('registration_closed');
-    const availability = registrationAvailability(
-      { isOpen: form.isOpen, capacity: form.capacity, activeCount: this.activeRegistrationCount(eventId) },
-      deadlinePassed,
-    );
-    if (availability.reason === 'full') throw actionError('registration_full');
-    if (!availability.open) throw actionError('registration_closed');
+    // Urutan pemeriksaan = urutan di register_for_event(): tutup → sudah
+    // terdaftar → kuota. Pendaftar yang membuka ulang formulir acara yang
+    // kuotanya habis harus diberi tahu "kamu sudah terdaftar", bukan "penuh".
+    if (!event || !form || event.status !== 'APPROVED' || !form.isOpen || deadlinePassed) {
+      throw actionError('registration_closed');
+    }
     for (const entry of this.registrations.values()) {
       if (entry.eventId === eventId && entry.userId === actor.id && entry.status !== 'CANCELLED') {
         throw actionError('registration_exists');
       }
     }
+    const availability = registrationAvailability(
+      { isOpen: form.isOpen, capacity: form.capacity, activeCount: this.activeRegistrationCount(eventId) },
+      deadlinePassed,
+    );
+    if (!availability.open) throw actionError(availability.reason === 'full' ? 'registration_full' : 'registration_closed');
     if (!this.rateLimiter.consume(`registration:${actor.id}`, REGISTRATION_RATE_LIMIT.perHour, 3600)) {
       throw actionError('registration_rate_limited');
     }

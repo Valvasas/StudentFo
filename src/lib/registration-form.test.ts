@@ -47,6 +47,12 @@ describe('formFieldsSchema', () => {
     expect(parsed[0]?.options).toEqual([]);
   });
 
+  it('id kolom pendek dari data lama tetap diterima, id berbahaya ditolak', () => {
+    expect(parseStoredFields([field({ type: 'phone', id: 'f_hp' })])).toHaveLength(1);
+    expect(parseStoredFields([field({ type: 'phone', id: 'f_x"><script' })])).toHaveLength(0);
+    expect(parseStoredFields([field({ type: 'phone', id: 'returnTo' })])).toHaveLength(0);
+  });
+
   it('data tersimpan yang rusak dibuang, bukan menjatuhkan halaman', () => {
     expect(parseStoredFields([{ id: 'x', type: 'short_text' }, field({ type: 'email' })])).toHaveLength(1);
     expect(parseStoredFields('bukan array')).toEqual([]);

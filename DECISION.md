@@ -12,6 +12,83 @@ terdokumentasi.
 
 ---
 
+## ADR-056 — Formulir pendaftaran internal, pembayaran transfer terverifikasi, galeri acara, beranda per peran
+
+**Konteks:** Permintaan pemilik menjelang produksi: penyelenggara bisa membuat
+formulir pendaftaran di StudentFo, galeri foto per acara (kredibilitas), menu
+pembayaran, tampilan & dasbor berbeda per peran, situs yang tidak "terkesan
+buatan AI", login yang matang, dan pemuat di tengah layar. Audit 2026-10-05
+(`docs/audit-fitur-enterprise.md` §5.2) sempat menandai formulir internal
+"belum disarankan" karena menampung data peserta = beban UU PDP. Pemilik kini
+memintanya eksplisit; keputusan di bawah membuat bebannya bisa dipikul.
+
+**Keputusan:**
+- **Formulir = data milik penyelenggara, disimpan minimal.** Satu formulir per
+  acara (`event_registration_forms`), kolom JSONB yang dikontrak
+  `formFieldsSchema` (10 jenis, maks 25 kolom, id `f_…` stabil sehingga ganti
+  label tidak memutus jawaban lama). Nama & email peserta DISALIN dari akun
+  saat mendaftar — penyelenggara tidak pernah diberi akses ke `users`.
+  Persetujuan berbagi data ke penyelenggara wajib dicentang di setiap
+  pendaftaran. Formulir ditolak berbayar tanpa instruksi pembayaran (CHECK).
+- **Semua perubahan status lewat RPC DEFINER, klien tanpa hak tulis tabel.**
+  Mesin transisi satu definisi (`registrationTransition()`) dengan kembaran
+  SQL; `register_for_event` mengunci baris formulir (`FOR UPDATE`) sehingga
+  kuota tidak terlampaui oleh klik bersamaan, membatasi 10 pendaftaran/jam,
+  dan memajukan papan pendaftaran pribadi ke "Sudah daftar" tanpa memundurkan
+  tahap yang lebih jauh. Pendaftaran yang DITOLAK panitia final (indeks unik
+  hanya mengecualikan CANCELLED).
+- **Pembayaran = transfer/QRIS ke penyelenggara + bukti + verifikasi panitia,
+  BUKAN payment gateway.** StudentFo tidak memegang uang: tidak ada izin PJP,
+  rekonsiliasi, atau refund yang harus kita tanggung; ini juga alur yang sudah
+  dipakai mayoritas lomba/seminar pelajar. Status: Menunggu pembayaran →
+  Pembayaran diperiksa → Terkonfirmasi (atau bukti ditolak dengan catatan
+  wajib → kembali menunggu). Panitia bisa "tandai lunas" tanpa bukti (bayar
+  tunai). Biaya dibekukan per pendaftaran. Gateway (Midtrans/Xendit) tetap
+  opsi berikutnya di balik antarmuka yang sama — butuh akun merchant & kunci
+  pemilik.
+- **Berkas di bucket Storage PRIVAT, disajikan server setelah cek hak di
+  baris metadata.** Tidak ada policy `storage.objects` dan URL Storage tidak
+  pernah keluar ke peramban: `/media/foto/[id]` publik (hanya foto acara
+  tayang, `Cache-Control: immutable` — foto tidak pernah diubah, hapus = id
+  hilang) dan `/media/bukti/[id]` privat (pemilik, pengelola acara, admin;
+  `no-store`; orang lain = 404, bukan 403). Respons berkas membawa
+  `nosniff` + CSP `sandbox`.
+- **Gambar diperiksa dari byte & dibersihkan di server** (`lib/image-file.ts`):
+  hanya JPEG/PNG/WebP, ≤5 MB, ≥32 px, ≤40 MP (bom dekompresi); EXIF/XMP/IPTC
+  /komentar dibuang — foto ponsel membawa koordinat GPS — kecuali tag
+  Orientation (ditulis ulang minimal supaya foto potret tidak miring).
+  Peramban ber-JS memperkecil foto lebih dulu (`ImageUploadField`: sisi
+  terpanjang 1920 px, JPEG 85%) — unggahan seluler ±0,5 MB, metadata hilang
+  karena digambar ulang di kanvas. Batas badan Server Action dinaikkan ke
+  25 MB (6 foto tanpa JS); batas per berkas & jumlah tetap diperiksa di aksi.
+- **Galeri:** maks 30 foto per acara (trigger + kunci advisory), hanya
+  pengelola terverifikasi/admin yang mengunggah; tampil di tab Ringkasan
+  halaman acara dengan lightbox; tanpa JS tiap thumbnail menautkan berkas penuh.
+- **Ruang kerja acara di studio** (`EventWorkspaceHeader`): Ringkasan
+  (analitik) · Formulir · Pendaftar · Galeri — satu tugas per tab, URL per
+  tugas, angka bukti yang menunggu di tab Pendaftar. Ekspor CSV pendaftar
+  menetralkan rumus spreadsheet (CSV injection) dan memakai BOM UTF-8.
+- **Mode seed setara produksi**: memori menegakkan aturan yang sama (hak,
+  transisi, kuota, batas laju, batas galeri) + batas 150 MB berkas di memori
+  supaya server pratinjau tidak bisa dibanjiri unggahan. Persona Penyelenggara
+  mendapat satu acara berbayar dengan pendaftar & bukti contoh (struk PNG yang
+  digambar dari kotak — jelas contoh, tanpa aset biner).
+
+**Ditolak:** payment gateway sekarang (alasan di atas); URL publik Storage
+(bypass otorisasi per baris & tidak bisa dicabut per foto); menyimpan bukti
+di tabel sebagai bytea (membengkakkan backup & PostgREST); formulir tanpa
+login (spam & tidak bisa melacak status); kolom unggah berkas di formulir
+peserta (KTP/KTM = data paling sensitif; ditunda sampai ada kebijakan retensi).
+
+**Konsekuensi:** Migration `20261014100001` HARUS diterapkan sebelum kode ini
+dirilis (halaman acara membaca formulir & galeri — kegagalannya ditangkap
+supaya halaman tetap tampil, tapi fitur hilang). Retensi data pendaftar
+(mis. anonimkan N hari setelah acara) belum ada — butuh keputusan pemilik
+(TASKS.md). Detail halaman per peran, login, dan pemuat: lihat bagian
+lanjutan di bawah.
+
+---
+
 ## ADR-055 — Polesan UX: transisi berilustrasi, perayaan hasil aksi, tombol taktil, form bersih, menu wajib per peran
 
 **Konteks:** Permintaan pemilik: animasi pemuat & ilustrasi tiap pindah halaman,

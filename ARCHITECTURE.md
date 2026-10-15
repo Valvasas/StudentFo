@@ -104,7 +104,8 @@ src/
 │   │   ├── memory-repository.ts   Mode seed (in-process)
 │   │   ├── supabase-repository.ts Produksi (PostgREST, server-only)
 │   │   ├── supabase-mappers.ts    Baris → domain, isUuid, sanitizeSearchQuery [teruji]
-│   │   └── seed-data.ts        Data contoh (event, kategori, tim)
+│   │   ├── seed-data.ts        Data contoh (event, kategori, tim)
+│   │   └── demo-media.ts       Struk transfer contoh (PNG digambar dari kotak) untuk persona Penyelenggara
 │   ├── deadline.ts             H-n, urgensi, pita 7 hari WIB — Asia/Jakarta [teruji]
 │   ├── recommendation.ts       Skoring §6 + cold start [teruji] — kembaran SQL: list_personalized_events (ADR-050)
 │   ├── calendar.ts             URL Google Calendar + .ics RFC 5545 (escape, lipat 75 oktet, VALARM) [teruji]
@@ -134,6 +135,8 @@ src/
 │   ├── celebration.ts          Daftar tertutup notice yang dirayakan (ADR-055) [teruji]
 │   ├── appearance.ts           Preferensi tema & gerak per perangkat, kunci localStorage (ADR-055) [teruji]
 │   ├── initials.ts             initialsOf() (orang), monogramOf() (grup/kegiatan) [teruji]
+│   ├── registration-form.ts    Formulir internal: skema kolom, validasi jawaban, mesin status bayar, CSV aman (ADR-056) [teruji]
+│   ├── image-file.ts           Unggahan gambar: jenis dari byte, batas piksel, buang EXIF/GPS (ADR-056) [teruji]
 │   └── supabase/
 │       ├── server.ts           Klien Server Component & admin (service_role)
 │       ├── middleware.ts       Klien khusus middleware (tanpa `server-only`)
