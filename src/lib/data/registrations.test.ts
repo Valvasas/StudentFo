@@ -16,7 +16,9 @@ const idOf = (slug: string) => {
   if (!event) throw new Error(`seed ${slug} tidak ada`);
   return event.id;
 };
-const FREE_EVENT = idOf('kompetisi-inovasi-perangkat-lunak-nusantara-2026');
+/** Acara tanpa formulir contoh — data demo hanya memberi formulir ke dua acara (lihat SEEDED_EVENT). */
+const FREE_EVENT = idOf('program-magang-analis-data-kuartal-ii');
+const SEEDED_EVENT = idOf('kompetisi-inovasi-perangkat-lunak-nusantara-2026');
 const OTHER_EVENT = idOf('beasiswa-unggulan-bakti-pendidikan-2026');
 const PENDING_EVENT = idOf('seminar-nasional-teknologi-pangan-menunggu-review');
 
@@ -135,7 +137,7 @@ describe('MemoryEventRepository — formulir & pendaftaran', () => {
     const inReview = registrations.find((entry) => entry.status === 'PAYMENT_REVIEW');
     expect(inReview).toBeDefined();
     expect((await repository.getPaymentProof(actor, inReview!.id))?.contentType).toBe('image/png');
-    expect((await repository.getRegistrationForm(FREE_EVENT))?.fields.length).toBeGreaterThan(0);
+    expect((await repository.getRegistrationForm(SEEDED_EVENT))?.fields.length).toBeGreaterThan(0);
   });
 });
 

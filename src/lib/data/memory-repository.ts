@@ -353,12 +353,12 @@ export class MemoryEventRepository implements EventRepository {
   private readonly dispatched = new Set<string>();
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
-  /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
   private readonly registrationForms = new Map<string, RegistrationFormEntry>();
   private readonly registrations = new Map<string, RegistrationEntry>();
   private readonly photos = new Map<string, PhotoEntry>();
   private readonly media = new Map<string, StoredFile>();
   private mediaBytes = 0;
+  /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
   private readonly demoSeededUsers = new Set<string>();
   private readonly demoSeedLimit: number;
 
@@ -367,6 +367,11 @@ export class MemoryEventRepository implements EventRepository {
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
     this.seedTeams(base);
     this.seedPeople(base);
+    // Formulir & pendaftar contoh ada sejak data demo dibangun, bukan baru
+    // saat persona Penyelenggara masuk: setelah reset/restart, acara berbayar
+    // contoh harus langsung menunjukkan alur formulir & pembayaran (ADR-056).
+    const open = this.events.filter((event) => event.status === 'APPROVED');
+    this.seedDemoRegistrations({ free: open[0]?.id, paid: open.slice(3).find((event) => event.isFree === false)?.id }, base);
   }
 
   /** UUID, bukan penghitung: skema form (mis. `createTeamSchema`) memvalidasi id sebagai UUID, sama seperti produksi. */
@@ -1906,8 +1911,6 @@ export class MemoryEventRepository implements EventRepository {
         }
       }
     });
-
-    this.seedDemoRegistrations({ free: open[0]?.id, paid: paid?.id }, now);
 
     // Pembanding "acara sejenis": acara lain berjenis sama punya riwayat juga.
     for (const other of this.events.filter((event) => event.status === 'APPROVED' && !managed.includes(event)).slice(0, 12)) {
