@@ -2,11 +2,15 @@ import type { ActionErrorCode } from '@/lib/action-feedback';
 import { fromStoredPayload } from '@/lib/submission-schema';
 import type { ConnectionCursor } from '@/lib/network';
 import { fromStoredRevisionChanges } from '@/lib/organizer';
+import { parseStoredFields } from '@/lib/registration-form';
 import type {
+  AnswerValue,
   Connection,
   DeadlineDispatch,
   EventClaim,
   EventDetail,
+  EventPhoto,
+  EventRegistration,
   EventRevision,
   EventSummary,
   ModerationLogEntry,
@@ -16,15 +20,20 @@ import type {
   OrganizerProfile,
   PortfolioEntry,
   PortfolioFields,
+  RegistrationForm,
+  RegistrationStats,
+  RegistrationStatus,
   Submission,
   TeamMember,
 } from '@/types/domain';
-import { ACHIEVEMENTS, toTeamRole, toVerificationBadge } from '@/types/domain';
+import { ACHIEVEMENTS, REGISTRATION_STATUSES, toTeamRole, toVerificationBadge } from '@/types/domain';
 import type {
   ConnectionPeerRow,
   EventClaimRow,
   EventDeadlineRow,
   EventListingRow,
+  EventPhotoRow,
+  EventRegistrationRow,
   EventRevisionRow,
   ModerationLogRow,
   NetworkDirectoryRow,
@@ -32,6 +41,8 @@ import type {
   OrganizerHistoryRow,
   OrganizerProfileRow,
   PublicPortfolioRow,
+  RegistrationFormRow,
+  RegistrationStatsRow,
   SubmissionRow,
   TeamMemberProfileRow,
 } from '@/types/database';
@@ -403,4 +414,112 @@ export function toOrganizerHistoryEntry(row: OrganizerHistoryRow): OrganizerHist
  */
 export function rpcRows<Row>(data: unknown): readonly Row[] {
   return Array.isArray(data) ? (data as Row[]) : [];
+}
+
+// ------------------------------------------------------------------
+// Formulir pendaftaran, pembayaran, galeri (ADR-056)
+// ------------------------------------------------------------------
+
+export const REGISTRATION_FORM_COLUMNS = 'event_id, is_open, intro, fields, capacity, fee_amount, payment_instructions, updated_at';
+export const REGISTRATION_COLUMNS =
+  'id, code, event_id, user_id, full_name, email, answers, status, fee_amount, proof_path, proof_uploaded_at, review_note, reviewed_at, created_at, updated_at';
+export const PHOTO_COLUMNS = 'id, event_id, storage_path, content_type, width, height, caption, created_at';
+
+export function toRegistrationForm(row: RegistrationFormRow, activeCount: number): RegistrationForm {
+  return {
+    eventId: row.event_id,
+    isOpen: row.is_open,
+    intro: row.intro,
+    fields: parseStoredFields(row.fields),
+    capacity: row.capacity,
+    feeAmount: row.fee_amount,
+    paymentInstructions: row.payment_instructions,
+    activeCount,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toRegistrationStatus(value: string): RegistrationStatus {
+  return (REGISTRATION_STATUSES as readonly string[]).includes(value) ? (value as RegistrationStatus) : 'REJECTED';
+}
+
+/** Jawaban JSONB → hanya nilai berbentuk sah; sisanya dibuang (data tanpa skema DB). */
+export function toAnswers(value: unknown): Record<string, AnswerValue> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  const answers: Record<string, AnswerValue> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') answers[key] = item;
+    else if (Array.isArray(item) && item.every((entry) => typeof entry === 'string')) answers[key] = item as string[];
+  }
+  return answers;
+}
+
+export function toEventRegistration(row: EventRegistrationRow, events: ReadonlyMap<string, EventSummary>): EventRegistration {
+  const event = events.get(row.event_id);
+  return {
+    id: row.id,
+    code: row.code,
+    event: {
+      id: row.event_id,
+      slug: event?.slug ?? '',
+      title: event?.title ?? '(acara tidak lagi tayang)',
+      organizer: event?.organizer ?? '',
+      primaryDeadlineAt: event?.primaryDeadlineAt ?? null,
+    },
+    userId: row.user_id,
+    fullName: row.full_name,
+    email: row.email,
+    answers: toAnswers(row.answers),
+    status: toRegistrationStatus(row.status),
+    feeAmount: row.fee_amount,
+    proofUploadedAt: row.proof_uploaded_at,
+    reviewNote: row.review_note,
+    reviewedAt: row.reviewed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function toRegistrationStats(row: RegistrationStatsRow): RegistrationStats {
+  return {
+    eventId: row.event_id,
+    total: Number(row.total),
+    confirmed: Number(row.confirmed),
+    awaitingPayment: Number(row.awaiting_payment),
+    paymentReview: Number(row.payment_review),
+    recent: Number(row.recent),
+  };
+}
+
+export function toEventPhoto(row: EventPhotoRow): EventPhoto {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    width: row.width,
+    height: row.height,
+    caption: row.caption,
+    createdAt: row.created_at,
+  };
+}
+
+/** Penolakan yang dikenal dari RPC pendaftaran/galeri → kode aksi; sisanya null (500). */
+export function registrationErrorCode(
+  error: { code?: string; message?: string } | null,
+): Exclude<ActionErrorCode, 'unknown'> | null {
+  const message = error?.message ?? '';
+  for (const code of [
+    'registration_closed',
+    'registration_full',
+    'registration_exists',
+    'registration_not_found',
+    'registration_invalid_transition',
+    'registration_rate_limited',
+    'review_note_required',
+    'invalid_registration',
+    'gallery_full',
+  ] as const) {
+    if (message.includes(code)) return code;
+  }
+  if (message.includes('registration_requires_login')) return 'registration_closed';
+  return null;
 }

@@ -1,4 +1,5 @@
 import type {
+  AnswerValue,
   AppNotification,
   BlockedPerson,
   Category,
@@ -10,7 +11,9 @@ import type {
   EventAnalytics,
   EventClaim,
   EventDetail,
+  EventPhoto,
   EventQuery,
+  EventRegistration,
   EventRevision,
   EventRevisionChanges,
   EventStatus,
@@ -26,6 +29,9 @@ import type {
   Paginated,
   PeopleSuggestion,
   PublicProfile,
+  RegistrationForm,
+  RegistrationStats,
+  StoredFile,
   Submission,
   SubmissionPayload,
   Team,
@@ -38,6 +44,8 @@ import type { OrganizerApplicationInput } from '@/lib/organizer';
 import type { PortfolioInput } from '@/lib/portfolio';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
+import type { UploadedImage } from '@/lib/image-file';
+import type { RegistrationFormInput, ReviewDecision } from '@/lib/registration-form';
 
 /**
  * Kontrak akses data. Seluruh UI berbicara HANYA lewat antarmuka ini —
@@ -68,7 +76,9 @@ export interface EventRepository
     RateLimitRepository,
     RecommendationSignalRepository,
     EventPresentationRepository,
-    NotificationDispatchRepository {}
+    NotificationDispatchRepository,
+    RegistrationRepository,
+    GalleryRepository {}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {
@@ -319,6 +329,60 @@ export interface OrganizerRepository {
   /** Status penyelenggara para pengirim — lencana "terverifikasi" di antrean kiriman. */
   listOrganizerStatuses(userIds: readonly string[]): Promise<ReadonlyMap<string, Pick<OrganizerProfile, 'orgName' | 'status'>>>;
 }
+
+/**
+ * Pelaku untuk formulir, pendaftaran, pembayaran, dan galeri (ADR-056).
+ * `isAdmin` hanya dipakai mode seed — produksi membaca `is_admin()` dari
+ * database dan tidak mempercayai nilai dari aplikasi.
+ */
+export interface EventActor {
+  readonly id: string;
+  readonly fullName: string;
+  readonly email: string;
+  readonly isAdmin: boolean;
+}
+
+/**
+ * Formulir pendaftaran internal + pembayaran (ADR-056).
+ *
+ * Hak dicek DI DALAM implementasi (di produksi oleh RLS + RPC): penyusun
+ * formulir, pembaca pendaftar, dan pemeriksa bukti bayar = pengelola
+ * terverifikasi acara itu atau admin; pendaftaran hanya terbaca pemiliknya.
+ * Pendaftaran orang lain yang tidak boleh dilihat = `null` /
+ * `registration_not_found`, tidak pernah "dilarang" — tidak membocorkan id.
+ */
+export interface RegistrationRepository {
+  /** Formulir acara (tayang) — null bila penyelenggara belum membuatnya. */
+  getRegistrationForm(eventId: string): Promise<RegistrationForm | null>;
+  saveRegistrationForm(actor: EventActor, eventId: string, input: RegistrationFormInput): Promise<void>;
+  /** Jawaban SUDAH divalidasi `readAnswers()` terhadap formulir terkini. */
+  registerForEvent(actor: EventActor, eventId: string, answers: Readonly<Record<string, AnswerValue>>): Promise<EventRegistration>;
+  /** Pendaftaran hidup (bukan dibatalkan) milik pengguna di acara itu. */
+  getMyRegistration(userId: string, eventId: string): Promise<EventRegistration | null>;
+  listMyRegistrations(userId: string): Promise<readonly EventRegistration[]>;
+  getRegistration(actor: EventActor, registrationId: string): Promise<EventRegistration | null>;
+  listEventRegistrations(actor: EventActor, eventId: string): Promise<readonly EventRegistration[]>;
+  /** Ringkasan per acara kelolaan (dasbor) — acara yang tidak dikelola dilewati. */
+  listRegistrationStats(actor: EventActor, eventIds: readonly string[]): Promise<readonly RegistrationStats[]>;
+  submitPaymentProof(actor: EventActor, registrationId: string, image: UploadedImage): Promise<void>;
+  /** Bukti bayar untuk pemilik, pengelola acara, atau admin; selain itu null. */
+  getPaymentProof(actor: EventActor, registrationId: string): Promise<StoredFile | null>;
+  reviewRegistration(actor: EventActor, registrationId: string, decision: ReviewDecision, note: string | null): Promise<void>;
+  cancelRegistration(actor: EventActor, registrationId: string): Promise<void>;
+}
+
+/** Galeri foto acara (ADR-056). Baca publik untuk acara tayang; tulis = pengelola/admin. */
+export interface GalleryRepository {
+  listEventPhotos(eventId: string): Promise<readonly EventPhoto[]>;
+  /** Mengembalikan jumlah yang tersimpan; melebihi batas → `gallery_full`. */
+  addEventPhotos(actor: EventActor, eventId: string, images: readonly UploadedImage[], caption: string | null): Promise<number>;
+  deleteEventPhoto(actor: EventActor, photoId: string): Promise<void>;
+  /** Berkas untuk rute publik `/media/foto/[id]` — hanya foto acara yang tayang. */
+  getEventPhotoFile(photoId: string): Promise<StoredFile | null>;
+}
+
+/** Batas galeri per acara & per unggahan — cermin trigger `enforce_event_photo_insert`. */
+export const GALLERY_LIMITS = { perEvent: 30, perUpload: 6, captionMax: 140 } as const;
 
 /** Mode seed tidak punya tabel `users`; nama pelaku dicatat saat ia bertindak (pola NetworkViewer). */
 export interface OrganizerActor {

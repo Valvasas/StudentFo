@@ -49,6 +49,11 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react'],
     serverActions: {
       allowedOrigins: serverActionOrigins(),
+      // Bawaan 1 MB menolak satu foto ponsel pun. 25 MB = 6 foto galeri ×
+      // ±4 MB tanpa JavaScript (dengan JS foto diperkecil di peramban ke
+      // ±0,5 MB). Batas per berkas (5 MB), jenis, & jumlah tetap diperiksa
+      // di Server Action — ini hanya plafon ukuran badan permintaan (ADR-056).
+      bodySizeLimit: '25mb',
     },
   },
   async headers() {

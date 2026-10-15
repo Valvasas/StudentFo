@@ -5,6 +5,7 @@ import { readDemoSession } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
 import { loginHref } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import type { EventActor } from '@/lib/data/repository';
 import type { UserProfileRow } from '@/types/database';
 import type { EducationLevel } from '@/types/domain';
 
@@ -127,4 +128,9 @@ export async function checkAdminAccess(): Promise<AdminGate> {
     userId: user.id,
     userName: user.fullName,
   };
+}
+
+/** Pelaku untuk repository pendaftaran & galeri (ADR-056). */
+export function toEventActor(user: AuthUser): EventActor {
+  return { id: user.id, fullName: user.fullName, email: user.email, isAdmin: user.role === 'ADMIN' };
 }

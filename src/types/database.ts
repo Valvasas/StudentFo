@@ -327,3 +327,54 @@ export interface EventManagerRow {
   source: ManagerSource;
   created_at: string;
 }
+
+/** `event_registration_forms` (ADR-056). `fields` JSONB — dibentuk ulang lewat `parseStoredFields()`. */
+export interface RegistrationFormRow {
+  event_id: string;
+  is_open: boolean;
+  intro: string | null;
+  fields: unknown;
+  capacity: number | null;
+  fee_amount: number | null;
+  payment_instructions: string | null;
+  updated_at: string;
+}
+
+/** `event_registrations` — tanpa `reviewed_by` (tidak diberi hak SELECT). */
+export interface EventRegistrationRow {
+  id: string;
+  code: string;
+  event_id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  answers: unknown;
+  status: string;
+  fee_amount: number | null;
+  proof_path: string | null;
+  proof_uploaded_at: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegistrationStatsRow {
+  event_id: string;
+  total: number;
+  confirmed: number;
+  awaiting_payment: number;
+  payment_review: number;
+  recent: number;
+}
+
+export interface EventPhotoRow {
+  id: string;
+  event_id: string;
+  storage_path: string;
+  content_type: string;
+  width: number;
+  height: number;
+  caption: string | null;
+  created_at: string;
+}

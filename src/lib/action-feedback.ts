@@ -55,6 +55,22 @@ export const ACTION_ERROR_CODES = [
   'invalid_portfolio',
   'moderation_not_rejected',
   'invalid_presentation',
+  'invalid_registration_form',
+  'registration_form_fields',
+  'registration_form_payment',
+  'registration_closed',
+  'registration_full',
+  'registration_exists',
+  'registration_not_found',
+  'registration_invalid_transition',
+  'registration_rate_limited',
+  'invalid_registration',
+  'review_note_required',
+  'image_missing',
+  'image_too_large',
+  'image_invalid',
+  'gallery_full',
+  'photo_not_found',
   'invalid_request',
   'unknown',
 ] as const;
@@ -112,6 +128,24 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   moderation_not_rejected: 'Item itu sudah tidak berstatus ditolak — mungkin sudah dipulihkan admin lain.',
   invalid_presentation:
     'Periksa isian: pilih lencana dari daftar, dan tanggal akhir promosi mulai hari ini sampai paling lama 1 tahun ke depan.',
+  invalid_registration_form: 'Periksa isian: kuota & biaya berupa angka bulat, pengantar maks. 1.000 karakter.',
+  registration_form_fields:
+    'Ada pertanyaan yang belum lengkap: setiap pertanyaan butuh judul, dan pilihan ganda butuh minimal 2 pilihan.',
+  registration_form_payment:
+    'Acara berbayar butuh instruksi pembayaran (rekening, e-wallet, atau QRIS) minimal 10 karakter.',
+  registration_closed: 'Pendaftaran lewat StudentFo untuk acara ini sedang ditutup.',
+  registration_full: 'Kuota pendaftaran sudah penuh.',
+  registration_exists: 'Kamu sudah terdaftar di acara ini. Lihat statusnya di menu Pembayaran.',
+  registration_not_found: 'Pendaftaran itu tidak ditemukan.',
+  registration_invalid_transition: 'Status pendaftaran sudah berubah. Muat ulang halaman untuk melihat yang terbaru.',
+  registration_rate_limited: 'Terlalu banyak pendaftaran dalam satu jam. Coba lagi nanti.',
+  invalid_registration: 'Ada jawaban yang belum valid. Periksa kolom yang ditandai lalu kirim ulang.',
+  review_note_required: 'Tulis alasan singkat supaya peserta tahu apa yang perlu diperbaiki.',
+  image_missing: 'Pilih berkas gambar dulu.',
+  image_too_large: 'Ukuran gambar maksimal 5 MB per berkas.',
+  image_invalid: 'Berkas harus berupa foto JPG, PNG, atau WebP (minimal 32×32 piksel).',
+  gallery_full: 'Galeri sudah berisi 30 foto. Hapus beberapa foto lama dulu.',
+  photo_not_found: 'Foto itu sudah tidak ada.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -142,6 +176,14 @@ export const ACTION_NOTICE_CODES = [
   'team_created',
   'tracker_applied',
   'tracker_accepted',
+  'registration_confirmed',
+  'registration_awaiting_payment',
+  'payment_submitted',
+  'registration_cancelled',
+  'registration_form_saved',
+  'registration_reviewed',
+  'photos_uploaded',
+  'photo_deleted',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -174,6 +216,14 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   team_created: 'Tim dibuka dan sudah tampil di Cari Tim. Bagikan tautannya ke orang yang kamu incar.',
   tracker_applied: 'Dicatat sebagai "Sudah Daftar". Pindahkan tahapnya begitu ada kabar dari penyelenggara.',
   tracker_accepted: 'Dicatat sebagai "Diterima". Isi hasilnya di portofolio kalau ingin ditampilkan di profilmu.',
+  registration_confirmed: 'Pendaftaranmu terkonfirmasi. Simpan kode pendaftaranmu untuk ditunjukkan ke panitia.',
+  registration_awaiting_payment: 'Pendaftaran tersimpan. Selesaikan pembayaran lalu unggah buktinya di bawah.',
+  payment_submitted: 'Bukti pembayaran terkirim. Panitia akan memeriksanya — kamu dikabari lewat notifikasi.',
+  registration_cancelled: 'Pendaftaran dibatalkan.',
+  registration_form_saved: 'Formulir pendaftaran disimpan.',
+  registration_reviewed: 'Keputusan disimpan dan peserta sudah dikabari.',
+  photos_uploaded: 'Foto ditambahkan ke galeri acara.',
+  photo_deleted: 'Foto dihapus dari galeri.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {
@@ -199,7 +249,10 @@ export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError
     code === 'organizer_revoked' ||
     code === 'not_event_manager'
       ? 403
-      : code === 'submission_rate_limited' || code === 'connection_rate_limited' || code === 'organizer_rate_limited'
+      : code === 'submission_rate_limited' ||
+          code === 'connection_rate_limited' ||
+          code === 'organizer_rate_limited' ||
+          code === 'registration_rate_limited'
         ? 429
         : code.endsWith('not_found')
           ? 404

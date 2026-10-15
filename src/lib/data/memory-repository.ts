@@ -20,8 +20,20 @@ import { ANALYTICS_MIN_GROUP, kAnonymize } from '@/lib/organizer-analytics';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
 import { isPortfolioStatus, isPubliclyListed, toPortfolioEntry, type PortfolioInput } from '@/lib/portfolio';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
+import { IMAGE_EXTENSION, type UploadedImage } from '@/lib/image-file';
+import {
+  initialRegistrationStatus,
+  isActiveRegistration,
+  newRegistrationCode,
+  REGISTRATION_RATE_LIMIT,
+  registrationAvailability,
+  registrationTransition,
+  type RegistrationFormInput,
+  type ReviewDecision,
+} from '@/lib/registration-form';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
 import type {
+  AnswerValue,
   AppNotification,
   BlockedPerson,
   Category,
@@ -34,7 +46,9 @@ import type {
   EventAnalytics,
   EventClaim,
   EventDetail,
+  EventPhoto,
   EventQuery,
+  EventRegistration,
   EventRevision,
   EventRevisionChanges,
   EventStatus,
@@ -56,6 +70,10 @@ import type {
   PortfolioFields,
   ProfileRelation,
   PublicProfile,
+  RegistrationForm,
+  RegistrationStats,
+  RegistrationStatus,
+  StoredFile,
   Submission,
   Team,
   TeamLink,
@@ -65,12 +83,14 @@ import type {
 } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH } from './repository';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS } from './repository';
+import { demoReceiptPng } from './demo-media';
 import type {
   CreateSubmissionInput,
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
+  EventActor,
   EventRepository,
   OrganizerActor,
   PeopleFilter,
@@ -244,6 +264,37 @@ interface RevisionEntry {
   createdAt: string;
 }
 
+interface RegistrationFormEntry extends Omit<RegistrationForm, 'activeCount'> {}
+
+interface RegistrationEntry {
+  id: string;
+  code: string;
+  eventId: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  answers: Readonly<Record<string, AnswerValue>>;
+  status: RegistrationStatus;
+  feeAmount: number | null;
+  proofKey: string | null;
+  proofUploadedAt: string | null;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PhotoEntry extends EventPhoto {
+  key: string;
+}
+
+/**
+ * Batas byte berkas di memori proses demo (foto + bukti bayar). Data demo
+ * dibagi semua pengunjung dan baru dibuang saat reset 6 jam — tanpa batas,
+ * satu skrip unggah memenuhi RAM server pratinjau.
+ */
+export const DEMO_MEDIA_BYTE_LIMIT = 150 * 1024 * 1024;
+
 interface TeamEntry {
   id: string;
   eventId: string;
@@ -303,6 +354,11 @@ export class MemoryEventRepository implements EventRepository {
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
   readonly recommendationSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
   /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
+  private readonly registrationForms = new Map<string, RegistrationFormEntry>();
+  private readonly registrations = new Map<string, RegistrationEntry>();
+  private readonly photos = new Map<string, PhotoEntry>();
+  private readonly media = new Map<string, StoredFile>();
+  private mediaBytes = 0;
   private readonly demoSeededUsers = new Set<string>();
   private readonly demoSeedLimit: number;
 
@@ -1798,9 +1854,13 @@ export class MemoryEventRepository implements EventRepository {
       applicant: { fullName: user.fullName, email: user.email },
     });
 
-    // Tiga acara yang masih buka + satu yang sudah selesai (bahan "Riwayat acara").
+    // Tiga acara yang masih buka + satu acara berbayar (bahan alur verifikasi
+    // pembayaran, ADR-056) + satu yang sudah selesai (bahan "Riwayat acara").
+    const open = this.events.filter((event) => event.status === 'APPROVED').slice(0, 3);
+    const paid = this.events.find((event) => event.status === 'APPROVED' && event.isFree === false && !open.includes(event));
     const managed = [
-      ...this.events.filter((event) => event.status === 'APPROVED').slice(0, 3),
+      ...open,
+      ...(paid ? [paid] : []),
       ...this.events.filter((event) => event.status === 'EXPIRED').slice(0, 1),
     ];
     let seed = 42;
@@ -1847,6 +1907,8 @@ export class MemoryEventRepository implements EventRepository {
       }
     });
 
+    this.seedDemoRegistrations({ free: open[0]?.id, paid: paid?.id }, now);
+
     // Pembanding "acara sejenis": acara lain berjenis sama punya riwayat juga.
     for (const other of this.events.filter((event) => event.status === 'APPROVED' && !managed.includes(event)).slice(0, 12)) {
       for (let back = 89; back >= 0; back -= 1) {
@@ -1856,6 +1918,375 @@ export class MemoryEventRepository implements EventRepository {
         const visitorsToday = Math.round(8 + random() * 20);
         this.dailyStats.set(key, { views: Math.round(visitorsToday * 1.3), visitors: visitorsToday });
       }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Formulir pendaftaran internal, pembayaran, galeri (ADR-056). Cermin
+  // RLS + RPC di migration 20261014100001: hak = pengelola terverifikasi
+  // atau admin; pendaftaran orang lain = "tidak ada", bukan "dilarang".
+  // ------------------------------------------------------------------
+
+  private canManageEvent(actor: EventActor, eventId: string): boolean {
+    return actor.isAdmin || this.managesEvent(actor.id, eventId);
+  }
+
+  private storeMedia(key: string, file: StoredFile): void {
+    if (this.mediaBytes + file.bytes.length > DEMO_MEDIA_BYTE_LIMIT) throw actionError('gallery_full');
+    this.media.set(key, file);
+    this.mediaBytes += file.bytes.length;
+  }
+
+  private dropMedia(key: string | null): void {
+    if (!key) return;
+    const file = this.media.get(key);
+    if (!file) return;
+    this.mediaBytes -= file.bytes.length;
+    this.media.delete(key);
+  }
+
+  private activeRegistrationCount(eventId: string): number {
+    let count = 0;
+    for (const entry of this.registrations.values()) {
+      if (entry.eventId === eventId && isActiveRegistration(entry.status)) count += 1;
+    }
+    return count;
+  }
+
+  private toRegistration(entry: RegistrationEntry): EventRegistration {
+    const event = this.findEvent(entry.eventId);
+    const { proofKey: _proofKey, eventId, ...rest } = entry;
+    return {
+      ...rest,
+      event: {
+        id: eventId,
+        slug: event?.slug ?? '',
+        title: event?.title ?? '(acara dihapus)',
+        organizer: event?.organizer ?? '',
+        primaryDeadlineAt: event?.primaryDeadlineAt ?? null,
+      },
+    };
+  }
+
+  /** Pemilik, pengelola acara, atau admin; selain itu "tidak ada". */
+  private visibleRegistration(actor: EventActor, registrationId: string): RegistrationEntry | null {
+    const entry = this.registrations.get(registrationId);
+    if (!entry) return null;
+    return entry.userId === actor.id || this.canManageEvent(actor, entry.eventId) ? entry : null;
+  }
+
+  private notifyAbout(userId: string, eventId: string, type: AppNotification['type'], message: string): void {
+    const event = this.findEvent(eventId);
+    const list = getOrCreate(this.storedNotifications, userId, () => []);
+    // Satu kabar per (orang, acara, jenis) yang disegarkan — cermin notify_registration().
+    const kept = list.filter((item) => !(item.type === type && item.event?.id === eventId));
+    kept.push({
+      id: `notif-${type.toLowerCase()}-${eventId}-${userId}`,
+      type,
+      message,
+      isRead: false,
+      sentAt: new Date().toISOString(),
+      event: event ? { id: event.id, slug: event.slug, title: event.title } : null,
+    });
+    this.readNotifications.get(userId)?.delete(`notif-${type.toLowerCase()}-${eventId}-${userId}`);
+    list.splice(0, list.length, ...kept);
+  }
+
+  async getRegistrationForm(eventId: string): Promise<RegistrationForm | null> {
+    const form = this.registrationForms.get(eventId);
+    if (!form || !this.findEvent(eventId)) return null;
+    return { ...form, activeCount: this.activeRegistrationCount(eventId) };
+  }
+
+  async saveRegistrationForm(actor: EventActor, eventId: string, input: RegistrationFormInput): Promise<void> {
+    if (!this.findEvent(eventId) || !this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
+    this.registrationForms.set(eventId, { eventId, ...input, updatedAt: new Date().toISOString() });
+  }
+
+  async registerForEvent(
+    actor: EventActor,
+    eventId: string,
+    answers: Readonly<Record<string, AnswerValue>>,
+  ): Promise<EventRegistration> {
+    const event = this.findEvent(eventId);
+    const form = this.registrationForms.get(eventId);
+    const deadlinePassed = event?.primaryDeadlineAt ? new Date(event.primaryDeadlineAt).getTime() < Date.now() : false;
+    if (!event || !form || event.status !== 'APPROVED') throw actionError('registration_closed');
+    const availability = registrationAvailability(
+      { isOpen: form.isOpen, capacity: form.capacity, activeCount: this.activeRegistrationCount(eventId) },
+      deadlinePassed,
+    );
+    if (availability.reason === 'full') throw actionError('registration_full');
+    if (!availability.open) throw actionError('registration_closed');
+    for (const entry of this.registrations.values()) {
+      if (entry.eventId === eventId && entry.userId === actor.id && entry.status !== 'CANCELLED') {
+        throw actionError('registration_exists');
+      }
+    }
+    if (!this.rateLimiter.consume(`registration:${actor.id}`, REGISTRATION_RATE_LIMIT.perHour, 3600)) {
+      throw actionError('registration_rate_limited');
+    }
+
+    const now = new Date().toISOString();
+    const entry: RegistrationEntry = {
+      id: this.nextId(),
+      code: newRegistrationCode(),
+      eventId,
+      userId: actor.id,
+      fullName: actor.fullName,
+      email: actor.email,
+      answers,
+      status: initialRegistrationStatus(form.feeAmount),
+      feeAmount: form.feeAmount,
+      proofKey: null,
+      proofUploadedAt: null,
+      reviewNote: null,
+      reviewedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.registrations.set(entry.id, entry);
+
+    const tracked = this.trackerEntries.get(actor.id)?.get(eventId);
+    if (!tracked || tracked.status === 'SAVED') await this.upsertTrackerItem(actor.id, eventId, 'APPLIED');
+    return this.toRegistration(entry);
+  }
+
+  async getMyRegistration(userId: string, eventId: string): Promise<EventRegistration | null> {
+    for (const entry of this.registrations.values()) {
+      if (entry.userId === userId && entry.eventId === eventId && entry.status !== 'CANCELLED') return this.toRegistration(entry);
+    }
+    return null;
+  }
+
+  async listMyRegistrations(userId: string): Promise<readonly EventRegistration[]> {
+    return [...this.registrations.values()]
+      .filter((entry) => entry.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((entry) => this.toRegistration(entry));
+  }
+
+  async getRegistration(actor: EventActor, registrationId: string): Promise<EventRegistration | null> {
+    const entry = this.visibleRegistration(actor, registrationId);
+    return entry ? this.toRegistration(entry) : null;
+  }
+
+  async listEventRegistrations(actor: EventActor, eventId: string): Promise<readonly EventRegistration[]> {
+    if (!this.canManageEvent(actor, eventId)) return [];
+    return [...this.registrations.values()]
+      .filter((entry) => entry.eventId === eventId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((entry) => this.toRegistration(entry));
+  }
+
+  async listRegistrationStats(actor: EventActor, eventIds: readonly string[]): Promise<readonly RegistrationStats[]> {
+    const since = Date.now() - 7 * MS_PER_DAY;
+    return eventIds
+      .filter((eventId) => this.canManageEvent(actor, eventId))
+      .map((eventId) => {
+        const entries = [...this.registrations.values()].filter((entry) => entry.eventId === eventId);
+        const count = (status: RegistrationStatus) => entries.filter((entry) => entry.status === status).length;
+        return {
+          eventId,
+          total: entries.filter((entry) => isActiveRegistration(entry.status)).length,
+          confirmed: count('CONFIRMED'),
+          awaitingPayment: count('AWAITING_PAYMENT'),
+          paymentReview: count('PAYMENT_REVIEW'),
+          recent: entries.filter((entry) => new Date(entry.createdAt).getTime() >= since).length,
+        };
+      });
+  }
+
+  async submitPaymentProof(actor: EventActor, registrationId: string, image: UploadedImage): Promise<void> {
+    const entry = this.registrations.get(registrationId);
+    if (!entry || entry.userId !== actor.id) throw actionError('registration_not_found');
+    const next = registrationTransition(entry.status, 'submit_proof');
+    if (!next) throw actionError('registration_invalid_transition');
+
+    const key = `proof/${registrationId}/${this.nextId()}.${IMAGE_EXTENSION[image.type]}`;
+    this.storeMedia(key, { bytes: image.bytes, contentType: image.type });
+    this.dropMedia(entry.proofKey);
+    const now = new Date().toISOString();
+    this.registrations.set(registrationId, {
+      ...entry,
+      status: next,
+      proofKey: key,
+      proofUploadedAt: now,
+      reviewNote: null,
+      updatedAt: now,
+    });
+
+    const title = this.findEvent(entry.eventId)?.title ?? 'acara';
+    for (const [userId] of this.eventManagers.get(entry.eventId) ?? []) {
+      if (!this.isVerifiedOrganizer(userId)) continue;
+      this.notifyAbout(userId, entry.eventId, 'PAYMENT_SUBMITTED', `Ada bukti pembayaran baru untuk "${title}". Periksa di daftar pendaftar.`);
+    }
+  }
+
+  async getPaymentProof(actor: EventActor, registrationId: string): Promise<StoredFile | null> {
+    const entry = this.visibleRegistration(actor, registrationId);
+    return entry?.proofKey ? (this.media.get(entry.proofKey) ?? null) : null;
+  }
+
+  async reviewRegistration(actor: EventActor, registrationId: string, decision: ReviewDecision, note: string | null): Promise<void> {
+    const entry = this.registrations.get(registrationId);
+    if (!entry || !this.canManageEvent(actor, entry.eventId)) throw actionError('registration_not_found');
+    if (decision !== 'confirm' && !note) throw actionError('review_note_required');
+    const next = registrationTransition(entry.status, decision);
+    if (!next) throw actionError('registration_invalid_transition');
+
+    const now = new Date().toISOString();
+    this.registrations.set(registrationId, { ...entry, status: next, reviewNote: note, reviewedAt: now, updatedAt: now });
+    const title = this.findEvent(entry.eventId)?.title ?? 'acara';
+    if (next === 'CONFIRMED') {
+      this.notifyAbout(entry.userId, entry.eventId, 'REGISTRATION_CONFIRMED', `Pendaftaranmu di "${title}" sudah dikonfirmasi panitia.`);
+    } else if (next === 'REJECTED') {
+      this.notifyAbout(entry.userId, entry.eventId, 'REGISTRATION_REJECTED', `Pendaftaranmu di "${title}" tidak diterima panitia. Lihat catatannya di Pembayaran.`);
+    } else {
+      this.notifyAbout(entry.userId, entry.eventId, 'PAYMENT_REJECTED', `Bukti pembayaran "${title}" perlu diunggah ulang. Lihat catatan panitia.`);
+    }
+  }
+
+  async cancelRegistration(actor: EventActor, registrationId: string): Promise<void> {
+    const entry = this.registrations.get(registrationId);
+    if (!entry || entry.userId !== actor.id) throw actionError('registration_not_found');
+    const next = registrationTransition(entry.status, 'cancel');
+    if (!next) throw actionError('registration_invalid_transition');
+    this.registrations.set(registrationId, { ...entry, status: next, updatedAt: new Date().toISOString() });
+  }
+
+  async listEventPhotos(eventId: string): Promise<readonly EventPhoto[]> {
+    return [...this.photos.values()]
+      .filter((photo) => photo.eventId === eventId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(({ key: _key, ...photo }) => photo);
+  }
+
+  async addEventPhotos(actor: EventActor, eventId: string, images: readonly UploadedImage[], caption: string | null): Promise<number> {
+    if (!this.findEvent(eventId) || !this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
+    const existing = [...this.photos.values()].filter((photo) => photo.eventId === eventId).length;
+    if (existing + images.length > GALLERY_LIMITS.perEvent) throw actionError('gallery_full');
+    images.forEach((image, index) => {
+      const id = this.nextId();
+      const key = `photo/${eventId}/${id}.${IMAGE_EXTENSION[image.type]}`;
+      this.storeMedia(key, { bytes: image.bytes, contentType: image.type });
+      // Selisih milidetik menjaga urutan unggah dalam satu kiriman.
+      const createdAt = new Date(Date.now() + index).toISOString();
+      this.photos.set(id, { id, key, eventId, width: image.width, height: image.height, caption, createdAt });
+    });
+    return images.length;
+  }
+
+  async deleteEventPhoto(actor: EventActor, photoId: string): Promise<void> {
+    const photo = this.photos.get(photoId);
+    if (!photo || !this.canManageEvent(actor, photo.eventId)) throw actionError('photo_not_found');
+    this.photos.delete(photoId);
+    this.dropMedia(photo.key);
+  }
+
+  async getEventPhotoFile(photoId: string): Promise<StoredFile | null> {
+    const photo = this.photos.get(photoId);
+    const event = photo ? this.findEvent(photo.eventId) : undefined;
+    if (!photo || !event || !isPubliclyVisible(event)) return null;
+    return this.media.get(photo.key) ?? null;
+  }
+
+  /** Formulir + pendaftar contoh untuk persona Penyelenggara (mode seed saja). */
+  private seedDemoRegistrations(eventIds: { free: string | undefined; paid: string | undefined }, now: Date): void {
+    const at = (daysAgo: number) => new Date(now.getTime() - daysAgo * MS_PER_DAY).toISOString();
+    const base = { help: null, options: [] as string[] };
+    if (eventIds.free && !this.registrationForms.has(eventIds.free)) {
+      this.registrationForms.set(eventIds.free, {
+        eventId: eventIds.free,
+        isOpen: true,
+        intro: 'Satu orang mendaftar mewakili timnya. Data anggota lain diminta saat pengumpulan proposal.',
+        fields: [
+          { id: 'f_whatsapp', type: 'phone', label: 'Nomor WhatsApp ketua', ...base, help: 'Untuk grup info teknis.', required: true },
+          { id: 'f_kampus', type: 'short_text', label: 'Asal kampus', ...base, required: true },
+          { id: 'f_tim', type: 'short_text', label: 'Nama tim', ...base, required: true },
+          { id: 'f_anggota', type: 'select', label: 'Jumlah anggota', help: null, options: ['3 orang', '4 orang', '5 orang'], required: true },
+          { id: 'f_setuju', type: 'checkbox', label: 'Saya sudah membaca buku panduan lomba', ...base, required: true },
+        ],
+        capacity: 150,
+        feeAmount: null,
+        paymentInstructions: null,
+        updatedAt: at(20),
+      });
+    }
+    if (eventIds.paid && !this.registrationForms.has(eventIds.paid)) {
+      this.registrationForms.set(eventIds.paid, {
+        eventId: eventIds.paid,
+        isOpen: true,
+        intro: null,
+        fields: [
+          { id: 'f_whatsapp', type: 'phone', label: 'Nomor WhatsApp', ...base, required: true },
+          { id: 'f_instansi', type: 'short_text', label: 'Asal kampus / instansi', ...base, required: true },
+          { id: 'f_topik', type: 'long_text', label: 'Topik penelitian yang sedang dikerjakan', ...base, required: false },
+        ],
+        capacity: 40,
+        feeAmount: 75000,
+        paymentInstructions:
+          'Transfer ke BCA 0000000000 a.n. Panitia Contoh (rekening fiktif mode demo). Tulis kode pendaftaran di berita transfer.',
+        updatedAt: at(18),
+      });
+    }
+
+    const people: readonly [string, string, string][] = [
+      ['Alya Rahmadani', 'Universitas Nusantara Digital', 'Tim Lumbung'],
+      ['Bagas Pratama', 'Politeknik Negeri Contoh', 'Panen Data'],
+      ['Citra Ayuningtyas', 'Institut Teknologi Contoh', 'Sawah Pintar'],
+      ['Daffa Akbar', 'Universitas Contoh Raya', 'AgriKode'],
+      ['Elsa Maharani', 'Universitas Nusantara Digital', 'Pangan Kita'],
+      ['Fikri Hidayat', 'Universitas Contoh Timur', 'Gudang Sehat'],
+    ];
+    const seedEntry = (eventId: string, index: number, status: RegistrationStatus, fee: number | null, answers: Record<string, AnswerValue>) => {
+      const [fullName] = people[index % people.length] ?? ['Peserta Contoh'];
+      const id = `demo-reg-${eventId}-${index}`;
+      if (this.registrations.has(id)) return;
+      let proofKey: string | null = null;
+      if (status === 'PAYMENT_REVIEW' || status === 'CONFIRMED') {
+        if (fee !== null) {
+          proofKey = `proof/${id}/demo.png`;
+          if (!this.media.has(proofKey)) this.storeMedia(proofKey, { bytes: demoReceiptPng(), contentType: 'image/png' });
+        }
+      }
+      this.registrations.set(id, {
+        id,
+        code: `SF-DE${String(index).padStart(2, '0')}${eventId.slice(-4).toUpperCase().replace(/[^0-9A-F]/g, '0')}`,
+        eventId,
+        userId: `demo-peserta-${index}`,
+        fullName,
+        email: `peserta${index + 1}@contoh.studentfo.local`,
+        answers,
+        status,
+        feeAmount: fee,
+        proofKey,
+        proofUploadedAt: proofKey ? at(index) : null,
+        reviewNote: null,
+        reviewedAt: status === 'CONFIRMED' ? at(index) : null,
+        createdAt: at(index + 1),
+        updatedAt: at(index),
+      });
+    };
+    if (eventIds.free) {
+      people.forEach(([, campus, team], index) =>
+        seedEntry(eventIds.free!, index, 'CONFIRMED', null, {
+          f_whatsapp: `08123450000${index}`,
+          f_kampus: campus,
+          f_tim: team,
+          f_anggota: `${3 + (index % 3)} orang`,
+          f_setuju: true,
+        }),
+      );
+    }
+    if (eventIds.paid) {
+      const statuses: RegistrationStatus[] = ['PAYMENT_REVIEW', 'PAYMENT_REVIEW', 'AWAITING_PAYMENT', 'CONFIRMED'];
+      statuses.forEach((status, index) =>
+        seedEntry(eventIds.paid!, index, status, 75000, {
+          f_whatsapp: `08567890000${index}`,
+          f_instansi: people[index]?.[1] ?? 'Universitas Contoh',
+        }),
+      );
     }
   }
 

@@ -36,6 +36,9 @@ type CelebratedCode = Extract<
   | 'organizer_applied'
   | 'claim_submitted'
   | 'revision_submitted'
+  | 'registration_confirmed'
+  | 'registration_awaiting_payment'
+  | 'payment_submitted'
 >;
 
 export const CELEBRATIONS: Readonly<Record<CelebratedCode, Celebration>> = {
@@ -50,6 +53,9 @@ export const CELEBRATIONS: Readonly<Record<CelebratedCode, Celebration>> = {
   organizer_applied: { stamp: 'TERKIRIM', title: 'Pengajuan penyelenggara terkirim', art: 'plane', confetti: false },
   claim_submitted: { stamp: 'TERKIRIM', title: 'Klaim acara terkirim', art: 'plane', confetti: false },
   revision_submitted: { stamp: 'TERKIRIM', title: 'Permintaan perubahan terkirim', art: 'plane', confetti: false },
+  registration_confirmed: { stamp: 'TERDAFTAR', title: 'Kamu resmi terdaftar!', art: 'party', confetti: true },
+  registration_awaiting_payment: { stamp: 'TERSIMPAN', title: 'Tinggal selesaikan pembayaran', art: 'plane', confetti: false },
+  payment_submitted: { stamp: 'TERKIRIM', title: 'Bukti bayar sedang diperiksa', art: 'plane', confetti: false },
 };
 
 export function celebrationFor(code: string | null): Celebration | null {

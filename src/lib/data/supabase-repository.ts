@@ -24,12 +24,15 @@ import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
 import { isColdStart } from '@/lib/recommendation';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { toStoredPayload } from '@/lib/submission-schema';
+import { IMAGE_EXTENSION, type UploadedImage } from '@/lib/image-file';
+import type { RegistrationFormInput, ReviewDecision } from '@/lib/registration-form';
 import {
   createSupabaseAdminClient,
   createSupabasePublicClient,
   createSupabaseServerClient,
 } from '@/lib/supabase/server';
 import type {
+  AnswerValue,
   AppNotification,
   BlockedPerson,
   Category,
@@ -42,7 +45,9 @@ import type {
   EventAnalytics,
   EventClaim,
   EventDetail,
+  EventPhoto,
   EventQuery,
+  EventRegistration,
   EventRevision,
   EventRevisionChanges,
   EventStatus,
@@ -57,6 +62,9 @@ import type {
   Paginated,
   PeopleSuggestion,
   PublicProfile,
+  RegistrationForm,
+  RegistrationStats,
+  StoredFile,
   Submission,
   Team,
   TeamLink,
@@ -76,6 +84,8 @@ import type {
   EventDeadlineWithEventRow,
   EventListingRow,
   EventManagerRow,
+  EventPhotoRow,
+  EventRegistrationRow,
   EventRevisionRow,
   ModerationLogRow,
   NetworkDirectoryRow,
@@ -92,6 +102,8 @@ import type {
   OrganizerHistoryRow,
   PublicPortfolioRow,
   PublicProfileRow,
+  RegistrationFormRow,
+  RegistrationStatsRow,
   TrackerRow,
 } from '@/types/database';
 import {
@@ -103,12 +115,13 @@ import {
   totalPagesFor,
 } from './listing';
 import { type CacheLayer, nextDataCache } from './cache';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH } from './repository';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS } from './repository';
 import type {
   CreateSubmissionInput,
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
+  EventActor,
   EventRepository,
   OrganizerActor,
   PeopleFilter,
@@ -126,6 +139,14 @@ import {
   LISTING_COLUMNS,
   ORGANIZER_COLUMNS,
   organizerErrorCode,
+  PHOTO_COLUMNS,
+  REGISTRATION_COLUMNS,
+  REGISTRATION_FORM_COLUMNS,
+  registrationErrorCode,
+  toEventPhoto,
+  toEventRegistration,
+  toRegistrationForm,
+  toRegistrationStats,
   peopleSearchTerm,
   REVISION_COLUMNS,
   sanitizeSearchQuery,
@@ -1825,6 +1846,321 @@ export class SupabaseEventRepository implements EventRepository {
       events: events.map(toSummary),
     };
   }
+
+  // ------------------------------------------------------------------
+  // Formulir pendaftaran internal, pembayaran, galeri (ADR-056)
+  //
+  // Baris & transisi lewat klien PENGGUNA: RLS + RPC di migration
+  // 20261014100001 yang menegakkan siapa boleh apa — `actor` dari aplikasi
+  // tidak dipercaya di sini. Berkas di bucket privat lewat service_role,
+  // dan HANYA setelah baris metadatanya terbukti terlihat oleh pengguna.
+  // ------------------------------------------------------------------
+
+  private async registrationEvents(rows: readonly EventRegistrationRow[]): Promise<Map<string, EventSummary>> {
+    return this.fetchSummariesByIds(rows.map((row) => row.event_id));
+  }
+
+  private async callerManages(eventId: string): Promise<boolean> {
+    const supabase = await createSupabaseServerClient();
+    const [manages, admin] = await Promise.all([
+      supabase.rpc('manages_event', { p_event: eventId }),
+      supabase.rpc('is_admin'),
+    ]);
+    if (manages.error || admin.error) throw upstreamFailure('Gagal memeriksa hak kelola acara.', manages.error ?? admin.error);
+    return manages.data === true || admin.data === true;
+  }
+
+  async getRegistrationForm(eventId: string): Promise<RegistrationForm | null> {
+    if (!isUuid(eventId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const [form, count] = await Promise.all([
+      supabase
+        .from('event_registration_forms')
+        .select(REGISTRATION_FORM_COLUMNS)
+        .eq('event_id', eventId)
+        .maybeSingle<RegistrationFormRow>(),
+      supabase.rpc('event_registration_count', { p_event: eventId }),
+    ]);
+    if (form.error) throw upstreamFailure('Gagal memuat formulir pendaftaran.', form.error);
+    if (count.error) throw upstreamFailure('Gagal menghitung pendaftar.', count.error);
+    return form.data ? toRegistrationForm(form.data, Number(count.data ?? 0)) : null;
+  }
+
+  async saveRegistrationForm(_actor: EventActor, eventId: string, input: RegistrationFormInput): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const fields = {
+      is_open: input.isOpen,
+      intro: input.intro,
+      fields: input.fields,
+      capacity: input.capacity,
+      fee_amount: input.feeAmount,
+      payment_instructions: input.paymentInstructions,
+    };
+    // Bukan upsert: PostgREST menulis SEMUA kolom di DO UPDATE, termasuk
+    // `event_id` yang sengaja tidak diberi hak UPDATE.
+    const existing = await supabase.from('event_registration_forms').select('event_id').eq('event_id', eventId).maybeSingle();
+    if (existing.error) throw upstreamFailure('Gagal memuat formulir pendaftaran.', existing.error);
+    const { data, error } = existing.data
+      ? await supabase.from('event_registration_forms').update(fields).eq('event_id', eventId).select('event_id')
+      : await supabase.from('event_registration_forms').insert({ event_id: eventId, ...fields }).select('event_id');
+    if (error) {
+      if (sqlState(error) === '42501') throw actionError('not_event_manager');
+      if (sqlState(error) === '23514') throw actionError('invalid_registration_form');
+      throw upstreamFailure('Gagal menyimpan formulir pendaftaran.', error, 500);
+    }
+    // UPDATE yang disaring RLS tidak error — hanya mengenai nol baris.
+    if (!data || data.length === 0) throw actionError('not_event_manager');
+  }
+
+  async registerForEvent(
+    _actor: EventActor,
+    eventId: string,
+    answers: Readonly<Record<string, AnswerValue>>,
+  ): Promise<EventRegistration> {
+    if (!isUuid(eventId)) throw actionError('registration_closed');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('register_for_event', { p_event: eventId, p_answers: answers });
+    if (error) {
+      const code = registrationErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menyimpan pendaftaran.', error, 500);
+    }
+    const row = data as EventRegistrationRow;
+    return toEventRegistration(row, await this.registrationEvents([row]));
+  }
+
+  async getMyRegistration(userId: string, eventId: string): Promise<EventRegistration | null> {
+    if (!isUuid(eventId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_registrations')
+      .select(REGISTRATION_COLUMNS)
+      .eq('user_id', userId)
+      .eq('event_id', eventId)
+      .neq('status', 'CANCELLED')
+      .maybeSingle<EventRegistrationRow>();
+    if (error) throw upstreamFailure('Gagal memuat pendaftaranmu.', error);
+    return data ? toEventRegistration(data, await this.registrationEvents([data])) : null;
+  }
+
+  async listMyRegistrations(userId: string): Promise<readonly EventRegistration[]> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_registrations')
+      .select(REGISTRATION_COLUMNS)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(MY_REGISTRATIONS_LIMIT)
+      .returns<EventRegistrationRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat pendaftaranmu.', error);
+    const events = await this.registrationEvents(data);
+    return data.map((row) => toEventRegistration(row, events));
+  }
+
+  async getRegistration(_actor: EventActor, registrationId: string): Promise<EventRegistration | null> {
+    if (!isUuid(registrationId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_registrations')
+      .select(REGISTRATION_COLUMNS)
+      .eq('id', registrationId)
+      .maybeSingle<EventRegistrationRow>();
+    if (error) throw upstreamFailure('Gagal memuat pendaftaran.', error);
+    return data ? toEventRegistration(data, await this.registrationEvents([data])) : null;
+  }
+
+  async listEventRegistrations(_actor: EventActor, eventId: string): Promise<readonly EventRegistration[]> {
+    if (!isUuid(eventId)) return [];
+    const supabase = await createSupabaseServerClient();
+    const rows: EventRegistrationRow[] = [];
+    // Berhalaman: PostgREST memotong di max_rows (1000) tanpa tanda apa pun.
+    for (let from = 0; from < EVENT_REGISTRATIONS_LIMIT; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select(REGISTRATION_COLUMNS)
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
+        .returns<EventRegistrationRow[]>();
+      if (error) throw upstreamFailure('Gagal memuat pendaftar.', error);
+      rows.push(...data);
+      if (data.length < PAGE_SIZE) break;
+    }
+    const events = await this.registrationEvents(rows.slice(0, 1));
+    return rows.map((row) => toEventRegistration(row, events));
+  }
+
+  async listRegistrationStats(_actor: EventActor, eventIds: readonly string[]): Promise<readonly RegistrationStats[]> {
+    const ids = [...new Set(eventIds)].filter(isUuid);
+    if (ids.length === 0) return [];
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('registration_stats', { p_events: ids });
+    if (error) throw upstreamFailure('Gagal memuat ringkasan pendaftar.', error);
+    return rpcRows<RegistrationStatsRow>(data).map(toRegistrationStats);
+  }
+
+  async submitPaymentProof(actor: EventActor, registrationId: string, image: UploadedImage): Promise<void> {
+    const current = await this.getRegistration(actor, registrationId);
+    if (!current || current.userId !== actor.id) throw actionError('registration_not_found');
+
+    const path = `${registrationId}/${crypto.randomUUID()}.${IMAGE_EXTENSION[image.type]}`;
+    const storage = createSupabaseAdminClient().storage.from(PROOF_BUCKET);
+    const upload = await storage.upload(path, image.bytes, { contentType: image.type, upsert: false });
+    if (upload.error) throw upstreamFailure('Gagal mengunggah bukti pembayaran.', upload.error, 500);
+
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('submit_payment_proof', { p_registration: registrationId, p_path: path });
+    if (error) {
+      // Berkas yatim di Storage = data pribadi tanpa pemilik; dibuang segera.
+      await storage.remove([path]);
+      const code = registrationErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menyimpan bukti pembayaran.', error, 500);
+    }
+    if (typeof data === 'string' && data !== path) {
+      const removed = await storage.remove([data]);
+      if (removed.error) console.error('[pembayaran] bukti lama gagal dihapus:', removed.error);
+    }
+  }
+
+  async getPaymentProof(_actor: EventActor, registrationId: string): Promise<StoredFile | null> {
+    if (!isUuid(registrationId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_registrations')
+      .select('proof_path')
+      .eq('id', registrationId)
+      .maybeSingle<Pick<EventRegistrationRow, 'proof_path'>>();
+    if (error) throw upstreamFailure('Gagal memuat bukti pembayaran.', error);
+    if (!data?.proof_path) return null;
+    return downloadPrivateFile(PROOF_BUCKET, data.proof_path);
+  }
+
+  async reviewRegistration(_actor: EventActor, registrationId: string, decision: ReviewDecision, note: string | null): Promise<void> {
+    if (!isUuid(registrationId)) throw actionError('registration_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('review_event_registration', {
+      p_registration: registrationId,
+      p_decision: decision,
+      p_note: note,
+    });
+    if (!error) return;
+    const code = registrationErrorCode(error);
+    if (code) throw actionError(code);
+    throw upstreamFailure('Gagal menyimpan keputusan pendaftaran.', error, 500);
+  }
+
+  async cancelRegistration(_actor: EventActor, registrationId: string): Promise<void> {
+    if (!isUuid(registrationId)) throw actionError('registration_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('cancel_event_registration', { p_registration: registrationId });
+    if (!error) return;
+    const code = registrationErrorCode(error);
+    if (code) throw actionError(code);
+    throw upstreamFailure('Gagal membatalkan pendaftaran.', error, 500);
+  }
+
+  async listEventPhotos(eventId: string): Promise<readonly EventPhoto[]> {
+    if (!isUuid(eventId)) return [];
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_photos')
+      .select(PHOTO_COLUMNS)
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false })
+      .limit(GALLERY_LIMITS.perEvent)
+      .returns<EventPhotoRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat galeri.', error);
+    return data.map(toEventPhoto);
+  }
+
+  async addEventPhotos(_actor: EventActor, eventId: string, images: readonly UploadedImage[], caption: string | null): Promise<number> {
+    if (!isUuid(eventId) || !(await this.callerManages(eventId))) throw actionError('not_event_manager');
+    const storage = createSupabaseAdminClient().storage.from(PHOTO_BUCKET);
+    const rows = images.map((image) => {
+      const id = crypto.randomUUID();
+      return {
+        image,
+        row: {
+          id,
+          event_id: eventId,
+          storage_path: `${eventId}/${id}.${IMAGE_EXTENSION[image.type]}`,
+          content_type: image.type,
+          width: image.width,
+          height: image.height,
+          caption,
+        },
+      };
+    });
+
+    const uploaded: string[] = [];
+    try {
+      for (const { image, row } of rows) {
+        const result = await storage.upload(row.storage_path, image.bytes, { contentType: image.type, upsert: false });
+        if (result.error) throw upstreamFailure('Gagal mengunggah foto.', result.error, 500);
+        uploaded.push(row.storage_path);
+      }
+      const supabase = await createSupabaseServerClient();
+      const { error } = await supabase.from('event_photos').insert(rows.map(({ row }) => row));
+      if (error) {
+        if (sqlState(error) === '42501') throw actionError('not_event_manager');
+        const code = registrationErrorCode(error);
+        if (code) throw actionError(code);
+        throw upstreamFailure('Gagal menyimpan foto.', error, 500);
+      }
+    } catch (error) {
+      if (uploaded.length > 0) await storage.remove(uploaded);
+      throw error;
+    }
+    return rows.length;
+  }
+
+  async deleteEventPhoto(_actor: EventActor, photoId: string): Promise<void> {
+    if (!isUuid(photoId)) throw actionError('photo_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('event_photos')
+      .delete()
+      .eq('id', photoId)
+      .select('storage_path')
+      .returns<Pick<EventPhotoRow, 'storage_path'>[]>();
+    if (error) throw upstreamFailure('Gagal menghapus foto.', error, 500);
+    const path = data[0]?.storage_path;
+    if (!path) throw actionError('photo_not_found');
+    const removed = await createSupabaseAdminClient().storage.from(PHOTO_BUCKET).remove([path]);
+    if (removed.error) console.error('[galeri] berkas foto gagal dihapus:', removed.error);
+  }
+
+  async getEventPhotoFile(photoId: string): Promise<StoredFile | null> {
+    if (!isUuid(photoId)) return null;
+    // Klien anon: hanya foto acara yang tayang — rute ini publik dan di-cache.
+    const { data, error } = await createSupabasePublicClient()
+      .from('event_photos')
+      .select('storage_path')
+      .eq('id', photoId)
+      .maybeSingle<Pick<EventPhotoRow, 'storage_path'>>();
+    if (error) throw upstreamFailure('Gagal memuat foto.', error);
+    return data ? downloadPrivateFile(PHOTO_BUCKET, data.storage_path) : null;
+  }
+}
+
+const PHOTO_BUCKET = 'event-photos';
+const PROOF_BUCKET = 'payment-proofs';
+const MY_REGISTRATIONS_LIMIT = 100;
+/** Batas baca daftar pendaftar per acara (studio & CSV). */
+const EVENT_REGISTRATIONS_LIMIT = 10_000;
+
+async function downloadPrivateFile(bucket: string, path: string): Promise<StoredFile | null> {
+  const { data, error } = await createSupabaseAdminClient().storage.from(bucket).download(path);
+  if (error || !data) {
+    console.error(`[media] ${bucket}/${path} gagal diunduh:`, error);
+    return null;
+  }
+  const extension = path.split('.').pop();
+  const contentType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+  return { bytes: new Uint8Array(await data.arrayBuffer()), contentType };
 }
 
 // ----------------------------------------------------------------------
