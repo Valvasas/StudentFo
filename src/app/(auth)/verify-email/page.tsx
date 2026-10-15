@@ -19,9 +19,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * Layar "cek email" setelah daftar + kirim ulang email konfirmasi. Kalimatnya
- * berbentuk pengandaian karena halaman yang SAMA muncul untuk alamat yang
- * ternyata sudah terdaftar (ADR-011).
+ * Layar "cek email" setelah daftar + kirim ulang email konfirmasi. Halaman
+ * yang SAMA muncul untuk alamat yang ternyata sudah terdaftar (ADR-011), jadi
+ * kalimat keduanya menunjuk jalan keluar untuk kasus itu tanpa mengonfirmasinya.
  */
 export default async function VerifyEmailPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
@@ -39,8 +39,8 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
         subtitle={
           email ? (
             <>
-              Kalau <strong className="break-all font-semibold text-ink">{email}</strong> belum terdaftar, tautan konfirmasi
-              sudah kami kirim ke sana.
+              Tautan konfirmasi dikirim ke <strong className="break-all font-semibold text-ink">{email}</strong>. Sudah
+              pernah daftar dengan email ini? Langsung masuk saja.
             </>
           ) : (
             'Buka tautan konfirmasi yang kami kirim untuk mengaktifkan akunmu.'
