@@ -309,7 +309,6 @@
 
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: var(--font-bricolage), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
-  --font-hand: var(--font-caveat), 'Segoe Print', 'Bradley Hand', cursive;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
   --color-highlight: var(--color-highlight);
   --color-highlight-soft: var(--color-highlight-soft);
@@ -485,16 +484,6 @@
    setiap judul dicoret dan setiap kotak miring, kesannya berubah dari
    "buku catatan yang rapi" jadi "tugas prakarya".
    ===================================================================== */
-
-/* Catatan pinggir bertulisan tangan. Caveat tampak kecil di ukuran yang
-   sama dengan sans, jadi ukurannya dinaikkan ±25% dan barisnya dirapatkan. */
-@utility hand {
-  font-family: var(--font-hand);
-  font-weight: 600;
-  font-size: 1.25em;
-  line-height: 1.1;
-  letter-spacing: 0;
-}
 
 /* Stabilo di belakang kata: bukan blok penuh, hanya pita di 1/3 bawah —
    seperti ditandai pulpen stabilo di buku catatan. Pita rata (bukan gradien

@@ -49,7 +49,7 @@ export async function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-canvas/95 backdrop-blur-sm">
-      <div className="container-page flex flex-wrap items-center gap-x-6 md:h-16 md:flex-nowrap lg:gap-x-9">
+      <div className="container-page flex flex-wrap items-center gap-x-2 md:h-16 md:flex-nowrap md:gap-x-6 lg:gap-x-9">
         <Link
           href="/"
           className="order-1 flex h-14 shrink-0 items-center gap-2 font-display text-[19px] font-bold tracking-[-0.035em] md:h-auto"
@@ -128,13 +128,13 @@ export async function Navbar() {
               <ThemeToggle />
               <Link
                 href="/login"
-                className="flex min-h-11 items-center rounded-sm px-3 text-sm font-medium text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested"
+                className="flex min-h-11 items-center rounded-sm px-2.5 text-sm sm:px-3 font-medium text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested"
               >
                 Masuk
               </Link>
               <Link
                 href="/register"
-                className="relative hidden h-9 items-center rounded-sm bg-brand px-4 text-sm font-semibold text-on-brand transition-colors duration-150 ease-snap after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:bg-brand-hover xs:flex"
+                className="relative hidden h-9 items-center rounded-sm bg-brand px-3.5 text-sm font-semibold sm:px-4 text-on-brand transition-colors duration-150 ease-snap after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:bg-brand-hover xs:flex"
               >
                 Daftar
               </Link>

@@ -50,10 +50,10 @@ src/
 ├── app/                        Next.js App Router — page.tsx HANYA menyusun komponen
 │   ├── layout.tsx              Root layout: navbar, footer, theme script
 │   ├── template.tsx            Pembungkus per navigasi: animasi masuk halaman (opasitas saja, ADR-055)
-│   ├── page.tsx                Beranda — pemasaran untuk tamu; ringkasan pribadi (PersonalHome) bila masuk (ADR-053)
+│   ├── page.tsx                Beranda — GuestLanding untuk tamu; RoleHome bila masuk: peserta/penyelenggara/admin (ADR-053/056)
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
-│   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail
+│   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056)
 │   ├── (auth)/                 Route group — login, register, forgot/reset password
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
 │   ├── profile/                Akun: profil, data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), pengaturan, privasi
@@ -61,7 +61,10 @@ src/
 │   ├── teams/                  Cari rekan tim + baru/ (buka tim, halaman sendiri — ADR-054) + [id] detail + actions.ts
 │   ├── connections/            Koneksi, satu tab per tugas (?tab= untukmu|koneksi|ajakan|peta|pengaturan) + actions.ts (ADR-040, ADR-048)
 │   ├── orang/[id]/             Profil publik + portofolio orang lain, wajib masuk, 404 seragam (ADR-046)
-│   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara, analitik (ADR-042/043/046)
+│   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara (ADR-042/043/046); acara/[id]/ = ruang kerja
+│   │                           per acara dengan tab Ringkasan (analitik) · formulir/ · pendaftar/ (+ ekspor/ CSV) · galeri/ (ADR-056)
+│   ├── pembayaran/             Pendaftaran & tagihan peserta; [id]/ status, instruksi bayar, unggah bukti + actions.ts (ADR-056)
+│   ├── media/                  foto/[id] (foto galeri, publik, cache 1 hari) · bukti/[id] (bukti bayar, privat, 404 bila tak berhak)
 │   ├── about/                  Tentang — angka dari getStats(), klaim sesuai perilaku sistem
 │   ├── submit/                 Kirim kegiatan (kiriman komunitas, boleh tamu) + actions.ts
 │   ├── notifications/          actions.ts (tandai dibaca)
@@ -73,17 +76,22 @@ src/
 │   ├── ui/                     Primitif tanpa domain-knowledge (Button, Badge, Card,
 │   │                           Field/TextInput/SelectInput/TextArea/FormAlert + controlClass),
 │   │                           form-step.tsx (FormStep, ChoiceGroup), scroll-rail.tsx (rel tab, ADR-055),
-│   │                           sketch.tsx (SketchArrow, Scribble, HandNote — hiasan ADR-052),
+│   │                           image-upload-field.tsx (pilih + kompres gambar di peramban sebelum diunggah, ADR-056),
 │   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053),
 │   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
 │   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054)
-│   ├── home/                   PersonalHome — beranda pengguna masuk (perlu tindakan, pantauan, minggu ini, sesuai minat)
+│   ├── landing/                GuestLanding + Hero — beranda tamu
+│   ├── home/                   RoleHome memilih per peran tampilan (account-role.ts): PersonalHome (peserta — tagihan,
+│   │                           perlu tindakan, pantauan), OrganizerHome (pendaftar baru, bukti bayar menunggu), AdminHome (antrean)
+│   ├── registration/           Sisi peserta formulir internal: RegistrationFieldInput, RegistrationCta, langkah, salin kode (ADR-056)
+│   ├── organizer/              Ruang kerja acara (event-workspace.tsx: tab & header), FormBuilder, RegistrationRow, grafik analitik
 │   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup); CelebrationBurst (perayaan hasil aksi, ADR-055)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
 │   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
 │   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS),
-│   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055)
+│   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055),
+│   │                           EventGallery + GalleryViewer (galeri foto acara, dialog lightbox, ADR-056)
 │   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
@@ -93,7 +101,7 @@ src/
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,
 │                               ThemeToggle, ThemeScript, DemoBanner, AccountShell (menu akun
 │                               bisa dilipat jadi rel ikon — cookie `sf_sidebar`, ADR-052),
-│                               NavigationProgress (bilah progres + kartu pemuat berilustrasi per tujuan, ADR-053/055),
+│                               NavigationProgress (bilah progres + kartu pemuat di tengah layar, ADR-053/055/056),
 │                               route-scene-art.tsx (sketsa mini per adegan rute)
 │
 ├── lib/
@@ -137,6 +145,8 @@ src/
 │   ├── initials.ts             initialsOf() (orang), monogramOf() (grup/kegiatan) [teruji]
 │   ├── registration-form.ts    Formulir internal: skema kolom, validasi jawaban, mesin status bayar, CSV aman (ADR-056) [teruji]
 │   ├── image-file.ts           Unggahan gambar: jenis dari byte, batas piksel, buang EXIF/GPS (ADR-056) [teruji]
+│   ├── account-sidebar.ts      Peran tampilan (accountRoleOf) + satu daftar menu akun untuk dropdown & menu samping [teruji]
+│   ├── security-headers.ts     CSP halaman + CSP ketat untuk /media/* (isMediaPath) [teruji]
 │   └── supabase/
 │       ├── server.ts           Klien Server Component & admin (service_role)
 │       ├── middleware.ts       Klien khusus middleware (tanpa `server-only`)
