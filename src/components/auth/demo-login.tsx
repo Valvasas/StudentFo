@@ -1,4 +1,4 @@
-import { BadgeCheck, GraduationCap, ShieldCheck, Sprout } from 'lucide-react';
+import { BadgeCheck, ChevronRight, GraduationCap, ShieldCheck, Sprout } from 'lucide-react';
 import { demoSignInAction } from '@/app/auth/actions';
 import { DEMO_PERSONA_IDS, DEMO_PERSONAS, type DemoPersonaId } from '@/lib/demo/personas';
 
@@ -14,23 +14,17 @@ const ICON: Record<DemoPersonaId, typeof GraduationCap> = {
  *
  * Satu <form> per persona, tanpa JavaScript klien: tetap berfungsi saat JS
  * mati, dan setiap tombol adalah target sentuh penuh (≥ 44px) dengan nama
- * aksesibel yang menyebut personanya — bukan tiga tombol "Masuk" kembar.
+ * aksesibel yang menyebut personanya — bukan empat tombol "Masuk" kembar.
+ * Awalan "Masuk sebagai <label>:" dipakai helper e2e; jangan diubah.
  */
 export function DemoLogin({ next }: { next: string }) {
   return (
     <section aria-labelledby="demo-login-title" className="flex flex-col gap-3">
-      <div>
-        <h2 id="demo-login-title" className="text-base font-semibold">
-          Coba sebagai akun demo
-        </h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          Setiap pilihan membuat akun sementara khusus untukmu. Data yang kamu simpan tidak terlihat
-          pengunjung lain, dan hilang saat kamu keluar, menghapus cookie, atau data demo diatur ulang
-          — akun demo tidak bisa dipulihkan.
-        </p>
-      </div>
+      <h2 id="demo-login-title" className="text-center text-sm text-ink-muted">
+        <span className="font-semibold text-ink">Mode demo</span> — masuk dengan akun contoh.
+      </h2>
 
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-card border border-line">
         {DEMO_PERSONA_IDS.map((id) => {
           const persona = DEMO_PERSONAS[id];
           const Icon = ICON[id];
@@ -42,26 +36,23 @@ export function DemoLogin({ next }: { next: string }) {
                 <button
                   type="submit"
                   aria-label={`Masuk sebagai ${persona.label}: ${persona.fullName}`}
-                  className="flex min-h-11 w-full items-start gap-3 rounded-card border border-line bg-panel p-4 text-left transition-colors duration-150 ease-snap hover:border-brand hover:bg-panel-nested"
+                  className="group flex min-h-14 w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors duration-150 ease-snap hover:bg-panel-nested focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
                 >
-                  <span
-                    aria-hidden
-                    className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-brand text-on-brand"
-                  >
-                    <Icon className="size-4" />
+                  <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-panel-nested text-ink group-hover:bg-panel">
+                    <Icon className="size-[18px]" />
                   </span>
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-semibold">
-                      {persona.label} <span className="font-normal text-ink-muted">· {persona.fullName}</span>
-                    </span>
-                    <span className="text-sm text-ink-muted">{persona.summary}</span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-sm font-semibold">{persona.label}</span>
+                    <span className="truncate text-[13px] text-ink-muted">{persona.summary}</span>
                   </span>
+                  <ChevronRight aria-hidden className="size-4 shrink-0 text-ink-faint transition-transform duration-150 ease-snap group-hover:translate-x-0.5 motion-reduce:transition-none" />
                 </button>
               </form>
             </li>
           );
         })}
       </ul>
+      <p className="text-center text-[12.5px] text-ink-muted">Data akun demo sementara dan terhapus saat kamu keluar.</p>
     </section>
   );
 }

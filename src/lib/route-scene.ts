@@ -59,7 +59,7 @@ const RULES: readonly { test: (path: string) => boolean; scene: RouteScene }[] =
   { test: under('/penyelenggara/acara'), scene: scene('studio', 'ruang kerja acara') },
   { test: under('/penyelenggara'), scene: scene('studio', 'studio penyelenggara') },
   { test: (path) => path === '/submit', scene: scene('submit', 'formulir kiriman') },
-  { test: (path) => path === '/register', scene: scene('auth', 'pendaftaran akun') },
+  { test: (path) => ['/register', '/verify-email'].includes(path), scene: scene('auth', 'pendaftaran akun') },
   { test: (path) => ['/forgot-password', '/reset-password'].includes(path), scene: scene('auth', 'pemulihan akun') },
   { test: under('/login'), scene: scene('auth', 'halaman masuk') },
 ];

@@ -26,6 +26,8 @@ export const RATE_LIMITS = {
   signInPerIpEmail: { name: 'signin-ip-email', limit: 5, windowSeconds: 15 * 60 },
   signUpPerIp: { name: 'signup-ip', limit: 5, windowSeconds: 60 * 60 },
   passwordResetPerIp: { name: 'reset-ip', limit: 5, windowSeconds: 60 * 60 },
+  /** Kirim ulang email konfirmasi — ember sendiri supaya tidak menghabiskan kuota lupa sandi. */
+  resendConfirmationPerIp: { name: 'resend-ip', limit: 5, windowSeconds: 60 * 60 },
   /**
    * Verifikasi ulang sandi lama saat ganti sandi, per AKUN (tanpa IP). Pemegang
    * sesi curian bisa berganti IP untuk lolos dari batas per-IP; ember per akun

@@ -22,6 +22,7 @@ describe('routeSceneFor', () => {
     expect(routeSceneFor('/penyelenggara/acara/abc').key).toBe('studio');
     expect(routeSceneFor('/orang/123').key).toBe('network');
     expect(routeSceneFor('/discussions').key).toBe('inbox');
+    expect(routeSceneFor('/verify-email').key).toBe('auth');
   });
 
   it('pengaturan & personalisasi didahulukan dari profil umum', () => {

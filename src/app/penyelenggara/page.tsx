@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react';
+import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { isEventClosed, WORKSPACE_TABS, workspacePath } from '@/components/organizer/event-workspace';
 import { MySubmissions } from '@/components/submit/my-submissions';
@@ -114,6 +115,11 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
       </header>
 
       <ActionFeedback params={params} className="max-w-2xl" />
+      {/* Penyelenggara baru mendarat di sini dari tautan konfirmasi email. Hanya
+          `notice`: beberapa kode error ada di kedua daftar dan akan tampil dobel. */}
+      <div className="max-w-2xl empty:hidden">
+        <AuthFeedback params={{ notice: params.notice }} />
+      </div>
 
       {verified ? (
         <>

@@ -30,6 +30,8 @@ export const AUTH_ERROR_CODES = [
   'invalid_link',
   'session_missing',
   'validation',
+  'consent_required',
+  'captcha_failed',
   'unavailable',
   'unknown',
 ] as const;
@@ -48,6 +50,8 @@ export const AUTH_ERROR_MESSAGE: Record<AuthErrorCode, string> = {
   invalid_link: 'Tautan ini sudah tidak berlaku atau pernah dipakai. Minta tautan baru di bawah.',
   session_missing: 'Sesi kamu sudah berakhir. Masuk lagi untuk melanjutkan.',
   validation: 'Ada isian yang belum benar. Periksa lagi lalu kirim ulang.',
+  consent_required: 'Setujui Kebijakan privasi untuk membuat akun.',
+  captcha_failed: 'Verifikasi anti-bot belum selesai atau kedaluwarsa. Selesaikan lalu kirim ulang.',
   unavailable:
     'Fitur akun belum aktif di server ini karena belum terhubung ke database (mode data contoh).',
   unknown: 'Terjadi kesalahan di sisi kami. Coba lagi sebentar lagi.',
@@ -58,6 +62,7 @@ export const AUTH_NOTICE_CODES = [
   'reset_email_sent',
   'password_updated',
   'email_confirmed',
+  'confirmation_resent',
   'profile_saved',
 ] as const;
 
@@ -73,6 +78,9 @@ export const AUTH_NOTICE_MESSAGE: Record<AuthNoticeCode, string> = {
     'Kalau alamat itu terdaftar, tautan penyetelan ulang sudah dikirim. Cek kotak masuk dan folder spam.',
   password_updated: 'Kata sandi berhasil diperbarui. Perangkat lain sudah dikeluarkan.',
   email_confirmed: 'Email kamu terkonfirmasi. Selamat datang di StudentFo.',
+  // Seragam juga untuk alamat yang tidak terdaftar atau sudah dikonfirmasi.
+  confirmation_resent:
+    'Kalau alamat itu masih menunggu konfirmasi, email baru sudah dikirim. Cek kotak masuk dan folder spam.',
   profile_saved: 'Profil tersimpan.',
 };
 

@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { signInAction } from '@/app/auth/actions';
-import { AuthDivider, AuthField, AuthHeading, AuthInput } from '@/components/auth/auth-field';
+import { AuthDivider, AuthField, AuthHeading, AuthInput, AuthSwitch, withNext } from '@/components/auth/auth-field';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
-import { AuthModeSwitch } from '@/components/auth/auth-mode-switch';
 import { DemoLogin } from '@/components/auth/demo-login';
 import { GoogleButton } from '@/components/auth/google-button';
 import { PasswordInput } from '@/components/auth/password-input';
+import { buttonVariants } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { dataMode } from '@/lib/env';
@@ -30,12 +30,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // dilempar ke tujuan, bukan disuruh masuk dua kali.
   if (await getSessionUser()) redirect(next);
 
-  const heading = (
-    <AuthHeading
-      title="Selamat datang kembali"
-      subtitle="Masuk untuk melihat kegiatan tersimpan dan pengingat tenggatmu."
-    />
-  );
+  const heading = <AuthHeading title="Masuk ke StudentFo" subtitle="Lanjutkan ke kegiatan dan pendaftaranmu." />;
+  const toRegister = <AuthSwitch prompt="Belum punya akun?" href={withNext('/register', next)} label="Daftar" />;
 
   // Mode demo: form email/Google tidak punya backend dan pasti gagal.
   // Yang ditampilkan adalah jalur yang benar-benar berfungsi.
@@ -43,21 +39,31 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     return (
       <>
         {heading}
-        <AuthModeSwitch mode="login" next={next} />
         <AuthFeedback params={params} />
         <DemoLogin next={next} />
+        {toRegister}
       </>
     );
   }
 
   const email = typeof params.email === 'string' ? params.email.slice(0, 254) : '';
+  const resendHref = `/verify-email${email ? `?email=${encodeURIComponent(email)}` : ''}`;
 
   return (
     <>
       {heading}
-      <AuthModeSwitch mode="login" next={next} />
       <AuthFeedback params={params} />
       <GoogleButton next={next} label="Masuk dengan Google" />
+      {/* Google bisa sekaligus MEMBUAT akun dari sini (OAuth tidak membedakan
+          masuk & daftar), dan jalur ini tidak melewati centang persetujuan
+          di /register — jadi pemberitahuannya ditulis di tempat tombolnya. */}
+      <p className="-mt-1 text-center text-[13px] text-ink-muted">
+        Belum punya akun? Masuk dengan Google sekaligus membuatnya, dan berarti kamu menyetujui{' '}
+        <Link href="/privacy-policy" className="font-medium text-ink underline underline-offset-[3px]">
+          Kebijakan privasi
+        </Link>
+        .
+      </p>
       <AuthDivider />
 
       <form action={signInAction} className="flex flex-col gap-4">
@@ -68,7 +74,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             name="email"
             type="email"
             defaultValue={email}
-            autoComplete="email"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             required
             maxLength={254}
             placeholder="nama@kampus.ac.id"
@@ -80,7 +88,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           aside={
             <Link
               href="/forgot-password"
-              className="inline-flex min-h-11 items-center text-[13.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
+              className="inline-flex min-h-11 items-center text-[13px] font-medium text-ink-muted underline-offset-[3px] hover:text-ink hover:underline"
             >
               Lupa kata sandi?
             </Link>
@@ -89,12 +97,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {/* autoComplete yang benar menentukan apakah pengelola kata sandi
               menawarkan isian yang tepat — pertahanan paling efektif
               terhadap pemakaian ulang sandi. */}
-          <PasswordInput id="password" name="password" autoComplete="current-password" required maxLength={72} placeholder="Kata sandi kamu" />
+          <PasswordInput id="password" name="password" autoComplete="current-password" required maxLength={72} />
         </AuthField>
-        <SubmitButton pendingLabel="Memeriksa…" className="mt-2 flex h-[46px] items-center justify-center rounded-sm bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover active:pt-0.5">
+        <SubmitButton pendingLabel="Memeriksa…" className={buttonVariants({ size: 'lg', className: 'mt-1 w-full' })}>
           Masuk
         </SubmitButton>
       </form>
+
+      <div className="flex flex-col items-center">
+        {toRegister}
+        <Link href={resendHref} className="inline-flex min-h-11 items-center text-[13px] text-ink-muted underline-offset-[3px] hover:text-ink hover:underline">
+          Kirim ulang email konfirmasi
+        </Link>
+      </div>
     </>
   );
 }

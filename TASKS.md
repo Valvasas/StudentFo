@@ -292,7 +292,8 @@ tampilan per peran, bersihkan kesan "buatan AI", login produksi, pemuat di tenga
 - [x] Beranda & navigasi per peran (peserta / penyelenggara / admin); menu akun satu daftar (`accountMenuGroups`)
 - [x] Bersihkan landing & halaman dari hiasan/teks bertele-tele (tur, testimoni, catatan tangan, font Caveat); pemuat navigasi di tengah
 - [x] Navbar tamu satu baris di 360–375px; audit axe & viewport sempit mencakup halaman baru
-- [~] Login/daftar: jenis akun, CAPTCHA daftar & lupa sandi, kirim ulang konfirmasi, tata letak tanpa hiasan palsu
+- [x] Login/daftar: jenis akun, persetujuan privasi, CAPTCHA daftar/lupa sandi/kirim ulang, `/verify-email` + kirim ulang konfirmasi, indikator sandi, tata letak satu kartu (audit S5 selesai)
+- [ ] **BUTUH AKSES PEMILIK.** Uji jalur Supabase sungguhan di staging: daftar email + konfirmasi, kirim ulang, Google OAuth (dengan & tanpa jenis akun), Turnstile dengan kunci asli. Pastikan CAPTCHA bawaan Supabase Auth TIDAK diaktifkan (kita memverifikasi sendiri).
 
 Belum / butuh keputusan atau akses pemilik:
 - [ ] **BUTUH KONFIRMASI.** Apply `20261014100001` ke staging (membuat bucket `event-photos` & `payment-proofs`), `npm run db:verify`, uji unggah sungguhan ke Storage. Urutan rilis: migration dulu, baru kode.

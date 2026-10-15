@@ -119,6 +119,36 @@ lanjutan di bawah.
   setiap elemen di layar harus bisa diklik ke sesuatu yang nyata atau
   menjawab pertanyaan pengguna — hiasan yang menjelaskan dirinya sendiri
   adalah tanda produk yang belum yakin dengan isinya.
+- **Akun produksi (memperluas ADR-012/028):**
+  - Satu kartu terpusat per halaman akun (logo, judul, satu kalimat). Kalender
+    palsu & panel penjelas dibuang. Tab Masuk|Daftar diganti tautan "Belum
+    punya akun? Daftar".
+  - `/register` dimulai dari **jenis akun** (Peserta / Penyelenggara;
+    `?type=organizer` memilih kartu kedua). Penyelenggara selalu mendarat di
+    `/penyelenggara` untuk mengajukan verifikasi; peserta ke `next` lewat
+    `safeNextPath`. `account_type` disimpan di user metadata HANYA sebagai
+    catatan — pemilik akun bisa mengubahnya, jadi tidak pernah dipakai untuk
+    izin (hak penyelenggara tetap dari `organizer_profiles` VERIFIED).
+  - Persetujuan Kebijakan privasi wajib dicentang dan diperiksa server di
+    kedua jalur daftar. Tombol "Daftar dengan Google" berada di form yang sama
+    (`formAction` + `formNoValidate`), sehingga jenis akun & persetujuan ikut
+    terkirim tanpa JS. Google dari `/login` bisa sekaligus membuat akun dan
+    tidak bisa dipaksa mencentang, jadi pemberitahuan persetujuan ditulis di
+    bawah tombolnya.
+  - Setelah daftar → `/verify-email` ("Cek email kamu") dengan **kirim ulang
+    konfirmasi** (batas 5/jam per IP, jawaban selalu seragam). Jeda per alamat
+    dari Supabase tidak diteruskan, baik di kirim ulang maupun lupa sandi:
+    GoTrue hanya memasangnya untuk akun yang ada, jadi meneruskannya membuka
+    oracle keanggotaan (ADR-011 diperketat).
+  - **Turnstile** kini juga di daftar, lupa sandi, dan kirim ulang
+    (`passesCaptcha`, diperiksa SETELAH batas laju, sebelum Supabase). Kunci
+    kosong = widget tidak tampil & lolos (dev/seed). Diverifikasi oleh server
+    kita, jadi **CAPTCHA bawaan Supabase Auth jangan diaktifkan** di dashboard
+    — kalau diaktifkan, `signUp` tanpa `captchaToken` akan ditolak. Dengan
+    CAPTCHA aktif ketiga form itu butuh JavaScript (perluasan pengecualian
+    ADR-028).
+  - Indikator kekuatan sandi memakai aturan yang sama dengan server
+    (`lib/password-rules.ts`, dijaga uji), ditandai ikon + teks, bukan warna.
 
 ---
 
@@ -1826,7 +1856,9 @@ tidak ditemukan, **dan** email yang formatnya tidak valid. `signUpAction`
 sengaja tidak bercabang meski Supabase menandai email duplikat lewat
 `identities: []`. `requestPasswordResetAction` selalu menjawab sama,
 kecuali untuk pembatasan laju — informasi itu soal perilaku kita, bukan
-soal keberadaan akun.
+soal keberadaan akun. *(Diperketat ADR-056: hanya batas per IP milik kita
+yang dilaporkan. Jeda per alamat dari Supabase ternyata hanya berlaku untuk
+akun yang ada, jadi meneruskannya justru membocorkan keanggotaan.)*
 
 **Konsekuensi:** pengguna yang salah ketik email tidak diberi tahu bahwa
 akunnya tidak ada, dan itu memang sedikit lebih membingungkan. Ditukar
