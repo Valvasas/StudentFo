@@ -111,7 +111,7 @@ export function NetworkSettingsForm({
 
       <div className="flex flex-col gap-2.5">
         <span className="flex items-center justify-between gap-2">
-          <span className="hand min-w-0 text-[19px] text-ink-muted">yang dilihat orang lain ↓</span>
+          <span className="min-w-0 text-[13px] font-semibold text-ink-muted">Yang dilihat orang lain</span>
           {dirty && (
             <span className="fade-in shrink-0 whitespace-nowrap rounded-pill bg-highlight px-2 py-0.5 text-[11px] font-semibold text-on-highlight">Belum disimpan</span>
           )}

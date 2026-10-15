@@ -277,7 +277,7 @@ export function CreateTeamForm({
       </div>
 
       <aside aria-label="Pratinjau kartu tim" className="flex flex-col gap-4 lg:sticky lg:top-[92px]">
-        <span className="hand text-[20px] text-ink-muted">begini timmu terlihat ↓</span>
+        <span className="text-[13px] font-semibold text-ink-muted">Pratinjau di Cari Tim</span>
         {/* `inert`: pratinjau memakai kartu sungguhan, tapi tautan & tombolnya belum menuju ke mana pun. */}
         <div inert className="pointer-events-none select-none">
           <TeamCard team={preview} currentUserId={leader.id} showEvent missingEventLabel="Kegiatan belum dipilih" />

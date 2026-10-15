@@ -1,35 +1,20 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  BadgeCheck,
-  Bookmark,
-  ChevronDown,
-  Hash,
-  Heart,
-  IdCard,
-  Lock,
-  LogOut,
-  MessageCircle,
-  Palette,
-  Settings,
-  ShieldCheck,
-  Ticket,
-  UserRound,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+import { ArrowRight, ChevronDown, LogOut } from 'lucide-react';
 import { signOutAction } from '@/app/auth/actions';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
+import type { AccountBadgeCounts, AccountRoleContext } from '@/components/home/account-role';
+import { accountMenuGroups, type AccountBadge } from '@/lib/account-sidebar';
 import type { AuthUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { initialsOf } from '@/lib/initials';
 import { profileCompleteness } from '@/lib/profile-completeness';
+import { cn } from '@/lib/utils';
 
-interface MenuItem {
-  readonly href: string;
-  readonly label: string;
-  readonly icon: LucideIcon;
-  readonly badge?: 'saved' | 'unread';
+/** Baris kedua di kepala menu: identitas yang relevan dengan peran tampilannya. */
+export function accountSubtitle(user: AuthUser, context: AccountRoleContext): string {
+  if (context.role === 'admin') return 'Moderator';
+  if (context.role === 'organizer' && context.organizer) return context.organizer.orgName;
+  return user.major ?? user.email;
 }
 
 /**
@@ -40,43 +25,14 @@ interface MenuItem {
  * menu ini harus tetap bisa dipakai tanpa JavaScript. Konsekuensi yang
  * diterima: menu tidak menutup sendiri saat klik di luar.
  */
-export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: number }) {
+export function AccountMenu({ user, context, counts }: { user: AuthUser; context: AccountRoleContext; counts: AccountBadgeCounts }) {
   const { percent } = profileCompleteness(user);
-
-  // Urutan & pengelompokan sama dengan menu samping AccountShell (ADR-055):
-  // orang yang pindah dari ponsel ke laptop menemukan tujuan di tempat yang sama.
-  const groups: readonly (readonly MenuItem[])[] = [
-    [
-      { href: '/profile', label: 'Profil saya', icon: UserRound },
-      { href: '/profile/details', label: 'Data diri', icon: IdCard },
-      { href: '/profile/interests', label: 'Peminatan', icon: Heart },
-    ],
-    [
-      ...(demoFeaturesEnabled
-        ? [
-            { href: '/messages', label: 'Pesan', icon: MessageCircle, badge: 'unread' as const },
-            { href: '/discussions', label: 'Ruang diskusi', icon: Hash },
-          ]
-        : []),
-      { href: '/tracker', label: 'Pendaftaran saya', icon: Ticket },
-      { href: '/connections', label: 'Koneksi', icon: Users },
-      { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, badge: 'saved' },
-    ],
-    [
-      { href: '/penyelenggara', label: 'Studio penyelenggara', icon: BadgeCheck },
-      ...(user.role === 'ADMIN' ? [{ href: '/admin', label: 'Antrean moderasi', icon: ShieldCheck }] : []),
-    ],
-    [
-      { href: '/profile/personalization', label: 'Personalisasi', icon: Palette },
-      { href: '/profile/settings', label: 'Pengaturan', icon: Settings },
-      { href: '/profile/privacy', label: 'Privasi & data', icon: Lock },
-    ],
-  ];
+  const groups = accountMenuGroups(context.role, { demoFeatures: demoFeaturesEnabled });
 
   return (
     <details className="group relative ml-1">
       <summary
-        className="flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-pill pl-1 pr-1.5 transition-colors duration-150 ease-snap hover:bg-panel-nested group-open:bg-panel-nested [&::-webkit-details-marker]:hidden"
+        className="relative flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-pill pl-1 pr-1.5 transition-colors duration-150 ease-snap hover:bg-panel-nested group-open:bg-panel-nested [&::-webkit-details-marker]:hidden"
         aria-label={`Menu akun untuk ${user.fullName}`}
       >
         <span
@@ -85,6 +41,10 @@ export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: 
         >
           {initialsOf(user.fullName)}
         </span>
+        {/* Penanda saja; jumlah & artinya tertulis di item "Pembayaran" di dalam menu. */}
+        {counts.paymentDue > 0 && (
+          <span aria-hidden className="absolute left-7 top-1.5 size-2.5 rounded-pill border-2 border-canvas bg-highlight" />
+        )}
         <ChevronDown aria-hidden className="size-3.5 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-180" />
       </summary>
 
@@ -98,7 +58,7 @@ export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: 
           </span>
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="truncate text-[14.5px] font-semibold">{user.fullName}</span>
-            <span className="truncate text-[12.5px] text-ink-muted">{user.major ?? user.email}</span>
+            <span className="truncate text-[12.5px] text-ink-muted">{accountSubtitle(user, context)}</span>
           </span>
         </Link>
 
@@ -119,27 +79,17 @@ export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: 
           </Link>
         )}
 
-        {groups.map((items, index) => (
-          <div key={index} className="flex flex-col border-t border-line p-1.5">
-            {items.map((item) => (
+        {groups.map((group) => (
+          <div key={group.key} className="flex flex-col border-t border-line p-1.5">
+            {group.items.map((item) => (
               <Link
-                key={item.href}
+                key={item.key}
                 href={item.href}
                 className="flex min-h-11 items-center gap-2.5 rounded-sm px-2.5 text-sm font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested"
               >
                 <item.icon aria-hidden className="size-[17px]" />
                 <span className="flex-1">{item.label}</span>
-                {item.badge === 'saved' && savedCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-pill bg-panel-nested px-1.5 text-[11.5px] font-semibold text-ink-soft">
-                    {savedCount}
-                  </span>
-                )}
-                {item.badge === 'unread' && (
-                  <DemoUnreadCount
-                    srSuffix="belum dibaca"
-                    className="flex h-5 min-w-5 items-center justify-center rounded-pill bg-brand px-1.5 text-[11.5px] font-semibold text-on-brand"
-                  />
-                )}
+                <AccountMenuBadge badge={item.badge} counts={counts} className="h-5 min-w-5 px-1.5 text-[11.5px]" />
               </Link>
             ))}
           </div>
@@ -160,4 +110,27 @@ export function AccountMenu({ user, savedCount }: { user: AuthUser; savedCount: 
       </div>
     </details>
   );
+}
+
+/** Angka item menu akun; ukuran & posisi dari pemanggil (dropdown, menu samping terbuka/terlipat). */
+export function AccountMenuBadge({ badge, counts, className }: { badge: AccountBadge | undefined; counts: AccountBadgeCounts; className: string }) {
+  const base = cn('flex items-center justify-center rounded-pill font-semibold tabular-nums', className);
+  if (badge === 'unread') return <DemoUnreadCount srSuffix="belum dibaca" className={cn(base, 'bg-brand text-on-brand')} />;
+  if (badge === 'payment' && counts.paymentDue > 0) {
+    return (
+      <span className={cn(base, 'bg-highlight text-on-highlight')}>
+        {counts.paymentDue}
+        <span className="sr-only"> belum dibayar</span>
+      </span>
+    );
+  }
+  if (badge === 'saved' && counts.saved > 0) {
+    return (
+      <span className={cn(base, 'bg-panel-nested text-ink-soft')}>
+        {counts.saved}
+        <span className="sr-only"> tersimpan</span>
+      </span>
+    );
+  }
+  return null;
 }

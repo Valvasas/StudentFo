@@ -1,15 +1,15 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { Bookmark, MessageCircle, Users } from 'lucide-react';
+import { BadgeCheck, Bookmark, MessageCircle, ShieldCheck, Users } from 'lucide-react';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
+import { loadAccountBadges, loadAccountRole } from '@/components/home/account-role';
 import { AccountMenu } from '@/components/layout/account-menu';
 import { NavLinkList, NavLinks } from '@/components/layout/nav-links';
 import { NotificationMenu } from '@/components/layout/notification-menu';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { LogoMark } from '@/components/ui/illustrations';
 import { getSessionUser } from '@/lib/auth';
-import { getEventRepository } from '@/lib/data';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { withFallback } from '@/lib/fallback';
 import { eventTypeNavFor } from '@/lib/event-type-nav';
@@ -29,15 +29,23 @@ export async function Navbar() {
   // Navbar ada di root layout: kegagalan di sini menjatuhkan SELURUH situs,
   // termasuk halaman error-nya sendiri. Lihat `withFallback`.
   const user = await withFallback('sesi pengguna', getSessionUser, null);
-  const savedCount = user
-    ? await withFallback('jumlah tersimpan', async () => (await (await getEventRepository()).listSavedEventIds(user.id)).length, 0)
-    : 0;
+  const [context, counts] = user ? await Promise.all([loadAccountRole(user), loadAccountBadges(user.id)]) : [null, null];
   // Tanpa JavaScript, tab aktif hanya terlihat dari fallback Suspense di
   // bawah (NavLinks memakai useSearchParams dan ter-stream). Jadi penanda
   // aktifnya dihitung di server dari path yang dititipkan middleware.
   const requestUrl = new URL((await headers()).get(REQUEST_PATH_HEADER) ?? '/', 'http://localhost');
   const activeKey =
     requestUrl.pathname === '/events' ? (eventTypeNavFor(requestUrl.searchParams.getAll('type') as EventType[])?.key ?? null) : null;
+  // Ruang kerja peran = tujuan utama penyelenggara & admin, jadi tampil di bar
+  // (menggantikan "Tersimpan", yang tetap ada di menu akun). Admin tanpa angka
+  // antrean: menghitungnya = lima query di SETIAP halaman; angkanya ada di beranda.
+  const workspace =
+    context?.role === 'admin'
+      ? { href: '/admin', label: 'Moderasi', icon: ShieldCheck }
+      : context?.role === 'organizer'
+        ? { href: '/penyelenggara', label: 'Studio', icon: BadgeCheck }
+        : null;
+  const workspaceActive = workspace !== null && (requestUrl.pathname === workspace.href || requestUrl.pathname.startsWith(`${workspace.href}/`));
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-canvas/95 backdrop-blur-sm">
@@ -89,20 +97,31 @@ export async function Navbar() {
                 <Users aria-hidden className="size-[18px]" />
               </Link>
               <NotificationMenu />
-              <Link
-                href="/profile?tab=tersimpan"
-                className="hidden min-h-11 items-center gap-2 rounded-sm px-3 text-sm font-medium text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested lg:flex"
-              >
-                <Bookmark aria-hidden className="size-4" />
-                Tersimpan
-                {savedCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-[6px] bg-panel-nested px-1.5 text-xs font-semibold">
-                    {savedCount}
-                  </span>
-                )}
-              </Link>
+              {workspace ? (
+                <Link
+                  href={workspace.href}
+                  aria-current={workspaceActive ? 'page' : undefined}
+                  className="press hidden min-h-11 min-w-11 items-center justify-center gap-2 rounded-sm border border-line bg-panel px-2.5 text-sm font-semibold text-ink transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested aria-[current=page]:border-line-strong aria-[current=page]:bg-panel-nested sm:flex lg:px-3"
+                >
+                  <workspace.icon aria-hidden className="size-4" />
+                  <span className="max-lg:sr-only">{workspace.label}</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/profile?tab=tersimpan"
+                  className="hidden min-h-11 items-center gap-2 rounded-sm px-3 text-sm font-medium text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested lg:flex"
+                >
+                  <Bookmark aria-hidden className="size-4" />
+                  Tersimpan
+                  {counts && counts.saved > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-[6px] bg-panel-nested px-1.5 text-xs font-semibold">
+                      {counts.saved}
+                    </span>
+                  )}
+                </Link>
+              )}
               <ThemeToggle />
-              <AccountMenu user={user} savedCount={savedCount} />
+              <AccountMenu user={user} context={context ?? { role: 'participant', organizer: null }} counts={counts ?? { saved: 0, paymentDue: 0 }} />
             </>
           ) : (
             <>
@@ -117,7 +136,7 @@ export async function Navbar() {
                 href="/register"
                 className="relative hidden h-9 items-center rounded-sm bg-brand px-4 text-sm font-semibold text-on-brand transition-colors duration-150 ease-snap after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:bg-brand-hover xs:flex"
               >
-                Mulai gratis
+                Daftar
               </Link>
             </>
           )}
