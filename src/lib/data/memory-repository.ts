@@ -264,7 +264,7 @@ interface RevisionEntry {
   createdAt: string;
 }
 
-interface RegistrationFormEntry extends Omit<RegistrationForm, 'activeCount'> {}
+type RegistrationFormEntry = Omit<RegistrationForm, 'activeCount'>;
 
 interface RegistrationEntry {
   id: string;
