@@ -42,3 +42,8 @@ playwright-report/
 # Binary PostgREST untuk npm run test:integration
 .cache/
 .next-supabase/
+
+# Media audit UX (besar; hanya laporan .md & _report.json yang disimpan)
+docs/audit-ux-*/desktop/
+docs/audit-ux-*/mobile/
+docs/audit-ux-*/video/
