@@ -79,10 +79,17 @@ export function ImageUploadField({
   const [previews, setPreviews] = useState<readonly Preview[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cleared, setCleared] = useState(false);
   const statusId = useId();
   const hintId = `${id}-hint`;
 
   useEffect(() => () => previews.forEach((preview) => URL.revokeObjectURL(preview.url)), [previews]);
+
+  useEffect(() => {
+    // Berkas yang dipilih sebelum hidrasi tidak memicu onChange React.
+    if (input.current?.files?.length) void onChange();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function onChange() {
     const element = input.current;
@@ -94,6 +101,7 @@ export function ImageUploadField({
     if (valid.length > maxFiles) notes.push(`Maksimal ${maxFiles} foto sekali unggah — sisanya dilewati.`);
     const picked = valid.slice(0, maxFiles);
 
+    setCleared(false);
     setBusy(true);
     element.setCustomValidity('Tunggu, foto sedang diperkecil…');
     try {
@@ -110,9 +118,14 @@ export function ImageUploadField({
   }
 
   function clear() {
-    if (input.current) input.current.value = '';
+    if (input.current) {
+      input.current.value = '';
+      // Tombol ini hilang bersama pratinjau; tanpa ini fokus jatuh ke <body>.
+      input.current.focus();
+    }
     setPreviews([]);
     setMessage(null);
+    setCleared(true);
   }
 
   return (
@@ -137,14 +150,18 @@ export function ImageUploadField({
           required={required}
           aria-describedby={`${hintId} ${statusId}`}
           onChange={onChange}
-          className="sr-only"
+          // Tanpa JavaScript, input asli yang menunjukkan berkas terpilih; dengan JS
+          // kotak & pratinjau yang mengambil alih — tanpa ganti tampilan saat hidrasi.
+          className="sr-only noscript:not-sr-only noscript:mt-2 noscript:block noscript:max-w-full noscript:text-sm"
         />
       </label>
       <p id={hintId} className="text-[12.5px] leading-snug text-ink-muted">
         {hint}
       </p>
       <p id={statusId} role="status" className={cn('text-[12.5px] text-caution', !busy && !message && 'sr-only')}>
-        {busy ? 'Menyiapkan foto…' : message ?? (previews.length > 0 ? `${previews.length} gambar siap dikirim.` : '')}
+        {busy
+          ? 'Menyiapkan foto…'
+          : (message ?? (previews.length > 0 ? `${previews.length} gambar siap dikirim.` : cleared ? 'Pilihan dibatalkan.' : ''))}
       </p>
       {previews.length > 0 && (
         <div className="flex flex-col gap-2">

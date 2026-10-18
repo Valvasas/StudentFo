@@ -1,18 +1,12 @@
 import type { ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { SelectInput, TextArea, TextInput } from '@/components/ui/field';
-import { answerInputName, REGISTRATION_FORM_LIMITS } from '@/lib/registration-form';
+import { ANSWER_INPUT_PATTERN, answerInputName, REGISTRATION_FORM_LIMITS } from '@/lib/registration-form';
 import { cn } from '@/lib/utils';
 import type { FormField, FormFieldType } from '@/types/domain';
+import { RequiredChoiceGroup } from './required-choice-group';
 
-/**
- * Pola atribut `pattern` = `PHONE` di `readAnswers()`. Peramban mengompilasi
- * `pattern` dengan flag `v`, yang mewajibkan `-` di dalam kelas karakter
- * di-escape — tanpa itu polanya tidak sah dan diam-diam tidak diperiksa.
- */
-const PHONE_PATTERN = String.raw`\+?[0-9][0-9\s\-]{6,18}[0-9]`;
 const PHONE_MAX = 21;
-const NUMBER_PATTERN = String.raw`-?[0-9]+([.,][0-9]+)?`;
 const EMAIL_MAX = 254;
 /** Lebih ketat dari `type=url` (yang menerima `ftp:` dsb.) — server hanya menerima http(s). */
 const URL_PATTERN = 'https?://.+';
@@ -23,9 +17,9 @@ const RADIO_MAX = 6;
 const INVALID_MESSAGE: Record<FormFieldType, string> = {
   short_text: `Isi jawaban ini, maksimal ${REGISTRATION_FORM_LIMITS.shortTextMax} karakter.`,
   long_text: `Isi jawaban ini, maksimal ${REGISTRATION_FORM_LIMITS.longTextMax.toLocaleString('id-ID')} karakter.`,
-  email: 'Tulis alamat email yang valid, mis. nama@contoh.com.',
+  email: 'Tulis alamat email lengkap, mis. nama@kampus.ac.id.',
   phone: 'Tulis nomor telepon minimal 8 digit, boleh diawali +62.',
-  number: 'Tulis angka, mis. 3 atau 3,5.',
+  number: 'Tulis angka maksimal 12 digit, koma untuk desimal, mis. 3,5 atau 750.000.',
   date: 'Pilih tanggal yang valid.',
   url: 'Tulis tautan lengkap yang diawali https://.',
   select: 'Pilih salah satu.',
@@ -131,7 +125,7 @@ export function RegistrationFieldInput({
                 type={single ? 'radio' : 'checkbox'}
                 name={name}
                 value={option}
-                // Satu radio ber-`required` mewajibkan seluruh grup; kotak centang tidak punya padanan itu di HTML.
+                // Satu radio ber-`required` mewajibkan seluruh grup; kotak centang lewat `RequiredChoiceGroup`.
                 required={single && field.required}
                 disabled={disabled}
                 aria-invalid={!single && invalid ? true : undefined}
@@ -142,6 +136,7 @@ export function RegistrationFieldInput({
             </label>
           ))}
         </div>
+        {!single && field.required && <RequiredChoiceGroup name={name} message={INVALID_MESSAGE.multi_select} />}
         {!single && field.required && !invalid && <p className="text-[13px] text-ink-muted">Pilih minimal satu.</p>}
         {error}
       </fieldset>
@@ -163,7 +158,17 @@ export function RegistrationFieldInput({
       case 'long_text':
         return <TextArea {...common} rows={4} maxLength={REGISTRATION_FORM_LIMITS.longTextMax} />;
       case 'email':
-        return <TextInput {...common} type="email" autoComplete="email" inputMode="email" maxLength={EMAIL_MAX} />;
+        return (
+          <TextInput
+            {...common}
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            pattern={ANSWER_INPUT_PATTERN.email}
+            maxLength={EMAIL_MAX}
+            title={INVALID_MESSAGE.email}
+          />
+        );
       case 'phone':
         return (
           <TextInput
@@ -171,14 +176,16 @@ export function RegistrationFieldInput({
             type="tel"
             inputMode="tel"
             autoComplete="tel"
-            pattern={PHONE_PATTERN}
+            pattern={ANSWER_INPUT_PATTERN.phone}
             maxLength={PHONE_MAX}
             placeholder="08xx xxxx xxxx"
             title={INVALID_MESSAGE.phone}
           />
         );
       case 'number':
-        return <TextInput {...common} inputMode="decimal" pattern={NUMBER_PATTERN} maxLength={20} title={INVALID_MESSAGE.number} />;
+        return (
+          <TextInput {...common} inputMode="decimal" pattern={ANSWER_INPUT_PATTERN.number} maxLength={20} title={INVALID_MESSAGE.number} />
+        );
       case 'date':
         return <TextInput {...common} type="date" className="sm:max-w-[240px]" />;
       case 'url':

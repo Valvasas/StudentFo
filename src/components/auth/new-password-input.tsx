@@ -3,7 +3,13 @@
 import { Check } from 'lucide-react';
 import { useEffect, useState, type InputHTMLAttributes } from 'react';
 import { PasswordInput } from '@/components/auth/password-input';
-import { assessPassword, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, type PasswordStrength } from '@/lib/password-rules';
+import {
+  assessPassword,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  passwordByteLength,
+  type PasswordStrength,
+} from '@/lib/password-rules';
 import { cn } from '@/lib/utils';
 
 const STRENGTH: Record<Exclude<PasswordStrength, 'empty'>, { label: string; bars: number; tone: string }> = {
@@ -24,7 +30,12 @@ export function NewPasswordInput({ id, ...props }: Omit<InputHTMLAttributes<HTML
 
   const assessment = assessPassword(value);
   const rules = [
-    { met: assessment.length, label: `${PASSWORD_MIN_LENGTH}+ karakter` },
+    {
+      met: assessment.length,
+      // `maxLength` menghitung karakter, batasnya byte: tanpa label ini centang
+      // "8+ karakter" hilang begitu saja saat huruf beraksen/emoji melewatinya.
+      label: passwordByteLength(value) > PASSWORD_MAX_LENGTH ? 'terlalu panjang' : `${PASSWORD_MIN_LENGTH}+ karakter`,
+    },
     { met: assessment.letter, label: 'huruf' },
     { met: assessment.digit, label: 'angka' },
   ];

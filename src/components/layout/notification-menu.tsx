@@ -16,6 +16,7 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
 } from '@/app/notifications/actions';
+import { workspacePath } from '@/components/organizer/event-workspace';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
@@ -123,7 +124,7 @@ export async function NotificationMenu() {
               const target = /^(ORGANIZER|CLAIM|REVISION)_/.test(notification.type)
                 ? '/penyelenggara'
                 : notification.type === 'PAYMENT_SUBMITTED' && notification.event
-                  ? `/penyelenggara/acara/${notification.event.id}/pendaftar?status=PAYMENT_REVIEW`
+                  ? `${workspacePath(notification.event.id, 'pendaftar')}?status=diperiksa`
                   : /^(REGISTRATION|PAYMENT)_/.test(notification.type)
                     ? '/pembayaran'
                     : notification.event

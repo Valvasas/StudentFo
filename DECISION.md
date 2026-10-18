@@ -61,7 +61,10 @@ memintanya eksplisit; keputusan di bawah membuat bebannya bisa dipikul.
   Peramban ber-JS memperkecil foto lebih dulu (`ImageUploadField`: sisi
   terpanjang 1920 px, JPEG 85%) — unggahan seluler ±0,5 MB, metadata hilang
   karena digambar ulang di kanvas. Batas badan Server Action dinaikkan ke
-  25 MB (6 foto tanpa JS); batas per berkas & jumlah tetap diperiksa di aksi.
+  32 MB (6 × 5 MB tanpa JS + overhead multipart) — begitu pula
+  `middlewareClientMaxBodySize`, karena middleware menyalin badan permintaan
+  dengan plafon bawaan 10 MB dan memotong sisanya; batas per berkas & jumlah
+  tetap diperiksa di aksi.
 - **Galeri:** maks 30 foto per acara (trigger + kunci advisory), hanya
   pengelola terverifikasi/admin yang mengunggah; tampil di tab Ringkasan
   halaman acara dengan lightbox; tanpa JS tiap thumbnail menautkan berkas penuh.
@@ -149,6 +152,65 @@ lanjutan di bawah.
     ADR-028).
   - Indikator kekuatan sandi memakai aturan yang sama dengan server
     (`lib/password-rules.ts`, dijaga uji), ditandai ikon + teks, bukan warna.
+
+### ADR-056 (pengerasan) — hasil review adversarial 2026-10-15/18
+
+Review lima dimensi (SQL/RLS, aksi & rute, logika & paritas, akun, UX/a11y)
+dengan verifikasi skeptis menghasilkan 30 temuan terkonfirmasi (0 kritis,
+0 tinggi). Yang mengubah perilaku/keputusan:
+
+- **Metadata JPEG dibuang sampai EOI gambar utama.** Sebelumnya semua byte
+  sesudah SOS pertama ikut tersalin — bingkai kedua MPF/MPO (dengan EXIF &
+  GPS-nya sendiri), video "motion photo", dan trailer SEFT lolos ke
+  `/media/foto` publik. Kini APPn/COM di sela scan progresif juga dibuang;
+  potongan didorong tanpa spread supaya berkas rekayasa (ratusan ribu segmen
+  COM) tidak menjatuhkan server.
+- **Kode pendaftaran dicoba ulang saat tabrakan** (migration
+  `20261015100001`): `SF-` + 8 heksadesimal = 2³² nilai; tanpa coba ulang
+  satu tabrakan (≈25% di 50 ribu pendaftar pertama) jadi galat 500 dan
+  peserta mengisi ulang. `ON CONFLICT (code)` hanya menyerap tabrakan kode —
+  pelanggaran "satu pendaftaran hidup" tetap menjadi `registration_exists`.
+- **Jawaban Angka mengikuti penulisan Indonesia:** titik = ribuan, koma =
+  desimal ("75.000" = 75000, bukan 75); digit pertama 0 tetap desimal
+  ("0.500" = 0,5); maksimal 12 digit bulat (NIK/rekening dianjurkan memakai
+  Jawaban singkat). CSV menulis angka tanpa format lokal. Pola HTML
+  (`ANSWER_INPUT_PATTERN`) dan `readAnswers()` diuji sepakat, karena isian
+  yang lolos peramban lalu ditolak server mengosongkan semua jawaban.
+- **Penolakan server tidak boleh membuang isian:** kotak centang wajib,
+  email, angka, kuota 0, dan acara berbayar tanpa instruksi kini ditahan di
+  peramban (`setCustomValidity`, pesan sama dengan server); server tetap
+  gerbangnya.
+- **Daftar daftar konsisten:** `/events/<slug>/daftar` mengalihkan ke
+  `/formulir` bila formulir StudentFo sedang terbuka, dan beranda, papan
+  pendaftaran, serta halaman persiapan menampilkan ajakan internal (tab yang
+  sama; "Tandai sudah daftar" manual hanya untuk pendaftaran di luar).
+  Studio memakai aturan tutup per DETIK (`registrationEventClosed`) di semua
+  tab, sama dengan sisi peserta; beranda penyelenggara menghitung bukti
+  bayar yang menunggu dari SEMUA acara kelolaan, termasuk yang tenggatnya
+  sudah lewat (justru saat verifikasi paling ramai).
+- **Akun:** daftar, lupa sandi, dan kirim ulang menelan HANYA jeda per alamat
+  dari GoTrue ("only request this after N seconds" — hanya ada untuk alamat
+  berakun, jadi oracle keanggotaan; `isPerAddressEmailThrottle`). Batas per
+  IP dan kuota email proyek tetap dilaporkan `rate_limited`: menelannya
+  membuat pendaftaran yang digulung balik GoTrue tampak berhasil;
+  `/verify-email` hanya menampilkan alamat yang lolos skema email (tanpa itu
+  `?email=` jadi kanal teks bebas di domain kita); batas sandi 72 BYTE UTF-8
+  (batas bcrypt), bukan 72 karakter, dengan kode `password_too_long`;
+  Turnstile dirender eksplisit oleh satu komponen klien (`ui/turnstile.tsx`)
+  dengan `key` baru di tiap render server — token sekali pakai yang sudah
+  terpakai tidak lagi tertinggal setelah pengalihan ke URL yang sama.
+- **Batas badan 32 MB berlaku di SELURUH situs** (`middlewareClientMaxBodySize`
+  tidak bisa dibatasi per rute): POST anonim ke rute mana pun bisa membuat
+  server menyangga ±2 × 32 MB. Produksi WAJIB memasang plafon di depan Next
+  (mis. `client_max_body_size 32m` di reverse proxy). Di Vercel, plafon
+  fungsi 4,5 MB berlaku duluan — unggahan TANPA JavaScript praktis satu foto
+  per kirim; dengan JS foto diperkecil ke ±0,5 MB sehingga aman.
+- **Kecil tapi nyata:** penghapusan berkas yatim yang gagal kini dicatat;
+  batas media memori diperiksa per batch sebelum menyimpan apa pun; pemuat
+  navigasi tidak menyala untuk `/media/*` (lightbox galeri) dan tautan
+  `download` (CSV); fokus tidak jatuh ke `<body>` saat tombol yang difokus
+  hilang (Selesai, Batalkan pilihan); keterangan foto satu unggahan diberi
+  nomor supaya nama tautannya berbeda.
 
 ---
 

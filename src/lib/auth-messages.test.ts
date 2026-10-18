@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isPerAddressEmailThrottle,
   AUTH_ERROR_MESSAGE,
   AUTH_NOTICE_MESSAGE,
   mapSupabaseAuthError,
@@ -35,6 +36,21 @@ describe('mapSupabaseAuthError', () => {
     expect(mapSupabaseAuthError(null)).toBe('unknown');
     expect(mapSupabaseAuthError('meledak')).toBe('unknown');
     expect(mapSupabaseAuthError({ code: 'sesuatu_yang_baru' })).toBe('unknown');
+  });
+});
+
+describe('isPerAddressEmailThrottle', () => {
+  it('hanya jeda per alamat yang ditelan; batas per IP & kuota email proyek tetap dilaporkan', () => {
+    const perAddress = { code: 'over_email_send_rate_limit', status: 429, message: 'For security purposes, you can only request this after 47 seconds.' };
+    const projectCap = { code: 'over_email_send_rate_limit', status: 429, message: 'email rate limit exceeded' };
+    const perIp = { code: 'over_request_rate_limit', status: 429, message: 'Request rate limit reached' };
+    expect(isPerAddressEmailThrottle(perAddress)).toBe(true);
+    expect(isPerAddressEmailThrottle({ status: 429, message: 'For security purposes, you can only request this after 1 second.' })).toBe(true);
+    expect(isPerAddressEmailThrottle(projectCap)).toBe(false);
+    expect(isPerAddressEmailThrottle(perIp)).toBe(false);
+    expect(mapSupabaseAuthError(projectCap)).toBe('rate_limited');
+    expect(mapSupabaseAuthError(perIp)).toBe('rate_limited');
+    expect(isPerAddressEmailThrottle(null)).toBe(false);
   });
 });
 

@@ -24,6 +24,7 @@ export const AUTH_ERROR_CODES = [
   'invalid_credentials',
   'email_not_confirmed',
   'weak_password',
+  'password_too_long',
   'same_password',
   'rate_limited',
   'provider_disabled',
@@ -43,6 +44,7 @@ export const AUTH_ERROR_MESSAGE: Record<AuthErrorCode, string> = {
   email_not_confirmed:
     'Email kamu belum dikonfirmasi. Buka tautan yang kami kirim, lalu coba masuk lagi.',
   weak_password: 'Kata sandi terlalu lemah. Minimal 8 karakter, memuat huruf dan angka.',
+  password_too_long: 'Kata sandi terlalu panjang: maksimal 72 karakter, dan huruf beraksen atau emoji dihitung lebih dari satu.',
   same_password: 'Kata sandi baru harus berbeda dari yang sekarang.',
   rate_limited: 'Terlalu banyak percobaan. Tunggu beberapa menit sebelum mencoba lagi.',
   provider_disabled:
@@ -112,6 +114,19 @@ function readError(error: unknown): SupabaseAuthErrorShape {
     ...(typeof candidate.status === 'number' ? { status: candidate.status } : {}),
     ...(typeof candidate.message === 'string' ? { message: candidate.message } : {}),
   };
+}
+
+/**
+ * Jeda kirim email PER ALAMAT dari GoTrue ("For security purposes, you can
+ * only request this after N seconds"). Jeda ini hanya ada untuk alamat yang
+ * punya baris akun, jadi meneruskannya ke pengguna = oracle keanggotaan
+ * (ADR-011/056) — pemanggil menelannya dan menjawab seragam. Batas lain
+ * (per IP `over_request_rate_limit`, kuota email proyek "email rate limit
+ * exceeded") tidak bergantung pada alamat dan TETAP dilaporkan: menelannya
+ * membuat pendaftaran yang digagalkan GoTrue tampak berhasil.
+ */
+export function isPerAddressEmailThrottle(error: unknown): boolean {
+  return /only request this after \d+ seconds?/i.test(readError(error).message ?? '');
 }
 
 /**

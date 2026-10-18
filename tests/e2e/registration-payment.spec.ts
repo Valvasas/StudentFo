@@ -24,8 +24,8 @@ test('peserta daftar → unggah bukti → panitia konfirmasi → peserta terkonf
   const organizer = await (await browser.newContext()).newPage();
   await signInAsDemo(organizer, 'Penyelenggara', `/penyelenggara/acara/${PAID_EVENT_ID}/pendaftar?status=diperiksa`);
   const row = organizer.locator(`#pendaftar-${registrationId}`);
-  // Baris pendaftar = <details>; di dalamnya ada <details> lain (tolak bukti, dst).
-  await row.locator(':scope > summary').click();
+  // Baris pendaftar = <li><details>; di dalamnya ada <details> lain (tolak bukti, dst).
+  await row.locator(':scope > details > summary').click();
   await row.getByRole('button', { name: 'Konfirmasi pembayaran' }).click();
   await expect(organizer).toHaveURL(/notice=registration_reviewed/);
 

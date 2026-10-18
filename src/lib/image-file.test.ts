@@ -94,6 +94,72 @@ describe('stripImageMetadata', () => {
     expect(contains(clean, 'Exif')).toBe(false);
   });
 
+  it('JPEG: bingkai kedua MPF/MPO & trailer video sesudah EOI ikut dibuang', () => {
+    const primary = jpeg({ width: 400, height: 300, orientation: 6 });
+    const secondFrame = [
+      0xff, 0xd8,
+      ...segment(0xe1, [...text('Exif'), 0, 0, ...text('GPS-BINGKAI-KEDUA')]),
+      ...segment(0xc0, [8, ...be16(240), ...be16(320), 1, 1, 0x11, 0]),
+      ...segment(0xda, [1, 1, 0, 0, 0x3f, 0]),
+      0x77, 0xff, 0xd9,
+    ];
+    const motionPhoto = [...be32(24), ...text('ftypmp42'), ...text('MotionPhoto_Data')];
+    const clean = stripImageMetadata(Uint8Array.from([...primary, ...secondFrame, ...motionPhoto]), 'image/jpeg');
+    expect(contains(clean, 'GPS-BINGKAI-KEDUA')).toBe(false);
+    expect(contains(clean, 'ftypmp42')).toBe(false);
+    expect([...clean.slice(0, 2)]).toEqual([0xff, 0xd8]);
+    expect([...clean.slice(-2)]).toEqual([0xff, 0xd9]);
+    expect(clean).toEqual(stripImageMetadata(primary, 'image/jpeg'));
+    expect(inspectImage(clean)).toEqual({ type: 'image/jpeg', width: 300, height: 400 });
+  });
+
+  it('JPEG progresif: semua scan & tabel tetap, APPn/COM di sela scan dibuang', () => {
+    const header = [
+      0xff, 0xd8,
+      ...segment(0xe0, [...text('JFIF'), 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]),
+      ...segment(0xc2, [8, ...be16(300), ...be16(400), 1, 1, 0x11, 0]),
+      ...segment(0xc4, [0x00, 1, 2, 3]),
+    ];
+    const firstScan = [...segment(0xda, [1, 1, 0, 0, 0, 0]), 0x11, 0xff, 0x00, 0x22, 0xff, 0xd0, 0x33];
+    const exifBetweenScans = segment(0xe1, [...text('Exif'), 0, 0, ...text('GPS-ANTAR-SCAN')]);
+    const table = segment(0xc4, [0x10, 4, 5, 6]);
+    const comment = segment(0xfe, text('komentar antar scan'));
+    const secondScan = [...segment(0xda, [1, 1, 0, 1, 0x3f, 0x10]), 0x44, 0xff, 0xff, 0x00, 0x55];
+    const eoi = [0xff, 0xd9];
+    const clean = stripImageMetadata(
+      Uint8Array.from([...header, ...firstScan, ...exifBetweenScans, ...table, ...comment, ...secondScan, ...eoi]),
+      'image/jpeg',
+    );
+    expect(clean).toEqual(Uint8Array.from([...header, ...firstScan, ...table, ...secondScan, ...eoi]));
+    expect(inspectImage(clean)).toEqual({ type: 'image/jpeg', width: 400, height: 300 });
+  });
+
+  it('JPEG rekayasa dengan ratusan ribu segmen COM di sela scan tidak menjatuhkan server', () => {
+    const header = [
+      0xff, 0xd8,
+      ...segment(0xc0, [8, ...be16(300), ...be16(400), 1, 1, 0x11, 0]),
+      ...segment(0xda, [1, 1, 0, 0, 0x3f, 0]),
+      0x11,
+    ];
+    const count = 200_000;
+    const bytes = new Uint8Array(header.length + count * 4 + 3);
+    bytes.set(header);
+    for (let index = 0; index < count; index += 1) bytes.set([0xff, 0xfe, 0x00, 0x02], header.length + index * 4);
+    bytes.set([0x22, 0xff, 0xd9], header.length + count * 4);
+    expect(stripImageMetadata(bytes, 'image/jpeg')).toEqual(Uint8Array.from([...header, 0x22, 0xff, 0xd9]));
+  });
+
+  it('JPEG terpotong tanpa EOI disimpan sejauh terbaca; penanda rusak menghentikan salinan', () => {
+    const complete = stripImageMetadata(jpeg({ width: 400, height: 300, orientation: 1 }), 'image/jpeg');
+    const truncated = jpeg({ width: 400, height: 300, orientation: 1 }).subarray(0, -2);
+    expect(stripImageMetadata(truncated, 'image/jpeg')).toEqual(complete.subarray(0, -2));
+
+    const corrupt = Uint8Array.from([...truncated, 0xff, 0x12, ...text('SISA-TIDAK-DIKENAL')]);
+    const clean = stripImageMetadata(corrupt, 'image/jpeg');
+    expect(contains(clean, 'SISA-TIDAK-DIKENAL')).toBe(false);
+    expect(clean).toEqual(complete.subarray(0, -2));
+  });
+
   it('PNG: potongan teks dibuang, potongan gambar tetap', () => {
     const clean = stripImageMetadata(png(640, 480), 'image/png');
     expect(contains(clean, 'lokasi rumah')).toBe(false);

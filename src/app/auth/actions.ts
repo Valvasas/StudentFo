@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { mapSupabaseAuthError, type AuthErrorCode } from '@/lib/auth-messages';
+import { isPerAddressEmailThrottle, mapSupabaseAuthError, type AuthErrorCode } from '@/lib/auth-messages';
 import {
   changePasswordSchema,
   firstIssue,
@@ -20,6 +20,7 @@ import { DEMO_PERSONAS, isDemoPersonaId } from '@/lib/demo/personas';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
+import { PASSWORD_MAX_LENGTH, passwordByteLength } from '@/lib/password-rules';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isAccountRateLimited, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -55,6 +56,14 @@ function echoEmail(raw: string): string | undefined {
 
 function callbackUrl(next: string): string {
   return `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`;
+}
+
+/**
+ * Sandi > 72 byte UTF-8 (batas bcrypt) diberi kode sendiri: "Ada isian yang
+ * belum benar" tidak memberi tahu bahwa huruf beraksen/emoji dihitung ganda.
+ */
+function passwordFailure(password: string): AuthErrorCode {
+  return passwordByteLength(password) > PASSWORD_MAX_LENGTH ? 'password_too_long' : 'validation';
 }
 
 /** Kembali ke /register dengan pilihan jenis akun & tujuan tetap utuh. */
@@ -142,7 +151,7 @@ export async function signUpAction(formData: FormData): Promise<void> {
     const ip = await currentClientIp();
 
     if (!parsed.success) {
-      failure = firstIssue(parsed.error, 'privacyConsent') ? 'consent_required' : 'validation';
+      failure = firstIssue(parsed.error, 'privacyConsent') ? 'consent_required' : passwordFailure(field(formData, 'password'));
     } else if (await isRateLimited(ip, [[RATE_LIMITS.signUpPerIp]])) {
       failure = 'rate_limited';
     } else if (!(await passesCaptcha(formData, ip))) {
@@ -163,7 +172,12 @@ export async function signUpAction(formData: FormData): Promise<void> {
         },
       });
 
-      if (error) {
+      if (error && isPerAddressEmailThrottle(error)) {
+        // Dua pendaftaran beruntun untuk alamat yang sama akan membedakan
+        // "sudah punya akun" dari "baru" lewat jeda ini — jatuh ke halaman
+        // "cek email" yang seragam, seperti lupa sandi & kirim ulang.
+        console.error('[auth] daftar: jeda per alamat dari Supabase:', error.code ?? error.status);
+      } else if (error) {
         failure = mapSupabaseAuthError(error);
       } else {
         hasSession = data.session !== null;
@@ -291,11 +305,13 @@ export async function requestPasswordResetAction(formData: FormData): Promise<vo
         redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent('/reset-password')}`,
       });
       // Jeda per alamat dari Supabase TIDAK diteruskan: GoTrue hanya
-      // memasangnya untuk akun yang ada, jadi dua permintaan beruntun akan
-      // membedakan "terdaftar" dari "tidak" (ADR-011, diperketat ADR-056).
-      // Email pertama sudah terkirim; batas per IP di atas tetap dilaporkan.
-      if (error && mapSupabaseAuthError(error) === 'unknown') {
-        console.error('[auth] permintaan atur ulang sandi gagal:', error.code ?? error.status);
+      // memasangnya untuk akun yang ada (ADR-011, diperketat ADR-056); email
+      // pertama sudah terkirim. Batas yang tidak bergantung alamat tetap
+      // dilaporkan supaya orang tahu harus mencoba lagi.
+      if (error && !isPerAddressEmailThrottle(error)) {
+        const code = mapSupabaseAuthError(error);
+        if (code === 'rate_limited') failure = code;
+        else console.error('[auth] permintaan atur ulang sandi gagal:', error.code ?? error.status);
       }
     }
     // Email tidak valid atau tidak terdaftar tetap berujung pada pesan yang
@@ -332,12 +348,13 @@ export async function resendConfirmationAction(formData: FormData): Promise<void
           email: parsed.data.email,
           options: { emailRedirectTo: callbackUrl(next) },
         });
-        // Beda dengan lupa sandi, batas laju Supabase di sini TIDAK
-        // diteruskan: jeda kirim ulangnya per alamat dan hanya berlaku untuk
-        // akun yang memang ada & belum dikonfirmasi — meneruskannya membuka
-        // oracle keanggotaan. Hanya batas per IP kita yang dilaporkan.
-        if (error && mapSupabaseAuthError(error) === 'unknown') {
-          console.error('[auth] kirim ulang konfirmasi gagal:', error.code ?? error.status);
+        // Jeda kirim ulang per alamat hanya berlaku untuk akun yang ada &
+        // belum dikonfirmasi — meneruskannya membuka oracle keanggotaan.
+        // Batas yang tidak bergantung alamat tetap dilaporkan.
+        if (error && !isPerAddressEmailThrottle(error)) {
+          const code = mapSupabaseAuthError(error);
+          if (code === 'rate_limited') failure = code;
+          else console.error('[auth] kirim ulang konfirmasi gagal:', error.code ?? error.status);
         }
       }
     }
@@ -360,7 +377,7 @@ export async function updatePasswordAction(formData: FormData): Promise<void> {
     });
 
     if (!parsed.success) {
-      failure = 'validation';
+      failure = passwordFailure(field(formData, 'password'));
     } else {
       const supabase = await createSupabaseServerClient();
       const { data: userData } = await supabase.auth.getUser();
@@ -404,7 +421,7 @@ export async function changePasswordAction(formData: FormData): Promise<void> {
     });
 
     if (!parsed.success) {
-      failure = 'validation';
+      failure = passwordFailure(field(formData, 'password'));
     } else {
       const supabase = await createSupabaseServerClient();
       const { data: userData } = await supabase.auth.getUser();

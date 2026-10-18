@@ -2014,7 +2014,8 @@ export class SupabaseEventRepository implements EventRepository {
     const { data, error } = await supabase.rpc('submit_payment_proof', { p_registration: registrationId, p_path: path });
     if (error) {
       // Berkas yatim di Storage = data pribadi tanpa pemilik; dibuang segera.
-      await storage.remove([path]);
+      const removed = await storage.remove([path]);
+      if (removed.error) console.error('[pembayaran] bukti yatim gagal dihapus:', path, removed.error);
       const code = registrationErrorCode(error);
       if (code) throw actionError(code);
       throw upstreamFailure('Gagal menyimpan bukti pembayaran.', error, 500);
@@ -2111,7 +2112,10 @@ export class SupabaseEventRepository implements EventRepository {
         throw upstreamFailure('Gagal menyimpan foto.', error, 500);
       }
     } catch (error) {
-      if (uploaded.length > 0) await storage.remove(uploaded);
+      if (uploaded.length > 0) {
+        const removed = await storage.remove(uploaded);
+        if (removed.error) console.error('[galeri] foto yatim gagal dihapus:', uploaded, removed.error);
+      }
       throw error;
     }
     return rows.length;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { EDUCATION_LEVELS } from '@/types/domain';
-import { PASSWORD_DIGIT, PASSWORD_LETTER, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './password-rules';
+import { PASSWORD_DIGIT, PASSWORD_LETTER, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordByteLength } from './password-rules';
 
 /**
  * Aturan validasi form akun.
@@ -24,16 +24,19 @@ export const emailSchema = z
  * seperti "Password1!".
  *
  * Batas ATAS 72 bukan pilihan desain: bcrypt — algoritma yang dipakai
- * Supabase Auth — memotong masukan di 72 byte. Tanpa batas ini, dua kata
- * sandi berbeda yang 72 karakter pertamanya sama akan sama-sama diterima,
- * dan pengguna tidak pernah diberi tahu.
+ * Supabase Auth — memotong masukan di 72 byte, dan GoTrue menolak yang lebih
+ * panjang. Dihitung dalam byte UTF-8, bukan karakter: tanpa itu 57 huruf
+ * beraksen lolos di sini lalu ditolak Supabase dengan error yang tak jelas.
  */
 export const passwordSchema = z
   .string()
   .min(PASSWORD_MIN_LENGTH, `Kata sandi minimal ${PASSWORD_MIN_LENGTH} karakter.`)
-  .max(PASSWORD_MAX_LENGTH, `Kata sandi maksimal ${PASSWORD_MAX_LENGTH} karakter.`)
   .regex(PASSWORD_LETTER, 'Kata sandi harus memuat setidaknya satu huruf.')
-  .regex(PASSWORD_DIGIT, 'Kata sandi harus memuat setidaknya satu angka.');
+  .regex(PASSWORD_DIGIT, 'Kata sandi harus memuat setidaknya satu angka.')
+  .refine(
+    (value) => passwordByteLength(value) <= PASSWORD_MAX_LENGTH,
+    `Kata sandi terlalu panjang: maksimal ${PASSWORD_MAX_LENGTH} karakter, dan huruf beraksen atau emoji dihitung lebih dari satu.`,
+  );
 
 export const fullNameSchema = z
   .string()

@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { Images, ShieldAlert, Trash2 } from 'lucide-react';
 import { deletePhotoAction, uploadPhotosAction } from '@/app/penyelenggara/acara/[id]/galeri/actions';
-import { EventGallery, photoAlt, photoSrc } from '@/components/event/event-gallery';
+import { EventGallery } from '@/components/event/event-gallery';
+import { photoAlt, photoSrc } from '@/components/event/event-photo';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import {
   EventWorkspaceHeader,

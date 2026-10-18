@@ -18,6 +18,7 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Sparkbars, VisitsChart } from '@/components/organizer/analytics-chart';
 import { EventWorkspaceHeader, NotManaging, workspaceBadges } from '@/components/organizer/event-workspace';
 import { RevisionChanges } from '@/components/organizer/revision-changes';
+import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
@@ -99,7 +100,8 @@ export default async function EventAnalyticsPage({
   const rangePath = range === 30 ? selfPath : `${selfPath}?range=${range}`;
   const now = new Date();
   const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
-  const isClosed = event.status === 'EXPIRED' || (days !== null && days < 0);
+  // Per detik, sama dengan header ruang kerja & sisi peserta (registrationEventClosed).
+  const isClosed = registrationEventClosed(event, now);
   const categoryName = new Map(categories.map((category) => [category.slug, category.name]));
 
   return (

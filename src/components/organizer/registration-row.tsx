@@ -140,6 +140,21 @@ export function RegistrationRow({
           {feedback && <div className="lg:col-span-2">{feedback}</div>}
 
           <div className="flex min-w-0 flex-col gap-5">
+            {/* Ringkasan baris memotong nama & email panjang; di sini tampil utuh. */}
+            <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <dt className="text-[12.5px] text-ink-muted">Nama</dt>
+                <dd className="break-words text-[14.5px] font-semibold">{registration.fullName}</dd>
+              </div>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <dt className="text-[12.5px] text-ink-muted">Email</dt>
+                <dd className="text-[14.5px]">
+                  <a href={`mailto:${registration.email}`} className="break-all underline underline-offset-[3px] hover:no-underline">
+                    {registration.email}
+                  </a>
+                </dd>
+              </div>
+            </dl>
             <AnswerList title="Jawaban" entries={fields.map((field) => ({ key: field.id, label: field.label, field, value: registration.answers[field.id] }))} />
             {extra.length > 0 && (
               <AnswerList

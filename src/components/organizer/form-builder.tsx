@@ -75,6 +75,15 @@ function toPayload(field: DraftField) {
   };
 }
 
+function titleOf(field: DraftField): string {
+  return field.label.trim() || 'Pertanyaan tanpa judul';
+}
+
+/** Wilayah live tidak membacakan ulang teks yang persis sama (hapus kedua, gagal simpan kedua) — spasi tak terlihat bergantian membuatnya berubah. */
+function freshAnnouncement(current: string, message: string): string {
+  return current === message ? `${message}\u00A0` : message;
+}
+
 function problemOf(field: DraftField): Problem {
   if (!field.label.trim()) return 'label';
   if (hasOptions(field.type) && cleanOptions(field.options).length < LIMITS.optionsMin) return 'options';
@@ -142,11 +151,13 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
       setAttempted(true);
       setOpenId(invalid.id);
       focusAfterRender.current = problemOf(invalid) === 'label' ? `${invalid.id}-label` : `${invalid.id}-option-0`;
-      setAnnouncement('Ada pertanyaan yang belum lengkap.');
+      setAnnouncement((current) => freshAnnouncement(current, 'Ada pertanyaan yang belum lengkap.'));
     };
     form.addEventListener('submit', onSubmit);
     return () => form.removeEventListener('submit', onSubmit);
   }, []);
+
+  const announce = (message: string) => setAnnouncement((current) => freshAnnouncement(current, message));
 
   const update = (id: string, patch: Partial<DraftField>) => {
     setFields((current) => current.map((field) => (field.id === id ? { ...field, ...patch } : field)));
@@ -172,7 +183,7 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
     // Tombol yang ditekan bisa jadi nonaktif di posisi baru (sudah paling atas/bawah).
     const edge = target === 0 ? 'down' : target === next.length - 1 ? 'up' : delta < 0 ? 'up' : 'down';
     focusAfterRender.current = `${field.id}-${next.length > 1 ? edge : 'label'}`;
-    setAnnouncement(`Dipindah ke urutan ${target + 1} dari ${next.length}.`);
+    announce(`Dipindah ke urutan ${target + 1} dari ${next.length}.`);
   };
 
   const remove = (index: number) => {
@@ -182,7 +193,7 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
     setRemoved({ field, index });
     setOpenId(null);
     focusAfterRender.current = 'form-builder-undo';
-    setAnnouncement('Pertanyaan dihapus.');
+    announce(`“${titleOf(field)}” dihapus.`);
   };
 
   const undo = () => {
@@ -195,7 +206,7 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
     setOpenId(removed.field.id);
     focusAfterRender.current = `${removed.field.id}-label`;
     setRemoved(null);
-    setAnnouncement('Pertanyaan dikembalikan.');
+    announce(`“${titleOf(removed.field)}” dikembalikan.`);
   };
 
   const full = fields.length >= LIMITS.maxFields;
@@ -225,6 +236,10 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
               interactive={hydrated}
               showProblem={attempted}
               onToggle={() => setOpenId((current) => (current === field.id ? null : field.id))}
+              onDone={() => {
+                setOpenId(null);
+                focusAfterRender.current = `${field.id}-toggle`;
+              }}
               onChange={(patch) => update(field.id, patch)}
               onMove={(delta) => move(index, delta)}
               onRemove={() => remove(index)}
@@ -235,11 +250,14 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
 
       {removed && (
         <p className="fade-in flex flex-wrap items-center justify-between gap-2 rounded-card bg-panel-nested px-4 py-1.5 text-sm text-ink-soft">
-          <span className="min-w-0 truncate">“{removed.field.label.trim() || 'Pertanyaan tanpa judul'}” dihapus.</span>
+          <span id="form-builder-removed" className="min-w-0 truncate">
+            “{titleOf(removed.field)}” dihapus.
+          </span>
           <button
             id="form-builder-undo"
             type="button"
             onClick={undo}
+            aria-describedby="form-builder-removed"
             className="min-h-11 px-2 font-semibold text-ink underline underline-offset-[3px] hover:no-underline"
           >
             Urungkan
@@ -325,6 +343,7 @@ function QuestionCard({
   interactive,
   showProblem,
   onToggle,
+  onDone,
   onChange,
   onMove,
   onRemove,
@@ -336,6 +355,8 @@ function QuestionCard({
   interactive: boolean;
   showProblem: boolean;
   onToggle: () => void;
+  /** "Selesai" menutup editor tempat tombolnya berada — fokus harus dipindah ke kepala kartu, bukan jatuh ke <body>. */
+  onDone: () => void;
   onChange: (patch: Partial<DraftField>) => void;
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
@@ -343,7 +364,7 @@ function QuestionCard({
   const Icon = TYPE_ICON[field.type];
   const problem = problemOf(field);
   const editorId = `${field.id}-editor`;
-  const name = field.label.trim() || 'Pertanyaan tanpa judul';
+  const name = titleOf(field);
   const optionCount = cleanOptions(field.options).length;
   const meta = [
     FORM_FIELD_TYPE_LABEL[field.type],
@@ -364,6 +385,7 @@ function QuestionCard({
           <Icon className="size-4" />
         </span>
         <button
+          id={`${field.id}-toggle`}
           type="button"
           aria-expanded={open}
           aria-controls={editorId}
@@ -414,6 +436,7 @@ function QuestionCard({
               <SelectInput
                 id={`${field.id}-type`}
                 value={field.type}
+                aria-describedby={field.type === 'number' ? `${field.id}-type-hint` : undefined}
                 onChange={(event) => {
                   const type = event.target.value as FormFieldType;
                   const options = hasOptions(type) && field.options.length === 0 ? ['', ''] : field.options;
@@ -426,6 +449,12 @@ function QuestionCard({
                   </option>
                 ))}
               </SelectInput>
+              {/* NIK/rekening di kolom Angka kehilangan nol di depan & ditolak di atas 12 digit. */}
+              {field.type === 'number' && (
+                <p id={`${field.id}-type-hint`} className="text-[12.5px] text-ink-muted">
+                  Maks. 12 digit, koma untuk desimal. NIK atau nomor rekening: pakai Jawaban singkat; nomor HP: pakai Nomor telepon.
+                </p>
+              )}
             </EditorField>
           </div>
 
@@ -460,7 +489,7 @@ function QuestionCard({
               <button type="button" onClick={onRemove} className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'text-danger hover:bg-danger-soft hover:text-danger' })}>
                 <Trash2 aria-hidden /> Hapus
               </button>
-              <button type="button" onClick={onToggle} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+              <button type="button" onClick={onDone} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
                 Selesai
               </button>
             </div>

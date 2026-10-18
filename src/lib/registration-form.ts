@@ -43,9 +43,14 @@ export const REGISTRATION_RATE_LIMIT = { perHour: 10 } as const;
 
 const FIELD_ID = /^f_[a-z0-9]{1,24}$/;
 
-/** Karakter kendali & tak terlihat dibuang, markup dilucuti — jawaban juga mengalir ke CSV & email panitia. */
-function cleanText(value: string): string {
-  return stripMarkup(value).trim();
+/**
+ * Karakter kendali & tak terlihat dibuang, markup dilucuti — jawaban juga
+ * mengalir ke CSV & email panitia. Peramban mengirim baris baru textarea
+ * sebagai CRLF tetapi `maxLength` menghitungnya satu karakter; tanpa
+ * penyeragaman, isian yang pas di batas ditolak server.
+ */
+export function cleanText(value: string): string {
+  return stripMarkup(value.replace(/\r\n?/g, '\n')).trim();
 }
 
 const fieldSchema = z
@@ -106,7 +111,7 @@ export type RegistrationFormError =
   | 'registration_form_fields'
   | 'registration_form_payment';
 
-function parseWholeNumber(raw: string, max: number): number | null | 'invalid' {
+export function parseWholeNumber(raw: string, max: number): number | null | 'invalid' {
   const digits = raw.replace(/[.\s]/g, '');
   if (digits === '') return null;
   if (!/^\d{1,9}$/.test(digits)) return 'invalid';
@@ -167,6 +172,37 @@ export function answerInputName(field: Pick<FormField, 'id'>): string {
 const emailAnswer = z.string().email().max(254);
 const PHONE = /^\+?[0-9][0-9\s-]{6,18}[0-9]$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const GROUPED_NUMBER = /^-?[1-9]\d{0,2}(?:\.\d{3}){1,3}(?:,\d+)?$/;
+const PLAIN_NUMBER = /^-?\d{1,12}(?:[.,]\d+)?$/;
+
+/**
+ * Atribut `pattern` untuk isian yang punya kembaran di `readAnswers()` —
+ * kesepakatan keduanya diuji di `registration-form.test.ts`, karena isian
+ * yang lolos peramban lalu ditolak server berakhir di pengalihan galat yang
+ * mengosongkan semua jawaban. Peramban mengompilasi `pattern` dengan flag
+ * `v`, yang mewajibkan `-` di dalam kelas karakter di-escape — tanpa itu
+ * polanya tidak sah dan diam-diam tidak diperiksa.
+ */
+export const ANSWER_INPUT_PATTERN = {
+  phone: String.raw`\+?[0-9][0-9\s\-]{6,18}[0-9]`,
+  number: String.raw`-?(?:[1-9][0-9]{0,2}(?:\.[0-9]{3}){1,3}(?:,[0-9]+)?|[0-9]{1,12}(?:[.,][0-9]+)?)`,
+  email: String.raw`(?!\.)(?!.*\.\.)[A-Za-z0-9_'+\-.]*[A-Za-z0-9_+\-]@(?:[A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}`,
+} as const;
+
+/**
+ * Penulisan Indonesia: titik = ribuan, koma = desimal. `Number()` mentah
+ * membaca "75.000" sebagai 75 dan menerima "1e3"/"0x10". Satu titik diikuti
+ * tepat tiga digit dibaca ribuan ("3.750" = 3750), titik dengan jumlah digit
+ * lain tetap desimal ("3.5"), begitu pula bila digit pertamanya 0 ("0.500" =
+ * 0,5 — tidak ada yang menulis ribuan diawali nol). Maksimal 12 digit bulat: NIK/nomor rekening
+ * di kolom Angka kehilangan nol di depan dan tampil bertitik ribuan — itu
+ * bukan angka, panitia perlu kolom Jawaban singkat.
+ */
+function parseNumberAnswer(raw: string): number | null {
+  if (GROUPED_NUMBER.test(raw)) return Number(raw.replace(/\./g, '').replace(',', '.'));
+  if (PLAIN_NUMBER.test(raw)) return Number(raw.replace(',', '.'));
+  return null;
+}
 
 function isValidDate(value: string): boolean {
   if (!DATE.test(value)) return false;
@@ -241,8 +277,8 @@ export function readAnswers(fields: readonly FormField[], formData: FormData): A
         answers[field.id] = raw.replace(/[\s-]/g, '');
         break;
       case 'number': {
-        const value = Number(raw.replace(',', '.'));
-        if (!Number.isFinite(value) || Math.abs(value) > 1e12) return fail;
+        const value = parseNumberAnswer(raw);
+        if (value === null) return fail;
         answers[field.id] = value;
         break;
       }
@@ -383,6 +419,14 @@ const csvDate = new Intl.DateTimeFormat('id-ID', {
   minute: '2-digit',
 });
 
+/**
+ * Angka tanpa format lokal: `formatAnswer` membulatkan ke 3 desimal, dan
+ * titik ribuannya ("750.000") dibaca spreadsheet berlokal en sebagai desimal.
+ */
+function csvAnswer(value: AnswerValue | undefined): string {
+  return typeof value === 'number' ? String(value) : formatAnswer(value);
+}
+
 export function registrationsToCsv(fields: readonly FormField[], registrations: readonly EventRegistration[]): string {
   const header = ['Kode', 'Nama', 'Email akun', 'Status', 'Biaya', 'Waktu daftar (WIB)', ...fields.map((field) => field.label)];
   const rows = registrations.map((registration) => [
@@ -392,7 +436,7 @@ export function registrationsToCsv(fields: readonly FormField[], registrations: 
     REGISTRATION_STATUS_LABEL[registration.status],
     registration.feeAmount ? String(registration.feeAmount) : 'Gratis',
     csvDate.format(new Date(registration.createdAt)),
-    ...fields.map((field) => formatAnswer(registration.answers[field.id])),
+    ...fields.map((field) => csvAnswer(registration.answers[field.id])),
   ]);
   // BOM: tanpa ini Excel membuka UTF-8 sebagai Windows-1252 dan nama ber-aksen rusak.
   return `﻿${[header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}\r\n`;

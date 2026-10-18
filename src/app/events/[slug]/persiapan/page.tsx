@@ -6,10 +6,13 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Clock, X } from 'lucide-rea
 import { updateTrackerStatusAction } from '@/app/tracker/actions';
 import { DemoContactRows, DemoDocumentsSummary } from '@/components/profile/demo-detail-cards';
 import { DetailRows } from '@/components/profile/detail-card';
+import { registrationHref } from '@/components/registration/registration-cta';
+import { registrationCta, registrationEventClosed } from '@/components/registration/registration-view';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, getDeadlineState } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { withFallback } from '@/lib/fallback';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL } from '@/types/domain';
@@ -46,13 +49,20 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
   if (!event) notFound();
 
   const isTeamEvent = event.eventType === 'LOMBA';
-  const [items, teams] = await Promise.all([repository.listTrackerItems(user.id), isTeamEvent ? repository.listTeams(event.id) : Promise.resolve([])]);
+  const [items, teams, form, mine] = await Promise.all([
+    repository.listTrackerItems(user.id),
+    isTeamEvent ? repository.listTeams(event.id) : Promise.resolve([]),
+    withFallback('formulir pendaftaran', () => repository.getRegistrationForm(event.id), null),
+    withFallback('pendaftaran sendiri', () => repository.getMyRegistration(user.id, event.id), null),
+  ]);
   const tracked = items.find((item) => item.eventId === event.id);
   const myTeam = teams.find((team) => team.members.some((member) => member.userId === user.id));
 
   const now = new Date();
   const isClosed = getDeadlineState(event.primaryDeadlineAt, now).urgency === 'closed' || event.status === 'EXPIRED';
   const registrationUrl = sanitizeExternalUrl(event.registrationLink);
+  // Formulir StudentFo yang aktif menggantikan tautan luar (ADR-056).
+  const internal = registrationCta(form, mine, isClosed || registrationEventClosed(event, now));
 
   const steps = [
     { key: 'data', label: 'Data diri', sub: 'Nama, kontak, pendidikan' },
@@ -209,7 +219,23 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
                   Di Pendaftaran kamu: <strong className="font-semibold">{TRACKER_STATUS_LABEL[tracked.status]}</strong>
                 </p>
               )}
-              {isClosed ? (
+              {internal?.kind === 'mine' ? (
+                <Link
+                  href={registrationHref(internal.registrationId)}
+                  className="flex h-12 items-center justify-center gap-2 self-start rounded-card bg-brand px-5 text-[15px] font-semibold text-on-brand hover:bg-brand-hover"
+                >
+                  Lihat pendaftaranmu <ArrowRight aria-hidden className="size-4" />
+                </Link>
+              ) : internal?.kind === 'open' ? (
+                <Link
+                  href={`/events/${event.slug}/formulir`}
+                  className="flex h-12 items-center justify-center gap-2 self-start rounded-card bg-brand px-5 text-[15px] font-semibold text-on-brand hover:bg-brand-hover"
+                >
+                  Isi formulir pendaftaran <ArrowRight aria-hidden className="size-4" />
+                </Link>
+              ) : internal?.kind === 'full' ? (
+                <p className="rounded-card bg-panel-nested px-4 py-3 text-sm font-semibold text-ink-muted">Kuota pendaftaran penuh.</p>
+              ) : isClosed || internal?.kind === 'closed' ? (
                 <p className="rounded-card bg-panel-nested px-4 py-3 text-sm font-semibold text-ink-muted">Pendaftaran sudah ditutup.</p>
               ) : registrationUrl ? (
                 <a
@@ -224,7 +250,7 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
               ) : (
                 <p className="rounded-card bg-caution-soft p-3 text-sm text-caution">Tautan pendaftaran belum tersedia. Cek langsung ke situs penyelenggara.</p>
               )}
-              {tracked?.status !== 'APPLIED' && tracked?.status !== 'INTERVIEW' && tracked?.status !== 'ACCEPTED' && (
+              {internal === null && tracked?.status !== 'APPLIED' && tracked?.status !== 'INTERVIEW' && tracked?.status !== 'ACCEPTED' && (
                 <form action={updateTrackerStatusAction} className="flex flex-col gap-2 border-t border-line pt-4">
                   <input type="hidden" name="eventId" value={event.id} />
                   <input type="hidden" name="status" value="APPLIED" />

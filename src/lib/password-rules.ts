@@ -4,6 +4,11 @@
  * dibundel ke klien, dan zod belum ada di bundle mana pun.
  */
 export const PASSWORD_MIN_LENGTH = 8;
+/**
+ * Batas bcrypt (Supabase Auth) dalam BYTE UTF-8, bukan karakter: huruf
+ * beraksen dan emoji memakan 2–4 byte. Sebagai `maxLength` isian (yang
+ * menghitung karakter) ia hanya batas longgar — satu karakter ≥ satu byte.
+ */
 export const PASSWORD_MAX_LENGTH = 72;
 /** Di atas syarat minimum, panjang yang paling menambah kekuatan (NIST SP 800-63B). */
 export const PASSWORD_STRONG_LENGTH = 12;
@@ -19,8 +24,12 @@ export interface PasswordAssessment {
   readonly digit: boolean;
 }
 
+export function passwordByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
 export function assessPassword(value: string): PasswordAssessment {
-  const length = value.length >= PASSWORD_MIN_LENGTH && value.length <= PASSWORD_MAX_LENGTH;
+  const length = value.length >= PASSWORD_MIN_LENGTH && passwordByteLength(value) <= PASSWORD_MAX_LENGTH;
   const letter = PASSWORD_LETTER.test(value);
   const digit = PASSWORD_DIGIT.test(value);
 

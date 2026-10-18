@@ -20,6 +20,10 @@ describe('emailSchema', () => {
     expect(emailSchema.safeParse('budi-at-kampus').success).toBe(false);
   });
 
+  it('menolak kalimat bebas — /verify-email hanya mencetak ?email= yang lolos skema ini', () => {
+    expect(emailSchema.safeParse('Akun kamu DITANGGUHKAN — hubungi wa.me/6281234 a@b.id').success).toBe(false);
+  });
+
   it('menolak alamat di atas batas RFC 5321', () => {
     expect(emailSchema.safeParse(`${'a'.repeat(250)}@x.id`).success).toBe(false);
   });
@@ -41,6 +45,13 @@ describe('passwordSchema', () => {
 
   it('menolak di atas 72 karakter — bcrypt memotong diam-diam di titik itu', () => {
     expect(passwordSchema.safeParse(`${'a'.repeat(72)}1`).success).toBe(false);
+  });
+
+  it('batas 72 dihitung dalam byte UTF-8: 57 karakter beraksen (97 byte) ditolak dengan pesan yang jelas', () => {
+    const result = passwordSchema.safeParse(`Kata1${'é'.repeat(40)}${'x'.repeat(12)}`);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toMatch(/terlalu panjang.*beraksen atau emoji/);
+    expect(passwordSchema.safeParse(`a1${'é'.repeat(35)}`).success).toBe(true);
   });
 });
 
