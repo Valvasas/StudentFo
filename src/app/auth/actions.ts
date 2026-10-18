@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { mapSupabaseAuthError, type AuthErrorCode } from '@/lib/auth-messages';
+import { isPerAddressEmailThrottle, mapSupabaseAuthError, type AuthErrorCode } from '@/lib/auth-messages';
 import {
   changePasswordSchema,
   firstIssue,
@@ -172,13 +172,11 @@ export async function signUpAction(formData: FormData): Promise<void> {
         },
       });
 
-      if (error && mapSupabaseAuthError(error) === 'rate_limited') {
-        // Jeda kirim email per alamat dari Supabase hanya ada untuk alamat
-        // yang baru saja dikirimi email — dua pendaftaran beruntun akan
-        // membedakan "sudah punya akun" dari "baru" (ADR-011, ADR-056). Sama
-        // dengan lupa sandi/kirim ulang: jatuh ke halaman "cek email" yang
-        // seragam; batas per IP kita di atas tetap dilaporkan.
-        console.error('[auth] daftar dibatasi Supabase:', error.code ?? error.status);
+      if (error && isPerAddressEmailThrottle(error)) {
+        // Dua pendaftaran beruntun untuk alamat yang sama akan membedakan
+        // "sudah punya akun" dari "baru" lewat jeda ini — jatuh ke halaman
+        // "cek email" yang seragam, seperti lupa sandi & kirim ulang.
+        console.error('[auth] daftar: jeda per alamat dari Supabase:', error.code ?? error.status);
       } else if (error) {
         failure = mapSupabaseAuthError(error);
       } else {
@@ -307,11 +305,13 @@ export async function requestPasswordResetAction(formData: FormData): Promise<vo
         redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent('/reset-password')}`,
       });
       // Jeda per alamat dari Supabase TIDAK diteruskan: GoTrue hanya
-      // memasangnya untuk akun yang ada, jadi dua permintaan beruntun akan
-      // membedakan "terdaftar" dari "tidak" (ADR-011, diperketat ADR-056).
-      // Email pertama sudah terkirim; batas per IP di atas tetap dilaporkan.
-      if (error && mapSupabaseAuthError(error) === 'unknown') {
-        console.error('[auth] permintaan atur ulang sandi gagal:', error.code ?? error.status);
+      // memasangnya untuk akun yang ada (ADR-011, diperketat ADR-056); email
+      // pertama sudah terkirim. Batas yang tidak bergantung alamat tetap
+      // dilaporkan supaya orang tahu harus mencoba lagi.
+      if (error && !isPerAddressEmailThrottle(error)) {
+        const code = mapSupabaseAuthError(error);
+        if (code === 'rate_limited') failure = code;
+        else console.error('[auth] permintaan atur ulang sandi gagal:', error.code ?? error.status);
       }
     }
     // Email tidak valid atau tidak terdaftar tetap berujung pada pesan yang
@@ -348,12 +348,13 @@ export async function resendConfirmationAction(formData: FormData): Promise<void
           email: parsed.data.email,
           options: { emailRedirectTo: callbackUrl(next) },
         });
-        // Beda dengan lupa sandi, batas laju Supabase di sini TIDAK
-        // diteruskan: jeda kirim ulangnya per alamat dan hanya berlaku untuk
-        // akun yang memang ada & belum dikonfirmasi — meneruskannya membuka
-        // oracle keanggotaan. Hanya batas per IP kita yang dilaporkan.
-        if (error && mapSupabaseAuthError(error) === 'unknown') {
-          console.error('[auth] kirim ulang konfirmasi gagal:', error.code ?? error.status);
+        // Jeda kirim ulang per alamat hanya berlaku untuk akun yang ada &
+        // belum dikonfirmasi — meneruskannya membuka oracle keanggotaan.
+        // Batas yang tidak bergantung alamat tetap dilaporkan.
+        if (error && !isPerAddressEmailThrottle(error)) {
+          const code = mapSupabaseAuthError(error);
+          if (code === 'rate_limited') failure = code;
+          else console.error('[auth] kirim ulang konfirmasi gagal:', error.code ?? error.status);
         }
       }
     }

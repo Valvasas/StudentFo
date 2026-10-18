@@ -188,14 +188,23 @@ dengan verifikasi skeptis menghasilkan 30 temuan terkonfirmasi (0 kritis,
   tab, sama dengan sisi peserta; beranda penyelenggara menghitung bukti
   bayar yang menunggu dari SEMUA acara kelolaan, termasuk yang tenggatnya
   sudah lewat (justru saat verifikasi paling ramai).
-- **Akun:** pendaftaran akun tidak lagi meneruskan jeda per alamat dari
-  Supabase (sama dengan lupa sandi & kirim ulang — oracle keanggotaan);
+- **Akun:** daftar, lupa sandi, dan kirim ulang menelan HANYA jeda per alamat
+  dari GoTrue ("only request this after N seconds" — hanya ada untuk alamat
+  berakun, jadi oracle keanggotaan; `isPerAddressEmailThrottle`). Batas per
+  IP dan kuota email proyek tetap dilaporkan `rate_limited`: menelannya
+  membuat pendaftaran yang digulung balik GoTrue tampak berhasil;
   `/verify-email` hanya menampilkan alamat yang lolos skema email (tanpa itu
   `?email=` jadi kanal teks bebas di domain kita); batas sandi 72 BYTE UTF-8
   (batas bcrypt), bukan 72 karakter, dengan kode `password_too_long`;
   Turnstile dirender eksplisit oleh satu komponen klien (`ui/turnstile.tsx`)
   dengan `key` baru di tiap render server — token sekali pakai yang sudah
   terpakai tidak lagi tertinggal setelah pengalihan ke URL yang sama.
+- **Batas badan 32 MB berlaku di SELURUH situs** (`middlewareClientMaxBodySize`
+  tidak bisa dibatasi per rute): POST anonim ke rute mana pun bisa membuat
+  server menyangga ±2 × 32 MB. Produksi WAJIB memasang plafon di depan Next
+  (mis. `client_max_body_size 32m` di reverse proxy). Di Vercel, plafon
+  fungsi 4,5 MB berlaku duluan — unggahan TANPA JavaScript praktis satu foto
+  per kirim; dengan JS foto diperkecil ke ±0,5 MB sehingga aman.
 - **Kecil tapi nyata:** penghapusan berkas yatim yang gagal kini dicatat;
   batas media memori diperiksa per batch sebelum menyimpan apa pun; pemuat
   navigasi tidak menyala untuk `/media/*` (lightbox galeri) dan tautan

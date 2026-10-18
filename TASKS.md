@@ -299,6 +299,7 @@ tampilan per peran, bersihkan kesan "buatan AI", login produksi, pemuat di tenga
 
 Belum / butuh keputusan atau akses pemilik:
 - [ ] **BUTUH KONFIRMASI.** Apply `20261014100001` **dan `20261015100001`** ke staging (membuat bucket `event-photos` & `payment-proofs`), `npm run db:verify`, uji unggah sungguhan ke Storage. Urutan rilis: migration dulu, baru kode.
+- [ ] **Produksi:** plafon ukuran permintaan di depan Next (`client_max_body_size 32m` atau setara) — `middlewareClientMaxBodySize` 32 MB berlaku untuk semua rute (ADR-056 § pengerasan). SMTP kustom di Supabase (SMTP bawaan hanya beberapa email/jam → pendaftaran akun cepat kena `rate_limited`).
 - [ ] Retensi data pendaftar & bukti bayar (mis. anonimkan/hapus N hari setelah acara selesai) — butuh keputusan pemilik + job pg_cron.
 - [ ] Hapus akun (produksi, Fase 6a) wajib ikut menghapus berkas bukti di Storage — baris terhapus CASCADE, berkasnya tidak.
 - [ ] Payment gateway (Midtrans/Xendit) bila diinginkan: akun merchant & kunci pemilik; antarmuka status sudah siap.

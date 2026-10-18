@@ -308,9 +308,9 @@ keputusan tercatat di `moderation_log` oleh trigger.
 | `signInAction` | `email`, `password`, `next` | redirect ke `next` | `/login?error=…&email=…` |
 | `signUpAction` | `accountType`, `fullName`, `email`, `password`, `privacyConsent`, `next`, token Turnstile | `/verify-email?email=…&next=…` (atau langsung tujuan kalau konfirmasi email dimatikan; penyelenggara → `/penyelenggara`) | `/register?error=…&email=…&type=…` — jeda per alamat dari Supabase TIDAK dilaporkan |
 | `signInWithGoogleAction` | `next` (+ `accountType`, `privacyConsent` dari form daftar) | redirect ke URL consent Google | `/login?error=…` atau `/register?error=consent_required…` |
-| `resendConfirmationAction` | `email`, `next`, token Turnstile | `/verify-email?notice=confirmation_resent` (selalu, kecuali batas per IP kita) | `/verify-email?error=rate_limited|captcha_failed` |
+| `resendConfirmationAction` | `email`, `next`, token Turnstile | `/verify-email?notice=confirmation_resent` (juga saat GoTrue menjeda alamat itu) | `/verify-email?error=rate_limited|captcha_failed` — `rate_limited` hanya dari batas yang tidak bergantung alamat |
 | `signOutAction` | — | `/` | — |
-| `requestPasswordResetAction` | `email`, token Turnstile | `/forgot-password?notice=reset_email_sent` | hanya batas per IP kita (`rate_limited`) & `captcha_failed` yang dilaporkan |
+| `requestPasswordResetAction` | `email`, token Turnstile | `/forgot-password?notice=reset_email_sent` (juga saat GoTrue menjeda alamat itu) | `rate_limited` (batas per IP kita / batas Supabase yang tidak bergantung alamat) & `captcha_failed` |
 | `updatePasswordAction` | `password`, `confirmPassword` | `/profile?notice=password_updated` | `/reset-password?error=…` |
 | `changePasswordAction` | `currentPassword`, `password`, `confirmPassword` | `/profile?notice=password_updated` | `/profile?error=…` |
 

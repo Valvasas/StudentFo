@@ -117,6 +117,19 @@ function readError(error: unknown): SupabaseAuthErrorShape {
 }
 
 /**
+ * Jeda kirim email PER ALAMAT dari GoTrue ("For security purposes, you can
+ * only request this after N seconds"). Jeda ini hanya ada untuk alamat yang
+ * punya baris akun, jadi meneruskannya ke pengguna = oracle keanggotaan
+ * (ADR-011/056) — pemanggil menelannya dan menjawab seragam. Batas lain
+ * (per IP `over_request_rate_limit`, kuota email proyek "email rate limit
+ * exceeded") tidak bergantung pada alamat dan TETAP dilaporkan: menelannya
+ * membuat pendaftaran yang digagalkan GoTrue tampak berhasil.
+ */
+export function isPerAddressEmailThrottle(error: unknown): boolean {
+  return /only request this after \d+ seconds?/i.test(readError(error).message ?? '');
+}
+
+/**
  * Petakan error supabase-js ke kode kita.
  *
  * `code` diperiksa lebih dulu (stabil, bagian dari kontrak API), lalu
