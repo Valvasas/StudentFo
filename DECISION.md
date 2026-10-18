@@ -114,9 +114,11 @@ lanjutan di bawah.
   "sedang berpindah" tanpa menyembunyikan halaman. Seluruh lapisan
   `pointer-events: none` dan `aria-hidden`, jadi alasan ADR-055 menolak layar
   pemuat penuh (menghalangi halaman yang masih bisa dipakai) tetap terpenuhi.
-- **Bersih dari kesan "buatan AI":** tur animasi & mockup peramban palsu,
-  testimoni ilustrasi, marquee sumber, doodle melayang, dan catatan tulisan
-  tangan dihapus (beserta `sketch.tsx`, `tour.tsx`, font Caveat). Pratinjau
+- **Bersih dari kesan "buatan AI":** testimoni ilustrasi, marquee sumber, doodle melayang, dan catatan tulisan
+  tangan dihapus (beserta `sketch.tsx` dan font Caveat). **Tur berpemandu
+  (`tour.tsx`: kursor bergerak + zoom) dipulihkan atas permintaan pemilik** —
+  penghapusannya keputusan sepihak, bukan permintaan; tombol "Lihat cara
+  pakainya" di hero dan bagian `#cara-kerja` kembali. Pratinjau
   "Segera ditutup" di beranda tamu memakai data nyata (`listClosingSoon`);
   klaim di /about disesuaikan dengan perilaku sistem sekarang. Prinsip:
   setiap elemen di layar harus bisa diklik ke sesuatu yang nyata atau

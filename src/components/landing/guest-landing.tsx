@@ -6,6 +6,7 @@ import { withFallback } from '@/lib/fallback';
 import { cn } from '@/lib/utils';
 import { LandingHero } from './hero';
 import { RevealObserver } from './reveal-observer';
+import { LandingTour } from './tour';
 
 /**
  * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. Pratinjaunya
@@ -96,6 +97,19 @@ export async function GuestLanding() {
           </ul>
         </section>
       )}
+
+      <section id="cara-kerja" aria-labelledby="cara-kerja-title" className={`${sectionClass} scroll-mt-20`}>
+        <div data-reveal="" className="flex max-w-[640px] flex-col gap-3.5">
+          <h2 id="cara-kerja-title" className={h2Class}>
+            Lihat cara pakainya dalam satu menit.
+          </h2>
+          <p className="text-[17px] leading-relaxed text-ink-muted">
+            Pemandu kami menunjukkan alurnya, dari memilih minat sampai mengajak rekan tim. Klik langkah mana pun untuk
+            melompat.
+          </p>
+        </div>
+        <LandingTour />
+      </section>
 
       <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>
         <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">

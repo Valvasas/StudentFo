@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Play } from 'lucide-react';
 
 /**
  * Hero beranda tamu. Tombol utama membuka katalog, bukan pendaftaran akun:
@@ -30,6 +30,13 @@ export function LandingHero() {
             className="press flex h-12 items-center justify-center rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
           >
             Buat akun
+          </Link>
+          <Link
+            href="#cara-kerja"
+            className="press flex h-12 items-center justify-center gap-2 rounded-sm px-4 text-[15px] font-semibold text-ink-soft transition-colors duration-200 ease-snap hover:bg-panel-nested hover:text-ink"
+          >
+            <Play aria-hidden className="size-3.5 fill-current" />
+            Lihat cara pakainya
           </Link>
         </div>
       </div>
