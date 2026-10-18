@@ -23,6 +23,9 @@ async function fillAndSubmit(page: Page, n: number): Promise<void> {
 }
 
 test('kiriman ke-6 dari IP yang sama ditolak walau emailnya selalu baru', async ({ browser }) => {
+  // Tujuh kiriman formulir lengkap berurutan (±4 dtk masing-masing) sudah
+  // menyentuh batas bawaan 30 dtk saat suite penuh berjalan paralel.
+  test.setTimeout(90_000);
   // IP acak per run (blok 10.0.0.0/8): ember IP hidup selama server hidup, jadi
   // IP tetap membuat run kedua di server yang sama langsung ditolak.
   const octet = () => Math.floor(Math.random() * 250) + 1;
