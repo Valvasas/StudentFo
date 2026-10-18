@@ -49,7 +49,7 @@ const FIELD_ID = /^f_[a-z0-9]{1,24}$/;
  * sebagai CRLF tetapi `maxLength` menghitungnya satu karakter; tanpa
  * penyeragaman, isian yang pas di batas ditolak server.
  */
-function cleanText(value: string): string {
+export function cleanText(value: string): string {
   return stripMarkup(value.replace(/\r\n?/g, '\n')).trim();
 }
 

@@ -120,7 +120,9 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
       });
     } else if (internal?.kind === 'full') {
       todos.push({ title: 'Kuota pendaftaran penuh', text: 'Pantau halaman kegiatan — kuota bisa terbuka lagi bila ada yang membatalkan.' });
-    } else if (isClosed || internal?.kind === 'closed') {
+    } else if (internal?.kind === 'closed') {
+      todos.push({ title: 'Pendaftaran sudah ditutup', text: 'Formulir StudentFo untuk kegiatan ini sudah tidak menerima pendaftar.' });
+    } else if (isClosed) {
       todos.push({ title: 'Pendaftaran sudah ditutup', text: 'Kalau kamu sempat mendaftar, tandai supaya riwayatnya lengkap.' });
     } else {
       todos.push({

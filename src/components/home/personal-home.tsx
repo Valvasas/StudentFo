@@ -14,7 +14,6 @@ import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import { parseEventQuery, type RawSearchParams } from '@/lib/search-params';
-import { isActiveRegistration } from '@/lib/registration-form';
 import { needsActionSoon } from '@/lib/tracker-progress';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type EventRegistration, type TrackerStatus } from '@/types/domain';
 
@@ -75,7 +74,8 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
   const deadlineCtas = await Promise.all(
     deadlines.map(async ({ item }) => {
       const form = await withFallback('formulir pendaftaran', () => repository.getRegistrationForm(item.event.id), null);
-      const mine = registrations.find((entry) => entry.event.id === item.event.id && isActiveRegistration(entry.status)) ?? null;
+      // Sama dengan getMyRegistration: DITOLAK tetap "milikmu" (final, tidak bisa daftar ulang).
+      const mine = registrations.find((entry) => entry.event.id === item.event.id && entry.status !== 'CANCELLED') ?? null;
       return registrationCta(form, mine, registrationEventClosed(item.event, now));
     }),
   );

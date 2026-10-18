@@ -11,6 +11,7 @@ import {
 } from '@/components/organizer/event-workspace';
 import { FormBuilder } from '@/components/organizer/form-builder';
 import { RegistrationSaveBar } from '@/components/organizer/registration-save-bar';
+import { CAPACITY_PATTERN } from '@/components/organizer/registration-settings';
 import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
@@ -137,7 +138,7 @@ export default async function RegistrationFormPage({
                 id="capacity"
                 name="capacity"
                 inputMode="numeric"
-                pattern="[0-9.\s]*[1-9][0-9.\s]*"
+                pattern={CAPACITY_PATTERN}
                 maxLength={9}
                 autoComplete="off"
                 defaultValue={form?.capacity ? String(form.capacity) : ''}

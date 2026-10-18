@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'] as const;
 /** Berkas sekecil ini dikirim apa adanya (metadata tetap dibuang server). */
 const KEEP_AS_IS_BYTES = 1.5 * 1024 * 1024;
-const noop = () => () => {};
 
 interface Preview {
   readonly url: string;
@@ -81,9 +80,6 @@ export function ImageUploadField({
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cleared, setCleared] = useState(false);
-  // Server & hidrasi = false: tanpa JS (atau sebelum hidrasi) input asli tetap
-  // terlihat supaya nama berkas yang dipilih tampil; pratinjau baru ada setelahnya.
-  const hydrated = useSyncExternalStore(noop, () => true, () => false);
   const statusId = useId();
   const hintId = `${id}-hint`;
 
@@ -91,9 +87,9 @@ export function ImageUploadField({
 
   useEffect(() => {
     // Berkas yang dipilih sebelum hidrasi tidak memicu onChange React.
-    if (hydrated && input.current?.files?.length) void onChange();
+    if (input.current?.files?.length) void onChange();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  }, []);
 
   async function onChange() {
     const element = input.current;
@@ -154,7 +150,9 @@ export function ImageUploadField({
           required={required}
           aria-describedby={`${hintId} ${statusId}`}
           onChange={onChange}
-          className={hydrated ? 'sr-only' : 'mt-2 block max-w-full text-sm'}
+          // Tanpa JavaScript, input asli yang menunjukkan berkas terpilih; dengan JS
+          // kotak & pratinjau yang mengambil alih — tanpa ganti tampilan saat hidrasi.
+          className="sr-only noscript:not-sr-only noscript:mt-2 noscript:block noscript:max-w-full noscript:text-sm"
         />
       </label>
       <p id={hintId} className="text-[12.5px] leading-snug text-ink-muted">

@@ -452,7 +452,7 @@ function QuestionCard({
               {/* NIK/rekening di kolom Angka kehilangan nol di depan & ditolak di atas 12 digit. */}
               {field.type === 'number' && (
                 <p id={`${field.id}-type-hint`} className="text-[12.5px] text-ink-muted">
-                  Maks. 12 digit, koma untuk desimal. NIK, nomor rekening, atau telepon: pakai Jawaban singkat.
+                  Maks. 12 digit, koma untuk desimal. NIK atau nomor rekening: pakai Jawaban singkat; nomor HP: pakai Nomor telepon.
                 </p>
               )}
             </EditorField>

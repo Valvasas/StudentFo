@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseRegistrationFormInput } from '@/lib/registration-form';
-import { registrationSettingsIssues } from './registration-settings';
+import { CAPACITY_PATTERN, registrationSettingsIssues } from './registration-settings';
 
 const valid = { capacity: '', feeAmount: '', paymentInstructions: '' };
 const INSTRUCTIONS = 'Transfer ke BCA 1234567890 a.n. Panitia.';
@@ -59,9 +59,19 @@ describe('registrationSettingsIssues', () => {
       { ...valid, feeAmount: '999.999.999', paymentInstructions: INSTRUCTIONS },
       { ...valid, feeAmount: 'Rp 50.000', paymentInstructions: INSTRUCTIONS },
       { ...valid, capacity: '40 orang' },
+      { ...valid, capacity: ' ' },
+      { ...valid, capacity: '.' },
+      { ...valid, capacity: '1.000' },
+      { ...valid, feeAmount: '50.000', paymentInstructions: 'BCA  12345' },
+      { ...valid, feeAmount: '50.000', paymentInstructions: 'QRIS <di lokasi>' },
+      { ...valid, feeAmount: '50.000', paymentInstructions: 'BCA\u200b 1234567' },
     ];
+    // Peramban mengompilasi `pattern` dengan flag v dan mencocokkan seluruh nilai.
+    const capacityPattern = new RegExp(`^(?:${CAPACITY_PATTERN})$`, 'v');
     for (const values of cases) {
-      const clientOk = Object.values(registrationSettingsIssues(values)).every((message) => message === '');
+      const clientOk =
+        capacityPattern.test(values.capacity) &&
+        Object.values(registrationSettingsIssues(values)).every((message) => message === '');
       expect(clientOk, JSON.stringify(values)).toBe(serverAccepts(values));
     }
   });
