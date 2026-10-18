@@ -198,7 +198,12 @@ AWAITING_PAYMENT | PAYMENT_REVIEW | CONFIRMED ─reject (catatan)─▶ REJECTED
 
 Gambar unggahan selalu lewat `readImageUpload()` (`src/lib/image-file.ts`):
 jenis dari byte (JPEG/PNG/WebP), ≤5 MB, 32 px..10.000 px, ≤40 MP, metadata
-dibuang kecuali Orientation.
+dibuang kecuali Orientation; JPEG dipotong di EOI gambar utama (bingkai
+MPF/MPO & trailer ikut hilang).
+
+`GET /events/<slug>/daftar` (ADR-032) mencatat `register_click`, lalu: formulir
+StudentFo terbuka & tenggat belum lewat → 303 ke `/events/<slug>/formulir`;
+selain itu → tautan resmi penyelenggara seperti sebelumnya.
 
 ### `ReviewEventInput`
 
@@ -301,16 +306,19 @@ keputusan tercatat di `moderation_log` oleh trigger.
 | Aksi | Field form | Sukses | Gagal |
 |---|---|---|---|
 | `signInAction` | `email`, `password`, `next` | redirect ke `next` | `/login?error=…&email=…` |
-| `signUpAction` | `fullName`, `email`, `password`, `next` | `/login?notice=check_email` (atau langsung `next` kalau konfirmasi email dimatikan) | `/register?error=…&email=…` |
-| `signInWithGoogleAction` | `next` | redirect ke URL consent Google | `/login?error=…` |
+| `signUpAction` | `accountType`, `fullName`, `email`, `password`, `privacyConsent`, `next`, token Turnstile | `/verify-email?email=…&next=…` (atau langsung tujuan kalau konfirmasi email dimatikan; penyelenggara → `/penyelenggara`) | `/register?error=…&email=…&type=…` — jeda per alamat dari Supabase TIDAK dilaporkan |
+| `signInWithGoogleAction` | `next` (+ `accountType`, `privacyConsent` dari form daftar) | redirect ke URL consent Google | `/login?error=…` atau `/register?error=consent_required…` |
+| `resendConfirmationAction` | `email`, `next`, token Turnstile | `/verify-email?notice=confirmation_resent` (selalu, kecuali batas per IP kita) | `/verify-email?error=rate_limited|captcha_failed` |
 | `signOutAction` | — | `/` | — |
-| `requestPasswordResetAction` | `email` | `/forgot-password?notice=reset_email_sent` | hanya `rate_limited` yang dilaporkan |
+| `requestPasswordResetAction` | `email`, token Turnstile | `/forgot-password?notice=reset_email_sent` | hanya batas per IP kita (`rate_limited`) & `captcha_failed` yang dilaporkan |
 | `updatePasswordAction` | `password`, `confirmPassword` | `/profile?notice=password_updated` | `/reset-password?error=…` |
 | `changePasswordAction` | `currentPassword`, `password`, `confirmPassword` | `/profile?notice=password_updated` | `/profile?error=…` |
 
 Aturan yang mengikat seluruh tabel di atas:
 
 - **`next` selalu lewat `safeNextPath()`** (§7 di bawah).
+- **Kata sandi maksimal 72 byte UTF-8** (batas bcrypt; huruf beraksen/emoji
+  dihitung lebih dari satu) — melebihi itu dilaporkan `password_too_long`.
 - **Kegagalan dilaporkan sebagai KODE**, bukan teks — daftar tertutupnya di
   `src/lib/auth-messages.ts` (`AuthErrorCode`, `AuthNoticeCode`). Kode tak
   dikenal di URL tidak menampilkan apa pun.

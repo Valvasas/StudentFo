@@ -24,6 +24,7 @@ export const AUTH_ERROR_CODES = [
   'invalid_credentials',
   'email_not_confirmed',
   'weak_password',
+  'password_too_long',
   'same_password',
   'rate_limited',
   'provider_disabled',
@@ -43,6 +44,7 @@ export const AUTH_ERROR_MESSAGE: Record<AuthErrorCode, string> = {
   email_not_confirmed:
     'Email kamu belum dikonfirmasi. Buka tautan yang kami kirim, lalu coba masuk lagi.',
   weak_password: 'Kata sandi terlalu lemah. Minimal 8 karakter, memuat huruf dan angka.',
+  password_too_long: 'Kata sandi terlalu panjang: maksimal 72 karakter, dan huruf beraksen atau emoji dihitung lebih dari satu.',
   same_password: 'Kata sandi baru harus berbeda dari yang sekarang.',
   rate_limited: 'Terlalu banyak percobaan. Tunggu beberapa menit sebelum mencoba lagi.',
   provider_disabled:

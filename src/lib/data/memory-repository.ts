@@ -1,4 +1,5 @@
 import { actionError } from '@/lib/action-feedback';
+import { AppError, ERROR_CODES } from '@/lib/errors';
 import {
   BLOCK_LIST_LIMIT,
   clampConnectionLimit,
@@ -1934,8 +1935,11 @@ export class MemoryEventRepository implements EventRepository {
     return actor.isAdmin || this.managesEvent(actor.id, eventId);
   }
 
+  private hasMediaRoom(bytes: number): boolean {
+    return this.mediaBytes + bytes <= DEMO_MEDIA_BYTE_LIMIT;
+  }
+
   private storeMedia(key: string, file: StoredFile): void {
-    if (this.mediaBytes + file.bytes.length > DEMO_MEDIA_BYTE_LIMIT) throw actionError('gallery_full');
     this.media.set(key, file);
     this.mediaBytes += file.bytes.length;
   }
@@ -2110,6 +2114,11 @@ export class MemoryEventRepository implements EventRepository {
     const next = registrationTransition(entry.status, 'submit_proof');
     if (!next) throw actionError('registration_invalid_transition');
 
+    // Bukan `gallery_full` — peserta tidak sedang mengunggah ke galeri. Tidak
+    // ada kode tertutup yang pas, jadi jatuh ke `unknown` dan tercatat di log.
+    if (!this.hasMediaRoom(image.bytes.length)) {
+      throw new AppError(ERROR_CODES.INTERNAL, 'Penyimpanan berkas demo penuh sampai reset berikutnya.', 503);
+    }
     const key = `proof/${registrationId}/${this.nextId()}.${IMAGE_EXTENSION[image.type]}`;
     this.storeMedia(key, { bytes: image.bytes, contentType: image.type });
     this.dropMedia(entry.proofKey);
@@ -2173,6 +2182,7 @@ export class MemoryEventRepository implements EventRepository {
     if (!this.findEvent(eventId) || !this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
     const existing = [...this.photos.values()].filter((photo) => photo.eventId === eventId).length;
     if (existing + images.length > GALLERY_LIMITS.perEvent) throw actionError('gallery_full');
+    if (!this.hasMediaRoom(images.reduce((sum, image) => sum + image.bytes.length, 0))) throw actionError('gallery_full');
     images.forEach((image, index) => {
       const id = this.nextId();
       const key = `photo/${eventId}/${id}.${IMAGE_EXTENSION[image.type]}`;

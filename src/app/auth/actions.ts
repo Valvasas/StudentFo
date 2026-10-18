@@ -20,6 +20,7 @@ import { DEMO_PERSONAS, isDemoPersonaId } from '@/lib/demo/personas';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
+import { PASSWORD_MAX_LENGTH, passwordByteLength } from '@/lib/password-rules';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isAccountRateLimited, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -55,6 +56,14 @@ function echoEmail(raw: string): string | undefined {
 
 function callbackUrl(next: string): string {
   return `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`;
+}
+
+/**
+ * Sandi > 72 byte UTF-8 (batas bcrypt) diberi kode sendiri: "Ada isian yang
+ * belum benar" tidak memberi tahu bahwa huruf beraksen/emoji dihitung ganda.
+ */
+function passwordFailure(password: string): AuthErrorCode {
+  return passwordByteLength(password) > PASSWORD_MAX_LENGTH ? 'password_too_long' : 'validation';
 }
 
 /** Kembali ke /register dengan pilihan jenis akun & tujuan tetap utuh. */
@@ -142,7 +151,7 @@ export async function signUpAction(formData: FormData): Promise<void> {
     const ip = await currentClientIp();
 
     if (!parsed.success) {
-      failure = firstIssue(parsed.error, 'privacyConsent') ? 'consent_required' : 'validation';
+      failure = firstIssue(parsed.error, 'privacyConsent') ? 'consent_required' : passwordFailure(field(formData, 'password'));
     } else if (await isRateLimited(ip, [[RATE_LIMITS.signUpPerIp]])) {
       failure = 'rate_limited';
     } else if (!(await passesCaptcha(formData, ip))) {
@@ -163,7 +172,14 @@ export async function signUpAction(formData: FormData): Promise<void> {
         },
       });
 
-      if (error) {
+      if (error && mapSupabaseAuthError(error) === 'rate_limited') {
+        // Jeda kirim email per alamat dari Supabase hanya ada untuk alamat
+        // yang baru saja dikirimi email — dua pendaftaran beruntun akan
+        // membedakan "sudah punya akun" dari "baru" (ADR-011, ADR-056). Sama
+        // dengan lupa sandi/kirim ulang: jatuh ke halaman "cek email" yang
+        // seragam; batas per IP kita di atas tetap dilaporkan.
+        console.error('[auth] daftar dibatasi Supabase:', error.code ?? error.status);
+      } else if (error) {
         failure = mapSupabaseAuthError(error);
       } else {
         hasSession = data.session !== null;
@@ -360,7 +376,7 @@ export async function updatePasswordAction(formData: FormData): Promise<void> {
     });
 
     if (!parsed.success) {
-      failure = 'validation';
+      failure = passwordFailure(field(formData, 'password'));
     } else {
       const supabase = await createSupabaseServerClient();
       const { data: userData } = await supabase.auth.getUser();
@@ -404,7 +420,7 @@ export async function changePasswordAction(formData: FormData): Promise<void> {
     });
 
     if (!parsed.success) {
-      failure = 'validation';
+      failure = passwordFailure(field(formData, 'password'));
     } else {
       const supabase = await createSupabaseServerClient();
       const { data: userData } = await supabase.auth.getUser();

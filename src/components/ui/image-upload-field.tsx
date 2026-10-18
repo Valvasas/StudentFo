@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'] as const;
 /** Berkas sekecil ini dikirim apa adanya (metadata tetap dibuang server). */
 const KEEP_AS_IS_BYTES = 1.5 * 1024 * 1024;
+const noop = () => () => {};
 
 interface Preview {
   readonly url: string;
@@ -79,10 +80,20 @@ export function ImageUploadField({
   const [previews, setPreviews] = useState<readonly Preview[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cleared, setCleared] = useState(false);
+  // Server & hidrasi = false: tanpa JS (atau sebelum hidrasi) input asli tetap
+  // terlihat supaya nama berkas yang dipilih tampil; pratinjau baru ada setelahnya.
+  const hydrated = useSyncExternalStore(noop, () => true, () => false);
   const statusId = useId();
   const hintId = `${id}-hint`;
 
   useEffect(() => () => previews.forEach((preview) => URL.revokeObjectURL(preview.url)), [previews]);
+
+  useEffect(() => {
+    // Berkas yang dipilih sebelum hidrasi tidak memicu onChange React.
+    if (hydrated && input.current?.files?.length) void onChange();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   async function onChange() {
     const element = input.current;
@@ -94,6 +105,7 @@ export function ImageUploadField({
     if (valid.length > maxFiles) notes.push(`Maksimal ${maxFiles} foto sekali unggah — sisanya dilewati.`);
     const picked = valid.slice(0, maxFiles);
 
+    setCleared(false);
     setBusy(true);
     element.setCustomValidity('Tunggu, foto sedang diperkecil…');
     try {
@@ -110,9 +122,14 @@ export function ImageUploadField({
   }
 
   function clear() {
-    if (input.current) input.current.value = '';
+    if (input.current) {
+      input.current.value = '';
+      // Tombol ini hilang bersama pratinjau; tanpa ini fokus jatuh ke <body>.
+      input.current.focus();
+    }
     setPreviews([]);
     setMessage(null);
+    setCleared(true);
   }
 
   return (
@@ -137,14 +154,16 @@ export function ImageUploadField({
           required={required}
           aria-describedby={`${hintId} ${statusId}`}
           onChange={onChange}
-          className="sr-only"
+          className={hydrated ? 'sr-only' : 'mt-2 block max-w-full text-sm'}
         />
       </label>
       <p id={hintId} className="text-[12.5px] leading-snug text-ink-muted">
         {hint}
       </p>
       <p id={statusId} role="status" className={cn('text-[12.5px] text-caution', !busy && !message && 'sr-only')}>
-        {busy ? 'Menyiapkan foto…' : message ?? (previews.length > 0 ? `${previews.length} gambar siap dikirim.` : '')}
+        {busy
+          ? 'Menyiapkan foto…'
+          : (message ?? (previews.length > 0 ? `${previews.length} gambar siap dikirim.` : cleared ? 'Pilihan dibatalkan.' : ''))}
       </p>
       {previews.length > 0 && (
         <div className="flex flex-col gap-2">

@@ -310,8 +310,10 @@ total seumur acara (views, visitors, saves, clicks, applied), hanya selama
 penyelenggara VERIFIED.
 
 ### `event_registration_forms`, `event_registrations`, `event_photos` (Formulir internal, pembayaran, galeri — ADR-056)
-Migration `20261014100001`. Uji: `supabase/tests/94_registrations.test.sql`
-(mutation-tested: kuota, hak kolom `reviewed_by`, batas galeri).
+Migration `20261014100001` (+ `20261015100001`: `register_for_event` mencoba
+ulang kode hingga 5× bila tabrakan). Uji: `supabase/tests/94_registrations.test.sql`
+(mutation-tested: kuota, hak kolom `reviewed_by`, batas galeri) dan
+`94b_registration_code_retry.test.sql` (tabrakan dipaksa trigger sementara).
 
 `event_registration_forms`: PK `event_id`, `is_open`, `intro` ≤1000, `fields`
 JSONB array ≤25 & ≤64 KB (bentuk tiap kolom dikontrak `formFieldsSchema` di

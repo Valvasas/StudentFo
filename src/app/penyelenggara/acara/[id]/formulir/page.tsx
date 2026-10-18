@@ -4,7 +4,6 @@ import { ArrowRight, ArrowUpRight, CalendarX2, Lock } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import {
   EventWorkspaceHeader,
-  isEventClosed,
   loadManagedEvent,
   NotManaging,
   workspaceBadges,
@@ -12,6 +11,7 @@ import {
 } from '@/components/organizer/event-workspace';
 import { FormBuilder } from '@/components/organizer/form-builder';
 import { RegistrationSaveBar } from '@/components/organizer/registration-save-bar';
+import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
 import { requireUser } from '@/lib/auth';
@@ -52,7 +52,7 @@ export default async function RegistrationFormPage({
   const [form, badges] = await Promise.all([(await getEventRepository()).getRegistrationForm(event.id), workspaceBadges(user, event.id)]);
   // Formulir baru mewarisi biaya yang sudah tertulis di halaman acara.
   const fee = form ? form.feeAmount : event.isFree === false ? event.priceAmount : null;
-  const closed = isEventClosed(event);
+  const closed = registrationEventClosed(event);
 
   return (
     <div className="container-page flex flex-col gap-8 pb-0 pt-8">
@@ -131,12 +131,13 @@ export default async function RegistrationFormPage({
 
           <section aria-labelledby="kuota-biaya" className="flex flex-col gap-5 rounded-panel border border-line bg-panel p-5 lg:col-start-2 lg:row-start-2">
             <h2 id="kuota-biaya" className="text-lg">Kuota & biaya</h2>
-            <Field id="capacity" label="Kuota peserta (opsional)" hint="Kosongkan bila tanpa batas.">
+            {/* Kuota 0 ditolak server, dan pengalihan galatnya membuang isian yang belum disimpan — pola menahannya di peramban. */}
+            <Field id="capacity" label="Kuota peserta (opsional)" hint="Minimal 1. Kosongkan bila tanpa batas.">
               <TextInput
                 id="capacity"
                 name="capacity"
                 inputMode="numeric"
-                pattern="[0-9.\s]*"
+                pattern="[0-9.\s]*[1-9][0-9.\s]*"
                 maxLength={9}
                 autoComplete="off"
                 defaultValue={form?.capacity ? String(form.capacity) : ''}

@@ -53,13 +53,19 @@ const nextConfig: NextConfig = {
   experimental: {
     // Tree-shake barrel import lucide-react supaya bundle tidak membengkak.
     optimizePackageImports: ['lucide-react'],
+    // middleware.ts cocok dengan semua rute, dan Next menyalin badan permintaan
+    // untuknya dengan plafon bawaan 10 MB — sisanya DIPOTONG sebelum sampai ke
+    // Server Action (multipart rusak). Harus sama dengan bodySizeLimit di bawah.
+    middlewareClientMaxBodySize: '32mb',
     serverActions: {
       allowedOrigins: serverActionOrigins(),
-      // Bawaan 1 MB menolak satu foto ponsel pun. 25 MB = 6 foto galeri ×
-      // ±4 MB tanpa JavaScript (dengan JS foto diperkecil di peramban ke
-      // ±0,5 MB). Batas per berkas (5 MB), jenis, & jumlah tetap diperiksa
-      // di Server Action — ini hanya plafon ukuran badan permintaan (ADR-056).
-      bodySizeLimit: '25mb',
+      // Bawaan 1 MB menolak satu foto ponsel pun. 32 MB = GALLERY_LIMITS.perUpload
+      // (6) × IMAGE_LIMITS.maxBytes (5 MB) + ruang untuk overhead multipart:
+      // unggahan tanpa JavaScript yang lolos batas per berkas tidak boleh
+      // berakhir di halaman 413 mentah (dengan JS foto diperkecil di peramban
+      // ke ±0,5 MB). Batas per berkas, jenis, & jumlah tetap diperiksa di
+      // Server Action — ini hanya plafon ukuran badan permintaan (ADR-056).
+      bodySizeLimit: '32mb',
     },
   },
   async headers() {

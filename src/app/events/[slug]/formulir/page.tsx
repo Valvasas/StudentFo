@@ -204,9 +204,10 @@ function LockedValue({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <dt className="text-[13.5px] font-semibold">{label}</dt>
-      <dd className="flex h-11 min-w-0 items-center gap-2 rounded-card bg-panel-nested px-3.5 text-base text-ink-soft">
+      <dd className="flex min-h-11 min-w-0 items-center gap-2 rounded-card bg-panel-nested px-3.5 py-2 text-base text-ink-soft">
         <Lock aria-hidden className="size-3.5 shrink-0 text-ink-muted" />
-        <span className="truncate">{value}</span>
+        {/* Tidak dipotong: peserta harus bisa membaca utuh alamat yang akan dibagikan ke panitia. */}
+        <span className="min-w-0 [overflow-wrap:anywhere]">{value}</span>
       </dd>
     </div>
   );

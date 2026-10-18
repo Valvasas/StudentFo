@@ -166,6 +166,51 @@ function keepJpegSegment(b: Uint8Array, segment: JpegSegment): boolean {
   return true;
 }
 
+/**
+ * Dari SOS pertama sampai EOI gambar utama. Sesudah EOI, ponsel menempelkan
+ * bingkai kedua MPF/MPO (dengan EXIF & GPS-nya sendiri), video "motion
+ * photo", atau trailer SEFT Samsung — semuanya dibuang, begitu pula APPn/COM
+ * di sela scan progresif. Byte yang tidak bisa dipastikan milik gambar utama
+ * (penanda rusak) tidak ikut; berkas terpotong tanpa EOI disimpan sejauh
+ * yang terbaca, karena di belakangnya memang tidak ada apa-apa lagi.
+ */
+function pushJpegScanParts(b: Uint8Array, scanStart: number, parts: Uint8Array[]): void {
+  let runStart = scanStart;
+  let i = scanStart;
+  while (i + 1 < b.length) {
+    if (b[i] !== 0xff) {
+      i += 1;
+      continue;
+    }
+    const marker = b[i + 1] ?? 0;
+    if (marker === 0xff) {
+      i += 1;
+      continue;
+    }
+    if (marker === 0x00 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      i += 2;
+      continue;
+    }
+    if (marker === 0xd9) {
+      parts.push(b.subarray(runStart, i + 2));
+      return;
+    }
+    const end = i + 2 + u16be(b, i + 2);
+    if (marker < 0xc0 || marker === 0xd8 || end < i + 4 || end > b.length) {
+      if (i > runStart) parts.push(b.subarray(runStart, i));
+      return;
+    }
+    if ((marker >= 0xe0 && marker <= 0xef) || marker === 0xfe) {
+      // Ribuan segmen buangan beruntun (berkas rekayasa) tidak boleh
+      // menghasilkan ribuan potongan kosong.
+      if (i > runStart) parts.push(b.subarray(runStart, i));
+      runStart = end;
+    }
+    i = end;
+  }
+  parts.push(b.subarray(runStart));
+}
+
 function stripJpeg(b: Uint8Array): Uint8Array {
   const parsed = jpegSegments(b);
   if (!parsed) return b;
@@ -179,7 +224,9 @@ function stripJpeg(b: Uint8Array): Uint8Array {
   }
   if (orientation !== 1) parts.push(orientationSegment(orientation));
   for (const segment of kept.slice(index)) parts.push(b.subarray(segment.start, segment.end));
-  parts.push(b.subarray(parsed.scanStart));
+  // Didorong langsung, bukan `push(...array)`: berkas rekayasa dengan ratusan
+  // ribu segmen COM membuat spread melampaui batas argumen (stack overflow).
+  pushJpegScanParts(b, parsed.scanStart, parts);
   return concat(parts);
 }
 

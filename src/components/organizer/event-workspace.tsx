@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { ArrowLeft, ArrowUpRight, Lock } from 'lucide-react';
+import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { ScrollRail } from '@/components/ui/scroll-rail';
 import { toEventActor, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
-import { daysUntil, formatDateTimeId } from '@/lib/deadline';
+import { formatDateTimeId } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
 import type { EventDetail, ManagedEvent } from '@/types/domain';
 
@@ -51,11 +52,6 @@ export async function workspaceBadges(user: AuthUser, eventId: string): Promise<
   }
 }
 
-export function isEventClosed(event: Pick<EventDetail, 'status' | 'primaryDeadlineAt'>, now = new Date()): boolean {
-  const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
-  return event.status === 'EXPIRED' || (days !== null && days < 0);
-}
-
 /**
  * Kepala ruang kerja satu acara: judul, status, dan tab tugas (ADR-056).
  * Tab = tautan biasa (URL per tugas, tombol Kembali bekerja, tanpa JS).
@@ -70,7 +66,7 @@ export function EventWorkspaceHeader({
   /** Angka kecil di tab, mis. bukti bayar yang menunggu diperiksa. */
   badges?: Partial<Record<WorkspaceTab, number>>;
 }) {
-  const closed = isEventClosed(event);
+  const closed = registrationEventClosed(event);
   return (
     <div className="flex flex-col gap-4">
       <Link href="/penyelenggara" className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-ink-muted hover:text-ink">

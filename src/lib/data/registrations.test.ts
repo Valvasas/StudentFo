@@ -171,4 +171,22 @@ describe('MemoryEventRepository — galeri', () => {
     await repository.addEventPhotos(admin, FREE_EVENT, [big], null);
     expect(await reason(repository.addEventPhotos(admin, OTHER_EVENT, [big], null))).toBe('gallery_full');
   });
+
+  it('kiriman yang tidak muat ditolak utuh — tidak ada foto yang setengah tersimpan', async () => {
+    const big = image(DEMO_MEDIA_BYTE_LIMIT / 2 + 1);
+    expect(await reason(repository.addEventPhotos(admin, FREE_EVENT, [big, big], null))).toBe('gallery_full');
+    expect(await repository.listEventPhotos(FREE_EVENT)).toEqual([]);
+    expect(await repository.addEventPhotos(admin, FREE_EVENT, [big], null)).toBe(1);
+  });
+
+  it('memori penuh saat unggah bukti bayar tidak dilaporkan sebagai galeri penuh', async () => {
+    await repository.saveRegistrationForm(admin, FREE_EVENT, form({ feeAmount: 75000, paymentInstructions: 'BCA 123 a.n. Panitia' }));
+    const registration = await repository.registerForEvent(ana, FREE_EVENT, {});
+    const big = image(DEMO_MEDIA_BYTE_LIMIT / 2 + 1);
+    await repository.addEventPhotos(admin, OTHER_EVENT, [big], null);
+    const failure = await repository.submitPaymentProof(ana, registration.id, big).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(AppError);
+    expect((failure as AppError).reason).toBeUndefined();
+    expect(await repository.getRegistration(ana, registration.id)).toMatchObject({ status: 'AWAITING_PAYMENT' });
+  });
 });

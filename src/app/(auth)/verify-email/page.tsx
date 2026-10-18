@@ -7,6 +7,7 @@ import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { buttonVariants } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
+import { emailSchema } from '@/lib/auth-schema';
 import { dataMode } from '@/lib/env';
 import { safeNextPath } from '@/lib/safe-redirect';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -30,6 +31,10 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
   if (await getSessionUser()) redirect(next);
 
   const email = typeof params.email === 'string' ? params.email.slice(0, 254) : '';
+  // Hanya alamat berbentuk email yang dicetak sebagai kalimat: `?email=` bisa
+  // diisi siapa saja, dan teks bebas di sini menjadi pesan karangan
+  // ("Akun kamu ditangguhkan, hubungi wa.me/…") berlabel domain kita.
+  const shownEmail = emailSchema.safeParse(email).data;
   const toLogin = <AuthSwitch prompt="Sudah mengonfirmasi?" href={withNext('/login', next)} label="Masuk" />;
 
   return (
@@ -37,9 +42,9 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
       <AuthHeading
         title="Cek email kamu"
         subtitle={
-          email ? (
+          shownEmail ? (
             <>
-              Tautan konfirmasi dikirim ke <strong className="break-all font-semibold text-ink">{email}</strong>. Sudah
+              Tautan konfirmasi dikirim ke <strong className="break-all font-semibold text-ink">{shownEmail}</strong>. Sudah
               pernah daftar dengan email ini? Langsung masuk saja.
             </>
           ) : (

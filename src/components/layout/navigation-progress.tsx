@@ -110,7 +110,11 @@ export function NavigationProgress() {
       if (!(anchor instanceof HTMLAnchorElement)) return;
       if ((anchor.target && anchor.target !== '_self') || anchor.hasAttribute('download')) return;
       const url = new URL(anchor.href, window.location.href);
-      if (url.origin !== window.location.origin || url.pathname.startsWith('/api/')) return;
+      // `/api/` & `/media/` menyajikan berkas, bukan halaman: router tidak pernah
+      // berpindah. Penampil galeri juga mencegat klik `/media/foto` dengan
+      // `preventDefault` — yang belum terbaca di fase capture ini, dan tetap tidak
+      // bisa dipakai sebagai penanda karena `<Link>` pun memanggilnya.
+      if (url.origin !== window.location.origin || /^\/(api|media)\//.test(url.pathname)) return;
       // Jangkar di halaman yang sama (#konten, #faq) bukan navigasi.
       if (url.pathname === window.location.pathname && url.search === window.location.search) return;
       start(url);

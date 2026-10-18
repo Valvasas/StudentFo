@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { ArrowRight, BadgeCheck, CalendarClock, Clock, FileText, type LucideIcon, Plus, ReceiptText } from 'lucide-react';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { loadMyRegistrations } from '@/components/home/account-role';
-import { isEventClosed, WORKSPACE_TABS, workspacePath } from '@/components/organizer/event-workspace';
+import { WORKSPACE_TABS, workspacePath } from '@/components/organizer/event-workspace';
+import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { toEventActor, type AuthUser } from '@/lib/auth';
@@ -113,20 +114,23 @@ function PendingApplication({ organizer }: { organizer: OrganizerProfile }) {
 
 async function VerifiedDashboard({ user, now }: { user: AuthUser; now: Date }) {
   const repository = await getEventRepository();
-  const managed = await repository.listManagedEvents(user.id);
-  const active = managed
+  const events = (await repository.listManagedEvents(user.id))
     .map(({ event }) => event)
-    .filter((event) => !isEventClosed(event, now))
     .sort((left, right) => deadlineOrder(left, now) - deadlineOrder(right, now));
-  const ids = active.map((event) => event.id);
+  const active = events.filter((event) => !registrationEventClosed(event, now));
   // Angka & formulir pelengkap: gagal dimuat = kartu tanpa angka, bukan beranda yang error.
   // Formulir yang gagal dibaca dianggap ada supaya tidak muncul ajakan "buat formulir" palsu.
+  // Angka diambil untuk SEMUA acara: bukti bayar paling ramai masuk justru setelah tenggat.
   const [stats, hasForm] =
-    ids.length === 0
+    events.length === 0
       ? [[] as readonly RegistrationStats[], [] as readonly boolean[]]
       : await Promise.all([
-          withFallback('ringkasan pendaftar', () => repository.listRegistrationStats(toEventActor(user), ids), [] as readonly RegistrationStats[]),
-          Promise.all(ids.map((id) => repository.getRegistrationForm(id).then((form) => form !== null, () => true))),
+          withFallback(
+            'ringkasan pendaftar',
+            () => repository.listRegistrationStats(toEventActor(user), events.map((event) => event.id)),
+            [] as readonly RegistrationStats[],
+          ),
+          Promise.all(active.map((event) => repository.getRegistrationForm(event.id).then((form) => form !== null, () => true))),
         ]);
   const statsOf = new Map(stats.map((entry) => [entry.eventId, entry]));
   const totals = stats.reduce(
@@ -135,9 +139,7 @@ async function VerifiedDashboard({ user, now }: { user: AuthUser; now: Date }) {
   );
 
   const reviewTasks: Task[] = [];
-  const deadlineTasks: Task[] = [];
-  const formTasks: Task[] = [];
-  active.forEach((event, index) => {
+  for (const event of events) {
     const entry = statsOf.get(event.id);
     if (entry && entry.paymentReview > 0) {
       reviewTasks.push({
@@ -148,6 +150,11 @@ async function VerifiedDashboard({ user, now }: { user: AuthUser; now: Date }) {
         detail: event.title,
       });
     }
+  }
+  const deadlineTasks: Task[] = [];
+  const formTasks: Task[] = [];
+  active.forEach((event, index) => {
+    const entry = statsOf.get(event.id);
     const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
     if (days !== null && days <= DEADLINE_WINDOW_DAYS) {
       deadlineTasks.push({

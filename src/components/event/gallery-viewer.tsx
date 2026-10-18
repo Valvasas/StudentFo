@@ -149,10 +149,12 @@ export function GalleryViewer({ items, label }: { items: readonly GalleryItem[];
           if (!item) return null;
           return (
             <li key={item.id} className={cn('relative min-h-0 sm:aspect-auto', tile.className)}>
+              {/* Cincin fokus dua warna di atas foto: putih saja hilang di foto terang. Garis
+                  luar transparan untuk mode kontras tinggi, yang membuang bayangan. */}
               <a
                 href={item.src}
                 onClick={(event) => open(at, event)}
-                className="group absolute inset-0 block bg-panel-nested focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white"
+                className="group absolute inset-0 block bg-panel-nested after:pointer-events-none after:absolute after:inset-0 focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-transparent focus-visible:after:shadow-[inset_0_0_0_2px_rgb(0_0_0/0.75),inset_0_0_0_4px_white]"
               >
                 <Image
                   src={item.src}

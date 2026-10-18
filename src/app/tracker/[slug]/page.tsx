@@ -6,6 +6,8 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, Award, CalendarClock, Check, FileT
 import { updateTrackerStatusAction } from '@/app/tracker/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
+import { registrationHref } from '@/components/registration/registration-cta';
+import { registrationCta, registrationEventClosed } from '@/components/registration/registration-view';
 import { DemoDocumentsSummary } from '@/components/profile/demo-detail-cards';
 import { PortfolioPanel } from '@/components/tracker/portfolio-form';
 import { TrackerRemoveForm, TrackerStatusForm, TrackerSteps } from '@/components/tracker/tracker-card';
@@ -13,6 +15,7 @@ import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId, getDeadlineState } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { withFallback } from '@/lib/fallback';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
 import { DEADLINE_LABEL_TEXT, EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL, remainingSlots, type TrackerStatus } from '@/types/domain';
@@ -75,7 +78,11 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
   const item = items.find((entry) => entry.event.slug === slug);
   if (!item || !event) notFound();
 
-  const teams = event.eventType === 'LOMBA' ? await repository.listTeams(event.id) : [];
+  const [teams, form, mine] = await Promise.all([
+    event.eventType === 'LOMBA' ? repository.listTeams(event.id) : Promise.resolve([]),
+    withFallback('formulir pendaftaran', () => repository.getRegistrationForm(event.id), null),
+    withFallback('pendaftaran sendiri', () => repository.getMyRegistration(user.id, event.id), null),
+  ]);
   const myTeam = teams.find((team) => team.members.some((member) => member.userId === user.id));
   const openTeams = teams.filter((team) => team !== myTeam && remainingSlots(team) > 0).length;
 
@@ -83,12 +90,37 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
   const deadline = getDeadlineState(event.primaryDeadlineAt, now);
   const isClosed = deadline.urgency === 'closed' || event.status === 'EXPIRED';
   const registrationUrl = sanitizeExternalUrl(event.registrationLink);
+  // Formulir StudentFo yang aktif menggantikan tautan luar (ADR-056): daftarnya
+  // di tab ini, dan papan maju sendiri ke "Sudah daftar" begitu terkirim.
+  const internal = registrationCta(form, mine, isClosed || registrationEventClosed(event, now));
   const schedule = [...event.deadlines].sort((left, right) => left.deadlineAt.localeCompare(right.deadlineAt));
   const nextDate = schedule.find((entry) => (daysUntil(entry.deadlineAt, now) ?? -1) >= 0);
 
   const todos: { title: string; text: string; action?: ReactNode }[] = [];
   if (item.status === 'SAVED') {
-    if (isClosed) {
+    if (internal?.kind === 'mine') {
+      todos.push({
+        title: 'Pendaftaranmu sudah terkirim',
+        text: 'Lihat status dan langkah pembayarannya di halaman pendaftaran.',
+        action: (
+          <Link href={registrationHref(internal.registrationId)} className="flex h-11 items-center gap-1.5 rounded-card bg-brand px-3.5 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover">
+            Lihat pendaftaran <ArrowRight aria-hidden className="size-4" />
+          </Link>
+        ),
+      });
+    } else if (internal?.kind === 'open') {
+      todos.push({
+        title: event.primaryDeadlineAt ? `Daftar sebelum ${formatDateId(event.primaryDeadlineAt)}` : 'Isi formulir pendaftaran',
+        text: `${daysLeftLabel(event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null)}. Pendaftaran lewat formulir StudentFo — papanmu maju sendiri setelah terkirim.`,
+        action: (
+          <Link href={`/events/${event.slug}/formulir`} className="flex h-11 items-center gap-1.5 rounded-card bg-brand px-3.5 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover">
+            Isi formulir <ArrowRight aria-hidden className="size-4" />
+          </Link>
+        ),
+      });
+    } else if (internal?.kind === 'full') {
+      todos.push({ title: 'Kuota pendaftaran penuh', text: 'Pantau halaman kegiatan — kuota bisa terbuka lagi bila ada yang membatalkan.' });
+    } else if (isClosed || internal?.kind === 'closed') {
       todos.push({ title: 'Pendaftaran sudah ditutup', text: 'Kalau kamu sempat mendaftar, tandai supaya riwayatnya lengkap.' });
     } else {
       todos.push({
@@ -107,15 +139,19 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
         ) : undefined,
       });
     }
-    todos.push({
-      title: 'Sudah mendaftar?',
-      text: 'Tandai supaya pengingat berpindah ke jadwal seleksi.',
-      action: (
-        <QuickStatus eventId={event.id} status="APPLIED" returnTo={returnTo}>
-          <Check aria-hidden className="size-4" /> Tandai sudah daftar
-        </QuickStatus>
-      ),
-    });
+    // Pendaftaran lewat formulir StudentFo memajukan papan sendiri — tandai
+    // manual hanya untuk pendaftaran di luar.
+    if (internal === null) {
+      todos.push({
+        title: 'Sudah mendaftar?',
+        text: 'Tandai supaya pengingat berpindah ke jadwal seleksi.',
+        action: (
+          <QuickStatus eventId={event.id} status="APPLIED" returnTo={returnTo}>
+            <Check aria-hidden className="size-4" /> Tandai sudah daftar
+          </QuickStatus>
+        ),
+      });
+    }
   } else if (item.status === 'APPLIED') {
     todos.push({
       title: 'Tunggu kabar dari penyelenggara',

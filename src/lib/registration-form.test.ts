@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EventRegistration, FormField } from '@/types/domain';
 import {
+  ANSWER_INPUT_PATTERN,
   csvCell,
   formFieldsSchema,
   initialRegistrationStatus,
@@ -121,6 +122,99 @@ describe('readAnswers', () => {
     expect(readAnswers(url, form({ q_f_porto: 'javascript:alert(1)' })).ok).toBe(false);
     expect(readAnswers(url, form({ q_f_porto: 'https://contoh.id/karya' })).ok).toBe(true);
   });
+
+  it('angka ditulis gaya Indonesia: titik ribuan, koma desimal', () => {
+    const number = [field({ type: 'number', id: 'f_angka' })];
+    const read = (value: string) => {
+      const result = readAnswers(number, form({ q_f_angka: value }));
+      return result.ok ? result.answers.f_angka : null;
+    };
+    expect(read('750.000')).toBe(750000);
+    expect(read('2.500.000')).toBe(2500000);
+    expect(read('1.250.000,75')).toBe(1250000.75);
+    expect(read('3,5')).toBe(3.5);
+    expect(read('3.5')).toBe(3.5);
+    expect(read('3.750')).toBe(3750);
+    expect(read('-12')).toBe(-12);
+    expect(read('999999999999')).toBe(999999999999);
+    expect(read('0.500')).toBe(0.5);
+    expect(read('-0.750')).toBe(-0.75);
+    expect(read('012.345')).toBe(12.345);
+    for (const rejected of ['1e3', '0x10', 'Infinity', '1.2.3', '1.000,000.5', ',5', '+5', '1000000000000', '1.000.000.000.000', '0.500.000', '00.000,5']) {
+      expect(read(rejected), rejected).toBeNull();
+    }
+  });
+
+  it('baris baru CRLF dari textarea dihitung satu karakter, seperti maxLength peramban', () => {
+    const long = [field({ type: 'long_text', id: 'f_motivasi' })];
+    const atLimit = `${'a'.repeat(1000)}\r\n${'b'.repeat(999)}`;
+    expect(readAnswers(long, form({ q_f_motivasi: atLimit }))).toEqual({
+      ok: true,
+      answers: { f_motivasi: `${'a'.repeat(1000)}\n${'b'.repeat(999)}` },
+    });
+    expect(readAnswers(long, form({ q_f_motivasi: `${atLimit}c` })).ok).toBe(false);
+  });
+});
+
+describe('ANSWER_INPUT_PATTERN', () => {
+  // Peramban memasang `pattern` sebagai ^(?:…)$ dengan flag `v`.
+  const accepts = (type: keyof typeof ANSWER_INPUT_PATTERN, value: string) =>
+    new RegExp(`^(?:${ANSWER_INPUT_PATTERN[type]})$`, 'v').test(value);
+  const server = (type: keyof typeof ANSWER_INPUT_PATTERN, value: string) =>
+    readAnswers([field({ type, id: 'f_x' })], form({ q_f_x: value })).ok;
+
+  const samples: Record<keyof typeof ANSWER_INPUT_PATTERN, string[]> = {
+    email: [
+      'nama@kampus.ac.id',
+      'DINDA@Kampus.AC.ID',
+      "o'neil+acara@x.id",
+      'a_b-c@sub.domain.id',
+      'a@1.co',
+      'nama@kampus',
+      'a@b.c',
+      'a..b@x.id',
+      '.a@x.id',
+      'a.@x.id',
+      'a@-x.id',
+      'a@x_y.id',
+      'a@x..id',
+      'a@x.id.',
+      'a@x.i1',
+      'ü@x.id',
+      'a b@x.id',
+      'a@b@x.id',
+    ],
+    number: [
+      '750.000',
+      '2.500.000',
+      '999.999.999.999',
+      '999999999999',
+      '3,5',
+      '3.5',
+      '3.750',
+      '-12',
+      '0.500',
+      '0.500.000',
+      '00.000,5',
+      '75.00',
+      '1e3',
+      '0x10',
+      '1.2.3',
+      ',5',
+      '5,',
+      '+5',
+      '1000000000000',
+      '1.000.000.000.000',
+      '3201234567890123',
+    ],
+    phone: ['08123456789', '+62 812-3456-7890', '0812 345', '12', '+6281234567890123456', '08-12', '0812345678a'],
+  };
+
+  for (const [type, values] of Object.entries(samples) as [keyof typeof ANSWER_INPUT_PATTERN, string[]][]) {
+    it(`pola ${type} di peramban sepakat dengan readAnswers()`, () => {
+      for (const value of values) expect(accepts(type, value), value).toBe(server(type, value));
+    });
+  }
 });
 
 describe('registrationTransition', () => {
@@ -160,8 +254,12 @@ describe('CSV', () => {
     expect(csvCell('Biasa')).toBe('"Biasa"');
   });
 
-  it('kolom mengikuti urutan formulir, jawaban kosong jadi sel kosong', () => {
-    const fields = [field({ type: 'short_text', id: 'f_asal', label: 'Asal' }), field({ type: 'checkbox', id: 'f_ok', label: 'Setuju' })];
+  it('kolom mengikuti urutan formulir, jawaban kosong jadi sel kosong, angka tanpa format lokal', () => {
+    const fields = [
+      field({ type: 'short_text', id: 'f_asal', label: 'Asal' }),
+      field({ type: 'number', id: 'f_nominal', label: 'Nominal' }),
+      field({ type: 'checkbox', id: 'f_ok', label: 'Setuju' }),
+    ];
     const registration: EventRegistration = {
       id: 'r1',
       code: 'SF-0000ABCD',
@@ -169,7 +267,7 @@ describe('CSV', () => {
       userId: 'u',
       fullName: 'Dinda',
       email: 'd@x.id',
-      answers: { f_ok: true },
+      answers: { f_nominal: 1250000.125, f_ok: true },
       status: 'CONFIRMED',
       feeAmount: null,
       proofUploadedAt: null,
@@ -181,7 +279,7 @@ describe('CSV', () => {
     const csv = registrationsToCsv(fields, [registration]);
     expect(csv.startsWith('﻿"Kode","Nama"')).toBe(true);
     expect(csv).toContain('"SF-0000ABCD","Dinda","d@x.id","Terkonfirmasi","Gratis"');
-    expect(csv.trimEnd().endsWith('"","Ya"')).toBe(true);
+    expect(csv.trimEnd().endsWith('"","1250000.125","Ya"')).toBe(true);
   });
 });
 

@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
-import { isEventClosed, WORKSPACE_TABS, workspacePath } from '@/components/organizer/event-workspace';
+import { WORKSPACE_TABS, workspacePath } from '@/components/organizer/event-workspace';
+import { registrationEventClosed } from '@/components/registration/registration-view';
 import { MySubmissions } from '@/components/submit/my-submissions';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -308,7 +309,7 @@ function ManagedEventsSection({
         <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr))]">
           {managed.map(({ event }, index) => {
             const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
-            const closed = isEventClosed(event, now);
+            const closed = registrationEventClosed(event, now);
             const summary = registrations.get(event.id);
             return (
               <li

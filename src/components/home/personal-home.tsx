@@ -7,11 +7,14 @@ import { EventGrid } from '@/components/event/event-grid';
 import { loadMyRegistrations } from '@/components/home/account-role';
 import { SearchBox } from '@/components/listing/listing-ui';
 import { registrationHref } from '@/components/registration/registration-cta';
+import { registrationCta, registrationEventClosed, type RegistrationCta } from '@/components/registration/registration-view';
 import { type AuthUser, isProfileComplete } from '@/lib/auth';
 import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import { parseEventQuery, type RawSearchParams } from '@/lib/search-params';
+import { isActiveRegistration } from '@/lib/registration-form';
 import { needsActionSoon } from '@/lib/tracker-progress';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type EventRegistration, type TrackerStatus } from '@/types/domain';
 
@@ -67,6 +70,15 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     ],
     now,
   ).slice(0, ACTION_LIMIT - unpaid.length);
+  // Acara yang memakai formulir StudentFo didaftar di tab ini juga, bukan
+  // lewat tautan luar di tab baru (ADR-056). Paling banyak ACTION_LIMIT baris.
+  const deadlineCtas = await Promise.all(
+    deadlines.map(async ({ item }) => {
+      const form = await withFallback('formulir pendaftaran', () => repository.getRegistrationForm(item.event.id), null);
+      const mine = registrations.find((entry) => entry.event.id === item.event.id && isActiveRegistration(entry.status)) ?? null;
+      return registrationCta(form, mine, registrationEventClosed(item.event, now));
+    }),
+  );
   const picks = recommended.items.filter((event) => !trackedIds.has(event.id) && !savedIds.has(event.id)).slice(0, RECOMMENDATION_LIMIT);
 
   const counts = {
@@ -133,7 +145,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
               {unpaid.map((registration) => (
                 <PaymentRow key={registration.id} registration={registration} />
               ))}
-              {deadlines.map(({ item }) => (
+              {deadlines.map(({ item }, index) => (
                 <li key={item.event.id} className="flex items-center gap-3 py-3">
                   <DeadlineTag deadlineAt={item.event.primaryDeadlineAt} className="shrink-0" />
                   <span className="flex min-w-0 flex-1 flex-col">
@@ -144,15 +156,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
                       {EVENT_TYPE_LABEL[item.event.eventType]} · {item.event.organizer}
                     </span>
                   </span>
-                  <a
-                    href={`/events/${item.event.slug}/daftar`}
-                    target="_blank"
-                    rel="noopener noreferrer nofollow"
-                    className="hidden min-h-11 shrink-0 items-center gap-1 rounded-sm px-3 text-sm font-semibold hover:bg-panel-nested sm:inline-flex"
-                  >
-                    Daftar <ArrowUpRight aria-hidden className="size-3.5" />
-                    <span className="sr-only"> ke {item.event.title} (tab baru)</span>
-                  </a>
+                  <RegisterAction slug={item.event.slug} title={item.event.title} cta={deadlineCtas[index] ?? null} />
                 </li>
               ))}
             </ul>
@@ -252,6 +256,38 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
       </section>
     </div>
   );
+}
+
+const registerActionClass =
+  'hidden min-h-11 shrink-0 items-center gap-1 rounded-sm px-3 text-sm font-semibold hover:bg-panel-nested sm:inline-flex';
+
+/** `cta` null = tanpa formulir StudentFo yang aktif → tautan resmi lewat /daftar di tab baru (ADR-032). */
+function RegisterAction({ slug, title, cta }: { slug: string; title: string; cta: RegistrationCta | null }) {
+  if (cta === null) {
+    return (
+      <a href={`/events/${slug}/daftar`} target="_blank" rel="noopener noreferrer nofollow" className={registerActionClass}>
+        Daftar <ArrowUpRight aria-hidden className="size-3.5" />
+        <span className="sr-only"> ke {title} (tab baru)</span>
+      </a>
+    );
+  }
+  if (cta.kind === 'mine') {
+    return (
+      <Link href={registrationHref(cta.registrationId)} className={registerActionClass}>
+        Lihat <ArrowRight aria-hidden className="size-3.5" />
+        <span className="sr-only"> pendaftaranmu di {title}</span>
+      </Link>
+    );
+  }
+  if (cta.kind === 'open') {
+    return (
+      <Link href={`/events/${slug}/formulir`} className={registerActionClass}>
+        Daftar <ArrowRight aria-hidden className="size-3.5" />
+        <span className="sr-only"> ke {title}</span>
+      </Link>
+    );
+  }
+  return <span className="hidden shrink-0 px-3 text-sm text-ink-muted sm:inline">{cta.kind === 'full' ? 'Kuota penuh' : 'Ditutup'}</span>;
 }
 
 function PaymentRow({ registration }: { registration: EventRegistration }) {

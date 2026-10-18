@@ -41,7 +41,7 @@ scripts/                        check-contrast.mjs, verify-database.ts, crawl-li
                                 per persona demo: HTTP ≥400, error konsol, exception — ADR-052)
 tests/a11y/                     Audit axe-core (Playwright) — `npm run test:a11y`, konfigurasi di playwright.config.ts
 supabase/
-├── migrations/                 10 file, berurutan (lihat SCHEMA.md)
+├── migrations/                 berurutan menurut stempel waktu (lihat SCHEMA.md)
 └── DEVIATIONS.md               ← WAJIB dibaca sebelum mengubah skema
 pipeline/                       Proyek Python terpisah (scraper + ekstraksi LLM)
 
@@ -77,6 +77,7 @@ src/
 │   │                           Field/TextInput/SelectInput/TextArea/FormAlert + controlClass),
 │   │                           form-step.tsx (FormStep, ChoiceGroup), scroll-rail.tsx (rel tab, ADR-055),
 │   │                           image-upload-field.tsx (pilih + kompres gambar di peramban sebelum diunggah, ADR-056),
+│   │                           turnstile.tsx (widget CAPTCHA eksplisit, satu untuk /submit & halaman akun; `key` baru per render),
 │   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053),
 │   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
@@ -84,14 +85,16 @@ src/
 │   ├── landing/                GuestLanding + Hero — beranda tamu
 │   ├── home/                   RoleHome memilih per peran tampilan (account-role.ts): PersonalHome (peserta — tagihan,
 │   │                           perlu tindakan, pantauan), OrganizerHome (pendaftar baru, bukti bayar menunggu), AdminHome (antrean)
-│   ├── registration/           Sisi peserta formulir internal: RegistrationFieldInput, RegistrationCta, langkah, salin kode (ADR-056)
-│   ├── organizer/              Ruang kerja acara (event-workspace.tsx: tab & header), FormBuilder, RegistrationRow, grafik analitik
+│   ├── registration/           Sisi peserta formulir internal: RegistrationFieldInput, RequiredChoiceGroup, RegistrationCta,
+│   │                           registration-view.ts (registrationCta, registrationEventClosed — aturan tutup per detik), langkah (ADR-056)
+│   ├── organizer/              Ruang kerja acara (event-workspace.tsx: tab & header), FormBuilder + registration-settings.ts
+│   │                           (cermin aturan simpan server untuk setCustomValidity, diuji paritas), RegistrationRow, grafik analitik
 │   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup); CelebrationBurst (perayaan hasil aksi, ADR-055)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
 │   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
 │   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS),
 │   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055),
-│   │                           EventGallery + GalleryViewer (galeri foto acara, dialog lightbox, ADR-056)
+│   │                           EventGallery + GalleryViewer (galeri foto acara, dialog lightbox, ADR-056), event-photo.ts (src/alt foto)
 │   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)

@@ -295,8 +295,10 @@ tampilan per peran, bersihkan kesan "buatan AI", login produksi, pemuat di tenga
 - [x] Login/daftar: jenis akun, persetujuan privasi, CAPTCHA daftar/lupa sandi/kirim ulang, `/verify-email` + kirim ulang konfirmasi, indikator sandi, tata letak satu kartu (audit S5 selesai)
 - [ ] **BUTUH AKSES PEMILIK.** Uji jalur Supabase sungguhan di staging: daftar email + konfirmasi, kirim ulang, Google OAuth (dengan & tanpa jenis akun), Turnstile dengan kunci asli. Pastikan CAPTCHA bawaan Supabase Auth TIDAK diaktifkan (kita memverifikasi sendiri).
 
+- [x] Review adversarial 5 dimensi + verifikasi skeptis (30 temuan terkonfirmasi, 0 kritis/tinggi) — semua diperbaiki & dicek ulang (ADR-056 § pengerasan): JPEG dipotong di EOI, coba ulang kode pendaftaran (migration `20261015100001`), angka gaya Indonesia, penahan isian di peramban, `/daftar` → formulir internal, Turnstile eksplisit, batas sandi 72 byte, batas badan 32 MB termasuk middleware
+
 Belum / butuh keputusan atau akses pemilik:
-- [ ] **BUTUH KONFIRMASI.** Apply `20261014100001` ke staging (membuat bucket `event-photos` & `payment-proofs`), `npm run db:verify`, uji unggah sungguhan ke Storage. Urutan rilis: migration dulu, baru kode.
+- [ ] **BUTUH KONFIRMASI.** Apply `20261014100001` **dan `20261015100001`** ke staging (membuat bucket `event-photos` & `payment-proofs`), `npm run db:verify`, uji unggah sungguhan ke Storage. Urutan rilis: migration dulu, baru kode.
 - [ ] Retensi data pendaftar & bukti bayar (mis. anonimkan/hapus N hari setelah acara selesai) — butuh keputusan pemilik + job pg_cron.
 - [ ] Hapus akun (produksi, Fase 6a) wajib ikut menghapus berkas bukti di Storage — baris terhapus CASCADE, berkasnya tidak.
 - [ ] Payment gateway (Midtrans/Xendit) bila diinginkan: akun merchant & kunci pemilik; antarmuka status sudah siap.

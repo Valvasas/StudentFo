@@ -4,13 +4,13 @@ import { ClipboardList, Download, Search, X } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import {
   EventWorkspaceHeader,
-  isEventClosed,
   loadManagedEvent,
   NotManaging,
   workspaceBadges,
   workspacePath,
 } from '@/components/organizer/event-workspace';
 import { RegistrationListHeader, RegistrationRow } from '@/components/organizer/registration-row';
+import { registrationEventClosed } from '@/components/registration/registration-view';
 import { buttonVariants } from '@/components/ui/button';
 import { requireUser, toEventActor } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -102,7 +102,7 @@ export default async function RegistrantsPage({
       {!openRow && <ActionFeedback params={query} className="max-w-2xl" />}
 
       {registrations.length === 0 ? (
-        <EmptyState formState={form ? (form.isOpen && !isEventClosed(event) ? 'open' : 'closed') : 'missing'} formHref={workspacePath(event.id, 'formulir')} />
+        <EmptyState formState={form ? (form.isOpen && !registrationEventClosed(event) ? 'open' : 'closed') : 'missing'} formHref={workspacePath(event.id, 'formulir')} />
       ) : (
         <>
           <nav aria-label="Saring menurut status" className="flex flex-col gap-3">
@@ -142,7 +142,7 @@ export default async function RegistrantsPage({
             )}
           </nav>
 
-          {form && (!form.isOpen || isEventClosed(event)) && (
+          {form && (!form.isOpen || registrationEventClosed(event)) && (
             <p className="-mt-4 text-sm text-ink-muted">
               Formulir sedang tidak menerima pendaftar baru.{' '}
               <Link href={workspacePath(event.id, 'formulir')} className="font-medium text-ink underline underline-offset-[3px]">
@@ -157,7 +157,7 @@ export default async function RegistrantsPage({
                 {FILTERS[filter].label}
                 <span className="ml-2 text-base font-normal text-ink-muted tabular-nums">{number(visible.length)}</span>
               </h2>
-              <a href={`${basePath}/ekspor`} className={buttonVariants({ variant: 'secondary' })}>
+              <a href={`${basePath}/ekspor`} download className={buttonVariants({ variant: 'secondary' })}>
                 <Download aria-hidden /> Unduh CSV
               </a>
             </div>

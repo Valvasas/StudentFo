@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { CircleCheck, CircleDot } from 'lucide-react';
 import { FORM_BUILDER_CHANGE_EVENT } from '@/components/organizer/form-builder';
+import {
+  REGISTRATION_SETTING_NAMES,
+  registrationSettingsIssues,
+  type RegistrationSettingName,
+} from '@/components/organizer/registration-settings';
 import { buttonVariants } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
 
@@ -11,12 +16,31 @@ function snapshot(form: HTMLFormElement): string {
   return [...data.entries()].map(([key, value]) => `${key}=${typeof value === 'string' ? value : ''}`).join('&');
 }
 
+function settingControl(form: HTMLFormElement, name: RegistrationSettingName) {
+  const element = form.elements.namedItem(name);
+  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement ? element : null;
+}
+
+function syncSettingsValidity(form: HTMLFormElement) {
+  const value = (name: RegistrationSettingName) => settingControl(form, name)?.value ?? '';
+  const issues = registrationSettingsIssues({
+    capacity: value('capacity'),
+    feeAmount: value('feeAmount'),
+    paymentInstructions: value('paymentInstructions'),
+  });
+  for (const name of REGISTRATION_SETTING_NAMES) settingControl(form, name)?.setCustomValidity(issues[name]);
+}
+
 /**
  * Bilah simpan yang menempel di bawah formulir pengaturan pendaftaran.
  *
  * "Belum disimpan" dihitung dari isi FormData dibanding saat halaman dibuka,
  * bukan sekadar "pernah diketik" — mengembalikan isian ke semula
  * menghilangkan tandanya. Tanpa JavaScript bilah ini tetap tombol simpan biasa.
+ *
+ * Kuota & biaya yang pasti ditolak server ditahan peramban lebih dulu
+ * (`registrationSettingsIssues`): pengalihan galat memasang ulang halaman
+ * dan membuang pertanyaan yang belum disimpan.
  */
 export function RegistrationSaveBar({ savedLabel }: { savedLabel: string | null }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -26,7 +50,12 @@ export function RegistrationSaveBar({ savedLabel }: { savedLabel: string | null 
     const form = ref.current?.closest('form');
     if (!form) return;
     const initial = snapshot(form);
-    const check = () => setDirty(snapshot(form) !== initial);
+    const check = () => {
+      setDirty(snapshot(form) !== initial);
+      syncSettingsValidity(form);
+    };
+    // Formulir baru mewarisi biaya acara dengan instruksi kosong — harus tertahan sebelum diketik apa pun.
+    syncSettingsValidity(form);
     form.addEventListener('input', check);
     form.addEventListener('change', check);
     form.addEventListener(FORM_BUILDER_CHANGE_EVENT, check);
@@ -34,6 +63,7 @@ export function RegistrationSaveBar({ savedLabel }: { savedLabel: string | null 
       form.removeEventListener('input', check);
       form.removeEventListener('change', check);
       form.removeEventListener(FORM_BUILDER_CHANGE_EVENT, check);
+      for (const name of REGISTRATION_SETTING_NAMES) settingControl(form, name)?.setCustomValidity('');
     };
   }, []);
 
