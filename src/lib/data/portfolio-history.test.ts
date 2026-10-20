@@ -110,8 +110,8 @@ describe('MemoryEventRepository — riwayat penyelenggara', () => {
 
     const history = await repository.listOrganizerHistory('org', new Date('2026-09-27T03:00:00Z'));
     expect(history.map((entry) => entry.title)).toEqual(['Lomba Desain UI/UX Nasional']);
-    // Rani & Citra (SEED_PORTFOLIO) + Ana = 3 pendaftar tercatat.
-    expect(history[0]).toMatchObject({ status: 'EXPIRED', applied: 3 });
+    // Rani, Citra & Rizky (SEED_PORTFOLIO) + Ana = 4 pendaftar tercatat.
+    expect(history[0]).toMatchObject({ status: 'EXPIRED', applied: 4 });
     expect(history[0]!.views).toBeGreaterThan(0);
 
     expect(await repository.listOrganizerHistory('ana')).toEqual([]);

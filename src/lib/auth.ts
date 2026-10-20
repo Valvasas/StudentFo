@@ -1,8 +1,11 @@
 import 'server-only';
 import { cache } from 'react';
-import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
+import { notFound, redirect } from 'next/navigation';
+import { demoEmailOf } from '@/lib/demo/personas';
 import { readDemoSession } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
+import { NOT_FOUND_TITLE } from '@/lib/page-title';
 import { loginHref } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import type { EventActor } from '@/lib/data/repository';
@@ -79,7 +82,7 @@ async function getDemoUser(): Promise<AuthUser | null> {
 
   return {
     id: session.uid,
-    email: `${session.persona}@demo.studentfo.local`,
+    email: demoEmailOf(session.persona),
     fullName: session.fullName,
     role: session.role,
     educationLevel: session.educationLevel,
@@ -127,6 +130,35 @@ export async function checkAdminAccess(): Promise<AdminGate> {
     reason: dataMode === 'seed' ? 'demo' : 'admin',
     userId: user.id,
     userName: user.fullName,
+  };
+}
+
+export type AdminAccess = Extract<AdminGate, { allowed: true }>;
+
+/**
+ * Pintu halaman /admin/*. Non-admin — tamu maupun peserta — mendapat 404 yang
+ * sama persis dengan alamat yang tidak ada. Pesan "akses terbatas" justru
+ * mengonfirmasi bahwa panel ada di sini dan menunjukkan cara masuknya
+ * (ADR-057). Otorisasi Server Action tetap dicek sendiri di actions.ts.
+ */
+export async function requireAdmin(): Promise<AdminAccess> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) notFound();
+  return gate;
+}
+
+/**
+ * Metadata halaman admin. `export const metadata` statis dievaluasi SEBELUM
+ * komponen halaman jalan, jadi `notFound()` di dalam halaman tidak
+ * menghentikannya: judul "Antrean moderasi" tetap sampai ke tab, riwayat
+ * peramban, dan mesin pencari. Karena itu judulnya ditentukan di sini, setelah
+ * peran diperiksa (hasil `getSessionUser` di-cache per request).
+ */
+export async function adminMetadata(title: string): Promise<Metadata> {
+  const gate = await checkAdminAccess();
+  return {
+    title: gate.allowed ? title : NOT_FOUND_TITLE,
+    robots: { index: false, follow: false },
   };
 }
 

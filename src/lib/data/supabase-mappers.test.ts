@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toSubmission } from './supabase-mappers';
+import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toSeekerProfile, toSkillSlugs, toSubmission, toTeamCandidate } from './supabase-mappers';
 
 describe('isUuid', () => {
   it('menerima UUID dan menolak selainnya sebelum sampai ke Postgres', () => {
@@ -92,5 +92,42 @@ describe('portofolio & riwayat', () => {
   it('angka BIGINT riwayat jadi number', () => {
     const row = { event_id: 'e1', slug: 's', title: 't', event_type: 'LOMBA' as const, status: 'EXPIRED' as const, closed_at: null, views: 10, visitors: 7, saves: 3, clicks: 2, applied: 1 };
     expect(toOrganizerHistoryEntry({ ...row, views: '10' as unknown as number })).toMatchObject({ views: 10, applied: 1 });
+  });
+});
+
+describe('pencocokan tim', () => {
+  it('slug di luar katalog dibuang dan duplikat dilipat — satu baris asing tidak menjatuhkan daftar', () => {
+    expect(toSkillSlugs(['ui-ux', 'peretasan', 'ui-ux', 'video'])).toEqual(['ui-ux', 'video']);
+    expect(toSkillSlugs(null)).toEqual([]);
+  });
+
+  it('kartu pemain: kolom → domain', () => {
+    expect(
+      toSeekerProfile({ is_open: true, city: 'Bandung', skills: ['ui-ux'], seeking: null, remote_ok: false, pitch: null, updated_at: '2026-10-20T00:00:00Z' }),
+    ).toEqual({ open: true, city: 'Bandung', skills: ['ui-ux'], seeking: [], remoteOk: false, pitch: null, updatedAt: '2026-10-20T00:00:00Z' });
+  });
+
+  it('kandidat: NONE dan capaian asing = tanpa hasil; hitungan tetap utuh; tanpa email', () => {
+    const candidate = toTeamCandidate({
+      user_id: 'u1',
+      full_name: 'Budi',
+      headline: null,
+      education_level: 'D4_S1',
+      major: null,
+      interests: null,
+      city: null,
+      skills: ['grafis', 'bukan-skill'],
+      seeking: [],
+      remote_ok: true,
+      pitch: 'Halo',
+      portfolio_count: 3,
+      portfolio_achievements: ['JUARA_1', 'NONE', 'JUARA_9'],
+      relation: 'outgoing',
+    });
+    expect(candidate.portfolio).toEqual({ count: 3, achievements: ['JUARA_1', null, null] });
+    expect(candidate.skills).toEqual(['grafis']);
+    expect(candidate.person.interests).toEqual([]);
+    expect(candidate.relation).toBe('outgoing');
+    expect(JSON.stringify(candidate)).not.toMatch(/email/i);
   });
 });

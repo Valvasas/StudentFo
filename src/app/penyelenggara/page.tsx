@@ -130,8 +130,11 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
           <HistorySection history={history} />
           <details className="group rounded-panel border border-line bg-panel">
             <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-semibold [&::-webkit-details-marker]:hidden">
-              Data lembaga
-              <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-open:rotate-90" />
+              <span className="flex min-w-0 flex-col gap-0.5">
+                Data lembaga
+                <span className="text-[13px] font-normal text-ink-muted">Nama, situs, dan bukti peranmu yang diperiksa moderator</span>
+              </span>
+              <ArrowRight aria-hidden className="size-4 shrink-0 transition-transform duration-200 ease-snap group-open:rotate-90" />
             </summary>
             <div className="flex flex-col gap-4 border-t border-line p-5">
               <p role="note" className="flex items-start gap-2 rounded-card bg-caution-soft p-3 text-sm text-caution">

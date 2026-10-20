@@ -1,4 +1,4 @@
-import type { Achievement, EventType, PortfolioEntry, TrackerItem, TrackerStatus } from '@/types/domain';
+import type { Achievement, EventStatus, EventType, PortfolioDigest, PortfolioEntry, TrackerItem, TrackerStatus } from '@/types/domain';
 import { ACHIEVEMENTS } from '@/types/domain';
 
 /**
@@ -92,6 +92,48 @@ const ACHIEVEMENT_RANK: Record<Achievement, number> = {
 
 export function achievementRank(achievement: Achievement | null): number {
   return achievement ? ACHIEVEMENT_RANK[achievement] : 0;
+}
+
+/** Satu entri tracker dalam bentuk datar untuk `portfolioDigestOf` (mode seed dan halaman membentuknya dari sumber berbeda). */
+export interface DigestRow {
+  readonly status: TrackerStatus;
+  readonly portfolioVisible: boolean | null;
+  readonly achievement: Achievement | null;
+  readonly eventType: EventType;
+  readonly eventStatus: EventStatus;
+  /** Tenggat acara (atau waktu ubah) — hanya untuk mengurutkan "terbaru dulu". */
+  readonly sortKey: string;
+}
+
+export function digestRowOf(item: TrackerItem): DigestRow {
+  return {
+    status: item.status,
+    portfolioVisible: item.portfolioVisible,
+    achievement: item.achievement,
+    eventType: item.event.eventType,
+    eventStatus: item.event.status,
+    sortKey: item.event.primaryDeadlineAt ?? item.updatedAt,
+  };
+}
+
+/** Berapa capaian yang ikut dibawa; cermin `[1:10]` di `list_team_candidates()`. */
+export const DIGEST_ACHIEVEMENT_LIMIT = 10;
+
+/**
+ * Ringkasan portofolio PUBLIK untuk pencocokan tim (ADR-057). Aturan
+ * visibilitasnya sama dengan `public_portfolio()`: status tracker APPLIED+,
+ * acara tayang/selesai, beasiswa & magang privat kecuali dipilih tampil.
+ * Cermin SQL: `list_team_candidates()` di migration 20261020100001.
+ */
+export function portfolioDigestOf(rows: readonly DigestRow[]): PortfolioDigest {
+  const visible = rows
+    .filter(
+      (row) =>
+        (row.eventStatus === 'APPROVED' || row.eventStatus === 'EXPIRED') &&
+        isPubliclyListed({ status: row.status, portfolioVisible: row.portfolioVisible, event: { eventType: row.eventType } }),
+    )
+    .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+  return { count: visible.length, achievements: visible.slice(0, DIGEST_ACHIEVEMENT_LIMIT).map((row) => row.achievement) };
 }
 
 export function toPortfolioEntry(item: TrackerItem): PortfolioEntry {

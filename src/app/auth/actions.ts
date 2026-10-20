@@ -16,7 +16,8 @@ import {
   type AccountType,
 } from '@/lib/auth-schema';
 import { seedDemoNetwork, seedDemoOrganizer, seedDemoPortfolio } from '@/lib/data';
-import { DEMO_PERSONAS, isDemoPersonaId } from '@/lib/demo/personas';
+import { DEMO_PERSONAS, demoEmailOf, isDemoPersonaId } from '@/lib/demo/personas';
+import { isDemoAdminPersonaAllowed, isDemoAvailable } from '@/lib/demo/gate';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
@@ -247,16 +248,20 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
 /**
  * Masuk sebagai persona demo — HANYA di mode seed.
  *
- * Di mode Supabase aksi ini sengaja menolak (bukan diam-diam lolos):
- * Server Action bisa dipanggil langsung, jadi tombolnya disembunyikan saja
- * tidak cukup untuk mencegah siapa pun membuat sesi admin palsu.
+ * Di mode Supabase, atau di host yang tidak terdaftar sebagai host demo, aksi
+ * ini sengaja menolak (bukan diam-diam lolos): Server Action bisa dipanggil
+ * langsung, jadi tombolnya disembunyikan saja tidak cukup untuk mencegah siapa
+ * pun membuat sesi admin palsu. Persona Admin tambahan butuh kunci tautan khusus.
  */
 export async function demoSignInAction(formData: FormData): Promise<void> {
   const next = safeNextPath(field(formData, 'next'));
   const persona = field(formData, 'persona');
 
-  if (dataMode !== 'seed' || !isDemoPersonaId(persona)) {
-    redirect(authHref('/login', { error: dataMode === 'seed' ? 'validation' : 'unknown' }));
+  if (!(await isDemoAvailable())) {
+    redirect(authHref('/login', { error: 'unavailable' }));
+  }
+  if (!isDemoPersonaId(persona) || (persona === 'admin' && !isDemoAdminPersonaAllowed(field(formData, 'akses')))) {
+    redirect(authHref('/login', { error: 'validation' }));
   }
 
   const uid = await startDemoSession(persona);
@@ -265,7 +270,7 @@ export async function demoSignInAction(formData: FormData): Promise<void> {
     seedDemoPortfolio(uid);
   }
   if (persona === 'penyelenggara') {
-    seedDemoOrganizer({ id: uid, fullName: DEMO_PERSONAS.penyelenggara.fullName, email: `${persona}@demo.studentfo.local` });
+    seedDemoOrganizer({ id: uid, fullName: DEMO_PERSONAS.penyelenggara.fullName, email: demoEmailOf(persona) });
   }
   revalidatePath('/', 'layout');
   const landing = persona === 'admin' ? '/admin' : persona === 'penyelenggara' ? '/penyelenggara' : null;

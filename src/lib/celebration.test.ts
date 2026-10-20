@@ -12,6 +12,7 @@ describe('celebrationFor', () => {
     expect(celebrationFor('person_blocked')).toBeNull();
     expect(celebrationFor('connection_removed')).toBeNull();
     expect(celebrationFor('team_created')).toBeNull();
+    expect(celebrationFor('registration_awaiting_payment')).toBeNull();
     expect(celebrationFor('constructor')).toBeNull();
     expect(celebrationFor(null)).toBeNull();
   });

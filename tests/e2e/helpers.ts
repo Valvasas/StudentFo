@@ -1,11 +1,16 @@
 import { expect, type Page } from '@playwright/test';
 import { demoReceiptPng } from '../../src/lib/data/demo-media';
+import { DEMO_ADMIN_TEST_KEY } from './demo-keys';
 
 export type PersonaLabel = 'Mahasiswa' | 'Siswa baru' | 'Admin moderator' | 'Penyelenggara';
 
-/** Masuk lewat kartu persona demo, persis seperti pengunjung sungguhan. */
+/**
+ * Masuk lewat kartu persona demo di /demo, persis seperti pengunjung sungguhan.
+ * Persona Admin hanya muncul di tautan berkunci (ADR-057), jadi tesnya membawa kunci.
+ */
 export async function signInAsDemo(page: Page, persona: PersonaLabel, next = '/'): Promise<void> {
-  await page.goto(`/login?next=${encodeURIComponent(next)}`);
+  const key = persona === 'Admin moderator' ? `&akses=${DEMO_ADMIN_TEST_KEY}` : '';
+  await page.goto(`/demo?next=${encodeURIComponent(next)}${key}`);
   await page.getByRole('button', { name: new RegExp(`^Masuk sebagai ${persona}:`) }).click();
   await expect(page).toHaveURL(new RegExp(`${next === '/' ? '/$' : next.replace(/[/?]/g, '\\$&')}`));
   // Setelah redirect Server Action, Next menavigasi di klien dan <title>

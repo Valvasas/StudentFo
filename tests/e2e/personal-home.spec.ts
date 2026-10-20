@@ -23,8 +23,8 @@ test('pengguna masuk melihat ringkasan pribadi tanpa ajakan mendaftar', async ({
   // Studio bukan tujuan peserta — ada di menu akun, tidak di beranda.
   await expect(main.getByRole('link', { name: 'Buka studio penyelenggara' })).toHaveCount(0);
   const shortcuts = main.getByRole('navigation', { name: 'Akses cepat' });
-  await expect(shortcuts.getByRole('link', { name: /Pembayaran/ })).toHaveAttribute('href', '/pembayaran');
-  await expect(shortcuts.getByRole('link', { name: /Pendaftaran/ })).toHaveAttribute('href', '/tracker');
+  await expect(shortcuts.getByRole('link', { name: /Pendaftaran & pembayaran/ })).toHaveAttribute('href', '/pembayaran');
+  await expect(shortcuts.getByRole('link', { name: /Papan lamaran/ })).toHaveAttribute('href', '/tracker');
   // Kotak cari memakai URL yang sama dengan /events — tetap jalan tanpa JS.
   await main.getByRole('searchbox', { name: 'Kata kunci pencarian' }).fill('beasiswa');
   await main.getByRole('button', { name: 'Cari', exact: true }).click();

@@ -19,7 +19,8 @@ import { buildDeadlineWeek, daysUntil, getDeadlineState, jakartaDateKey } from '
 import { ORGANIZER_RATE_LIMITS, type OrganizerApplicationInput } from '@/lib/organizer';
 import { ANALYTICS_MIN_GROUP, kAnonymize } from '@/lib/organizer-analytics';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
-import { isPortfolioStatus, isPubliclyListed, toPortfolioEntry, type PortfolioInput } from '@/lib/portfolio';
+import { clampCandidateWindow } from '@/lib/matchmaking';
+import { isPortfolioStatus, isPubliclyListed, portfolioDigestOf, toPortfolioEntry, type DigestRow, type PortfolioInput } from '@/lib/portfolio';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
 import { IMAGE_EXTENSION, type UploadedImage } from '@/lib/image-file';
 import {
@@ -81,6 +82,10 @@ import type {
   TeamMember,
   TrackerItem,
   TrackerStatus,
+  PortfolioDigest,
+  TeamCandidate,
+  TeamSeekerInput,
+  TeamSeekerProfile,
 } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
@@ -108,6 +113,7 @@ import {
   SEED_EVENTS,
   SEED_PEOPLE,
   SEED_PORTFOLIO,
+  SEED_SEEKERS,
   type SeedPortfolioEntry,
   SEED_PERSON_CONNECTIONS,
   SEED_TEAMS,
@@ -115,6 +121,8 @@ import {
 } from './seed-data';
 
 const MS_PER_DAY = 86_400_000;
+
+const SEED_SEEKER_IDS: ReadonlySet<string> = new Set(SEED_SEEKERS.map((seed) => seed.userId));
 
 /** Batas identitas demo yang menerima data awal per siklus data demo (lihat `admitDemoSeed`). */
 export const DEMO_SEEDED_USER_LIMIT = 2_000;
@@ -331,6 +339,8 @@ export class MemoryEventRepository implements EventRepository {
   private readonly storedNotifications = new Map<string, AppNotification[]>();
   /** Cermin `users` + `network_profiles`: orang contoh dan pengguna demo yang pernah bertindak. */
   private readonly people = new Map<string, NetworkMember>();
+  /** Cermin `team_seekers` (ADR-057): kartu pemain milik sendiri. */
+  private readonly seekers = new Map<string, TeamSeekerProfile>();
   private readonly connections = new Map<string, ConnectionEntry>();
   /** Cermin `connection_blocks`: pemblokir → (yang diblokir → waktu blokir). */
   private readonly blocks = new Map<string, Map<string, string>>();
@@ -362,9 +372,21 @@ export class MemoryEventRepository implements EventRepository {
   /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
   private readonly demoSeededUsers = new Set<string>();
   private readonly demoSeedLimit: number;
+  private readonly isolateSeekers: boolean;
 
-  constructor(base: Date = new Date(), { demoSeedLimit = DEMO_SEEDED_USER_LIMIT }: { demoSeedLimit?: number } = {}) {
+  /**
+   * `isolateSeekers` (store demo aplikasi): pencocokan hanya mencalonkan orang
+   * CONTOH. Data demo dibagi semua pengunjung; tanpa ini kartu pengunjung lain
+   * (persona bernama sama, kalimat pengantar bebas ≤140 karakter) memenuhi hasil
+   * dan terbaca orang asing. Di tes, bawaan `false` menjaga semantik yang sama
+   * dengan SQL (`list_team_candidates` mencalonkan setiap kartu terbuka).
+   */
+  constructor(
+    base: Date = new Date(),
+    { demoSeedLimit = DEMO_SEEDED_USER_LIMIT, isolateSeekers = false }: { demoSeedLimit?: number; isolateSeekers?: boolean } = {},
+  ) {
     this.demoSeedLimit = demoSeedLimit;
+    this.isolateSeekers = isolateSeekers;
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
     this.seedTeams(base);
     this.seedPeople(base);
@@ -409,6 +431,9 @@ export class MemoryEventRepository implements EventRepository {
       this.people.set(person.userId, { person, discoverable, updatedAt: base.toISOString() });
     }
     for (const { userId, ...entry } of SEED_PORTFOLIO) this.seedPortfolioEntry(userId, entry, base);
+    SEED_SEEKERS.forEach(({ userId, ...card }, index) => {
+      this.seekers.set(userId, { open: true, ...card, updatedAt: isoOffsetDays(-(index % 6), base) });
+    });
     SEED_PERSON_CONNECTIONS.forEach(([requesterId, addresseeId], index) => {
       const at = isoOffsetDays(-(index + 3), base);
       const id = this.nextId();
@@ -814,7 +839,12 @@ export class MemoryEventRepository implements EventRepository {
   private canViewProfile(viewerId: string, userId: string): boolean {
     if (viewerId === userId) return true;
     if (this.isBlocked(viewerId, userId)) return false;
-    return Boolean(this.people.get(userId)?.discoverable || this.findPair(viewerId, userId));
+    return Boolean(this.isReachable(userId) || this.findPair(viewerId, userId));
+  }
+
+  /** Cermin `is_discoverable()` (20261020100001): terbuka di direktori ATAU kartu pemainnya terbuka. */
+  private isReachable(userId: string): boolean {
+    return Boolean(this.people.get(userId)?.discoverable || this.seekers.get(userId)?.open);
   }
 
   async getPublicProfile(viewerId: string, userId: string): Promise<PublicProfile | null> {
@@ -1224,6 +1254,65 @@ export class MemoryEventRepository implements EventRepository {
     });
   }
 
+  // ------------------------------------------------------------------
+  // Pencocokan tim (ADR-057)
+  // ------------------------------------------------------------------
+
+  async getSeekerProfile(userId: string): Promise<TeamSeekerProfile | null> {
+    return this.seekers.get(userId) ?? null;
+  }
+
+  async saveSeekerProfile(actor: NetworkViewer, input: TeamSeekerInput): Promise<void> {
+    this.rememberActor(actor);
+    this.seekers.set(actor.id, { ...input, updatedAt: new Date().toISOString() });
+  }
+
+  /** Cermin `list_team_candidates()`: timbal-balik, tanpa pemblokir/diblokir, portofolio publik saja. */
+  async listSeekerCandidates(viewerId: string, limit: number): Promise<readonly TeamCandidate[]> {
+    if (!this.seekers.get(viewerId)?.open) return [];
+
+    const open = [...this.seekers]
+      .filter(([userId, seeker]) => seeker.open && userId !== viewerId && !this.isBlocked(viewerId, userId))
+      .filter(([userId]) => !this.isolateSeekers || SEED_SEEKER_IDS.has(userId))
+      .sort(([idA, a], [idB, b]) => b.updatedAt.localeCompare(a.updatedAt) || idA.localeCompare(idB));
+
+    const result: TeamCandidate[] = [];
+    for (const [userId, seeker] of open) {
+      const member = this.people.get(userId);
+      if (!member) continue;
+      const pair = this.findPair(viewerId, userId);
+      result.push({
+        person: member.person,
+        city: seeker.city,
+        skills: seeker.skills,
+        seeking: seeker.seeking,
+        remoteOk: seeker.remoteOk,
+        pitch: seeker.pitch,
+        portfolio: this.portfolioDigestOf(userId),
+        relation: !pair ? null : pair.status === 'ACCEPTED' ? 'connected' : pair.requesterId === userId ? 'incoming' : 'outgoing',
+      });
+      if (result.length >= clampCandidateWindow(limit)) break;
+    }
+    return result;
+  }
+
+  private portfolioDigestOf(userId: string): PortfolioDigest {
+    const rows: DigestRow[] = [];
+    for (const [eventId, entry] of this.trackerEntries.get(userId) ?? []) {
+      const event = this.findEvent(eventId);
+      if (!event) continue;
+      rows.push({
+        status: entry.status,
+        portfolioVisible: entry.portfolioVisible,
+        achievement: entry.achievement,
+        eventType: event.eventType,
+        eventStatus: event.status,
+        sortKey: event.primaryDeadlineAt ?? entry.updatedAt,
+      });
+    }
+    return portfolioDigestOf(rows);
+  }
+
   async listConnections(userId: string, page: ConnectionPageRequest): Promise<ConnectionPage> {
     const limit = clampConnectionLimit(page.limit);
     const after = page.cursor === null ? null : decodeConnectionCursor(page.cursor);
@@ -1304,8 +1393,7 @@ export class MemoryEventRepository implements EventRepository {
       }
       throw actionError('connection_exists');
     }
-    const target = this.people.get(targetId);
-    if (!target?.discoverable) throw actionError('person_unavailable');
+    if (!this.people.has(targetId) || !this.isReachable(targetId)) throw actionError('person_unavailable');
     if (!this.rateLimiter.consume(`connection:${actor.id}`, CONNECTION_RATE_LIMIT.perDay, 86_400)) {
       throw actionError('connection_rate_limited');
     }
@@ -1343,7 +1431,7 @@ export class MemoryEventRepository implements EventRepository {
     const mine = getOrCreate(this.blocks, actorId, () => new Map<string, string>());
     if (mine.has(targetId)) return;
     const pair = this.findPair(actorId, targetId);
-    if (!pair && !this.people.get(targetId)?.discoverable) throw actionError('block_unavailable');
+    if (!pair && !this.isReachable(targetId)) throw actionError('block_unavailable');
 
     mine.set(targetId, new Date().toISOString());
     if (pair) this.connections.delete(pair.id);
@@ -1850,9 +1938,9 @@ export class MemoryEventRepository implements EventRepository {
     const since = new Date(now.getTime() - 60 * MS_PER_DAY).toISOString();
     this.organizers.set(user.id, {
       userId: user.id,
-      orgName: 'Himpunan Mahasiswa Informatika (contoh)',
+      orgName: 'Himpunan Mahasiswa Informatika',
       website: 'https://example.org/himpunan',
-      evidence: 'Akun demo — lembaga fiktif untuk mencoba dasbor penyelenggara.',
+      evidence: 'Surat tugas ketua himpunan dan akun Instagram resmi himpunan.',
       status: 'VERIFIED',
       reviewNote: null,
       reviewedAt: since,
@@ -2243,21 +2331,21 @@ export class MemoryEventRepository implements EventRepository {
         capacity: 40,
         feeAmount: 75000,
         paymentInstructions:
-          'Transfer ke BCA 0000000000 a.n. Panitia Contoh (rekening fiktif mode demo). Tulis kode pendaftaran di berita transfer.',
+          'Transfer ke BCA 0000000000 a.n. Panitia Workshop Riset. Tulis kode pendaftaran di berita transfer.',
         updatedAt: at(18),
       });
     }
 
     const people: readonly [string, string, string][] = [
       ['Alya Rahmadani', 'Universitas Nusantara Digital', 'Tim Lumbung'],
-      ['Bagas Pratama', 'Politeknik Negeri Contoh', 'Panen Data'],
-      ['Citra Ayuningtyas', 'Institut Teknologi Contoh', 'Sawah Pintar'],
-      ['Daffa Akbar', 'Universitas Contoh Raya', 'AgriKode'],
+      ['Bagas Pratama', 'Politeknik Negeri Wanabakti', 'Panen Data'],
+      ['Citra Ayuningtyas', 'Institut Teknologi Nusantara', 'Sawah Pintar'],
+      ['Daffa Akbar', 'Universitas Wanabakti Raya', 'AgriKode'],
       ['Elsa Maharani', 'Universitas Nusantara Digital', 'Pangan Kita'],
-      ['Fikri Hidayat', 'Universitas Contoh Timur', 'Gudang Sehat'],
+      ['Fikri Hidayat', 'Universitas Nusantara Timur', 'Gudang Sehat'],
     ];
     const seedEntry = (eventId: string, index: number, status: RegistrationStatus, fee: number | null, answers: Record<string, AnswerValue>) => {
-      const [fullName] = people[index % people.length] ?? ['Peserta Contoh'];
+      const [fullName] = people[index % people.length] ?? ['Peserta'];
       const id = `demo-reg-${eventId}-${index}`;
       if (this.registrations.has(id)) return;
       let proofKey: string | null = null;
@@ -2273,7 +2361,7 @@ export class MemoryEventRepository implements EventRepository {
         eventId,
         userId: `demo-peserta-${index}`,
         fullName,
-        email: `peserta${index + 1}@contoh.studentfo.local`,
+        email: `${fullName.toLowerCase().replace(/[^a-z0-9]+/g, '.')}@nusantara.test`,
         answers,
         status,
         feeAmount: fee,

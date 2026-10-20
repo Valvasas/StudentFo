@@ -7,6 +7,7 @@ import {
   loadManagedEvent,
   NotManaging,
   workspaceBadges,
+  workspaceMetadata,
   workspacePath,
 } from '@/components/organizer/event-workspace';
 import { FormBuilder } from '@/components/organizer/form-builder';
@@ -24,10 +25,9 @@ import { saveRegistrationFormAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Formulir pendaftaran',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return workspaceMetadata('Formulir pendaftaran', (await params).id);
+}
 
 const LIMITS = REGISTRATION_FORM_LIMITS;
 const number = (value: number) => value.toLocaleString('id-ID');

@@ -10,6 +10,7 @@ import {
   loadManagedEvent,
   NotManaging,
   workspaceBadges,
+  workspaceMetadata,
   workspacePath,
 } from '@/components/organizer/event-workspace';
 import { Badge } from '@/components/ui/badge';
@@ -26,10 +27,9 @@ import type { EventPhoto } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Galeri acara',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return workspaceMetadata('Galeri acara', (await params).id);
+}
 
 export default async function EventGalleryStudioPage({
   params,

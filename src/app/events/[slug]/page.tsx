@@ -55,6 +55,7 @@ import {
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { initialsOf } from '@/lib/initials';
+import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, safeHostname, sanitizeExternalUrl } from '@/lib/utils';
 import {
@@ -76,15 +77,27 @@ const loadEvent = cache(async (slug: string): Promise<EventDetail | null> =>
   (await getEventRepository()).getEventBySlug(slug),
 );
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params;
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<RawSearchParams>;
+}): Promise<Metadata> {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
   const event = await loadEvent(slug);
   if (!event) return { title: 'Kegiatan tidak ditemukan' };
+
+  // Tab di URL yang sama dengan halamannya (`?tab=`): tanpa judul sendiri,
+  // empat tab terbuka tampak sama di bilah tab dan riwayat peramban.
+  const rawTab = Array.isArray(query.tab) ? query.tab[0] : query.tab;
+  const tab = TABS.find((item) => item.key === rawTab);
+  const title = tab && tab.key !== 'ringkasan' ? sectionTitle(tab.label, event.title) : event.title;
 
   const description = event.description?.slice(0, 155) ?? `${EVENT_TYPE_LABEL[event.eventType]} oleh ${event.organizer}.`;
 
   return {
-    title: event.title,
+    title,
     description,
     alternates: { canonical: `/events/${event.slug}` },
     openGraph: { title: event.title, description, type: 'article' },

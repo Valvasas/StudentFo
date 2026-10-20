@@ -20,13 +20,16 @@ import type {
   OrganizerProfile,
   PortfolioEntry,
   PortfolioFields,
+  TeamCandidate,
+  TeamSeekerProfile,
+  TeamSkillSlug,
   RegistrationForm,
   RegistrationStats,
   RegistrationStatus,
   Submission,
   TeamMember,
 } from '@/types/domain';
-import { ACHIEVEMENTS, REGISTRATION_STATUSES, toTeamRole, toVerificationBadge } from '@/types/domain';
+import { ACHIEVEMENTS, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVerificationBadge } from '@/types/domain';
 import type {
   ConnectionPeerRow,
   EventClaimRow,
@@ -44,7 +47,9 @@ import type {
   RegistrationFormRow,
   RegistrationStatsRow,
   SubmissionRow,
+  TeamCandidateRow,
   TeamMemberProfileRow,
+  TeamSeekerRow,
 } from '@/types/database';
 
 /**
@@ -414,6 +419,57 @@ export function toOrganizerHistoryEntry(row: OrganizerHistoryRow): OrganizerHist
  */
 export function rpcRows<Row>(data: unknown): readonly Row[] {
   return Array.isArray(data) ? (data as Row[]) : [];
+}
+
+// ------------------------------------------------------------------
+// Pencocokan tim (ADR-057)
+// ------------------------------------------------------------------
+
+export const SEEKER_COLUMNS = 'is_open, city, skills, seeking, remote_ok, pitch, updated_at';
+
+/**
+ * Slug di luar katalog dibuang, tidak dipercaya: CHECK di database menjamin
+ * katalog, tetapi katalog yang kelak diperluas migration lebih dulu daripada
+ * kode ini tidak boleh membuat satu baris menjatuhkan seluruh daftar.
+ */
+export function toSkillSlugs(values: readonly string[] | null): readonly TeamSkillSlug[] {
+  return [...new Set((values ?? []).filter((value): value is TeamSkillSlug => TEAM_SKILL_SLUGS.includes(value as TeamSkillSlug)))];
+}
+
+export function toSeekerProfile(row: TeamSeekerRow): TeamSeekerProfile {
+  return {
+    open: row.is_open,
+    city: row.city,
+    skills: toSkillSlugs(row.skills),
+    seeking: toSkillSlugs(row.seeking),
+    remoteOk: row.remote_ok,
+    pitch: row.pitch,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function toTeamCandidate(row: TeamCandidateRow): TeamCandidate {
+  return {
+    person: {
+      userId: row.user_id,
+      fullName: row.full_name,
+      headline: row.headline,
+      educationLevel: row.education_level,
+      major: row.major,
+      interests: row.interests ?? [],
+    },
+    city: row.city,
+    skills: toSkillSlugs(row.skills),
+    seeking: toSkillSlugs(row.seeking),
+    remoteOk: row.remote_ok,
+    pitch: row.pitch,
+    portfolio: {
+      count: row.portfolio_count ?? 0,
+      // 'NONE' dan nilai asing sama-sama berarti "tanpa hasil yang dilaporkan".
+      achievements: (row.portfolio_achievements ?? []).map(toAchievement),
+    },
+    relation: row.relation,
+  };
 }
 
 // ------------------------------------------------------------------

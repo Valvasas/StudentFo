@@ -105,6 +105,42 @@ export function TeamHuddleSketch({ className }: IllustrationProps) {
   );
 }
 
+/**
+ * Pencocokan tim (ADR-057): dua keping puzzle yang bertemu lalu menyatu —
+ * tonjolan satu keping pas di lekuk keping lain, seperti dua keahlian yang
+ * saling melengkapi. Gerak menyatu hanya sekali (`snap-*`), bintang
+ * berkedip pelan sesudahnya. Diam di reduced-motion.
+ */
+export function PuzzleSnapSketch({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="0 0 360 232" className={cn('h-auto w-full max-w-[360px]', className)}>
+      <ellipse cx="175" cy="214" rx="140" ry="9" fill={PAPER_SHADE} stroke="none" />
+      <g className="snap-left">
+        <Ink
+          d="M64 56 H170 L170 99 C170 99 183 95 188 108 C193 121 183 140 170 143 L170 186 H64 Q50 186 50 172 V70 Q50 56 64 56 Z"
+          fill={tint('mint')}
+          wait={100}
+        />
+        <Face x={104} y={112} size={1.15} />
+        <path d="M78 76 Q104 66 130 76" stroke={PENCIL} />
+      </g>
+      <g className="snap-right">
+        <Ink
+          d="M170 56 H286 Q300 56 300 70 V172 Q300 186 286 186 H170 V143 C183 140 193 121 188 108 C183 95 170 99 170 99 Z"
+          fill={tint('peach')}
+          wait={300}
+        />
+        <Face x={242} y={112} size={1.15} />
+        <path d="M216 76 Q242 66 268 76" stroke={PENCIL} />
+      </g>
+      <Sparkle x={178} y={40} scale={1.1} wait={900} />
+      <Sparkle x={316} y={96} scale={0.8} wait={1500} />
+      <Sparkle x={36} y={140} scale={0.9} wait={2100} />
+      <Ink d="M150 200 Q175 212 200 200" wait={1000} />
+    </Svg>
+  );
+}
+
 /** Koneksi: dua orang saling melambai, disambung pesawat kertas dan satu minat yang sama. */
 export function ConnectSketch({ className }: IllustrationProps) {
   return (

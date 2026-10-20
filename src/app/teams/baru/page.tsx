@@ -48,7 +48,7 @@ export default async function NewTeamPage({ searchParams }: { searchParams: Prom
 
       <header className="enter flex flex-col gap-3 [animation-duration:900ms]">
         <h1 className="text-[clamp(32px,4.6vw,48px)] leading-[1]">
-          Buka <span className="marker">tim baru</span>
+          Buka tim baru
         </h1>
         <p className="max-w-[52ch] text-[16px] leading-relaxed text-ink-muted">Timmu langsung tampil di Cari Tim dan di halaman kegiatannya.</p>
       </header>

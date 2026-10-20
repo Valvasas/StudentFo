@@ -20,6 +20,7 @@ import {
 } from '@/lib/network';
 import { type OrganizerApplicationInput, toStoredRevisionChanges } from '@/lib/organizer';
 import { parseEventAnalytics } from '@/lib/organizer-analytics';
+import { clampCandidateWindow } from '@/lib/matchmaking';
 import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
 import { isColdStart } from '@/lib/recommendation';
 import type { EventPresentationInput } from '@/lib/event-presentation';
@@ -67,8 +68,11 @@ import type {
   StoredFile,
   Submission,
   Team,
+  TeamCandidate,
   TeamLink,
   TeamMember,
+  TeamSeekerInput,
+  TeamSeekerProfile,
   TrackerItem,
   TrackerStatus,
   TrustRequestStatus,
@@ -96,9 +100,11 @@ import type {
   RecommendationSignalRow,
   NotificationRow,
   SubmissionRow,
+  TeamCandidateRow,
   TeamMemberCountRow,
   TeamMemberProfileRow,
   TeamRow,
+  TeamSeekerRow,
   OrganizerHistoryRow,
   PublicPortfolioRow,
   PublicProfileRow,
@@ -166,6 +172,9 @@ import {
   toPortfolioFields,
   toPublicPortfolioEntry,
   rpcRows,
+  SEEKER_COLUMNS,
+  toSeekerProfile,
+  toTeamCandidate,
   toTeamMember,
 } from './supabase-mappers';
 
@@ -1133,6 +1142,50 @@ export class SupabaseEventRepository implements EventRepository {
   // penjaga terakhirnya; pemeriksaan di sini ada supaya pelanggaran
   // muncul sebagai kode yang bisa dijelaskan ke pengguna, bukan 42501.
   // ------------------------------------------------------------------
+
+  // ------------------------------------------------------------------
+  // Pencocokan tim (ADR-057)
+  // ------------------------------------------------------------------
+
+  async getSeekerProfile(userId: string): Promise<TeamSeekerProfile | null> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from('team_seekers').select(SEEKER_COLUMNS).eq('user_id', userId).maybeSingle<TeamSeekerRow>();
+    if (error) throw upstreamFailure('Gagal memuat kartu pemain.', error);
+    return data ? toSeekerProfile(data) : null;
+  }
+
+  async saveSeekerProfile(actor: NetworkViewer, input: TeamSeekerInput): Promise<void> {
+    const supabase = await createSupabaseServerClient();
+    const values = {
+      is_open: input.open,
+      city: input.city,
+      skills: [...input.skills],
+      seeking: [...input.seeking],
+      remote_ok: input.remoteOk,
+      pitch: input.pitch,
+    };
+    // UPDATE lalu INSERT, bukan upsert: hak UPDATE sengaja tanpa kolom `user_id`
+    // (pola updateNetworkProfile).
+    const updated = await supabase.from('team_seekers').update(values).eq('user_id', actor.id).select('user_id');
+    if (updated.error) throw upstreamFailure('Gagal menyimpan kartu pemain.', updated.error, 500);
+    if (updated.data.length > 0) return;
+
+    const inserted = await supabase.from('team_seekers').insert({ user_id: actor.id, ...values });
+    if (!inserted.error) return;
+    if (sqlState(inserted.error) === '23505') {
+      const retry = await supabase.from('team_seekers').update(values).eq('user_id', actor.id);
+      if (!retry.error) return;
+    }
+    throw upstreamFailure('Gagal menyimpan kartu pemain.', inserted.error, 500);
+  }
+
+  async listSeekerCandidates(_viewerId: string, limit: number): Promise<readonly TeamCandidate[]> {
+    // Pembaca = auth.uid() di dalam fungsi; viewerId dari aplikasi tidak dipercaya.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('list_team_candidates', { p_limit: clampCandidateWindow(limit) });
+    if (error) throw upstreamFailure('Gagal memuat kandidat pencocokan.', error);
+    return rpcRows<TeamCandidateRow>(data).map(toTeamCandidate);
+  }
 
   async getNetworkProfile(userId: string): Promise<NetworkProfile> {
     const supabase = await createSupabaseServerClient();

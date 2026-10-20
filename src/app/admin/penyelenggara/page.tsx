@@ -1,15 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { BadgeCheck, Check, ExternalLink, ShieldCheck, ShieldOff, X } from 'lucide-react';
+import { BadgeCheck, Check, ExternalLink, ShieldOff, X } from 'lucide-react';
 import { reviewClaimAction, reviewOrganizerAction, reviewRevisionAction } from '@/app/admin/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { RevisionChanges } from '@/components/organizer/revision-changes';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { TextArea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
-import { checkAdminAccess } from '@/lib/auth';
+import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -18,10 +18,7 @@ import type { EventDetail } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Verifikasi penyelenggara',
-  robots: { index: false, follow: false },
-};
+export const generateMetadata = (): Promise<Metadata> => adminMetadata('Verifikasi penyelenggara');
 
 const QUEUE_LIMIT = 50;
 const TABS = [
@@ -111,21 +108,7 @@ function ExternalRef({ url, label }: { url: string | null; label: string }) {
  */
 export default async function OrganizerQueuePage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
-  const gate = await checkAdminAccess();
-  if (!gate.allowed) {
-    return (
-      <div className="container-page flex flex-col items-center gap-3 py-24 text-center">
-        <ShieldCheck aria-hidden className="size-10 text-ink-faint" />
-        <h1 className="text-2xl">Akses terbatas</h1>
-        <p className="max-w-md text-ink-muted">Verifikasi penyelenggara hanya untuk akun berperan admin.</p>
-        {gate.reason === 'unauthenticated' && (
-          <Button asChild>
-            <Link href="/login?next=%2Fadmin%2Fpenyelenggara">Masuk</Link>
-          </Button>
-        )}
-      </div>
-    );
-  }
+  await requireAdmin();
 
   const rawTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const tab: TabKey = TABS.some((item) => item.key === rawTab) ? (rawTab as TabKey) : 'verifikasi';

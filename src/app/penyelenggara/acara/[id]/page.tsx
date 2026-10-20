@@ -16,11 +16,12 @@ import {
 import { proposeRevisionAction } from '@/app/penyelenggara/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Sparkbars, VisitsChart } from '@/components/organizer/analytics-chart';
-import { EventWorkspaceHeader, NotManaging, workspaceBadges } from '@/components/organizer/event-workspace';
+import { EventWorkspaceHeader, loadManagedEvent, NotManaging, workspaceBadges, workspaceMetadata } from '@/components/organizer/event-workspace';
 import { RevisionChanges } from '@/components/organizer/revision-changes';
 import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
+import { DateInput } from '@/components/ui/date-input';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { toActionErrorCode } from '@/lib/action-feedback';
@@ -51,10 +52,9 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Analitik acara',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return workspaceMetadata('Analitik acara', (await params).id);
+}
 
 const REVISION_BADGE = {
   PENDING: { text: 'Menunggu moderator', variant: 'warning' },
@@ -82,11 +82,11 @@ export default async function EventAnalyticsPage({
   const range = parseAnalyticsRange(Array.isArray(query.range) ? query.range[0] : query.range);
 
   const repository = await getEventRepository();
-  const managed = (await repository.listManagedEvents(user.id)).find((entry) => entry.event.id === id);
-  if (!managed) return <NotManaging />;
+  const context = await loadManagedEvent(user, id);
+  if (!context) return <NotManaging />;
+  const { event } = context;
 
-  const [event, categories, revisions, badges, analyticsResult] = await Promise.all([
-    repository.getEventBySlug(managed.event.slug),
+  const [categories, revisions, badges, analyticsResult] = await Promise.all([
     repository.listCategories(),
     repository.listEventRevisions(user.id, id),
     workspaceBadges(user, id),
@@ -95,7 +95,7 @@ export default async function EventAnalyticsPage({
       (error: unknown) => ({ ok: false as const, code: toActionErrorCode(error) }),
     ),
   ]);
-  if (!event || (!analyticsResult.ok && analyticsResult.code === 'not_event_manager')) return <NotManaging />;
+  if (!analyticsResult.ok && analyticsResult.code === 'not_event_manager') return <NotManaging />;
 
   const rangePath = range === 30 ? selfPath : `${selfPath}?range=${range}`;
   const now = new Date();
@@ -395,7 +395,7 @@ function RevisionSection({ event, revisions, returnTo }: { event: EventDetail; r
             label="Perpanjang / ubah tenggat pendaftaran (opsional)"
             hint={`Saat ini: ${event.primaryDeadlineAt ? formatDateId(event.primaryDeadlineAt) : 'belum diumumkan'}. Ditutup pukul 23.59 WIB di tanggal yang dipilih.`}
           >
-            <TextInput id="rev-deadline" name="deadlineDate" type="date" />
+            <DateInput id="rev-deadline" name="deadlineDate" />
           </Field>
           <Field id="rev-description" label="Deskripsi" hint={`Maks. ${ORGANIZER_LIMITS.descriptionMax.toLocaleString('id-ID')} karakter.`}>
             <TextArea id="rev-description" name="description" rows={6} maxLength={ORGANIZER_LIMITS.descriptionMax} defaultValue={event.description ?? ''} />

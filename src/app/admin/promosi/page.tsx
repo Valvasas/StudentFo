@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { Megaphone, Search, ShieldCheck } from 'lucide-react';
+import { Megaphone, Search } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { DateInput } from '@/components/ui/date-input';
 import { SelectInput, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
-import { checkAdminAccess } from '@/lib/auth';
+import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { isPromoted } from '@/lib/data/listing';
 import { daysUntil, formatDateId, jakartaDateKey } from '@/lib/deadline';
@@ -22,10 +23,7 @@ import { updateEventPresentationAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Lencana & promosi',
-  robots: { index: false, follow: false },
-};
+export const generateMetadata = (): Promise<Metadata> => adminMetadata('Lencana & promosi');
 
 const FEATURED_LIMIT = 50;
 const RESULT_LIMIT = 20;
@@ -49,21 +47,7 @@ function promotionStatus(event: EventSummary, now: Date): string {
  */
 export default async function PresentationPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
-  const gate = await checkAdminAccess();
-  if (!gate.allowed) {
-    return (
-      <div className="container-page flex flex-col items-center gap-3 py-24 text-center">
-        <ShieldCheck aria-hidden className="size-10 text-ink-faint" />
-        <h1 className="text-2xl">Akses terbatas</h1>
-        <p className="max-w-md text-ink-muted">Pengaturan lencana & promosi hanya untuk akun berperan admin.</p>
-        {gate.reason === 'unauthenticated' && (
-          <Button asChild>
-            <Link href="/login?next=%2Fadmin%2Fpromosi">Masuk</Link>
-          </Button>
-        )}
-      </div>
-    );
-  }
+  await requireAdmin();
 
   const search = (firstParam(params.q) ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
   const repository = await getEventRepository();
@@ -171,7 +155,7 @@ export default async function PresentationPage({ searchParams }: { searchParams:
                     <label htmlFor={untilId} className="text-xs font-medium text-ink-soft">
                       Promosi sampai (kosong = tanpa)
                     </label>
-                    <TextInput id={untilId} type="date" name="featuredUntil" defaultValue={activeUntil} min={today} max={lastDay} />
+                    <DateInput id={untilId} name="featuredUntil" defaultValue={activeUntil} min={today} max={lastDay} />
                   </div>
                   <SubmitButton className={buttonVariants({ variant: 'secondary' })}>Simpan</SubmitButton>
                 </form>

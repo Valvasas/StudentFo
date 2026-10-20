@@ -23,22 +23,27 @@ import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { initialsOf } from '@/lib/initials';
 import { isPubliclyListed, toPortfolioEntry } from '@/lib/portfolio';
 import { profileCompleteness } from '@/lib/profile-completeness';
-import type { RawSearchParams } from '@/lib/search-params';
+import { sectionTitle } from '@/lib/page-title';
+import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { TRACKER_STEPS, TRACKER_STEP_LABEL, trackerProgress } from '@/lib/tracker-progress';
 import { cn } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Profil',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ searchParams }: { searchParams: Promise<RawSearchParams> }): Promise<Metadata> {
+  const rawTab = firstParam((await searchParams).tab);
+  const tab = TABS.find((item) => item.key === rawTab);
+  return {
+    title: tab && tab.key !== 'tentang' ? sectionTitle(tab.label, 'Profil') : 'Profil',
+    robots: { index: false, follow: false },
+  };
+}
 
 const TABS = [
   { key: 'tentang', label: 'Tentang', private: false, demoOnly: false },
   { key: 'portofolio', label: 'Portofolio', private: false, demoOnly: false },
-  { key: 'pendaftaran', label: 'Pendaftaran', private: true, demoOnly: false },
+  { key: 'pendaftaran', label: 'Lamaran', private: true, demoOnly: false },
   { key: 'tersimpan', label: 'Tersimpan', private: true, demoOnly: false },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
@@ -47,9 +52,9 @@ type TabKey = (typeof TABS)[number]['key'];
  * Profil (kanvas desain Profil bertab, chat8).
  *
  * Tab & "Lihat sebagai publik" memakai query string (`?tab=`,
- * `?tampilan=publik`) supaya tautan "Tersimpan" di navbar dan "Pendaftaran"
+ * `?tampilan=publik`) supaya tautan "Tersimpan" di navbar dan "Lamaran"
  * di menu akun langsung membuka bagiannya, dan semuanya berfungsi tanpa JS.
- * Tab Pendaftaran & Tersimpan membaca tracker dan simpanan sungguhan;
+ * Tab Lamaran & Tersimpan membaca tracker dan simpanan sungguhan;
  * bagian yang belum punya kolom database (bio, status, pencapaian — ADR-039)
  * hanya tampil di mode data contoh.
  */
@@ -216,18 +221,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
       <div className="sticky top-0 z-20 -mx-1 border-b border-line bg-canvas px-1 md:top-16">
         <nav aria-label="Bagian profil" className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none]">
-          {tabs.map((item, index) => {
+          {tabs.map((item) => {
             const active = item.key === tab;
-            const firstPrivate = item.private && !tabs[index - 1]?.private;
             const count = counts[item.key];
             return (
               <span key={item.key} className="flex items-center">
-                {firstPrivate && (
-                  <span aria-hidden className="ml-3 flex h-[52px] items-center gap-1.5 whitespace-nowrap border-l border-line pl-4 pr-1 text-xs font-medium text-ink-muted">
-                    <Lock className="size-3" />
-                    Hanya kamu
-                  </span>
-                )}
+                {/* Penanda privat menempel di tab-nya (ikon gembok), bukan "tab" tersendiri di antara tab. */}
                 <Link
                   href={tabHref(item.key)}
                   scroll={false}
@@ -238,7 +237,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   )}
                 >
                   {item.label}
-                  {item.private && <span className="sr-only">, hanya kamu</span>}
+                  {item.private && (
+                    <>
+                      <Lock aria-hidden className="size-3 text-ink-muted" />
+                      <span className="sr-only">, hanya kamu</span>
+                    </>
+                  )}
                   {count !== undefined && (
                     <span className={cn('flex h-5 min-w-5 items-center justify-center rounded-[10px] px-1.5 text-[11.5px] font-semibold', active ? 'bg-brand text-on-brand' : 'bg-panel-nested text-ink-muted')}>
                       {count}
@@ -330,7 +334,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 emptyText={
                   isPublic
                     ? 'Belum ada kegiatan yang ditampilkan.'
-                    : 'Belum ada. Tandai "Sudah daftar" di halaman Pendaftaran — kegiatannya otomatis masuk ke sini.'
+                    : 'Belum ada. Tandai "Sudah daftar" di Papan lamaran — kegiatannya otomatis masuk ke sini.'
                 }
               />
             </section>
@@ -342,7 +346,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <section aria-labelledby="pendaftaran-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">
             <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
               <h2 id="pendaftaran-title" className="text-base font-semibold">
-                Pendaftaran aktif
+                Lamaran aktif
               </h2>
               <span className="flex items-center gap-[5px] text-[12.5px] text-ink-muted">
                 <Lock aria-hidden className="size-3" />
@@ -385,9 +389,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               </ul>
             ) : (
               <div className="flex flex-col items-start gap-3 border-t border-line pb-1 pt-5">
-                <p className="text-sm text-ink-muted">Belum ada pendaftaran. Setelah mendaftar di situs penyelenggara, tandai kegiatannya sebagai “Sudah daftar” di papan pendaftaran.</p>
+                <p className="text-sm text-ink-muted">Belum ada lamaran. Setelah mendaftar di situs penyelenggara, tandai kegiatannya sebagai “Sudah daftar” di Papan lamaran.</p>
                 <Link href="/tracker" className="flex min-h-11 items-center gap-1.5 rounded-card border border-line-strong/70 px-3.5 text-[13.5px] font-semibold hover:bg-panel-nested">
-                  Buka papan pendaftaran <ArrowRight aria-hidden className="size-3.5" />
+                  Buka Papan lamaran <ArrowRight aria-hidden className="size-3.5" />
                 </Link>
               </div>
             )}

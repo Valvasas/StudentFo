@@ -83,7 +83,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
 
   const counts = {
     watched: tracker.length,
-    // Label & hitungan sengaja berbeda dari kolom papan Pendaftaran ("Sudah
+    // Label & hitungan sengaja berbeda dari kolom Papan lamaran ("Sudah
     // Daftar" = status APPLIED saja): angka yang sama di bawah label yang sama
     // tetapi berbeda nilai antarhalaman membuat orang meragukan keduanya.
     waiting: tracker.filter((item) => item.status === 'APPLIED' || item.status === 'INTERVIEW').length,
@@ -96,8 +96,8 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
   const profileReady = isProfileComplete(user);
 
   const shortcuts: Shortcut[] = [
-    { href: '/tracker', label: 'Pendaftaran', icon: Ticket },
-    { href: '/pembayaran', label: 'Pembayaran', icon: ReceiptText, count: allUnpaid.length, countLabel: 'belum dibayar' },
+    { href: '/tracker', label: 'Papan lamaran', icon: Ticket },
+    { href: '/pembayaran', label: 'Pendaftaran & pembayaran', icon: ReceiptText, count: allUnpaid.length, countLabel: 'belum dibayar' },
     { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, count: saved.length, countLabel: 'tersimpan' },
     { href: '/teams', label: 'Cari tim', icon: UsersRound },
   ];
@@ -135,7 +135,9 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
         </Link>
       )}
 
-      <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      {/* items-start: tanpa itu kartu "Perlu tindakan" yang kosong ikut meregang
+          setinggi "Pantauanmu" dan menyisakan petak kosong besar. */}
+      <div className="mt-8 grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <section aria-labelledby="perlu-tindakan" className="min-w-0 rounded-panel border border-line bg-panel p-5 sm:p-6">
           <h2 id="perlu-tindakan" className="text-xl">
             Perlu tindakan

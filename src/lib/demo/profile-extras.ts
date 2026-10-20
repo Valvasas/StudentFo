@@ -40,13 +40,13 @@ export const DEFAULT_PROFILE_EXTRAS: ProfileExtras = {
   city: 'Bandung',
   phone: '',
   whatsapp: true,
-  linkedin: 'linkedin.com/in/contoh',
+  linkedin: 'linkedin.com/in/dinda-pratiwi',
   portfolio: '',
   roles: ['Desainer UI/UX', 'Riset'],
   skills: ['Figma', 'Riset pengguna', 'Prototyping'],
   achievements: [
-    { title: 'Juara 2 UI/UX Competition', event: 'Contoh lomba tingkat nasional', year: '2025' },
-    { title: 'Finalis divisi desain UX', event: 'Contoh kompetisi TIK', year: '2025' },
+    { title: 'Juara 2 UI/UX Competition', event: 'Lomba Desain Produk Mahasiswa Nasional', year: '2025' },
+    { title: 'Finalis divisi desain UX', event: 'Kompetisi Inovasi TIK Pelajar', year: '2025' },
   ],
 };
 

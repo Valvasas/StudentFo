@@ -54,8 +54,7 @@ export const AUTH_ERROR_MESSAGE: Record<AuthErrorCode, string> = {
   validation: 'Ada isian yang belum benar. Periksa lagi lalu kirim ulang.',
   consent_required: 'Setujui Kebijakan privasi untuk membuat akun.',
   captcha_failed: 'Verifikasi anti-bot belum selesai atau kedaluwarsa. Selesaikan lalu kirim ulang.',
-  unavailable:
-    'Fitur akun belum aktif di server ini karena belum terhubung ke database (mode data contoh).',
+  unavailable: 'Masuk dan daftar dengan email belum aktif di situs pratinjau ini. Coba lewat akun demo.',
   unknown: 'Terjadi kesalahan di sisi kami. Coba lagi sebentar lagi.',
 };
 

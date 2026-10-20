@@ -38,7 +38,7 @@ function memoryRepository(now = Date.now()): MemoryEventRepository {
   const slot = globalForData.__studentfoMemoryStore;
   if (slot && !isDemoStoreExpired(slot.createdAt, now)) return slot.repository;
 
-  const repository = new MemoryEventRepository(new Date(now));
+  const repository = new MemoryEventRepository(new Date(now), { isolateSeekers: true });
   globalForData.__studentfoMemoryStore = { repository, createdAt: now };
   return repository;
 }

@@ -61,8 +61,9 @@ test('keputusan moderasi tercatat di riwayat dengan nama admin', async ({ browse
   await context.close();
 });
 
-test('riwayat moderasi tertutup untuk non-admin', async ({ page }) => {
+test('riwayat moderasi tertutup untuk non-admin: 404 yang sama dengan halaman yang tidak ada', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa');
-  await page.goto('/admin/riwayat');
-  await expect(page.getByRole('heading', { name: 'Akses terbatas' })).toBeVisible();
+  const response = await page.goto('/admin/riwayat');
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'Halaman ini tidak ada' })).toBeVisible();
 });

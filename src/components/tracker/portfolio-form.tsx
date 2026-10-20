@@ -37,7 +37,7 @@ export function PortfolioPanel({ item, returnTo }: { item: TrackerItem; returnTo
     return (
       <p className="flex items-start gap-2.5 rounded-card bg-panel-nested px-3.5 py-3 text-sm leading-normal text-ink-soft">
         <EyeOff aria-hidden className="mt-0.5 size-4 shrink-0" />
-        Pendaftaran yang belum berhasil tetap tercatat di riwayatmu, tapi tidak pernah tampil di profil publik.
+        Lamaran yang belum berhasil tetap tercatat di riwayatmu, tapi tidak pernah tampil di profil publik.
       </p>
     );
   }
@@ -119,7 +119,7 @@ export function PortfolioPanel({ item, returnTo }: { item: TrackerItem; returnTo
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="max-w-[46ch] text-[12.5px] leading-snug text-ink-muted">
-          Hasil dilaporkan sendiri dan ditandai begitu di profilmu. Menghapus kegiatan ini dari Pendaftaran juga menghapusnya
+          Hasil dilaporkan sendiri dan ditandai begitu di profilmu. Menghapus kegiatan ini dari Papan lamaran juga menghapusnya
           dari portofolio.
         </span>
         <SubmitButton className="flex h-11 items-center rounded-card bg-brand px-4 text-sm font-semibold text-on-brand hover:bg-brand-hover">

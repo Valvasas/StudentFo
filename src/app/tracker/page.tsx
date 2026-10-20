@@ -16,7 +16,7 @@ import { TRACKER_STATUS_LABEL, TRACKER_STATUSES, type TrackerStatus } from '@/ty
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Pendaftaran',
+  title: 'Papan lamaran',
   description: 'Lacak status lamaran lomba, beasiswa, dan magangmu dalam satu papan: disimpan, sudah daftar, wawancara, diterima.',
 };
 
@@ -94,12 +94,16 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
       <div className="flex flex-col gap-7">
         <div className="enter flex flex-wrap items-end justify-between gap-4 [animation-duration:800ms]">
           <div className="flex flex-col gap-2.5">
-            <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Pendaftaran</h1>
+            <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Papan lamaran</h1>
             <p className="max-w-[56ch] text-[15.5px] leading-relaxed text-ink-muted">
               {items.length > 0
                 ? `Memantau ${items.length} kegiatan. Ubah tahapnya setiap kali ada kabar dari penyelenggara.`
                 : 'Simpan kegiatan dari halaman detail, lalu lacak tahapnya di sini.'}
             </p>
+            <Link href="/pembayaran" className="-mt-1 inline-flex min-h-11 w-fit items-center gap-1 text-sm font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
+              Mendaftar lewat formulir StudentFo? Lihat Pendaftaran &amp; pembayaran
+              <ArrowRight aria-hidden className="size-3.5" />
+            </Link>
           </div>
           <Link href="/events" className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 px-4 text-sm font-semibold transition-colors duration-150 hover:bg-panel-nested">
             <Plus aria-hidden className="size-4" /> Cari peluang lain

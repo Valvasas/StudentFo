@@ -1126,3 +1126,117 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 @utility progress-sheen {
   animation: sf-progress-sheen 1.3s var(--easing) infinite;
 }
+
+/* =====================================================================
+   10. PENCOCOKAN TIM (ADR-057) — rangkaian "memindai → hasil"
+   Berjalan MURNI di CSS, bukan di state klien: tanpa JavaScript hasil
+   tetap tampil, dan aturan reduced-motion (§3) menolkan durasi & jeda
+   sehingga semuanya langsung jatuh ke keadaan akhir.
+   Keadaan BAWAAN tiap elemen = hasil terlihat, lapisan pemindaian
+   tersembunyi. Animasi hanya meminjamkan keadaan sebaliknya selama ±2,9
+   detik, jadi bila animasi tidak berjalan (peramban lama, gaya pengguna)
+   yang tersisa adalah halaman yang utuh, bukan layar pemuat yang macet.
+   Semua hiasan ber-`aria-hidden` dan tidak menangkap klik.
+   ===================================================================== */
+@keyframes sf-scan-overlay {
+  0%, 88% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+@utility scan-overlay {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  animation: sf-scan-overlay 2900ms var(--easing) both;
+}
+
+@keyframes sf-scan-results {
+  from { opacity: 0; visibility: hidden; }
+}
+
+/* Hasil menunggu pemindaian selesai (2,5 dtk), lalu memudar masuk. */
+@utility scan-results {
+  animation: sf-scan-results 420ms var(--easing-enter) 2500ms both;
+}
+
+@keyframes sf-scan-line {
+  0% { opacity: 0; transform: translateY(6px); }
+  14%, 86% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Kalimat status bergantian satu per satu: `--i` = urutan (0, 1, 2). */
+@utility scan-line {
+  opacity: 0;
+  animation: sf-scan-line 900ms var(--easing) both;
+  animation-delay: calc(var(--i, 0) * 900ms);
+}
+
+@keyframes sf-radar-sweep {
+  to { transform: rotate(360deg); }
+}
+
+@utility radar-sweep {
+  animation: sf-radar-sweep 2400ms linear infinite;
+}
+
+@keyframes sf-radar-ping {
+  from { transform: scale(0.3); opacity: 0.55; }
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* Gelombang yang memancar dari pusat radar. */
+@utility radar-ping {
+  animation: sf-radar-ping 2400ms var(--easing-enter) infinite;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-blip {
+  0% { opacity: 0; transform: scale(0.3); }
+  60% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* Titik pemain yang "terdeteksi" satu per satu di layar radar. */
+@utility blip {
+  animation: sf-blip 520ms var(--easing-spring) both;
+  animation-delay: calc(500ms + var(--i, 0) * 380ms);
+}
+
+@keyframes sf-ring-fill {
+  from { stroke-dasharray: 0 100; }
+}
+
+/* Cincin kecocokan terisi dari nol ke skornya (`pathLength="100"`). */
+@utility ring-fill {
+  animation: sf-ring-fill 1100ms var(--easing-enter) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes sf-card-out {
+  to { opacity: 0; }
+}
+
+/* Kartu yang dilewati memudar; hanya opasitas, supaya tidak ada target klik yang bergeser. */
+@utility card-out {
+  animation: sf-card-out 180ms var(--easing) forwards;
+}
+
+@keyframes sf-snap-left {
+  0%, 20% { transform: translateX(-22px); }
+  60%, 100% { transform: none; }
+}
+
+@keyframes sf-snap-right {
+  0%, 20% { transform: translateX(22px); }
+  60%, 100% { transform: none; }
+}
+
+/* Dua keping puzzle yang bertemu lalu menyatu. Hiasan; berhenti setelah satu putaran. */
+@utility snap-left {
+  animation: sf-snap-left 1600ms var(--easing-spring) both;
+}
+
+@utility snap-right {
+  animation: sf-snap-right 1600ms var(--easing-spring) both;
+}

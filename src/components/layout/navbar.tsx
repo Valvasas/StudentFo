@@ -12,7 +12,7 @@ import { LogoMark } from '@/components/ui/illustrations';
 import { getSessionUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { withFallback } from '@/lib/fallback';
-import { eventTypeNavFor } from '@/lib/event-type-nav';
+import { eventTypeNavFor, isFocusedTaskPath } from '@/lib/event-type-nav';
 import { REQUEST_PATH_HEADER } from '@/lib/security-headers';
 import type { EventType } from '@/types/domain';
 
@@ -45,6 +45,7 @@ export async function Navbar() {
       : context?.role === 'organizer'
         ? { href: '/penyelenggara', label: 'Studio', icon: BadgeCheck }
         : null;
+  const compact = isFocusedTaskPath(requestUrl.pathname);
   const workspaceActive = workspace !== null && (requestUrl.pathname === workspace.href || requestUrl.pathname.startsWith(`${workspace.href}/`));
 
   return (
@@ -62,15 +63,18 @@ export async function Navbar() {
 
         {/* Di ponsel tab terakhir ("Seminar") terpotong tanpa tanda bisa digeser;
             tepi kanan yang memudar adalah petunjuknya, dan `pr-12` memberi ruang
-            supaya tab terakhir bisa digeser keluar dari area pudar. */}
-        <nav
-          aria-label="Navigasi utama"
-          className="order-3 -mx-5 flex w-[calc(100%+2.5rem)] items-center overflow-x-auto border-t border-line px-2 [scrollbar-width:none] max-md:pr-12 max-md:[mask-image:linear-gradient(90deg,#000_calc(100%-44px),transparent)] sm:-mx-8 sm:w-[calc(100%+4rem)] sm:px-5 md:order-2 md:mx-0 md:w-auto md:border-t-0 md:px-0"
-        >
-          <Suspense fallback={<NavLinkList pathname={requestUrl.pathname} activeKey={activeKey} />}>
-            <NavLinks />
-          </Suspense>
-        </nav>
+            supaya tab terakhir bisa digeser keluar dari area pudar. Halaman
+            fokus-tugas (`isFocusedTaskPath`) tidak membawa baris ini. */}
+        {!compact && (
+          <nav
+            aria-label="Navigasi utama"
+            className="order-3 -mx-5 flex w-[calc(100%+2.5rem)] items-center overflow-x-auto border-t border-line px-2 [scrollbar-width:none] max-md:pr-12 max-md:[mask-image:linear-gradient(90deg,#000_calc(100%-44px),transparent)] sm:-mx-8 sm:w-[calc(100%+4rem)] sm:px-5 md:order-2 md:mx-0 md:w-auto md:border-t-0 md:px-0"
+          >
+            <Suspense fallback={<NavLinkList pathname={requestUrl.pathname} activeKey={activeKey} />}>
+              <NavLinks />
+            </Suspense>
+          </nav>
+        )}
 
         <div className="order-2 ml-auto flex items-center gap-0.5 sm:gap-1 md:order-3">
           {user ? (

@@ -6,8 +6,6 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { NetworkGraphView } from '@/components/network/network-graph';
 import { HiddenProfileBanner, NetworkSettings } from '@/components/network/network-settings';
 import { BlockedRow, ConnectionRow, IncomingRequestCard, OutgoingRow, SuggestionCard } from '@/components/network/person-cards';
-import { TINT_BG } from '@/components/ui/avatar';
-import { IllustrationStage } from '@/components/ui/feature-hero';
 import { ConnectSketch } from '@/components/ui/feature-illustrations';
 import { ScrollRail } from '@/components/ui/scroll-rail';
 import { SelectInput } from '@/components/ui/field';
@@ -17,8 +15,8 @@ import { getEventRepository } from '@/lib/data';
 import type { EventRepository } from '@/lib/data/repository';
 import { decodeConnectionCursor, NETWORK_LIMITS, normalizeConnectionSearch, suggestionReasonItems } from '@/lib/network';
 import { buildNetworkGraph, buildPreviewGraph } from '@/lib/network-graph';
+import { sectionTitle } from '@/lib/page-title';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
-import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 import type { Category, ConnectionCounts, NetworkEventRef } from '@/types/domain';
 
@@ -41,10 +39,14 @@ import type { Category, ConnectionCounts, NetworkEventRef } from '@/types/domain
  */
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Koneksi',
-  description: 'Temukan pelajar & mahasiswa dengan minat yang sama, lihat peta jaringanmu, dan bangun tim untuk lomba berikutnya.',
-};
+export async function generateMetadata({ searchParams }: { searchParams: Promise<RawSearchParams> }): Promise<Metadata> {
+  const rawTab = firstParam((await searchParams).tab);
+  const tab = TABS.find((item) => item.key === rawTab);
+  return {
+    title: tab && tab.key !== 'untukmu' ? sectionTitle(tab.label, 'Koneksi') : 'Koneksi',
+    description: 'Temukan pelajar & mahasiswa dengan minat yang sama, lihat peta jaringanmu, dan bangun tim untuk lomba berikutnya.',
+  };
+}
 
 const TABS = [
   { key: 'untukmu', label: 'Untukmu', icon: Sparkles },
@@ -109,19 +111,13 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="container-page pb-24 pt-8 sm:pt-12">
-      <header className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+      <header>
         <div className="enter flex flex-col gap-3 [animation-duration:900ms]">
-          <h1 className="text-[clamp(36px,5.2vw,56px)] leading-[1]">
-            <span className="marker">Koneksi</span>
-          </h1>
+          <h1 className="text-[clamp(32px,6vw,54px)] leading-[1.02] tracking-[-0.035em]">Koneksi</h1>
           <p className="max-w-[52ch] text-[16px] leading-relaxed text-ink-muted">
             Temukan orang dengan minat yang sama, lalu ajak mereka satu tim.
           </p>
         </div>
-        {/* Halaman kerja: ilustrasi hanya di layar lebar, supaya di ponsel daftar orang langsung terlihat. */}
-        <IllustrationStage tint="lilac" className="enter hidden pb-2 pt-5 [animation-delay:140ms] lg:flex">
-          <ConnectSketch className="max-w-[300px]" />
-        </IllustrationStage>
       </header>
 
       {/* `relative`: teks sr-only di badge hitungan berposisi absolut; tanpa wadah
@@ -639,10 +635,10 @@ function EmptyNote({ title, body, action }: { title: string; body: string; actio
   );
 }
 
-const GUEST_POINTS: readonly { icon: LucideIcon; tint: Tint; title: string; body: string }[] = [
-  { icon: Heart, tint: 'peach', title: 'Disarankan dari minat', body: 'Orang dengan minat, jurusan, dan kegiatan yang sama muncul lebih dulu — lengkap dengan alasannya.' },
-  { icon: UserPlus, tint: 'mint', title: 'Ajakan dua arah', body: 'Terhubung hanya kalau kedua pihak setuju. Kalau sama-sama mengajak, kalian langsung terhubung.' },
-  { icon: ShieldCheck, tint: 'sky', title: 'Kamu yang memilih terlihat', body: 'Tersembunyi secara bawaan. Email dan kegiatan yang kamu simpan tidak pernah ditampilkan.' },
+const GUEST_POINTS: readonly { icon: LucideIcon; title: string; body: string }[] = [
+  { icon: Heart, title: 'Disarankan dari minat', body: 'Orang dengan minat, jurusan, dan kegiatan yang sama muncul lebih dulu — lengkap dengan alasannya.' },
+  { icon: UserPlus, title: 'Ajakan dua arah', body: 'Terhubung hanya kalau kedua pihak setuju. Kalau sama-sama mengajak, kalian langsung terhubung.' },
+  { icon: ShieldCheck, title: 'Kamu yang memilih terlihat', body: 'Tersembunyi secara bawaan. Email dan kegiatan yang kamu simpan tidak pernah ditampilkan.' },
 ];
 
 function GuestConnections({ categories }: { categories: Parameters<typeof buildPreviewGraph>[0] }) {
@@ -652,7 +648,7 @@ function GuestConnections({ categories }: { categories: Parameters<typeof buildP
       <div className="grid items-center gap-10 [grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr))]">
         <header className="enter flex flex-col gap-4 [animation-duration:900ms]">
           <h1 className="text-[clamp(34px,5vw,54px)] leading-[1.04]">
-            Temukan rekan <span className="marker">satu minat</span>, lihat semua sambungannya.
+            Temukan rekan satu minat, lihat semua sambungannya.
           </h1>
           <p className="max-w-[48ch] text-[16px] leading-relaxed text-ink-muted">
             Lihat siapa yang punya minat dan kegiatan yang sama denganmu, lalu ajak mereka satu tim.
@@ -675,7 +671,7 @@ function GuestConnections({ categories }: { categories: Parameters<typeof buildP
       <ul className="mt-16 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))]">
         {GUEST_POINTS.map((point, index) => (
           <li key={point.title} style={{ '--i': index + 2 } as CSSProperties} className="rise flex flex-col gap-3 rounded-[24px] border border-line bg-panel p-6">
-            <span className={cn('dot-grid flex size-12 items-center justify-center rounded-[16px]', TINT_BG[point.tint])}>
+            <span className="flex size-12 items-center justify-center rounded-[16px] bg-panel-nested">
               <point.icon aria-hidden className="size-5" />
             </span>
             <h2 className="text-[17px] font-semibold tracking-[-0.015em]">{point.title}</h2>

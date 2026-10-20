@@ -23,12 +23,20 @@ describe('accountRoleOf', () => {
 });
 
 describe('accountMenuGroups', () => {
-  it('peserta: pendaftaran & pembayaran paling atas, studio tetap ada sebagai tempat mengajukan diri', () => {
+  it('peserta: pendaftaran & pembayaran paling atas, pintu mengajukan diri bernama "Jadi penyelenggara", bukan grup Ruang kerja', () => {
     const keys = keysOf('participant', true);
     expect(keys.slice(0, 2)).toEqual(['daftar', 'pembayaran']);
     expect(keys).toContain('studio');
     expect(keys).not.toContain('moderasi');
     expect(keys.indexOf('pembayaran')).toBe(keys.indexOf('daftar') + 1);
+  });
+
+  it('peserta tidak mendapat grup "Ruang kerja"; pintunya bernama "Jadi penyelenggara"', () => {
+    const groups = accountMenuGroups('participant', { demoFeatures: false });
+    expect(groups.map((group) => group.key)).not.toContain('kerja');
+    const studio = groups.flatMap((group) => group.items).find((item) => item.key === 'studio');
+    expect(studio?.label).toBe('Jadi penyelenggara');
+    expect(studio?.href).toBe('/penyelenggara');
   });
 
   it('penyelenggara: studio paling atas, item peserta tetap ada', () => {

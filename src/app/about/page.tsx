@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { Accessibility, ArrowRight, BadgeCheck, CalendarClock, FileSearch, Gift, Globe, Lock, ScanText } from 'lucide-react';
 import { RevealObserver } from '@/components/landing/reveal-observer';
 import { getEventRepository } from '@/lib/data';
-import { dataMode } from '@/lib/env';
 
 /**
  * Tentang (ADR-040). Tema & gerak sama dengan beranda (kanvas Landing v2):
@@ -11,9 +10,11 @@ import { dataMode } from '@/lib/env';
  *
  * Setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem yang
  * sesungguhnya — angka dari repository yang sama dengan katalog, alur
- * verifikasi dari pipeline + antrean /admin, dan daftar "yang belum kami
- * lakukan" ditulis terang-terangan. Halaman "tentang kami" yang melebih-
- * lebihkan adalah kerugian nyata bagi yang mempercayainya (ADR-039 #4).
+ * verifikasi dari pipeline + antrean moderasi, dan batas layanan yang
+ * memengaruhi keputusan pengguna (uang peserta, kanal pengingat) disebut
+ * apa adanya. Halaman "tentang kami" yang melebih-lebihkan adalah kerugian
+ * nyata bagi yang mempercayainya (ADR-039 #4). Status dokumen hukum TIDAK
+ * dibahas di sini — itu tempatnya di halaman dokumen itu sendiri (ADR-057).
  */
 export const dynamic = 'force-dynamic';
 
@@ -31,17 +32,16 @@ const FLOW = [
 ] as const;
 
 const PRINCIPLES = [
-  { icon: Gift, title: 'Gratis untuk pelajar', body: 'Cari, simpan, pengingat, papan pendaftaran, cari tim, dan koneksi — tanpa biaya. Kegiatan yang dipromosikan selalu berlabel "Promosi".' },
+  { icon: Gift, title: 'Gratis untuk pelajar', body: 'Cari, simpan, pengingat, papan lamaran, cari tim, dan koneksi — tanpa biaya. Kegiatan yang dipromosikan selalu berlabel "Promosi".' },
   { icon: Lock, title: 'Datamu bukan dagangan', body: 'Setiap akun hanya bisa membaca datanya sendiri di tingkat database. Profil jaringan tersembunyi sampai kamu memilih terlihat.' },
   { icon: FileSearch, title: 'Sumber selalu bisa dicek', body: 'Setiap kegiatan menautkan pengumuman aslinya. Kalau ada yang janggal, kamu bisa memastikannya sendiri sebelum membayar apa pun.' },
   { icon: Accessibility, title: 'Bisa dipakai siapa saja', body: 'Tetap jalan tanpa JavaScript, di layar 320px, dengan keyboard, dan dengan pembaca layar. Kontras warna diuji otomatis.' },
 ] as const;
 
-const NOT_YET = [
-  'Kami tidak memegang uang peserta. Biaya pendaftaran (kalau ada) ditransfer langsung ke penyelenggara dan diverifikasi panitianya — belum ada pembayaran otomatis lewat kartu atau dompet digital.',
-  'Pengingat tenggat baru muncul di dalam aplikasi (lonceng notifikasi), belum lewat email atau WhatsApp.',
-  'Cakupan sumber masih bertumbuh. Kalau tahu kegiatan yang belum ada, kirimkan — setiap kiriman tetap ditinjau manual.',
-  'Kebijakan privasi masih berstatus draf sampai ditinjau bersama penasihat hukum.',
+const GOOD_TO_KNOW = [
+  'Kami tidak memegang uang peserta. Biaya pendaftaran (kalau ada) ditransfer langsung ke penyelenggara dan diverifikasi panitianya.',
+  'Pengingat tenggat muncul di lonceng notifikasi aplikasi. Pengingat lewat email dan WhatsApp menyusul.',
+  'Cakupan sumber terus bertambah. Kalau tahu kegiatan yang belum ada, kirimkan — setiap kiriman tetap ditinjau manual.',
 ] as const;
 
 const sectionClass = 'container-page max-w-[1120px] pt-[clamp(80px,11vw,128px)]';
@@ -53,7 +53,7 @@ export default async function AboutPage() {
   const stats = await (await getEventRepository()).getStats();
   const numbers = [
     { value: stats.totalActive, label: 'kegiatan masih terbuka' },
-    { value: stats.organizerCount, label: 'penyelenggara' },
+    { value: stats.organizerCount, label: 'penyelenggara berbeda' },
     { value: stats.closingThisWeek, label: 'tutup dalam 7 hari' },
     { value: stats.addedThisWeek, label: 'baru minggu ini' },
   ];
@@ -83,11 +83,7 @@ export default async function AboutPage() {
             </div>
           ))}
         </dl>
-        <p className="mt-3 text-[12.5px] text-ink-muted">
-          {dataMode === 'seed'
-            ? 'Angka dari data contoh mode demo — bukan statistik produk sungguhan.'
-            : 'Dihitung langsung dari katalog saat halaman ini dibuka.'}
-        </p>
+        <p className="mt-3 text-[12.5px] text-ink-muted">Dihitung langsung dari katalog saat halaman ini dibuka.</p>
       </section>
 
       <section aria-labelledby="alur-title" className={sectionClass}>
@@ -131,15 +127,15 @@ export default async function AboutPage() {
         </ul>
       </section>
 
-      <section aria-labelledby="belum-title" className={sectionClass}>
+      <section aria-labelledby="tahu-title" className={sectionClass}>
         <div className="grid items-start gap-x-16 gap-y-8 [grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))]">
           <div data-reveal="" className="flex flex-col gap-3.5">
-            <h2 id="belum-title" className={h2Class}>
-              Yang belum kami lakukan.
+            <h2 id="tahu-title" className={h2Class}>
+              Yang perlu kamu tahu sebelum mulai.
             </h2>
           </div>
           <ul className="flex flex-col border-t border-line">
-            {NOT_YET.map((item, index) => (
+            {GOOD_TO_KNOW.map((item, index) => (
               <li key={item} data-reveal="left" style={delay(index * 140)} className="flex gap-4 border-b border-line py-5 text-[15px] leading-relaxed">
                 <span className="font-mono text-[13px] text-ink-muted">0{index + 1}</span>
                 <span>{item}</span>

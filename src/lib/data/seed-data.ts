@@ -4,6 +4,7 @@ import type {
   EducationLevel,
   EventStatus,
   EventType,
+  TeamSkillSlug,
   TrackerStatus,
   VerificationBadge,
 } from '@/types/domain';
@@ -559,6 +560,42 @@ export const SEED_PEOPLE: readonly SeedPerson[] = [
   { userId: 'seed-user-14', fullName: 'Putri Ayu', headline: null, educationLevel: 'D4_S1', major: 'Rekayasa Perangkat Lunak', interests: ['teknologi'], discoverable: false },
 ];
 
+export interface SeedSeeker {
+  readonly userId: string;
+  readonly city: string;
+  readonly skills: readonly TeamSkillSlug[];
+  readonly seeking: readonly TeamSkillSlug[];
+  readonly remoteOk: boolean;
+  readonly pitch: string;
+}
+
+/**
+ * Kartu pemain orang contoh (ADR-057) — kota tersebar supaya saringan jarak
+ * bermakna, dan keahlian sengaja saling melengkapi (bukan semuanya
+ * "web-aplikasi"). Persona demo "Mahasiswa" tinggal di Bandung dan SUDAH
+ * terhubung dengan dua orang Bandung lain (DEMO_STARTER_NETWORK), jadi
+ * kandidat yang satu kota/berdekatan dengannya harus berasal dari orang yang
+ * belum terhubung (Arif di Bandung, Yoga di Cimahi) — kalau tidak, saringan
+ * jarak terlihat rusak (hasil kosong) saat dicoba pengunjung demo. Putri Ayu
+ * (tersembunyi) sengaja TANPA kartu: contoh orang yang tidak pernah muncul di
+ * pencocokan.
+ */
+export const SEED_SEEKERS: readonly SeedSeeker[] = [
+  { userId: 'seed-user-1', city: 'Bandung', skills: ['web-aplikasi', 'ui-ux'], seeking: ['data-ai', 'presentasi'], remoteOk: true, pitch: 'Frontend dan aksesibilitas. Cari rekan data dan tukang presentasi.' },
+  { userId: 'seed-user-2', city: 'Jakarta Selatan', skills: ['web-aplikasi', 'data-ai'], seeking: ['ui-ux', 'grafis'], remoteOk: true, pitch: 'Backend dan data. Butuh desainer yang rewel soal detail.' },
+  { userId: 'seed-user-3', city: 'Yogyakarta', skills: ['penulisan-ilmiah', 'riset-kualitatif'], seeking: ['statistik', 'sains-lab'], remoteOk: true, pitch: 'Penulis karya tulis ilmiah, topik energi terbarukan.' },
+  { userId: 'seed-user-4', city: 'Bandung', skills: ['ui-ux', 'riset-kualitatif'], seeking: ['web-aplikasi'], remoteOk: true, pitch: 'Riset pengguna sampai prototipe. Cari developer yang mau diajak wawancara.' },
+  { userId: 'seed-user-5', city: 'Surabaya', skills: ['kewirausahaan', 'presentasi', 'manajemen-proyek'], seeking: ['web-aplikasi', 'ui-ux'], remoteOk: false, pitch: 'Model bisnis dan pitching. Lebih suka kerja tatap muka.' },
+  { userId: 'seed-user-6', city: 'Jakarta Pusat', skills: ['statistik', 'data-ai'], seeking: ['penulisan-ilmiah'], remoteOk: true, pitch: 'Analis data. Sering jadi juri, sekarang mau ikut bertanding.' },
+  { userId: 'seed-user-7', city: 'Cimahi', skills: ['video'], seeking: ['penulisan-kreatif'], remoteOk: true, pitch: 'Masih SMA, suka bikin video. Cari kakak tim yang sabar.' },
+  { userId: 'seed-user-8', city: 'Jakarta Timur', skills: ['debat', 'presentasi', 'hukum-kebijakan'], seeking: ['penulisan-ilmiah', 'riset-kualitatif'], remoteOk: true, pitch: 'Debat dan kebijakan publik. Cari penulis dan periset.' },
+  { userId: 'seed-user-9', city: 'Bandung', skills: ['web-aplikasi', 'iot-elektronika'], seeking: ['ui-ux'], remoteOk: true, pitch: 'Mobile dan IoT. Cari desainer UI.' },
+  { userId: 'seed-user-10', city: 'Denpasar', skills: ['grafis', 'video', 'ui-ux'], seeking: ['web-aplikasi'], remoteOk: true, pitch: 'Ilustrasi dan motion. Cari developer untuk menghidupkan desainku.' },
+  { userId: 'seed-user-11', city: 'Makassar', skills: ['kesehatan-lingkungan', 'riset-kualitatif'], seeking: ['data-ai', 'statistik'], remoteOk: true, pitch: 'Kesehatan masyarakat. Cari yang jago mengolah data lapangan.' },
+  { userId: 'seed-user-12', city: 'Semarang', skills: ['penulisan-kreatif', 'penulisan-ilmiah'], seeking: ['grafis', 'video'], remoteOk: true, pitch: 'Penulis dan pegiat literasi. Cari visualisator.' },
+  { userId: 'seed-user-13', city: 'Jakarta Selatan', skills: ['manajemen-proyek', 'pemasaran', 'ui-ux'], seeking: ['data-ai', 'web-aplikasi'], remoteOk: true, pitch: 'Product manager magang, hobi hackathon. Cari engineer.' },
+];
+
 /** Koneksi yang sudah ada ANTAR orang contoh — sumber "koneksi bersama". */
 export const SEED_PERSON_CONNECTIONS: readonly (readonly [string, string])[] = [
   ['seed-user-1', 'seed-user-2'],
@@ -610,6 +647,9 @@ export const SEED_PORTFOLIO: readonly SeedPortfolioEntry[] = [
   { userId: 'seed-user-1', eventSlug: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026', status: 'APPLIED', achievement: null },
   { userId: 'seed-user-4', eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'APPLIED', achievement: 'PESERTA' },
   { userId: 'seed-user-10', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'FINALIS' },
+  // Satu juara yang BELUM terhubung dengan persona demo (Rani, juara 2, sudah terhubung dan tak dicalonkan lagi),
+  // supaya saringan "Pernah juara" di pencocokan tidak terlihat rusak (hasil kosong) saat dicoba pengunjung demo.
+  { userId: 'seed-user-13', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'JUARA_1', achievementNote: 'Ketua tim, kategori produk digital' },
   { userId: 'seed-user-10', eventSlug: 'beasiswa-talenta-digital-gelombang-1', status: 'ACCEPTED', achievement: 'PENERIMA' },
 ];
 

@@ -35,7 +35,7 @@ const CHECKS = [
 const FAQS = [
   {
     q: 'Apakah StudentFo berbayar?',
-    a: 'Tidak untuk pelajar. Mencari, menyimpan, pengingat, dan papan pendaftaran gratis. Kalau sebuah kegiatan memungut biaya pendaftaran, biaya itu ditetapkan dan diterima langsung oleh penyelenggaranya.',
+    a: 'Tidak untuk pelajar. Mencari, menyimpan, pengingat, dan papan lamaran gratis. Kalau sebuah kegiatan memungut biaya pendaftaran, biaya itu ditetapkan dan diterima langsung oleh penyelenggaranya.',
   },
   {
     q: 'Bagaimana cara mendaftar ke sebuah kegiatan?',

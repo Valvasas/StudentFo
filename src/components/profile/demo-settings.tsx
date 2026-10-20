@@ -173,7 +173,7 @@ export function DemoNotificationCard({ delay }: { delay: number }) {
           <Bell aria-hidden className="mt-0.5 size-4 shrink-0" />
           {summary}
         </p>
-        <p className="text-[12.5px] text-ink-muted">Mode demo: pilihan ini tersimpan di perangkat ini dan belum mengirim email atau WhatsApp sungguhan.</p>
+        <p className="text-[12.5px] text-ink-muted">Pilihan ini tersimpan di perangkat ini; pengiriman email dan WhatsApp belum aktif.</p>
       </div>
       <Toast message={toast} />
     </DetailCard>
@@ -202,21 +202,21 @@ export function DemoResetCard({ delay }: { delay: number }) {
     window.dispatchEvent(new Event(DEMO_STORE_EVENT));
     setOpen(false);
     setTyped('');
-    setToast('Data demo di perangkat ini sudah dihapus.');
+    setToast('Data di perangkat ini sudah dihapus.');
   };
 
   return (
     <DetailCard
       id="reset"
       icon={<RotateCcw className="size-[18px]" />}
-      title="Hapus data demo"
+      title="Hapus data di perangkat ini"
       description="Tidak bisa dibatalkan."
       delay={delay}
     >
       <div className="flex flex-col gap-4 px-5 pb-6 sm:px-6">
         <p className="max-w-[62ch] text-[14px] leading-relaxed text-ink-soft">
-          Menghapus profil publik, kontak, pencapaian, dokumen, catatan persiapan, dan preferensi yang tersimpan di peramban ini. Akun demo dan data
-          contoh di server tidak berubah.
+          Menghapus profil publik, kontak, pencapaian, dokumen, catatan persiapan, dan preferensi yang tersimpan di peramban ini. Akunmu dan data di
+          server tidak berubah.
         </p>
         {open ? (
           <div className="flex flex-col gap-3 rounded-card border border-danger-line bg-danger-soft/40 p-4">

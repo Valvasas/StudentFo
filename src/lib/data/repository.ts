@@ -38,6 +38,9 @@ import type {
   TeamLink,
   TrackerItem,
   TrackerStatus,
+  TeamCandidate,
+  TeamSeekerInput,
+  TeamSeekerProfile,
 } from '@/types/domain';
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
 import type { OrganizerApplicationInput } from '@/lib/organizer';
@@ -78,7 +81,8 @@ export interface EventRepository
     EventPresentationRepository,
     NotificationDispatchRepository,
     RegistrationRepository,
-    GalleryRepository {}
+    GalleryRepository,
+    MatchmakingRepository {}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {
@@ -279,6 +283,24 @@ export interface NetworkRepository {
   listBlockedPeople(userId: string): Promise<readonly BlockedPerson[]>;
   /** Keanggotaan tim orang-orang ini (maks. `limit` baris) — simpul "kegiatan" di peta. */
   listTeamLinks(userIds: readonly string[], limit: number): Promise<readonly TeamLink[]>;
+}
+
+/**
+ * Pencocokan tim/partner (ADR-057). Repository hanya menyediakan DATA —
+ * peringkatnya dihitung `rankCandidates()` di `lib/matchmaking.ts`, satu
+ * fungsi untuk kedua implementasi, atas jendela kandidat terbatas.
+ */
+export interface MatchmakingRepository {
+  /** Kartu pemain milik sendiri; null = belum pernah dibuat. */
+  getSeekerProfile(userId: string): Promise<TeamSeekerProfile | null>;
+  /** Simpan (buat atau ganti) kartu pemain milik pelaku. Input SUDAH divalidasi `parseSeekerForm()`. */
+  saveSeekerProfile(actor: NetworkViewer, input: TeamSeekerInput): Promise<void>;
+  /**
+   * Kandidat dengan kartu terbuka, tanpa diri sendiri dan tanpa pemblokir/
+   * diblokir. TIMBAL-BALIK: kosong bila kartu pembaca sendiri tidak terbuka.
+   * `limit` dipotong ke `MATCH_CANDIDATE_WINDOW.max`.
+   */
+  listSeekerCandidates(viewerId: string, limit: number): Promise<readonly TeamCandidate[]>;
 }
 
 export interface PeopleFilter {

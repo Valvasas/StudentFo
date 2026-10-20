@@ -9,7 +9,7 @@ import { EventTypeIcon } from '@/components/event/event-type-icon';
 import { ShareButton } from '@/components/event/share-button';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { SeatMeter, TeamSeats, TeamSlotsBadge } from '@/components/team/team-card';
-import { Avatar, TINT_BG } from '@/components/ui/avatar';
+import { Avatar } from '@/components/ui/avatar';
 import { CelebrateSketch, Confetti } from '@/components/ui/feature-illustrations';
 import { SparkleDoodle } from '@/components/ui/illustrations';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -18,7 +18,6 @@ import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateId } from '@/lib/deadline';
 import type { RawSearchParams } from '@/lib/search-params';
-import { tintOf } from '@/lib/tint';
 import { EVENT_TYPE_LABEL, remainingSlots } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -97,7 +96,7 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
         <article className="flex min-w-0 flex-col gap-8">
           <header className="enter overflow-hidden rounded-[28px] border border-line bg-panel [animation-duration:900ms]">
-            <div className={`dot-grid relative px-6 pb-14 pt-6 sm:px-9 sm:pt-8 ${TINT_BG[tintOf(team.id)]}`}>
+            <div className="dot-grid relative bg-panel-nested px-6 pb-14 pt-6 sm:px-9 sm:pt-8">
               <SparkleDoodle className="drift absolute right-[8%] top-[22%] hidden size-7 sm:block" />
               <div className="flex flex-wrap items-center gap-2">
                 <TeamSlotsBadge team={team} />

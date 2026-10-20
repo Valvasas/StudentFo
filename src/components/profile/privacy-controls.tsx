@@ -165,7 +165,7 @@ export function DemoPrivacyControls({ name, major }: { name: string; major: stri
               ))}
             </div>
           </fieldset>
-          <p className="mt-4 text-[12.5px] text-ink-muted">Mode demo: pilihan ini tersimpan di perangkat ini dan belum membatasi siapa pun di server.</p>
+          <p className="mt-4 text-[12.5px] text-ink-muted">Pilihan ini tersimpan di perangkat ini dan belum membatasi siapa pun di server.</p>
         </div>
       </DetailCard>
     </>

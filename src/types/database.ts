@@ -378,3 +378,32 @@ export interface EventPhotoRow {
   caption: string | null;
   created_at: string;
 }
+
+/** `team_seekers` — kartu pemain milik sendiri (ADR-057). */
+export interface TeamSeekerRow {
+  is_open: boolean;
+  city: string | null;
+  skills: string[] | null;
+  seeking: string[] | null;
+  remote_ok: boolean;
+  pitch: string | null;
+  updated_at: string;
+}
+
+/** Satu baris `list_team_candidates()` — tanpa email; 'NONE' di `portfolio_achievements` = ikut serta tanpa hasil. */
+export interface TeamCandidateRow {
+  user_id: string;
+  full_name: string;
+  headline: string | null;
+  education_level: EducationLevel | null;
+  major: string | null;
+  interests: string[] | null;
+  city: string | null;
+  skills: string[] | null;
+  seeking: string[] | null;
+  remote_ok: boolean;
+  pitch: string | null;
+  portfolio_count: number | null;
+  portfolio_achievements: string[] | null;
+  relation: 'connected' | 'incoming' | 'outgoing' | null;
+}

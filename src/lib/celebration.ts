@@ -11,6 +11,9 @@ import type { AuthNoticeCode } from '@/lib/auth-messages';
  * Teks perayaan hanya judul pendek; kalimat lengkapnya tetap `FormAlert`
  * yang dibacakan pembaca layar. `team_created` tidak ada karena halaman tim
  * sudah punya perayaan sendiri yang memuat tindakan lanjutan.
+ * `registration_awaiting_payment` juga tidak ada: pendaftaran berbayar belum
+ * resmi sebelum dibayar, jadi yang pantas muncul hanya satu pesan tetap yang
+ * memuat langkah berikutnya — bukan kartu "tersimpan" yang menumpuk di atasnya.
  */
 
 export type CelebrationArt = 'party' | 'plane' | 'trophy' | 'connect';
@@ -37,8 +40,9 @@ type CelebratedCode = Extract<
   | 'claim_submitted'
   | 'revision_submitted'
   | 'registration_confirmed'
-  | 'registration_awaiting_payment'
   | 'payment_submitted'
+  | 'seeker_opened'
+  | 'match_invited'
 >;
 
 export const CELEBRATIONS: Readonly<Record<CelebratedCode, Celebration>> = {
@@ -54,8 +58,9 @@ export const CELEBRATIONS: Readonly<Record<CelebratedCode, Celebration>> = {
   claim_submitted: { stamp: 'TERKIRIM', title: 'Klaim acara terkirim', art: 'plane', confetti: false },
   revision_submitted: { stamp: 'TERKIRIM', title: 'Permintaan perubahan terkirim', art: 'plane', confetti: false },
   registration_confirmed: { stamp: 'TERDAFTAR', title: 'Kamu resmi terdaftar!', art: 'party', confetti: true },
-  registration_awaiting_payment: { stamp: 'TERSIMPAN', title: 'Tinggal selesaikan pembayaran', art: 'plane', confetti: false },
   payment_submitted: { stamp: 'TERKIRIM', title: 'Bukti bayar sedang diperiksa', art: 'plane', confetti: false },
+  seeker_opened: { stamp: 'SIAP MAIN', title: 'Kartu pemainmu aktif!', art: 'party', confetti: true },
+  match_invited: { stamp: 'TERKIRIM', title: 'Ajakan partner sedang terbang', art: 'plane', confetti: false },
 };
 
 export function celebrationFor(code: string | null): Celebration | null {

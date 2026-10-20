@@ -3,6 +3,9 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AlertTriangle, ArrowRight, Check } from 'lucide-react';
 import { TocSpy } from '@/components/legal/toc-spy';
+import { formatDateId } from '@/lib/deadline';
+import { env } from '@/lib/env';
+import { privacyPolicyStatus } from '@/lib/legal';
 
 export const metadata: Metadata = {
   title: 'Kebijakan privasi',
@@ -92,9 +95,8 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
     title: 'Data di peramban',
     body: (
       <p>
-        Pilihan tema tersimpan di peramban (localStorage). Di mode data contoh, fitur yang belum punya penyimpanan server — profil publik, dokumen,
-        pesan, catatan persiapan — hanya tersimpan di peramban perangkatmu dan bisa dihapus dari Pengaturan. Nama berkas dokumen dicatat, isinya tidak
-        pernah dibaca atau dikirim.
+        Pilihan tampilan (tema dan gerak) tersimpan di peramban perangkatmu (localStorage), bukan di server kami, dan bisa dihapus lewat Pengaturan
+        atau dengan membersihkan data situs di peramban.
       </p>
     ),
   },
@@ -145,14 +147,37 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
     body: (
       <>
         <p>Bila kebijakan ini berubah, tanggal berlaku di atas diperbarui dan perubahan penting diumumkan di dalam aplikasi.</p>
-        <Callout>
-          Draf ini belum mencantumkan alamat kontak resmi pengelola data. Pengelola wajib melengkapinya dan meninjau isi kebijakan ini bersama
-          penasihat hukum sebelum rilis publik.
-        </Callout>
+        <ContactNote />
       </>
     ),
   },
 ];
+
+function currentStatus() {
+  return privacyPolicyStatus({ contactEmail: env.PRIVACY_CONTACT_EMAIL, effectiveDate: env.PRIVACY_POLICY_EFFECTIVE_DATE });
+}
+
+/** Kontak resmi bila pemilik sudah mengisinya; selama belum, jujur bahwa dokumen masih draf. */
+function ContactNote() {
+  const status = currentStatus();
+  if (status.final) {
+    return (
+      <p>
+        Pertanyaan atau permintaan terkait datamu:{' '}
+        <a href={`mailto:${status.contactEmail}`} className="font-semibold underline underline-offset-[3px]">
+          {status.contactEmail}
+        </a>
+        .
+      </p>
+    );
+  }
+  return (
+    <Callout>
+      Draf ini belum mencantumkan alamat kontak resmi pengelola data. Pengelola wajib melengkapinya dan meninjau isi kebijakan ini bersama
+      penasihat hukum sebelum rilis publik.
+    </Callout>
+  );
+}
 
 function Callout({ children }: { children: ReactNode }) {
   return (
@@ -170,13 +195,14 @@ function Callout({ children }: { children: ReactNode }) {
  * penyelenggara, yang tidak dilakukan aplikasi ini (ADR-039).
  */
 export default function PrivacyPolicyPage() {
+  const status = currentStatus();
   return (
     <div className="container-page pb-20 pt-12">
       <header className="enter flex max-w-[720px] flex-col gap-3 [animation-duration:900ms]">
-        <span className="font-mono text-xs tracking-[.08em] text-ink-muted">DOKUMEN · DRAF</span>
+        <span className="font-mono text-xs tracking-[.08em] text-ink-muted">{status.final ? 'DOKUMEN · BERLAKU' : 'DOKUMEN · DRAF'}</span>
         <h1 className="text-[clamp(36px,6vw,56px)] leading-[1.02]">Kebijakan privasi</h1>
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-ink-muted">
-          <span>Draf 15 Oktober 2026</span>
+          <span>{status.final ? `Berlaku sejak ${formatDateId(`${status.effectiveDate}T00:00:00+07:00`)}` : 'Draf 15 Oktober 2026'}</span>
           <span aria-hidden>·</span>
           <span>Waktu baca sekitar 4 menit</span>
         </p>
