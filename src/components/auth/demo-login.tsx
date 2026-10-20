@@ -16,16 +16,21 @@ const ICON: Record<DemoPersonaId, typeof GraduationCap> = {
  * mati, dan setiap tombol adalah target sentuh penuh (≥ 44px) dengan nama
  * aksesibel yang menyebut personanya — bukan empat tombol "Masuk" kembar.
  * Awalan "Masuk sebagai <label>:" dipakai helper e2e; jangan diubah.
+ *
+ * Persona Admin TIDAK ikut daftar kecuali pemanggil membawa kunci yang sudah
+ * lolos `isDemoAdminPersonaAllowed` (`adminKey`). Kunci dikirim ulang sebagai
+ * isian tersembunyi dan diperiksa lagi di `demoSignInAction`.
  */
-export function DemoLogin({ next }: { next: string }) {
+export function DemoLogin({ next, adminKey }: { next: string; adminKey?: string }) {
+  const personaIds = DEMO_PERSONA_IDS.filter((id) => id !== 'admin' || adminKey !== undefined);
   return (
     <section aria-labelledby="demo-login-title" className="flex flex-col gap-3">
       <h2 id="demo-login-title" className="text-center text-sm text-ink-muted">
-        <span className="font-semibold text-ink">Mode demo</span> — masuk dengan akun contoh.
+        Pilih peran untuk mencoba.
       </h2>
 
       <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-card border border-line">
-        {DEMO_PERSONA_IDS.map((id) => {
+        {personaIds.map((id) => {
           const persona = DEMO_PERSONAS[id];
           const Icon = ICON[id];
           return (
@@ -33,6 +38,7 @@ export function DemoLogin({ next }: { next: string }) {
               <form action={demoSignInAction}>
                 <input type="hidden" name="persona" value={id} />
                 <input type="hidden" name="next" value={next} />
+                {id === 'admin' && <input type="hidden" name="akses" value={adminKey ?? ''} />}
                 <button
                   type="submit"
                   aria-label={`Masuk sebagai ${persona.label}: ${persona.fullName}`}
@@ -52,7 +58,6 @@ export function DemoLogin({ next }: { next: string }) {
           );
         })}
       </ul>
-      <p className="text-center text-[12.5px] text-ink-muted">Data akun demo sementara dan terhapus saat kamu keluar.</p>
     </section>
   );
 }

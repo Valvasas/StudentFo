@@ -64,6 +64,25 @@ export interface DetailRow {
   readonly wide?: boolean;
 }
 
+/**
+ * Alamat email dengan titik putus sebelum `@` dan `.`: kolom sempit memecahnya
+ * di batas bagian, bukan di tengah kata ("…studentfo.loc / al"), dan email
+ * tetap utuh bila disalin.
+ */
+export function BreakableEmail({ email }: { email: string }) {
+  const parts = email.split(/(?=[@.])/);
+  return (
+    <>
+      {parts.map((part, index) => (
+        <span key={`${index}-${part}`}>
+          {index > 0 && <wbr />}
+          {part}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function DetailRows({ rows }: { rows: readonly DetailRow[] }) {
   return (
     <dl className="grid gap-x-6 px-5 pb-3 [grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))] sm:px-6">

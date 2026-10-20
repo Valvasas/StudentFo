@@ -17,6 +17,7 @@ import { requireUser } from '@/lib/auth';
 import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
+import { sectionTitle } from '@/lib/page-title';
 import { registrationAvailability, type RegistrationAvailability } from '@/lib/registration-form';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
@@ -24,10 +25,13 @@ import { registerForEventAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Formulir pendaftaran',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const event = await (await getEventRepository()).getEventBySlug((await params).slug);
+  return {
+    title: event ? sectionTitle('Formulir pendaftaran', event.title) : 'Formulir pendaftaran',
+    robots: { index: false, follow: false },
+  };
+}
 
 const card = 'flex flex-col gap-5 rounded-[20px] border border-line bg-panel p-5 sm:p-7';
 

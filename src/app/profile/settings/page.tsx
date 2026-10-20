@@ -7,7 +7,7 @@ import { AuthField } from '@/components/auth/auth-field';
 import { PasswordInput } from '@/components/auth/password-input';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DemoNotificationCard, DemoResetCard } from '@/components/profile/demo-settings';
-import { DetailCard, DetailRows, detailButton, detailFields, detailGhostButton, detailPrimaryButton } from '@/components/profile/detail-card';
+import { BreakableEmail, DetailCard, DetailRows, detailButton, detailFields, detailGhostButton, detailPrimaryButton } from '@/components/profile/detail-card';
 import { requireUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
@@ -70,14 +70,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         >
           <DetailRows
             rows={[
-              { label: 'Email masuk', value: user.email, locked: true },
+              { label: 'Email masuk', value: <BreakableEmail email={user.email} />, locked: true },
               {
                 label: 'Kata sandi',
                 value: hasPassword
                   ? 'Aktif · mengganti kata sandi mengeluarkan sesi di perangkat lain'
                   : hasGoogle
                     ? 'Tidak dipakai — kamu masuk lewat Google'
-                    : 'Tidak dipakai — akun demo masuk tanpa kata sandi',
+                    : 'Tidak dipakai — akun ini masuk tanpa kata sandi',
                 empty: !hasPassword,
               },
               {

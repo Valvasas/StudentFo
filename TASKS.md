@@ -307,6 +307,38 @@ Belum / butuh keputusan atau akses pemilik:
 - [ ] Pengumuman ke pendaftar (email massal dari panitia) — butuh pengirim email & batas laju.
 - [ ] Syarat & Ketentuan (tetap P0 audit 2026-10-05), kini juga mengatur tanggung jawab penyelenggara atas data pendaftar.
 
+## Pengerasan pra-produksi & pencocokan tim 2026-10-20 (@claude) — ADR-057
+
+Permintaan pemilik: perbaiki semua temuan `TEMUAN.md` (T1–T15), cek fitur yang
+ada, tambah pencocokan tim/partner otomatis (animasi, ilustrasi, filter jarak/
+keahlian/portofolio), dan evaluasi dari sudut pandang pengunjung kritis
+(`docs/evaluasi-pengunjung-kritis.md`).
+
+- [x] T1 login/daftar form biasa, demo di `/demo` + penjaga host + kunci Admin (`lib/demo/access.ts`, `gate.ts`); `demoSignInAction` menegakkan aturan yang sama
+- [x] T2 `/admin/*` = 404 untuk non-admin (`requireAdmin`), judul netral (`adminMetadata`), `robots.txt` tidak menyebutnya; e2e `access-hardening.spec.ts`
+- [x] T3 bahasa internal dibersihkan dari panel admin
+- [x] T4 satu penanda demo (banner), data persona meyakinkan (`@nusantara.test`), reset "tiap 6 jam"
+- [x] T5 Tentang tanpa daftar kekurangan; status Kebijakan privasi digerakkan env (`lib/legal.ts`)
+- [x] T6 judul 404 sendiri; judul per tab (`?tab=`) di detail kegiatan, Koneksi, Profil; "Masuk untuk membuka …" menyebut halaman tujuan
+- [x] T7 halaman fungsional berkepala polos; tanpa tint pastel acak/stabilo di daftar
+- [x] T8 kosakata: Papan lamaran · Pendaftaran & pembayaran · Lamaran (tab profil)
+- [x] T9 navbar ringkas di halaman fokus-tugas (`isFocusedTaskPath`)
+- [x] T10–T15 email dapat diputus, satu pemberitahuan pembayaran, kartu kosong tidak meregang, menu peserta tanpa "Ruang kerja", penanda privat berupa ikon, "Data lembaga" berpenjelasan, gema tanggal Indonesia
+- [x] Pencocokan tim: migration `20261020100001` + `100_team_matching.test.sql` (mutation-tested), `lib/matchmaking.ts` + `geo.ts` (murni, teruji), repository memori & Supabase, `/teams/cocok` (kartu pemain, radar, hasil, saringan, ajak/lewati), animasi §10 `globals.css`, e2e `matchmaking.spec.ts`
+- [x] `npm run verify` (690 tes unit), `npm run db:test` (21 berkas SQL), `npm run test:integration` (90 tes), e2e penuh 3 proyek — hijau
+- [ ] **BUTUH KONFIRMASI.** Apply `20261020100001` ke staging, lalu `npm run db:verify`. Urutan rilis: migration dulu, baru kode — tanpa tabel `team_seekers`, `/teams/cocok` di mode Supabase gagal.
+- [ ] **BUTUH PEMILIK.** Isi `PRIVACY_CONTACT_EMAIL` + `PRIVACY_POLICY_EFFECTIVE_DATE` HANYA setelah Kebijakan privasi ditinjau penasihat hukum; sampai itu halamannya berlabel DRAF (disengaja).
+- [ ] **BUTUH PEMILIK.** Deploy demo publik: `DEMO_ALLOWED_HOSTS` (wajib, kosong = demo ditolak) dan `DEMO_ADMIN_KEY` bila persona Admin perlu dicoba.
+- [x] Uji integrasi PostgREST pencocokan (`tests/integration/matchmaking.test.ts`, 7 tes; 3 mutasi migration tertangkap)
+- [x] Tur pengunjung kritis + laporan: `docs/evaluasi-pengunjung-kritis.md` (12 temuan baru N1–N12 diperbaiki)
+- [ ] Algoritma: simpan "lewati"/ajakan sebagai sinyal teragregasi untuk kalibrasi bobot (kini bobot dari tangan); pra-saring SQL bila kartu terbuka > ±400 (jendela kandidat berdasar keterbaruan, bukan relevansi).
+- [ ] Mobile: kartu hasil pencocokan ±800 px per kartu (halaman ±5.800 px untuk 6 kartu) — pertimbangkan mode ringkas.
+- [ ] Email ikut di URL galat masuk (`/login?error=…&email=…`, `echoEmail`): pertimbangkan cookie sekali-pakai.
+- [x] Demo bersama: store demo hanya mencalonkan orang contoh (`isolateSeekers`), jadi kartu/kalimat pengantar pengunjung demo tidak terlihat pengunjung lain. (Tim buatan pengunjung masih dibagi — perilaku lama, direset 6 jam.)
+- [ ] Mode "tim yang cocok" (peringkat tim terbuka untuk dimasuki): butuh kolom keahlian-dicari per tim di `teams`.
+- [ ] Kota hanya dari daftar `REGIONS` (tidak ada teks bebas, sengaja). Titik pusat kota ±belasan km; jangan menjanjikan ketepatan lebih di UI.
+- [ ] Rate-limit baca `list_team_candidates` bila terbukti dipakai memanen profil (kini dijaga: kartu pemanggil harus terbuka + jendela 400).
+
 ## Template tugas baru
 
 ```md

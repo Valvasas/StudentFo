@@ -15,7 +15,7 @@ test('menu akun bisa dilipat jadi rel ikon dan dibuka lagi', async ({ page }, te
   await expect(page).toHaveURL(/\/tracker$/);
   await expect(menu.getByRole('button', { name: 'Lebarkan menu akun' })).toHaveAttribute('aria-expanded', 'false');
   // Label tetap ada untuk pembaca layar walau hanya ikon yang tampil.
-  await expect(menu.getByRole('link', { name: 'Pendaftaran' })).toHaveAttribute('aria-current', 'page');
+  await expect(menu.getByRole('link', { name: 'Papan lamaran' })).toHaveAttribute('aria-current', 'page');
 
   await menu.getByRole('link', { name: 'Pengaturan' }).click();
   // Tombol "Lebarkan" juga ada di halaman LAMA yang tetap tampil selama

@@ -205,6 +205,37 @@ MPF/MPO & trailer ikut hilang).
 StudentFo terbuka & tenggat belum lewat → 303 ke `/events/<slug>/formulir`;
 selain itu → tautan resmi penyelenggara seperti sebelumnya.
 
+### Pencocokan tim/partner (ADR-057)
+
+`MatchmakingRepository` — tiga method; peringkat BUKAN tugas repository.
+
+| Method | Siapa | Catatan |
+|---|---|---|
+| `getSeekerProfile(userId)` | pemilik | `null` = belum pernah membuat kartu |
+| `saveSeekerProfile(actor, input)` | pemilik | `input` SUDAH lolos `parseSeekerForm()`; kartu terbuka wajib punya ≥1 keahlian dan (kota ATAU `remoteOk`) — dijaga juga CHECK database |
+| `listSeekerCandidates(viewerId, limit)` | pengguna masuk | **Timbal-balik:** `[]` bila kartu pembaca sendiri tidak terbuka. Tanpa diri sendiri, tanpa pemblokir/diblokir, tanpa email. `limit` dijepit `1..400` (`clampCandidateWindow`, kembar `LEAST(GREATEST(COALESCE(p,200),1),400)`) |
+
+Peringkat: `rankCandidates(viewer, candidates, { style, filters, limit })`
+(`src/lib/matchmaking.ts`) — murni, deterministik (seri diurutkan `userId`),
+dipakai halaman untuk kedua mode data. Bentuk keluaran `Match { score 0..100,
+components[6], reasons[], chemistry, distanceKm }`; `distanceKm` dibulatkan
+5 km dan `null` bila kota salah satu tak dikenal (`src/lib/geo.ts`).
+
+Kontrak query `/teams/cocok` (`parseMatchQuery()` / `serializeMatchQuery()`;
+nilai bawaan tidak ditulis sehingga satu kombinasi = satu URL; nilai asing
+diabaikan, bukan galat):
+
+| Param | Nilai | Bawaan |
+|---|---|---|
+| `cari` | `1` = putar pemindaian | — |
+| `jarak` | `25` \| `100` \| `500` (km) | tanpa batas |
+| `daring` | `0` = hanya yang bisa bertemu langsung | ikutkan yang daring |
+| `keahlian` | slug `TEAM_SKILLS`, boleh berulang (salah satu cukup) | — |
+| `portofolio` | `ada` \| `juara` | `semua` |
+| `jenjang` | `sama` | — |
+| `gaya` | `juara` \| `belajar` | `seimbang` |
+| `tampil` | `6` \| `12` \| `18` \| `24` | `6` |
+
 ### `ReviewEventInput`
 
 ```ts
@@ -390,6 +421,19 @@ tidak mengubah apa pun dan **tidak** menghasilkan pesan berbeda — membedakan
 Validasi form lewat `parseCreateTeamForm()` (`src/lib/team-schema.ts`), yang
 batas-batasnya mencerminkan kolomnya di migration 0001 (`title` VARCHAR(255),
 `slots_needed` CHECK 1..50).
+
+### Aksi pencocokan tim — `src/app/teams/cocok/actions.ts` (ADR-057)
+
+| Aksi | Field form | Sukses | Kode gagal |
+|---|---|---|---|
+| `saveSeekerAction` | `open`, `city?`, `skills[]`, `seeking[]`, `remoteOk`, `pitch?` | `/teams/cocok?notice=seeker_opened` (kartu BARU dibuka, dirayakan) atau `seeker_saved`; membawa `cari=1` bila terbuka | `invalid_seeker_profile` (+ `fields=` daftar kolom bermasalah) |
+| `inviteMatchAction` | `targetId`, `message?`, `returnTo` | `notice=match_invited`, atau `connection_matched` bila pihak lain sudah mengajak lebih dulu | `invalid_request`, `invalid_connection_message`, kode Koneksi (`person_unavailable`, `connection_exists`, `connection_self`, `connection_rate_limited`) |
+
+Keduanya memanggil `requireUser()` sendiri. `returnTo` hanya boleh kembali ke
+`/teams/cocok` (dengan saringannya); selain itu dipaksa ke halaman itu. Ajakan
+memakai jalur yang SAMA dengan Koneksi (`requestConnection`) — tidak ada tabel
+ajakan kedua. "Lewati" sebuah kartu adalah keadaan klien sementara
+(`DismissibleMatch`), tidak disimpan di mana pun.
 
 ### Aksi kiriman komunitas — `src/app/submit/actions.ts`
 

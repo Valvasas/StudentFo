@@ -24,7 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useDemoStore } from '@/components/demo/use-demo-store';
-import { Avatar, AvatarStack, TINT_BG } from '@/components/ui/avatar';
+import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { IllustrationStage } from '@/components/ui/feature-hero';
 import { ChatSketch } from '@/components/ui/feature-illustrations';
 import {
@@ -45,7 +45,6 @@ import {
   type DiscussionState,
 } from '@/lib/demo/discussions';
 import { monogramOf } from '@/lib/initials';
-import { coverTintOf } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 
 export interface GroupEvent {
@@ -341,7 +340,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
         </div>
 
         <header className="overflow-hidden rounded-[26px] border border-line bg-panel">
-          <div aria-hidden className={cn('dot-grid h-20 sm:h-24', TINT_BG[coverTintOf(group.id)])} />
+          <div aria-hidden className="dot-grid h-20 bg-panel-nested sm:h-24" />
           <div className="flex flex-col gap-2.5 px-5 pb-5 sm:px-7 sm:pb-6">
             <div className="-mt-9 flex items-end justify-between gap-3">
               <Avatar name={event.title} label={monogramOf(event.title)} seed={group.id} size="xl" shape="square" ring />
@@ -699,7 +698,6 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
                 ))}
               </ul>
             )}
-            <p className="text-center text-[12px] text-ink-faint">Utas contoh · mode demo. Yang kamu tulis hanya tersimpan di perangkat ini.</p>
           </>
         )}
       </div>

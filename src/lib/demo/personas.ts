@@ -64,13 +64,19 @@ export const DEMO_PERSONAS: Readonly<Record<DemoPersonaId, DemoPersona>> = {
     id: 'penyelenggara',
     label: 'Penyelenggara',
     summary: 'Studio acara: pendaftar, galeri, analitik',
-    fullName: 'Sekar Ayu (Himpunan Informatika)',
+    fullName: 'Sekar Ayu',
     role: 'USER',
     educationLevel: 'D4_S1',
     major: 'Teknik Informatika',
     interests: ['teknologi'],
   },
 };
+
+/** Surel persona: dari nama, di domain `.test` (dicadangkan RFC 2606, tidak pernah bisa terkirim ke orang sungguhan). */
+export function demoEmailOf(id: DemoPersonaId): string {
+  const local = DEMO_PERSONAS[id].fullName.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '');
+  return `${local}@nusantara.test`;
+}
 
 export function isDemoPersonaId(value: unknown): value is DemoPersonaId {
   return typeof value === 'string' && (DEMO_PERSONA_IDS as readonly string[]).includes(value);

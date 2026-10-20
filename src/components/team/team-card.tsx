@@ -108,7 +108,7 @@ export function TeamCard({
         isMember ? 'border-brand' : 'border-line',
       )}
     >
-      <div className={cn('dot-grid flex items-start justify-between gap-3 px-5 pb-9 pt-4', TINT_BG[tintOf(team.id)])}>
+      <div className="dot-grid flex items-start justify-between gap-3 bg-panel-nested px-5 pb-9 pt-4">
         {team.event ? (
           <>
             <span className="inline-flex h-7 min-w-0 items-center gap-1.5 rounded-pill bg-panel px-3 text-[12.5px] font-semibold">

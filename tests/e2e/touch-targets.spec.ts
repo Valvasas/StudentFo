@@ -31,7 +31,7 @@ async function smallTargets(page: Page, scope: string): Promise<string[]> {
 }
 
 test('kartu persona demo: setiap target ≥ 44px', async ({ page }) => {
-  await page.goto('/login');
+  await page.goto('/demo');
   expect(await smallTargets(page, 'section[aria-labelledby="demo-login-title"]')).toEqual([]);
 });
 
@@ -96,5 +96,19 @@ test('kartu tracker (ubah tahap, hapus): setiap target ≥ 44px', async ({ page 
     nodes.map((node) => node.getBoundingClientRect().height).filter((height) => height < 44),
   );
   expect(small).toEqual([]);
+  expect(await smallTargets(page, 'main')).toEqual([]);
+});
+
+test('pencocokan tim (form, hasil, saringan terbuka): setiap target ≥ 44px', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/teams/cocok');
+  expect(await smallTargets(page, 'main')).toEqual([]);
+  await page.locator('input[name=skills][value=web-aplikasi]').check();
+  await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
+  await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
+  await expect(page.getByRole('heading', { name: 'Pasangan terbaik untukmu' })).toBeVisible();
+  // Buka saringan DAN rincian satu kartu: isi <details> yang tertutup tidak terukur.
+  await page.getByText('Saring & atur gaya tim').click();
+  await page.getByText('Lihat rincian kecocokan').first().click();
+  await page.getByText('+ Tambah pesan pengantar').first().click();
   expect(await smallTargets(page, 'main')).toEqual([]);
 });

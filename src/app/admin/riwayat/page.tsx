@@ -1,13 +1,12 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { History, RotateCcw, ShieldCheck } from 'lucide-react';
+import { History, RotateCcw } from 'lucide-react';
 import { restoreRejectedAction } from '@/app/admin/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
-import { checkAdminAccess } from '@/lib/auth';
+import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -15,10 +14,7 @@ import type { ModerationLogEntry, ModerationStatus, ModerationSubject } from '@/
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Riwayat moderasi',
-  robots: { index: false, follow: false },
-};
+export const generateMetadata = (): Promise<Metadata> => adminMetadata('Riwayat moderasi');
 
 const HISTORY_LIMIT = 100;
 
@@ -61,21 +57,7 @@ function actorLabel(entry: ModerationLogEntry): string {
  */
 export default async function ModerationHistoryPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
-  const gate = await checkAdminAccess();
-  if (!gate.allowed) {
-    return (
-      <div className="container-page flex flex-col items-center gap-3 py-24 text-center">
-        <ShieldCheck aria-hidden className="size-10 text-ink-faint" />
-        <h1 className="text-2xl">Akses terbatas</h1>
-        <p className="max-w-md text-ink-muted">Riwayat moderasi hanya untuk akun berperan admin.</p>
-        {gate.reason === 'unauthenticated' && (
-          <Button asChild>
-            <Link href="/login?next=%2Fadmin%2Friwayat">Masuk</Link>
-          </Button>
-        )}
-      </div>
-    );
-  }
+  await requireAdmin();
 
   const repository = await getEventRepository();
   const entries = await repository.listModerationLog(HISTORY_LIMIT);

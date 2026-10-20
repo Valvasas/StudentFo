@@ -2,10 +2,9 @@ import Link from 'next/link';
 import { BookOpen, Check, Ellipsis, GraduationCap, Heart, Link2, UserPlus, UsersRound, type LucideIcon } from 'lucide-react';
 import { removeConnectionAction, requestConnectionAction, respondConnectionAction, unblockPersonAction } from '@/app/connections/actions';
 import { CategoryIcon } from '@/components/listing/category-icon';
-import { Avatar, TINT_BG } from '@/components/ui/avatar';
+import { Avatar } from '@/components/ui/avatar';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { daysAgoLabel, personMeta, type SuggestionReason, type SuggestionReasonKind } from '@/lib/network';
-import { coverTintOf } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 import type { BlockedPerson, Connection, NetworkPerson } from '@/types/domain';
 import { BLOCK_CONSEQUENCE, BlockPersonDetails, BlockPersonForm } from './block-person';
@@ -104,7 +103,7 @@ export function SuggestionCard({
       id={preview ? undefined : `orang-${person.userId}`}
       className="group relative flex h-full flex-col overflow-hidden rounded-[22px] border border-line bg-panel transition-[border-color,box-shadow] duration-200 ease-snap focus-within:border-brand hover:border-line-strong hover:shadow-raised"
     >
-      <div aria-hidden className={cn('dot-grid h-[68px]', TINT_BG[coverTintOf(person.userId)])} />
+      <div aria-hidden className="dot-grid h-[68px] bg-panel-nested" />
       <div className="flex flex-1 flex-col gap-3.5 px-5 pb-5">
         <Avatar name={person.fullName} seed={person.userId} size="lg" ring className="-mt-8" />
         <PersonHeading person={person} link={!preview} />

@@ -7,6 +7,7 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { MySubmissions } from '@/components/submit/my-submissions';
 import { TurnstileWidget } from '@/components/submit/turnstile-widget';
 import { buttonVariants } from '@/components/ui/button';
+import { DateInput } from '@/components/ui/date-input';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
 import { ChoiceGroup, FormStep } from '@/components/ui/form-step';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -184,7 +185,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
         <FormStep number={2} title="Waktu & tempat" hint="Sisa waktu di kartu dihitung dari tanggal ini.">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field id="deadlineDate" label="Tenggat pendaftaran" hint="Dianggap berakhir pukul 23.59 WIB.">
-              <TextInput id="deadlineDate" name="deadlineDate" type="date" required min={today} />
+              <DateInput id="deadlineDate" name="deadlineDate" required min={today} />
             </Field>
             <Field id="location" label="Lokasi (opsional)" hint="Kota atau kampus. Kosongkan kalau sepenuhnya daring.">
               <TextInput id="location" name="location" maxLength={120} placeholder="Mis. Bandung" />

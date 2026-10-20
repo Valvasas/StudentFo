@@ -121,6 +121,11 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   warna lewat `currentColor`/token supaya ikut tema gelap (ADR-053). Kepala
   halaman fitur unggulan (tim, koneksi, kotak masuk) boleh memakai ilustrasi
   dari `feature-illustrations.tsx` — tetap satu per layar (ADR-054).
+  Sejak ADR-057 itu BERLAKU TERBATAS: halaman fungsional (daftar, form,
+  pengaturan, `/teams`, `/connections`) berkepala polos seperti `/events`;
+  ilustrasi besar, stabilo (`marker`), dan gerak panggung hanya untuk "momen"
+  yang dirancang sebagai pengalaman (`/teams/cocok`, perayaan hasil aksi).
+  Tint identitas tidak dipakai untuk menghias kartu daftar.
 - Tint catatan tempel (`--color-tint-*`, `Avatar`, `tintOf()`/`coverTintOf()`
   di `lib/tint.ts`) = IDENTITAS orang/grup/tim, bukan makna. Jangan memetakan
   status ke tint; teks di atas tint selalu tinta primer (ADR-054).
@@ -134,7 +139,14 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   `ink-draw`, `drift`, `twinkle`, `breathe`, `typing-dot`, `sheet-in`,
   `stamp`, `confetti-bit`) + ADR-055 (`page-enter`, `loader-in`, `bob`, `fly`,
   `sweep`, `turn`, `dash-flow`, `celebrate-in/out`, `launch`,
-  `progress-sheen`). Anak dekoratif DI DALAM target (ikon panah) boleh
+  `progress-sheen`) + ADR-057 (`scan-overlay`, `scan-results`, `scan-line`,
+  `radar-sweep`, `radar-ping`, `blip`, `ring-fill`, `card-out`, `snap-left`,
+  `snap-right`; §10 `globals.css`). Rangkaian pemindaian pencocokan wajib
+  **gagal-aman**: keadaan BAWAAN elemen = hasil terlihat dan lapisan
+  pemindaian tersembunyi; animasi hanya meminjam keadaan sebaliknya selama
+  ±2,9 detik. Tanpa JS ia berakhir sendiri, dan di reduced-motion (aturan
+  global `animation-duration: 0.01ms`) langsung menuju keadaan akhir. Jangan
+  membalik ini (konten tersembunyi sampai animasi/JS menampakkannya). Anak dekoratif DI DALAM target (ikon panah) boleh
   bergeser saat hover — kotak sentuhnya sendiri tetap diam.
 - Tombol "ditekan" = bayangan inset + isi turun 1px (`active:pt-0.5` hanya pada
   tombol bertinggi tetap tanpa `py-*`), BUKAN `scale` — tombol yang menciut

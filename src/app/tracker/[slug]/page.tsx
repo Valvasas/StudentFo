@@ -16,16 +16,20 @@ import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId, getDeadlineState } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { withFallback } from '@/lib/fallback';
+import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
 import { DEADLINE_LABEL_TEXT, EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL, remainingSlots, type TrackerStatus } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Status pendaftaran',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const event = await (await getEventRepository()).getEventBySlug((await params).slug);
+  return {
+    title: event ? sectionTitle('Status lamaran', event.title) : 'Status lamaran',
+    robots: { index: false, follow: false },
+  };
+}
 
 function Panel({ id, icon, title, children, className }: { id: string; icon: ReactNode; title: string; children: ReactNode; className?: string }) {
   return (

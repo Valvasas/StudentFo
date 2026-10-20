@@ -1,25 +1,21 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { AlertTriangle, Check, CheckCircle2, RotateCcw, ShieldCheck, Users } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, RotateCcw, Users } from 'lucide-react';
 import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatWait, REVIEW_SLA_HOURS, summarizeDecisions, summarizeQueue, type QueueHealth } from '@/lib/admin-health';
-import { checkAdminAccess } from '@/lib/auth';
+import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { DEMO_DATA_TTL_MS, demoDataCreatedAt, getEventRepository } from '@/lib/data';
 import { formatDateTimeId, formatTimeId } from '@/lib/deadline';
-import { dataMode } from '@/lib/env';
 import { resetDemoDataAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Antrean moderasi',
-  robots: { index: false, follow: false },
-};
+export const generateMetadata = (): Promise<Metadata> => adminMetadata('Antrean moderasi');
 
 const QUEUE_LIMIT = 50;
 
@@ -40,26 +36,7 @@ export default async function AdminPage({
   // properti prototype Object dan mencoba merender sebuah fungsi.
   const statusMessage =
     statusKey && Object.hasOwn(STATUS_MESSAGE, statusKey) ? STATUS_MESSAGE[statusKey] : undefined;
-  const gate = await checkAdminAccess();
-
-  if (!gate.allowed) {
-    return (
-      <div className="container-page flex flex-col items-center gap-3 py-24 text-center">
-        <ShieldCheck aria-hidden className="size-10 text-ink-faint" />
-        <h1 className="text-2xl">Akses terbatas</h1>
-        <p className="max-w-md text-ink-muted">
-          {gate.reason === 'unauthenticated'
-            ? 'Masuk dengan akun admin untuk membuka antrean moderasi.'
-            : 'Akunmu tidak punya peran admin. Hubungi pengelola kalau ini keliru.'}
-        </p>
-        {gate.reason === 'unauthenticated' && (
-          <Button asChild>
-            <Link href="/login?next=%2Fadmin">Masuk</Link>
-          </Button>
-        )}
-      </div>
-    );
-  }
+  const gate = await requireAdmin();
 
   const repository = await getEventRepository();
   const demoCreatedAt = demoDataCreatedAt();
@@ -121,7 +98,7 @@ export default async function AdminPage({
         {/* Dua kolom di ponsel: empat petak bertumpuk selebar layar mendorong item
             antrean pertama dua layar ke bawah. */}
         <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line bg-line lg:grid-cols-4">
-          <QueueTile href="#antrean-acara" label="Acara hasil scraping" health={health.events} capped={pending.length >= QUEUE_LIMIT} />
+          <QueueTile href="#antrean-acara" label="Kegiatan dari sumber otomatis" health={health.events} capped={pending.length >= QUEUE_LIMIT} />
           <QueueTile href="#kiriman-komunitas" label="Kiriman komunitas" health={health.submissions} capped={submissions.length >= QUEUE_LIMIT} />
           <QueueTile href="/admin/penyelenggara" label="Penyelenggara, klaim & revisi" health={health.trust} capped={false} />
           <li className="bg-panel">
@@ -151,8 +128,6 @@ export default async function AdminPage({
                     new Date(demoCreatedAt.getTime() + DEMO_DATA_TTL_MS).toISOString(),
                   )})`
                 : ''}.
-              Di produksi, halaman ini mensyaratkan akun berperan{' '}
-              <code className="rounded-sm bg-panel-nested px-1">ADMIN</code>.
             </span>
           </p>
           <form action={resetDemoDataAction}>
@@ -165,7 +140,7 @@ export default async function AdminPage({
       )}
 
       <h2 id="antrean-acara" className="mb-4 scroll-mt-24 text-2xl">
-        Acara hasil scraping
+        Kegiatan dari sumber otomatis
       </h2>
       {pending.length === 0 ? (
         <div className="rounded-card border border-dashed border-line bg-panel px-6 py-16 text-center">
@@ -206,9 +181,6 @@ export default async function AdminPage({
         )}
       </section>
 
-      <p className="mt-8 text-xs text-ink-faint">
-        Sumber data saat ini: <code>{dataMode === 'supabase' ? 'Supabase' : 'seed lokal'}</code>
-      </p>
     </div>
   );
 }

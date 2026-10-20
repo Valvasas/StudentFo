@@ -5,7 +5,8 @@
 //
 // Pakai (server mode demo harus sudah jalan):
 //   node scripts/crawl-links.mjs http://localhost:3100
-// Opsional: CRAWL_LIMIT=300 (halaman per peran), PLAYWRIGHT_CHROMIUM_EXECUTABLE.
+// Opsional: CRAWL_LIMIT=300 (halaman per peran), PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+// CRAWL_ADMIN_KEY (sama dengan DEMO_ADMIN_KEY server; tanpa ini persona Admin dilewati).
 //
 // Tautan yang SENGAJA tidak diikuti: /api/* (berkas & endpoint mesin),
 // /events/*/daftar (pengalih keluar yang mencatat sinyal klik — ADR-032),
@@ -45,10 +46,18 @@ for (const persona of PERSONAS) {
   });
   page.on('pageerror', (error) => problems.push(`[${label}] ${current} exception: ${String(error).slice(0, 180)}`));
 
+  if (persona === 'Admin moderator' && !process.env.CRAWL_ADMIN_KEY) {
+    console.log('Persona Admin dilewati: CRAWL_ADMIN_KEY tidak diisi.');
+    await context.close();
+    continue;
+  }
+
   if (persona) {
-    await page.goto(`${BASE}/login`);
+    // Persona Admin hanya ada di tautan berkunci (ADR-057): CRAWL_ADMIN_KEY = DEMO_ADMIN_KEY server.
+    const key = persona === 'Admin moderator' && process.env.CRAWL_ADMIN_KEY ? `?akses=${encodeURIComponent(process.env.CRAWL_ADMIN_KEY)}` : '';
+    await page.goto(`${BASE}/demo${key}`);
     await page.getByRole('button', { name: new RegExp(`^Masuk sebagai ${persona}:`) }).click();
-    await page.waitForURL((url) => !url.pathname.startsWith('/login'));
+    await page.waitForURL((url) => !url.pathname.startsWith('/demo'));
   }
 
   // Path yang belum pernah dibuka didahulukan; variasi query string (kombinasi

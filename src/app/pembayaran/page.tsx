@@ -21,7 +21,7 @@ import type { EventRegistration } from '@/types/domain';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Pembayaran',
+  title: 'Pendaftaran & pembayaran',
   robots: { index: false, follow: false },
 };
 
@@ -42,8 +42,12 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     <div className="container-page pb-24 pt-6 sm:pt-10">
       <div className="mx-auto flex max-w-[760px] flex-col gap-8">
         <header className="flex flex-col gap-2">
-          <h1 className="text-[clamp(30px,4.4vw,40px)] leading-[1.05] tracking-[-0.04em]">Pembayaran</h1>
-          <p className="text-[15px] text-ink-muted">Pendaftaran acara lewat StudentFo dan status pembayarannya.</p>
+          <h1 className="text-[clamp(30px,4.4vw,40px)] leading-[1.05] tracking-[-0.04em]">Pendaftaran & pembayaran</h1>
+          <p className="text-[15px] text-ink-muted">Acara yang kamu daftari lewat formulir StudentFo, beserta status pembayarannya.</p>
+          <Link href="/tracker" className="inline-flex min-h-11 w-fit items-center gap-1 text-sm font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
+            Mendaftar di situs penyelenggara? Catat di Papan lamaran
+            <ArrowRight aria-hidden className="size-3.5" />
+          </Link>
         </header>
 
         <ActionFeedback params={query} />

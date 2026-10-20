@@ -28,7 +28,7 @@ import { cancelRegistrationAction, submitPaymentProofAction } from '../actions';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Pendaftaran',
+  title: 'Status pendaftaran',
   robots: { index: false, follow: false },
 };
 

@@ -7,6 +7,7 @@ import {
   Lock,
   MessageCircle,
   Palette,
+  Radar,
   ReceiptText,
   Settings,
   ShieldCheck,
@@ -57,6 +58,7 @@ export type AccountSection =
   | 'daftar'
   | 'pembayaran'
   | 'koneksi'
+  | 'cocok'
   | 'tersimpan'
   | 'personalisasi'
   | 'pengaturan'
@@ -91,6 +93,10 @@ export interface AccountMenuGroup {
  */
 export function accountMenuGroups(role: AccountRole, options: { readonly demoFeatures: boolean }): readonly AccountMenuGroup[] {
   const studio: AccountMenuItem = { key: 'studio', label: 'Studio penyelenggara', href: '/penyelenggara', icon: BadgeCheck };
+  // Peserta bukan penyelenggara: grup "Ruang kerja" yang menampilkan studio
+  // untuk semua orang menyiratkan mereka punya sesuatu di sana. Pintu
+  // mengajukan diri tetap ada, tetapi bernama apa adanya dan di "Lainnya".
+  const becomeOrganizer: AccountMenuItem = { ...studio, label: 'Jadi penyelenggara' };
   const moderation: AccountMenuItem = { key: 'moderasi', label: 'Antrean moderasi', href: '/admin', icon: ShieldCheck };
 
   const workspace: AccountMenuGroup = {
@@ -111,8 +117,8 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
     key: 'aktivitas',
     title: 'Aktivitas',
     items: [
-      { key: 'daftar', label: 'Pendaftaran saya', href: '/tracker', icon: Ticket },
-      { key: 'pembayaran', label: 'Pembayaran', href: '/pembayaran', icon: ReceiptText, badge: 'payment' },
+      { key: 'daftar', label: 'Papan lamaran', href: '/tracker', icon: Ticket },
+      { key: 'pembayaran', label: 'Pendaftaran & pembayaran', href: '/pembayaran', icon: ReceiptText, badge: 'payment' },
       { key: 'tersimpan', label: 'Tersimpan', href: '/profile?tab=tersimpan', icon: Bookmark, badge: 'saved' },
       ...(options.demoFeatures
         ? [
@@ -121,6 +127,7 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
           ]
         : []),
       { key: 'koneksi', label: 'Koneksi', href: '/connections', icon: Users },
+      { key: 'cocok', label: 'Cocokkan tim', href: '/teams/cocok', icon: Radar },
     ],
   };
   const other: AccountMenuGroup = {
@@ -130,8 +137,9 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
       { key: 'personalisasi', label: 'Personalisasi', href: '/profile/personalization', icon: Palette },
       { key: 'pengaturan', label: 'Pengaturan', href: '/profile/settings', icon: Settings },
       { key: 'privasi', label: 'Privasi & data', href: '/profile/privacy', icon: Lock },
+      ...(role === 'participant' ? [becomeOrganizer] : []),
     ],
   };
 
-  return role === 'participant' ? [activity, account, workspace, other] : [workspace, activity, account, other];
+  return role === 'participant' ? [activity, account, other] : [workspace, activity, account, other];
 }

@@ -1,12 +1,15 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { cache } from 'react';
 import { ArrowLeft, ArrowUpRight, Lock } from 'lucide-react';
 import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { ScrollRail } from '@/components/ui/scroll-rail';
-import { toEventActor, type AuthUser } from '@/lib/auth';
+import { getSessionUser, toEventActor, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
+import { sectionTitle } from '@/lib/page-title';
 import { cn } from '@/lib/utils';
 import type { EventDetail, ManagedEvent } from '@/types/domain';
 
@@ -33,12 +36,27 @@ export interface ManagedEventContext {
  * dari URL untuk membaca acara sebelum hak kelolanya terbukti — id asing
  * berakhir di `NotManaging`, sama dengan acara yang tidak ada.
  */
-export async function loadManagedEvent(user: AuthUser, eventId: string): Promise<ManagedEventContext | null> {
+export const loadManagedEvent = cache(async (user: AuthUser, eventId: string): Promise<ManagedEventContext | null> => {
   const repository = await getEventRepository();
   const managed = (await repository.listManagedEvents(user.id)).find((entry) => entry.event.id === eventId);
   if (!managed) return null;
   const event = await repository.getEventBySlug(managed.event.slug);
   return event ? { managed, event } : null;
+});
+
+/**
+ * Judul tab ruang kerja: "Pendaftar · Nama acara". Nama acara hanya dipakai
+ * bila pengguna terbukti mengelolanya — id asing tidak boleh membuka nama
+ * acara lewat judul. Berbagi `loadManagedEvent` (cache per request) dengan
+ * halamannya, jadi tidak menambah query.
+ */
+export async function workspaceMetadata(section: string, eventId: string): Promise<Metadata> {
+  const user = await getSessionUser();
+  const context = user ? await loadManagedEvent(user, eventId) : null;
+  return {
+    title: context ? sectionTitle(section, context.event.title) : section,
+    robots: { index: false, follow: false },
+  };
 }
 
 /** Angka di tab: bukti bayar yang menunggu diperiksa. Gagal dimuat = tanpa angka, bukan halaman error. */

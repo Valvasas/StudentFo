@@ -1,18 +1,13 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { Scale, ShieldCheck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { checkAdminAccess } from '@/lib/auth';
+import { Scale } from 'lucide-react';
+import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { calibrate, MIN_SIGNALS_FOR_SUGGESTION, type WeightSuggestion } from '@/lib/recommendation-calibration';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Kalibrasi rekomendasi',
-  robots: { index: false, follow: false },
-};
+export const generateMetadata = (): Promise<Metadata> => adminMetadata('Kalibrasi rekomendasi');
 
 const WINDOW_DAYS = 90;
 
@@ -78,21 +73,7 @@ function SuggestionTable<K extends string>({ id, title, data }: { id: string; ti
  * akan mengunci peringkat pada apa pun yang kebetulan sedang di atas.
  */
 export default async function CalibrationPage() {
-  const gate = await checkAdminAccess();
-  if (!gate.allowed) {
-    return (
-      <div className="container-page flex flex-col items-center gap-3 py-24 text-center">
-        <ShieldCheck aria-hidden className="size-10 text-ink-faint" />
-        <h1 className="text-2xl">Akses terbatas</h1>
-        <p className="max-w-md text-ink-muted">Laporan kalibrasi hanya untuk akun berperan admin.</p>
-        {gate.reason === 'unauthenticated' && (
-          <Button asChild>
-            <Link href="/login?next=%2Fadmin%2Fkalibrasi">Masuk</Link>
-          </Button>
-        )}
-      </div>
-    );
-  }
+  await requireAdmin();
 
   const since = new Date(Date.now() - WINDOW_DAYS * 86_400_000);
   const repository = await getEventRepository();

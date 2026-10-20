@@ -8,6 +8,7 @@ import { RegisterForm } from '@/components/auth/register-form';
 import { buttonVariants } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
+import { isDemoAvailable } from '@/lib/demo/gate';
 import { parseAccountType } from '@/lib/auth-schema';
 import { dataMode } from '@/lib/env';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -35,7 +36,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
 
   // Mode demo tidak bisa membuat akun sungguhan: pilihan jenis akun
   // dipetakan ke persona demo yang setara, tanpa form palsu.
-  if (dataMode === 'seed') {
+  if (dataMode === 'seed' && (await isDemoAvailable())) {
     return (
       <>
         {heading}
@@ -46,7 +47,6 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
           <SubmitButton pendingLabel="Menyiapkan…" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
             Coba dengan akun demo
           </SubmitButton>
-          <p className="text-center text-[12.5px] text-ink-muted">Mode demo — akun contoh, datanya sementara.</p>
         </form>
         {toLogin}
       </>

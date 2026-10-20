@@ -6,12 +6,12 @@ import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 
 /**
- * Kepala halaman fitur unggulan (ADR-054): judul besar + kalimat + aksi di
- * kiri, panggung ilustrasi di kanan. Dipakai /teams, /teams/baru, dan
- * /connections supaya ketiganya terasa satu keluarga, bukan tiga templat.
- *
- * Di ponsel panggung turun ke bawah teks dan dibatasi tingginya: yang datang
- * ke halaman kerja ini mencari daftarnya, bukan gambarnya.
+ * Kepala halaman: judul + kalimat + aksi. Tanpa `stage` ia satu kolom polos,
+ * sama dengan kepala /events — itu bentuk bawaan halaman fungsional (daftar,
+ * form, pengaturan). Panggung ilustrasi di kanan hanya untuk "momen" yang
+ * memang dirancang sebagai pengalaman, mis. pencocokan tim (ADR-057);
+ * memasangnya di halaman daftar membuat dua halaman bertetangga terasa
+ * seperti dua produk. Di ponsel panggung turun ke bawah teks.
  */
 export function FeatureHero({
   note,
@@ -32,10 +32,10 @@ export function FeatureHero({
   className?: string;
 }) {
   return (
-    <header className={cn('grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14', className)}>
+    <header className={cn('grid items-center gap-8', stage && 'lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14', className)}>
       <div className="enter flex min-w-0 flex-col gap-5 [animation-duration:900ms]">
         {note && <p className="-mb-2 text-[13.5px] font-medium text-ink-muted">{note}</p>}
-        <h1 className="text-[clamp(36px,5.2vw,56px)] leading-[1]">{title}</h1>
+        <h1 className="text-[clamp(32px,6vw,54px)] leading-[1.02] tracking-[-0.035em]">{title}</h1>
         <p className="max-w-[50ch] text-[16.5px] leading-relaxed text-ink-muted">{description}</p>
         {actions && <div className="mt-1 flex flex-wrap items-center gap-3">{actions}</div>}
         {children}

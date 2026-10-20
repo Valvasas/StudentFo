@@ -657,6 +657,98 @@ export interface PeopleSuggestion {
 }
 
 /**
+ * Pencocokan tim (ADR-057). Kolom `team_seekers.skills/seeking` VARCHAR[] +
+ * CHECK di Postgres, bukan enum: daftar ini HARUS sama dengan CHECK di
+ * migration 20261020100001 (uji `100_team_matching`), dan menambah slug baru =
+ * migration baru, bukan hanya mengedit konstanta ini. Pipeline tidak menyentuhnya.
+ */
+export const SKILL_DOMAINS = ['teknis', 'desain', 'bisnis', 'riset', 'komunikasi', 'sains'] as const;
+export type SkillDomain = (typeof SKILL_DOMAINS)[number];
+
+export const SKILL_DOMAIN_LABEL: Record<SkillDomain, string> = {
+  teknis: 'Teknis',
+  desain: 'Desain',
+  bisnis: 'Bisnis',
+  riset: 'Riset',
+  komunikasi: 'Komunikasi',
+  sains: 'Sains & sosial',
+};
+
+export const TEAM_SKILLS = [
+  { slug: 'web-aplikasi', label: 'Pemrograman web & aplikasi', domain: 'teknis' },
+  { slug: 'data-ai', label: 'Data & kecerdasan buatan', domain: 'teknis' },
+  { slug: 'iot-elektronika', label: 'IoT & elektronika', domain: 'teknis' },
+  { slug: 'ui-ux', label: 'Desain UI/UX', domain: 'desain' },
+  { slug: 'grafis', label: 'Desain grafis & ilustrasi', domain: 'desain' },
+  { slug: 'video', label: 'Video & animasi', domain: 'desain' },
+  { slug: 'manajemen-proyek', label: 'Manajemen proyek', domain: 'bisnis' },
+  { slug: 'pemasaran', label: 'Pemasaran & media sosial', domain: 'bisnis' },
+  { slug: 'kewirausahaan', label: 'Bisnis & keuangan', domain: 'bisnis' },
+  { slug: 'riset-kualitatif', label: 'Riset kualitatif', domain: 'riset' },
+  { slug: 'statistik', label: 'Statistik & riset kuantitatif', domain: 'riset' },
+  { slug: 'penulisan-ilmiah', label: 'Penulisan ilmiah', domain: 'riset' },
+  { slug: 'presentasi', label: 'Presentasi & public speaking', domain: 'komunikasi' },
+  { slug: 'penulisan-kreatif', label: 'Penulisan kreatif & konten', domain: 'komunikasi' },
+  { slug: 'debat', label: 'Debat & negosiasi', domain: 'komunikasi' },
+  { slug: 'sains-lab', label: 'Sains & eksperimen lab', domain: 'sains' },
+  { slug: 'kesehatan-lingkungan', label: 'Kesehatan & lingkungan', domain: 'sains' },
+  { slug: 'hukum-kebijakan', label: 'Hukum & kebijakan', domain: 'sains' },
+] as const satisfies readonly { slug: string; label: string; domain: SkillDomain }[];
+
+export type TeamSkillSlug = (typeof TEAM_SKILLS)[number]['slug'];
+export const TEAM_SKILL_SLUGS = TEAM_SKILLS.map((skill) => skill.slug) as readonly TeamSkillSlug[];
+
+export function skillLabel(slug: string): string {
+  return TEAM_SKILLS.find((skill) => skill.slug === slug)?.label ?? slug;
+}
+
+export function skillDomain(slug: string): SkillDomain | null {
+  return TEAM_SKILLS.find((skill) => skill.slug === slug)?.domain ?? null;
+}
+
+/** Batas yang sama dengan CHECK di `team_seekers` — dipakai validasi form dan uji paritas. */
+export const SEEKER_LIMITS = { skills: 6, seeking: 6, pitchMax: 140, cityMax: 60 } as const;
+
+/** Kartu pemain milik sendiri (`team_seekers`). Bawaan: TERTUTUP — tidak ada yang dicocokkan tanpa memilihnya. */
+export interface TeamSeekerProfile {
+  readonly open: boolean;
+  /** Nama kota dari `REGIONS`; null = belum diisi (jarak tidak bisa dihitung). */
+  readonly city: string | null;
+  /** Yang kamu bawa ke tim. */
+  readonly skills: readonly TeamSkillSlug[];
+  /** Yang kamu cari dari rekan. */
+  readonly seeking: readonly TeamSkillSlug[];
+  /** Bersedia kerja jarak jauh / daring bersama rekan di kota lain. */
+  readonly remoteOk: boolean;
+  readonly pitch: string | null;
+  readonly updatedAt: string;
+}
+
+export type TeamSeekerInput = Omit<TeamSeekerProfile, 'updatedAt'>;
+
+/** Ringkasan portofolio PUBLIK seseorang — aturan visibilitas sama dengan `public_portfolio()`. */
+export interface PortfolioDigest {
+  readonly count: number;
+  /** Capaian tiap entri publik (terbaru dulu, maks. 10); null = ikut serta tanpa hasil yang dilaporkan. */
+  readonly achievements: readonly (Achievement | null)[];
+}
+
+/** Hubungan pembaca dengan kandidat — kandidat yang sudah terhubung tidak ditawarkan lagi. */
+export type CandidateRelation = 'connected' | 'incoming' | 'outgoing' | null;
+
+/** Orang yang membuka kartu pemainnya, dilihat oleh pembaca. Tidak pernah memuat email. */
+export interface TeamCandidate {
+  readonly person: NetworkPerson;
+  readonly city: string | null;
+  readonly skills: readonly TeamSkillSlug[];
+  readonly seeking: readonly TeamSkillSlug[];
+  readonly remoteOk: boolean;
+  readonly pitch: string | null;
+  readonly portfolio: PortfolioDigest;
+  readonly relation: CandidateRelation;
+}
+
+/**
  * Formulir pendaftaran internal (ADR-056). Jenis kolom disimpan di JSONB
  * `event_registration_forms.fields`, bukan enum Postgres — paritasnya dengan
  * `isFormField()` di `lib/registration-form.ts`, tidak dengan pipeline.

@@ -54,11 +54,12 @@ src/
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
 │   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056)
-│   ├── (auth)/                 Route group — login, register, forgot/reset password
+│   ├── (auth)/                 Route group — login & register (form biasa), demo/ (akun demo, tidak ditautkan dari mana pun — ADR-057), forgot/reset password
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
 │   ├── profile/                Akun: profil, data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), pengaturan, privasi
 │   ├── tracker/                Papan lamaran + actions.ts (simpan, ubah tahap, hapus)
 │   ├── teams/                  Cari rekan tim + baru/ (buka tim, halaman sendiri — ADR-054) + [id] detail + actions.ts
+│   │   └── cocok/              Pencocokan tim/partner otomatis: kartu pemain, pemindaian radar, hasil berperingkat + actions.ts (ADR-057)
 │   ├── connections/            Koneksi, satu tab per tugas (?tab= untukmu|koneksi|ajakan|peta|pengaturan) + actions.ts (ADR-040, ADR-048)
 │   ├── orang/[id]/             Profil publik + portofolio orang lain, wajib masuk, 404 seragam (ADR-046)
 │   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara (ADR-042/043/046); acara/[id]/ = ruang kerja
@@ -70,7 +71,8 @@ src/
 │   ├── notifications/          actions.ts (tandai dibaca)
 │   ├── api/events/[slug]/calendar/   GET berkas .ics semua tenggat (RFC 5545, ADR-049)
 │   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
-│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055)
+│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055).
+│                               Semua halaman memakai requireAdmin() = 404 bagi non-admin dan generateMetadata (ADR-057)
 │
 ├── components/
 │   ├── ui/                     Primitif tanpa domain-knowledge (Button, Badge, Card,
@@ -96,6 +98,8 @@ src/
 │   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055),
 │   │                           EventGallery + GalleryViewer (galeri foto acara, dialog lightbox, ADR-056), event-photo.ts (src/alt foto)
 │   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
+│   ├── match/                  Pencocokan (ADR-057): MatchRadar (layar radar, murni CSS), MatchRing (cincin skor), MatchCard,
+│   │                           DismissibleMatch (lewati, klien), SeekerForm (kartu pemain), MatchFilters (<form method="get">), ScanSession
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
 │   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
@@ -124,13 +128,21 @@ src/
 │   ├── guidebook.ts            Validasi ulang tautan buku panduan + deteksi PDF [teruji]
 │   ├── event-presentation.ts   Form admin lencana & promosi (Zod) [teruji]
 │   ├── cron-auth.ts            Bearer CRON_SECRET, banding waktu-konstan, gagal tertutup [teruji]
+│   ├── matchmaking.ts          Pencocokan tim/partner: skor 6 komponen, saringan keras, alasan & "kimia", parse/serialize query [teruji, murni] (ADR-057)
+│   ├── matchmaking-schema.ts   Validasi form kartu pemain (Zod) [teruji]
+│   ├── geo.ts                  Titik pusat kota Indonesia + jarak haversine dibulatkan 5 km; koordinat rumah tidak pernah disimpan [teruji]
 │   ├── network.ts              Peringkat saran koneksi, alasan, validasi form jaringan, kursor paginasi koneksi [teruji]
 │   ├── network-graph.ts        Data peta koneksi (simpul/sisi, batas) dibangun di server [teruji]
 │   ├── graph-layout.ts         Simulasi gaya deterministik, zoom, hit-test, penempatan label [teruji]
 │   ├── search-params.ts        Parsing/serialisasi query URL [teruji]
 │   ├── action-feedback.ts      Kode umpan balik Server Action + withQuery() [teruji]
 │   ├── form-data.ts            Pembacaan FormData yang seragam
-│   ├── auth.ts                 getSessionUser(), requireUser(), checkAdminAccess()
+│   ├── auth.ts                 getSessionUser(), requireUser(), checkAdminAccess(), requireAdmin() (404 bagi non-admin), adminMetadata()
+│   ├── demo/                   access.ts (murni: host demo & kunci Admin, ADR-057) [teruji], gate.ts (membaca env + header Host), personas, profile-extras
+│   ├── legal.ts                Status Kebijakan privasi (draf/final) dari env, bukan dari kode (ADR-057) [teruji]
+│   ├── page-title.ts           NOT_FOUND_TITLE, sectionTitle("Bagian · Subjek")
+│   ├── date-input.ts           formatPickedDate(): "2026-12-12" → "Sabtu, 12 Desember 2026", dipakai DateInput [teruji]
+│   ├── destination-label.ts    Nama halaman tujuan untuk "Masuk untuk membuka …" di /login (daftar tertutup per awalan path) [teruji]
 │   ├── auth-schema.ts          Validasi form akun (Zod) [teruji]
 │   ├── auth-messages.ts        Kode & pesan auth, pemetaan error Supabase [teruji]
 │   ├── team-schema.ts          Validasi form tim (Zod) [teruji]

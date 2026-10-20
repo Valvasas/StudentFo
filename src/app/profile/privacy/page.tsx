@@ -57,7 +57,7 @@ export default async function PrivacyPage() {
           id="terlihat"
           icon={<Share2 className="size-[18px]" />}
           title="Yang terlihat oleh orang lain"
-          description="Berlaku untuk akunmu sekarang, di luar pengaturan demo."
+          description="Berlaku untuk akunmu sekarang."
           actions={<DownloadDataButton snapshot={snapshot} includeLocal={demoFeaturesEnabled} />}
           delay={60}
         >

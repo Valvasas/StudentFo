@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EVENT_TYPE_NAV, eventTypeHref, eventTypeNavFor } from './event-type-nav';
+import { EVENT_TYPE_NAV, eventTypeHref, eventTypeNavFor, isFocusedTaskPath } from './event-type-nav';
 
 describe('eventTypeNavFor', () => {
   it('tab Workshop mencakup pelatihan, urutan filter tidak berpengaruh', () => {
@@ -20,6 +20,20 @@ describe('eventTypeNavFor', () => {
     for (const item of EVENT_TYPE_NAV) {
       const types = new URLSearchParams(eventTypeHref(item).split('?')[1]).getAll('type');
       expect(eventTypeNavFor(types as never)?.key).toBe(item.key);
+    }
+  });
+});
+
+describe('isFocusedTaskPath', () => {
+  it('halaman masuk, studio, admin, dan pengaturan akun memakai navbar ringkas', () => {
+    for (const path of ['/login', '/register', '/demo', '/forgot-password', '/admin', '/admin/riwayat', '/penyelenggara', '/penyelenggara/acara/abc/pendaftar', '/profile/settings', '/profile/privacy']) {
+      expect(isFocusedTaskPath(path), path).toBe(true);
+    }
+  });
+
+  it('halaman jelajah dan akun utama tetap membawa kategori', () => {
+    for (const path of ['/', '/events', '/events/lomba-x', '/teams', '/about', '/profile', '/tracker', '/connections', '/penyelenggaraan']) {
+      expect(isFocusedTaskPath(path), path).toBe(false);
     }
   });
 });

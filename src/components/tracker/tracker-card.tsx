@@ -53,7 +53,7 @@ export function TrackerRemoveForm({ item, returnTo, withLabel = false }: { item:
         )}
       >
         <Trash2 aria-hidden className="size-4" />
-        {withLabel && <span aria-hidden>Hapus dari Pendaftaran</span>}
+        {withLabel && <span aria-hidden>Hapus dari Papan lamaran</span>}
       </button>
     </form>
   );
@@ -80,7 +80,7 @@ export function TrackerSteps({ item, className }: { item: TrackerItem; className
 }
 
 /**
- * Satu baris di papan Pendaftaran (kanvas Profil → Pendaftaran): logo
+ * Satu baris di Papan lamaran (kanvas Profil → Pendaftaran): logo
  * penyelenggara, judul, bilah empat tahap, lalu kendali ubah tahap & hapus.
  * Kendalinya tetap <form> biasa supaya jalan tanpa JavaScript.
  */

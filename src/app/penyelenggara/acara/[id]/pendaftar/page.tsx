@@ -7,6 +7,7 @@ import {
   loadManagedEvent,
   NotManaging,
   workspaceBadges,
+  workspaceMetadata,
   workspacePath,
 } from '@/components/organizer/event-workspace';
 import { RegistrationListHeader, RegistrationRow } from '@/components/organizer/registration-row';
@@ -21,10 +22,9 @@ import type { EventRegistration, RegistrationStatus } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Pendaftar',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  return workspaceMetadata('Pendaftar', (await params).id);
+}
 
 const FILTERS = {
   aktif: { label: 'Pendaftar aktif', match: (status: RegistrationStatus) => isActiveRegistration(status) },

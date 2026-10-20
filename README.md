@@ -20,13 +20,18 @@ kode pun yang perlu diubah.
 
 ### Akun demo
 
-Semua fitur akun bisa dicoba tanpa database. Buka **Masuk**, lalu pilih persona:
+Semua fitur akun bisa dicoba tanpa database. `/login` dan `/register` adalah
+form email + kata sandi biasa; akun demo ada di **`/demo`** (tidak ada di
+menu; tautan "Lihat pratinjau dengan akun demo" di bawah form masuk hanya
+muncul bila demo tersedia — selalu di `npm run dev`, di produksi hanya pada host
+yang diizinkan). Pilih persona:
 
 | Persona | Untuk mencoba |
 |---|---|
-| Mahasiswa | Rekomendasi personal (profil lengkap), simpan, tracker, tim, notifikasi |
+| Mahasiswa | Rekomendasi personal (profil lengkap), simpan, tracker, tim, notifikasi, pencocokan tim |
 | Siswa baru | Urutan *cold start*, lalu lengkapi profil dan lihat urutannya berubah |
-| Admin moderator | Antrean `/admin`: setujui/tolak kegiatan & kiriman, atur ulang data demo |
+| Penyelenggara | Studio: formulir pendaftaran, pendaftar, pembayaran, galeri |
+| Admin moderator | Antrean `/admin`: setujui/tolak kegiatan & kiriman, atur ulang data demo. **Tidak ditawarkan di halaman publik produksi** (lihat bawah) |
 
 Setiap login membuat akun sementara terisolasi (cookie bertanda tangan HMAC,
 `src/lib/demo/`). Data demo diatur ulang otomatis setiap 6 jam. Detail: `DECISION.md`
@@ -38,8 +43,19 @@ baru yang kosong. Jangan tambahkan "pulihkan akun demo" (ADR-029).
 
 **Deploy situs demo** (mis. pratinjau Vercel tanpa Supabase): build produksi
 menolak jalan tanpa kredensial, supaya situs publik tidak diam-diam menampilkan
-data fiktif. Setel `ALLOW_DEMO_IN_PRODUCTION=true` dan `DEMO_SESSION_SECRET`
-(`openssl rand -hex 32`) secara eksplisit.
+data fiktif. Tiga hal wajib diset eksplisit (ADR-057):
+
+- `ALLOW_DEMO_IN_PRODUCTION=true` dan `DEMO_SESSION_SECRET` (`openssl rand -hex 32`).
+- `DEMO_ALLOWED_HOSTS=demo.contoh.id` — host yang boleh menyajikan akun demo.
+  **Kosong = demo ditolak** (gagal tertutup), supaya flag di atas yang salah
+  menyala di deploy berdomain sungguhan tidak membuka akun demo di sana.
+- `DEMO_ADMIN_KEY` (min. 16 karakter) bila persona Admin perlu bisa dicoba di
+  produksi: dibuka lewat tautan khusus `/demo?akses=<kunci>` yang dikirim ke
+  orang tertentu. Tanpa kunci, persona Admin tidak tersedia di produksi.
+
+**Kebijakan privasi** (`/privacy-policy`) berlabel DRAF sampai
+`PRIVACY_CONTACT_EMAIL` dan `PRIVACY_POLICY_EFFECTIVE_DATE` (YYYY-MM-DD) diisi.
+Isi keduanya hanya setelah isi dokumen ditinjau pemilik bersama penasihat hukum.
 
 ## Perintah
 

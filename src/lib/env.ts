@@ -25,6 +25,16 @@ const serverSchema = z.object({
     .transform((value) => value === 'true'),
   /** Penanda tangan cookie sesi demo. Opsional; wajib kalau demo jalan di >1 instance. */
   DEMO_SESSION_SECRET: z.string().min(32).optional(),
+  /**
+   * Daftar nama host (dipisah koma) yang boleh menyajikan akun demo di produksi.
+   * Kosong = demo ditolak di produksi (gagal tertutup) — lihat `isDemoHostAllowed`.
+   */
+  DEMO_ALLOWED_HOSTS: z.string().optional(),
+  /** Kontak resmi pengelola data + tanggal berlaku (YYYY-MM-DD): diisi pemilik SETELAH meninjau Kebijakan privasi; keduanya = dokumen tidak lagi berlabel draf. */
+  PRIVACY_CONTACT_EMAIL: z.string().optional(),
+  PRIVACY_POLICY_EFFECTIVE_DATE: z.string().optional(),
+  /** Kunci tautan khusus persona Admin demo; tanpa ini persona Admin tertutup di produksi. */
+  DEMO_ADMIN_KEY: z.string().min(16, 'minimal 16 karakter acak, mis. `openssl rand -hex 16`').optional(),
   /** Kunci HMAC untuk ember pembatas laju (IP tidak pernah disimpan mentah). */
   RATE_LIMIT_SECRET: z.string().min(32).optional(),
   /**
@@ -72,6 +82,10 @@ function readEnv(): ServerEnv {
     NODE_ENV: process.env.NODE_ENV,
     ALLOW_DEMO_IN_PRODUCTION: process.env.ALLOW_DEMO_IN_PRODUCTION || undefined,
     DEMO_SESSION_SECRET: process.env.DEMO_SESSION_SECRET || undefined,
+    DEMO_ALLOWED_HOSTS: process.env.DEMO_ALLOWED_HOSTS || undefined,
+    DEMO_ADMIN_KEY: process.env.DEMO_ADMIN_KEY || undefined,
+    PRIVACY_CONTACT_EMAIL: process.env.PRIVACY_CONTACT_EMAIL || undefined,
+    PRIVACY_POLICY_EFFECTIVE_DATE: process.env.PRIVACY_POLICY_EFFECTIVE_DATE || undefined,
     RATE_LIMIT_SECRET: process.env.RATE_LIMIT_SECRET || undefined,
     CLIENT_IP_HEADER: process.env.CLIENT_IP_HEADER || undefined,
     TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY || undefined,

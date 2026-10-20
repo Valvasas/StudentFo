@@ -5,7 +5,9 @@ import {
   defaultPortfolioVisible,
   isPubliclyListed,
   parsePortfolioInput,
+  portfolioDigestOf,
   portfolioOutcomeLabel,
+  type DigestRow,
 } from './portfolio';
 import { ACHIEVEMENTS, EVENT_TYPES } from '@/types/domain';
 
@@ -86,5 +88,47 @@ describe('parsePortfolioInput', () => {
   it('catatan maksimal 120 karakter', () => {
     expect(parsePortfolioInput(raw({ note: 'x'.repeat(121) }), 'LOMBA')).toBeNull();
     expect(parsePortfolioInput(raw({ note: 'x'.repeat(120) }), 'LOMBA')).not.toBeNull();
+  });
+});
+
+describe('portfolioDigestOf', () => {
+  const row = (overrides: Partial<DigestRow> = {}): DigestRow => ({
+    status: 'APPLIED',
+    portfolioVisible: null,
+    achievement: null,
+    eventType: 'LOMBA',
+    eventStatus: 'APPROVED',
+    sortKey: '2026-01-01T00:00:00Z',
+    ...overrides,
+  });
+
+  it('hanya entri publik: APPLIED+, acara tayang/selesai, beasiswa & magang privat bawaan', () => {
+    const digest = portfolioDigestOf([
+      row({ achievement: 'JUARA_1', status: 'ACCEPTED', eventStatus: 'EXPIRED' }),
+      row({ eventType: 'BEASISWA', achievement: 'PENERIMA' }),
+      row({ eventType: 'MAGANG' }),
+      row({ status: 'SAVED' }),
+      row({ status: 'REJECTED' }),
+      row({ eventStatus: 'PENDING' }),
+      row({ eventStatus: 'REJECTED' }),
+    ]);
+    expect(digest).toEqual({ count: 1, achievements: ['JUARA_1'] });
+  });
+
+  it('beasiswa yang dipilih tampil ikut terhitung; yang dipilih sembunyi tidak', () => {
+    expect(portfolioDigestOf([row({ eventType: 'BEASISWA', portfolioVisible: true, achievement: 'PENERIMA' })]).count).toBe(1);
+    expect(portfolioDigestOf([row({ portfolioVisible: false })]).count).toBe(0);
+  });
+
+  it('terbaru dulu; capaian dibatasi 10 tapi hitungan tetap utuh', () => {
+    const rows = Array.from({ length: 12 }, (_, index) => row({ sortKey: `2026-01-${String(index + 1).padStart(2, '0')}`, achievement: index === 11 ? 'JUARA_1' : 'PESERTA' }));
+    const digest = portfolioDigestOf(rows);
+    expect(digest.count).toBe(12);
+    expect(digest.achievements).toHaveLength(10);
+    expect(digest.achievements[0]).toBe('JUARA_1');
+  });
+
+  it('kosong = nol, bukan galat', () => {
+    expect(portfolioDigestOf([])).toEqual({ count: 0, achievements: [] });
   });
 });

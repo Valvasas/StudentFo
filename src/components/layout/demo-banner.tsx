@@ -14,10 +14,12 @@ import { dataMode } from '@/lib/env';
  *
  * Otomatis hilang begitu kredensial Supabase terpasang.
  *
- * Jadwal reset ditulis sebagai JAM ABSOLUT, bukan hanya hitung mundur: tanpa
- * JavaScript, "2 jam lagi" basi kalau tab dibiarkan terbuka, sedangkan
- * "pukul 14.30 WIB" tetap benar. Menjelang reset, nadanya berubah jadi
- * peringatan supaya pengunjung tidak kaget simpanannya hilang di tengah sesi.
+ * Ini SATU-SATUNYA penanda demo di situs (ADR-057): kalimat "contoh/demo/fiktif"
+ * yang tersebar di tiap kartu membuat situs terbaca belum jadi. Siklus reset
+ * ditulis sebagai interval tetap ("tiap 6 jam"), bukan hitung mundur yang basi
+ * saat tab dibiarkan terbuka tanpa JavaScript. Hanya menjelang reset nadanya
+ * berubah jadi peringatan dengan JAM ABSOLUT, supaya pengunjung tidak kaget
+ * simpanannya hilang di tengah sesi.
  */
 export function DemoBanner() {
   if (dataMode !== 'seed') return null;
@@ -45,10 +47,7 @@ export function DemoBanner() {
                   — simpanan & tim demo-mu akan hilang.
                 </strong>
               ) : (
-                <>
-                  Reset pukul{' '}
-                  <time dateTime={reset.nextResetAt.toISOString()}>{formatTimeId(reset.nextResetAt.toISOString())}</time>.
-                </>
+                <>Data diatur ulang tiap {DEMO_DATA_TTL_MS / 3_600_000} jam.</>
               )}
             </span>
           )}

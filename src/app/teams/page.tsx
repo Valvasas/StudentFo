@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Armchair, CalendarClock, Clock, Plus, UserRoundSearch, UsersRound } from 'lucide-react';
+import { ArrowLeft, Armchair, CalendarClock, Clock, Plus, Radar, UserRoundSearch, UsersRound } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { DemoTeamRoles } from '@/components/profile/demo-profile-parts';
 import { MyTeamLink, TeamCard } from '@/components/team/team-card';
 import { Avatar } from '@/components/ui/avatar';
-import { FeatureHero, IllustrationStage, StatTile } from '@/components/ui/feature-hero';
+import { FeatureHero, StatTile } from '@/components/ui/feature-hero';
 import { TeamHuddleSketch } from '@/components/ui/feature-illustrations';
 import { SelectInput } from '@/components/ui/field';
 import { getSessionUser } from '@/lib/auth';
@@ -73,11 +73,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
 
       <FeatureHero
         note={scoped ? `${EVENT_TYPE_LABEL[scoped.eventType]} · ${scoped.organizer}` : undefined}
-        title={
-          <>
-            Cari <span className="marker">tim</span>
-          </>
-        }
+        title="Cari tim"
         description={
           scoped
             ? `Tim untuk ${scoped.title}. Gabung ke tim yang masih butuh orang, atau buka timmu sendiri.`
@@ -86,7 +82,10 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
         actions={
           user ? (
             <>
-              <Link href={createHref} className={primaryAction}>
+              <Link href="/teams/cocok" className={primaryAction}>
+                <Radar aria-hidden className="size-[18px]" /> Cocokkan otomatis
+              </Link>
+              <Link href={createHref} className={secondaryAction}>
                 <Plus aria-hidden className="size-[18px]" strokeWidth={2.4} /> Buka tim baru
               </Link>
               <Link href="/connections" className={secondaryAction}>
@@ -98,32 +97,24 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
               <Link href={`/login?next=${encodeURIComponent(returnTo)}`} className={primaryAction}>
                 Masuk untuk bergabung
               </Link>
+              <Link href="/login?next=%2Fteams%2Fcocok" className={secondaryAction}>
+                <Radar aria-hidden className="size-[18px]" /> Cocokkan otomatis
+              </Link>
               <p className="max-w-[34ch] text-[13.5px] leading-snug text-ink-muted">Tamu bisa melihat tim, tapi nama anggota hanya untuk yang sudah masuk.</p>
             </>
           )
         }
-        stage={
-          scoped?.primaryDeadlineAt ? (
-            <div className="flex flex-col gap-3">
-              <IllustrationStage tint="sun" className="pb-2 pt-6">
-                <TeamHuddleSketch className="max-w-[300px]" />
-              </IllustrationStage>
-              <div className="flex items-center gap-4 rounded-[22px] bg-inverse px-6 py-5 text-on-inverse">
-                <Clock aria-hidden className="size-6 shrink-0" />
-                <span className="flex flex-col gap-0.5">
-                  <span className="text-[13px] text-on-inverse-muted">Pendaftaran tutup</span>
-                  <span className="text-xl font-semibold tracking-[-0.02em]">{formatDateId(scoped.primaryDeadlineAt)}</span>
-                  <span className="text-[13px] text-on-inverse-muted">{daysLeftLabel(daysUntil(scoped.primaryDeadlineAt, now))}</span>
-                </span>
-              </div>
-            </div>
-          ) : (
-            <IllustrationStage tint="sun">
-              <TeamHuddleSketch />
-            </IllustrationStage>
-          )
-        }
       >
+        {scoped?.primaryDeadlineAt && (
+          <div className="flex items-center gap-4 self-start rounded-[22px] bg-inverse px-6 py-4 text-on-inverse">
+            <Clock aria-hidden className="size-6 shrink-0" />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[13px] text-on-inverse-muted">Pendaftaran tutup</span>
+              <span className="text-lg font-semibold tracking-[-0.02em]">{formatDateId(scoped.primaryDeadlineAt)}</span>
+              <span className="text-[13px] text-on-inverse-muted">{daysLeftLabel(daysUntil(scoped.primaryDeadlineAt, now))}</span>
+            </span>
+          </div>
+        )}
         {user && (
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[22px] border border-line bg-panel p-3 pr-5">
             <span className="flex min-w-0 flex-1 basis-60 items-center gap-3">

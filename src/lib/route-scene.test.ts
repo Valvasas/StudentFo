@@ -10,6 +10,12 @@ describe('routeSceneFor', () => {
     expect(routeSceneFor('/events/lomba-ui-ux-2026/formulir').label).toBe('Memuat formulir pendaftaran…');
   });
 
+  it('pencocokan tim punya kalimat sendiri, bukan "daftar tim"; /demo ikut adegan masuk', () => {
+    expect(routeSceneFor('/teams/cocok')).toEqual({ key: 'teams', label: 'Memuat pencocokan tim…' });
+    expect(routeSceneFor('/teams')).toEqual({ key: 'teams', label: 'Memuat daftar tim…' });
+    expect(routeSceneFor('/demo').key).toBe('auth');
+  });
+
   it('pembayaran & ruang kerja acara punya kalimat sendiri', () => {
     expect(routeSceneFor('/pembayaran/abc').label).toBe('Memuat pembayaran…');
     expect(routeSceneFor('/penyelenggara/acara/abc/pendaftar').label).toBe('Memuat ruang kerja acara…');

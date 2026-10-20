@@ -254,7 +254,6 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
               Percakapan contoh dari penyelenggara. StudentFo tidak pernah meminta transfer ke rekening pribadi.
             </p>
           )}
-          <p className="mb-2 self-center rounded-pill border border-line bg-panel px-3.5 py-1 text-[11.5px] font-medium text-ink-muted">Contoh percakapan · mode demo</p>
           {thread.map((message, index) => {
             const mine = message.from === 'me';
             const previous = thread[index - 1];
@@ -273,7 +272,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
                     </span>
                     <span className="flex flex-col">
                       <span className="text-sm font-semibold">{message.text}</span>
-                      <span className="text-xs text-ink-muted">{message.file.size} · contoh berkas</span>
+                      <span className="text-xs text-ink-muted">{message.file.size}</span>
                     </span>
                   </span>
                 ) : (
@@ -346,7 +345,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
               <span className="sr-only">Kirim</span>
             </button>
           </form>
-          <p className="text-[11.5px] text-ink-faint">Enter untuk kirim, Shift+Enter untuk baris baru. Pesan demo hanya tersimpan di perangkat ini.</p>
+          <p className="text-[11.5px] text-ink-faint">Enter untuk kirim, Shift+Enter untuk baris baru.</p>
         </div>
       </section>
     </div>

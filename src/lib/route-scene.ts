@@ -46,8 +46,9 @@ const RULES: readonly { test: (path: string) => boolean; scene: RouteScene }[] =
   { test: (path) => /^\/events\/[^/]+$/.test(path), scene: scene('event', 'detail kegiatan') },
   { test: (path) => path === '/events', scene: scene('catalog', 'daftar kegiatan') },
   { test: under('/pembayaran'), scene: scene('tracker', 'pembayaran') },
-  { test: under('/tracker'), scene: scene('tracker', 'papan pendaftaran') },
+  { test: under('/tracker'), scene: scene('tracker', 'papan lamaran') },
   { test: (path) => path === '/teams/baru', scene: scene('teams', 'formulir tim baru') },
+  { test: (path) => path === '/teams/cocok', scene: scene('teams', 'pencocokan tim') },
   { test: under('/teams'), scene: scene('teams', 'daftar tim') },
   { test: under('/orang'), scene: scene('network', 'profil') },
   { test: under('/connections'), scene: scene('network', 'koneksi') },
@@ -61,7 +62,7 @@ const RULES: readonly { test: (path: string) => boolean; scene: RouteScene }[] =
   { test: (path) => path === '/submit', scene: scene('submit', 'formulir kiriman') },
   { test: (path) => ['/register', '/verify-email'].includes(path), scene: scene('auth', 'pendaftaran akun') },
   { test: (path) => ['/forgot-password', '/reset-password'].includes(path), scene: scene('auth', 'pemulihan akun') },
-  { test: under('/login'), scene: scene('auth', 'halaman masuk') },
+  { test: (path) => under('/login')(path) || path === '/demo', scene: scene('auth', 'halaman masuk') },
 ];
 
 const FALLBACK: RouteScene = scene('page', 'halaman');

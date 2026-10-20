@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
+import { DateInput } from '@/components/ui/date-input';
 import { SelectInput, TextArea, TextInput } from '@/components/ui/field';
 import { ANSWER_INPUT_PATTERN, answerInputName, REGISTRATION_FORM_LIMITS } from '@/lib/registration-form';
 import { cn } from '@/lib/utils';
@@ -187,7 +188,7 @@ export function RegistrationFieldInput({
           <TextInput {...common} inputMode="decimal" pattern={ANSWER_INPUT_PATTERN.number} maxLength={20} title={INVALID_MESSAGE.number} />
         );
       case 'date':
-        return <TextInput {...common} type="date" className="sm:max-w-[240px]" />;
+        return <DateInput {...common} className="sm:max-w-[240px]" />;
       case 'url':
         return (
           <TextInput

@@ -1,9 +1,16 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SearchBox } from '@/components/listing/listing-ui';
 import { Button } from '@/components/ui/button';
 import { LostMapSketch } from '@/components/ui/illustrations';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
+import { NOT_FOUND_TITLE } from '@/lib/page-title';
 import { parseEventQuery } from '@/lib/search-params';
+
+export const metadata: Metadata = {
+  title: NOT_FOUND_TITLE,
+  robots: { index: false, follow: false },
+};
 
 /**
  * 404. Penyebab terbanyak di produk ini: tautan kegiatan lama yang dibagikan

@@ -38,3 +38,20 @@ export function eventTypeNavFor(types: readonly EventType[] | undefined): EventT
   const sorted = [...types].sort().join(',');
   return EVENT_TYPE_NAV.find((item) => [...item.types].sort().join(',') === sorted) ?? null;
 }
+
+/**
+ * Halaman fokus-tugas memakai navbar ringkas tanpa baris kategori: masuk, studio
+ * penyelenggara, panel admin, dan pengaturan akun adalah pekerjaan satu tujuan,
+ * dan di ponsel baris kategori memakan satu baris penuh (terpotong pula) tanpa
+ * pernah dipakai di sana.
+ */
+const FOCUSED_TASK_PATHS: readonly RegExp[] = [
+  /^\/(login|register|demo|forgot-password|reset-password|verify-email)$/,
+  /^\/admin(\/|$)/,
+  /^\/penyelenggara(\/|$)/,
+  /^\/profile\/[^/]+/,
+];
+
+export function isFocusedTaskPath(pathname: string): boolean {
+  return FOCUSED_TASK_PATHS.some((pattern) => pattern.test(pathname));
+}
