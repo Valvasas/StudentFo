@@ -12,6 +12,176 @@ terdokumentasi.
 
 ---
 
+## ADR-057 — Pengerasan menjelang produksi (T1–T15) dan pencocokan tim/partner
+
+**Konteks:** Audit pra-produksi (`TEMUAN.md`, T1–T15) menemukan situs masih
+"berbicara" sebagai demo: login memamerkan peran Admin, `/admin` mengaku ada
+bagi yang tak berhak, panel admin memakai bahasa internal, ada jejak
+"demo/contoh/fiktif" di halaman publik, Tentang/Kebijakan privasi terlihat
+draf, judul tab salah, bahasa visual tak seragam, kata "Pendaftaran" dipakai
+untuk tiga hal, dan beberapa detail kecil. Bersamaan, pemilik meminta fitur
+cari tim/partner otomatis ala matchmaking.
+
+**Keputusan — pengerasan:**
+- **Demo dipisah dari pintu masuk sungguhan (T1, T4).** `/login` dan
+  `/register` adalah form biasa. Akun demo hidup di `/demo` dan hanya
+  ditawarkan bila `isDemoAvailable()`. Di produksi, `ALLOW_DEMO_IN_PRODUCTION`
+  saja TIDAK cukup: `DEMO_ALLOWED_HOSTS` wajib berisi host deploy (kosong =
+  menolak, gagal tertutup — flag mudah ikut menyala di deploy yang salah).
+  Persona Admin lebih ketat: di produksi hanya terbuka lewat
+  `/demo?akses=<DEMO_ADMIN_KEY>`, dibandingkan lewat hash (`timingSafeEqual`).
+  Menyembunyikan tombol bukan kontrol keamanan — Server Action bisa dipanggil
+  langsung — jadi `demoSignInAction` menegakkan aturan yang sama
+  (`src/lib/demo/access.ts` murni + `gate.ts` yang membaca env/header).
+- **`/admin` adalah 404 bagi yang bukan admin (T2).** `requireAdmin()` memanggil
+  `notFound()`, bukan "Akses terbatas": respons yang membedakan "tidak ada" dari
+  "ada tapi dilarang" membocorkan keberadaan panel. Judul tab pun dihasilkan
+  `generateMetadata` (`adminMetadata()`), karena `export const metadata` statis
+  dikirim sebelum komponen sempat memutuskan 404 dan akan membocorkan judul
+  "Admin". Otorisasi di dalam tiap Server Action tidak diubah.
+- **Panel admin tanpa bahasa internal (T3).** Teks mode-demo, kutipan peran
+  `ADMIN`, dan "Sumber data: seed lokal" dihapus dari panel; tombol atur-ulang
+  data tetap hanya di mode demo. "Acara hasil scraping" → "Kegiatan dari sumber
+  otomatis" (kosakata moderator, bukan tim data).
+- **Satu penanda demo, bukan selusin (T4).** `DemoBanner` jadi satu-satunya
+  tempat situs mengaku demo; kalimat "contoh/demo/fiktif" di kartu, pengaturan,
+  Tentang, dan pembayaran dihapus atau dinetralkan. Reset ditulis "tiap 6 jam"
+  (bukan jam absolut yang basi); jam absolut hanya muncul menjelang reset.
+  Persona memakai nama biasa dan surel `…@nusantara.test` (domain `.test`
+  dicadangkan RFC 2606, tak pernah terkirim ke orang sungguhan), tanpa
+  "(contoh)".
+- **Tentang tidak berbicara soal status hukum (T5).** Bagian "Yang belum kami
+  lakukan" menjadi "Yang perlu kamu tahu sebelum mulai" — fakta yang memengaruhi
+  keputusan pengguna (uang peserta tidak dipegang, kanal pengingat) tetap
+  jujur, tanpa daftar kekurangan. Status Kebijakan privasi hidup di halaman
+  dokumennya sendiri dan digerakkan env: `PRIVACY_CONTACT_EMAIL` +
+  `PRIVACY_POLICY_EFFECTIVE_DATE` kosong → halaman berlabel DRAF. Kami sengaja
+  TIDAK mengisinya: kontak resmi dan tanggal berlaku adalah pernyataan hukum
+  milik pemilik, bukan sesuatu yang boleh dikarang pengembang (`src/lib/legal.ts`).
+  Hitungan penyelenggara di Tentang sudah menghitung nama unik; yang diperbaiki
+  hanya labelnya ("penyelenggara berbeda").
+- **Judul tab (T6).** 404 punya judul sendiri (`NOT_FOUND_TITLE`, `noindex`);
+  halaman yang memakai `?tab=` — detail kegiatan, Koneksi, Profil — membentuk
+  judul lewat `generateMetadata` dan `sectionTitle()` ("Syarat · Nama
+  kegiatan"). Tab bawaan memakai judul halaman polos.
+- **Bahasa visual (T7).** Pilihan "paling aman" dari temuan diambil: halaman
+  fungsional (`/teams`, `/connections`) mengikuti `/events` — judul polos,
+  satu kolom, tanpa stabilo, tanpa tint pastel acak per orang/tim (kartu
+  memakai `bg-panel-nested`). `FeatureHero` tanpa `stage` = satu kolom.
+  Ilustrasi besar dan gerak dicadangkan untuk "momen" yang memang
+  dirancang sebagai pengalaman: pencocokan tim (`/teams/cocok`), halaman
+  hasil aksi, dan empty state/404.
+- **Kosakata (T8).** Tiga hal, tiga nama: `Papan lamaran` (`/tracker`, catatan
+  pribadi termasuk yang didaftar di situs luar; tab profil "Lamaran"),
+  `Pendaftaran & pembayaran` (`/pembayaran`, formulir internal StudentFo),
+  dan "Daftar" hanya untuk tombol mendaftar ke acara. Halaman pembayaran
+  menautkan ke Papan lamaran, jadi orang yang mendaftar di situs luar tahu
+  tempatnya.
+- **Navbar ringkas di halaman fokus-tugas (T9).** `isFocusedTaskPath()`:
+  masuk/daftar/demo, `/admin`, `/penyelenggara`, `/profile/*` tidak membawa
+  baris kategori.
+- **Detail kecil (T10–T15).** Email panjang diputus di `@`/`.`
+  (`BreakableEmail`, tetap utuh saat disalin); pemberitahuan
+  `registration_awaiting_payment` tidak lagi dirayakan dengan kartu "TERSIMPAN"
+  yang menumpuk di atas banner (T11); kartu "Perlu tindakan" kosong tidak meregang (`items-start`, T12);
+  grup "Ruang kerja" hilang dari menu peserta, diganti satu pintu "Jadi
+  penyelenggara" di "Lainnya" (T13); penanda privat profil jadi ikon gembok di
+  tab-nya, bukan "tab" tersendiri (T14); "Data lembaga" diberi penjelasan (T15).
+  Kolom tanggal "Kirim kegiatan" tetap `<input type="date">` bawaan peramban
+  (lebih mudah diakses daripada kalender buatan sendiri), tetapi `DateInput`
+  menggemakan pilihan sebagai "Sabtu, 12 Desember 2026" — kalimat yang tidak
+  ambigu di locale mana pun, tempat `mm/dd/yyyy` sebelumnya menyesatkan.
+  Tamu yang dialihkan ke `/login` kini diberi tahu halaman yang mereka minta
+  ("Masuk untuk membuka Papan lamaran", `destination-label.ts`, daftar tertutup
+  supaya `?next=` sembarang tidak dikutip ke layar).
+
+**Keputusan — pencocokan tim/partner (`/teams/cocok`):**
+- **Model: komplementaritas, bukan kemiripan.** Skor 0–100 = jumlah berbobot
+  `skills .34 · mutual .12 · distance .18 · portfolio .16 · interests .14 ·
+  level .06` (`MATCH_WEIGHTS`, jumlah 1). Keahlian menilai apakah kandidat
+  membawa yang KAMU cari (persis = 1, sebidang = 0,5) dan domain baru yang
+  belum kamu punya; "saling butuh" menilai arah sebaliknya. Orang yang
+  keahliannya sama persis denganmu bukan tim yang baik, jadi bukan itu yang
+  diutamakan.
+- **Jarak = peluruhan eksponensial skala 350 km** (≤15 km = 1; hanya jarak 0
+  yang ditulis "Satu kota", sisanya "Berdekatan" — Bandung–Cimahi),
+  dengan lantai 0,5 bila KEDUANYA bersedia daring: tim jarak jauh bisa jalan,
+  jarak tak boleh menjadi vonis. Kota tak dikenal = 0,3, bukan 0.
+- **Portofolio jenuh, bukan menumpuk.** Lima entri terbaik, tiap entri
+  berikutnya 75% dari sebelumnya. Tanpa peluruhan, 5×Peserta (5×0,2) menyamai
+  1×Juara 1 — ditemukan oleh tes, bukan tebakan. Tiga gaya (`seimbang`,
+  `juara`, `belajar`) hanya mengubah cara portofolio dinilai. `juara` =
+  `seimbang` + bonus 0,3×kekuatan: kurva linear yang pertama saya pakai membuat
+  "Cari yang berpengalaman" MENURUNKAN skor orang paling berpengalaman (tur
+  pengunjung, 86→84); kini ia tak pernah di bawah `seimbang` (tes properti).
+  Hasil lomba dilaporkan pemilik profil (ADR-046), jadi kartu menulisnya
+  "(laporan sendiri)" — peringkat tetap memakainya, tetapi pengguna tidak
+  diberi kesan itu terverifikasi.
+- **Privasi timbal-balik.** Kartu pemain BAWAAN TERTUTUP (pola ADR-040).
+  Mencari mewajibkan kartu terbuka: kamu tidak bisa melihat orang tanpa
+  bersedia dilihat. Hanya NAMA KOTA yang disimpan; jarak antarkota dibulatkan
+  ke 5 km sehingga tak bisa dipakai membedakan alamat. Email tidak pernah
+  dikirim ke klien dan hasil tak memuat yang memblokir/diblokir pemanggil.
+- **Perluasan sadar atas `is_discoverable()`/`can_view_profile()`:** kartu
+  terbuka ikut dihitung. Tanpa ini tombol "Ajak jadi partner" selalu ditolak
+  policy `connections` bagi orang yang membuka kartu tetapi tidak membuka
+  direktori Koneksi. Konsekuensi diumumkan di form; `network_directory` TIDAK
+  berubah. Perubahan ini dilindungi uji mutasi di
+  `supabase/tests/100_team_matching.test.sql`.
+- **Peringkat di aplikasi, kandidat dari SQL.** `list_team_candidates()`
+  (DEFINER, `search_path` terkunci, `REVOKE … FROM anon, authenticated` lalu
+  `GRANT` ke `authenticated` — ADR-020) mengembalikan jendela kandidat
+  (bawaan 200, maks 400); logika skor murni di `src/lib/matchmaking.ts` dan
+  dipakai kedua repository. Aturan visibilitasnya diuji dua kali: sisi memori
+  (`src/lib/data/matchmaking.test.ts`, mencerminkan SQL) dan sisi SQL
+  (`supabase/tests/100_team_matching.test.sql`). Yang BELUM ada: uji integrasi
+  PostgREST untuk jalur Supabase penuh (lihat TASKS.md). Tidak ada
+  rate-limit baca: fungsi ini tidak menulis dan jendelanya dibatasi; bila
+  ternyata dijadikan alat scraping, tambahkan pembatas di fungsi, bukan di UI.
+- **Saringan = `<form method="get">`** (keputusan `/events`): URL kanonik per
+  kombinasi, tombol Kembali bekerja, tanpa JS. Pemindaian selalu dimulai oleh
+  `cari=1`.
+- **Animasi pemindaian murni CSS dan gagal-aman** (§10 `globals.css`). Radar
+  HTML + `conic-gradient` (bukan SVG) supaya titik pemain memakai `Avatar` yang
+  sama dengan kartu hasil. Hasil tersusun di server; animasi hanya menunda
+  TAMPILAN, jadi tanpa JS pemindaian berakhir sendiri dan di reduced-motion
+  aturan global (`animation-duration: 0.01ms`) langsung menuju keadaan akhir.
+  Karena Server Action meredirect ke rute yang sama, scroll tidak direset;
+  `ScanSession` membawa radar ke dalam layar saat pencarian dimulai.
+
+**Konsekuensi:**
+- Migration `20261020100001_team_matching.sql` BELUM diterapkan ke project
+  remote mana pun — menunggu konfirmasi pemilik (CLAUDE.md). Tanpa migration,
+  mode Supabase tidak punya `team_seekers`; mode seed berjalan penuh.
+- `DEMO_ALLOWED_HOSTS`, `DEMO_ADMIN_KEY`, `PRIVACY_CONTACT_EMAIL`,
+  `PRIVACY_POLICY_EFFECTIVE_DATE` adalah env baru (`.env.example`). Yang
+  terakhir dua TIDAK boleh diisi tanpa tinjauan hukum.
+- Menambah keahlian baru = ubah tiga tempat: `TEAM_SKILLS` di
+  `src/types/domain.ts`, fungsi `team_skill_slugs()` di migration baru, dan
+  uji paritas `matchmaking.test.ts` akan menolak bila keduanya berselisih.
+- Mengubah bobot/skala = mengubah urutan hasil: sesuaikan tes dan perbarui
+  entri ini.
+- Data contoh harus mendemonstrasikan setiap saringan untuk persona demo:
+  persona "Mahasiswa" (Bandung) sudah terhubung dengan dua orang Bandung dan
+  satu juara, dan orang yang terhubung tidak dicalonkan lagi, sehingga
+  `jarak ≤25 km` dan `Pernah juara` sempat kosong di demo. `SEED_SEEKERS` /
+  `SEED_PORTFOLIO` kini menyediakan orang dekat dan seorang juara yang BELUM
+  terhubung; tes memori menjaganya.
+- **Store demo hanya mencalonkan orang contoh** (`MemoryEventRepository`
+  `{ isolateSeekers: true }`, dipasang di `getEventRepository()`). Data demo
+  dibagi semua pengunjung; awalnya kartu pengunjung lain ikut menjadi kandidat,
+  sehingga hasil dipenuhi klon persona ("Dinda Pratiwi" ×N, semuanya di Bandung)
+  yang menggeser orang contoh dari enam kartu teratas, dan kalimat pengantar
+  bebas (≤140 karakter) seorang pengunjung terbaca orang asing. Ditemukan lewat
+  tes e2e yang lulus di satu proyek dan gagal di dua lainnya. Bawaan konstruktor
+  tetap `false` supaya semantik tes memori sama dengan SQL (`list_team_candidates`
+  mencalonkan setiap kartu terbuka); isolasi hanya untuk store demo aplikasi.
+- Hanya mode "partner" yang ada. Mode "tim yang cocok" (peringkat tim terbuka
+  untuk dimasuki) belum dibuat — tidak ada kebutuhan yang terbukti, dan ia
+  memerlukan model keahlian-dicari per tim yang belum ada di `teams`.
+
+---
+
 ## ADR-056 — Formulir pendaftaran internal, pembayaran transfer terverifikasi, galeri acara, beranda per peran
 
 **Konteks:** Permintaan pemilik menjelang produksi: penyelenggara bisa membuat

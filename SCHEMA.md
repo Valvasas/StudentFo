@@ -200,6 +200,27 @@ Policy INSERT `team_members` juga mensyaratkan `role = 'member'` kecuali ketua
 mendaftarkan dirinya sendiri di tim miliknya. Tim hanya bisa dibuat untuk
 event `APPROVED` (`teams_owner_insert`).
 
+### `team_seekers` (Pencocokan tim/partner — UI di `/teams/cocok`, ADR-057)
+Satu baris per pengguna ("kartu pemain"): `is_open` (BAWAAN `false` — tidak ada
+yang dicocokkan tanpa memilih sendiri, pola ADR-040), `city` (hanya NAMA kota;
+jarak dihitung di aplikasi dari titik pusat kota, koordinat rumah tidak pernah
+disimpan), `skills`/`seeking` (maks 6, dibatasi ke daftar slug
+`team_skill_slugs()`), `remote_ok`, `pitch` (≤140). CHECK
+`team_seekers_open_is_usable`: kartu terbuka wajib punya ≥1 keahlian dan (kota
+ATAU `remote_ok`) — form sudah menegakkannya, ini penjaga untuk klien lain.
+
+RLS: pemilik saja untuk SELECT/INSERT/UPDATE/DELETE. Orang lain TIDAK membaca
+tabel ini langsung; mereka membaca lewat `list_team_candidates()`. Hak per
+kolom: `UPDATE` hanya `is_open, city, skills, seeking, remote_ok, pitch`.
+Slug keahlian hanya bisa bertambah lewat migration baru yang mengganti
+`team_skill_slugs()` DAN `TEAM_SKILLS` di `src/types/domain.ts`; uji paritas
+`src/lib/data/matchmaking.test.ts` gagal bila keduanya berselisih.
+
+**Efek samping yang disengaja:** kartu terbuka membuat pemiliknya
+`is_discoverable()` dan `can_view_profile()` bagi pengguna masuk (profil tanpa
+email dapat dilihat, bisa diajak terhubung) — diumumkan di form. Direktori
+Koneksi (`network_directory`) tidak berubah.
+
 ### `moderation_log` (riwayat moderasi, ADR-031)
 Append-only: `subject_type` (`event`/`submission`), `subject_id`, salinan
 `title`, `from_status` → `to_status`, `actor_id` (NULL = sistem/di luar
@@ -378,6 +399,8 @@ email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 | `public.list_personalized_events(...)` | INVOKER, `SET jit = off`. Listing urut relevansi; rumus = `rankEvents()` (personal & cold start), filter = `queryListingPage()`, `p_limit` dijepit 1..48, kolom `total_count`. anon/authenticated boleh (RLS tetap berlaku) |
 | `public.register_for_event(uuid, jsonb)` / `submit_payment_proof(uuid, text)` / `review_event_registration(uuid, text, text)` / `cancel_event_registration(uuid)` | DEFINER, `authenticated`. Satu-satunya jalur tulis `event_registrations`; transisi kembar `registrationTransition()` (ADR-056) |
 | `public.event_registration_count(uuid)` / `registration_stats(uuid[])` | Sisa kuota (publik) / ringkasan studio (INVOKER, hanya acara kelolaan) |
+| `public.team_skill_slugs()` | IMMUTABLE; satu-satunya sumber daftar slug keahlian di SQL (dipakai CHECK `team_seekers`). `authenticated` WAJIB punya EXECUTE — CHECK dievaluasi dengan hak pemanggil INSERT (ADR-057) |
+| `public.list_team_candidates(int)` | DEFINER, `authenticated`. Kartu terbuka orang lain tanpa email, tanpa pemblokir/diblokir, plus ringkasan portofolio PUBLIK (aturan = `public_portfolio()`); kosong bila kartu pemanggil sendiri tidak terbuka (timbal-balik); `p_limit` dijepit 1..400 (ADR-057) |
 | `public.claim_notification_dispatch(int, int)` / `ack_notification_dispatch(uuid[])` | DEFINER, **hanya `service_role`**. Klaim berbasis sewa (`FOR UPDATE SKIP LOCKED`), lewati pengingat basi; ack hanya untuk baris yang sedang diklaim |
 
 ## Row Level Security
@@ -397,6 +420,7 @@ anon key). Ringkasan policy:
 | ugc_submissions | admin saja (privasi email) | INSERT publik, hanya kolom email + payload; persetujuan via `approve_submission()` |
 | teams | publik read | INSERT pemilik untuk event APPROVED; UPDATE/DELETE pemilik atau admin (0008) |
 | team_members | authenticated read | self-join INSERT sebagai `member` (kapasitas dijaga trigger), self/owner DELETE |
+| team_seekers | pemilik saja (kandidat dibaca lewat `list_team_candidates()`) | pemilik; UPDATE hanya 6 kolom kartu (ADR-057) |
 
 Semua policy `FOR ALL` menulis `WITH CHECK` eksplisit (bukan hanya `USING`) —
 tanpa itu user bisa INSERT baris atas nama `user_id` orang lain (DEVIATIONS #6).
