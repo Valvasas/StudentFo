@@ -332,12 +332,28 @@ keahlian/portofolio), dan evaluasi dari sudut pandang pengunjung kritis
 - [x] Uji integrasi PostgREST pencocokan (`tests/integration/matchmaking.test.ts`, 7 tes; 3 mutasi migration tertangkap)
 - [x] Tur pengunjung kritis + laporan: `docs/evaluasi-pengunjung-kritis.md` (12 temuan baru N1–N12 diperbaiki)
 - [ ] Algoritma: simpan "lewati"/ajakan sebagai sinyal teragregasi untuk kalibrasi bobot (kini bobot dari tangan); pra-saring SQL bila kartu terbuka > ±400 (jendela kandidat berdasar keterbaruan, bukan relevansi).
-- [ ] Mobile: kartu hasil pencocokan ±800 px per kartu (halaman ±5.800 px untuk 6 kartu) — pertimbangkan mode ringkas.
+- [x] Mobile: kartu hasil pencocokan ±800 px per kartu (halaman ±5.800 px untuk 6 kartu) — diselesaikan ADR-058: tumpukan = satu kartu per layar.
 - [ ] Email ikut di URL galat masuk (`/login?error=…&email=…`, `echoEmail`): pertimbangkan cookie sekali-pakai.
 - [x] Demo bersama: store demo hanya mencalonkan orang contoh (`isolateSeekers`), jadi kartu/kalimat pengantar pengunjung demo tidak terlihat pengunjung lain. (Tim buatan pengunjung masih dibagi — perilaku lama, direset 6 jam.)
 - [ ] Mode "tim yang cocok" (peringkat tim terbuka untuk dimasuki): butuh kolom keahlian-dicari per tim di `teams`.
 - [ ] Kota hanya dari daftar `REGIONS` (tidak ada teks bebas, sengaja). Titik pusat kota ±belasan km; jangan menjanjikan ketepatan lebih di UI.
 - [ ] Rate-limit baca `list_team_candidates` bila terbukti dipakai memanen profil (kini dijaga: kartu pemanggil harus terbuka + jendela 400).
+
+## Redesain UI pencocokan tim 2026-10-21 (@claude) — ADR-058
+
+Permintaan pemilik: UI pencarian tim terasa kaku/"mid"; rombak agar interaktif,
+dinamis, memuaskan, dengan ilustrasi yang sesuai bahasa buku sketsa.
+
+- [x] Tiga konsep dirancang + dinilai juri; dipilih "Tumpukan Kartu" (spec di PR)
+- [x] Hasil = tumpukan kartu koleksi: seret kiri (Lewati) / kanan (lembar tinjau, tidak pernah mengirim), balik ke punggung (ScoreHex + batang), Urungkan, kartu penutup, mode "Semua kartu", keadaan kosong dengan "Lepas … · +N orang"
+- [x] Gagal-aman: rail scroll-snap tanpa JS, tombol hanya-JS tak dirender sebelum hidrasi, kartu belakang `inert` tetapi tetap di DOM
+- [x] Form = pembuat kartu: `SkillMatrix` (18 baris), kartu hidup (stiker/puzzle/stempel), `CardMiniBar`, pemulihan draf setelah galat validasi
+- [x] Ilustrasi sketsa (`DeckDealSketch`, `LonePieceSketch`, `PocketSketch`, 3 doodle, `ScoreHex`) + kosakata gerak `match-motion.css`
+- [x] Tes: Vitest `deck-gesture`/`deck-state`/`use-seeker-draft`; e2e `matchmaking.spec.ts` (gestur, papan ketik, balik, urungkan, persistensi, grid, kartu penutup, kosong, draf, tanpa JS, 390px), `touch-targets.spec.ts`, axe di 5 keadaan
+- [x] Perbaikan temuan QA visual: kolom grid implisit `auto` membuat halaman hasil melebar ±370 px di ponsel (`grid-cols-1`), nama kartu dua baris menimpa subjudul, ringkasan kartu melimpah, kontras `opacity` pada petunjuk papan ketik
+- [x] Review adversarial 5 dimensi (a11y, gagal-aman, gestur, CSS, privasi/konvensi) + verifikasi skeptis: 30 kandidat, yang nyata diperbaiki — geser jari batal seketika (tangkapan implisit sentuhan), fokus hilang saat membalik/Urungkan, radar tak diputar ulang saat pindai ulang, kartu lewati menghilang setelah "Kocok ulang", jeda pembagian dihitung dari hidrasi, stempel pita tertutup avatar, kotak keahlian terkunci tanpa JS, peringatan kolom tak turun, draf menginap setelah tersimpan, kebijakan privasi belum menyebut kartu pemain & penyimpanan peramban, CSS/komponen mati (`card-out`, `snap-*`, `PuzzleSnapSketch`, prop `layout`)
+- [ ] Tinjau gestur di perangkat sentuh sungguhan (iOS Safari: gestur "kembali" tepi layar sudah diberi zona mati 16 px, belum diuji di perangkat)
+- [ ] Favicon belum ada (`/favicon.ico` → 404 di semua halaman; bukan bagian redesain)
 
 ## Template tugas baru
 

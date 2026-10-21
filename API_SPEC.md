@@ -227,7 +227,7 @@ diabaikan, bukan galat):
 
 | Param | Nilai | Bawaan |
 |---|---|---|
-| `cari` | `1` = putar pemindaian | — |
+| `cari` | `1` = putar pemindaian (hanya dari Simpan kartu dan "Cari ulang"; form saringan TIDAK membawanya) | — |
 | `jarak` | `25` \| `100` \| `500` (km) | tanpa batas |
 | `daring` | `0` = hanya yang bisa bertemu langsung | ikutkan yang daring |
 | `keahlian` | slug `TEAM_SKILLS`, boleh berulang (salah satu cukup) | — |
@@ -432,8 +432,11 @@ batas-batasnya mencerminkan kolomnya di migration 0001 (`title` VARCHAR(255),
 Keduanya memanggil `requireUser()` sendiri. `returnTo` hanya boleh kembali ke
 `/teams/cocok` (dengan saringannya); selain itu dipaksa ke halaman itu. Ajakan
 memakai jalur yang SAMA dengan Koneksi (`requestConnection`) — tidak ada tabel
-ajakan kedua. "Lewati" sebuah kartu adalah keadaan klien sementara
-(`DismissibleMatch`), tidak disimpan di mana pun.
+ajakan kedua. Dengan JS, tombol/gestur "Ajak" HANYA membuka lembar tinjau;
+form POST ke `inviteMatchAction` baru dikirim dari tombol "Kirim ajakan" di
+sana (tanpa JS tombol di kartu langsung mengirim). "Lewati" sebuah kartu adalah
+keadaan klien sementara (`sessionStorage` `sf-deck-skip:<viewerId>`, hanya id
+kandidat, divalidasi saat dibaca), tak pernah dikirim ke server (ADR-058).
 
 ### Aksi kiriman komunitas — `src/app/submit/actions.ts`
 

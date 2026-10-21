@@ -59,7 +59,7 @@ src/
 │   ├── profile/                Akun: profil, data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), pengaturan, privasi
 │   ├── tracker/                Papan lamaran + actions.ts (simpan, ubah tahap, hapus)
 │   ├── teams/                  Cari rekan tim + baru/ (buka tim, halaman sendiri — ADR-054) + [id] detail + actions.ts
-│   │   └── cocok/              Pencocokan tim/partner otomatis: kartu pemain, pemindaian radar, hasil berperingkat + actions.ts (ADR-057)
+│   │   └── cocok/              Pencocokan tim/partner otomatis (ADR-057, 058): page.tsx = router tipis → form-view.tsx | results-view.tsx, shared.ts, actions.ts
 │   ├── connections/            Koneksi, satu tab per tugas (?tab= untukmu|koneksi|ajakan|peta|pengaturan) + actions.ts (ADR-040, ADR-048)
 │   ├── orang/[id]/             Profil publik + portofolio orang lain, wajib masuk, 404 seragam (ADR-046)
 │   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara (ADR-042/043/046); acara/[id]/ = ruang kerja
@@ -98,8 +98,10 @@ src/
 │   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055),
 │   │                           EventGallery + GalleryViewer (galeri foto acara, dialog lightbox, ADR-056), event-photo.ts (src/alt foto)
 │   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
-│   ├── match/                  Pencocokan (ADR-057): MatchRadar (layar radar, murni CSS), MatchRing (cincin skor), MatchCard,
-│   │                           DismissibleMatch (lewati, klien), SeekerForm (kartu pemain), MatchFilters (<form method="get">), ScanSession
+│   ├── match/                  Pencocokan (ADR-057, 058): MatchRadar + ScanStage + ScanSession (pemindaian), MatchRing & ScoreHex (skor),
+│   │                           MatchCard (kartu koleksi, Server Component), MatchEndCard, MatchEmpty, ActiveFilterChips, MatchFilters (<form method="get">),
+│   │                           CardSummary, SeekerForm + SkillMatrix + CardBuilder + CardMiniBar + use-seeker-draft (form pembuat kartu),
+│   │                           deck/ (MatchDeck, DeckBar, InviteSheet <dialog>, use-card-drag, DeckProvider/controls — klien, mode rail→stack/grid)
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
 │   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
@@ -130,6 +132,10 @@ src/
 │   ├── cron-auth.ts            Bearer CRON_SECRET, banding waktu-konstan, gagal tertutup [teruji]
 │   ├── matchmaking.ts          Pencocokan tim/partner: skor 6 komponen, saringan keras, alasan & "kimia", parse/serialize query [teruji, murni] (ADR-057)
 │   ├── matchmaking-schema.ts   Validasi form kartu pemain (Zod) [teruji]
+│   ├── deck-gesture.ts         Matematika gestur tumpukan kartu (ambang, karet, kemiringan, kecepatan lempar) [teruji, murni] (ADR-058)
+│   ├── deck-state.ts           Riwayat lewati/urungkan + `parseSkipStore` (sessionStorage yang tak dipercaya) [teruji, murni] (ADR-058)
+│   ├── match-filter-release.ts Saringan aktif → kelompok & "lepas satu saringan" untuk chip dan keadaan kosong [teruji, murni] (ADR-058)
+│   ├── motion-pref.ts          `isMotionReduced()` — satu-satunya pintu gerak JS ke preferensi gerak (ADR-058)
 │   ├── geo.ts                  Titik pusat kota Indonesia + jarak haversine dibulatkan 5 km; koordinat rumah tidak pernah disimpan [teruji]
 │   ├── network.ts              Peringkat saran koneksi, alasan, validasi form jaringan, kursor paginasi koneksi [teruji]
 │   ├── network-graph.ts        Data peta koneksi (simpul/sisi, batas) dibangun di server [teruji]

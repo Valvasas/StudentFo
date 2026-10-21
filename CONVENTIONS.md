@@ -140,13 +140,20 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   `stamp`, `confetti-bit`) + ADR-055 (`page-enter`, `loader-in`, `bob`, `fly`,
   `sweep`, `turn`, `dash-flow`, `celebrate-in/out`, `launch`,
   `progress-sheen`) + ADR-057 (`scan-overlay`, `scan-results`, `scan-line`,
-  `radar-sweep`, `radar-ping`, `blip`, `ring-fill`, `card-out`, `snap-left`,
-  `snap-right`; §10 `globals.css`). Rangkaian pemindaian pencocokan wajib
+  `radar-sweep`, `radar-ping`, `blip`, `ring-fill`; §10 `globals.css`) + ADR-058 (`match-motion.css`: `deal-in`,
+  `face-turn-out/in`, `stick-in`, `sheet-up/sheet-pop`, `nudge`, `tick-bump`,
+  `undo-return`, token `--ease-pop*`). Rangkaian pemindaian pencocokan wajib
   **gagal-aman**: keadaan BAWAAN elemen = hasil terlihat dan lapisan
   pemindaian tersembunyi; animasi hanya meminjam keadaan sebaliknya selama
   ±2,9 detik. Tanpa JS ia berakhir sendiri, dan di reduced-motion (aturan
   global `animation-duration: 0.01ms`) langsung menuju keadaan akhir. Jangan
-  membalik ini (konten tersembunyi sampai animasi/JS menampakkannya). Anak dekoratif DI DALAM target (ikon panah) boleh
+  membalik ini (konten tersembunyi sampai animasi/JS menampakkannya). Aturan
+  global reduced-motion hanya menolkan durasi CSS, BUKAN gerak yang digerakkan
+  JS: setiap gerak JS (seret, balik, terbang) wajib membaca `isMotionReduced()`
+  (`lib/motion-pref.ts`) dan melompat ke keadaan akhir. Jangan memakai WAAPI
+  `element.animate()`, View Transitions, atau pegas rAF untuk gerak antarmuka
+  (ADR-058). Elemen hanya-JS (tombol Lewati/Balik) tidak dirender sebelum
+  hidrasi — tidak ada tombol mati di HTML server. Anak dekoratif DI DALAM target (ikon panah) boleh
   bergeser saat hover — kotak sentuhnya sendiri tetap diam.
 - Tombol "ditekan" = bayangan inset + isi turun 1px (`active:pt-0.5` hanya pada
   tombol bertinggi tetap tanpa `py-*`), BUKAN `scale` — tombol yang menciut

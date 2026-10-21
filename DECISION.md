@@ -12,6 +12,126 @@ terdokumentasi.
 
 ---
 
+## ADR-058 — Redesain UI pencocokan tim: tumpukan kartu koleksi
+
+**Konteks:** Tur pengunjung kritis (`docs/evaluasi-pengunjung-kritis.md`) dan
+pemilik menilai pencocokan ADR-057 "mid": radar bagus tetapi hasilnya enam
+kartu panjang yang berbaris (±800 px per kartu, halaman ±5.800 px di ponsel),
+statis, dan form-nya daftar kotak centang. Diminta: lebih interaktif, dinamis,
+memuaskan, dengan elemen ilustratif yang sesuai bahasa "buku sketsa".
+
+**Keputusan:** Tiga konsep dirancang dan dinilai juri; yang dipakai adalah
+**Tumpukan Kartu** (kartu koleksi yang bisa digeser), dengan batasan berikut.
+- **Hasil = tumpukan.** Kartu depan besar, dua kartu di belakangnya mengintip
+  miring. Geser kiri = Lewati; geser kanan / tombol "Ajak jadi partner" /
+  ArrowRight = membuka **lembar tinjau** (`<dialog>`); ArrowDown/ArrowUp atau
+  flap di pita kartu = membalik ke punggung (radar 6 sumbu `ScoreHex` + batang
+  skor). "Urungkan", "Kembalikan semua yang dilewati", kartu penutup
+  ("Tumpukan habis") dengan ilustrasi, dan mode "Semua kartu" (grid) untuk yang
+  tak suka menggeser.
+- **Gestur TIDAK PERNAH mengirim.** Ajakan baru terkirim lewat "Kirim ajakan"
+  di lembar tinjau (form POST ke `inviteMatchAction` yang SAMA, tak diubah).
+  Menggeser kartu itu mudah salah; mengajak orang itu tak bisa ditarik.
+- **Gagal-aman terbalik dihindari.** Markup server = keadaan akhir yang
+  terlihat: kartu berderet sebagai *rail* scroll-snap, setiap kartu membawa
+  form ajakannya sendiri (+ pesan pengantar) dan semua isi. `data-mode`
+  `stack`/`grid` dan `.deck[data-live]` hanya dipasang JS setelah hidrasi
+  (`useSyncExternalStore`, snapshot server `false`). Tombol hanya-JS (Lewati,
+  Balik) tidak dirender sebelum itu — tak ada tombol mati. Kartu belakang tetap
+  di DOM (satu `<article>` per kandidat, urutan DOM = peringkat) tetapi
+  `inert`; jangan pernah `display:none`/`visibility:hidden` pada slotnya.
+- **Gerak.** Aturan global reduced-motion hanya menolkan durasi CSS, bukan
+  gerak JS, jadi semua gerak JS membaca `isMotionReduced()`
+  (`src/lib/motion-pref.ts`: media query ATAU `data-motion="reduce"`).
+  Dilarang: WAAPI `element.animate()`, View Transitions, rAF-spring. Seretan
+  memakai Pointer Events + `touch-action: pan-y pinch-zoom` (gulir vertikal dan
+  perbesar tetap milik peramban); seretan tak dimulai pada `a, button,
+  summary, input, label` supaya klik biasa tak bersaing dengan gestur.
+  Sentuhan sudah ditangkap implisit oleh elemen yang disentuh: memindahkan
+  tangkapan ke slot memicu `lostpointercapture` di elemen itu yang
+  menggelembung ke `<ol>` — hanya kehilangan tangkapan MILIK slot yang
+  membatalkan seretan (tanpa ini setiap geser jari batal seketika; tes e2e
+  memakai sentuhan CDP sungguhan, bukan tetikus). Token gerak baru di
+  `match-motion.css`: `--ease-pop` (`linear()` spring di bawah `@supports`,
+  cadangan `cubic-bezier`), `--ease-pop-soft`, `--ease-out-fast`.
+- **Form = pembuat kartu koleksi.** `SkillMatrix` (18 baris × kolom Bawa/Cari,
+  satu tabel) menggantikan dua daftar centang; kartu hidup di sisi kanan
+  (stiker miring ditempel selotip stabilo, keping puzzle "Dicari" dengan
+  tonjolan, slot hantu, stempel "Terbuka", kartu terbalik saat ditutup) dan
+  `CardMiniBar` lengket di ponsel. Draf form disimpan di `sessionStorage`
+  (`sf-seeker-draft:<userId>`, per pengguna karena tab bisa berganti akun)
+  saat submit, dipulihkan SEKALI bila aksi simpan kembali dengan galat apa
+  pun, dan dihapus begitu halaman hasil tampil (kartu tersimpan). Peringatan
+  kolom dari server turun begitu kolom itu disentuh dan kini valid. Batas enam
+  per sisi baru menonaktifkan kotak setelah hidrasi: tanpa JS server saja yang
+  menolak, supaya orang bisa menukar keahlian dalam satu kiriman.
+- **Saringan GET tak lagi memutar radar** (hidden `cari=1` dihapus, juga dari
+  "Hapus semua saringan"): radar hanya setelah Simpan kartu, "Cari ulang", dan
+  "Kocok ulang tumpukan" — dan pemindaian = tumpukan baru (daftar lewati
+  dikosongkan). Radar dipasang ulang per pemindaian (`key`), deck tidak (fokus
+  dan status tetap) tetapi membagikan ulang kartunya dan diselubungi `inert`
+  selama radar (lapisan radar `pointer-events: none`); jeda pembagian dihitung
+  dari waktu animasi radar yang sudah berjalan, bukan dari hidrasi. Radar
+  `aria-hidden`, jadi `ScanSession` memberi kabar "mencari… / selesai" lewat
+  wilayah status. "Pemindaian baru" dikenali dari IDENTITAS respons, bukan dari
+  URL: setiap respons server membawa UUID baru (`epoch`, `scanId`), dan
+  Kembali/Maju memulihkan respons lama dari cache router dengan UUID yang sama
+  — itu pemulihan: animasinya dimatikan (`data-scan-done`, termasuk jeda cincin
+  skor dan stempel) dan daftar lewati tidak dikosongkan. `cari=1` dibuang
+  segera setelah dipasang dengan `replaceState(null, …)` (Next menyinkronkan
+  URL router-nya tanpa navigasi, jadi "Cari ulang" berikutnya tetap terhitung
+  perpindahan URL); sengaja tidak di akhir radar, karena sinkronisasi router
+  di saat itu bisa membatalkan klik pengguna yang sedang berjalan. Baris "N
+  dari M lolos / Tampilkan lagi" ikut diselubungi bersama tumpukan. Saringan aktif tampil sebagai
+  chip pelepas; keadaan kosong menawarkan "Lepas … · +N orang" (dihitung di
+  server, `src/lib/match-filter-release.ts`).
+- **Status klien opsional, bukan sumber kebenaran:** `sessionStorage`
+  `sf-deck-skip:${viewerId}` (hanya id kandidat, divalidasi `parseSkipStore`),
+  `localStorage` `sf-deck-view` (tumpukan/semua), `sessionStorage`
+  `sf-deck-hinted` (petunjuk geser sekali). Dibaca di layout effect (sebelum
+  lukisan pertama, tak berkedip). Riwayat lewati menyimpan juga orang yang tak
+  ada di daftar saat ini (saringan lain) supaya tetap tersembunyi saat kembali,
+  tetapi hitungan, Urungkan, dan "Kembalikan semua" hanya menyentuh yang ada di
+  tampilan. Halaman benar tanpa semuanya; "lewati" tak pernah ke
+  server. Bagian "Data di peramban" Kebijakan privasi menyebut ketiganya.
+- **Ilustrasi:** satu sketsa BESAR per layar (form = `DeckDealSketch`, kosong =
+  `LonePieceSketch`, akhir = `PocketSketch`, pemindaian = radar) + doodle kecil
+  (`PadlockDoodle`, `PuzzleKnobDoodle`, `NudgeArrowDoodle`) dan `ScoreHex`;
+  gaya garis sama dengan ADR-053/054 (tanpa teks di SVG, `aria-hidden`, warna
+  token). Tint pita kartu = `coverTintOf(userId)` (identitas, bukan makna).
+- **Fokus & papan ketik:** flap balik ada di muka depan yang disembunyikan,
+  jadi membalik dengan flap memindahkan fokus ke ringkasan punggung; Urungkan
+  terakhir (tombolnya jadi nonaktif) memindahkan fokus ke tumpukan; elemen
+  terfokus yang mendadak `inert` (tombol kartu penutup saat tumpukan terisi
+  lagi, selubung radar) atau dicabut ("Tarik N lagi" yang terakhir) dipindahkan
+  ke area hasil sebelum lukis; grup
+  tumpukan bukan perhentian Tab saat kartunya habis; tombol panah yang ditahan
+  (`repeat`) tidak melewati kartu beruntun.
+- **Cetak:** `@media print` mengubah rel/tumpukan menjadi daftar utuh; kartu
+  yang sedang terbalik tercetak muka depan lalu rinciannya.
+- **Kartu hanya memuat yang ditulis untuknya:** kutipan kartu = kalimat
+  pengantar kartu, tanpa meminjam headline Koneksi (ADR-057 dulu memakainya
+  sebagai cadangan) — pratinjau "Beginilah kartumu terlihat" jadi jujur. Teks
+  persetujuan di form dan Kebijakan privasi menyebut apa yang benar-benar
+  terbuka saat kartu dibuka, termasuk halaman profil (headline, minat).
+- **Struktur:** `page.tsx` hanya router (`FormView` / `ResultsView`); CSS
+  fitur dipisah menjadi `match-motion.css` (kosakata gerak), `match-form.css`,
+  `match-deck.css`, diimpor dari `globals.css`. Matematika gestur dan riwayat
+  lewati murni & teruji (`lib/deck-gesture.ts`, `lib/deck-state.ts`).
+
+**Konsekuensi:** Tanpa dependensi baru (gestur ±270 baris sendiri, bukan
+library). Halaman hasil tidak lagi ±5.800 px di ponsel (satu kartu per layar).
+Teks/struktur yang dikunci e2e tak berubah (6 `<article>` pada muatan awal,
+satu "Kecocokan N persen"/"Kenapa cocok"/"Ajak jadi partner" per kartu); yang
+berubah dengan sengaja: dengan JS, "Ajak jadi partner" membuka lembar tinjau
+dan "+ Tambah pesan pengantar" ada di lembar itu, bukan di kartu. Harga
+yang dibayar: gestur bukan satu-satunya jalan (semua punya padanan tombol dan
+papan ketik, plus mode grid), "Lewati" hanya bertahan selama tab dan hanya
+menyembunyikan (orangnya tak diberi tahu), dan nama di kartu (tautan ke profil)
+tak bisa dipakai memulai seretan — sengaja, lawan klik palsu.
+
+---
+
 ## ADR-057 — Pengerasan menjelang produksi (T1–T15) dan pencocokan tim/partner
 
 **Konteks:** Audit pra-produksi (`TEMUAN.md`, T1–T15) menemukan situs masih
