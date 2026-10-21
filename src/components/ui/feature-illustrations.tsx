@@ -105,42 +105,6 @@ export function TeamHuddleSketch({ className }: IllustrationProps) {
   );
 }
 
-/**
- * Pencocokan tim (ADR-057): dua keping puzzle yang bertemu lalu menyatu —
- * tonjolan satu keping pas di lekuk keping lain, seperti dua keahlian yang
- * saling melengkapi. Gerak menyatu hanya sekali (`snap-*`), bintang
- * berkedip pelan sesudahnya. Diam di reduced-motion.
- */
-export function PuzzleSnapSketch({ className }: IllustrationProps) {
-  return (
-    <Svg viewBox="0 0 360 232" className={cn('h-auto w-full max-w-[360px]', className)}>
-      <ellipse cx="175" cy="214" rx="140" ry="9" fill={PAPER_SHADE} stroke="none" />
-      <g className="snap-left">
-        <Ink
-          d="M64 56 H170 L170 99 C170 99 183 95 188 108 C193 121 183 140 170 143 L170 186 H64 Q50 186 50 172 V70 Q50 56 64 56 Z"
-          fill={tint('mint')}
-          wait={100}
-        />
-        <Face x={104} y={112} size={1.15} />
-        <path d="M78 76 Q104 66 130 76" stroke={PENCIL} />
-      </g>
-      <g className="snap-right">
-        <Ink
-          d="M170 56 H286 Q300 56 300 70 V172 Q300 186 286 186 H170 V143 C183 140 193 121 188 108 C183 95 170 99 170 99 Z"
-          fill={tint('peach')}
-          wait={300}
-        />
-        <Face x={242} y={112} size={1.15} />
-        <path d="M216 76 Q242 66 268 76" stroke={PENCIL} />
-      </g>
-      <Sparkle x={178} y={40} scale={1.1} wait={900} />
-      <Sparkle x={316} y={96} scale={0.8} wait={1500} />
-      <Sparkle x={36} y={140} scale={0.9} wait={2100} />
-      <Ink d="M150 200 Q175 212 200 200" wait={1000} />
-    </Svg>
-  );
-}
-
 /** Koneksi: dua orang saling melambai, disambung pesawat kertas dan satu minat yang sama. */
 export function ConnectSketch({ className }: IllustrationProps) {
   return (
@@ -257,5 +221,154 @@ export function Confetti() {
         />
       ))}
     </span>
+  );
+}
+
+const n = (value: number) => Math.round(value * 10) / 10;
+
+interface Bow {
+  t: number;
+  r: number;
+  b: number;
+  l: number;
+}
+
+/**
+ * Kartu kertas berpusat di (0,0) — digambar dalam koordinat lokal supaya
+ * kemiringannya cukup `rotate()` pada <g>. Sisinya melengkung dan sudutnya
+ * meleset kurang dari 1 unit: tangan, bukan penggaris (brandkit §3).
+ */
+function paperCard(w: number, h: number, r: number, bow: Bow) {
+  const x0 = -w / 2;
+  const x1 = w / 2;
+  const y0 = -h / 2;
+  const y1 = h / 2;
+  return [
+    `M${n(x0 + r)} ${n(y0 + 0.6)}`,
+    `Q0 ${n(y0 + bow.t)} ${n(x1 - r)} ${n(y0 - 0.4)}`,
+    `Q${x1} ${y0} ${n(x1 + 0.5)} ${n(y0 + r)}`,
+    `Q${n(x1 + bow.r)} 0 ${n(x1 - 0.8)} ${n(y1 - r)}`,
+    `Q${n(x1 - 1)} ${y1} ${n(x1 - r - 1)} ${n(y1 + 0.4)}`,
+    `Q0 ${n(y1 + bow.b)} ${n(x0 + r + 1)} ${n(y1 - 0.5)}`,
+    `Q${x0} ${y1} ${n(x0 + 0.6)} ${n(y1 - r)}`,
+    `Q${n(x0 + bow.l)} 0 ${n(x0 - 0.4)} ${n(y0 + r)}`,
+    `Q${x0} ${y0} ${n(x0 + r)} ${n(y0 + 0.6)} Z`,
+  ].join(' ');
+}
+
+/** Kepala form kartu pemain: tumpukan kartu koleksi di meja, satu kartu "dibagikan" ke kantong (ADR-058). */
+export function DeckDealSketch({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="0 0 360 232" className={cn('h-auto w-full max-w-[320px]', className)}>
+      <ellipse cx="175" cy="216" rx="148" ry="9" fill={PAPER_SHADE} stroke="none" />
+      <g transform="translate(100 124) rotate(-11)">
+        <Ink d={paperCard(104, 146, 12, { t: -4, r: 3, b: 4, l: -3 })} fill={PAPER_SHADE} wait={100} />
+        <path d="M-38 -42 Q-28 -45 -16 -42 M-38 -30 Q-30 -32 -22 -30" stroke={PENCIL} />
+      </g>
+      <g transform="translate(130 114) rotate(5)">
+        <Ink d={paperCard(104, 146, 12, { t: 4, r: -3, b: -4, l: 3 })} fill={PAPER} wait={250} />
+        <rect x="-48" y="-44" width="44" height="76" rx="6" fill={PAPER_SHADE} strokeWidth={1.8} />
+        <Person x={-28} head={-12} base={32} color="sky" hair="fringe" r={13} wait={300} />
+      </g>
+      <g transform="translate(168 104) rotate(-3)">
+        <Ink d={paperCard(104, 146, 12, { t: -3, r: 4, b: 3, l: -4 })} fill={PAPER} wait={400} />
+        <path d="M-52 -51 Q0 -53.5 52 -51" strokeWidth={1.8} />
+        {[-66, -58].flatMap((y) =>
+          [-40, -32, -24, -16, -8, 0].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" fill="currentColor" stroke="none" />),
+        )}
+        <rect x="-34" y="-44" width="68" height="76" rx="6" fill={PAPER_SHADE} strokeWidth={1.8} />
+        <Person x={0} head={-12} base={32} color="peach" hair="bun" r={16} wait={500} />
+        <path d="M-34 48 Q-10 46 18 48 M-34 60 Q-18 59 -2 60" stroke={PENCIL} strokeWidth={3} />
+        <Ink d="M28 -77 L44.5 -76 L44 -41 L36 -48 L28.5 -41 Z" fill={HIGHLIGHT} wait={700} />
+      </g>
+      <path d="M226 88 C240 38 296 32 312 110" strokeDasharray="2 9" strokeWidth="2.6" />
+      <g transform="translate(262 72) rotate(16)">
+        <g className="drift" style={{ '--r0': '-3deg', '--r1': '3deg' } as CSSProperties}>
+          <Ink d="M-22 -38 Q0 -40.5 22 -38 Q27 -38 27 -32 L27 -9 C34 -12 41 -5 37 1 C35 5 30 6.5 27 5 L27 32 Q27 38 21 38 Q0 40 -21 38 Q-27 38 -27 32 L-27.5 -32 Q-27 -38 -22 -38 Z" fill={PAPER} wait={900} />
+          <path d="M-16 -22 Q-4 -25 12 -22 M-16 -9 Q-8 -11 0 -9" stroke={PENCIL} />
+          <circle cx="-14" cy="14" r="1.8" fill="currentColor" stroke="none" />
+          <circle cx="-6" cy="14" r="1.8" fill="currentColor" stroke="none" />
+        </g>
+      </g>
+      <g className="breathe" strokeDasharray="3 7">
+        <path d="M279 133 Q309 129 340 134 L342 190 Q342.5 196 336 196 H282 Q276 196.5 276 190 Z" />
+        <path d="M309 157 V171 M302 164 H316" strokeDasharray="none" strokeWidth={2.6} />
+      </g>
+      <Sparkle x={34} y={44} scale={0.9} />
+      <Sparkle x={236} y={22} scale={0.6} wait={1500} />
+      <Sparkle x={336} y={44} scale={1.1} wait={2100} />
+    </Svg>
+  );
+}
+
+interface PuzzlePieceFrame {
+  scale: number;
+  ox: number;
+  oy: number;
+}
+
+/** Bentuk keping puzzle kiri/kanan (lekuk & tonjolan pas satu sama lain), diskalakan tanpa menipiskan garis. */
+function puzzleLeft({ scale: s, ox, oy }: PuzzlePieceFrame) {
+  const p = (x: number, y: number) => `${n(x * s + ox)} ${n(y * s + oy)}`;
+  return `M${p(64, 56)} Q${p(117, 52.5)} ${p(170, 56.6)} L${p(170, 99)} C${p(170, 99)} ${p(183, 95)} ${p(188, 108)} C${p(193, 121)} ${p(183, 140)} ${p(170, 143)} L${p(170, 186)} Q${p(117, 188.5)} ${p(64, 185.6)} Q${p(50, 186)} ${p(50, 172)} L${p(50.8, 70)} Q${p(50, 56)} ${p(64, 56)} Z`;
+}
+
+function puzzleRight({ scale: s, ox, oy }: PuzzlePieceFrame) {
+  const p = (x: number, y: number) => `${n(x * s + ox)} ${n(y * s + oy)}`;
+  return `M${p(170, 56.6)} Q${p(228, 53)} ${p(286, 56)} Q${p(300, 56)} ${p(300, 70)} L${p(299.4, 172)} Q${p(300, 186)} ${p(286, 186)} Q${p(228, 188.6)} ${p(170, 185.6)} L${p(170, 143)} C${p(183, 140)} ${p(193, 121)} ${p(188, 108)} C${p(183, 95)} ${p(170, 99)} ${p(170, 99)} Z`;
+}
+
+/** Keadaan kosong: satu keping puzzle menunggu pasangannya. */
+export function LonePieceSketch({ className }: IllustrationProps) {
+  const left: PuzzlePieceFrame = { scale: 0.85, ox: -14.5, oy: 18 };
+  const right: PuzzlePieceFrame = { scale: 0.85, ox: 15.5, oy: 18 };
+  return (
+    <Svg viewBox="0 0 300 200" className={cn('h-auto w-full max-w-[260px]', className)}>
+      <ellipse cx="150" cy="184" rx="108" ry="8" fill={PAPER_SHADE} stroke="none" />
+      <ellipse cx="222" cy="127" rx="34" ry="26" fill={HIGHLIGHT} stroke="none" opacity="0.45" />
+      <Ink d={puzzleLeft(left)} fill={tint('mint')} wait={100} />
+      <Face x={74} y={113} size={1.05} />
+      <path d="M52 82 Q74 74 96 82" stroke={PENCIL} />
+      <path d="M122 60 C142 30 196 28 214 54" strokeDasharray="1 7" strokeWidth="2.6" />
+      <g className="breathe" strokeDasharray="3 7">
+        <path d={puzzleRight(right)} />
+        <path d="M215 114 V128 M208 121 H222" strokeDasharray="none" strokeWidth={2.6} />
+      </g>
+      <Sparkle x={44} y={44} scale={0.8} />
+      <Sparkle x={262} y={46} scale={0.65} wait={1500} />
+    </Svg>
+  );
+}
+
+/** Akhir tumpukan: kantong kertas berisi kartu. */
+export function PocketSketch({ className }: IllustrationProps) {
+  const cards: { x: number; rot: number; fill: string; wait: number }[] = [
+    { x: 80, rot: -7, fill: PAPER_SHADE, wait: 250 },
+    { x: 114, rot: 0, fill: PAPER, wait: 300 },
+    { x: 148, rot: 8, fill: tint('sky'), wait: 350 },
+  ];
+  return (
+    <Svg viewBox="0 0 240 170" className={cn('h-auto w-full max-w-[200px]', className)}>
+      <ellipse cx="120" cy="156" rx="88" ry="7" fill={PAPER_SHADE} stroke="none" />
+      {cards.map((card) => (
+        <g key={card.x} transform={`translate(${card.x} 96) rotate(${card.rot})`}>
+          <Ink d="M-27 0 L-27.5 -50 Q-27 -58 -20 -58 Q0 -60.5 20 -58 Q27 -58 27.5 -50 L27 0 Z" fill={card.fill} wait={card.wait} />
+          <circle cx="-15" cy="-47" r="1.6" fill="currentColor" stroke="none" />
+          <circle cx="-7" cy="-47" r="1.6" fill="currentColor" stroke="none" />
+        </g>
+      ))}
+      <Ink d="M38 75 Q120 71 202 72.5 L201.6 146 Q202 154 194 154 Q120 156 46 154 Q38 154 38.4 146 Z" fill={PAPER} wait={100} />
+      <path d="M62 136 Q78 133 96 136 M148 141 Q160 139 174 141" stroke={PENCIL} />
+      <Ink d="M38.6 75 Q80 96 120 114 Q160 94 201.8 72.8" fill={HIGHLIGHT} wait={400} />
+      <g transform="translate(184 9)">
+        <g className="drift" style={{ '--r0': '-6deg', '--r1': '4deg' } as CSSProperties}>
+          <path d="M12.6 20.7 L46.8 5.4 L34.2 37.8 L27 26.1 Z" fill={PAPER} />
+          <path d="M27 26.1 L46.8 5.4" />
+          <path d="M1.8 34.2 Q8.1 39.6 15.3 35.1 Q18.9 32.4 22.5 34.2" strokeDasharray="2 5" />
+        </g>
+      </g>
+      <Sparkle x={26} y={42} scale={0.7} />
+      <Sparkle x={216} y={108} scale={0.55} wait={1700} />
+    </Svg>
   );
 }

@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+@import './match-motion.css';
+@import './match-form.css';
+@import './match-deck.css';
 
 /* =====================================================================
    DARK MODE STRATEGY
@@ -1213,30 +1216,3 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   animation-delay: var(--d, 0ms);
 }
 
-@keyframes sf-card-out {
-  to { opacity: 0; }
-}
-
-/* Kartu yang dilewati memudar; hanya opasitas, supaya tidak ada target klik yang bergeser. */
-@utility card-out {
-  animation: sf-card-out 180ms var(--easing) forwards;
-}
-
-@keyframes sf-snap-left {
-  0%, 20% { transform: translateX(-22px); }
-  60%, 100% { transform: none; }
-}
-
-@keyframes sf-snap-right {
-  0%, 20% { transform: translateX(22px); }
-  60%, 100% { transform: none; }
-}
-
-/* Dua keping puzzle yang bertemu lalu menyatu. Hiasan; berhenti setelah satu putaran. */
-@utility snap-left {
-  animation: sf-snap-left 1600ms var(--easing-spring) both;
-}
-
-@utility snap-right {
-  animation: sf-snap-right 1600ms var(--easing-spring) both;
-}

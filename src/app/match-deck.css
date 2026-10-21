@@ -1,0 +1,453 @@
+/* =====================================================================
+   PENCOCOKAN TIM — tumpukan kartu hasil (ADR-058)
+   Milik komponen di src/components/match (match-card, deck/*, match-end-card,
+   match-empty). Pakai kosakata gerak dari match-motion.css.
+
+   Tiga mode, dipilih lewat `.deck[data-mode]`:
+   - rail  (BAWAAN, juga yang dirender server): rel scroll-snap horizontal.
+           Tanpa JS inilah yang dilihat orang; semua isi kartu terlihat.
+   - stack (hanya dipasang JS): satu sel grid, kartu depan di atas dua kartu
+           yang mengintip dari belakang.
+   - grid  (hanya dipasang JS, pilihan "Semua kartu").
+   `.deck[data-live]` = sudah hidrasi: muka belakang kartu menumpuk di atas
+   muka depan (bukan lagi <details> di bawahnya).
+
+   Kartu belakang TIDAK pernah display:none / visibility:hidden: mereka tetap
+   di pohon DOM (hitungan <article>, urutan peringkat) dan hanya `inert` +
+   diturunkan lewat transform. Hanya `transform` dan `opacity` yang
+   dianimasikan; aturan reduced-motion global (§3 globals.css) menolkan
+   durasinya, dan gerak seret ditulis JS yang membaca isMotionReduced().
+   ===================================================================== */
+
+.deck {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.deck-viewport {
+  position: relative;
+  min-width: 0;
+}
+
+.deck-viewport:focus-visible {
+  border-radius: 28px;
+}
+
+/* ---------- rail (bawaan) ---------- */
+
+.deck-stage {
+  position: relative;
+  display: flex;
+  margin: 0;
+  padding: 6px 4px 14px;
+  list-style: none;
+  gap: 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 4px;
+  scrollbar-width: thin;
+}
+
+/* Slot = wadah kueri kontainer: kartu menata diri (portrait/landscape) menurut lebar SLOT, bukan layar. */
+.deck-slot {
+  position: relative;
+  display: flex;
+  flex: none;
+  width: min(86%, 380px);
+  min-width: 0;
+  container-type: inline-size;
+  scroll-snap-align: start;
+}
+
+.deck-slot > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.deck-slot[data-leaving] {
+  pointer-events: none;
+}
+
+.deck-slot[data-leaving='fade'] {
+  opacity: 0;
+  transition: opacity 180ms var(--easing);
+}
+
+/* ---------- grid ("Semua kartu") ---------- */
+
+.deck[data-mode='grid'] .deck-stage {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  padding: 0;
+  overflow: visible;
+  scroll-snap-type: none;
+  overscroll-behavior-x: auto;
+}
+
+.deck[data-mode='grid'] .deck-slot {
+  width: auto;
+  scroll-snap-align: none;
+}
+
+.deck[data-mode='grid'] .deck-slot[data-end] {
+  grid-column: 1 / -1;
+}
+
+/* Di daftar sejajar, tint hanyalah hiasan: pita diredam supaya enam kartu tak menjadi pelangi. */
+.deck[data-mode='grid'] .mc-ribbon {
+  background-color: var(--color-surface-nested);
+}
+
+/* ---------- stack ---------- */
+
+.deck[data-mode='stack'] .deck-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 640px);
+  justify-content: center;
+  gap: 0;
+  /* 44px = ruang untuk dua kartu yang mengintip di atas kartu depan. */
+  padding: 44px 0 6px;
+  overflow-x: clip;
+  overflow-y: visible;
+  scroll-snap-type: none;
+  overscroll-behavior-x: auto;
+}
+
+/* Di ponsel kartu yang terbang keluar dipotong di tepi LAYAR, bukan di tepi kartu: stage melebar ke gutter halaman. */
+@media (width < 40rem) {
+  .deck[data-mode='stack'] .deck-stage {
+    margin-inline: -1.25rem;
+    padding-inline: 1.25rem;
+  }
+}
+
+@media (40rem <= width < 64rem) {
+  .deck[data-mode='stack'] .deck-stage {
+    margin-inline: -2rem;
+    padding-inline: 2rem;
+  }
+}
+
+.deck[data-mode='stack'] .deck-slot {
+  grid-area: 1 / 1;
+  width: auto;
+  scroll-snap-align: none;
+  transform-origin: 50% 0;
+  transition:
+    transform 420ms var(--ease-pop),
+    opacity 200ms var(--easing);
+}
+
+/* `--q` (0..1, diisi JS pada <ol>) = seberapa jauh kartu depan sudah terangkat pergi:
+   kartu belakang naik satu lapis mengikutinya. */
+.deck[data-mode='stack'] .deck-slot[data-depth='0'] {
+  z-index: 3;
+  transform-origin: 50% 90%;
+}
+
+/* Hanya kartu kandidat yang bisa diseret. `pinch-zoom` tetap milik pengguna (perbesar teks kartu). */
+.deck[data-mode='stack'] .deck-slot[data-depth='0']:not([data-end]) {
+  touch-action: pan-y pinch-zoom;
+  cursor: grab;
+}
+
+.deck[data-mode='stack'] .deck-slot[data-depth='1'] {
+  z-index: 2;
+  transform: translateY(calc(-22px * (1 - var(--q, 0)))) scale(calc(0.95 + 0.05 * var(--q, 0))) rotate(calc(-1.8deg * (1 - var(--q, 0))));
+}
+
+.deck[data-mode='stack'] .deck-slot[data-depth='2'] {
+  z-index: 1;
+  transform: translateY(calc(-40px + 18px * var(--q, 0))) scale(calc(0.9 + 0.05 * var(--q, 0))) rotate(calc(2.2deg - 4deg * var(--q, 0)));
+}
+
+.deck[data-mode='stack'] .deck-slot[data-depth='x'] {
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-40px) scale(0.9) rotate(2.2deg);
+}
+
+.deck[data-mode='stack'] .deck-slot:not([data-depth='0']) {
+  user-select: none;
+}
+
+/* Kartu yang mengintip hanya memperlihatkan pita tint pemiliknya; teks pita (stempel, peringkat) diredam. */
+.deck[data-mode='stack'] .deck-slot:not([data-depth='0']) .mc-ribbon > * {
+  opacity: 0;
+}
+
+.deck[data-mode='stack'] .deck-slot[data-leaving='left'] {
+  opacity: 0;
+  transform: translateX(-120%) rotate(-18deg);
+  transition:
+    transform 280ms var(--ease-out-fast),
+    opacity 120ms linear 160ms;
+}
+
+.deck[data-mode='stack'] .deck-slot[data-spring] {
+  transition: transform 520ms var(--ease-pop);
+}
+
+/* Selama menyeret: kartu depan mengikuti jari tanpa transisi, begitu pula kartu belakang yang terangkat. */
+.deck[data-mode='stack'] .deck-stage[data-dragging] .deck-slot,
+.deck[data-mode='stack'] .deck-slot[data-dragging] {
+  transition: none;
+}
+
+.deck[data-mode='stack'] .deck-slot[data-dragging] {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* ---------- kartu koleksi ---------- */
+
+.deck[data-mode='stack'] .mc,
+.deck[data-mode='stack'] .mc-end {
+  border-color: var(--color-line-strong);
+  box-shadow: var(--shadow-raised);
+}
+
+.mc-ribbon {
+  border-bottom: 1.5px dashed color-mix(in oklab, var(--color-ink) 24%, transparent);
+}
+
+/* Flap balik baru ada setelah hidrasi; tanpa JS ruang 64px untuknya hanya membuat stempel membungkus di 320px. */
+.deck:not([data-live]) .mc-ribbon > div:first-child {
+  padding-right: 1rem;
+}
+
+.chem-stamp {
+  display: inline-block;
+  transform: rotate(-4deg);
+  transform-origin: left center;
+}
+
+@keyframes sf-chem-stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.7) rotate(-16deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.93) rotate(-4deg);
+  }
+}
+
+/* Stempel menghantam setiap kali sebuah kartu menjadi kartu depan; `--base` menunda sampai radar selesai. */
+.deck[data-live] .deck-slot[data-depth='0'] .chem-stamp {
+  animation: sf-chem-stamp 720ms var(--easing-enter) backwards;
+  animation-delay: calc(var(--base, 0ms) + 450ms);
+}
+
+.mc-quote {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+@container (min-width: 560px) {
+  .mc-quote {
+    -webkit-line-clamp: 3;
+  }
+}
+
+/* Teks pada ringkasan punggung yang hanya bermakna saat JS hidup (balik kartu). */
+.mc-live-only {
+  display: none;
+}
+
+.deck[data-live] .mc-live-only {
+  display: inline-block;
+}
+
+/* Pesan pengantar di kartu tak dipakai saat lembar tinjau yang mengirim; tanpa JS ia tetap ada. */
+.deck[data-live] .mc-footer form > details {
+  display: none;
+}
+
+/* ---------- muka belakang ---------- */
+
+.deck[data-live] .mc-faces {
+  display: grid;
+}
+
+.deck[data-live] .mc-faces > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+/* Muka depan menyisakan tinggi ringkasan "Lihat rincian kecocokan" yang menempel di dasarnya. */
+.deck[data-live] .mc-front {
+  padding-bottom: 2.75rem;
+}
+
+.deck[data-live] .mc-more {
+  align-self: end;
+}
+
+.deck[data-live] .mc-more[open] {
+  align-self: stretch;
+  border-radius: inherit;
+  background-color: var(--color-panel);
+}
+
+.deck[data-live] .mc-more[open] > .mc-sum {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+/* Hanya visibility, bukan display: tinggi kartu tetap, dan muka yang tak tampil keluar dari urutan Tab. */
+.mc[data-face='back'] .mc-front {
+  visibility: hidden;
+}
+
+@keyframes sf-hex-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+/* Bawaan poligon tergambar penuh; garisnya digambar ulang hanya saat muka belakang dibuka. */
+.mc[data-face='back'] .hex-poly {
+  stroke-dasharray: 1;
+  animation: sf-hex-draw 900ms var(--easing-enter) 120ms backwards;
+}
+
+/* ---------- stempel seret ---------- */
+
+.stamp-no,
+.stamp-yes {
+  display: none;
+}
+
+.deck[data-mode='stack'] :is(.stamp-no, .stamp-yes) {
+  position: absolute;
+  top: 18px;
+  z-index: 6;
+  display: block;
+  padding: 2px 10px;
+  border: 3px solid var(--color-ink);
+  border-radius: 8px;
+  background-color: var(--color-panel);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    background-color 120ms var(--ease-out-fast),
+    color 120ms var(--ease-out-fast),
+    border-color 120ms var(--ease-out-fast);
+}
+
+.deck[data-mode='stack'] .deck-slot:not([data-dragging]) :is(.stamp-no, .stamp-yes) {
+  transition:
+    opacity 180ms var(--easing),
+    background-color 120ms var(--ease-out-fast),
+    color 120ms var(--ease-out-fast);
+}
+
+.deck[data-mode='stack'] .stamp-no {
+  right: 16px;
+  opacity: var(--no, 0);
+  transform: scale(calc(1.4 - 0.4 * var(--no, 0))) rotate(12deg);
+}
+
+.deck[data-mode='stack'] .stamp-yes {
+  left: 16px;
+  opacity: var(--yes, 0);
+  transform: scale(calc(1.4 - 0.4 * var(--yes, 0))) rotate(-12deg);
+}
+
+.deck[data-mode='stack'] .deck-slot[data-reduced] .stamp-no {
+  transform: rotate(12deg);
+}
+
+.deck[data-mode='stack'] .deck-slot[data-reduced] .stamp-yes {
+  transform: rotate(-12deg);
+}
+
+/* Warna hanya penguat: katanya (LEWATI / AJAK?) yang membawa makna. */
+.deck-slot[data-armed='left'] .stamp-no,
+.deck-slot[data-armed='right'] .stamp-yes {
+  border-color: var(--color-brand);
+  background-color: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+/* ---------- petunjuk papan ketik ---------- */
+
+.deck-viewport:focus-visible ~ .deck-keys {
+  opacity: 1;
+  color: var(--color-ink);
+}
+
+/* ---------- pemindaian yang dipulihkan dari riwayat (lihat ScanSession) ---------- */
+
+/* Tanpa animasi, keadaan bawaan berlaku: radar tersembunyi, hasil terlihat. */
+[data-scan-done] :is(.scan-overlay, .scan-results) {
+  animation: none;
+}
+
+/* Cincin skor & stempel "Terkirim" menunggu radar lewat jeda inline; tanpa radar langsung ke keadaan akhir
+   (durasi 0 + fill `both` = nilai akhir, termasuk kemiringan stempel dari keyframe terakhirnya). */
+[data-scan-done] .mc :is(.ring-fill, .stamp) {
+  animation-duration: 0s;
+  animation-delay: 0s;
+}
+
+/* ---------- cetak ---------- */
+
+/* Tumpukan menumpuk kartu di satu sel dan rel menyembunyikannya di luar gulir: di kertas keduanya
+   kehilangan kandidat. Cetakan selalu daftar utuh. Selektor sengaja sama kuat dengan aturan mode. */
+@media print {
+  .deck[data-mode] .deck-stage {
+    display: block;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .deck[data-mode] .deck-slot,
+  .deck[data-mode] .deck-slot[data-depth] {
+    width: auto;
+    margin-bottom: 16px;
+    opacity: 1;
+    transform: none;
+    break-inside: avoid;
+  }
+
+  .deck[data-mode] .deck-slot[data-depth] .mc-ribbon > * {
+    opacity: 1;
+  }
+
+  /* Kartu yang sedang terbalik tetap tercetak utuh: muka depan, lalu rinciannya di bawah. */
+  .mc[data-face='back'] .mc-front {
+    visibility: visible;
+  }
+
+  .deck[data-live] .mc-faces {
+    display: block;
+  }
+
+  .deck[data-live] .mc-front {
+    padding-bottom: 0;
+  }
+
+  .deck[data-mode] .deck-slot[data-end],
+  .deck-keys,
+  .deck :is(.stamp-no, .stamp-yes) {
+    display: none;
+  }
+}

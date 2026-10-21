@@ -90,7 +90,7 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   invalid_team_form:
     'Data tim belum valid. Pilih kegiatan, isi judul minimal 4 karakter, dan jumlah anggota 1–50.',
   invalid_seeker_profile:
-    'Kartu pemainmu belum bisa dibuka. Pilih minimal satu keahlian, dan isi kotamu atau izinkan kerja daring.',
+    'Ada isian kartu pemain yang belum benar. Periksa keterangan di tiap kolom lalu simpan lagi.',
   seeker_closed: 'Buka kartu pemainmu dulu untuk mulai mencari.',
   invalid_submission: 'Ada isian yang belum benar. Periksa keterangan di tiap kolom lalu kirim ulang.',
   submission_duplicate: 'Kegiatan dengan judul dan penyelenggara yang sama sudah ada di katalog.',

@@ -37,6 +37,13 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
             <strong>Aktivitas:</strong> kegiatan yang kamu simpan, status yang kamu catat di Pendaftaran, dan tim yang kamu buat atau ikuti.
           </li>
           <li>
+            <strong>Kartu pemain (pencocokan tim, hanya bila kamu membuatnya):</strong> nama kota (bukan alamat), keahlian yang kamu bawa dan cari,
+            kesediaan kerja daring, kalimat pengantar, dan status kartu. Kartu terbuka terlihat oleh pengguna masuk yang kartunya juga terbuka,
+            bersama nama, jurusan, jenjang, minat yang sama, dan portofolio publikmu. Selama kartu terbuka, halaman profilmu (tanpa email) bisa
+            dibuka pengguna mana pun yang masuk, dan mereka bisa mengajakmu terhubung. Kartu tertutup tidak terlihat siapa pun. Kartu ikut terhapus
+            bersama akunmu.
+          </li>
+          <li>
             <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
           </li>
           <li>
@@ -77,6 +84,10 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
             untuk acara itu saja — tidak data akunmu yang lain. Penyelenggara bisa mengunduh daftar pendaftar acaranya.
           </li>
           <li>
+            <strong>Pengguna lain yang masuk, bila kartu pemainmu terbuka:</strong> profil publikmu (nama, headline, jurusan, jenjang, minat,
+            portofolio publik — tanpa email) dan, bagi yang kartunya juga terbuka, isi kartu pemainmu di hasil pencocokan.
+          </li>
+          <li>
             <strong>Moderator:</strong> kiriman kegiatan beserta email pengirimnya, untuk verifikasi.
           </li>
           <li>
@@ -94,10 +105,18 @@ const SECTIONS: readonly { title: string; body: ReactNode }[] = [
   {
     title: 'Data di peramban',
     body: (
-      <p>
-        Pilihan tampilan (tema dan gerak) tersimpan di peramban perangkatmu (localStorage), bukan di server kami, dan bisa dihapus lewat Pengaturan
-        atau dengan membersihkan data situs di peramban.
-      </p>
+      <>
+        <p>
+          Pilihan tema dan gerak tersimpan di peramban perangkatmu (localStorage), bukan di server kami, dan bisa diatur ulang lewat Pengaturan.
+          Pencocokan tim juga mengingat pilihan tampilan tumpukan/semua kartu di sana; ubah lewat tombolnya di halaman hasil. Semuanya terhapus
+          bila kamu membersihkan data situs di peramban.
+        </p>
+        <p>
+          Selama tab terbuka, pencocokan tim menyimpan sementara di peramban (sessionStorage) daftar kartu yang kamu lewati — hanya penanda
+          orangnya, tanpa isi kartu —, draf isian kartu pemainmu agar tidak hilang bila penyimpanan gagal, dan tanda bahwa petunjuk geser sudah
+          ditampilkan. Ketiganya tidak dikirim ke server dan hilang saat tab ditutup; draf juga dihapus begitu kartumu tersimpan.
+        </p>
+      </>
     ),
   },
   {

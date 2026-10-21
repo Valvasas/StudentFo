@@ -21,8 +21,9 @@ const PORTFOLIO_CHOICES: readonly { value: PortfolioFilter; label: string }[] = 
 /**
  * Saringan pencocokan (ADR-057): `<form method="get">` murni, jadi setiap
  * kombinasi = satu URL yang bisa dibagikan, tombol Kembali bekerja, dan semua
- * tetap berfungsi tanpa JavaScript (AGENTS.md §9). Menekan "Cari sekarang"
- * selalu membawa `cari=1` sehingga pemindaian diputar ulang.
+ * tetap berfungsi tanpa JavaScript (AGENTS.md §9). Saringan TIDAK memutar
+ * radar: ia hanya berputar setelah Simpan kartu dan "Cari ulang". Saringan
+ * yang aktif tampil sebagai chip pelepas di luar <details> ini.
  *
  * "Hanya yang bisa bertemu langsung" ditulis sebagai kotak centang bernilai
  * `daring=0`: kotak yang tidak dicentang tidak terkirim, dan ketiadaan
@@ -32,7 +33,7 @@ export function MatchFilters({ query, hasCity }: { query: MatchQuery; hasCity: b
   const { filters, style } = query;
   const active = activeFilterCount(filters) + Number(style !== 'seimbang');
   return (
-    <details open={active > 0 || undefined} className="group rounded-[24px] border border-line bg-panel">
+    <details id="saringan" className="group rounded-[24px] border border-line bg-panel">
       <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 font-semibold [&::-webkit-details-marker]:hidden sm:px-6">
         <span className="flex items-center gap-2.5">
           <SlidersHorizontal aria-hidden className="size-[18px]" />
@@ -50,8 +51,6 @@ export function MatchFilters({ query, hasCity }: { query: MatchQuery; hasCity: b
       </summary>
 
       <form method="get" action="/teams/cocok" className="flex flex-col gap-6 border-t border-line p-5 sm:p-6">
-        <input type="hidden" name="cari" value="1" />
-
         <div className="grid gap-6 md:grid-cols-2">
           <ChoiceGroup
             legend="Jarak dari kotamu"
@@ -126,7 +125,7 @@ export function MatchFilters({ query, hasCity }: { query: MatchQuery; hasCity: b
             Cari sekarang
           </SubmitButton>
           {active > 0 && (
-            <Link href="/teams/cocok?cari=1" className="inline-flex min-h-11 items-center px-2 text-[14px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
+            <Link href="/teams/cocok" className="inline-flex min-h-11 items-center px-2 text-[14px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
               Hapus semua saringan
             </Link>
           )}

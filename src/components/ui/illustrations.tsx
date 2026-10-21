@@ -164,3 +164,40 @@ export function SparkleDoodle({ className }: IllustrationProps) {
     </Svg>
   );
 }
+
+/** Gembok tertutup untuk punggung kartu pemain yang tertutup (ADR-058). */
+export function PadlockDoodle({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="0 0 40 44" className={cn('size-14', className)}>
+      <path d="M12.5 20 L12 14 C12 6 28 5.5 28.5 14 L28 20" />
+      <path d="M9.5 20.5 Q20 18.8 31.5 20.2 L32 35.5 Q32 38.4 29.2 38.2 Q20 39.2 11 38.2 Q8.2 38.4 8.4 35.4 Z" fill={PAPER} />
+      <circle cx="20" cy="28" r="2.4" fill="currentColor" stroke="none" />
+      <path d="M20 29 V32.5" strokeWidth="1.8" />
+    </Svg>
+  );
+}
+
+/** Tonjolan puzzle kecil untuk keping "Dicari"; `filled` = terisi stabilo, tidak = kontur putus-putus. */
+export function PuzzleKnobDoodle({ className, filled = true }: IllustrationProps & { filled?: boolean }) {
+  return (
+    <Svg viewBox="0 0 24 24" className={cn('h-6 w-6', className)}>
+      <path
+        d="M2 9.6 Q5 9.9 7.6 9.4 C6.4 5.6 8.8 3.4 12.4 3.4 C16.8 3.4 19.6 7 18.2 11 C17 14.6 12.6 16.2 7.6 14.6 Q5 14.2 2 14.4"
+        fill={filled ? 'var(--color-highlight-soft)' : 'none'}
+        strokeWidth="1.8"
+        strokeDasharray={filled ? undefined : '3 4'}
+      />
+    </Svg>
+  );
+}
+
+/** Panah melengkung bergaris tangan, petunjuk "geser". */
+export function NudgeArrowDoodle({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="0 0 64 32" className={cn('h-8 w-16', className)}>
+      <path d="M4 22 C16 8 34 8 50 16" stroke={PENCIL} strokeDasharray="2 5" />
+      <path d="M45 8.4 Q51 10 56.4 16 Q51 21.4 44.6 24" />
+      <path d="M59.5 8 L62 4.6" stroke={PENCIL} strokeWidth="1.6" />
+    </Svg>
+  );
+}

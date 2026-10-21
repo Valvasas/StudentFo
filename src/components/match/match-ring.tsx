@@ -9,7 +9,20 @@ import { cn } from '@/lib/utils';
  * `delay` menunda pengisian — saat pemindaian berjalan, cincin baru terisi
  * ketika hasil muncul.
  */
-export function MatchRing({ score, size = 76, delayMs = 0, className }: { score: number; size?: number; delayMs?: number; className?: string }) {
+export function MatchRing({
+  score,
+  size = 76,
+  delayMs = 0,
+  className,
+  marked = false,
+}: {
+  score: number;
+  size?: number;
+  delayMs?: number;
+  className?: string;
+  /** Angka ditandai stabilo (skor tinggi). Hanya hiasan; makna tetap di angka dan aria-label. */
+  marked?: boolean;
+}) {
   const value = Math.min(100, Math.max(0, Math.round(score)));
   return (
     <div role="img" aria-label={`Kecocokan ${value} persen`} className={cn('relative shrink-0 text-brand-text', className)} style={{ width: size, height: size }}>
@@ -30,7 +43,7 @@ export function MatchRing({ score, size = 76, delayMs = 0, className }: { score:
         />
       </svg>
       <span aria-hidden className="absolute inset-0 flex flex-col items-center justify-center font-display leading-none text-ink">
-        <span className="font-bold tracking-[-0.04em]" style={{ fontSize: size * 0.3 }}>
+        <span className={cn('font-bold tracking-[-0.04em]', marked && 'marker')} style={{ fontSize: size * 0.3 }}>
           {value}
         </span>
         <span className="mt-0.5 font-medium text-ink-muted" style={{ fontSize: size * 0.14 }}>
