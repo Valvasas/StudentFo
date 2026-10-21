@@ -5,6 +5,9 @@ import { signInAsDemo } from './helpers';
  * Standar proyek: target sentuh ≥ 44px (CONVENTIONS.md). axe hanya memeriksa
  * ambang WCAG 2.5.8 (24px), jadi 44px diukur sendiri — termasuk area yang
  * diperluas ::after (tampilan tetap ringkas, area sentuh tetap 44px).
+ * Diukur lewat `expect.poll`: panel yang baru dibuka (rincian, lembar, grid)
+ * bisa butuh satu-dua frame transisi — bahkan dengan reduced-motion — sebelum
+ * ukuran finalnya; pelanggaran permanen tetap gagal.
  */
 async function smallTargets(page: Page, scope: string): Promise<string[]> {
   return page.locator(`${scope} :is(a[href], button, summary, input[type=checkbox], select)`).evaluateAll((nodes) =>
@@ -13,7 +16,8 @@ async function smallTargets(page: Page, scope: string): Promise<string[]> {
         const box = node.getBoundingClientRect();
         // checkVisibility(): isi <details> yang tertutup tetap punya kotak layout
         // di Chromium (content-visibility: hidden), padahal tidak bisa disentuh.
-        return box.width > 0 && box.height > 0 && getComputedStyle(node).visibility !== 'hidden' && node.checkVisibility();
+        // [inert] (kartu belakang tumpukan) tidak bisa disentuh sama sekali, jadi bukan target.
+        return box.width > 0 && box.height > 0 && getComputedStyle(node).visibility !== 'hidden' && node.checkVisibility() && !node.closest('[inert]');
       })
       .map((node) => {
         const box = node.getBoundingClientRect();
@@ -32,22 +36,22 @@ async function smallTargets(page: Page, scope: string): Promise<string[]> {
 
 test('kartu persona demo: setiap target ≥ 44px', async ({ page }) => {
   await page.goto('/demo');
-  expect(await smallTargets(page, 'section[aria-labelledby="demo-login-title"]')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'section[aria-labelledby="demo-login-title"]'), { timeout: 3000 }).toEqual([]);
 });
 
 test('/admin sebagai admin demo (panel demo, kartu tinjauan, tautan riwayat): setiap target ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Admin moderator', '/admin');
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
 });
 
 test('halaman tim & detail tim: setiap target ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/teams');
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
   const href = await page.locator('main a[href^="/teams/"]:not([href^="/teams/baru"])').first().getAttribute('href');
   await page.goto(href!);
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
   await page.goto('/teams/baru');
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
 });
 
 test('halaman koneksi (opsi putus/blokir & konfirmasi blokir terbuka): setiap target ≥ 44px', async ({ page }) => {
@@ -58,30 +62,30 @@ test('halaman koneksi (opsi putus/blokir & konfirmasi blokir terbuka): setiap ta
   }
   await page.goto('/connections?tab=koneksi');
   await page.locator('summary[aria-label="Opsi untuk Rani Prameswari"]').click();
-  expect(await smallTargets(page, 'section[aria-labelledby="koneksimu"]')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'section[aria-labelledby="koneksimu"]'), { timeout: 3000 }).toEqual([]);
   await page.goto('/connections?tab=pengaturan');
-  expect(await smallTargets(page, 'section[aria-labelledby="diblokir-title"]')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'section[aria-labelledby="diblokir-title"]'), { timeout: 3000 }).toEqual([]);
 });
 
 test('halaman detail kegiatan: setiap target di <main> ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/events');
   const href = await page.locator('main a[href^="/events/"]').first().getAttribute('href');
   await page.goto(href!);
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
 });
 
 test('lencana, kalender, buku panduan, dan /admin/promosi: setiap target ≥ 44px', async ({ page }) => {
   // Hanya baris penyelenggara (tombol lencana): chip filter /events (36px) dan
   // judul stretched-link adalah utang lama yang tercatat terpisah di TASKS.md.
   await page.goto('/events');
-  expect(await smallTargets(page, 'main article p')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main article p'), { timeout: 3000 }).toEqual([]);
   await page.goto('/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan');
   await page.locator('main section summary').filter({ hasText: 'Tambah ke kalender' }).click();
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
   await page.goto('/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=syarat');
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
   await signInAsDemo(page, 'Admin moderator', '/admin/promosi');
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
 });
 
 test('kartu tracker (ubah tahap, hapus): setiap target ≥ 44px', async ({ page }) => {
@@ -96,19 +100,25 @@ test('kartu tracker (ubah tahap, hapus): setiap target ≥ 44px', async ({ page 
     nodes.map((node) => node.getBoundingClientRect().height).filter((height) => height < 44),
   );
   expect(small).toEqual([]);
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
 });
 
 test('pencocokan tim (form, hasil, saringan terbuka): setiap target ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/teams/cocok');
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
   await page.locator('input[name=skills][value=web-aplikasi]').check();
   await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
   await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
   await expect(page.getByRole('heading', { name: 'Pasangan terbaik untukmu' })).toBeVisible();
-  // Buka saringan DAN rincian satu kartu: isi <details> yang tertutup tidak terukur.
+  // Buka saringan DAN punggung kartu depan: isi <details>/muka yang tertutup tidak terukur.
   await page.getByText('Saring & atur gaya tim').click();
-  await page.getByText('Lihat rincian kecocokan').first().click();
-  await page.getByText('+ Tambah pesan pengantar').first().click();
-  expect(await smallTargets(page, 'main')).toEqual([]);
+  await page.getByRole('button', { name: /^Balik kartu/ }).first().click();
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
+  // Mode "Semua kartu": setiap kartu membawa Lewati/Balik/Ajak; lalu lembar tinjau ajakan terbuka.
+  await page.getByRole('button', { name: 'Semua kartu' }).click();
+  await expect(page.locator('.deck[data-mode="grid"]')).toBeVisible();
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
+  await page.getByRole('button', { name: 'Ajak jadi partner' }).first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect.poll(() => smallTargets(page, 'dialog'), { timeout: 3000 }).toEqual([]);
 });

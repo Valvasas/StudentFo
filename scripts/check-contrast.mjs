@@ -168,6 +168,11 @@ const PAIRS = [
   ['Teks utama / tint persik', '--color-text-primary', '--color-tint-peach', 4.5],
   ['Teks utama / tint langit', '--color-text-primary', '--color-tint-sky', 4.5],
   ['Teks utama / tint lila', '--color-text-primary', '--color-tint-lilac', 4.5],
+  // Tumpukan kartu & pembuat kartu (ADR-058): pilihan "Cari" di atas stabilo lembut dan
+  // petunjuk papan ketik. Batas `--color-border-strong` (penghitung kapasitas, bingkai kartu)
+  // sengaja TIDAK diuji 3:1: dekoratif; yang membawa makna adalah teks "2/6" dan kotak centang.
+  ['Teks sekunder / stabilo lembut (pilihan Cari)', '--color-text-secondary', '--color-highlight-soft', 4.5],
+  ['Teks redup / panel (petunjuk papan ketik)', '--color-text-muted', '--color-surface', 4.5],
 ];
 
 let failures = 0;
