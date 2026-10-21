@@ -1,0 +1,139 @@
+/* =====================================================================
+   PENCOCOKAN TIM — kosakata gerak bersama (ADR-058)
+   Dipakai bersama oleh form kartu (match-form.css) dan tumpukan hasil
+   (match-deck.css). Aturan yang sama dengan §10 globals.css:
+
+   - GAGAL-AMAN. Keadaan BAWAAN tiap elemen = keadaan akhir yang terlihat.
+     Keyframe hanya menulis `from`, jadi bila animasi tidak berjalan (JS mati,
+     peramban lama, reduced-motion) yang tersisa adalah tampilan yang utuh,
+     bukan elemen yang tersembunyi.
+   - Aturan global reduced-motion di globals.css §3 menolkan durasi dan jeda
+     semua animasi/transisi; animasi di sini TIDAK perlu menulis ulangnya.
+   - Hanya `transform` dan `opacity` yang dianimasikan (compositor).
+   - Kotak sentuh tombol tidak pernah diskalakan/digeser sendiri: gerak hanya
+     pada kartu utuh atau anak dekoratif.
+   ===================================================================== */
+
+:root {
+  /* Pegas ringan: lewat sedikit lalu mengendap. `linear()` hanya di @supports;
+     tanpa dukungan dipakai cubic-bezier dengan karakter serupa. */
+  --ease-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-pop-soft: cubic-bezier(0.3, 1.2, 0.6, 1);
+  --ease-out-fast: cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+@supports (animation-timing-function: linear(0, 1)) {
+  :root {
+    --ease-pop: linear(0, 0.16 4%, 0.46 9%, 0.78 14%, 0.99 19%, 1.08 24%, 1.09 28%, 1.05 33%, 1.01 39%, 0.99 46%, 0.995 55%, 1.002 66%, 1);
+    --ease-pop-soft: linear(0, 0.3 6%, 0.7 13%, 0.94 20%, 1.03 28%, 1.02 36%, 0.995 48%, 1.001 65%, 1);
+  }
+}
+
+/* Kartu "dibagikan" ke tumpukan. `--rf` kemiringan awal, `--base` jeda dasar
+   (mis. menunggu pemindaian selesai), `--i` urutan untuk jeda bertahap. */
+@keyframes sf-deal {
+  from {
+    transform: translateY(40px) scale(0.9) rotate(var(--rf, -4deg));
+    opacity: 0;
+  }
+}
+
+@utility deal-in {
+  animation: sf-deal 560ms var(--ease-pop) backwards;
+  animation-delay: calc(var(--base, 0ms) + var(--i, 0) * 90ms);
+}
+
+/* Balik kartu dua fase, 2D murni (tanpa preserve-3d: menghindari bug Safari
+   pada overflow + radius dan teks tercermin). JS menukar muka di antara
+   keduanya; `forwards` menahan fase keluar sampai pertukaran. */
+@keyframes sf-flip-out {
+  to {
+    transform: scaleX(0.04);
+  }
+}
+
+@keyframes sf-flip-in {
+  from {
+    transform: scaleX(0.04);
+  }
+}
+
+@utility face-turn-out {
+  animation: sf-flip-out 130ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@utility face-turn-in {
+  animation: sf-flip-in 260ms var(--ease-pop) backwards;
+}
+
+/* Stiker keahlian menempel di kartu. `--r` kemiringan akhir (deterministik dari slug). */
+@keyframes sf-stick {
+  from {
+    transform: scale(1.5) rotate(calc(var(--r, 0deg) - 9deg));
+    opacity: 0;
+  }
+}
+
+@utility stick-in {
+  animation: sf-stick 260ms var(--ease-pop) backwards;
+}
+
+/* Lembar tinjau ajakan: naik dari dasar di ponsel, memudar-membesar di desktop. */
+@keyframes sf-sheet-up {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+}
+
+@keyframes sf-sheet-pop {
+  from {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+}
+
+@utility sheet-up {
+  animation: sf-sheet-up 260ms var(--ease-out-fast) backwards;
+}
+
+@utility sheet-pop {
+  animation: sf-sheet-pop 200ms var(--ease-out-fast) backwards;
+}
+
+/* Petunjuk geser pertama: dua goyangan kecil, lalu berhenti. */
+@keyframes sf-nudge {
+  35% {
+    transform: translateX(18px);
+  }
+  70% {
+    transform: translateX(-6px);
+  }
+}
+
+@utility nudge {
+  animation: sf-nudge 1400ms var(--ease-pop-soft) 700ms 1;
+}
+
+/* Denyut kecil pada angka yang berubah (penghitung pilihan). */
+@keyframes sf-bump {
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+@utility tick-bump {
+  animation: sf-bump 220ms var(--ease-pop);
+}
+
+/* Kartu yang diurungkan kembali dari kiri. */
+@keyframes sf-undo-return {
+  from {
+    transform: translateX(-60%) rotate(-12deg);
+    opacity: 0;
+  }
+}
+
+@utility undo-return {
+  animation: sf-undo-return 420ms var(--ease-pop) backwards;
+}

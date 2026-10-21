@@ -1,0 +1,326 @@
+/* =====================================================================
+   PENCOCOKAN TIM — form "pembuat kartu pemain" (ADR-058)
+   Milik komponen di src/components/match (seeker-form, skill-matrix,
+   card-builder, card-mini-bar). Pakai kosakata gerak dari match-motion.css.
+
+   CSS ini TIDAK berlapis, jadi menang atas utilitas Tailwind di markup:
+   jangan menulis kelas utilitas yang bentrok dengan properti di bawah.
+   Semua warna lewat token (terang + gelap otomatis). Keadaan bawaan setiap
+   elemen = keadaan akhir yang terlihat; animasi hanya `from`.
+   ===================================================================== */
+
+/* Bilah mini (ponsel/tablet) + navbar lengket menutupi bagian atas layar:
+   isian yang menerima fokus keyboard harus berhenti di bawahnya. */
+.seeker-form :is(input, select, textarea, button) {
+  scroll-margin-top: 10rem;
+}
+
+@media (min-width: 768px) {
+  .seeker-form :is(input, select, textarea, button) {
+    scroll-margin-top: 8rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .seeker-form :is(input, select, textarea, button) {
+    scroll-margin-top: 6rem;
+  }
+}
+
+/* Strip tiga langkah di kepala: satu baris, dihubungkan garis putus-putus. */
+@media (min-width: 640px) {
+  .step-strip > li:not(:last-child)::after {
+    content: '';
+    display: block;
+    width: 22px;
+    margin-left: 8px;
+    border-top: 1.5px dashed var(--color-border-strong);
+  }
+}
+
+/* ---- Penghitung kapasitas (SkillMatrix + kartu) ---- */
+.cap-tick {
+  box-sizing: border-box;
+  width: 18px;
+  height: 7px;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 4px;
+  transition:
+    background-color var(--duration-transition) var(--easing),
+    border-color var(--duration-transition) var(--easing);
+}
+
+.cap-tick[data-on] {
+  border-color: var(--color-text-primary);
+  background-color: var(--color-text-primary);
+}
+
+/* ---- SkillMatrix: satu tabel, dua kotak centang per baris ---- */
+.skill-matrix {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.skill-matrix-toggle {
+  width: 64px;
+}
+
+@media (min-width: 640px) {
+  .skill-matrix-toggle {
+    width: 96px;
+  }
+}
+
+.skill-matrix thead th {
+  padding: 0 0 8px;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.skill-matrix thead th:first-child {
+  text-align: left;
+}
+
+.skill-matrix-domain {
+  padding: 20px 0 6px;
+  border-bottom: 1px dashed var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.skill-matrix tbody:first-of-type .skill-matrix-domain {
+  padding-top: 4px;
+}
+
+.skill-matrix-row > * {
+  height: 52px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.skill-matrix tbody:last-of-type .skill-matrix-row:last-child > * {
+  border-bottom: 0;
+}
+
+.skill-matrix-row > th {
+  padding: 6px 8px 6px 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.skill-matrix-row:is([data-carried], [data-wanted]) > th {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+/* Label 44px: di kolom sempit kotak centang ditumpuk di atas katanya. */
+.choice-mini {
+  position: relative;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 2px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+@media (min-width: 640px) {
+  .choice-mini {
+    flex-direction: row;
+    gap: 8px;
+    font-size: 12.5px;
+  }
+}
+
+/* Sisi "Cari" bertanda stabilo lembut seperti keping di kartu; katanya tetap
+   teks, jadi warna bukan satu-satunya pembawa makna. */
+.choice-mini[data-side='seeking']:has(:checked) {
+  background-color: var(--color-highlight-soft);
+}
+
+/* ---- Kartu hidup ---- */
+.pcard {
+  position: relative;
+  border-radius: 24px;
+  transition: transform 240ms var(--ease-out-fast);
+}
+
+/* Angkat sedikit saat dikirim: hanya bila gerak tidak dikurangi (aturan global
+   hanya menolkan durasi, bukan hasil akhir transform, jadi harus digerbang). */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .pcard[data-sending] {
+    transform: translateY(-10px) rotate(-1.5deg);
+  }
+}
+
+.pcard-faces {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 24px;
+  background-color: var(--color-surface);
+  transition:
+    border-color var(--duration-transition) var(--easing),
+    box-shadow var(--duration-transition) var(--easing);
+}
+
+.pcard[data-open] .pcard-faces {
+  border-color: var(--color-text-primary);
+  box-shadow: var(--shadow-raised);
+}
+
+/* Dua muka bertumpuk di satu sel supaya tinggi kartu tidak melompat saat dibalik. */
+.pcard-faces > [data-face-side] {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.pcard-faces[data-face='front'] > [data-face-side='back'],
+.pcard-faces[data-face='back'] > [data-face-side='front'] {
+  visibility: hidden;
+}
+
+.pcard-stamp,
+.pcard-ready {
+  border: 2px solid currentColor;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pcard-stamp {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  transform: rotate(-6deg);
+}
+
+/* Cap besar di tengah kartu selama pengiriman berlangsung. Posisi lewat inset +
+   margin auto supaya `transform` hanya dipakai animasi `stamp`. */
+.pcard-ready {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: max-content;
+  height: max-content;
+  margin: auto;
+  padding: 6px 14px;
+  border-width: 3px;
+  border-radius: 10px;
+  background-color: color-mix(in oklab, var(--color-surface) 92%, transparent);
+  font-size: 22px;
+  line-height: 1.1;
+  pointer-events: none;
+}
+
+.slot-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 4px 14px;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: 10px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* Stiker keahlian: miring deterministik (`--r`), ditempel selotip stabilo lembut. */
+.sticker {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1.5px solid var(--color-text-primary);
+  border-radius: 6px 9px 7px 10px;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  transform: rotate(var(--r, 0deg));
+}
+
+.sticker::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  width: 14px;
+  height: 6px;
+  border: 1px solid color-mix(in oklab, var(--color-highlight) 55%, transparent);
+  background-color: var(--color-highlight-soft);
+  transform: rotate(-5deg);
+}
+
+.sticker[data-tape='left']::before {
+  left: 8px;
+}
+
+.sticker[data-tape='right']::before {
+  right: 8px;
+  transform: rotate(5deg);
+}
+
+/* Keping "Dicari": tonjolan puzzle di tepi kanan menunggu pasangannya. */
+.piece {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  max-width: 100%;
+  padding: 3px 12px 3px 11px;
+  border: 1.5px solid var(--color-text-primary);
+  border-radius: 9px;
+  background-color: var(--color-highlight-soft);
+  color: var(--color-text-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.piece-knob {
+  position: absolute;
+  top: 50%;
+  right: -15px;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  pointer-events: none;
+}
+
+.piece-ghost {
+  min-width: 64px;
+  border-style: dashed;
+  border-color: var(--color-border-strong);
+  background-color: transparent;
+  color: var(--color-border-strong);
+}
+
+@keyframes sf-piece-in {
+  from {
+    transform: translateX(14px);
+    opacity: 0;
+  }
+}
+
+.piece-in {
+  animation: sf-piece-in 260ms var(--ease-pop) backwards;
+}
