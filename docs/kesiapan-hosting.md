@@ -3,6 +3,9 @@
 Basis: `main` @ `b80efe6` + perubahan branch `ccr-6ab1004a-hdvfxj` (ADR-059).
 Semua angka di bawah diukur di sesi ini. Yang tidak bisa diukur disebut terang.
 
+> **Langkah hosting-nya** (konfigurasi, urutan, keamanan, uji beban): lihat
+> [`docs/panduan-hosting.md`](panduan-hosting.md).
+
 ---
 
 ## 1. Putusan

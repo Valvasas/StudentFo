@@ -11,3 +11,6 @@ playwright-report
 coverage
 supabase/.temp
 supabase/.branches
+
+# Konfigurasi & rahasia deploy (deploy/.env, deploy/tunnel.env) tidak boleh masuk konteks build
+deploy

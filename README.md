@@ -19,9 +19,10 @@ Menghubungkan backend sungguhan cukup mengisi `.env.local`; tidak ada satu baris
 kode pun yang perlu diubah. Begitu Supabase terisi, semua jejak demo (penanda,
 akun demo, `/demo`, fitur yang baru tersimpan di peramban) hilang dengan
 sendirinya — terbukti di build produksi mode Supabase (ADR-059).
-**Deploy produksi:** daftar periksa env, region, dan uji asap ada di
-[`docs/kesiapan-hosting.md`](docs/kesiapan-hosting.md); pasang monitor uptime ke
-`GET /api/health`.
+**Deploy produksi:** langkah demi langkah (VPS + Docker Compose + Cloudflare
+Tunnel + Supabase, beserta daftar periksa keamanan) di
+[`docs/panduan-hosting.md`](docs/panduan-hosting.md); berkasnya di `deploy/`.
+Audit kesiapan & penghalang produk: [`docs/kesiapan-hosting.md`](docs/kesiapan-hosting.md).
 
 ### Akun demo
 

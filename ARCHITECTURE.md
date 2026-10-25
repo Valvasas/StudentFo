@@ -37,11 +37,14 @@ di `/admin` yang mengubah status jadi `APPROVED`/`REJECTED`.
 ```
 .github/workflows/              CI (verify + build + a11y + tes pipeline) dan job terjadwal:
                                 scraper 02:00, expiry 00:05, notifikasi 07:00 WIB
+deploy/                         docker-compose.yml (app + cloudflared, read-only, tanpa port publik), env.example,
+                                tunnel.env.example — panduan: docs/panduan-hosting.md (ADR-060)
 scripts/                        check-contrast.mjs, verify-database.ts, crawl-links.mjs (penelusur tautan
                                 per persona demo: HTTP ≥400, error konsol, exception — ADR-052)
 tests/a11y/                     Audit axe-core (Playwright) — `npm run test:a11y`, konfigurasi di playwright.config.ts
 supabase/
 ├── migrations/                 berurutan menurut stempel waktu (lihat SCHEMA.md)
+├── templates/                  Template email Auth (konfirmasi daftar, reset sandi) berbasis token_hash — ditempel ke dashboard
 └── DEVIATIONS.md               ← WAJIB dibaca sebelum mengubah skema
 pipeline/                       Proyek Python terpisah (scraper + ekstraksi LLM)
 

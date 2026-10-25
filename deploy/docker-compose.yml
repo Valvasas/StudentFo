@@ -1,0 +1,71 @@
+# Produksi di satu VPS: aplikasi Next.js + Cloudflare Tunnel.
+# Langkah lengkap: docs/panduan-hosting.md.
+#
+#   cp deploy/env.example deploy/.env              # lalu isi
+#   cp deploy/tunnel.env.example deploy/tunnel.env # lalu isi
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# Compose membaca deploy/.env dua kali: untuk build-arg NEXT_PUBLIC_* (dibekukan
+# ke bundle peramban saat build) dan sebagai env runtime container aplikasi.
+name: studentfo
+
+services:
+  app:
+    build:
+      context: ..
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?isi di deploy/.env}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?isi di deploy/.env}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?isi di deploy/.env}
+    image: studentfo-app:latest
+    env_file: .env
+    restart: unless-stopped
+    # Sengaja TANPA `ports:`. Satu-satunya jalan masuk adalah cloudflared lewat
+    # jaringan internal Compose — itulah yang membuat CLIENT_IP_HEADER=cf-connecting-ip
+    # aman: tidak ada yang bisa melewati Cloudflare dan mengarang header itu.
+    read_only: true
+    tmpfs:
+      # Data Cache & cache optimasi gambar Next. Hilang saat restart — tidak apa-apa.
+      - /app/.next/cache:uid=100,gid=101,mode=0755,size=256m
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Diukur: ±650 MB saat dibanjiri 20 pengguna bersamaan (docs/panduan-hosting.md § 2).
+    mem_limit: 1g
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.3
+    command: tunnel --no-autoupdate run
+    # Berkas terpisah dari deploy/.env: token tunnel tidak boleh terbaca oleh
+    # container aplikasi (aplikasi yang dibobol = tunnel bisa dibajak), dan
+    # rahasia aplikasi tidak perlu terbaca oleh cloudflared.
+    env_file: tunnel.env
+    restart: unless-stopped
+    # service_started, bukan service_healthy: saat database sedang bermasalah
+    # situs tetap bisa menampilkan halaman galat yang rapi, bukan 502 Cloudflare.
+    depends_on:
+      app:
+        condition: service_started
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

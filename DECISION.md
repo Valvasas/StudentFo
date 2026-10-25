@@ -12,6 +12,51 @@ terdokumentasi.
 
 ---
 
+## ADR-060 — Topologi produksi: VPS Singapura + Docker Compose + Cloudflare Tunnel; template email token_hash; kunci API Supabase format baru
+
+**Konteks:** Pemilik meminta konfigurasi & langkah hosting yang murah tetapi
+sanggup menampung trafik, plus konfigurasi keamanannya (2026-10-25). Diukur di
+sesi ini (`docs/panduan-hosting.md` § 0.3): satu proses Next dipatok 1 core
+melayani ±36–80 halaman/detik saat jenuh tanpa galat; RAM ±650 MB di bawah
+beban (paket 512 MB tidak cukup); `next build` puncak ±1,76 GB. Fakta platform:
+Vercel Hobby melarang penggunaan komersial; kunci `anon`/`service_role` Supabase
+berhenti akhir 2026; `supabase==2.11.0` (pipeline) menolak kunci `sb_secret_…`
+(regex JWT di kode sumbernya); tautan email bawaan Supabase (PKCE) gagal bila
+dibuka di perangkat lain.
+
+**Keputusan:**
+1. **VPS 2 GB di Singapura + Docker Compose** (`deploy/`), satu region dengan
+   Supabase — halaman dirender di server dengan beberapa panggilan database
+   berurutan. Alternatif PaaS dicatat di panduan § 0.4 beserta alasannya.
+2. **Cloudflare Tunnel, tanpa `ports:`**: server tidak membuka port web;
+   karena satu-satunya jalan masuk lewat Cloudflare, `CLIENT_IP_HEADER=
+   cf-connecting-ip` aman (tidak bisa dikarang). Token tunnel di berkas
+   terpisah dari env aplikasi: aplikasi yang dibobol tidak bisa membajak tunnel.
+3. Container aplikasi `read_only` + tmpfs untuk `.next/cache`, `cap_drop: ALL`,
+   `no-new-privileges`, `mem_limit: 1g`, healthcheck `/api/health`. Terbukti di
+   sesi ini terhadap PostgREST lokal: `healthy`, Data Cache menulis ke tmpfs,
+   nol galat EROFS/EACCES. `cloudflared` dipin ke versi (bukan `latest`).
+4. Template email Auth di `supabase/templates/` memakai `{{ .RedirectTo }}` +
+   `token_hash` (`type=signup` supaya sambutan "email terkonfirmasi" muncul);
+   tidak ada perubahan kode — `/auth/callback` sudah menerima keduanya.
+5. Aplikasi memakai kunci format baru (`sb_publishable_`/`sb_secret_`; nama
+   env tetap). Pipeline tetap kunci legacy sampai `supabase-py` di-upgrade
+   (berantai ke `pydantic` & `google-genai`, butuh kunci Gemini untuk diuji).
+6. Migration & backup dijalankan lewat image `postgres:17-alpine`, bukan
+   `psql`/`pg_dump` bawaan Ubuntu 24.04 (v16 menolak dump server 17).
+
+**Konsekuensi:** + Biaya ±Rp150–200 ribu/bln + Supabase Free untuk mulai;
+kapasitas jauh di atas kebutuhan awal. + Permukaan serangan server = SSH saja.
+− Pemilik mengurus OS (update otomatis, SSH key, UFW — daftar periksa di
+panduan § 12). − Cloudflare jadi ketergantungan wajib (DNS + Tunnel).
+− Build di VPS butuh swap 4 GB; jalur berikutnya bila lambat: build di GitHub
+Actions → registry. − Belum pernah diuji: project Supabase sungguhan, Tunnel,
+pengiriman email — panduan menyarankan project uji dulu. − Migration pg_cron
+melewati penjadwalan diam-diam bila ekstensi tak terbaca aktif; panduan § 3.3
+memeriksa `cron.job` dan memberi SQL perbaikan.
+
+---
+
 ## ADR-059 — Kesiapan hosting: mode demo tetap sebagai mode pengembangan; health check, ikon merek, kontrol ringkas dikunci ke jenis pointer
 
 **Konteks:** Pemilik meminta (2026-10-25) "hilangkan teks/mode demo karena

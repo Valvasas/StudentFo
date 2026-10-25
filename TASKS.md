@@ -375,6 +375,19 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] Monitor uptime eksternal ke `/api/health` dengan asersi `dataMode == "supabase"`.
 - [ ] Uji Safari iOS & WebView Instagram/TikTok di perangkat fisik (WebKit tidak tersedia di lingkungan ini).
 
+## Panduan & konfigurasi hosting 2026-10-25 (@claude) — ADR-060
+
+Panduan: `docs/panduan-hosting.md`. Berkas: `deploy/`, `supabase/templates/`.
+
+- [x] Uji beban 1 core (autocannon): ±36–80 halaman/detik jenuh, 0 galat; RAM ±650 MB di bawah beban; build puncak ±1,76 GB.
+- [x] `deploy/docker-compose.yml` (app + cloudflared, tanpa port publik, read-only, cap_drop, healthcheck) — terbukti `healthy` terhadap PostgREST lokal.
+- [x] Template email `token_hash` (konfirmasi daftar, reset sandi) — tautan berfungsi lintas perangkat.
+- [x] Perintah migrasi & backup lewat `postgres:17-alpine` dilatih terhadap database kosong (32 migration → SELESAI; `pg_dump` OK).
+- [ ] **BUTUH PEMILIK.** Jalankan panduan fase 1–9 (project Supabase uji dulu, lalu produksi).
+- [ ] **P0 sebelum 2027.** Pipeline: upgrade `supabase` (2.11.0 menolak kunci `sb_secret_…`) bersama `pydantic` & `google-genai`; uji dengan kunci Gemini sungguhan. Kunci legacy Supabase berhenti akhir 2026.
+- [ ] Periksa di Supabase sungguhan: apakah migration pg_cron menjadwalkan 4 job (kondisi `shared_preload_libraries` mungkin tak terbaca role `postgres`); bila 0, panduan § 3.3 punya SQL perbaikan — pertimbangkan migration yang gagal keras alih-alih NOTICE.
+- [ ] Bila deploy jadi sering/lambat: build image di GitHub Actions → GHCR, VPS cukup `pull` (hilangkan kebutuhan swap & build di server).
+
 ## Template tugas baru
 
 ```md
