@@ -63,7 +63,7 @@ export function DemoPrivacyControls({ name, major }: { name: string; major: stri
                     return (
                       <label
                         key={audience}
-                        className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-sm px-3 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:text-ink has-[:checked]:bg-panel has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgba(0,0,0,.1)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus sm:min-h-8"
+                        className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-sm px-3 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:text-ink has-[:checked]:bg-panel has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgba(0,0,0,.1)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus sm:pointer-fine:min-h-8"
                       >
                         <input
                           type="radio"
@@ -96,7 +96,7 @@ export function DemoPrivacyControls({ name, major }: { name: string; major: stri
                   type="button"
                   aria-pressed={viewer === item}
                   onClick={() => setViewer(item)}
-                  className={cn('flex min-h-11 items-center rounded-[6px] px-3 text-[12.5px] font-medium transition-colors sm:min-h-8', viewer === item ? 'bg-on-inverse text-inverse' : 'text-on-inverse-muted hover:text-on-inverse')}
+                  className={cn('flex min-h-11 items-center rounded-[6px] px-3 text-[12.5px] font-medium transition-colors sm:pointer-fine:min-h-8', viewer === item ? 'bg-on-inverse text-inverse' : 'text-on-inverse-muted hover:text-on-inverse')}
                 >
                   {item === 'publik' ? 'Pengguna lain' : 'Anggota tim'}
                 </button>
@@ -157,7 +157,7 @@ export function DemoPrivacyControls({ name, major }: { name: string; major: stri
               {MESSAGE_POLICIES.map((policy) => (
                 <label
                   key={policy.value}
-                  className="flex min-h-11 cursor-pointer items-center rounded-sm px-3 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:text-ink has-[:checked]:bg-panel has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgba(0,0,0,.1)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus sm:min-h-8"
+                  className="flex min-h-11 cursor-pointer items-center rounded-sm px-3 text-[13px] font-medium text-ink-muted transition-colors duration-150 hover:text-ink has-[:checked]:bg-panel has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgba(0,0,0,.1)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus sm:pointer-fine:min-h-8"
                 >
                   <input type="radio" name="messages" value={policy.value} checked={prefs.messages === policy.value} onChange={() => save({ ...prefs, messages: policy.value })} className="sr-only" />
                   {policy.label}

@@ -238,7 +238,7 @@ export default function PrivacyPolicyPage() {
                 <li key={section.title}>
                   <a
                     href={`#kp-${index + 1}`}
-                    className="flex min-h-11 items-center gap-2.5 rounded-sm px-2.5 text-[14px] text-ink-muted transition-colors duration-150 hover:bg-panel-nested hover:text-ink aria-[current]:bg-panel-nested aria-[current]:font-semibold aria-[current]:text-ink lg:min-h-9"
+                    className="flex min-h-11 items-center gap-2.5 rounded-sm px-2.5 text-[14px] text-ink-muted transition-colors duration-150 hover:bg-panel-nested hover:text-ink aria-[current]:bg-panel-nested aria-[current]:font-semibold aria-[current]:text-ink lg:pointer-fine:min-h-9"
                   >
                     <span className="w-4 font-mono text-xs">{index + 1}</span>
                     {section.title}

@@ -70,7 +70,7 @@ export function BeasiswaBoard({
                   scroll={false}
                   aria-current={active ? 'true' : undefined}
                   className={cn(
-                    'flex min-h-11 shrink-0 items-center rounded-[6px] px-3.5 text-sm font-medium transition-colors duration-150 ease-snap sm:min-h-[34px] sm:px-4',
+                    'flex min-h-11 shrink-0 items-center rounded-[6px] px-3.5 text-sm font-medium transition-colors duration-150 ease-snap sm:px-4 sm:pointer-fine:min-h-[34px]',
                     active ? 'bg-panel text-ink shadow-[0_1px_2px_rgba(0,0,0,.1)]' : 'text-ink-muted hover:text-ink',
                   )}
                 >

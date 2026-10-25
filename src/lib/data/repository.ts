@@ -94,6 +94,12 @@ export interface EventCatalogRepository {
   getStats(): Promise<RepositoryStats>;
   /** Pita "Minggu ini": 7 hari kalender WIB mulai hari ini, jumlah tenggat event tayang per hari. */
   getDeadlineWeek(): Promise<readonly DeadlineDay[]>;
+  /**
+   * Untuk `/api/health`: melempar bila penyimpanan data tidak terjangkau.
+   * Sengaja tidak lewat Data Cache — ping yang dijawab dari cache tetap
+   * "sehat" selama 5 menit setelah database mati.
+   */
+  checkHealth(): Promise<void>;
 }
 
 /** Moderasi event hasil scraping + riwayat keputusan. Hanya rute admin. */

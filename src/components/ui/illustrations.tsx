@@ -116,20 +116,24 @@ export function CalendarSketch({ className }: IllustrationProps) {
   );
 }
 
+/** Geometri logo (viewBox 24×24) — dipakai juga favicon & ikon layar utama (`brand-icon.tsx`). */
+export const LOGO_MARK = {
+  page: 'M6.2 2.8h8.6l4.4 4.4v12.6c0 .8-.6 1.4-1.4 1.4H6.2c-.8 0-1.4-.6-1.4-1.4V4.2c0-.8.6-1.4 1.4-1.4Z',
+  fold: 'M14.8 2.8v4.4h4.4',
+  lines: 'M8 10h5M8 14h8M8 18h4.5',
+  highlight: { x: 7.2, y: 12.2, width: 9.6, height: 3.6, rx: 1 },
+  strokeWidth: 1.8,
+} as const;
+
 /** Logo: halaman bertelinga dengan satu baris ditandai stabilo — "info yang rapi". */
 export function LogoMark({ className }: IllustrationProps) {
+  const { page, fold, lines, highlight, strokeWidth } = LOGO_MARK;
   return (
     <svg aria-hidden focusable="false" viewBox="0 0 24 24" fill="none" className={cn('shrink-0', className)}>
-      <path
-        d="M6.2 2.8h8.6l4.4 4.4v12.6c0 .8-.6 1.4-1.4 1.4H6.2c-.8 0-1.4-.6-1.4-1.4V4.2c0-.8.6-1.4 1.4-1.4Z"
-        fill={PAPER}
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <path d="M14.8 2.8v4.4h4.4" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <rect x="7.2" y="12.2" width="9.6" height="3.6" rx="1" fill={HIGHLIGHT} />
-      <path d="M8 10h5M8 14h8M8 18h4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d={page} fill={PAPER} stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <path d={fold} stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <rect {...highlight} fill={HIGHLIGHT} />
+      <path d={lines} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
     </svg>
   );
 }

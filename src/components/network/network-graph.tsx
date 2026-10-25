@@ -876,7 +876,7 @@ function LayerToggles({
               })
             }
             className={cn(
-              'flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-sm px-2.5 text-[12.5px] font-medium transition-colors duration-150 ease-snap sm:min-h-9 sm:flex-none',
+              'flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-sm px-2.5 text-[12.5px] font-medium transition-colors duration-150 ease-snap sm:flex-none sm:pointer-fine:min-h-9',
               on ? 'bg-brand-soft text-ink' : 'text-ink-muted line-through decoration-1 hover:text-ink',
             )}
           >

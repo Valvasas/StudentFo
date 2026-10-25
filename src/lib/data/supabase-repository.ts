@@ -391,6 +391,12 @@ export class SupabaseEventRepository implements EventRepository {
     return this.fetchDeadlineWeek();
   }
 
+  async checkHealth(): Promise<void> {
+    // Tabel kecil yang dibaca anon; HEAD = tanpa badan respons.
+    const { error } = await createSupabasePublicClient().from('categories').select('id', { head: true }).limit(1);
+    if (error) throw upstreamFailure('Database tidak terjangkau.', error, 503);
+  }
+
   // ------------------------------------------------------------------
   // Lencana & promosi (ADR-049) — admin saja, otorisasi di Server Action
   // ------------------------------------------------------------------

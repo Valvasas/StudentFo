@@ -105,10 +105,10 @@ export function DetailRows({ rows }: { rows: readonly DetailRow[] }) {
 }
 
 export const detailButton =
-  'press flex h-11 items-center gap-1.5 rounded-sm border border-line-strong/70 bg-panel px-3 text-[13.5px] font-semibold transition-[background-color,box-shadow] duration-150 hover:bg-panel-nested active:pt-0.5 sm:h-[34px] disabled:cursor-not-allowed disabled:opacity-40';
+  'press flex h-11 items-center gap-1.5 rounded-sm border border-line-strong/70 bg-panel px-3 text-[13.5px] font-semibold transition-[background-color,box-shadow] duration-150 hover:bg-panel-nested active:pt-0.5 sm:pointer-fine:h-[34px] disabled:cursor-not-allowed disabled:opacity-40';
 export const detailGhostButton =
-  'flex h-11 items-center rounded-sm px-3 text-[13.5px] font-semibold transition-colors duration-150 hover:bg-panel-nested active:bg-line/60 sm:h-[34px]';
+  'flex h-11 items-center rounded-sm px-3 text-[13.5px] font-semibold transition-colors duration-150 hover:bg-panel-nested active:bg-line/60 sm:pointer-fine:h-[34px]';
 export const detailPrimaryButton =
-  'flex h-11 items-center rounded-sm bg-brand px-3.5 text-[13.5px] font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover active:pt-0.5 sm:h-[34px]';
+  'flex h-11 items-center rounded-sm bg-brand px-3.5 text-[13.5px] font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover active:pt-0.5 sm:pointer-fine:h-[34px]';
 export const detailInput = cn(controlClass, 'px-3.5');
 export const detailFields = 'enter grid gap-x-5 gap-y-[18px] px-5 pb-6 pt-1 [animation-duration:450ms] [grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))] sm:px-6';

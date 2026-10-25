@@ -50,6 +50,10 @@ export const metadata: Metadata = {
   description:
     'Kumpulan informasi lomba, beasiswa, magang, workshop, dan kegiatan pengembangan untuk pelajar dan mahasiswa Indonesia. Tervalidasi manual, bisa difilter, dan selalu menampilkan sisa waktu pendaftaran.',
   keywords: ['lomba mahasiswa', 'beasiswa', 'magang', 'workshop', 'kompetisi pelajar'],
+  // Nama di bawah ikon layar utama iOS; tanpa ini iOS memakai judul halaman yang terpotong.
+  // `capable: false` eksplisit: bawaan Next `true` membuka pintasan tanpa bilah
+  // browser = tanpa tombol kembali (alasan yang sama dengan `display` di manifest.ts).
+  appleWebApp: { title: 'StudentFo', capable: false },
   openGraph: {
     type: 'website',
     locale: 'id_ID',

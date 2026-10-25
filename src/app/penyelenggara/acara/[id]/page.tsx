@@ -118,7 +118,8 @@ export default async function EventAnalyticsPage({
             aria-current={value === range ? 'page' : undefined}
             scroll={false}
             className={cn(
-              'flex h-9 min-w-16 items-center justify-center rounded-sm px-3 text-sm font-medium transition-colors duration-150 ease-snap',
+              // Tampil 36px seperti Button size="sm"; ::after memperluas area sentuh ke 44px.
+              "relative flex h-9 min-w-16 items-center justify-center rounded-sm px-3 text-sm font-medium transition-colors duration-150 ease-snap after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']",
               value === range ? 'bg-brand text-on-brand' : 'text-ink-muted hover:bg-panel-nested hover:text-ink',
             )}
           >
