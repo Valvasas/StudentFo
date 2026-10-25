@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useStepVisible } from '@/components/ui/step-flow';
 import { TURNSTILE_ORIGIN } from '@/lib/security-headers';
 import { TURNSTILE_RESPONSE_FIELD } from '@/lib/turnstile';
 
@@ -21,15 +22,22 @@ const turnstileApi = () => (window as Window & { turnstile?: TurnstileApi }).tur
  * unmount membuangnya; karena itu pemanggil memberi `key` baru di setiap
  * render server, supaya redirect ke URL yang sama pun me-mount ulang.
  *
+ * Di dalam `StepFlow` widget baru dirender saat langkahnya pertama kali tampil:
+ * dirender di kontainer `hidden` ia tidak punya ukuran, dan tokennya sudah
+ * menua selama orang mengisi langkah-langkah sebelumnya.
+ *
  * Skrip membawa nonce CSP request ini — di bawah `strict-dynamic`, skrip
  * pihak ketiga tanpa nonce diblokir walau origin-nya diizinkan.
  */
 export function Turnstile({ siteKey, nonce, noscript }: { siteKey: string; nonce: string | undefined; noscript: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const visible = useStepVisible();
+  const [armed, setArmed] = useState(visible);
+  if (visible && !armed) setArmed(true);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !armed) return;
     let widgetId: string | null | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -54,7 +62,7 @@ export function Turnstile({ siteKey, nonce, noscript }: { siteKey: string; nonce
       clearTimeout(timer);
       if (widgetId) turnstileApi()?.remove(widgetId);
     };
-  }, [siteKey]);
+  }, [siteKey, armed]);
 
   return (
     <div className="flex flex-col gap-2">

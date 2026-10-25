@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { nextStep, signInAsDemo } from './helpers';
 
 /**
  * Admin wajib bisa membandingkan hasil ekstraksi LLM dengan sumber aslinya
@@ -36,9 +36,12 @@ test('keputusan moderasi tercatat di riwayat dengan nama admin', async ({ browse
   await form.getByLabel('Penyelenggara').fill('Penyelenggara Riwayat');
   await form.getByLabel('Jenis kegiatan').selectOption('LOMBA');
   await form.getByLabel('Tautan pendaftaran').fill('https://contoh.example/riwayat');
+  await nextStep(form);
   await form.getByLabel('Tenggat pendaftaran').fill(new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10));
+  await nextStep(form);
   await form.locator('input[name="educationLevels"]').first().check();
   await form.locator('input[name="categorySlugs"]').first().check();
+  await nextStep(form);
   await form.getByLabel('Email kamu').fill(`riwayat.${Date.now()}@contoh.example`);
   await form.getByRole('button', { name: 'Kirim untuk diverifikasi' }).click();
   await expect(form).toHaveURL(/notice=submission_received/);

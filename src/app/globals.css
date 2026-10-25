@@ -607,11 +607,34 @@
 }
 
 /* Ticker tenggat terbaru. Isinya WAJIB dirender dua kali berturut-turut
-   supaya loop -50% terlihat sambung tanpa jeda. */
+   supaya loop -50% terlihat sambung tanpa jeda. Berhenti saat disentuh/
+   di-hover dan lewat sakelar "Jeda" di DeadlineTicker (WCAG 2.2.2: gerak
+   otomatis > 5 detik wajib bisa dihentikan). */
 @utility ticker-track {
   display: flex;
   width: max-content;
   animation: sf-ticker 42s linear infinite;
+}
+
+/* Denyut titik "langsung" (hero, tur beranda). Hiasan di sebelah teks yang
+   membawa maknanya; reduced-motion global menghentikannya. */
+/* Kartu langkah form (StepFlow): masuk dari arah tujuan — maju dari kanan,
+   kembali dari kiri (`--step-from`). Tunduk pada aturan reduced-motion §3. */
+@keyframes sf-step-in {
+  from { opacity: 0; transform: translateX(var(--step-from, 28px)); }
+  to { opacity: 1; transform: none; }
+}
+@utility step-in {
+  animation: sf-step-in 340ms var(--easing-enter) both;
+}
+
+@keyframes sf-pulse-ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+@utility pulse-ring {
+  animation: sf-pulse-ring 2.4s ease-out infinite;
 }
 
 @utility shimmer {
@@ -654,6 +677,10 @@ html[data-reveal-ready] [data-reveal='scale']:not([data-revealed]) {
 }
 html[data-reveal-ready] [data-reveal='left']:not([data-revealed]) {
   transform: translateX(-24px);
+}
+/* Stempel "Terverifikasi" di beranda: dicap (besar → pas) saat terlihat. */
+html[data-reveal-ready] [data-reveal='stamp']:not([data-revealed]) {
+  transform: scale(1.35);
 }
 
 @media (prefers-reduced-motion: reduce) {

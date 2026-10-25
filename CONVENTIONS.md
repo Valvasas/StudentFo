@@ -166,7 +166,11 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   mendapatkannya; tombol bergaris pakai `press`.
 - Isian baru: pakai `controlClass`/`TextInput`/`SelectInput` (bukan kelas
   isian tulisan tangan); kotak centang & radio pakai `check`, pilihan berbentuk
-  chip pakai `choice`; form panjang dipecah dengan `FormStep`.
+  chip pakai `choice`; form panjang dipecah dengan `FormStep` dan, bila ≥ 3
+  kartu, dibungkus `StepFlow` (satu kartu per layar, tetap satu `<form>` tanpa
+  JS — ADR-061). Grup centang wajib-minimal-satu: `ChoiceGroup requireOne`.
+  Halaman server yang memakai `StepFlow`/`FormDraft` memberi `key={randomUUID()}`
+  supaya redirect galat membuka kartu kolom bermasalah dan memulihkan isian.
 - Hasil aksi yang ditunggu orang dirayakan lewat daftar tertutup
   `lib/celebration.ts` — tambah kodenya di sana, jangan menaruh konfeti
   langsung di halaman. Kabar netral/sensitif tidak pernah dirayakan.

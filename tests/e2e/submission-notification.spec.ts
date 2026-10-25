@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { nextStep, signInAsDemo } from './helpers';
 
 /**
  * Alur penuh di browser: mahasiswa (masuk) mengirim kegiatan → admin demo
@@ -14,14 +14,17 @@ test('pengirim yang masuk dikabari lewat lonceng saat kirimannya disetujui', asy
   const studentContext = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': `10.${octet()}.${octet()}.${octet()}` } });
   const student = await studentContext.newPage();
   await signInAsDemo(student, 'Mahasiswa', '/submit');
-  await expect(student.getByText('dikabarkan lewat lonceng notifikasi akunmu')).toBeVisible();
   await student.getByLabel('Judul kegiatan').fill(title);
   await student.getByLabel('Penyelenggara').fill('Penyelenggara Kabar');
   await student.getByLabel('Jenis kegiatan').selectOption('LOMBA');
   await student.getByLabel('Tautan pendaftaran').fill('https://contoh.example/kabar');
+  await nextStep(student);
   await student.getByLabel('Tenggat pendaftaran').fill(new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10));
+  await nextStep(student);
   await student.locator('input[name="educationLevels"]').first().check();
   await student.locator('input[name="categorySlugs"]').first().check();
+  await nextStep(student);
+  await expect(student.getByText('dikabarkan lewat lonceng notifikasi akunmu')).toBeVisible();
   await student.getByRole('button', { name: 'Kirim untuk diverifikasi' }).click();
   await expect(student).toHaveURL(/notice=submission_received/);
   // Pengirim melihat nasib kirimannya tanpa menunggu notifikasi.
@@ -49,7 +52,8 @@ test('pengirim yang masuk dikabari lewat lonceng saat kirimannya disetujui', asy
   await studentContext.close();
 });
 
-test('tamu diberi tahu bahwa ia tidak akan dikabari', async ({ page }) => {
+test('tamu diberi tahu SEBELUM mengisi bahwa ia tidak akan dikabari', async ({ page }) => {
   await page.goto('/submit');
-  await expect(page.getByText('Masuk dulu kalau ingin dikabari')).toBeVisible();
+  await expect(page.getByText('kalau ingin dikabari lewat notifikasi')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Masuk dulu' })).toHaveAttribute('href', '/login?next=%2Fsubmit');
 });

@@ -11,6 +11,8 @@ import { RegistrationFieldInput } from '@/components/registration/registration-f
 import { ScrollToTop } from '@/components/registration/scroll-to-top';
 import { CONSENT_FIELD, invalidFieldFrom, registrationEventClosed } from '@/components/registration/registration-view';
 import { buttonVariants } from '@/components/ui/button';
+import { FormDraft } from '@/components/ui/form-draft';
+import { StepFlow } from '@/components/ui/step-flow';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { parseActionErrorCode } from '@/lib/action-feedback';
 import { requireUser } from '@/lib/auth';
@@ -21,6 +23,7 @@ import { sectionTitle } from '@/lib/page-title';
 import { registrationAvailability, type RegistrationAvailability } from '@/lib/registration-form';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
+import type { FormField } from '@/types/domain';
 import { registerForEventAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +37,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 const card = 'flex flex-col gap-5 rounded-[20px] border border-line bg-panel p-5 sm:p-7';
+
+/** Di atas ini pertanyaan dipecah jadi kartu-kartu kecil (ADR-061); formulir pendek tetap satu layar. */
+const SINGLE_PAGE_MAX_QUESTIONS = 4;
+const QUESTIONS_PER_STEP = 3;
+
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, index * size + size));
+}
 
 /**
  * Formulir pendaftaran internal untuk peserta (ADR-056).
@@ -86,6 +97,84 @@ export default async function RegistrationFormPage({
   const invalidField = error === 'invalid_registration' ? invalidFieldFrom(firstParam(query.kolom), form.fields) : null;
   const fee = form.feeAmount;
 
+  const steps = form.fields.length > SINGLE_PAGE_MAX_QUESTIONS ? chunk(form.fields, QUESTIONS_PER_STEP) : [form.fields];
+  const invalidStep =
+    invalidField === CONSENT_FIELD ? steps.length - 1 : Math.max(0, steps.findIndex((fields) => fields.some((field) => field.id === invalidField)));
+
+  const account = (
+    <section aria-labelledby="data-akun" className={card}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <h2 id="data-akun" className="text-[18px] font-bold tracking-[-0.02em]">
+          Data akun
+        </h2>
+        <Link
+          href="/profile/details"
+          className="flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-ink-muted underline-offset-[3px] hover:text-ink hover:underline"
+        >
+          <PencilLine aria-hidden className="size-3.5" /> Ubah nama
+        </Link>
+      </div>
+      <dl className="grid gap-4 sm:grid-cols-2">
+        <LockedValue label="Nama lengkap" value={user.fullName} />
+        <LockedValue label="Email" value={user.email} />
+      </dl>
+    </section>
+  );
+
+  const questions = (fields: readonly FormField[], index: number, range: string | null) => (
+    <section aria-labelledby={`pertanyaan-${index}`} className={cn(card, 'gap-7')}>
+      <h2 id={`pertanyaan-${index}`} className="flex flex-wrap items-baseline gap-x-2 text-[18px] font-bold tracking-[-0.02em]">
+        Pertanyaan dari penyelenggara
+        {range && <span className="text-[13px] font-medium tracking-normal text-ink-muted">{range}</span>}
+      </h2>
+      {fields.map((field) => (
+        <RegistrationFieldInput key={field.id} field={field} invalid={invalidField === field.id} />
+      ))}
+    </section>
+  );
+
+  const consent = (
+    <div className="flex flex-col gap-1.5">
+      <label
+        className={cn(
+          'flex min-h-11 cursor-pointer items-start gap-3 text-[14.5px] leading-snug text-ink-soft',
+          invalidField === CONSENT_FIELD && 'text-danger',
+        )}
+      >
+        <input
+          type="checkbox"
+          name={CONSENT_FIELD}
+          required
+          aria-invalid={invalidField === CONSENT_FIELD || undefined}
+          autoFocus={invalidField === CONSENT_FIELD}
+          className="check mt-0.5"
+        />
+        <span>
+          Data di formulir ini dibagikan ke <strong className="font-semibold text-ink">{event.organizer}</strong> untuk keperluan
+          pendaftaran.
+        </span>
+      </label>
+    </div>
+  );
+
+  const submit = (
+    <SubmitButton
+      disabled={preview}
+      pendingLabel="Mengirim…"
+      className={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto sm:self-start' })}
+    >
+      {fee ? (
+        <>
+          Daftar & lanjut ke pembayaran
+          <span aria-hidden className="opacity-60">·</span>
+          {formatRupiah(fee)}
+        </>
+      ) : (
+        'Kirim pendaftaran'
+      )}
+    </SubmitButton>
+  );
+
   return (
     <div className="container-page pb-24 pt-6 sm:pt-8">
       <div className="mx-auto flex max-w-[680px] flex-col gap-6">
@@ -121,74 +210,38 @@ export default async function RegistrationFormPage({
         <form action={registerForEventAction} className="flex flex-col gap-6">
           <input type="hidden" name="slug" value={event.slug} />
           <input type="hidden" name="eventId" value={event.id} />
+          <FormDraft key={randomUUID()} name={`daftar:${event.id}`} restore={error !== null} className="empty:-mt-6" />
 
-          <section aria-labelledby="data-akun" className={card}>
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-              <h2 id="data-akun" className="text-[18px] font-bold tracking-[-0.02em]">
-                Data akun
-              </h2>
-              <Link
-                href="/profile/details"
-                className="flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-ink-muted underline-offset-[3px] hover:text-ink hover:underline"
-              >
-                <PencilLine aria-hidden className="size-3.5" /> Ubah nama
-              </Link>
-            </div>
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <LockedValue label="Nama lengkap" value={user.fullName} />
-              <LockedValue label="Email" value={user.email} />
-            </dl>
-          </section>
-
-          {form.fields.length > 0 && (
-            <section aria-labelledby="pertanyaan" className={cn(card, 'gap-7')}>
-              <h2 id="pertanyaan" className="text-[18px] font-bold tracking-[-0.02em]">
-                Pertanyaan dari penyelenggara
-              </h2>
-              {form.fields.map((field) => (
-                <RegistrationFieldInput key={field.id} field={field} invalid={invalidField === field.id} />
-              ))}
-            </section>
+          {steps.length > 1 ? (
+            <StepFlow
+              key={randomUUID()}
+              initialStep={invalidStep}
+              steps={steps.map((fields, index) => {
+                const from = index * QUESTIONS_PER_STEP + 1;
+                const to = from + fields.length - 1;
+                return {
+                  title: from === to ? `Pertanyaan ${from}` : `Pertanyaan ${from}–${to}`,
+                  content: (
+                    <>
+                      {index === 0 && account}
+                      {questions(fields, index, `${from}–${to} dari ${form.fields.length}`)}
+                      {index === steps.length - 1 && consent}
+                    </>
+                  ),
+                };
+              })}
+              submit={submit}
+            />
+          ) : (
+            <>
+              {account}
+              {form.fields.length > 0 && questions(form.fields, 0, null)}
+              <div className="flex flex-col gap-4">
+                {consent}
+                {submit}
+              </div>
+            </>
           )}
-
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label
-                className={cn(
-                  'flex min-h-11 cursor-pointer items-start gap-3 text-[14.5px] leading-snug text-ink-soft',
-                  invalidField === CONSENT_FIELD && 'text-danger',
-                )}
-              >
-                <input
-                  type="checkbox"
-                  name={CONSENT_FIELD}
-                  required
-                  aria-invalid={invalidField === CONSENT_FIELD || undefined}
-                  autoFocus={invalidField === CONSENT_FIELD}
-                  className="check mt-0.5"
-                />
-                <span>
-                  Data di formulir ini dibagikan ke <strong className="font-semibold text-ink">{event.organizer}</strong> untuk keperluan
-                  pendaftaran.
-                </span>
-              </label>
-            </div>
-            <SubmitButton
-              disabled={preview}
-              pendingLabel="Mengirim…"
-              className={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto sm:self-start' })}
-            >
-              {fee ? (
-                <>
-                  Daftar & lanjut ke pembayaran
-                  <span aria-hidden className="opacity-60">·</span>
-                  {formatRupiah(fee)}
-                </>
-              ) : (
-                'Kirim pendaftaran'
-              )}
-            </SubmitButton>
-          </div>
         </form>
       </div>
     </div>

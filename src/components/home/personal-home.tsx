@@ -1,10 +1,12 @@
+import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { ArrowRight, ArrowUpRight, Bookmark, Heart, Hourglass, type LucideIcon, ReceiptText, Ticket, UsersRound } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bookmark, Hourglass, type LucideIcon, ReceiptText, Ticket, UsersRound } from 'lucide-react';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { DeadlineWeek } from '@/components/event/deadline-week';
 import { EventGrid } from '@/components/event/event-grid';
 import { loadMyRegistrations } from '@/components/home/account-role';
+import { GettingStarted, type GettingStartedStep } from '@/components/home/getting-started';
 import { SearchBox } from '@/components/listing/listing-ui';
 import { registrationHref } from '@/components/registration/registration-cta';
 import { registrationCta, registrationEventClosed, type RegistrationCta } from '@/components/registration/registration-view';
@@ -12,6 +14,7 @@ import { type AuthUser, isProfileComplete } from '@/lib/auth';
 import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
+import { GETTING_STARTED_COOKIE, isGettingStartedHidden } from '@/lib/getting-started';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import { parseEventQuery, type RawSearchParams } from '@/lib/search-params';
 import { needsActionSoon } from '@/lib/tracker-progress';
@@ -36,12 +39,13 @@ interface Shortcut {
  *
  * Tidak ada aturan baru — "perlu tindakan" = `needsActionSoon` (papan
  * Pendaftaran) + tagihan dari menu Pembayaran, "sesuai minatmu" = urutan
- * `relevance` yang sama dengan /events.
+ * `relevance` yang sama dengan /events. "Mulai di sini" (ADR-061) hanya
+ * membaca keadaan akun yang sudah dimuat + kartu pencocokan.
  */
 export async function PersonalHome({ user, params }: { user: AuthUser; params: RawSearchParams }) {
   const repository = await getEventRepository();
   const now = new Date();
-  const [tracker, saved, recommended, week, categories, registrations] = await Promise.all([
+  const [tracker, saved, recommended, week, categories, registrations, seeker, cookieStore] = await Promise.all([
     repository.listTrackerItems(user.id),
     repository.listSavedEvents(user.id),
     repository.listEvents({
@@ -53,6 +57,8 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     repository.getDeadlineWeek(),
     repository.listCategories(),
     loadMyRegistrations(user.id),
+    withFallback('kartu pencocokan', () => repository.getSeekerProfile(user.id), null),
+    cookies(),
   ]);
 
   const trackedIds = new Set(tracker.map((item) => item.eventId));
@@ -94,6 +100,13 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     .filter((name): name is string => Boolean(name))
     .slice(0, 3);
   const profileReady = isProfileComplete(user);
+  const gettingStarted: GettingStartedStep[] = [
+    { label: 'Pilih minat & jenjangmu', hint: 'Rekomendasi dan pengingat menyesuaikan pilihanmu.', href: '/profile/interests', done: profileReady },
+    { label: 'Simpan kegiatan pertamamu', hint: 'Pengingat H-3 & H-1 muncul di lonceng notifikasi.', href: '/events', done: saved.length + tracker.length > 0 },
+    { label: 'Buat kartu pemain', hint: 'Dicocokkan dengan rekan yang keahliannya melengkapimu.', href: '/teams/cocok', done: seeker !== null },
+  ];
+  const showGettingStarted =
+    gettingStarted.some((step) => !step.done) && !isGettingStartedHidden(cookieStore.get(GETTING_STARTED_COOKIE)?.value, user.id);
 
   const shortcuts: Shortcut[] = [
     { href: '/tracker', label: 'Papan lamaran', icon: Ticket },
@@ -121,19 +134,8 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
         </div>
       </header>
 
-      {!profileReady && (
-        <Link
-          href="/profile/interests"
-          className="mt-8 flex items-center gap-4 rounded-card border border-line bg-panel px-5 py-4 transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested"
-        >
-          <Heart aria-hidden className="size-5 shrink-0" />
-          <span className="flex flex-1 flex-col">
-            <span className="font-semibold">Pilih minat & jenjangmu</span>
-            <span className="text-sm text-ink-muted">Rekomendasi dan pengingat menyesuaikan pilihanmu.</span>
-          </span>
-          <ArrowRight aria-hidden className="size-4 shrink-0" />
-        </Link>
-      )}
+      {/* Akun baru: panduan dulu. Setelah minat terisi, yang mendesak didahulukan dan panduan turun ke bawahnya. */}
+      {showGettingStarted && !profileReady && <GettingStarted steps={gettingStarted} className="mt-8" />}
 
       {/* items-start: tanpa itu kartu "Perlu tindakan" yang kosong ikut meregang
           setinggi "Pantauanmu" dan menyisakan petak kosong besar. */}
@@ -225,6 +227,8 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
           </nav>
         </section>
       </div>
+
+      {showGettingStarted && profileReady && <GettingStarted steps={gettingStarted} className="mt-5" />}
 
       <div className="mt-14">
         <DeadlineWeek days={week} />

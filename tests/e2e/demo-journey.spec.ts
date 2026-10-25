@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { nextStep, signInAsDemo } from './helpers';
 
 /**
  * Perjalanan pengunjung demo di browser sungguhan: klik, form, JS klien,
@@ -54,7 +54,9 @@ test('tim: buat tim → anggota lain bergabung → keluar; ketua melihat jumlah 
   await leader.getByRole('link', { name: 'Buka tim baru' }).click();
   await expect(leader).toHaveURL(/\/teams\/baru$/);
   await leader.locator('#eventId').selectOption({ index: 1 });
+  await nextStep(leader);
   await leader.getByLabel('Judul tim').fill(teamTitle);
+  await nextStep(leader);
   await leader.getByLabel('Total anggota yang dibutuhkan').fill('3');
   await leader.getByRole('button', { name: 'Buka tim', exact: true }).click();
   await expect(leader).toHaveURL(/\/teams\/[0-9a-f-]{36}\?notice=team_created$/);

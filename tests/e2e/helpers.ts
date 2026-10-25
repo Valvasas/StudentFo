@@ -19,6 +19,14 @@ export async function signInAsDemo(page: Page, persona: PersonaLabel, next = '/'
   await expect(page).toHaveTitle(/\S/);
 }
 
+/**
+ * Form panjang tampil per kartu (StepFlow, ADR-061): kolom kartu berikutnya
+ * baru terlihat setelah "Lanjut". Hanya satu tombol "Lanjut" yang dirender.
+ */
+export async function nextStep(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /^Lanjut/ }).click();
+}
+
 /** Acara berbayar contoh dengan formulir internal (seed, ADR-056). */
 export const PAID_DEMO_EVENT = {
   path: '/events/workshop-riset-kualitatif-untuk-mahasiswa-tingkat-akhir',

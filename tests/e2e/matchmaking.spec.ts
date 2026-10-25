@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { nextStep, signInAsDemo } from './helpers';
 
 /**
  * Pencocokan tim (ADR-057), alur nyata di peramban. Data contoh dipakai
@@ -14,7 +14,9 @@ async function openCard(page: Page, options: { seeking?: string[]; city?: string
   await signInAsDemo(page, 'Mahasiswa', PAGE);
   for (const slug of options.skills ?? ['web-aplikasi']) await page.locator(`input[name=skills][value=${slug}]`).check();
   for (const slug of options.seeking ?? ['ui-ux']) await page.locator(`input[name=seeking][value=${slug}]`).check();
+  await nextStep(page);
   await page.getByLabel('Kota', { exact: true }).selectOption(options.city ?? 'Bandung');
+  await nextStep(page);
   await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
   await expect(page.getByRole('heading', { name: 'Pasangan timmu', level: 1 })).toBeVisible();
 }
@@ -57,7 +59,9 @@ test('tamu dialihkan ke halaman masuk dengan tujuan kembali', async ({ page }) =
 test('kartu belum ada: tampil form, belum ada hasil', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', PAGE);
   await expect(page.getByRole('heading', { name: 'Cocokkan tim otomatis', level: 1 })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Simpan & mulai mencari/ })).toBeVisible();
+  // Form per kartu: mulai dari keahlian, tombol simpan baru ada di kartu terakhir.
+  await expect(page.getByText('Langkah 1 dari 3')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Lanjut/ })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pasangan terbaik untukmu' })).toHaveCount(0);
 });
 
@@ -92,12 +96,28 @@ test('kartu tertutup tidak bisa mencari: kembali ke form', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Pasangan terbaik untukmu' })).toHaveCount(0);
 });
 
-test('validasi server: membuka kartu tanpa keahlian ditolak dengan petunjuk di kolomnya', async ({ page }) => {
+test('kartu tanpa keahlian ditahan di kartu pertama, sebelum menyimpan', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', PAGE);
-  await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
-  await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
-  await expect(page).toHaveURL(/error=invalid_seeker_profile/);
-  await expect(page.getByText('Pilih minimal satu keahlian untuk membuka kartu.')).toBeVisible();
+  await nextStep(page);
+  await expect(page.getByRole('alert').filter({ hasText: 'Tandai minimal satu keahlian yang kamu Bawa' })).toBeVisible();
+  await expect(page.getByText('Langkah 1 dari 3')).toBeVisible();
+  await page.locator('input[name=skills][value=web-aplikasi]').check();
+  await nextStep(page);
+  await expect(page.getByText('Langkah 2 dari 3')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Di mana dan bagaimana kamu bekerja/ })).toBeFocused();
+});
+
+test.describe('tanpa JavaScript', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('validasi server: semua kartu tampil sekaligus, kartu tanpa keahlian ditolak dengan petunjuk di kolomnya', async ({ page }) => {
+    await signInAsDemo(page, 'Mahasiswa', PAGE);
+    await expect(page.getByRole('button', { name: /^Lanjut/ })).toHaveCount(0);
+    await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
+    await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
+    await expect(page).toHaveURL(/error=invalid_seeker_profile/);
+    await expect(page.getByText('Pilih minimal satu keahlian untuk membuka kartu.')).toBeVisible();
+  });
 });
 
 test('batas enam keahlian: pilihan ketujuh dinonaktifkan', async ({ page }) => {
@@ -116,7 +136,9 @@ test.describe('saringan = URL', () => {
     await signInAsDemo(page, 'Mahasiswa', PAGE);
     await page.locator('input[name=skills][value=web-aplikasi]').check();
     await page.locator('input[name=seeking][value=ui-ux]').check();
+    await nextStep(page);
     await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
+    await nextStep(page);
     await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
     await expect(page.getByRole('heading', { name: 'Pasangan timmu', level: 1 })).toBeVisible();
 
@@ -405,7 +427,11 @@ test.describe('form pembuat kartu', () => {
 
     await page.locator('input[name=skills][value=web-aplikasi]').check();
     await page.locator('input[name=seeking][value=ui-ux]').check();
-    const live = page.locator('.pcard');
+    // Di layar lebar kartu hidup menempel di kolom kanan; di ponsel ia tampil di kartu langkah terakhir.
+    await nextStep(page);
+    await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
+    await nextStep(page);
+    const live = page.locator('.pcard').filter({ visible: true });
     await expect(live).toContainText('Pemrograman web & aplikasi');
     await expect(live).toContainText('Desain UI/UX');
 
@@ -417,12 +443,20 @@ test.describe('form pembuat kartu', () => {
 
   test('galat validasi server tidak menghapus isian: kota, pengantar, dan keahlian dicari dipulihkan', async ({ page }) => {
     await signInAsDemo(page, 'Mahasiswa', PAGE);
+    await page.locator('input[name=skills][value=web-aplikasi]').check();
+    await page.locator('input[name=seeking][value=ui-ux]').check();
+    await nextStep(page);
     await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
     await page.locator('textarea[name=pitch]').fill('Cari desainer yang rewel soal detail.');
-    await page.locator('input[name=seeking][value=ui-ux]').check();
+    await nextStep(page);
+    // Server tetap penjaga terakhir: kiriman yang lolos dari pemeriksaan klien
+    // (di sini disimulasikan dengan melepas keahlian di kartu yang tersembunyi)
+    // tetap ditolak — dan isiannya tidak boleh hilang.
+    await page.locator('input[name=skills][value=web-aplikasi]').evaluate((input: HTMLInputElement) => input.click());
     await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
 
     await expect(page).toHaveURL(/error=invalid_seeker_profile/);
+    // Dibuka di kartu kolom bermasalah.
     await expect(page.getByText('Pilih minimal satu keahlian untuk membuka kartu.')).toBeVisible();
     await expect(page.getByLabel('Kota', { exact: true })).toHaveValue('Bandung');
     await expect(page.locator('textarea[name=pitch]')).toHaveValue('Cari desainer yang rewel soal detail.');
@@ -431,6 +465,8 @@ test.describe('form pembuat kartu', () => {
     // Peringatan turun begitu kolomnya diperbaiki; setelah tersimpan, draf tidak menginap di tab.
     await page.locator('input[name=skills][value=web-aplikasi]').check();
     await expect(page.getByText('Pilih minimal satu keahlian untuk membuka kartu.')).toHaveCount(0);
+    await nextStep(page);
+    await nextStep(page);
     await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
     await expect(page.getByRole('heading', { name: 'Pasangan timmu', level: 1 })).toBeVisible();
     await expect
@@ -471,7 +507,9 @@ test.describe('animasi pemindaian', () => {
   test('radar muncul di layar walau form disimpan dari dasar halaman (gulir diatur ulang)', async ({ page }) => {
     await signInAsDemo(page, 'Mahasiswa', PAGE);
     await page.locator('input[name=skills][value=web-aplikasi]').check();
+    await nextStep(page);
     await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
+    await nextStep(page);
     await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
     const radar = page.locator('.scan-overlay .radar-sweep');
     await expect(radar).toBeInViewport();
@@ -484,7 +522,7 @@ test.describe('tanpa JavaScript', () => {
 
   test('pemindaian CSS berakhir sendiri, hasil tampil, dan tidak ada tombol mati', async ({ page, context, browser, baseURL }) => {
     // Masuk & buat kartu dengan JS (login demo dan form butuh sesi), lalu pindahkan sesinya ke konteks tanpa JS.
-    const withJs = await browser.newContext({ baseURL: baseURL!, reducedMotion: 'reduce' });
+    const withJs = await browser.newContext({ baseURL: baseURL!, reducedMotion: 'reduce', javaScriptEnabled: true });
     const setup = await withJs.newPage();
     await openCard(setup);
     await context.addCookies(await withJs.cookies());
@@ -499,7 +537,7 @@ test.describe('tanpa JavaScript', () => {
   });
 
   test('rail: enam kartu terbaca semua, pesan pengantar tersedia, dan tombol Ajak langsung mengirim', async ({ page, context, browser, baseURL }) => {
-    const withJs = await browser.newContext({ baseURL: baseURL!, reducedMotion: 'reduce' });
+    const withJs = await browser.newContext({ baseURL: baseURL!, reducedMotion: 'reduce', javaScriptEnabled: true });
     const setup = await withJs.newPage();
     await openCard(setup);
     await context.addCookies(await withJs.cookies());
@@ -537,7 +575,9 @@ test.describe('layar sempit', () => {
     await signInAsDemo(page, 'Mahasiswa', PAGE);
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     await page.locator('input[name=skills][value=web-aplikasi]').check();
+    await nextStep(page);
     await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
+    await nextStep(page);
     await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
     await expect(page.getByRole('heading', { name: 'Pasangan terbaik untukmu' })).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
@@ -555,7 +595,9 @@ test.describe('layar sempit, gerak normal', () => {
     await signInAsDemo(page, 'Mahasiswa', PAGE);
     await page.locator('input[name=skills][value=web-aplikasi]').check();
     await page.locator('input[name=seeking][value=ui-ux]').check();
+    await nextStep(page);
     await page.getByLabel('Kota', { exact: true }).selectOption('Surabaya');
+    await nextStep(page);
     await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
 
     const widest = await page.evaluate(
@@ -607,7 +649,9 @@ test('axe: form dan hasil bebas pelanggaran WCAG', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', PAGE);
   await audit();
   await page.locator('input[name=skills][value=web-aplikasi]').check();
+  await nextStep(page);
   await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
+  await nextStep(page);
   await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
   await expect(page.getByRole('heading', { name: 'Pasangan terbaik untukmu' })).toBeVisible();
   await audit();

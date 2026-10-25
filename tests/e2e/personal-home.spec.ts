@@ -8,8 +8,34 @@ import { registerForPaidDemoEvent, signInAsDemo, uploadDemoPaymentProof } from '
  */
 test('tamu melihat halaman pemasaran, bukan ringkasan pribadi', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Jelajahi kegiatan' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Perlu tindakan' })).toHaveCount(0);
+  const main = page.locator('main');
+  await expect(main.getByRole('link', { name: 'Jelajahi semua kegiatan' })).toBeVisible();
+  await expect(main.getByRole('link', { name: 'Buat akun gratis' })).toBeVisible();
+  await expect(main.getByRole('heading', { name: 'Perlu tindakan' })).toHaveCount(0);
+  // Jenis kegiatan di layar pertama = tautan filter yang sama dengan navbar.
+  await expect(main.getByRole('navigation', { name: 'Jenis kegiatan' }).getByRole('link', { name: /^Beasiswa/ })).toHaveAttribute(
+    'href',
+    '/events?type=BEASISWA',
+  );
+  // Kotak cari hero adalah form GET biasa — hasilnya punya URL sendiri.
+  await main.getByRole('searchbox', { name: 'Cari kegiatan' }).fill('desain');
+  await main.getByRole('button', { name: 'Cari', exact: true }).click();
+  await expect(page).toHaveURL(/\/events\?q=desain/);
+});
+
+test('tur beranda: diam saat "kurangi gerak", tetap bisa dipilih per langkah', async ({ page }) => {
+  // Config menjalankan semua tes dengan reducedMotion: 'reduce' — tur tidak boleh berputar sendiri.
+  await page.goto('/#cara-kerja');
+  const tour = page.locator('#cara-kerja');
+  await expect(tour.getByText('Tur dijeda')).toBeVisible();
+  const step = tour.getByRole('button', { name: /Cari tim/ }).filter({ visible: true });
+  await step.click();
+  await expect(step).toHaveAttribute('aria-current', 'step');
+  await expect(tour.getByText('Tur dijeda')).toBeVisible();
+  await expect(tour.locator('[aria-live="polite"]')).toContainText('Langkah 5 dari 5: Cari tim');
+  // Memutar adalah pilihan pengguna, jadi tetap dihormati.
+  await tour.getByRole('button', { name: 'Putar tur' }).filter({ visible: true }).click();
+  await expect(tour.getByText('Tur berjalan')).toBeVisible();
 });
 
 test('pengguna masuk melihat ringkasan pribadi tanpa ajakan mendaftar', async ({ page }) => {
@@ -19,7 +45,7 @@ test('pengguna masuk melihat ringkasan pribadi tanpa ajakan mendaftar', async ({
   await expect(main.getByRole('heading', { name: 'Perlu tindakan' })).toBeVisible();
   await expect(main.getByRole('heading', { name: 'Sesuai minatmu' })).toBeVisible();
   await expect(main.getByRole('heading', { name: 'Minggu ini' })).toBeVisible();
-  await expect(main.getByRole('link', { name: 'Mulai gratis' })).toHaveCount(0);
+  await expect(main.getByRole('link', { name: 'Buat akun gratis' })).toHaveCount(0);
   // Studio bukan tujuan peserta — ada di menu akun, tidak di beranda.
   await expect(main.getByRole('link', { name: 'Buka studio penyelenggara' })).toHaveCount(0);
   const shortcuts = main.getByRole('navigation', { name: 'Akses cepat' });
@@ -34,6 +60,21 @@ test('pengguna masuk melihat ringkasan pribadi tanpa ajakan mendaftar', async ({
 test('profil belum lengkap: diarahkan memilih minat & jenjang', async ({ page }) => {
   await signInAsDemo(page, 'Siswa baru');
   await expect(page.locator('main').getByRole('link', { name: /Pilih minat & jenjangmu/ })).toHaveAttribute('href', '/profile/interests');
+});
+
+test('akun baru: panduan "Mulai di sini" dicentang dari keadaan akun dan bisa disembunyikan', async ({ page }) => {
+  await signInAsDemo(page, 'Siswa baru');
+  const guide = page.getByRole('region', { name: 'Mulai di sini' });
+  await expect(guide).toBeVisible();
+  await expect(guide.getByRole('link', { name: /Pilih minat & jenjangmu/ })).not.toContainText('(selesai)');
+  await expect(guide.getByRole('link', { name: /Buat kartu pemain/ })).toHaveAttribute('href', '/teams/cocok');
+
+  await guide.getByRole('button', { name: /Sembunyikan/ }).click();
+  await expect(page.getByRole('region', { name: 'Mulai di sini' })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Mulai di sini' })).toHaveCount(0);
+  // Yang mendesak tidak ikut hilang.
+  await expect(page.locator('main').getByRole('heading', { name: 'Perlu tindakan' })).toBeVisible();
 });
 
 test('admin: beranda = jumlah antrean + keputusan terakhir', async ({ page }) => {

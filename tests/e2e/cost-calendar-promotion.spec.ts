@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { nextStep, signInAsDemo } from './helpers';
 
 /**
  * Fitur ADR-049..051 di mode seed: biaya, promosi, lencana, buku panduan,
@@ -122,10 +122,13 @@ test('kiriman berbayar: nominal & kontak panitia sampai ke kartu moderasi, bukan
   await form.getByLabel('Penyelenggara').fill('Himpunan Uji Biaya');
   await form.getByLabel('Jenis kegiatan').selectOption('WORKSHOP');
   await form.getByLabel('Tautan pendaftaran').fill('https://contoh.example/biaya');
+  await nextStep(form);
   await form.getByLabel('Tenggat pendaftaran').fill(new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10));
+  await nextStep(form);
   await form.locator('input[name="educationLevels"]').first().check();
   await form.getByRole('radio', { name: 'Berbayar' }).check();
   await form.getByLabel(/Nominal biaya/).fill('Rp 35.000');
+  await nextStep(form);
   await form.getByText('Detail tambahan (opsional)').click();
   await form.getByLabel(/Kontak panitia/).fill('IG @himpunan.uji');
   await form.getByLabel('Email kamu').fill(`biaya.${Date.now()}@contoh.example`);

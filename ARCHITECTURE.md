@@ -54,6 +54,7 @@ src/
 │   ├── layout.tsx              Root layout: navbar, footer, theme script
 │   ├── template.tsx            Pembungkus per navigasi: animasi masuk halaman (opasitas saja, ADR-055)
 │   ├── page.tsx                Beranda — GuestLanding untuk tamu; RoleHome bila masuk: peserta/penyelenggara/admin (ADR-053/056)
+│   ├── actions.ts              Aksi beranda: sembunyikan panduan "Mulai di sini" (cookie per akun, ADR-061)
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
 │   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056)
@@ -82,16 +83,17 @@ src/
 ├── components/
 │   ├── ui/                     Primitif tanpa domain-knowledge (Button, Badge, Card,
 │   │                           Field/TextInput/SelectInput/TextArea/FormAlert + controlClass),
-│   │                           form-step.tsx (FormStep, ChoiceGroup), scroll-rail.tsx (rel tab, ADR-055),
+│   │                           form-step.tsx (FormStep, ChoiceGroup), step-flow.tsx (form per kartu, ADR-061),
+│   │                           form-draft.tsx (pulihkan isian setelah galat server, ADR-061), scroll-rail.tsx (rel tab, ADR-055),
 │   │                           image-upload-field.tsx (pilih + kompres gambar di peramban sebelum diunggah, ADR-056),
 │   │                           turnstile.tsx (widget CAPTCHA eksplisit, satu untuk /submit & halaman akun; `key` baru per render),
 │   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053),
 │   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
 │   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054)
-│   ├── landing/                GuestLanding + Hero — beranda tamu
+│   ├── landing/                GuestLanding + Hero (cari, jenis + jumlah, tumpukan kegiatan nyata) + LandingTour (tur kursor, ADR-061) — beranda tamu
 │   ├── home/                   RoleHome memilih per peran tampilan (account-role.ts): PersonalHome (peserta — tagihan,
-│   │                           perlu tindakan, pantauan), OrganizerHome (pendaftar baru, bukti bayar menunggu), AdminHome (antrean)
+│   │                           perlu tindakan, pantauan, GettingStarted "Mulai di sini" ADR-061), OrganizerHome (pendaftar baru, bukti bayar menunggu), AdminHome (antrean)
 │   ├── registration/           Sisi peserta formulir internal: RegistrationFieldInput, RequiredChoiceGroup, RegistrationCta,
 │   │                           registration-view.ts (registrationCta, registrationEventClosed — aturan tutup per detik), langkah (ADR-056)
 │   ├── organizer/              Ruang kerja acara (event-workspace.tsx: tab & header), FormBuilder + registration-settings.ts

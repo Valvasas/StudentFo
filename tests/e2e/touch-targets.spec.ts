@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { PAID_DEMO_EVENT, signInAsDemo } from './helpers';
+import { PAID_DEMO_EVENT, nextStep, signInAsDemo } from './helpers';
 
 /**
  * Standar proyek: target sentuh ≥ 44px (CONVENTIONS.md). axe hanya memeriksa
@@ -107,7 +107,11 @@ test('pencocokan tim (form, hasil, saringan terbuka): setiap target ≥ 44px', a
   await signInAsDemo(page, 'Mahasiswa', '/teams/cocok');
   await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
   await page.locator('input[name=skills][value=web-aplikasi]').check();
+  await nextStep(page);
+  // Penunjuk langkah & tombol Kembali/Lanjut juga target sentuh.
+  await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
   await page.getByLabel('Kota', { exact: true }).selectOption('Bandung');
+  await nextStep(page);
   await page.getByRole('button', { name: /Simpan & mulai mencari/ }).click();
   await expect(page.getByRole('heading', { name: 'Pasangan terbaik untukmu' })).toBeVisible();
   // Buka saringan DAN punggung kartu depan: isi <details>/muka yang tertutup tidak terukur.

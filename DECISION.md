@@ -12,6 +12,76 @@ terdokumentasi.
 
 ---
 
+## ADR-061 — Beranda tamu yang hidup lagi (dengan batas kejujuran ADR-056), form panjang per kartu, panduan "Mulai di sini"
+
+**Konteks:** Pemilik (2026-10-25) merasa beranda tamu "kosong blong tanpa
+marketing" dan tur kursor dinamis hilang — keduanya memang dihapus sengaja di
+ADR-056 ("bersih dari kesan buatan AI"). Pemilik juga meminta form panjang
+dipecah per kartu ("isi nama, lanjut ke kartu berikutnya untuk skill") supaya
+tidak melelahkan di ponsel, serta dasbor yang lebih memandu. Ditemukan saat
+mengerjakannya: isian `/submit` HILANG seluruhnya bila server menolak satu
+kolom (React mereset form setelah aksi; dibuktikan di build produksi), dan
+catatan "masuk dulu supaya dikabari" untuk tamu baru terbaca di kolom terakhir.
+
+**Keputusan:**
+- **Tur & pemasaran kembali, prinsip ADR-056 tetap.** `LandingTour` dipulihkan
+  dari riwayat lalu disesuaikan dengan produk sekarang (minat+jenjang, pengingat
+  H-3/H-1 di lonceng, formulir internal, kartu pemain) dan memakai token tema
+  (ikut mode gelap). Yang TETAP ditolak: testimoni, angka pengguna, logo
+  "dipercaya oleh", dan klaim yang tak bisa ditelusuri ke perilaku sistem.
+  "Hidup"-nya datang dari data nyata: tumpukan kartu hero = 3 kegiatan tenggat
+  terdekat, angka per jenis = `listEvents(...).total` (null bila gagal → ubin
+  tanpa angka), pita tenggat bisa dijeda (WCAG 2.2.2). Hero bisa langsung
+  MENCARI (form GET ke `/events`, jalan tanpa JS). Tur: diam bila "kurangi
+  gerak", wilayah `aria-live` hanya berbunyi setelah pengguna memilih langkah
+  (bukan tiap 2 detik), panggung `aria-hidden`.
+- **`StepFlow`** (`components/ui/step-flow.tsx`) membungkus `FormStep` yang
+  sudah ada — peningkatan progresif, bukan wizard berhalaman:
+  - HTML server memuat semua langkah dalam SATU `<form>`; tanpa JS form utuh
+    seperti sebelumnya. Setelah hidrasi hanya satu kartu tampil (`hidden`),
+    kolom lain tetap di DOM dan terkirim bersama. Tidak ada state di server.
+  - "Lanjut" memvalidasi kartu itu: atribut HTML + `check(index)` opsional
+    (form klien) + grup centang `ChoiceGroup requireOne` (`setCustomValidity`
+    di kotak pertama — HTML tak punya `required` untuk grup). Enter di kartu
+    tengah = Lanjut. `invalid` dari kartu tersembunyi saat kirim membuka kartu
+    itu (bukan gagal diam "not focusable").
+  - Penunjuk langkah dirender juga tanpa JS (daftar isi) supaya tinggi bagian
+    atas sama sebelum/sesudah hidrasi. `useSyncExternalStore` untuk status
+    hidrasi: mount ulang di klien (mis. `key` baru setelah redirect galat)
+    langsung dalam mode kartu tanpa kedip.
+  - Dipakai di `/submit` (4), kartu pencocokan (3), `/teams/baru` (3), dan
+    formulir pendaftaran bila pertanyaan > 4 (per 3 pertanyaan; yang pendek
+    tetap satu layar — wizard untuk 2 pertanyaan hanya menambah klik).
+  - Halaman server memberi `key={randomUUID()}` per render: setelah kiriman
+    ditolak, kartu yang terbuka = kartu kolom bermasalah (`initialStep`).
+  - Turnstile dirender saat kartunya pertama kali tampil (`useStepVisible`):
+    di kontainer `hidden` ia tak berukuran dan tokennya menua.
+- **`FormDraft`**: form tanpa state klien menyimpan isian ke sessionStorage saat
+  dikirim dan memulihkannya SEKALI bila URL membawa galat (honeypot & token
+  captcha tidak pernah disimpan). Form dengan state React sendiri tetap memakai
+  draf bertipe (`useSeekerDraft`).
+- **"Mulai di sini"** di beranda peserta: tiga langkah dicentang dari keadaan
+  akun (minat+jenjang, simpanan pertama, kartu pemain via `getSeekerProfile` —
+  method lama, ADR-053 tetap). Di atas untuk akun yang profilnya belum lengkap,
+  di bawah "Perlu tindakan" untuk yang sudah. Bisa disembunyikan per akun
+  (cookie `sf_mulai`, <form> biasa). SENGAJA tidak memuat "tampil di Cari
+  Koneksi": mendorong orang membuka privasinya sebagai tugas onboarding adalah
+  pola gelap.
+- Catatan tamu "masuk dulu supaya dikabari" dipindah ke kepala `/submit`.
+
+**Ditolak:** menyembunyikan kartu lain sebelum hidrasi lewat skrip `<head>`
+(tanpa kedip, tetapi bila bundel JS gagal dimuat form terkunci di kartu 1 tanpa
+tombol Lanjut); wizard berhalaman dengan simpan-sementara di server (state
+setengah jadi, butuh tabel & pembersihan).
+
+**Konsekuensi:** Beranda tamu +5 query hitungan (ter-cache seperti daftar).
+Tes yang mengisi form panjang harus melewati kartu (`nextStep` di
+`tests/e2e/helpers.ts`); perilaku khas ada di `tests/e2e/step-flow.spec.ts`.
+Draf form ada di sessionStorage tab itu sampai dikirim sukses, tab ditutup, atau
+form dibuka lagi tanpa galat.
+
+---
+
 ## ADR-060 — Topologi produksi: VPS Singapura + Docker Compose + Cloudflare Tunnel; template email token_hash; kunci API Supabase format baru
 
 **Konteks:** Pemilik meminta konfigurasi & langkah hosting yang murah tetapi

@@ -388,6 +388,19 @@ Panduan: `docs/panduan-hosting.md`. Berkas: `deploy/`, `supabase/templates/`.
 - [ ] Periksa di Supabase sungguhan: apakah migration pg_cron menjadwalkan 4 job (kondisi `shared_preload_libraries` mungkin tak terbaca role `postgres`); bila 0, panduan § 3.3 punya SQL perbaikan — pertimbangkan migration yang gagal keras alih-alih NOTICE.
 - [ ] Bila deploy jadi sering/lambat: build image di GitHub Actions → GHCR, VPS cukup `pull` (hilangkan kebutuhan swap & build di server).
 
+## Beranda hidup, form per kartu, panduan pengguna baru 2026-10-25 (@claude) — ADR-061
+
+- [x] Tur kursor dinamis kembali (`landing/tour.tsx`), diperbarui ke fitur sekarang, token tema, diam saat "kurangi gerak", live region hanya setelah interaksi.
+- [x] Hero tamu: cari langsung (GET `/events`), jenis kegiatan + jumlah terbuka, tumpukan 3 kegiatan nyata; pita tenggat bisa dijeda; blok Cara kerja, Fitur, Untuk siapa, Verifikasi, FAQ, CTA.
+- [x] `StepFlow` + `FormDraft`: `/submit`, kartu pencocokan, `/teams/baru`, formulir pendaftaran > 4 pertanyaan. Tanpa JS tetap satu form.
+- [x] Bug: isian `/submit` hilang total saat server menolak satu kolom → dipulihkan & dibuka di kartu kolomnya.
+- [x] Jenjang peserta di `/submit` ditahan di kartunya (`ChoiceGroup requireOne`), bukan baru ditolak server.
+- [x] Catatan "masuk dulu supaya dikabari" untuk tamu dipindah ke kepala `/submit`.
+- [x] Beranda peserta: "Mulai di sini" (3 langkah dari keadaan akun, bisa disembunyikan per akun).
+- [ ] **P2** Form panjang lain (pengajuan penyelenggara, revisi acara, penyusun formulir studio) belum memakai `StepFlow`; pakai bila disentuh.
+- [ ] **P2** `/teams/baru` setelah galat server tetap di kartu terakhir (form tidak di-`key` ulang; isian tetap ada karena state klien). Bila galat per kolom ditambahkan, beri `initialStep`.
+- [ ] **P3** Uji di perangkat fisik: gelembung validasi bawaan (`reportValidity`) di Safari iOS & WebView Instagram.
+
 ## Template tugas baru
 
 ```md

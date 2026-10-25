@@ -49,10 +49,26 @@ export function FormStep({
   );
 }
 
-/** Judul kecil untuk sekelompok pilihan di dalam satu langkah (jenjang, bidang, biaya). */
-export function ChoiceGroup({ legend, hint, children, className }: { legend: string; hint?: string; children: ReactNode; className?: string }) {
+/**
+ * Judul kecil untuk sekelompok pilihan di dalam satu langkah (jenjang, bidang, biaya).
+ * `requireOne` = pesan bila tak satu kotak pun dicentang; diperiksa `StepFlow`
+ * sebelum lanjut (server tetap memvalidasi ulang).
+ */
+export function ChoiceGroup({
+  legend,
+  hint,
+  requireOne,
+  children,
+  className,
+}: {
+  legend: string;
+  hint?: string;
+  requireOne?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <fieldset className={cn('flex min-w-0 flex-col gap-2.5', className)}>
+    <fieldset data-require-one={requireOne} className={cn('flex min-w-0 flex-col gap-2.5', className)}>
       <legend className="mb-2.5 flex flex-wrap items-baseline gap-x-2 text-[13.5px] font-semibold">
         {legend}
         {hint && <span className="text-[12.5px] font-normal text-ink-muted">{hint}</span>}
