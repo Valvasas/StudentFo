@@ -18,8 +18,9 @@ peluncuran karena model LLM pipeline sudah dimatikan Google, dan dokumen hukum
 | Kode aplikasi (typecheck, lint, unit, kontras) | ✅ | `npm run verify` hijau — 738 uji unit |
 | Database: 32 migration + RLS + fungsi | ✅ | `npm run db:test` — 32 migration + 21 berkas uji SQL, Postgres 16 |
 | Repository produksi lewat PostgREST sungguhan | ✅ | `npm run test:integration` — 91/91 |
-| Build produksi mode Supabase (cache, moderasi, sesi) | ✅ (diperbaiki) | `npm run test:e2e:supabase` — **tadinya 1 gagal**, kini 5/5 |
-| Antarmuka lintas perangkat | ✅ (diperbaiki) | Sapu 8 perangkat + suite Playwright 3 proyek (§ 4) |
+| Build produksi mode Supabase (cache, moderasi, sesi) | ✅ (diperbaiki) | `npm run test:e2e:supabase` — **tadinya 1 gagal**, kini 6/6 (termasuk uji katalog kosong baru) |
+| Image Docker produksi | ✅ (pertama kali) | `docker build` + `docker run`: health OK, CSP/HSTS terpasang, jalan sebagai non-root, siap 0,5 dtk, 364 MB |
+| Antarmuka lintas perangkat | ✅ (diperbaiki) | Sapu 8 perangkat (352 kunjungan) + suite Playwright 3 proyek (§ 4) |
 | Backend Supabase produksi | 🔴 | Tidak ada project aktif (§ 6.1) |
 | Isi katalog saat peluncuran | 🔴 | Pipeline memakai model yang sudah mati (§ 6.2) |
 | Legal | 🔴 | Kebijakan privasi DRAF, S&K belum ada (§ 6.3) |
@@ -54,9 +55,12 @@ tapi mematikan onboarding dan ±890 uji browser.
 | `ALLOW_DEMO_IN_PRODUCTION` | **jangan diset** (atau `false`) |
 | `DEMO_ALLOWED_HOSTS`, `DEMO_ADMIN_KEY`, `DEMO_SESSION_SECRET` | kosongkan |
 
-Pengaman tambahan: `GET /api/health` melaporkan `dataMode`. Pasang monitor yang
-menegaskan `"dataMode":"supabase"` — deploy yang salah konfigurasi dan jatuh ke
-data contoh tetap menjawab 200, dan hanya asersi itu yang menangkapnya.
+Terbukti di container produksi: tanpa env Supabase dan tanpa izin demo, server
+**menolak melayani** (500 di semua rute + log "Kredensial Supabase kosong di
+produksi") alih-alih diam-diam menampilkan data fiktif. Satu-satunya jalan ke
+data contoh di produksi adalah `ALLOW_DEMO_IN_PRODUCTION=true` — dan deploy
+seperti itu menjawab 200. Karena itu `GET /api/health` melaporkan `dataMode`:
+pasang monitor yang menegaskan `"dataMode":"supabase"`.
 
 ---
 
@@ -86,7 +90,7 @@ Singapura (perkiraan umum, tidak diukur dari lingkungan ini).
 Android 360×780 · iPhone 390×844 · ponsel landscape 844×390 · iPad mini
 768×1024 · iPad Air 820×1180 · tablet landscape 1024×768 · laptop 1366×768 ·
 desktop 1920×1080 — sebagai tamu (16 rute), Mahasiswa (17), Penyelenggara (6),
-Admin (5).
+Admin (5): 352 kunjungan.
 
 | Pemeriksaan | Hasil |
 |---|---|
@@ -96,6 +100,7 @@ Admin (5).
 | Tepat satu `<h1>` per halaman | ✅ semua |
 | Tinggi navbar di ponsel landscape (layar 390 px) | 65 px (17%) — wajar |
 | **Target sentuh < 44 px di tablet sentuh** | **9 jenis kontrol, 30–36 px** → diperbaiki |
+| **Target sentuh < 44 px di semua perangkat sentuh** (studio penyelenggara) | pemilih rentang analitik 36 px, judul acara 22–26 px → diperbaiki |
 
 ### Temuan utama: tablet diperlakukan seperti desktop bermouse
 
@@ -110,6 +115,20 @@ Perbaikan: ringkas hanya bila pointer presisi (`sm:pointer-fine:min-h-9`).
 Desktop bermouse tidak berubah sama sekali. Dikunci
 `touch-targets.spec.ts` § tablet sentuh (820 & 1024 px) — **gagal di build
 lama, lolos sesudahnya**. Aturannya kini di `CONVENTIONS.md`.
+
+Studio penyelenggara (tidak pernah tercakup uji target sentuh): pemilih
+"7/30/90 hari" 36 px di ponsel sekalipun, judul acara di beranda penyelenggara
+dan di kartu "Acara aktif" `/penyelenggara` 22–26 px. Diperbaiki dengan pola
+yang sudah ada (`::after` seperti `Button size="sm"`, `-my-2.5 min-h-11`);
+dikunci uji baru di ketiga proyek yang gagal di build lama. Judul di daftar
+"Klaim acara" berpola sama tapi tidak ada di data contoh, jadi tidak terukur
+dan sengaja tidak diubah (dicatat di TASKS).
+
+Sisa yang sengaja tidak diubah: tautan di dalam kalimat ("Kirimkan ke kami",
+"Baca kebijakan privasi" — dikecualikan WCAG 2.5.8), judul kartu kegiatan
+(stretched link, area sentuhnya seluruh kartu), dan judul portofolio di
+`/orang/[id]` (41 px saat dua baris; memperbesarnya tanpa menggeser tata letak
+butuh desain ulang baris — dicatat di TASKS).
 
 ### Ikon perangkat
 
@@ -143,7 +162,8 @@ detail kegiatan → situs penyelenggara mengandalkannya.
 | 4 | 9 jenis kontrol: `pointer-fine:` | § 4 |
 | 5 | Tautan profil eksternal 19 px → area sentuh 44 px | Ditemukan uji tablet |
 | 6 | `tests/e2e/hosting.spec.ts` | favicon, health, manifest, ikon tidak bisa diam-diam rusak lagi |
-| 7 | `/about` tidak menampilkan blok angka saat katalog kosong | Hari peluncuran: empat angka "0" raksasa terbaca "situs mati". Dikunci uji e2e mode Supabase pertama (database kosong) |
+| 7 | `/about` tidak menampilkan blok angka saat katalog kosong | Hari peluncuran: empat angka "0" raksasa terbaca "situs mati". Dikunci uji e2e mode Supabase pertama (database kosong) — gagal di kode lama |
+| 8 | Studio penyelenggara: pemilih rentang analitik & judul acara → 44 px | Ditemukan sapu ulang dengan persona Penyelenggara |
 
 ---
 
@@ -212,8 +232,9 @@ Pilihan hosting — satu hal yang membedakan:
   bukti bayar dengan JavaScript aman (dikompres di peramban ke ±0,5 MB), tapi
   unggahan tanpa JS sampai 32 MB (ADR-056) akan ditolak platform.
 - **Docker/VPS** (`Dockerfile`, `output: 'standalone'`): tidak ada batas itu,
-  tapi pasang plafon di proxy (`client_max_body_size 32m`). `docker build`
-  belum pernah dijalankan (tidak ada daemon di lingkungan uji).
+  tapi pasang plafon di proxy (`client_max_body_size 32m`). Image sudah
+  terbukti build & jalan di sesi ini (§ 1). Catatan: kunci `NEXT_PUBLIC_*`
+  wajib dioper sebagai `--build-arg` (dibekukan saat build).
 
 ### 6.5 Uji asap setelah deploy
 

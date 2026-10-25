@@ -329,7 +329,11 @@ function ManagedEventsSection({
                       {closed ? 'Pendaftaran ditutup' : daysLeftLabel(days)}
                     </span>
                   </span>
-                  <Link href={workspacePath(event.id)} className="text-base font-semibold leading-snug hover:underline">
+                  {/* Judul bisa beberapa baris: area sentuh diperluas ::after ke celah gap-3, tanpa menggeser tata letak. */}
+                  <Link
+                    href={workspacePath(event.id)}
+                    className="relative block text-base font-semibold leading-snug after:absolute after:inset-x-0 after:-inset-y-[11px] after:content-[''] hover:underline"
+                  >
                     {event.title}
                   </Link>
                   <RegistrationLine eventId={event.id} summary={summary} />

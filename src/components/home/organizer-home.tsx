@@ -243,8 +243,8 @@ async function VerifiedDashboard({ user, now }: { user: AuthUser; now: Date }) {
             <ul className="flex flex-col divide-y divide-line border-t border-line">
               {active.slice(0, EVENT_LIMIT).map((event) => (
                 <li key={event.id} className="flex flex-col gap-1 py-3">
-                  <Link href={workspacePath(event.id)} className="truncate font-semibold hover:underline">
-                    {event.title}
+                  <Link href={workspacePath(event.id)} className="-my-2.5 flex min-h-11 min-w-0 items-center font-semibold hover:underline">
+                    <span className="truncate">{event.title}</span>
                   </Link>
                   <span className="text-[13px] text-ink-muted">
                     {event.primaryDeadlineAt ? `Tutup ${formatShortDateId(event.primaryDeadlineAt)}` : 'Tanggal TBA'} ·{' '}

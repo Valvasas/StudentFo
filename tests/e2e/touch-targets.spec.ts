@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { PAID_DEMO_EVENT, signInAsDemo } from './helpers';
 
 /**
  * Standar proyek: target sentuh ≥ 44px (CONVENTIONS.md). axe hanya memeriksa
@@ -121,6 +121,14 @@ test('pencocokan tim (form, hasil, saringan terbuka): setiap target ≥ 44px', a
   await page.getByRole('button', { name: 'Ajak jadi partner' }).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect.poll(() => smallTargets(page, 'dialog'), { timeout: 3000 }).toEqual([]);
+});
+
+test('studio penyelenggara (beranda, dasbor, ringkasan & rentang analitik): setiap target ≥ 44px', async ({ page }) => {
+  await signInAsDemo(page, 'Penyelenggara', '/penyelenggara');
+  for (const route of ['/penyelenggara', '/', `/penyelenggara/acara/${PAID_DEMO_EVENT.id}`]) {
+    await page.goto(route);
+    await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000, message: route }).toEqual([]);
+  }
 });
 
 /**

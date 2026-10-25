@@ -366,6 +366,10 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Sapu 8 perangkat (Android 360, iPhone 390, ponsel landscape 844×390, iPad 768/820, tablet landscape 1024, laptop 1366, desktop 1920) × tamu + 3 persona: 0 overflow, 0 galat konsol, 0 gambar rusak, `<h1>` tepat satu.
 - [x] Tablet sentuh: 9 jenis kontrol 30–36 px → `pointer-fine:` (CONVENTIONS); `touch-targets.spec.ts` § tablet sentuh (820 & 1024 px) gagal di build lama, lolos sesudahnya.
 - [x] Katalog kosong (hari peluncuran): `/about` tidak lagi memamerkan empat angka 0; dikunci uji pertama `test:e2e:supabase` (database kosong).
+- [x] Studio penyelenggara: pemilih rentang analitik (36 px di ponsel), judul acara di beranda penyelenggara & kartu "Acara aktif" (22–26 px) → 44 px; uji baru di 3 proyek, gagal di build lama.
+- [ ] P3 Judul di daftar "Klaim acara" `/penyelenggara` kemungkinan 22 px (pola sama) — tidak ada klaim di data contoh, jadi belum terukur; tambah klaim contoh lalu ukur.
+- [x] `docker build` + `docker run` pertama kali terbukti (image 364 MB, non-root, health OK, CSP/HSTS); tanpa Supabase & tanpa izin demo server menolak melayani (500 + log).
+- [ ] P3 Judul portofolio di `/orang/[id]` 21–41 px (bukan stretched link) — butuh desain ulang baris supaya 44 px tanpa menggeser tata letak.
 - [ ] **BUTUH PEMILIK.** Kedua project Supabase di akun berstatus INACTIVE dan tidak ada yang bernama StudentFo — buat/pulihkan project produksi, lalu terapkan 32 migration berurutan (BUTUH KONFIRMASI eksplisit), `npm run db:verify`.
 - [ ] **BUTUH PEMILIK, P0 produk.** Katalog hari-H kosong bila pipeline tidak jalan: default `gemini-2.0-flash` di `pipeline/run.py` sudah dimatikan Google (1 Jun 2026). Isi `GEMINI_MODEL` dengan model hidup + 10+ sumber nyata, atau siapkan kiriman awal manual lewat `/submit` + `/admin`.
 - [ ] Monitor uptime eksternal ke `/api/health` dengan asersi `dataMode == "supabase"`.
@@ -506,7 +510,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Pendaftaran: blok "Tutup dalam 7 hari, belum kamu daftar" menggantikan satu ubin terdekat.
 - [x] `/admin`: panel kondisi antrean (umur tertua, lewat batas 48 jam, keputusan 7 hari).
 - [x] CTA beranda tanpa teks latar berjalan.
-- [ ] `docker build` belum dijalankan (tanpa daemon di lingkungan ini) — uji di CI/staging.
+- [x] `docker build` belum dijalankan (tanpa daemon di lingkungan ini) — terbukti build & jalan 2026-10-25 (ADR-059); job CI `docker build` masih belum ada.
 - [ ] Simpan alasan penolakan kiriman (kolom + form admin) supaya "Kirimanmu" bisa menyebut alasan spesifik.
 - [ ] Terapkan migration 20260930100001–03 ke project Supabase — butuh persetujuan eksplisit pemilik.
 

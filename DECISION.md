@@ -54,6 +54,15 @@ Diukur, bukan diasumsikan (`docs/kesiapan-hosting.md`):
 5. `/about` menyembunyikan blok statistik selama `totalActive === 0`:
    empat angka 0 raksasa di hari peluncuran terbaca "situs mati". Tidak
    mengarang angka; bloknya kembali sendiri begitu satu kegiatan tayang.
+6. Studio penyelenggara (tak pernah tercakup uji target sentuh): pemilih
+   rentang analitik & judul kartu "Acara aktif" memakai `::after` (seperti
+   `Button size="sm"`, tanpa menggeser tata letak judul multi-baris); judul
+   acara satu-baris di beranda penyelenggara memakai `-my-2.5 min-h-11`. Uji
+   di ketiga proyek.
+
+Terbukti juga di sesi ini: image Docker produksi build & jalan (non-root,
+health OK); tanpa env Supabase dan tanpa izin demo, container menolak melayani
+(500 + log) — pengaman ADR-025 berlaku di image, bukan hanya di `next start`.
 
 **Konsekuensi:** + Monitor uptime menangkap database mati dan salah
 konfigurasi demo. + iPad mendapat target 44 px; desktop bermouse tidak
