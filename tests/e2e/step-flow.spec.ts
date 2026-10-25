@@ -89,17 +89,28 @@ test('kiriman yang ditolak server dibuka di kartu kolomnya dengan isian dipulihk
 
 test('formulir pendaftaran panjang dipecah per tiga pertanyaan', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', FREE_FORM);
-  await expect(page.getByText('Langkah 1 dari 2')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Data akun' })).toBeVisible();
+  const main = page.locator('main');
+  // Tes studio (organizer.spec) menambah pertanyaan ke formulir contoh yang sama
+  // saat berjalan paralel — jumlah kartu dan pertanyaan sesudah kartu 1 tidak dipatok.
+  await expect(main.getByText(/^Langkah 1 dari [2-9]$/)).toBeVisible();
+  await expect(main.getByRole('heading', { name: 'Data akun' })).toBeVisible();
   await page.getByLabel(/Nomor WhatsApp/).fill('081234567890');
   await page.getByLabel('Asal kampus').fill('Universitas Contoh');
   await page.getByLabel('Nama tim').fill('Tim Kartu');
   await nextStep(page);
-  await expect(page.getByText('Langkah 2 dari 2')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Data akun' })).toBeHidden();
-  await page.getByRole('radio', { name: '4 orang' }).check();
-  await page.getByRole('checkbox', { name: /buku panduan/ }).check();
-  await page.getByRole('checkbox', { name: /Data di formulir ini dibagikan/ }).check();
+  await expect(main.getByText(/^Langkah 2 dari/)).toBeVisible();
+  await expect(main.getByRole('heading', { name: 'Data akun' })).toBeHidden();
+
+  for (let card = 0; card < 6; card += 1) {
+    for (const group of await main.getByRole('radiogroup').filter({ visible: true }).all()) {
+      if ((await group.getByRole('radio', { checked: true }).count()) === 0) await group.getByRole('radio').first().check();
+    }
+    const unchecked = main.getByRole('checkbox', { checked: false }).filter({ visible: true });
+    while ((await unchecked.count()) > 0) await unchecked.first().check();
+    if ((await page.getByRole('button', { name: /^Lanjut/ }).count()) === 0) break;
+    await nextStep(page);
+  }
+  await expect(main.getByRole('checkbox', { name: /Data di formulir ini dibagikan/ })).toBeChecked();
   await page.getByRole('button', { name: 'Kirim pendaftaran' }).click();
   await expect(page).toHaveURL(/\/pembayaran\/[0-9a-f-]{36}/);
 });
