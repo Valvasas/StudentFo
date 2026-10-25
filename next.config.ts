@@ -71,6 +71,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+  // Peramban lama, crawler, dan sebagian WebView meminta `/favicon.ico`
+  // langsung tanpa membaca <link rel="icon">. Ikon dibangkitkan `app/icon.tsx`
+  // (tanpa berkas biner di repo); PNG di alamat .ico diterima semua peramban.
+  async rewrites() {
+    return [{ source: '/favicon.ico', destination: '/icon/32' }];
+  },
 };
 
 export default nextConfig;

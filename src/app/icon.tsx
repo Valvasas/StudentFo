@@ -1,34 +1,19 @@
-import { ImageResponse } from 'next/og';
-
-export const size = { width: 32, height: 32 };
-export const contentType = 'image/png';
+import { brandIcon } from '@/components/og/brand-icon';
 
 /**
- * Favicon digambar di build (tanpa berkas biner di repo). Sebelumnya tidak
- * ada ikon sama sekali: tab browser kosong dan setiap kunjungan pertama
- * menghasilkan 404 `/favicon.ico` di konsol.
+ * Tiga ukuran dari satu berkas (tanpa biner di repo): 32 = tab browser (juga
+ * dilayani di `/favicon.ico`, lihat next.config.ts), 192/512 = manifest untuk
+ * "Tambahkan ke layar utama" di Android.
  */
-export default function Icon() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#191919',
-          color: '#ffffff',
-          borderRadius: 8,
-          fontSize: 22,
-          fontWeight: 700,
-          letterSpacing: '-0.06em',
-        }}
-      >
-        S
-      </div>
-    ),
-    size,
-  );
+export function generateImageMetadata() {
+  return [32, 192, 512].map((side) => ({
+    id: String(side),
+    size: { width: side, height: side },
+    contentType: 'image/png',
+  }));
+}
+
+export default function Icon({ id }: { id: string }) {
+  const side = Number(id);
+  return brandIcon(side, { tile: side > 32 });
 }

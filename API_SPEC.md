@@ -496,6 +496,21 @@ tanggal WIB, pengingat 09.00 H-3 & H-1 untuk pendaftaran/pengumpulan.
 `404 { error, code: 'NOT_FOUND' }` bila kegiatan tidak ada/tidak tayang atau
 belum punya jadwal. Publik, `Cache-Control: public, max-age=300`.
 
+### `GET /api/health` (ADR-059)
+
+Untuk monitor uptime & pemeriksaan kesiapan platform hosting. Publik, tanpa
+autentikasi, `Cache-Control: no-store` (juga `HEAD`).
+
+- `200 { "status": "ok", "dataMode": "supabase" | "seed" }` — aplikasi hidup
+  dan `EventRepository.checkHealth()` berhasil.
+- `503 { "status": "unavailable", "dataMode": … }` — database tidak
+  terjangkau. Penyebabnya hanya di log server (`[health]`), tidak di respons.
+
+`checkHealth()` sengaja tidak lewat Data Cache (uji mutasi di
+`tests/integration/smoke.test.ts`). Monitor produksi sebaiknya menegaskan
+`dataMode === "supabase"`: deploy yang kehilangan env Supabase dan menyala
+dengan `ALLOW_DEMO_IN_PRODUCTION` tetap menjawab 200.
+
 ### `POST /api/cron/dispatch-deadline-notifications?limit=100` (ADR-051)
 
 `Authorization: Bearer <CRON_SECRET>` (≥32 karakter; kosong = selalu 401).

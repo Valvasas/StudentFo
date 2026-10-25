@@ -89,7 +89,7 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                         })}
                         scroll={false}
                         aria-current={on ? 'true' : undefined}
-                        className="flex min-h-11 items-center gap-2.5 text-sm lg:min-h-9"
+                        className="flex min-h-11 items-center gap-2.5 text-sm lg:pointer-fine:min-h-9"
                       >
                         <span
                           aria-hidden

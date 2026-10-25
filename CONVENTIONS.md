@@ -131,7 +131,12 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   status ke tint; teks di atas tint selalu tinta primer (ADR-054).
 - Namespace warna semantik (`--color-danger`, dst) dan warna deadline
   (`--color-deadline-*`) terpisah — jangan dipertukarkan.
-- Target sentuh minimal 44px; focus ring di semua elemen fokusable.
+- Target sentuh minimal 44px; focus ring di semua elemen fokusable. Kontrol
+  boleh diringkas (30–36px) untuk mouse, tetapi ringkasnya dikunci ke JENIS
+  POINTER, bukan lebar layar: `sm:pointer-fine:min-h-9`, bukan `sm:min-h-9`.
+  Lebar ≥ sm/lg tidak berarti ada mouse — iPad 820–1194px dipakai dengan jari
+  (ADR-059, `touch-targets.spec.ts` § tablet sentuh). Alternatifnya: perluas
+  area sentuh lewat `::after` seperti `Button size="sm"`.
 - Transisi 150–200ms, tanpa `translate`/`scale` pada TARGET klik. Pengecualiannya
   **animasi** (bukan transisi) yang berjalan sendiri dan tidak pernah
   menggeser target klik: `ticker-track` (pita tenggat), `reveal`, bilah

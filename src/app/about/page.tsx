@@ -75,15 +75,22 @@ export default async function AboutPage() {
           </p>
         </div>
 
-        <dl className="enter mt-12 grid overflow-hidden rounded-[20px] border border-line [animation-delay:150ms] [animation-duration:900ms] [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
-          {numbers.map((item) => (
-            <div key={item.label} className="flex flex-col-reverse gap-1.5 border-b border-r border-line p-6 last:border-r-0">
-              <dt className="text-sm text-ink-muted">{item.label}</dt>
-              <dd className="font-mono text-[44px] font-medium leading-none tracking-[-0.05em]">{item.value}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="mt-3 text-[12.5px] text-ink-muted">Dihitung langsung dari katalog saat halaman ini dibuka.</p>
+        {/* Katalog kosong (hari peluncuran, atau pipeline macet): empat angka 0
+            raksasa terbaca "situs mati", bukan "baru dibuka". Kembali sendiri
+            begitu satu kegiatan tayang (ADR-059). */}
+        {stats.totalActive > 0 && (
+          <>
+            <dl className="enter mt-12 grid overflow-hidden rounded-[20px] border border-line [animation-delay:150ms] [animation-duration:900ms] [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
+              {numbers.map((item) => (
+                <div key={item.label} className="flex flex-col-reverse gap-1.5 border-b border-r border-line p-6 last:border-r-0">
+                  <dt className="text-sm text-ink-muted">{item.label}</dt>
+                  <dd className="font-mono text-[44px] font-medium leading-none tracking-[-0.05em]">{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 text-[12.5px] text-ink-muted">Dihitung langsung dari katalog saat halaman ini dibuka.</p>
+          </>
+        )}
       </section>
 
       <section aria-labelledby="alur-title" className={sectionClass}>

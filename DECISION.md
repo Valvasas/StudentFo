@@ -12,6 +12,60 @@ terdokumentasi.
 
 ---
 
+## ADR-059 — Kesiapan hosting: mode demo tetap sebagai mode pengembangan; health check, ikon merek, kontrol ringkas dikunci ke jenis pointer
+
+**Konteks:** Pemilik meminta (2026-10-25) "hilangkan teks/mode demo karena
+sudah siap dihosting", plus cek kesiapan MVP dan responsivitas antarperangkat.
+Diukur, bukan diasumsikan (`docs/kesiapan-hosting.md`):
+- Build produksi **mode Supabase** (Postgres + PostgREST lokal, database
+  kosong) disisir 24 rute × desktop/ponsel: **nol** kata
+  demo/fiktif/data contoh/seed; `/demo`, `/messages`, `/discussions` = 404.
+  Teks demo sudah hilang di produksi karena `dataMode` (ADR-025/057).
+- Mode seed BUKAN teks demo: ia jalur onboarding (`npm run dev` tanpa
+  kredensial, AGENTS.md #1), dasar seluruh suite e2e/axe di CI, dan situs
+  pratinjau opsional.
+- `/favicon.ico` 404 (TASKS); favicon masih huruf "S" hitam dari palet ADR-039,
+  bukan logo buku sketsa (ADR-052); tidak ada endpoint kesehatan (P0 audit
+  2026-10-05).
+- Sapu 8 perangkat (360–1920 px, tablet & ponsel landscape): 0 overflow,
+  0 galat konsol. Tetapi di **tablet sentuh** (iPad 768–1024 px) sembilan
+  jenis kontrol menyusut ke 30–36 px karena diringkas berdasarkan LEBAR
+  (`sm:min-h-9`, `lg:min-h-9`, `sm:h-[34px]`). Suite lama hanya mengukur
+  ≤ 412 px atau desktop non-sentuh, jadi tidak menangkapnya.
+- `test:e2e:supabase` merah: commit d32cea9 mengganti kalimat petunjuk
+  Instagram tanpa memperbarui ujinya.
+
+**Keputusan:**
+1. **Mode seed/demo tidak dihapus.** "Tanpa demo" di situs publik adalah soal
+   konfigurasi — Supabase terisi dan `ALLOW_DEMO_IN_PRODUCTION` tidak diset —
+   dan itu sudah ditegakkan kode (produksi tanpa Supabase menolak jalan).
+   Menghapus kodenya melanggar AGENTS.md #1 dan mematikan suite e2e.
+2. `GET /api/health` + `EventRepository.checkHealth()` yang sengaja tidak
+   lewat Data Cache, dan melaporkan `dataMode` supaya monitor bisa menolak
+   deploy produksi yang diam-diam jatuh ke data contoh.
+3. Satu geometri logo (`LOGO_MARK`) untuk navbar, favicon 32 px, ikon
+   192/512 (manifest), dan ikon iOS 180 px; `/favicon.ico` = rewrite ke
+   `/icon/32` (tanpa berkas biner). Manifest `display: 'browser'` dan
+   `appleWebApp.capable: false` eksplisit (bawaan Next `true`): pintasan
+   layar penuh = tanpa tombol kembali di iOS.
+4. Kontrol ringkas memakai `pointer-fine:` (CONVENTIONS.md § target sentuh),
+   dikunci `touch-targets.spec.ts` § tablet sentuh di 820 & 1024 px (gagal di
+   build lama, lolos sesudahnya).
+5. `/about` menyembunyikan blok statistik selama `totalActive === 0`:
+   empat angka 0 raksasa di hari peluncuran terbaca "situs mati". Tidak
+   mengarang angka; bloknya kembali sendiri begitu satu kegiatan tayang.
+
+**Konsekuensi:** + Monitor uptime menangkap database mati dan salah
+konfigurasi demo. + iPad mendapat target 44 px; desktop bermouse tidak
+berubah. − Laptop layar sentuh yang pointer utamanya touchpad melapor
+`pointer: fine` → versi ringkas (diterima; mayoritas pengguna di ponsel).
+− WebKit tidak terpasang di lingkungan ini: `pointer`, ikon, dan manifest
+hanya terbukti di Chromium — uji Safari iOS fisik tetap di TASKS.
+− `/api/health` publik tanpa batas laju: satu HEAD PostgREST per panggilan,
+murah; tambahkan batas bila terbukti disalahgunakan.
+
+---
+
 ## ADR-058 — Redesain UI pencocokan tim: tumpukan kartu koleksi
 
 **Konteks:** Tur pengunjung kritis (`docs/evaluasi-pengunjung-kritis.md`) dan

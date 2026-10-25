@@ -37,6 +37,16 @@ async function signIn(context: BrowserContext, userId: string): Promise<void> {
   ]);
 }
 
+// HARUS uji pertama di berkas ini: scripts/with-postgrest.sh membuat database
+// baru tanpa satu kegiatan pun — keadaan situs di hari peluncuran.
+test('katalog kosong: /about tidak memamerkan angka nol, /events menjelaskan keadaannya', async ({ page }) => {
+  await page.goto('/about');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByText('kegiatan masih terbuka')).toHaveCount(0);
+  await page.goto('/events');
+  await expect(page.getByText('Belum ada kegiatan yang tayang')).toBeVisible();
+});
+
 test('listing publik dilayani Data Cache: kunjungan kedua tidak menyentuh database', async ({ page }) => {
   const token = `zc${randomUUID().replace(/-/g, '').slice(0, 10)}`;
   createEvent({ title: `Lomba Cache Runtime ${token}` });
@@ -112,7 +122,7 @@ test.describe('login dari browser dalam aplikasi (Instagram)', () => {
     for (const route of ['/login', '/register']) {
       await page.goto(route);
       await expect(page.getByRole('button', { name: /dengan Google/ })).toHaveCount(0);
-      await expect(page.getByRole('note').filter({ hasText: 'tidak tersedia di dalam Instagram' })).toBeVisible();
+      await expect(page.getByRole('note').filter({ hasText: 'Google tidak mengizinkan masuk dari dalam Instagram' })).toBeVisible();
       await expect(page.getByLabel('Email')).toBeVisible();
     }
   });

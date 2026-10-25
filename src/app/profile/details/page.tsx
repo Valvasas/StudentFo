@@ -109,7 +109,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
               <a
                 key={href}
                 href={href}
-                className="flex min-h-11 items-center gap-1.5 rounded-sm border border-line px-[11px] text-[13px] font-medium transition-colors duration-150 hover:bg-panel-nested sm:min-h-[30px]"
+                className="flex min-h-11 items-center gap-1.5 rounded-sm border border-line px-[11px] text-[13px] font-medium transition-colors duration-150 hover:bg-panel-nested sm:pointer-fine:min-h-[30px]"
               >
                 <Icon aria-hidden className="size-3.5 text-ink-muted" />
                 {label}
@@ -172,7 +172,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
                   {[...EDUCATION_LEVELS, null].map((level) => (
                     <label
                       key={level ?? 'kosong'}
-                      className="flex min-h-11 cursor-pointer items-center rounded-sm px-3.5 text-sm font-medium text-ink-muted transition-colors duration-150 hover:text-ink has-[:checked]:bg-panel has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgba(0,0,0,.1)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus sm:min-h-9"
+                      className="flex min-h-11 cursor-pointer items-center rounded-sm px-3.5 text-sm font-medium text-ink-muted transition-colors duration-150 hover:text-ink has-[:checked]:bg-panel has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgba(0,0,0,.1)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus sm:pointer-fine:min-h-9"
                     >
                       <input type="radio" name="educationLevel" value={level ?? ''} defaultChecked={user.educationLevel === level} className="sr-only" />
                       {level ? EDUCATION_LEVEL_LABEL[level] : 'Belum diisi'}

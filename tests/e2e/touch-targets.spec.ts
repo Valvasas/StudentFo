@@ -122,3 +122,41 @@ test('pencocokan tim (form, hasil, saringan terbuka): setiap target ≥ 44px', a
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect.poll(() => smallTargets(page, 'dialog'), { timeout: 3000 }).toEqual([]);
 });
+
+/**
+ * Tablet sentuh (iPad): lebar ≥ sm/lg TIDAK berarti ada mouse. Kontrol yang
+ * diringkas ke 30–36px untuk desktop memakai `pointer-fine:`, bukan breakpoint
+ * lebar saja — tanpa itu iPad mendapat versi mouse dengan jari. Ukuran
+ * diatur sendiri, jadi cukup satu proyek.
+ */
+test.describe('tablet sentuh', () => {
+  test.beforeEach(({}, testInfo) => {
+    test.skip(testInfo.project.name !== 'terang', 'viewport diatur sendiri; cukup satu proyek');
+  });
+
+  for (const viewport of [{ width: 820, height: 1180 }, { width: 1024, height: 768 }]) {
+    test.describe(`${viewport.width}px`, () => {
+      test.use({ viewport, hasTouch: true });
+
+      test('papan jenis, Kebijakan privasi: setiap target ≥ 44px', async ({ page }) => {
+        // Hanya kontrol yang diringkas; tautan di dalam kalimat dikecualikan WCAG 2.5.8.
+        for (const [route, scope] of [
+          ['/events?type=BEASISWA', 'main nav[aria-label="Jenjang untuk cek kelayakan"]'],
+          ['/events?type=MAGANG', 'main section[aria-label="Filter kegiatan"]'],
+          ['/privacy-policy', 'main nav'],
+        ] as const) {
+          await page.goto(route);
+          await expect.poll(() => smallTargets(page, scope), { timeout: 3000, message: route }).toEqual([]);
+        }
+      });
+
+      test('profil, data diri, pengaturan, personalisasi, privasi, peta koneksi: setiap target ≥ 44px', async ({ page }) => {
+        await signInAsDemo(page, 'Mahasiswa', '/profile/details');
+        for (const route of ['/profile/details', '/profile/settings', '/profile/personalization', '/profile/privacy', '/connections?tab=peta']) {
+          await page.goto(route);
+          await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000, message: route }).toEqual([]);
+        }
+      });
+    });
+  }
+});

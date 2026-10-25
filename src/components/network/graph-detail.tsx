@@ -161,7 +161,7 @@ export function GraphDetail({
                 <button
                   type="button"
                   onClick={() => onSelect(item.id)}
-                  className="flex min-h-11 max-w-[200px] items-center gap-1.5 rounded-pill border sm:min-h-9 border-line px-2.5 text-[12.5px] font-medium transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested"
+                  className="flex min-h-11 max-w-[200px] items-center gap-1.5 rounded-pill border sm:pointer-fine:min-h-9 border-line px-2.5 text-[12.5px] font-medium transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested"
                 >
                   <NodeGlyph kind={item.kind} className="size-2.5 shrink-0" />
                   <span className="truncate">{item.kind === 'me' ? 'Kamu' : item.kind === 'interest' ? `#${item.label}` : item.label || KIND_LABEL[item.kind]}</span>

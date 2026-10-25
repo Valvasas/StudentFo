@@ -13,10 +13,15 @@ npm run dev
 
 Buka http://localhost:3000. **Tidak butuh database, tidak butuh kunci API.**
 Tanpa kredensial Supabase, aplikasi otomatis memakai repository in-memory berisi
-data contoh, dan menampilkan penanda "Mode data contoh" di setiap halaman.
+data contoh, dan menampilkan penanda "Mode demo" di setiap halaman.
 
 Menghubungkan backend sungguhan cukup mengisi `.env.local`; tidak ada satu baris
-kode pun yang perlu diubah.
+kode pun yang perlu diubah. Begitu Supabase terisi, semua jejak demo (penanda,
+akun demo, `/demo`, fitur yang baru tersimpan di peramban) hilang dengan
+sendirinya — terbukti di build produksi mode Supabase (ADR-059).
+**Deploy produksi:** daftar periksa env, region, dan uji asap ada di
+[`docs/kesiapan-hosting.md`](docs/kesiapan-hosting.md); pasang monitor uptime ke
+`GET /api/health`.
 
 ### Akun demo
 
@@ -261,10 +266,11 @@ desain terakhir, dengan Chromium headless di 320/390/768/1440px:
 - Setiap elemen fokusable punya focus ring; skip-link tersedia di awal halaman.
 - Penanda tenggat membawa ikon + teks, tidak mengandalkan warna saja.
 
-> ⚠️ Beranda, navbar, dan footer **dirombak setelah** pengukuran itu, dan
-> halaman `/teams` sepenuhnya baru. Keempatnya belum diperiksa ulang untuk
-> overflow dan urutan fokus. Lihat `TASKS.md` § Pipeline & DevOps untuk
-> rencana mengubah audit ini jadi skrip Playwright/axe yang tersimpan.
+> Overflow kini diukur ulang pada desain terbaru (2026-10-25, ADR-059): 8
+> perangkat 360–1920 px termasuk tablet dan ponsel landscape, tamu + 3 persona —
+> 0 overflow, 0 galat konsol. Sapu yang sama menemukan kontrol 30–36 px di
+> tablet sentuh, kini dikunci `touch-targets.spec.ts` § tablet sentuh. Urutan
+> fokus beranda/navbar baru belum diperiksa ulang secara manual.
 
 ## Uji
 

@@ -505,6 +505,8 @@ export class MemoryEventRepository implements EventRepository {
     return SEED_CATEGORIES.map((category) => ({ ...category }));
   }
 
+  async checkHealth(): Promise<void> {}
+
   async getStats(): Promise<RepositoryStats> {
     const now = new Date();
     const active = this.publicEvents(false, now);

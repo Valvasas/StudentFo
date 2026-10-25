@@ -112,7 +112,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           <span className="min-w-[220px] flex-1 text-sm leading-normal">
             Ini tampilan yang dilihat tim dan penyelenggara. Kontak, pendaftaran, dan item tersimpan tidak ditampilkan.
           </span>
-          <Link href={togglePublicHref} className="flex min-h-11 items-center rounded-sm bg-on-inverse px-3.5 text-[13.5px] font-semibold text-inverse sm:min-h-9">
+          <Link href={togglePublicHref} className="flex min-h-11 items-center rounded-sm bg-on-inverse px-3.5 text-[13.5px] font-semibold text-inverse sm:pointer-fine:min-h-9">
             Kembali ke profilku
           </Link>
         </div>

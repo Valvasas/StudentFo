@@ -134,7 +134,7 @@ export function DemoDetailCards({ baseDelay = 0 }: { baseDelay?: number }) {
   const linkValue = (value: string) => {
     const href = toExternalUrl(value);
     return href ? (
-      <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="underline decoration-line-strong underline-offset-[3px] hover:decoration-ink">
+      <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="-my-3 inline-flex min-h-11 max-w-full items-center underline decoration-line-strong underline-offset-[3px] hover:decoration-ink">
         {value.replace(/^https?:\/\//i, '')}
         <span className="sr-only"> (tab baru)</span>
       </a>

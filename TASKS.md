@@ -353,7 +353,23 @@ dinamis, memuaskan, dengan ilustrasi yang sesuai bahasa buku sketsa.
 - [x] Perbaikan temuan QA visual: kolom grid implisit `auto` membuat halaman hasil melebar ±370 px di ponsel (`grid-cols-1`), nama kartu dua baris menimpa subjudul, ringkasan kartu melimpah, kontras `opacity` pada petunjuk papan ketik
 - [x] Review adversarial 5 dimensi (a11y, gagal-aman, gestur, CSS, privasi/konvensi) + verifikasi skeptis: 30 kandidat, yang nyata diperbaiki — geser jari batal seketika (tangkapan implisit sentuhan), fokus hilang saat membalik/Urungkan, radar tak diputar ulang saat pindai ulang, kartu lewati menghilang setelah "Kocok ulang", jeda pembagian dihitung dari hidrasi, stempel pita tertutup avatar, kotak keahlian terkunci tanpa JS, peringatan kolom tak turun, draf menginap setelah tersimpan, kebijakan privasi belum menyebut kartu pemain & penyimpanan peramban, CSS/komponen mati (`card-out`, `snap-*`, `PuzzleSnapSketch`, prop `layout`)
 - [ ] Tinjau gestur di perangkat sentuh sungguhan (iOS Safari: gestur "kembali" tepi layar sudah diberi zona mati 16 px, belum diuji di perangkat)
-- [ ] Favicon belum ada (`/favicon.ico` → 404 di semua halaman; bukan bagian redesain)
+- [x] Favicon belum ada (`/favicon.ico` → 404 di semua halaman) — selesai di ADR-059 (ikon merek + rewrite).
+
+## Kesiapan hosting 2026-10-25 (@claude) — ADR-059
+
+Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
+
+- [x] Bukti teks demo hilang di produksi: build mode Supabase (Postgres + PostgREST lokal) disisir 24 rute × 2 viewport — nol "demo/fiktif/data contoh/seed"; `/demo`, `/messages`, `/discussions` = 404. Mode seed sengaja TIDAK dihapus (AGENTS.md #1, dasar suite e2e).
+- [x] `test:e2e:supabase` merah sejak d32cea9 (kalimat petunjuk Instagram berubah, uji tidak) — diperbaiki, 5/5.
+- [x] `GET /api/health` + `EventRepository.checkHealth()` tanpa Data Cache (uji mutasi integrasi) + `dataMode` di respons.
+- [x] Ikon merek dari `LOGO_MARK` (32/192/512 + iOS 180), `/favicon.ico` → `/icon/32`, `manifest.webmanifest` (`display: browser`), `apple-mobile-web-app-title`, tanpa `mobile-web-app-capable`. Dikunci `tests/e2e/hosting.spec.ts`.
+- [x] Sapu 8 perangkat (Android 360, iPhone 390, ponsel landscape 844×390, iPad 768/820, tablet landscape 1024, laptop 1366, desktop 1920) × tamu + 3 persona: 0 overflow, 0 galat konsol, 0 gambar rusak, `<h1>` tepat satu.
+- [x] Tablet sentuh: 9 jenis kontrol 30–36 px → `pointer-fine:` (CONVENTIONS); `touch-targets.spec.ts` § tablet sentuh (820 & 1024 px) gagal di build lama, lolos sesudahnya.
+- [x] Katalog kosong (hari peluncuran): `/about` tidak lagi memamerkan empat angka 0; dikunci uji pertama `test:e2e:supabase` (database kosong).
+- [ ] **BUTUH PEMILIK.** Kedua project Supabase di akun berstatus INACTIVE dan tidak ada yang bernama StudentFo — buat/pulihkan project produksi, lalu terapkan 32 migration berurutan (BUTUH KONFIRMASI eksplisit), `npm run db:verify`.
+- [ ] **BUTUH PEMILIK, P0 produk.** Katalog hari-H kosong bila pipeline tidak jalan: default `gemini-2.0-flash` di `pipeline/run.py` sudah dimatikan Google (1 Jun 2026). Isi `GEMINI_MODEL` dengan model hidup + 10+ sumber nyata, atau siapkan kiriman awal manual lewat `/submit` + `/admin`.
+- [ ] Monitor uptime eksternal ke `/api/health` dengan asersi `dataMode == "supabase"`.
+- [ ] Uji Safari iOS & WebView Instagram/TikTok di perangkat fisik (WebKit tidak tersedia di lingkungan ini).
 
 ## Template tugas baru
 
@@ -542,7 +558,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Pesan hasil kosong menyebut penyebab sebenarnya (kata kunci vs filter).
 - [x] Ponsel: tepi pudar tab kategori; navigasi `/admin` satu baris geser + petak antrean 2 kolom.
 - [ ] **P0** Syarat & Ketentuan (halaman belum ada) — butuh tinjauan legal pemilik.
-- [ ] **P0** Pemantauan error (Sentry = dependency baru, butuh persetujuan) + `/api/health` + alarm pg_cron.
+- [ ] **P0** Pemantauan error (Sentry = dependency baru, butuh persetujuan) + alarm pg_cron. (`/api/health` selesai — ADR-059.)
 - [ ] **P0** Manajemen pengguna admin (cari, tangguhkan, cabut peran) + jejak audit lencana/promosi.
 - [ ] **P0** Buat acara langsung dari studio penyelenggara (semua kolom, termasuk biaya & buku panduan).
 - [ ] **P1** CAPTCHA Supabase Auth di daftar & lupa sandi; MFA wajib untuk ADMIN.

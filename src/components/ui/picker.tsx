@@ -227,7 +227,7 @@ export function Picker({
                 aria-controls={listId}
                 aria-autocomplete="list"
                 aria-activedescendant={optionCount > 0 ? optionId(activeIndex) : undefined}
-                className="h-11 w-full rounded-sm border border-line-strong/70 bg-panel pl-9 pr-11 text-base focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-focus sm:h-9 sm:text-sm"
+                className="h-11 w-full rounded-sm border border-line-strong/70 bg-panel pl-9 pr-11 text-base focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-focus sm:pointer-fine:h-9 sm:pointer-fine:text-sm"
               />
               {search && (
                 <button

@@ -71,6 +71,8 @@ src/
 │   ├── notifications/          actions.ts (tandai dibaca)
 │   ├── api/events/[slug]/calendar/   GET berkas .ics semua tenggat (RFC 5545, ADR-049)
 │   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
+│   ├── api/health/             GET untuk monitor uptime: 200 bila database terjangkau (tanpa Data Cache), 503 bila tidak (ADR-059)
+│   ├── icon.tsx / apple-icon.tsx / manifest.ts   Ikon 32/192/512 + 180 dari geometri LogoMark (og/brand-icon.tsx); /favicon.ico = rewrite ke /icon/32 (ADR-059)
 │   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055).
 │                               Semua halaman memakai requireAdmin() = 404 bagi non-admin dan generateMetadata (ADR-057)
 │
