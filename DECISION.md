@@ -29,8 +29,12 @@ dan pipeline memakai model Gemini yang sudah mati sebagai bawaan.
    keberadaan akun). Satu laporan TERBUKA per (pelapor, subjek), 10/hari. Tanpa
    FK ke subjek: laporan tetap ada walau acara/akun dihapus. Tamu tidak bisa
    melapor (akuntabilitas & spam); tautan "Laporkan" mengarahkan masuk dulu.
-2. **Penangguhan = `users.suspended_at` + `auth.users.banned_until = infinity`
-   + hapus `auth.sessions`.** Aplikasi memperlakukan akun ditangguhkan sebagai
+2. **Penangguhan = `users.suspended_at` + `auth.users.banned_until = now() +
+   100 tahun` + hapus `auth.sessions`.** BUKAN `infinity`: GoTrue (Go) gagal
+   membaca timestamp tak hingga dan menjawab **500 di setiap login akun itu** —
+   ditemukan oleh `npm run test:integration:services` (GoTrue sungguhan), tidak
+   terlihat di uji SQL. 100 tahun = `ban_duration "876000h"` milik API admin
+   GoTrue. Aplikasi memperlakukan akun ditangguhkan sebagai
    tidak masuk SEKETIKA (`getSessionUser`); GoTrue menolak masuk & penyegaran;
    akses PostgREST langsung paling lama sampai access token (±1 jam) habis.
    Penangguhan juga menutup profil Koneksi & kartu pemain (tidak dipulihkan
@@ -66,9 +70,13 @@ dan pipeline memakai model Gemini yang sudah mati sebagai bawaan.
 
 **Konsekuensi:** + Penipuan & pelecehan punya jalur lapor → tindak yang
 tercatat. + Hak hapus UU PDP bisa dipakai tanpa menunggu email. + Galat
-produksi terlihat dalam hitungan detik bila webhook diisi. − `banned_until` &
-`auth.sessions` diubah lewat SQL dari fungsi DEFINER: perilaku GoTrue terhadap
-kolom itu harus dibuktikan di staging (lingkungan ini tidak punya GoTrue). −
+produksi terlihat dalam hitungan detik bila webhook diisi. + `banned_until` &
+`auth.sessions` diubah lewat SQL dari fungsi DEFINER, jadi perilakunya
+dibuktikan dengan GoTrue v2.170 & Storage API v1.14 sungguhan (Docker,
+`npm run test:integration:services`, job CI `integration`): masuk ditolak
+`user_banned`, refresh token lama mati, cabut → bisa masuk lagi; hapus akun
+menghapus objek Storage + `auth.identities`/`sessions` asli. Versi GoTrue di
+project Supabase bisa lebih baru — uji ulang manual di staging tetap perlu. −
 Mode seed tidak mengenal peran/email orang contoh: pencarian admin demo hanya
 menemukan orang contoh & pengguna demo yang pernah bertindak. − Belum ada
 pemberitahuan otomatis ke pelapor saat laporannya diputuskan.

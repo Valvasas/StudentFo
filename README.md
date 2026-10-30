@@ -285,6 +285,8 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
   npm run db:test                         # semua migration + RLS, FTS, staging, dedup, notifikasi
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
   npm run test:integration                # SupabaseEventRepository lewat PostgREST sungguhan + paritas demo↔produksi
+DATABASE_URL=… npm run test:integration:services  # sama, + GoTrue & Storage API sungguhan (butuh Docker):
+                                          #   penangguhan, hapus akun + berkas Storage (ADR-061)
 npm run test:a11y                         # Playwright mode seed: axe WCAG 2.2 (termasuk di balik login demo), CSP, target 44px,
                                           #   320/375px, tanpa-JS, perjalanan demo (183 uji di 3 proyek)
 DATABASE_URL=… npm run test:e2e:supabase   # build produksi mode Supabase: Data Cache, revalidateTag, admin, in-app browser

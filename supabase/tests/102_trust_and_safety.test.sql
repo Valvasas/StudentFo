@@ -142,8 +142,11 @@ BEGIN
   IF (SELECT suspended_at IS NULL OR suspension_reason IS DISTINCT FROM 'Pelecehan berulang lewat ajakan' FROM public.users WHERE id = '00000000-0000-4000-8000-0000000f5a02') THEN
     RAISE EXCEPTION 'status penangguhan tidak tersimpan';
   END IF;
-  IF (SELECT banned_until FROM auth.users WHERE id = '00000000-0000-4000-8000-0000000f5a02') IS DISTINCT FROM 'infinity'::timestamptz THEN
-    RAISE EXCEPTION 'GoTrue harus menolak masuk (banned_until)';
+  -- Berhingga (GoTrue tidak bisa membaca 'infinity') dan jauh di depan.
+  IF (SELECT banned_until FROM auth.users WHERE id = '00000000-0000-4000-8000-0000000f5a02') IS NULL
+     OR (SELECT banned_until FROM auth.users WHERE id = '00000000-0000-4000-8000-0000000f5a02') < now() + interval '99 years'
+     OR (SELECT isfinite(banned_until) FROM auth.users WHERE id = '00000000-0000-4000-8000-0000000f5a02') IS NOT TRUE THEN
+    RAISE EXCEPTION 'GoTrue harus menolak masuk (banned_until berhingga, ±100 tahun)';
   END IF;
   IF EXISTS (SELECT 1 FROM auth.sessions WHERE user_id = '00000000-0000-4000-8000-0000000f5a02') THEN
     RAISE EXCEPTION 'sesi yang ada harus diputus';

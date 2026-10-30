@@ -407,7 +407,8 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] `instrumentation.ts` + `ERROR_ALERT_WEBHOOK_URL`; `LegalUpdateBanner`; `GEMINI_MODEL` wajib
 - [x] Uji: unit 763, integrasi 95, e2e seed 754 (+ alur lapor→tangguhkan→cabut, hapus akun), e2e Supabase 11, pipeline test_models 15/15
 - [ ] **BUTUH KONFIRMASI.** Apply `20261030100001` dan `20261031100001` ke staging lalu produksi, `npm run db:verify`. Urutan rilis: migration DULU — `getSessionUser` membaca `users.suspended_at`; tanpa kolom itu query profil gagal, semua pengguna jatuh ke nama metadata & peran USER (admin kehilangan `/admin`) sampai migration diterapkan.
-- [ ] **Staging dengan GoTrue sungguhan:** tangguhkan akun uji → pastikan masuk ditolak (`banned_until`) & sesi lain putus; hapus akun uji dengan bukti bayar → berkas hilang dari bucket `payment-proofs`.
+- [x] GoTrue & Storage sungguhan (Docker): `npm run test:integration:services` + job CI `integration`. Menemukan bug produksi: `banned_until = 'infinity'` membuat GoTrue menjawab 500 di setiap login akun tertangguh → kini `now() + 100 tahun` (ADR-061 #2).
+- [ ] Uji manual ulang di staging (versi GoTrue project bisa lebih baru dari v2.170): tangguhkan akun uji → masuk ditolak & sesi lain putus; hapus akun uji dengan bukti bayar → berkas hilang dari `payment-proofs`.
 - [ ] **BUTUH PEMILIK.** Isi `ERROR_ALERT_WEBHOOK_URL` (kanal Slack/Discord tim) dan `GEMINI_MODEL`.
 - [ ] Pemberitahuan ke pelapor saat laporannya diputuskan (sekarang diam).
 - [ ] Alarm job pg_cron gagal (`cron.job_run_details`) — tampilkan di `/admin` atau kirim lewat webhook yang sama.

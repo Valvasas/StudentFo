@@ -401,7 +401,8 @@ pelapor = `auth.uid()`, subjek harus terlihat, 10/hari). Putuskan:
 `users.suspended_at` / `suspension_reason` — terbaca pemilik (RLS baris
 sendiri), tidak tertulis klien. `set_user_suspension()` (service_role): ADMIN &
 diri sendiri ditolak, alasan ≥5 karakter, ikut menulis
-`auth.users.banned_until` dan menghapus `auth.sessions`, menutup profil
+`auth.users.banned_until` (now() + 100 tahun — `infinity` membuat GoTrue
+500) dan menghapus `auth.sessions`, menutup profil
 Koneksi & kartu pemain, tercatat di log.
 
 `account_storage_paths()` → berkas Storage milik akun (bukti bayar);

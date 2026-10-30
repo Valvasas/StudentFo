@@ -14,7 +14,12 @@ const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
  */
 const rewriteFetch: typeof fetch = (input, init) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-  return fetch(url.replace(`${SUPABASE_URL}/rest/v1`, POSTGREST_URL), init);
+  // GoTrue & Storage asli hanya ada di mode WITH_SUPABASE_SERVICES=1 (ADR-061).
+  const target = url
+    .replace(`${SUPABASE_URL}/rest/v1`, POSTGREST_URL)
+    .replace(`${SUPABASE_URL}/storage/v1`, process.env.STORAGE_URL ?? `${SUPABASE_URL}/storage/v1`)
+    .replace(`${SUPABASE_URL}/auth/v1`, process.env.GOTRUE_URL ?? `${SUPABASE_URL}/auth/v1`);
+  return fetch(target, init);
 };
 
 let currentUserId: string | null = null;

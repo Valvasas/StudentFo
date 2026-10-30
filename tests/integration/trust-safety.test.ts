@@ -71,7 +71,7 @@ describe('SupabaseEventRepository — keamanan & kepercayaan', () => {
     const [found] = await repo.searchUsers(target, 1);
     expect(found).toMatchObject({ suspensionReason: 'Spam ajakan berulang' });
     expect(found!.suspendedAt).not.toBeNull();
-    expect(sql(`SELECT banned_until FROM auth.users WHERE id = '${target}'`)).toBe('infinity');
+    expect(sql(`SELECT banned_until > now() + interval '99 years' AND isfinite(banned_until) FROM auth.users WHERE id = '${target}'`)).toBe('t');
 
     await repo.setUserSuspension({ userId: target, actorId: admin, suspend: false, reason: null });
     expect((await repo.searchUsers(target, 1))[0]!.suspendedAt).toBeNull();

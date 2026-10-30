@@ -105,7 +105,10 @@ jobs:
         with:
           path: .cache/postgrest
           key: postgrest-v12.2.3
-      - run: npm run test:integration
+      # Mode `:services` = semua uji integrasi + GoTrue & Storage API sungguhan
+      # (Docker) yang memiliki skema auth/storage, seperti di Supabase. Mode ini
+      # menemukan `banned_until = infinity` → GoTrue 500 (ADR-061 #2).
+      - run: npm run test:integration:services
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       # Build produksi dalam mode Supabase: Data Cache + revalidateTag + alur admin.

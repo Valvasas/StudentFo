@@ -188,7 +188,11 @@ BEGIN
   -- depan; sesi yang sudah ada diputus supaya refresh token tidak berlaku lagi.
   -- Dengan ini penangguhan berlaku juga untuk akses PostgREST langsung (paling
   -- lama sampai access token ±1 jam habis), bukan hanya di aplikasi.
-  UPDATE auth.users SET banned_until = CASE WHEN p_suspend THEN 'infinity'::timestamptz END WHERE id = p_user;
+  -- 100 tahun, BUKAN 'infinity': GoTrue (Go) tidak bisa membaca timestamp tak
+  -- hingga dan menjawab 500 di setiap login akun itu — terbukti dengan GoTrue
+  -- sungguhan (`npm run test:integration:services`). Sama dengan `ban_duration`
+  -- "876000h" milik API admin GoTrue.
+  UPDATE auth.users SET banned_until = CASE WHEN p_suspend THEN now() + interval '100 years' END WHERE id = p_user;
   IF p_suspend AND to_regclass('auth.sessions') IS NOT NULL THEN
     EXECUTE 'DELETE FROM auth.sessions WHERE user_id = $1' USING p_user;
   END IF;
