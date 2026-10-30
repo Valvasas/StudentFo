@@ -113,9 +113,11 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       # Build produksi dalam mode Supabase: Data Cache + revalidateTag + alur admin.
       - run: npx playwright install --with-deps chromium
+      # Dengan GoTrue sungguhan: login sandi + MFA admin lewat UI asli (ADR-062 #4).
       - run: npm run test:e2e:supabase
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          WITH_SUPABASE_SERVICES: '1'
 
   pipeline:
     name: Pipeline Python — tests & dry-run

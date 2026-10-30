@@ -38,12 +38,32 @@ tidak menampilkan antrean Laporan.
    Tanpa pg_cron hasilnya kosong → "tidak tersedia", bukan "semua sehat".
 3. **Antrean Laporan pengguna paling depan di beranda admin** — penipuan &
    pelecehan merugikan orang selama menunggu.
+4. **MFA TOTP wajib untuk admin, ditegakkan di DUA tempat.** (a) `is_admin()`
+   mensyaratkan klaim JWT `aal = aal2` — tanpa ini sandi admin yang bocor tetap
+   membuka semua policy/fungsi admin lewat PostgREST langsung, apa pun yang
+   dilakukan aplikasi. (b) `checkAdminAccess()` (rute service_role) membaca
+   langkah MFA lewat `getAuthenticatorAssuranceLevel(jwt)` — token diverifikasi
+   ulang ke GoTrue, bukan klaim cookie apa adanya; gagal membaca = minta kode.
+   Admin aal1 diarahkan ke `/admin/mfa` (non-admin tetap 404, ADR-057); beranda
+   admin menampilkan satu ajakan, bukan beranda peserta. Pendaftaran: QR dibuat
+   lewat form GET (bukan tautan — prefetch akan membuat rahasia baru dan
+   membatalkan QR yang sedang dipindai), faktor belum-terverifikasi lama
+   dihapus, salah ketik kembali ke faktor yang SAMA. Kode: 6 digit dinormalisasi
+   di server, 10 percobaan/15 menit per akun di atas batas GoTrue. Pemulihan:
+   pemilik proyek menghapus faktor di Supabase Dashboard — sengaja TANPA env
+   untuk mematikan kewajiban ini. Mode seed tidak punya GoTrue: admin demo tanpa
+   MFA. Dibuktikan dengan GoTrue v2.170 sungguhan: integrasi (aal1 → `is_admin()`
+   tertutup, aal2 → terbuka) dan e2e lewat UI asli (login → QR → kode → panel).
 
 **Konsekuensi:** + Pelapor tahu laporannya dibaca tanpa membocorkan apa pun
-tentang terlapor. + Job yang mati terlihat dalam ≤ 1 hari. − Watchdog bergantung
+tentang terlapor. + Job yang mati terlihat dalam ≤ 1 hari. + Sandi admin saja
+tidak lagi cukup untuk data pengguna & moderasi. − Watchdog bergantung
 pada jadwal GitHub (bisa telat; nonaktif setelah 60 hari tanpa aktivitas repo) —
 beranda admin tetap menampilkan status yang sama. − Uji SQL `104` & `60`
 benar-benar menguji pg_cron hanya di mesin yang memuatnya (README § Uji → pg_cron).
+− Setelah migration `20261101100003`, SEMUA sesi admin yang ada turun ke aal1
+sampai masing-masing memasang autentikator — umumkan ke admin sebelum rilis.
+Pastikan TOTP aktif di Supabase Auth (bawaan: aktif).
 
 ---
 

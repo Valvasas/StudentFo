@@ -484,6 +484,20 @@ atau `submission_rejected`; gagal → `/admin?error=<kode>`
 | `setUserSuspension({ userId, actorId, suspend, reason })` | admin | `user_not_found`, `user_protected` (ADMIN/diri sendiri), `suspension_reason_required` |
 | `deleteAccount({ userId, actorId, reason })` | pemilik (`actorId === userId`) atau admin | `user_not_found`, `user_protected`, `account_delete_failed` (berkas Storage gagal dihapus — akun TIDAK dihapus) |
 
+### MFA admin (ADR-062 #4)
+
+`checkAdminAccess()` → `{ allowed: false, reason: 'mfa-required', step: 'enroll' | 'verify' }`
+untuk admin bersesi aal1 (mode Supabase). `requireAdmin()` mengalihkannya ke
+`/admin/mfa`; non-admin tetap `notFound()`.
+
+- `verifyAdminMfaAction` (`src/app/admin/mfa/actions.ts`): `code`. Faktor =
+  faktor TOTP terverifikasi milik sesi. Sukses → `/admin?notice=mfa_verified`.
+- `confirmAdminMfaEnrollmentAction`: `code`, `factorId` (harus faktor TOTP
+  belum-terverifikasi milik sesi). Sukses → `/admin?notice=mfa_enabled`; salah
+  kode → `/admin/mfa?error=mfa_invalid_code&faktor=<id>` (QR tidak diulang).
+- Galat: `mfa_invalid_code`, `mfa_rate_limited` (10/15 menit per akun, atau 429
+  GoTrue), `mfa_failed`.
+
 `OperationsRepository.cronJobHealth()` (admin, ADR-062) → `CronJobHealth[]`, atau
 `null` bila tidak ada pg_cron (mode seed, Postgres polos). Status gagal/telat
 dinilai SQL (`overdue`), dipakai juga oleh `.github/workflows/ops-watchdog.yml`.

@@ -15,10 +15,10 @@ async function listingHits(): Promise<number> {
 }
 
 /** Cookie sesi @supabase/ssr untuk pengguna ini (token diverifikasi stack uji seperti GoTrue). */
-async function signIn(context: BrowserContext, userId: string): Promise<void> {
+async function signIn(context: BrowserContext, userId: string, aal: 'aal1' | 'aal2' = 'aal1'): Promise<void> {
   const email = `${userId}@uji.example`;
   const now = Math.floor(Date.now() / 1000);
-  const accessToken = signJwt({ role: 'authenticated', sub: userId, email }, process.env.INTEGRATION_JWT_SECRET!);
+  const accessToken = signJwt({ role: 'authenticated', aud: 'authenticated', sub: userId, email, aal }, process.env.INTEGRATION_JWT_SECRET!);
   const session = {
     access_token: accessToken,
     token_type: 'bearer',
@@ -75,7 +75,8 @@ test('persetujuan admin mencabut cache: event langsung tayang, bukan setelah TTL
   expect((await guest.goto(`/events/${slug}`))?.status()).toBe(404);
 
   const adminContext = await browser.newContext();
-  await signIn(adminContext, createUser({ role: 'ADMIN', fullName: 'Admin E2E' }));
+  // aal2 = sudah verifikasi dua langkah (ADR-062); alur MFA-nya sendiri di admin-mfa.spec.ts.
+  await signIn(adminContext, createUser({ role: 'ADMIN', fullName: 'Admin E2E' }), 'aal2');
   const admin = await adminContext.newPage();
   await admin.goto('/admin');
   await expect(admin.getByRole('heading', { name: 'Antrean moderasi' })).toBeVisible();

@@ -97,6 +97,7 @@ SQL
     -e GOTRUE_DB_DATABASE_URL="postgres://supabase_auth_admin:supabase_auth_admin@${hostdb}/${TEST_DB}?search_path=auth" \
     -e GOTRUE_SITE_URL=http://localhost:3000 -e GOTRUE_JWT_SECRET="$INTEGRATION_JWT_SECRET" -e GOTRUE_JWT_EXP=3600 \
     -e GOTRUE_JWT_AUD=authenticated -e GOTRUE_JWT_ADMIN_ROLES=service_role -e GOTRUE_MAILER_AUTOCONFIRM=true \
+    -e GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated \
     -e GOTRUE_EXTERNAL_EMAIL_ENABLED=true -e GOTRUE_DISABLE_SIGNUP=false -e GOTRUE_RATE_LIMIT_EMAIL_SENT=1000 \
     -e GOTRUE_LOG_LEVEL=warn "$GOTRUE_IMAGE" >/dev/null
   docker run -d --name sf-it-storage --network host \
@@ -112,6 +113,27 @@ SQL
   done
   curl -fs -o /dev/null "http://127.0.0.1:${GOTRUE_PORT}/health" || { echo "GoTrue tidak menyala:" >&2; docker logs sf-it-gotrue 2>&1 | tail -20 >&2; exit 1; }
   curl -fs -o /dev/null "http://127.0.0.1:${STORAGE_PORT}/status" || { echo "Storage tidak menyala:" >&2; docker logs sf-it-storage 2>&1 | tail -20 >&2; exit 1; }
+  # Pengguna yang dibuat uji lewat SQL (createUser) harus terbaca GoTrue seperti
+  # buatannya sendiri: instance_id UUID nol (kunci pencarian), aud/role, waktu,
+  # dan kolom token string yang GoTrue tulis '' (Go menolak memindai NULL).
+  "${PSQL[@]}" "$TEST_URL" >/dev/null <<'SQL'
+DO $$
+DECLARE
+  col TEXT;
+BEGIN
+  ALTER TABLE auth.users ALTER COLUMN instance_id SET DEFAULT '00000000-0000-0000-0000-000000000000';
+  ALTER TABLE auth.users ALTER COLUMN aud SET DEFAULT 'authenticated';
+  ALTER TABLE auth.users ALTER COLUMN role SET DEFAULT 'authenticated';
+  ALTER TABLE auth.users ALTER COLUMN created_at SET DEFAULT now();
+  ALTER TABLE auth.users ALTER COLUMN updated_at SET DEFAULT now();
+  FOREACH col IN ARRAY ARRAY['confirmation_token', 'recovery_token', 'email_change_token_new', 'email_change',
+                             'email_change_token_current', 'reauthentication_token', 'phone_change', 'phone_change_token'] LOOP
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'auth' AND table_name = 'users' AND column_name = col) THEN
+      EXECUTE format('ALTER TABLE auth.users ALTER COLUMN %I SET DEFAULT %L', col, '');
+    END IF;
+  END LOOP;
+END$$;
+SQL
   export GOTRUE_URL="http://127.0.0.1:${GOTRUE_PORT}"
   export STORAGE_URL="http://127.0.0.1:${STORAGE_PORT}"
 fi

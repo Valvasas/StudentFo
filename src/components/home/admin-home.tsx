@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { ArrowRight, Building2, CircleCheck, Flag, Inbox, type LucideIcon, Megaphone, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Building2, CircleCheck, Flag, Inbox, KeyRound, type LucideIcon, Megaphone, PencilLine, Send, ShieldCheck } from 'lucide-react';
 import { CronHealthPanel } from '@/components/admin/cron-health-panel';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { PersonalHome } from '@/components/home/personal-home';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
-import { checkAdminAccess, type AuthUser } from '@/lib/auth';
+import type { AdminMfaStep } from '@/lib/admin-mfa';
+import { ADMIN_MFA_PATH, checkAdminAccess, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
@@ -25,6 +26,31 @@ interface Queue {
   readonly count: number;
 }
 
+/** Admin dengan sesi aal1: satu tindakan yang jelas, bukan beranda peserta yang membingungkan. */
+function AdminMfaPrompt({ user, step }: { user: AuthUser; step: AdminMfaStep }) {
+  const now = new Date();
+  return (
+    <div className="container-page pb-12 pt-8 sm:pt-12">
+      <div className="enter flex max-w-2xl flex-col gap-4 rounded-panel border border-line bg-panel p-6 shadow-card sm:p-8">
+        <p className="text-sm text-ink-muted">{todayLabel(now)}</p>
+        <h1 className="text-[clamp(26px,4vw,36px)] leading-tight">
+          {greetingFor(now)}, {firstNameOf(user.fullName)}.
+        </h1>
+        <p className="flex items-start gap-2 text-ink-soft">
+          <KeyRound aria-hidden className="mt-1 size-4 shrink-0 text-ink-muted" />
+          {step === 'enroll'
+            ? 'Panel admin mensyaratkan verifikasi dua langkah. Pasang aplikasi autentikator sekali (±2 menit), lalu setiap masuk cukup memasukkan kode 6 digit.'
+            : 'Masukkan kode 6 digit dari aplikasi autentikatormu untuk membuka panel admin di sesi ini.'}
+        </p>
+        <Link href={ADMIN_MFA_PATH} className={buttonVariants({ className: 'self-start' })}>
+          <ShieldCheck aria-hidden className="size-4" />
+          {step === 'enroll' ? 'Pasang verifikasi dua langkah' : 'Masukkan kode'}
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Beranda admin (ADR-056): tujuan utamanya mengosongkan antrean moderasi,
  * jadi isinya hanya berapa yang menunggu di tiap antrean + keputusan
@@ -33,6 +59,7 @@ interface Queue {
 export async function AdminHome({ user, params }: { user: AuthUser; params: RawSearchParams }) {
   // Peran tampilan bukan hak akses: antrean hanya dibaca setelah gerbang yang sama dengan /admin.
   const gate = await checkAdminAccess();
+  if (!gate.allowed && gate.reason === 'mfa-required') return <AdminMfaPrompt user={user} step={gate.step} />;
   if (!gate.allowed) return <PersonalHome user={user} params={params} />;
 
   const repository = await getEventRepository();

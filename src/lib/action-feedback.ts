@@ -83,6 +83,9 @@ export const ACTION_ERROR_CODES = [
   'suspension_reason_required',
   'account_delete_confirm',
   'account_delete_failed',
+  'mfa_invalid_code',
+  'mfa_rate_limited',
+  'mfa_failed',
   'invalid_request',
   'unknown',
 ] as const;
@@ -171,6 +174,9 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   suspension_reason_required: 'Tulis alasan penangguhan (minimal 5 karakter) — alasan ini tercatat di riwayat.',
   account_delete_confirm: 'Ketik HAPUS AKUN persis untuk mengonfirmasi.',
   account_delete_failed: 'Akun belum terhapus karena berkas unggahanmu gagal dihapus. Coba lagi sebentar lagi.',
+  mfa_invalid_code: 'Kode tidak cocok atau sudah kedaluwarsa. Masukkan kode TERBARU dari aplikasi autentikator, dan pastikan jam ponselmu otomatis.',
+  mfa_rate_limited: 'Terlalu banyak percobaan kode. Tunggu 15 menit lalu coba lagi.',
+  mfa_failed: 'Verifikasi dua langkah gagal diproses. Coba lagi sebentar lagi.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -219,6 +225,8 @@ export const ACTION_NOTICE_CODES = [
   'user_unsuspended',
   'user_deleted',
   'account_deleted',
+  'mfa_enabled',
+  'mfa_verified',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -269,6 +277,8 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   user_unsuspended: 'Penangguhan dicabut. Pemilik akun bisa masuk lagi.',
   user_deleted: 'Akun beserta datanya dihapus dan tercatat di riwayat.',
   account_deleted: 'Akunmu dan datanya sudah dihapus. Terima kasih sudah memakai StudentFo.',
+  mfa_enabled: 'Verifikasi dua langkah aktif. Mulai sekarang, setiap masuk ke panel admin meminta kode dari aplikasi autentikatormu.',
+  mfa_verified: 'Terverifikasi. Panel admin terbuka untuk sesi ini.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

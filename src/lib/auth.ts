@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
+import { readAdminMfaStep, type AdminMfaStep } from '@/lib/admin-mfa';
 import { demoEmailOf } from '@/lib/demo/personas';
 import { readDemoSession } from '@/lib/demo/session';
 import { isDemoUserSuspended } from '@/lib/data';
@@ -115,7 +116,17 @@ export async function requireUser(returnTo: string): Promise<AuthUser> {
 
 export type AdminGate =
   | { allowed: true; reason: 'demo' | 'admin'; userId: string; userName: string }
-  | { allowed: false; reason: 'unauthenticated' | 'not-admin' };
+  | { allowed: false; reason: 'unauthenticated' | 'not-admin' }
+  | { allowed: false; reason: 'mfa-required'; step: AdminMfaStep };
+
+/**
+ * Langkah MFA yang masih kurang untuk admin (ADR-062 #4); null = sesi aal2.
+ * Mode seed tidak punya GoTrue — persona admin demo tidak diminta kode.
+ */
+export const adminMfaStep = cache(async (): Promise<AdminMfaStep | null> => {
+  if (dataMode === 'seed') return null;
+  return readAdminMfaStep(await createSupabaseServerClient());
+});
 
 /**
  * Gerbang dasbor moderasi.
@@ -130,6 +141,9 @@ export async function checkAdminAccess(): Promise<AdminGate> {
   const user = await getSessionUser();
   if (!user) return { allowed: false, reason: 'unauthenticated' };
   if (user.role !== 'ADMIN') return { allowed: false, reason: 'not-admin' };
+  // Sandi admin yang bocor tidak boleh cukup untuk moderasi & data pengguna.
+  const step = await adminMfaStep();
+  if (step) return { allowed: false, reason: 'mfa-required', step };
 
   return {
     allowed: true,
@@ -149,9 +163,14 @@ export type AdminAccess = Extract<AdminGate, { allowed: true }>;
  */
 export async function requireAdmin(): Promise<AdminAccess> {
   const gate = await checkAdminAccess();
+  // Admin sungguhan yang belum verifikasi diarahkan ke langkah MFA; hanya ia
+  // yang sampai di cabang ini, jadi tidak ada yang bocor ke non-admin.
+  if (!gate.allowed && gate.reason === 'mfa-required') redirect(ADMIN_MFA_PATH);
   if (!gate.allowed) notFound();
   return gate;
 }
+
+export const ADMIN_MFA_PATH = '/admin/mfa';
 
 /**
  * Metadata halaman admin. `export const metadata` statis dievaluasi SEBELUM

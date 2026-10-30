@@ -414,7 +414,8 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Alarm job pg_cron gagal/telat — panel "Job terjadwal" di beranda admin + `ops-watchdog.yml` harian (ADR-062 #2).
 - [ ] **BUTUH KONFIRMASI.** Apply `20261101100001` dan `20261101100002` ke staging lalu produksi. Urutan bebas (beranda admin menampilkan "tidak bisa dibaca" sampai `cron_job_health()` ada).
 - [ ] **BUTUH PEMILIK.** Isi secret GitHub `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ERROR_ALERT_WEBHOOK_URL` supaya `ops-watchdog.yml` berjalan.
-- [ ] MFA wajib untuk ADMIN (GoTrue MFA TOTP) — butuh uji dengan GoTrue sungguhan.
+- [x] MFA TOTP wajib untuk ADMIN — `is_admin()` aal2 + `checkAdminAccess()` + `/admin/mfa`; diuji dengan GoTrue sungguhan (integrasi & e2e UI) (ADR-062 #4).
+- [ ] **BUTUH KONFIRMASI.** Apply `20261101100003` ke staging lalu produksi. Umumkan dulu ke admin: semua sesi admin turun ke aal1 sampai autentikator dipasang. Cek Supabase Dashboard → Authentication → MFA: TOTP aktif.
 - [ ] Pengingat tenggat lewat email: butuh penyedia email (Resend/SMTP) & preferensi kanal per pengguna (ADR-051).
 - [ ] Pesan langsung & Ruang diskusi (masih mode demo; 404 di produksi) — Fase 4, butuh desain moderasi; laporan ADR-061 bisa dipakai ulang.
 - [ ] Buat acara langsung dari studio penyelenggara (kini lewat `/submit` + persetujuan admin).

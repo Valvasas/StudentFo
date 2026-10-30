@@ -44,6 +44,7 @@ Urutan migration (harus dijalankan berurutan):
 33. `20261030100001_data_retention.sql` — `purge_old_notifications()` (dibaca > 180 hari / semua > 365 hari) dan `redact_decided_submission_emails()` (email kiriman yang sudah diputuskan > 90 hari → `dihapus@retensi.invalid`); service_role saja + pg_cron (ADR-060)
 35. `20261101100001_report_outcome_notifications.sql` — `resolve_content_report()` mengabari setiap pelapor (`REPORT_RESOLVED`/`REPORT_DISMISSED`, teks umum tanpa catatan moderator); "ditindak" menutup semua laporan OPEN atas subjek yang sama (ADR-062)
 36. `20261101100002_cron_job_health.sql` — `cron_job_health()` (service_role): status, run 7 hari, `overdue` untuk job `studentfo-*`; kosong tanpa pg_cron (ADR-062)
+37. `20261101100003_admin_mfa.sql` — `is_admin()` kini mensyaratkan klaim JWT `aal = aal2` (MFA TOTP) selain `role = 'ADMIN'`; semua policy & fungsi yang memanggilnya ikut (ADR-062 #4)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di

@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { readAdminMfaStep, startTotpEnrollment, verifiedTotpFactorId, verifyTotp } from '@/lib/admin-mfa';
 import { mapSupabaseAuthError } from '@/lib/auth-messages';
 import { noCache } from '@/lib/data/cache';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
-import { actAs, adminClient, createEvent, createUser, sql } from './harness';
+import { actAs, adminClient, createEvent, createUser, sessionClient, sql } from './harness';
+import { totp } from './totp';
 
 /**
  * Perilaku yang HANYA bisa dibuktikan dengan GoTrue & Storage sungguhan
@@ -96,6 +98,48 @@ describe.skipIf(!GOTRUE || !STORAGE)('Supabase sungguhan: GoTrue & Storage', () 
     const after = await signIn(email, password);
     expect(after.status).toBe(400);
     expect(mapSupabaseAuthError({ code: after.body.error_code, status: after.status })).toBe('invalid_credentials');
+  });
+
+  it('MFA admin: sandi saja (aal1) tidak membuka is_admin(); TOTP terpasang → aal2 → terbuka; masuk lagi → diminta kode', async () => {
+    const email = `admin-mfa-${randomUUID()}@uji.example`;
+    const password = 'rahasia-kuat-123';
+    const adminId = (await signUp(email, password)).body.user!.id;
+    sql(`UPDATE public.users SET role = 'ADMIN' WHERE id = '${adminId}'`);
+    sql(`INSERT INTO public.moderation_log (subject_type, subject_id, title, from_status, to_status, actor_id)
+         VALUES ('event', gen_random_uuid(), 'Log uji MFA', 'PENDING', 'APPROVED', '${adminId}')`);
+    const visibleLog = async (client: ReturnType<typeof sessionClient>) =>
+      (await client.from('moderation_log').select('id').eq('actor_id', adminId)).data?.length ?? -1;
+
+    const browser = sessionClient();
+    expect((await browser.auth.signInWithPassword({ email, password })).error).toBeNull();
+    expect(await readAdminMfaStep(browser)).toBe('enroll');
+    expect(await visibleLog(browser)).toBe(0);
+
+    // Dua kali "tampilkan kode QR": faktor belum-terverifikasi lama dibersihkan.
+    await startTotpEnrollment(browser);
+    const enrollment = (await startTotpEnrollment(browser))!;
+    // SVG GoTrue memuat `#` (warna); tanpa encode, peramban memotongnya sebagai fragmen URL.
+    expect(enrollment.qrCode.startsWith('data:image/svg+xml;charset=utf-8,')).toBe(true);
+    expect(enrollment.qrCode).not.toContain('#');
+    expect(decodeURIComponent(enrollment.qrCode.slice(enrollment.qrCode.indexOf(',') + 1))).toMatch(/<svg[\s\S]*<\/svg>\s*$/);
+    expect((await browser.auth.mfa.listFactors()).data!.all.filter((factor) => factor.status === 'unverified')).toHaveLength(1);
+
+    const wrong = String((Number(totp(enrollment.secret)) + 500_000) % 1_000_000).padStart(6, '0');
+    expect(await verifyTotp(browser, enrollment.factorId, wrong)).toBe('invalid');
+    expect(await verifyTotp(browser, enrollment.factorId, totp(enrollment.secret))).toBe('ok');
+    expect(await readAdminMfaStep(browser)).toBeNull();
+    expect(await visibleLog(browser)).toBe(1);
+
+    // Sesi baru (perangkat lain / masuk ulang) mulai dari aal1 lagi.
+    const again = sessionClient();
+    await again.auth.signInWithPassword({ email, password });
+    expect(await readAdminMfaStep(again)).toBe('verify');
+    expect(await visibleLog(again)).toBe(0);
+    const factorId = await verifiedTotpFactorId(again);
+    expect(factorId).toBe(enrollment.factorId);
+    // Langkah waktu berikutnya: kode yang sama tidak dipakai dua kali.
+    expect(await verifyTotp(again, factorId!, totp(enrollment.secret, Date.now() + 30_000))).toBe('ok');
+    expect(await visibleLog(again)).toBe(1);
   });
 
   it('hapus akun sendiri tanpa berkas: tidak memanggil Storage dengan daftar kosong, tidak tercatat sebagai moderasi', async () => {

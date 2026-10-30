@@ -170,6 +170,13 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    ```sql
    UPDATE public.users SET role = 'ADMIN' WHERE email = 'kamu@contoh.com';
    ```
+8. **MFA admin (wajib, ADR-062 #4)** — Authentication → Multi-Factor: pastikan
+   TOTP aktif (bawaan Supabase). Admin baru membuka `/admin`, diarahkan ke
+   `/admin/mfa`, memindai QR dengan aplikasi autentikator, lalu setiap sesi
+   diminta kode 6 digit. Tanpa aal2, `is_admin()` di database ikut menolak.
+   **Ponsel admin hilang:** Authentication → Users → pilih akun → hapus faktor
+   MFA-nya; admin memasang ulang dari `/admin/mfa`. Jangan menurunkan
+   kewajibannya.
 
 `SUPABASE_SERVICE_ROLE_KEY` hanya dibutuhkan pipeline dan aksi admin. Kunci itu
 mem-bypass RLS — jangan pernah diberi prefix `NEXT_PUBLIC_`, dan jangan di-commit.

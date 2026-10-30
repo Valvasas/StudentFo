@@ -42,6 +42,14 @@ export function serverClient(): SupabaseClient {
   return clientFor(currentUserId);
 }
 
+/** Klien yang menyimpan sesi GoTrue-nya sendiri (di memori), seperti peramban — untuk alur MFA sungguhan. */
+export function sessionClient(): SupabaseClient {
+  return createClient(SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: rewriteFetch },
+  });
+}
+
 export function adminClient(): SupabaseClient {
   return createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
