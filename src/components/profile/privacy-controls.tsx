@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Eye, Globe, Lock, MessageCircle, Users } from 'lucide-react';
+import { Eye, Globe, Lock, MessageCircle, Users } from 'lucide-react';
 import { useDemoStore } from '@/components/demo/use-demo-store';
-import { DetailCard, detailButton } from '@/components/profile/detail-card';
-import { DEFAULT_PROFILE_EXTRAS, DOCUMENTS_KEY, PROFILE_EXTRAS_KEY, parseProfileExtras, type ProfileExtras } from '@/lib/demo/profile-extras';
+import { DetailCard } from '@/components/profile/detail-card';
+import { DEFAULT_PROFILE_EXTRAS, PROFILE_EXTRAS_KEY, parseProfileExtras, type ProfileExtras } from '@/lib/demo/profile-extras';
 import {
   AUDIENCES,
   AUDIENCE_LABEL,
@@ -169,41 +169,5 @@ export function DemoPrivacyControls({ name, major }: { name: string; major: stri
         </div>
       </DetailCard>
     </>
-  );
-}
-
-/**
- * Unduh salinan data (hak akses UU PDP). Datanya dikirim server saat
- * halaman dirender — hanya milik pengguna yang sedang masuk — lalu
- * dirakit jadi berkas JSON di peramban. Di mode demo, isian yang tersimpan
- * di peramban ikut dimasukkan supaya salinannya lengkap.
- */
-export function DownloadDataButton({ snapshot, includeLocal }: { snapshot: Record<string, unknown>; includeLocal: boolean }) {
-  const download = () => {
-    const local: Record<string, unknown> = {};
-    if (includeLocal) {
-      for (const key of [PROFILE_EXTRAS_KEY, DOCUMENTS_KEY, PRIVACY_PREFS_KEY]) {
-        try {
-          const raw = window.localStorage.getItem(key);
-          if (raw) local[key] = JSON.parse(raw);
-        } catch {
-          // Isi rusak atau penyimpanan diblokir: lewati kunci ini saja.
-        }
-      }
-    }
-    const body = JSON.stringify({ exportedAt: new Date().toISOString(), ...snapshot, ...(includeLocal ? { browserDemoData: local } : {}) }, null, 2);
-    const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'studentfo-data-saya.json';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <button type="button" onClick={download} className={detailButton}>
-      <Download aria-hidden className="size-3.5" />
-      Unduh salinan dataku
-    </button>
   );
 }

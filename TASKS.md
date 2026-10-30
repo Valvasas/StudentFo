@@ -305,7 +305,7 @@ Belum / butuh keputusan atau akses pemilik:
 - [ ] Hapus akun (produksi, Fase 6a) wajib ikut menghapus berkas bukti di Storage — baris terhapus CASCADE, berkasnya tidak.
 - [ ] Payment gateway (Midtrans/Xendit) bila diinginkan: akun merchant & kunci pemilik; antarmuka status sudah siap.
 - [ ] Pengumuman ke pendaftar (email massal dari panitia) — butuh pengirim email & batas laju.
-- [ ] Syarat & Ketentuan (tetap P0 audit 2026-10-05), kini juga mengatur tanggung jawab penyelenggara atas data pendaftar.
+- [x] Syarat & Ketentuan (tetap P0 audit 2026-10-05), kini juga mengatur tanggung jawab penyelenggara atas data pendaftar. → `/terms` (ADR-060), DRAF sampai ditinjau pemilik.
 
 ## Pengerasan pra-produksi & pencocokan tim 2026-10-20 (@claude) — ADR-057
 
@@ -327,7 +327,7 @@ keahlian/portofolio), dan evaluasi dari sudut pandang pengunjung kritis
 - [x] Pencocokan tim: migration `20261020100001` + `100_team_matching.test.sql` (mutation-tested), `lib/matchmaking.ts` + `geo.ts` (murni, teruji), repository memori & Supabase, `/teams/cocok` (kartu pemain, radar, hasil, saringan, ajak/lewati), animasi §10 `globals.css`, e2e `matchmaking.spec.ts`
 - [x] `npm run verify` (690 tes unit), `npm run db:test` (21 berkas SQL), `npm run test:integration` (90 tes), e2e penuh 3 proyek — hijau
 - [ ] **BUTUH KONFIRMASI.** Apply `20261020100001` ke staging, lalu `npm run db:verify`. Urutan rilis: migration dulu, baru kode — tanpa tabel `team_seekers`, `/teams/cocok` di mode Supabase gagal.
-- [ ] **BUTUH PEMILIK.** Isi `PRIVACY_CONTACT_EMAIL` + `PRIVACY_POLICY_EFFECTIVE_DATE` HANYA setelah Kebijakan privasi ditinjau penasihat hukum; sampai itu halamannya berlabel DRAF (disengaja).
+- [ ] **BUTUH PEMILIK.** Isi `LEGAL_OPERATOR_NAME`, `PRIVACY_CONTACT_EMAIL`, `PRIVACY_POLICY_EFFECTIVE_DATE`, `TERMS_EFFECTIVE_DATE` HANYA setelah ketiga dokumen hukum ditinjau penasihat hukum; sampai itu berlabel DRAF (disengaja, ADR-060).
 - [ ] **BUTUH PEMILIK.** Deploy demo publik: `DEMO_ALLOWED_HOSTS` (wajib, kosong = demo ditolak) dan `DEMO_ADMIN_KEY` bila persona Admin perlu dicoba.
 - [x] Uji integrasi PostgREST pencocokan (`tests/integration/matchmaking.test.ts`, 7 tes; 3 mutasi migration tertangkap)
 - [x] Tur pengunjung kritis + laporan: `docs/evaluasi-pengunjung-kritis.md` (12 temuan baru N1–N12 diperbaiki)
@@ -374,6 +374,28 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] **BUTUH PEMILIK, P0 produk.** Katalog hari-H kosong bila pipeline tidak jalan: default `gemini-2.0-flash` di `pipeline/run.py` sudah dimatikan Google (1 Jun 2026). Isi `GEMINI_MODEL` dengan model hidup + 10+ sumber nyata, atau siapkan kiriman awal manual lewat `/submit` + `/admin`.
 - [ ] Monitor uptime eksternal ke `/api/health` dengan asersi `dataMode == "supabase"`.
 - [ ] Uji Safari iOS & WebView Instagram/TikTok di perangkat fisik (WebKit tidak tersedia di lingkungan ini).
+
+## Dokumen hukum & hak atas data 2026-10-30 (@claude) — ADR-060
+
+- [x] Kebijakan privasi lengkap UU PDP: dasar pemrosesan (Ps. 20), pemroses & transfer luar negeri (Ps. 56), keputusan otomatis (Ps. 10), hak Ps. 5–13 + tenggat 3 × 24 jam, kebocoran (Ps. 46), anak (Ps. 25 + PP 17/2025), retensi yang benar-benar berjalan
+- [x] Kebijakan cookie `/cookie-policy` — daftar dari konstanta kode, tanpa spanduk (tidak ada cookie opsional)
+- [x] Syarat & Ketentuan `/terms` — tanpa klausula baku terlarang UU 8/1999 Ps. 18
+- [x] `LegalDocument` bersama; daftar isi terlipat di ponsel; footer, layout akun, sitemap menautkan ketiganya
+- [x] Daftar: centang usia (13+, 13–17 izin orang tua/wali) terpisah dari persetujuan; `legal_consent` dicatat (email & Google dari /register)
+- [x] `/profile/privacy`: "siapa melihat apa" dihitung dari keadaan akun; ekspor JSON lengkap via `/profile/privacy/ekspor`
+- [x] Migration `20261030100001_data_retention.sql` + uji SQL (mutation-tested); `60_pg_cron_jobs` diperbarui ke 6 job
+- [x] Target sentuh: "Atur minat" (26 px) dan tautan Masuk/Daftar di halaman akun (43 px) → ≥ 44 px
+- [ ] **BUTUH KONFIRMASI.** Apply `20261030100001` ke staging/produksi, lalu `npm run db:verify`. Urutan rilis bebas (kode tidak bergantung pada fungsinya), tapi Kebijakan privasi menjanjikan retensinya.
+- [ ] **BUTUH PEMILIK + PENASIHAT HUKUM.** Tinjau isi ketiga dokumen, lalu isi env (lihat butir ADR-057 di atas).
+- [ ] **BUTUH PEMILIK.** Penilaian mandiri profil risiko PP 17/2025 (Koneksi & pencocokan tim = kontak dengan orang asing). Batas 13+ hanya sah bila profilnya "risiko rendah"; bila tinggi → naikkan ke 16+ (ubah `/terms`, `/privacy-policy`, teks centang usia, `LEGAL_REVISION`). Permenkomdigi 9/2026 juga mengatur verifikasi usia & persetujuan orang tua — centang pernyataan mungkin tidak cukup.
+- [ ] **BUTUH PEMILIK.** DPIA (UU PDP Ps. 34): bukti transfer = data keuangan pribadi (data spesifik, Ps. 4) + data anak.
+- [ ] **BUTUH PEMILIK.** Pendaftaran PSE Lingkup Privat (PP 71/2019, Permenkominfo 5/2020) sebelum situs dibuka untuk publik.
+- [ ] **BUTUH PEMILIK.** Tandatangani perjanjian pemrosesan data (DPA) dengan Supabase, hosting, penyedia email; pilih region Singapura — Kebijakan privasi menyatakannya (Ps. 56).
+- [ ] **BUTUH PEMILIK.** Kotak masuk `PRIVACY_CONTACT_EMAIL` dipantau harian: tanggapan permintaan data ≤ 3 × 24 jam, kebocoran ≤ 3 × 24 jam ke subjek data & lembaga.
+- [ ] Hapus akun mandiri (sekarang lewat email): Storage `payment-proofs` dulu, lalu `auth.admin.deleteUser`; uji di staging dengan GoTrue sungguhan.
+- [ ] Akun Google yang DIBUAT dari `/login` belum punya catatan `legal_consent` (berbasis pemberitahuan). Pertimbangkan meminta centang di halaman sambutan pertama.
+- [ ] Mekanisme pengumuman perubahan dokumen ≥ 14 hari di dalam aplikasi (janji di kedua dokumen) — belum ada komponen banner pengumuman.
+- [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
 ## Template tugas baru
 
@@ -534,7 +556,7 @@ audit skala terukur 10k pengguna / 100k event, desain Fase 1–6). Menunggu pers
 - [ ] **P0** `gemini-2.0-flash` sudah dimatikan (1 Jun 2026) — ganti & validasi model saat start (Fase 1).
 - [ ] Hotspot terukur: listing tenggat + count ≈600 ms (Q1), `event_analytics` ≈420 ms (Q5), produsen notifikasi 823 ms + sort di disk (Q6) — Fase 6.
 - [ ] `reviewed_by` terbaca pemilik profil/klaim/revisi penyelenggara (hak SELECT se-tabel) — Fase 3.
-- [ ] Sitemap hanya 4.800 URL; retensi `notifications`/`recommendation_signals`/email kiriman belum ada.
+- [ ] Sitemap hanya 4.800 URL. (Retensi `notifications` & email kiriman selesai — ADR-060; `recommendation_signals` sengaja tanpa purge, keputusan pemilik 2026-09-30.)
 - [ ] Konfirmasi status migration produksi (brief vs catatan di atas tidak konsisten).
 
 ## Redesain "buku sketsa" 2026-10-04 (@claude) — ADR-052
@@ -561,7 +583,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Ilustrasi sketsa: 404 (+ cari & jenis kegiatan), error, hasil kosong, tracker tamu, logomark navbar/footer, coretan hero.
 - [x] Pesan hasil kosong menyebut penyebab sebenarnya (kata kunci vs filter).
 - [x] Ponsel: tepi pudar tab kategori; navigasi `/admin` satu baris geser + petak antrean 2 kolom.
-- [ ] **P0** Syarat & Ketentuan (halaman belum ada) — butuh tinjauan legal pemilik.
+- [x] **P0** Syarat & Ketentuan (halaman belum ada) — butuh tinjauan legal pemilik. → `/terms` (ADR-060); tinjauan legal tetap di bagian ADR-060.
 - [ ] **P0** Pemantauan error (Sentry = dependency baru, butuh persetujuan) + alarm pg_cron. (`/api/health` selesai — ADR-059.)
 - [ ] **P0** Manajemen pengguna admin (cari, tangguhkan, cabut peran) + jejak audit lencana/promosi.
 - [ ] **P0** Buat acara langsung dari studio penyelenggara (semua kolom, termasuk biaya & buku panduan).

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { isPerAddressEmailThrottle, mapSupabaseAuthError, type AuthErrorCode } from '@/lib/auth-messages';
 import {
+  AGE_CONFIRM_VALUE,
   changePasswordSchema,
   firstIssue,
   newPasswordSchema,
@@ -21,6 +22,7 @@ import { isDemoAdminPersonaAllowed, isDemoAvailable } from '@/lib/demo/gate';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
+import { LEGAL_REVISION, legalConsentRecord } from '@/lib/legal';
 import { PASSWORD_MAX_LENGTH, passwordByteLength } from '@/lib/password-rules';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isAccountRateLimited, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
@@ -55,8 +57,13 @@ function echoEmail(raw: string): string | undefined {
   return trimmed || undefined;
 }
 
-function callbackUrl(next: string): string {
-  return `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`;
+/**
+ * `consent` = revisi dokumen hukum yang dicentang di /register. OAuth tidak
+ * bisa membawa metadata akun, jadi callback yang mencatat persetujuannya.
+ */
+function callbackUrl(next: string, consentRevision?: string): string {
+  const consent = consentRevision ? `&consent=${encodeURIComponent(consentRevision)}` : '';
+  return `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}${consent}`;
 }
 
 /**
@@ -147,12 +154,17 @@ export async function signUpAction(formData: FormData): Promise<void> {
       fullName: field(formData, 'fullName'),
       email,
       password: field(formData, 'password'),
+      ageConfirm: field(formData, 'ageConfirm'),
       privacyConsent: field(formData, 'privacyConsent'),
     });
     const ip = await currentClientIp();
 
     if (!parsed.success) {
-      failure = firstIssue(parsed.error, 'privacyConsent') ? 'consent_required' : passwordFailure(field(formData, 'password'));
+      failure = firstIssue(parsed.error, 'ageConfirm')
+        ? 'age_required'
+        : firstIssue(parsed.error, 'privacyConsent')
+          ? 'consent_required'
+          : passwordFailure(field(formData, 'password'));
     } else if (await isRateLimited(ip, [[RATE_LIMITS.signUpPerIp]])) {
       failure = 'rate_limited';
     } else if (!(await passesCaptcha(formData, ip))) {
@@ -165,10 +177,14 @@ export async function signUpAction(formData: FormData): Promise<void> {
         email: parsed.data.email,
         password: parsed.data.password,
         options: {
-          // full_name dibaca trigger handle_new_user(). account_type hanya
-          // catatan: user metadata bisa diubah pemiliknya sendiri, jadi tidak
-          // pernah dipakai untuk izin apa pun.
-          data: { full_name: parsed.data.fullName, account_type: parsed.data.accountType },
+          // full_name dibaca trigger handle_new_user(). account_type dan
+          // legal_consent hanya catatan: user metadata bisa diubah pemiliknya
+          // sendiri, jadi tidak pernah dipakai untuk izin apa pun.
+          data: {
+            full_name: parsed.data.fullName,
+            account_type: parsed.data.accountType,
+            legal_consent: legalConsentRecord('email'),
+          },
           emailRedirectTo: callbackUrl(destination),
         },
       });
@@ -215,13 +231,15 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
 
   if (dataMode === 'seed') {
     failure = 'unavailable';
+  } else if (accountType && field(formData, 'ageConfirm') !== AGE_CONFIRM_VALUE) {
+    failure = 'age_required';
   } else if (accountType && field(formData, 'privacyConsent') !== PRIVACY_CONSENT_VALUE) {
     failure = 'consent_required';
   } else {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: callbackUrl(next) },
+      options: { redirectTo: callbackUrl(next, accountType ? LEGAL_REVISION : undefined) },
     });
 
     // Di Server Action, signInWithOAuth TIDAK mengalihkan browser sendiri —

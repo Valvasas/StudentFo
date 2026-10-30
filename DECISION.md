@@ -12,6 +12,76 @@ terdokumentasi.
 
 ---
 
+## ADR-060 — Dokumen hukum (privasi, cookie, S&K) mengikuti sistem yang sebenarnya; retensi dijalankan; bukti persetujuan & usia
+
+**Konteks:** Pemilik meminta (2026-10-30) dokumen hukum dilengkapi sesuai
+hukum menjelang produksi, plus cek fitur & tampilan lintas perangkat. Diukur
+sebelum menulis:
+- Kebijakan privasi DRAF, **Syarat & Ketentuan dan Kebijakan cookie tidak ada**
+  (P0 audit 2026-10-05).
+- `/profile/privacy` menulis "Penyelenggara: tidak ada — kami tidak meneruskan
+  datamu" dan "Pengguna lain: tidak ada data pribadimu" untuk SEMUA akun.
+  Keduanya salah sejak formulir internal (ADR-056) dan kartu pemain (ADR-057).
+  Ekspor data hanya akun/tersimpan/tracker, ditanam sebagai props klien (ikut
+  terkirim tiap buka halaman, mati tanpa JS).
+- Retensi yang disetujui pemilik 2026-09-30 (notifikasi 180/365 hari, email
+  kiriman 90 hari) **tidak pernah diimplementasikan**; menulisnya di kebijakan
+  = pernyataan palsu.
+- Centang persetujuan daftar divalidasi lalu dibuang — UU PDP Pasal 24 meminta
+  pengendali bisa menunjukkan bukti persetujuan. Tidak ada batas usia, padahal
+  PP 17/2025 (PP Tunas) berlaku sejak 28 Maret 2026.
+- `60_pg_cron_jobs.test.sql` mengharuskan tepat 3 job padahal sudah 4 sejak
+  ADR-043 — tidak ketahuan karena hanya jalan bila pg_cron dimuat.
+
+**Keputusan (jawaban pemilik lewat AskUserQuestion):**
+1. **Usia minimal 13; 13–17 dengan izin orang tua/wali** (UU PDP Pasal 25,
+   PP 17/2025). Centang usia TERPISAH dari centang persetujuan (UU PDP Pasal 22:
+   persetujuan dapat dibedakan jelas). Kode `age_required` di daftar tertutup.
+2. **Pengelola generik "Pengelola StudentFo"** sampai `LEGAL_OPERATOR_NAME`
+   diisi. Status final butuh tiga isian: nama pengelola, kontak, tanggal berlaku
+   (`legalDocumentStatus`). Kode tetap tidak pernah menyatakan dokumen berlaku
+   atas nama pemilik (ADR-057).
+3. **Hapus akun lewat permintaan email** (sah bila ditanggapi ≤ 3 × 24 jam);
+   hapus mandiri tetap di backlog (butuh hapus berkas Storage + uji GoTrue).
+4. Bukti persetujuan: `user_metadata.legal_consent = { revision, at,
+   age_confirmed, via }`. `LEGAL_REVISION` menunjuk TEKS yang dibaca, bukan
+   tanggal berlaku. Jalur Google dari `/register` membawa `consent=<revisi>` ke
+   callback, yang mencatatnya setelah tukar kode (gagal mencatat ≠ gagal masuk).
+   Metadata bisa diubah pemiliknya — catatan, bukan kontrol akses.
+5. **S&K ditulis menghindari klausula baku terlarang UU 8/1999 Pasal 18**: tidak
+   mengalihkan tanggung jawab atas kesalahan/kelalaian kami sendiri; perubahan
+   diumumkan ≥ 14 hari sebelumnya, tidak berlaku surut, dengan jalan keluar
+   (bukan "terus memakai = setuju"). Penyelenggara ditetapkan sebagai pengendali
+   data tersendiri atas data pendaftar yang diterimanya.
+6. **Kebijakan cookie tanpa spanduk persetujuan.** Semua cookie wajib atau
+   dipasang atas tindakan pengguna sendiri; spanduk untuk itu hanya melatih orang
+   menekan "Setuju". Nama cookie/kunci diambil dari konstanta kode supaya
+   penggantian nama tidak diam-diam membuat dokumen basi. Ditinjau ulang bila ada
+   cookie opsional.
+7. **Retensi dijalankan**: `purge_old_notifications()` dan
+   `redact_decided_submission_emails()` + pg_cron. Email diganti
+   `dihapus@retensi.invalid` (RFC 2606), bukan NULL: kolom NOT NULL dan bagian
+   kontrak tipe. Uji SQL terbukti merah bila batas 180 hari diubah atau kiriman
+   PENDING ikut dikaburkan.
+8. `/profile/privacy` menghitung "siapa melihat apa" dari keadaan akun
+   (Koneksi terlihat? kartu terbuka? pendaftaran internal?). Ekspor =
+   Route Handler `/profile/privacy/ekspor` (JSON lengkap, tautan biasa, tanpa JS,
+   tanpa id akun orang lain).
+9. `LegalDocument` = kerangka bersama 3 dokumen. Daftar isi di ponsel dilipat
+   dalam `<details>` (13 tautan × 44px mendorong isi ±570px).
+
+**Konsekuensi:** + Setiap klaim dokumen bisa ditunjuk ke kode/skema; angka
+retensi diuji. + Hak akses/portabilitas bisa dipakai tanpa menghubungi siapa
+pun. − Isi dokumen tetap butuh tinjauan penasihat hukum dan identitas pemilik
+sebelum berlaku. − Akun Google yang DIBUAT dari `/login` (bukan `/register`)
+tetap berbasis pemberitahuan, tanpa catatan `legal_consent` (keputusan lama, kini
+teksnya menyebut usia & S&K). − Kewajiban pemilik di luar kode tercatat di TASKS:
+penilaian risiko mandiri PP Tunas, DPIA (bukti bayar = data keuangan pribadi,
+data spesifik UU PDP Pasal 4), pendaftaran PSE Lingkup Privat, perjanjian
+pemrosesan data dengan penyedia.
+
+---
+
 ## ADR-059 — Kesiapan hosting: mode demo tetap sebagai mode pengembangan; health check, ikon merek, kontrol ringkas dikunci ke jenis pointer
 
 **Konteks:** Pemilik meminta (2026-10-25) "hilangkan teks/mode demo karena

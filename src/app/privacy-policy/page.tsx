@@ -1,293 +1,366 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import type { ReactNode } from 'react';
-import { AlertTriangle, ArrowRight, Check } from 'lucide-react';
-import { TocSpy } from '@/components/legal/toc-spy';
-import { formatDateId } from '@/lib/deadline';
-import { env } from '@/lib/env';
-import { privacyPolicyStatus } from '@/lib/legal';
+import { Callout, ContactNote, InlineLink, LegalDocument, OperatorRef, privacyStatus, type LegalSection } from '@/components/legal/legal-document';
+import type { LegalDocumentStatus } from '@/lib/legal';
 
 export const metadata: Metadata = {
   title: 'Kebijakan privasi',
-  description: 'Data apa yang disimpan StudentFo, untuk apa, siapa yang bisa melihatnya, dan hakmu atas data itu.',
+  description:
+    'Data apa yang diproses StudentFo, dasar dan tujuannya, siapa yang bisa melihatnya, berapa lama disimpan, dan hakmu menurut UU Pelindungan Data Pribadi.',
 };
 
 const SUMMARY = [
   'Kami tidak menjual datamu dan tidak memasang iklan atau pelacak pihak ketiga.',
-  'Data dirimu hanya sampai ke penyelenggara bila kamu sendiri mengisi formulir pendaftaran mereka di StudentFo.',
-  'Anggota timmu hanya melihat nama dan peranmu. Tamu yang belum masuk tidak melihat nama siapa pun.',
-  'Kamu bisa melihat dan memperbaiki datamu kapan saja dari halaman akun.',
+  'Profilmu tersembunyi sampai kamu sendiri memilih terlihat — di Koneksi atau lewat kartu pemain.',
+  'Data dirimu sampai ke penyelenggara hanya bila kamu mendaftar lewat formulir StudentFo mereka.',
+  'Kamu bisa mengakses, memperbaiki, mengunduh, dan meminta penghapusan datamu; kami menindaklanjuti paling lambat 3 × 24 jam.',
 ];
 
-const SECTIONS: readonly { title: string; body: ReactNode }[] = [
-  {
-    title: 'Data yang kami simpan',
-    body: (
-      <>
-        <p>Hanya yang dibutuhkan untuk menampilkan kegiatan yang cocok dan membantumu melacak pendaftaran.</p>
-        <ul>
-          <li>
-            <strong>Akun:</strong> nama, email, dan kata sandi. Kata sandi disimpan dalam bentuk hash oleh layanan autentikasi — kami tidak pernah bisa
-            membacanya. Bila kamu masuk dengan Google, kami menerima nama dan email dari Google.
-          </li>
-          <li>
-            <strong>Profil:</strong> jenjang pendidikan, program studi, dan bidang minat yang kamu pilih.
-          </li>
-          <li>
-            <strong>Aktivitas:</strong> kegiatan yang kamu simpan, status yang kamu catat di Pendaftaran, dan tim yang kamu buat atau ikuti.
-          </li>
-          <li>
-            <strong>Kartu pemain (pencocokan tim, hanya bila kamu membuatnya):</strong> nama kota (bukan alamat), keahlian yang kamu bawa dan cari,
-            kesediaan kerja daring, kalimat pengantar, dan status kartu. Kartu terbuka terlihat oleh pengguna masuk yang kartunya juga terbuka,
-            bersama nama, jurusan, jenjang, minat yang sama, dan portofolio publikmu. Selama kartu terbuka, halaman profilmu (tanpa email) bisa
-            dibuka pengguna mana pun yang masuk, dan mereka bisa mengajakmu terhubung. Kartu tertutup tidak terlihat siapa pun. Kartu ikut terhapus
-            bersama akunmu.
-          </li>
-          <li>
-            <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
-          </li>
-          <li>
-            <strong>Pendaftaran lewat formulir StudentFo:</strong> nama dan email akunmu, jawaban yang kamu isi, status pendaftaran, dan — untuk
-            acara berbayar — foto bukti pembayaran yang kamu unggah. Metadata foto (termasuk lokasi GPS) dibuang sebelum disimpan.
-          </li>
-          <li>
-            <strong>Sinyal rekomendasi:</strong> catatan bahwa sebuah kegiatan disimpan atau tombol daftarnya diklik, dipakai untuk mengurutkan
-            rekomendasi.
-          </li>
-          <li>
-            <strong>Data teknis:</strong> penanda sementara untuk membatasi percobaan masuk dan kiriman yang berlebihan.
-          </li>
-        </ul>
-      </>
-    ),
-  },
-  {
-    title: 'Cara kami memakai data',
-    body: (
-      <p>
-        Jenjang dan minatmu dipakai untuk mengurutkan dan menandai kegiatan yang cocok. Kegiatan yang kamu simpan dipakai untuk pengingat tenggat di
-        dalam aplikasi. Kiriman kegiatan dibaca moderator sebelum tayang. Jawaban formulir pendaftaran dan bukti pembayaran hanya dipakai
-        penyelenggara acara itu untuk memproses pendaftaranmu. Kami tidak memakai datamu untuk iklan.
-      </p>
-    ),
-  },
-  {
-    title: 'Siapa yang bisa melihat',
-    body: (
-      <>
-        <ul>
-          <li>
-            <strong>Anggota tim yang sama:</strong> nama dan peranmu di tim tersebut.
-          </li>
-          <li>
-            <strong>Penyelenggara terverifikasi acara yang kamu daftari:</strong> nama, email, jawaban formulir, status, dan bukti pembayaranmu
-            untuk acara itu saja — tidak data akunmu yang lain. Penyelenggara bisa mengunduh daftar pendaftar acaranya.
-          </li>
-          <li>
-            <strong>Pengguna lain yang masuk, bila kartu pemainmu terbuka:</strong> profil publikmu (nama, headline, jurusan, jenjang, minat,
-            portofolio publik — tanpa email) dan, bagi yang kartunya juga terbuka, isi kartu pemainmu di hasil pencocokan.
-          </li>
-          <li>
-            <strong>Moderator:</strong> kiriman kegiatan beserta email pengirimnya, untuk verifikasi.
-          </li>
-          <li>
-            <strong>Penyedia infrastruktur:</strong> basis data dan autentikasi dijalankan di Supabase, yang memproses data atas nama kami.
-          </li>
-        </ul>
-        <Callout>
-          Bila acara tidak memakai formulir StudentFo, tombol &ldquo;Daftar sekarang&rdquo; membuka situs resmi penyelenggara. Apa pun yang kamu
-          isi di sana tunduk pada kebijakan privasi penyelenggara tersebut, bukan kebijakan ini. StudentFo tidak memegang uang pendaftaran:
-          pembayaran langsung ke rekening penyelenggara.
-        </Callout>
-      </>
-    ),
-  },
-  {
-    title: 'Data di peramban',
-    body: (
-      <>
+function sections(status: LegalDocumentStatus): readonly LegalSection[] {
+  return [
+    {
+      title: 'Siapa kami',
+      body: (
+        <>
+          <p>
+            Kebijakan ini menjelaskan cara <OperatorRef status={status} /> memproses data pribadimu sebagai Pengendali Data Pribadi
+            menurut Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi (&ldquo;UU PDP&rdquo;). Kebijakan ini berlaku untuk
+            seluruh situs dan fitur StudentFo, dan dibaca bersama{' '}
+            <InlineLink href="/terms">Syarat &amp; Ketentuan</InlineLink> serta <InlineLink href="/cookie-policy">Kebijakan cookie</InlineLink>.
+          </p>
+          <p>
+            StudentFo menampilkan kegiatan milik penyelenggara lain. Situs penyelenggara yang kamu buka dari StudentFo tunduk pada kebijakan
+            privasi mereka sendiri.
+          </p>
+        </>
+      ),
+    },
+    {
+      title: 'Data yang kami proses',
+      body: (
+        <>
+          <p>Hanya yang dibutuhkan untuk menjalankan fitur yang kamu pakai. Kami tidak meminta NIK, foto KTP, nilai rapor/IPK, atau lokasi GPS.</p>
+          <ul>
+            <li>
+              <strong>Akun:</strong> nama, email, kata sandi, jenis akun (peserta atau penyelenggara), serta catatan persetujuanmu atas dokumen
+              ini dan pernyataan usiamu. Kata sandi disimpan dalam bentuk hash oleh layanan autentikasi — kami tidak pernah bisa membacanya. Bila
+              kamu masuk dengan Google, Google mengirim nama, email, dan tautan foto profilmu; kami hanya memakai nama dan email.
+            </li>
+            <li>
+              <strong>Profil:</strong> jenjang pendidikan, program studi, dan bidang minat yang kamu pilih.
+            </li>
+            <li>
+              <strong>Aktivitas:</strong> kegiatan yang kamu simpan, status dan catatan di Papan lamaran, portofolio (hasil yang kamu laporkan
+              sendiri, catatan, tautan bukti, dan pilihan tampil-tidaknya), serta tim yang kamu buat atau ikuti.
+            </li>
+            <li>
+              <strong>Koneksi (bila kamu memakainya):</strong> pilihan terlihat di direktori, headline, ajakan terhubung beserta pesannya, daftar
+              koneksi, dan orang yang kamu blokir.
+            </li>
+            <li>
+              <strong>Kartu pemain (pencocokan tim, bila kamu membuatnya):</strong> nama kota (bukan alamat), keahlian yang kamu bawa dan cari,
+              kesediaan kerja daring, kalimat pengantar, dan status kartu.
+            </li>
+            <li>
+              <strong>Pendaftaran lewat formulir StudentFo:</strong> nama dan email akunmu, jawaban atas pertanyaan penyelenggara, kode dan status
+              pendaftaran, dan — untuk acara berbayar — foto bukti transfer. Bukti transfer termasuk <em>data keuangan pribadi</em>, salah satu
+              data pribadi yang bersifat spesifik (Pasal 4 UU PDP), jadi kami menyimpannya di penyimpanan privat dan membuang metadata fotonya
+              (termasuk lokasi GPS) sebelum disimpan.
+            </li>
+            <li>
+              <strong>Penyelenggara terverifikasi:</strong> nama lembaga, situs web, keterangan dan bukti yang kamu kirim untuk verifikasi, acara
+              yang kamu kelola, dan foto galeri yang kamu unggah.
+            </li>
+            <li>
+              <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
+            </li>
+            <li>
+              <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu.
+            </li>
+            <li>
+              <strong>Sinyal rekomendasi:</strong> catatan bahwa sebuah kegiatan disimpan atau tombol daftarnya diklik, beserta jenjang dan minatmu
+              saat itu.
+            </li>
+            <li>
+              <strong>Data teknis:</strong> (a) untuk membatasi percobaan masuk dan kiriman berlebihan, alamat IP diubah menjadi kode satu arah dan
+              dibuang setelah satu hari; (b) untuk statistik kunjungan acara, kunjungan dihitung dengan kode harian satu arah dari alamat IP dan
+              jenis peramban, yang dibuang keesokan harinya — penyelenggara hanya melihat angka total; (c) log akses standar penyedia hosting
+              (alamat IP, waktu, halaman) untuk keamanan dan pemecahan masalah.
+            </li>
+          </ul>
+          <Callout>
+            Pertanyaan di formulir pendaftaran ditentukan penyelenggara. Isi hanya yang menurutmu wajar untuk kegiatan itu. StudentFo tidak pernah
+            meminta kata sandi, PIN, atau kode OTP — laporkan formulir yang memintanya.
+          </Callout>
+        </>
+      ),
+    },
+    {
+      title: 'Dasar dan tujuan pemrosesan',
+      body: (
+        <>
+          <p>Setiap pemrosesan punya dasar hukum menurut Pasal 20 UU PDP:</p>
+          <ul>
+            <li>
+              <strong>Menjalankan perjanjian denganmu</strong> (Syarat &amp; Ketentuan): membuat dan mengelola akun, menyimpan kegiatan, Papan
+              lamaran, tim, pendaftaran ke acara, notifikasi, dan menampilkan kegiatan yang cocok dengan jenjang dan minatmu.
+            </li>
+            <li>
+              <strong>Persetujuanmu:</strong> fitur yang membuat dirimu terlihat orang lain (direktori Koneksi, kartu pemain, portofolio publik),
+              masuk dengan Google, dan pemrosesan data pengguna berusia di bawah 18 tahun. Persetujuan bisa kamu tarik kapan saja tanpa
+              memengaruhi pemrosesan sebelumnya.
+            </li>
+            <li>
+              <strong>Kepentingan yang sah:</strong> keamanan dan pencegahan penyalahgunaan (pembatas laju, CAPTCHA, moderasi kiriman, verifikasi
+              penyelenggara), statistik kunjungan agregat untuk penyelenggara, dan penyetelan urutan rekomendasi.
+            </li>
+            <li>
+              <strong>Kewajiban hukum:</strong> menanggapi permintaan resmi aparat yang berwenang sesuai peraturan perundang-undangan.
+            </li>
+          </ul>
+          <p>Kami tidak memakai datamu untuk iklan, tidak menjualnya, dan tidak membuat profil tentang dirimu untuk pihak lain.</p>
+        </>
+      ),
+    },
+    {
+      title: 'Rekomendasi dan pencocokan otomatis',
+      body: (
+        <>
+          <p>
+            Urutan &ldquo;cocok untukmu&rdquo; dan skor kecocokan di pencocokan tim dihitung otomatis dari jenjang, minat, keahlian, kota, dan
+            portofolio. Hasilnya hanya mengatur apa yang tampil lebih dulu: tidak menolak pendaftaranmu, tidak menentukan seleksi kegiatan apa pun,
+            dan tidak menimbulkan akibat hukum. Kegiatan berlabel &ldquo;Promosi&rdquo; adalah iklan dan tidak mengubah skor.
+          </p>
+          <p>
+            Kamu bisa mengosongkan minat, menutup kartu pemain, atau menyatakan keberatan atas keputusan yang diambil hanya berdasarkan pemrosesan
+            otomatis (Pasal 10 UU PDP).
+          </p>
+        </>
+      ),
+    },
+    {
+      title: 'Siapa yang bisa melihat',
+      body: (
+        <>
+          <ul>
+            <li>
+              <strong>Tamu yang belum masuk:</strong> tidak melihat nama pengguna mana pun. Yang tampil hanya nama lembaga penyelenggara.
+            </li>
+            <li>
+              <strong>Anggota tim yang sama:</strong> nama dan peranmu di tim tersebut.
+            </li>
+            <li>
+              <strong>Pengguna lain yang masuk, hanya bila kamu memilih terlihat:</strong> bila kamu membuka profil di Koneksi atau membuka kartu
+              pemain, mereka bisa melihat profil publikmu (nama, headline, jurusan, jenjang, minat, portofolio publik) dan mengajakmu terhubung.
+              Pengguna yang kartunya juga terbuka melihat isi kartu pemainmu di hasil pencocokan. Email tidak pernah ditampilkan. Orang yang kamu
+              blokir tidak bisa melihat atau menghubungimu.
+            </li>
+            <li>
+              <strong>Koneksi dan orang yang kamu ajak:</strong> nama, headline, dan pesan ajakanmu.
+            </li>
+            <li>
+              <strong>Penyelenggara terverifikasi acara yang kamu daftari lewat formulir StudentFo:</strong> nama, email, jawaban formulir, status,
+              dan bukti pembayaranmu untuk acara itu saja — tidak data akunmu yang lain. Penyelenggara bisa mengunduh daftar pendaftarnya, dan atas
+              salinan itu ia menjadi pengendali data tersendiri yang wajib mematuhi UU PDP.
+            </li>
+            <li>
+              <strong>Moderator dan admin StudentFo:</strong> kiriman kegiatan beserta email pengirimnya, pengajuan penyelenggara, dan — hanya bila
+              diperlukan untuk menangani laporan, sengketa, atau penyalahgunaan — data pendaftaran.
+            </li>
+            <li>
+              <strong>Aparat yang berwenang:</strong> hanya bila diwajibkan peraturan perundang-undangan.
+            </li>
+          </ul>
+          <Callout>
+            Bila acara tidak memakai formulir StudentFo, tombol &ldquo;Daftar sekarang&rdquo; membuka situs resmi penyelenggara. Apa pun yang kamu
+            isi di sana tunduk pada kebijakan privasi penyelenggara tersebut. StudentFo tidak memegang uang pendaftaran: pembayaran langsung ke
+            rekening penyelenggara.
+          </Callout>
+        </>
+      ),
+    },
+    {
+      title: 'Pemroses data dan transfer ke luar negeri',
+      body: (
+        <>
+          <p>Kami memakai penyedia layanan yang memproses data atas nama kami, hanya untuk keperluan berikut:</p>
+          <ul>
+            <li>
+              <strong>Supabase</strong> — basis data, autentikasi akun, dan penyimpanan berkas.
+            </li>
+            <li>
+              <strong>Penyedia hosting aplikasi</strong> — server yang menjalankan situs ini.
+            </li>
+            <li>
+              <strong>Cloudflare Turnstile</strong> — pemeriksa anti-bot di formulir daftar, lupa sandi, kirim ulang konfirmasi, dan kirim kegiatan.
+              Ia memproses alamat IP dan sinyal perangkat untuk membedakan manusia dari bot.
+            </li>
+            <li>
+              <strong>Penyedia pengiriman email</strong> — email konfirmasi akun dan atur ulang kata sandi.
+            </li>
+            <li>
+              <strong>Google</strong> — hanya bila kamu memilih masuk dengan Google.
+            </li>
+          </ul>
+          <p>
+            Server penyedia tersebut dapat berada di luar wilayah Indonesia, misalnya di Singapura. Sesuai Pasal 56 UU PDP, kami hanya memakai
+            penyedia yang menerapkan standar pelindungan data yang setara atau lebih tinggi dari UU PDP dan menyediakan perjanjian pemrosesan data.
+            Dengan memakai StudentFo, kamu menyetujui transfer tersebut.
+          </p>
+        </>
+      ),
+    },
+    {
+      title: 'Cookie dan penyimpanan peramban',
+      body: (
         <p>
-          Pilihan tema dan gerak tersimpan di peramban perangkatmu (localStorage), bukan di server kami, dan bisa diatur ulang lewat Pengaturan.
-          Pencocokan tim juga mengingat pilihan tampilan tumpukan/semua kartu di sana; ubah lewat tombolnya di halaman hasil. Semuanya terhapus
-          bila kamu membersihkan data situs di peramban.
+          Kami hanya memakai cookie yang dibutuhkan agar kamu tetap masuk dan situs aman, plus penyimpanan peramban untuk mengingat pilihan tampilan.
+          Tidak ada cookie iklan atau analitik pihak ketiga. Rinciannya — nama, tujuan, dan masa berlaku masing-masing — ada di{' '}
+          <InlineLink href="/cookie-policy">Kebijakan cookie</InlineLink>.
         </p>
+      ),
+    },
+    {
+      title: 'Berapa lama disimpan',
+      body: (
+        <>
+          <ul>
+            <li>
+              <strong>Akun, profil, aktivitas, koneksi, kartu pemain, dan pendaftaran:</strong> selama akunmu aktif. Saat akun dihapus, semuanya ikut
+              terhapus, termasuk bukti pembayaran.
+            </li>
+            <li>
+              <strong>Notifikasi:</strong> yang sudah dibaca dihapus otomatis setelah 180 hari; semua notifikasi dihapus setelah 365 hari.
+            </li>
+            <li>
+              <strong>Email pengirim kiriman kegiatan:</strong> dihapus otomatis 90 hari setelah moderator memutuskan kirimannya. Informasi
+              kegiatannya tetap tersimpan sebagai arsip moderasi.
+            </li>
+            <li>
+              <strong>Kode IP pembatas laju:</strong> dibuang setelah satu hari. <strong>Kode pengunjung harian:</strong> dibuang keesokan harinya;
+              yang tersisa hanya angka total per acara.
+            </li>
+            <li>
+              <strong>Tim yang kamu buat dan sinyal rekomendasi:</strong> tetap ada setelah akunmu dihapus, tetapi tautannya ke akunmu diputus.
+            </li>
+            <li>
+              <strong>Salinan cadangan basis data:</strong> data yang sudah dihapus bisa tertinggal di cadangan otomatis penyedia sampai cadangan itu
+              tertimpa, dan tidak dipakai untuk keperluan lain.
+            </li>
+          </ul>
+          <p>Salinan daftar pendaftar yang sudah diunduh penyelenggara tunduk pada kebijakan penyelenggara tersebut.</p>
+        </>
+      ),
+    },
+    {
+      title: 'Hak kamu',
+      body: (
+        <>
+          <p>Menurut Pasal 5–13 UU PDP, kamu berhak untuk:</p>
+          <ul>
+            <li>mendapat informasi tentang identitas kami, dasar, tujuan, dan cara kami memproses datamu — itulah isi kebijakan ini;</li>
+            <li>
+              melengkapi, memperbarui, dan memperbaiki datamu — sebagian besar bisa langsung dari <InlineLink href="/profile/details">Data diri</InlineLink>{' '}
+              dan <InlineLink href="/profile/interests">Peminatan</InlineLink>;
+            </li>
+            <li>
+              mengakses dan mendapat salinan datamu, serta menerimanya dalam format yang bisa dibaca mesin — unduh dari{' '}
+              <InlineLink href="/profile/privacy">Privasi &amp; data</InlineLink>, atau minta salinan lengkap lewat kontak di bawah;
+            </li>
+            <li>mengakhiri pemrosesan dan meminta penghapusan akun beserta datanya;</li>
+            <li>menarik persetujuan — misalnya menutup kartu pemain atau menyembunyikan profilmu di Koneksi;</li>
+            <li>menyatakan keberatan atas keputusan yang diambil hanya berdasarkan pemrosesan otomatis;</li>
+            <li>meminta penundaan atau pembatasan pemrosesan;</li>
+            <li>menggugat dan menerima ganti rugi atas pelanggaran pemrosesan data pribadimu.</li>
+          </ul>
+          <p>
+            Kirim permintaanmu ke kontak di bagian terakhir, dari alamat email akunmu. Kami bisa meminta verifikasi identitas sebelum
+            menindaklanjutinya, tanpa biaya, dan menanggapi paling lambat 3 × 24 jam sejak permintaan diterima. Sebagian hak dapat dibatasi bila
+            diwajibkan peraturan (Pasal 15 UU PDP), misalnya data yang wajib disimpan untuk proses hukum — bila begitu, kami jelaskan alasannya.
+          </p>
+          <p>
+            Bila tanggapan kami tidak memuaskan, kamu dapat mengadu ke lembaga penyelenggara pelindungan data pribadi sesuai UU PDP.
+          </p>
+        </>
+      ),
+    },
+    {
+      title: 'Keamanan dan kebocoran data',
+      body: (
+        <>
+          <p>
+            Semua lalu lintas memakai koneksi terenkripsi. Di basis data, setiap akun hanya bisa membaca dan mengubah datanya sendiri (row level
+            security). Bukti pembayaran dan foto disimpan di penyimpanan privat yang hanya dibuka server setelah memeriksa hakmu. Mengganti kata
+            sandi meminta kata sandi lama dan mengeluarkan sesi di perangkat lain.
+          </p>
+          <p>
+            Tidak ada sistem yang kebal sepenuhnya. Bila terjadi kegagalan pelindungan data pribadi, kami memberi tahu kamu dan lembaga pelindungan
+            data pribadi secara tertulis paling lambat 3 × 24 jam, berisi data apa yang terungkap, kapan dan bagaimana terjadinya, serta upaya
+            penanganan dan pemulihannya (Pasal 46 UU PDP).
+          </p>
+        </>
+      ),
+    },
+    {
+      title: 'Pengguna di bawah 18 tahun',
+      body: (
+        <>
+          <p>
+            Banyak pengguna kami siswa SMP dan SMA/SMK. Sesuai Pasal 25 UU PDP dan Peraturan Pemerintah Nomor 17 Tahun 2025 tentang Tata Kelola
+            Penyelenggaraan Sistem Elektronik dalam Pelindungan Anak:
+          </p>
+          <ul>
+            <li>usia minimal untuk membuat akun adalah 13 tahun;</li>
+            <li>
+              pengguna berusia 13–17 tahun wajib mendapat persetujuan orang tua atau wali sebelum membuat akun, dan menyatakannya saat mendaftar;
+            </li>
+            <li>
+              orang tua atau wali dapat menghubungi kami untuk melihat, memperbaiki, atau menghapus data anaknya, dan untuk menarik persetujuan;
+            </li>
+            <li>
+              setiap akun mendapat pengaturan paling privat sejak awal: profil tersembunyi, kartu pemain tertutup, email tidak pernah ditampilkan,
+              dan fitur blokir;
+            </li>
+            <li>akun yang ternyata dibuat anak di bawah 13 tahun, atau tanpa izin orang tua/wali, dapat kami tangguhkan dan hapus.</li>
+          </ul>
+          <p>Untuk acara berbayar, kami menyarankan pengguna di bawah 18 tahun mendaftar dan membayar bersama orang tua atau wali.</p>
+        </>
+      ),
+    },
+    {
+      title: 'Perubahan kebijakan',
+      body: (
         <p>
-          Selama tab terbuka, pencocokan tim menyimpan sementara di peramban (sessionStorage) daftar kartu yang kamu lewati — hanya penanda
-          orangnya, tanpa isi kartu —, draf isian kartu pemainmu agar tidak hilang bila penyimpanan gagal, dan tanda bahwa petunjuk geser sudah
-          ditampilkan. Ketiganya tidak dikirim ke server dan hilang saat tab ditutup; draf juga dihapus begitu kartumu tersimpan.
+          Bila kebijakan ini berubah, tanggal di atas diperbarui. Perubahan penting — misalnya tujuan baru atau jenis data baru — kami umumkan di
+          dalam aplikasi paling lambat 14 hari sebelum berlaku, dan bila perubahannya membutuhkan persetujuan baru, kami memintanya lebih dulu.
         </p>
-      </>
-    ),
-  },
-  {
-    title: 'Berapa lama disimpan',
-    body: (
-      <p>
-        Data akun disimpan selama akunmu aktif. Saat akun dihapus, profil, kegiatan tersimpan, catatan pendaftaran, keanggotaan tim, dan
-        notifikasimu ikut terhapus. Pendaftaran lewat formulir StudentFo beserta bukti pembayarannya juga ikut terhapus — salinan yang sudah
-        diunduh penyelenggara tunduk pada kebijakan penyelenggara. Tim yang kamu buat dan sinyal rekomendasi tetap ada tanpa tautan ke akunmu.
-        Email di kiriman kegiatan tetap tersimpan sebagai arsip moderasi.
-      </p>
-    ),
-  },
-  {
-    title: 'Hak kamu',
-    body: (
-      <>
-        <p>Sesuai Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi, kamu berhak untuk:</p>
-        <ul>
-          <li>mengakses dan mendapatkan salinan datamu,</li>
-          <li>memperbaiki data yang keliru — sebagian besar bisa langsung dari halaman Data diri dan Peminatan,</li>
-          <li>menarik persetujuan dan meminta penghapusan akun beserta datanya.</li>
-        </ul>
-      </>
-    ),
-  },
-  {
-    title: 'Keamanan',
-    body: (
-      <p>
-        Semua lalu lintas memakai koneksi terenkripsi. Di basis data, setiap akun hanya bisa membaca dan mengubah datanya sendiri (row level
-        security). Mengganti kata sandi meminta kata sandi lama dan mengeluarkan sesi di perangkat lain.
-      </p>
-    ),
-  },
-  {
-    title: 'Pengguna di bawah 18 tahun',
-    body: (
-      <p>
-        Banyak pengguna kami siswa SMA/SMK. Bila kamu belum berusia 18 tahun, mintalah persetujuan orang tua atau wali sebelum membuat akun, sesuai
-        ketentuan pelindungan data pribadi anak.
-      </p>
-    ),
-  },
-  {
-    title: 'Perubahan & kontak',
-    body: (
-      <>
-        <p>Bila kebijakan ini berubah, tanggal berlaku di atas diperbarui dan perubahan penting diumumkan di dalam aplikasi.</p>
-        <ContactNote />
-      </>
-    ),
-  },
-];
-
-function currentStatus() {
-  return privacyPolicyStatus({ contactEmail: env.PRIVACY_CONTACT_EMAIL, effectiveDate: env.PRIVACY_POLICY_EFFECTIVE_DATE });
-}
-
-/** Kontak resmi bila pemilik sudah mengisinya; selama belum, jujur bahwa dokumen masih draf. */
-function ContactNote() {
-  const status = currentStatus();
-  if (status.final) {
-    return (
-      <p>
-        Pertanyaan atau permintaan terkait datamu:{' '}
-        <a href={`mailto:${status.contactEmail}`} className="font-semibold underline underline-offset-[3px]">
-          {status.contactEmail}
-        </a>
-        .
-      </p>
-    );
-  }
-  return (
-    <Callout>
-      Draf ini belum mencantumkan alamat kontak resmi pengelola data. Pengelola wajib melengkapinya dan meninjau isi kebijakan ini bersama
-      penasihat hukum sebelum rilis publik.
-    </Callout>
-  );
-}
-
-function Callout({ children }: { children: ReactNode }) {
-  return (
-    <p className="flex gap-3 rounded-card border border-line bg-panel-nested px-4 py-3.5 text-[14.5px] leading-relaxed">
-      <AlertTriangle aria-hidden className="mt-0.5 size-[18px] shrink-0" />
-      <span>{children}</span>
-    </p>
-  );
+      ),
+    },
+    {
+      title: 'Kontak',
+      body: <ContactNote status={status} />,
+    },
+  ];
 }
 
 /**
- * Kebijakan privasi (kanvas Kebijakan Privasi). Tata letak dari kanvas;
- * isinya ditulis ulang dari skema yang benar-benar ada (supabase/migrations)
- * — kanvas menyebut NIK, IPK, dokumen di server, dan penerusan data ke
- * penyelenggara, yang tidak dilakukan aplikasi ini (ADR-039).
+ * Kebijakan privasi (kanvas Kebijakan Privasi, ADR-060). Isinya ditulis dari
+ * skema yang benar-benar ada (supabase/migrations) dan job retensi yang
+ * benar-benar berjalan — kanvas menyebut NIK, IPK, dan dokumen di server,
+ * yang tidak dilakukan aplikasi ini (ADR-039). Bila fitur baru memproses data
+ * pribadi baru, bab "Data yang kami proses" dan `LEGAL_REVISION` ikut diubah.
  */
 export default function PrivacyPolicyPage() {
-  const status = currentStatus();
+  const status = privacyStatus();
   return (
-    <div className="container-page pb-20 pt-12">
-      <header className="enter flex max-w-[720px] flex-col gap-3 [animation-duration:900ms]">
-        <span className="font-mono text-xs tracking-[.08em] text-ink-muted">{status.final ? 'DOKUMEN · BERLAKU' : 'DOKUMEN · DRAF'}</span>
-        <h1 className="text-[clamp(36px,6vw,56px)] leading-[1.02]">Kebijakan privasi</h1>
-        <p className="flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-ink-muted">
-          <span>{status.final ? `Berlaku sejak ${formatDateId(`${status.effectiveDate}T00:00:00+07:00`)}` : 'Draf 15 Oktober 2026'}</span>
-          <span aria-hidden>·</span>
-          <span>Waktu baca sekitar 4 menit</span>
-        </p>
-      </header>
-
-      <div className="mt-10 grid items-start gap-10 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-[92px]">
-          <nav id="daftar-isi" aria-labelledby="daftar-isi-title" className="flex flex-col gap-1">
-            <h2 id="daftar-isi-title" className="mb-2 font-mono text-[11.5px] font-normal tracking-[.08em] text-ink-muted">
-              DAFTAR ISI
-            </h2>
-            <ol className="flex flex-col gap-0.5">
-              {SECTIONS.map((section, index) => (
-                <li key={section.title}>
-                  <a
-                    href={`#kp-${index + 1}`}
-                    className="flex min-h-11 items-center gap-2.5 rounded-sm px-2.5 text-[14px] text-ink-muted transition-colors duration-150 hover:bg-panel-nested hover:text-ink aria-[current]:bg-panel-nested aria-[current]:font-semibold aria-[current]:text-ink lg:pointer-fine:min-h-9"
-                  >
-                    <span className="w-4 font-mono text-xs">{index + 1}</span>
-                    {section.title}
-                  </a>
-                </li>
-              ))}
-            </ol>
-            <Link
-              href="/profile/privacy"
-              className="mt-4 flex min-h-11 items-center gap-1.5 self-start px-2.5 text-[13.5px] font-semibold underline underline-offset-[3px]"
-            >
-              Atur privasi akunmu <ArrowRight aria-hidden className="size-3.5" />
-            </Link>
-          </nav>
-          <TocSpy navId="daftar-isi" prefix="kp-" count={SECTIONS.length} />
-        </aside>
-
-        <article className="flex max-w-[68ch] flex-col gap-12">
-          <section aria-labelledby="ringkas-title" className="enter rounded-[18px] bg-inverse p-6 text-on-inverse [animation-delay:120ms] [animation-duration:900ms] sm:p-7">
-            <h2 id="ringkas-title" className="mb-4 text-lg font-semibold text-on-inverse">
-              Versi singkat
-            </h2>
-            <ul className="flex flex-col gap-3">
-              {SUMMARY.map((item) => (
-                <li key={item} className="flex gap-3 text-[15px] leading-snug">
-                  <span aria-hidden className="mt-px flex size-5 shrink-0 items-center justify-center rounded-pill bg-on-inverse text-inverse">
-                    <Check className="size-3" strokeWidth={2.6} />
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {SECTIONS.map((section, index) => (
-            <section
-              key={section.title}
-              id={`kp-${index + 1}`}
-              aria-labelledby={`kp-${index + 1}-title`}
-              className="flex scroll-mt-24 flex-col gap-4 text-[15.5px] leading-[1.7] text-ink-soft [&_li]:pl-1 [&_strong]:font-semibold [&_strong]:text-ink [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-2 [&_ul]:pl-5"
-            >
-              <h2 id={`kp-${index + 1}-title`} className="text-[22px] font-bold leading-tight tracking-[-0.025em] text-ink">
-                {index + 1}. {section.title}
-              </h2>
-              {section.body}
-            </section>
-          ))}
-        </article>
-      </div>
-    </div>
+    <LegalDocument
+      current="privasi"
+      title="Kebijakan privasi"
+      status={status}
+      readMinutes={9}
+      summary={SUMMARY}
+      sections={sections(status)}
+      prefix="kp-"
+      asideLink={{ href: '/profile/privacy', label: 'Atur privasi akunmu' }}
+    />
   );
 }

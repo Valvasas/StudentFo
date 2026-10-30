@@ -43,6 +43,8 @@ const GUEST_ROUTES = [
   '/submit',
   '/teams',
   '/privacy-policy',
+  '/cookie-policy',
+  '/terms',
 ];
 const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],

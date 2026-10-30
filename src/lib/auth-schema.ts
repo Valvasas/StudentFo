@@ -67,16 +67,25 @@ export function parseAccountType(value: unknown): AccountType | null {
   return (ACCOUNT_TYPES as readonly unknown[]).includes(raw) ? (raw as AccountType) : null;
 }
 
-/** Nilai kotak centang persetujuan Kebijakan privasi di form daftar. */
+/** Nilai kotak centang persetujuan S&K + Kebijakan privasi di form daftar. */
 export const PRIVACY_CONSENT_VALUE = 'yes';
+/**
+ * Nilai kotak centang pernyataan usia (≥ 18, atau 13–17 dengan izin orang
+ * tua/wali — UU PDP Pasal 25, PP 17/2025). Terpisah dari persetujuan: UU PDP
+ * Pasal 22 meminta persetujuan bisa dibedakan jelas dari pernyataan lain.
+ */
+export const AGE_CONFIRM_VALUE = 'yes';
 
 export const signUpSchema = z.object({
   accountType: z.enum(ACCOUNT_TYPES),
   fullName: fullNameSchema,
   email: emailSchema,
   password: passwordSchema,
+  ageConfirm: z.literal(AGE_CONFIRM_VALUE, {
+    errorMap: () => ({ message: 'Konfirmasi usiamu untuk membuat akun.' }),
+  }),
   privacyConsent: z.literal(PRIVACY_CONSENT_VALUE, {
-    errorMap: () => ({ message: 'Setujui Kebijakan privasi untuk membuat akun.' }),
+    errorMap: () => ({ message: 'Setujui Syarat & Ketentuan dan Kebijakan privasi untuk membuat akun.' }),
   }),
 });
 

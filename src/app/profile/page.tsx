@@ -274,7 +274,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                     Minat
                   </h2>
                   {!isPublic && (
-                    <Link href="/profile/interests" className="inline-flex min-h-11 items-center text-[13px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
+                    <Link href="/profile/interests" className="-mx-2.5 inline-flex min-h-11 items-center px-2.5 text-[13px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
                       Atur<span className="sr-only"> minat</span>
                     </Link>
                   )}

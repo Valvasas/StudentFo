@@ -56,7 +56,7 @@ src/
 │   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056)
 │   ├── (auth)/                 Route group — login & register (form biasa), demo/ (akun demo, tidak ditautkan dari mana pun — ADR-057), forgot/reset password
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
-│   ├── profile/                Akun: profil, data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), pengaturan, privasi
+│   ├── profile/                Akun: profil, data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), pengaturan, privasi (+ ekspor/ JSON, ADR-060)
 │   ├── tracker/                Papan lamaran + actions.ts (simpan, ubah tahap, hapus)
 │   ├── teams/                  Cari rekan tim + baru/ (buka tim, halaman sendiri — ADR-054) + [id] detail + actions.ts
 │   │   └── cocok/              Pencocokan tim/partner otomatis (ADR-057, 058): page.tsx = router tipis → form-view.tsx | results-view.tsx, shared.ts, actions.ts
@@ -67,6 +67,7 @@ src/
 │   ├── pembayaran/             Pendaftaran & tagihan peserta; [id]/ status, instruksi bayar, unggah bukti + actions.ts (ADR-056)
 │   ├── media/                  foto/[id] (foto galeri, publik, cache 1 hari) · bukti/[id] (bukti bayar, privat, 404 bila tak berhak)
 │   ├── about/                  Tentang — angka dari getStats(), klaim sesuai perilaku sistem
+│   ├── privacy-policy/ · cookie-policy/ · terms/   Dokumen hukum di atas LegalDocument; DRAF sampai pemilik mengisi env (ADR-060)
 │   ├── submit/                 Kirim kegiatan (kiriman komunitas, boleh tamu) + actions.ts
 │   ├── notifications/          actions.ts (tandai dibaca)
 │   ├── api/events/[slug]/calendar/   GET berkas .ics semua tenggat (RFC 5545, ADR-049)
@@ -107,6 +108,7 @@ src/
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
 │   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
+│   ├── legal/                  LegalDocument (kerangka 3 dokumen hukum, daftar isi terlipat di ponsel), TocSpy, OperatorRef, ContactNote (ADR-060)
 │   ├── admin/                  SubmissionReviewCard, AdminNav
 │   ├── auth/                   GoogleButton, AuthFeedback
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,
@@ -147,7 +149,8 @@ src/
 │   ├── form-data.ts            Pembacaan FormData yang seragam
 │   ├── auth.ts                 getSessionUser(), requireUser(), checkAdminAccess(), requireAdmin() (404 bagi non-admin), adminMetadata()
 │   ├── demo/                   access.ts (murni: host demo & kunci Admin, ADR-057) [teruji], gate.ts (membaca env + header Host), personas, profile-extras
-│   ├── legal.ts                Status Kebijakan privasi (draf/final) dari env, bukan dari kode (ADR-057) [teruji]
+│   ├── legal.ts                Status dokumen hukum (draf/final) dari env, LEGAL_REVISION, bukti persetujuan daftar (ADR-057, 060) [teruji]
+│   ├── account-export.ts       Salinan data akun JSON untuk /profile/privacy/ekspor — hak akses & portabilitas UU PDP (ADR-060) [teruji]
 │   ├── page-title.ts           NOT_FOUND_TITLE, sectionTitle("Bagian · Subjek")
 │   ├── date-input.ts           formatPickedDate(): "2026-12-12" → "Sabtu, 12 Desember 2026", dipakai DateInput [teruji]
 │   ├── destination-label.ts    Nama halaman tujuan untuk "Masuk untuk membuka …" di /login (daftar tertutup per awalan path) [teruji]

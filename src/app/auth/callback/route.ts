@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { mapSupabaseAuthError } from '@/lib/auth-messages';
 import { dataMode, siteUrl } from '@/lib/env';
+import { LEGAL_REVISION, legalConsentRecord } from '@/lib/legal';
 import { safeNextPath } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -66,8 +67,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const otpType = parseOtpType(searchParams.get('type'));
 
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) return NextResponse.redirect(failure(mapSupabaseAuthError(error)));
+    // Daftar dengan Google dari /register: centang usia & persetujuan sudah
+    // diperiksa signInWithGoogleAction, tapi OAuth tidak membawa metadata —
+    // catat di sini (UU PDP Pasal 24). Hanya revisi yang berlaku sekarang,
+    // dan tidak menimpa catatan lama. Gagal mencatat tidak menggagalkan masuk.
+    if (searchParams.get('consent') === LEGAL_REVISION && !data.user?.user_metadata?.legal_consent) {
+      const { error: consentError } = await supabase.auth.updateUser({ data: { legal_consent: legalConsentRecord('google') } });
+      if (consentError) console.error('[auth] gagal mencatat persetujuan:', consentError.code ?? consentError.status);
+    }
   } else if (tokenHash && otpType) {
     const { error } = await supabase.auth.verifyOtp({ type: otpType, token_hash: tokenHash });
     if (error) return NextResponse.redirect(failure(mapSupabaseAuthError(error)));
