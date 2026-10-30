@@ -46,7 +46,11 @@ export function PortfolioList({ rows, now, emptyText }: { rows: readonly Portfol
                 <span className="text-[12.5px] text-ink-muted">{EVENT_TYPE_LABEL[entry.eventType]}</span>
                 {visibility && <VisibilityChip visibility={visibility} />}
               </span>
-              <Link href={`/events/${entry.slug}`} className="text-[15px] font-semibold leading-snug hover:underline">
+              {/* ::after memperluas area sentuh ke ≥ 44px tanpa menggeser baris (pola listing-ui). */}
+              <Link
+                href={`/events/${entry.slug}`}
+                className="relative text-[15px] font-semibold leading-snug after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:underline"
+              >
                 {entry.title}
               </Link>
               <span className="text-[13px] text-ink-muted">

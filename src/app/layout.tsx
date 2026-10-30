@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/go
 import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { DemoBanner } from '@/components/layout/demo-banner';
+import { LegalUpdateBanner } from '@/components/legal/legal-update-banner';
 import { Footer } from '@/components/layout/footer';
 import { Navbar } from '@/components/layout/navbar';
 import { NavigationProgress } from '@/components/layout/navigation-progress';
@@ -90,6 +91,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NavigationProgress />
         </Suspense>
         <DemoBanner />
+        <LegalUpdateBanner />
         <Navbar />
         <main id="konten" className="flex-1">
           {children}

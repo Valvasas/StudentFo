@@ -34,6 +34,7 @@ import {
   type ReviewDecision,
 } from '@/lib/registration-form';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
+import { normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
 import type {
   AnswerValue,
   AppNotification,
@@ -86,12 +87,21 @@ import type {
   TeamCandidate,
   TeamSeekerInput,
   TeamSeekerProfile,
+  AdminUserSummary,
+  ContentReport,
+  ReportReason,
+  ReportStatus,
+  ReportSubject,
 } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS } from './repository';
 import { demoReceiptPng } from './demo-media';
 import type {
+  DeleteAccountInput,
+  ReportContentInput,
+  ResolveReportInput,
+  UserSuspensionInput,
   CreateSubmissionInput,
   CalibrationData,
   CreateTeamRepositoryInput,
@@ -273,6 +283,21 @@ interface RevisionEntry {
   createdAt: string;
 }
 
+interface ReportEntry {
+  id: string;
+  /** null = pelapor sudah menghapus akunnya (SET NULL). */
+  reporterId: string | null;
+  subjectType: ReportSubject;
+  subjectId: string;
+  reason: ReportReason;
+  details: string | null;
+  status: ReportStatus;
+  createdAt: string;
+}
+
+/** Cermin batas `report_content()`: 10 laporan per pelapor per hari. */
+const REPORT_RATE_LIMIT_PER_DAY = 10;
+
 type RegistrationFormEntry = Omit<RegistrationForm, 'activeCount'>;
 
 interface RegistrationEntry {
@@ -370,6 +395,10 @@ export class MemoryEventRepository implements EventRepository {
   private readonly media = new Map<string, StoredFile>();
   private mediaBytes = 0;
   /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
+  /** Cermin `content_reports` (ADR-061). */
+  private readonly reports = new Map<string, ReportEntry>();
+  /** Cermin `users.suspended_at` / `suspension_reason`. */
+  private readonly suspensions = new Map<string, { at: string; reason: string }>();
   private readonly demoSeededUsers = new Set<string>();
   private readonly demoSeedLimit: number;
   private readonly isolateSeekers: boolean;
@@ -638,6 +667,7 @@ export class MemoryEventRepository implements EventRepository {
       status: 'PENDING',
       createdAt: new Date().toISOString(),
       payload,
+      rejectionReason: null,
     });
   }
 
@@ -655,7 +685,7 @@ export class MemoryEventRepository implements EventRepository {
       .slice(0, limit);
   }
 
-  async reviewSubmission({ submissionId, decision, reviewerId, reviewerName }: ReviewSubmissionInput): Promise<void> {
+  async reviewSubmission({ submissionId, decision, reviewerId, reviewerName, reason }: ReviewSubmissionInput): Promise<void> {
     const submission = this.submissions.get(submissionId);
     if (!submission || submission.status !== 'PENDING') throw actionError('submission_not_found');
 
@@ -722,8 +752,9 @@ export class MemoryEventRepository implements EventRepository {
       }
     }
 
-    this.submissions.set(submissionId, { ...submission, status: decision });
-    this.notifySubmitter(submissionId, submission.payload?.title ?? 'kegiatan', decision);
+    const rejectionReason = decision === 'REJECTED' ? reason?.trim() || null : null;
+    this.submissions.set(submissionId, { ...submission, status: decision, rejectionReason });
+    this.notifySubmitter(submissionId, submission.payload?.title ?? 'kegiatan', decision, rejectionReason);
     this.logModeration({
       subjectType: 'submission',
       subjectId: submissionId,
@@ -731,8 +762,168 @@ export class MemoryEventRepository implements EventRepository {
       fromStatus: 'PENDING',
       toStatus: decision,
       actor: { reviewerId, reviewerName },
-      reason: null,
+      reason: rejectionReason,
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Keamanan & kepercayaan (ADR-061) — cermin migration 20261031100001
+  // ------------------------------------------------------------------
+
+  async reportContent(reporterId: string, { subjectType, subjectId, reason, details }: ReportContentInput): Promise<void> {
+    const visible =
+      subjectType === 'event'
+        ? this.events.some((event) => event.id === subjectId && (event.status === 'APPROVED' || event.status === 'EXPIRED'))
+        : subjectId !== reporterId && this.people.has(subjectId);
+    if (!visible) throw actionError('report_unavailable');
+    if (!this.rateLimiter.consume(`report:${reporterId}`, REPORT_RATE_LIMIT_PER_DAY, 86_400)) throw actionError('report_rate_limited');
+    const open = [...this.reports.values()].some(
+      (report) => report.reporterId === reporterId && report.subjectType === subjectType && report.subjectId === subjectId && report.status === 'OPEN',
+    );
+    if (open) return;
+    const id = this.nextId();
+    this.reports.set(id, { id, reporterId, subjectType, subjectId, reason, details, status: 'OPEN', createdAt: new Date().toISOString() });
+  }
+
+  async listOpenReports(limit: number): Promise<readonly ContentReport[]> {
+    return [...this.reports.values()]
+      .filter((report) => report.status === 'OPEN')
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .slice(0, limit)
+      .map((report) => {
+        const event = report.subjectType === 'event' ? this.findEvent(report.subjectId) : undefined;
+        return {
+          id: report.id,
+          subjectType: report.subjectType,
+          subjectId: report.subjectId,
+          subjectLabel: event ? event.title : (this.people.get(report.subjectId)?.person.fullName ?? null),
+          subjectSlug: event?.slug ?? null,
+          reason: report.reason,
+          details: report.details,
+          status: report.status,
+          reporterName: report.reporterId ? (this.people.get(report.reporterId)?.person.fullName ?? 'Pengguna demo') : null,
+          createdAt: report.createdAt,
+        };
+      });
+  }
+
+  async countOpenReports(): Promise<number> {
+    return [...this.reports.values()].filter((report) => report.status === 'OPEN').length;
+  }
+
+  async resolveReport({ reportId, actorId, actorName, outcome, note }: ResolveReportInput): Promise<void> {
+    const report = this.reports.get(reportId);
+    if (!report || report.status !== 'OPEN') throw actionError('report_not_found');
+    this.reports.set(reportId, { ...report, status: outcome });
+    this.logModeration({
+      subjectType: 'report',
+      subjectId: reportId,
+      title: `Laporan ${report.subjectType === 'event' ? 'kegiatan' : 'pengguna'} (${report.reason})`,
+      fromStatus: 'OPEN',
+      toStatus: outcome,
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: note?.trim() || null,
+    });
+  }
+
+  async searchUsers(query: string, limit: number): Promise<readonly AdminUserSummary[]> {
+    const q = normalizeUserSearch(query).toLowerCase();
+    return [...this.people.values()]
+      .filter((member) => !q || member.person.userId === q || member.person.fullName.toLowerCase().includes(q))
+      .slice(0, limit)
+      .map((member) => {
+        const suspension = this.suspensions.get(member.person.userId);
+        return {
+          id: member.person.userId,
+          fullName: member.person.fullName,
+          email: null,
+          role: 'USER',
+          createdAt: null,
+          suspendedAt: suspension?.at ?? null,
+          suspensionReason: suspension?.reason ?? null,
+        };
+      });
+  }
+
+  async setUserSuspension({ userId, actorId, actorName, suspend, reason }: UserSuspensionInput): Promise<void> {
+    const member = this.people.get(userId);
+    if (!member) throw actionError('user_not_found');
+    if (userId === actorId) throw actionError('user_protected');
+    const trimmed = reason?.trim() ?? '';
+    if (suspend && trimmed.length < SUSPENSION_REASON_MIN) throw actionError('suspension_reason_required');
+    if (suspend === this.suspensions.has(userId)) return;
+
+    if (suspend) {
+      this.suspensions.set(userId, { at: new Date().toISOString(), reason: trimmed });
+      this.people.set(userId, { ...member, discoverable: false });
+      const seeker = this.seekers.get(userId);
+      if (seeker) this.seekers.set(userId, { ...seeker, open: false });
+    } else {
+      this.suspensions.delete(userId);
+    }
+    this.logModeration({
+      subjectType: 'user',
+      subjectId: userId,
+      title: member.person.fullName,
+      fromStatus: suspend ? 'ACTIVE' : 'SUSPENDED',
+      toStatus: suspend ? 'SUSPENDED' : 'ACTIVE',
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: trimmed || null,
+    });
+  }
+
+  /** Mode seed saja: penangguhan ditegakkan `getSessionUser()` lewat `isDemoUserSuspended`. */
+  isSuspended(userId: string): boolean {
+    return this.suspensions.has(userId);
+  }
+
+  async deleteAccount({ userId, actorId, actorName, reason }: DeleteAccountInput): Promise<void> {
+    const member = this.people.get(userId);
+    if (actorId !== userId && !member) throw actionError('user_not_found');
+    if (actorId !== userId) {
+      this.logModeration({
+        subjectType: 'user',
+        subjectId: userId,
+        title: 'Akun dihapus',
+        fromStatus: this.suspensions.has(userId) ? 'SUSPENDED' : 'ACTIVE',
+        toStatus: 'DELETED',
+        actor: { reviewerId: actorId, reviewerName: actorName },
+        reason: reason?.trim() || null,
+      });
+    }
+
+    // CASCADE: semua yang milik akun.
+    this.people.delete(userId);
+    this.seekers.delete(userId);
+    this.suspensions.delete(userId);
+    this.savedEvents.delete(userId);
+    this.trackerEntries.delete(userId);
+    this.readNotifications.delete(userId);
+    this.storedNotifications.delete(userId);
+    this.organizers.delete(userId);
+    this.blocks.delete(userId);
+    for (const blocked of this.blocks.values()) blocked.delete(userId);
+    for (const [id, connection] of this.connections) {
+      if (connection.requesterId === userId || connection.addresseeId === userId) this.connections.delete(id);
+    }
+    for (const managers of this.eventManagers.values()) managers.delete(userId);
+    for (const [id, claim] of this.claims) if (claim.userId === userId) this.claims.delete(id);
+    for (const [id, revision] of this.revisions) if (revision.proposedBy === userId) this.revisions.delete(id);
+    for (const [id, registration] of this.registrations) {
+      if (registration.userId !== userId) continue;
+      this.dropMedia(registration.proofKey);
+      this.registrations.delete(id);
+    }
+    // SET NULL: jejak bersama tetap ada tanpa tautan ke akun.
+    for (const [id, team] of this.teams) {
+      this.teams.set(id, {
+        ...team,
+        createdBy: team.createdBy === userId ? '' : team.createdBy,
+        members: team.members.filter((member) => member.userId !== userId),
+      });
+    }
+    for (const [id, owner] of this.submissionOwners) if (owner === userId) this.submissionOwners.delete(id);
+    for (const [id, report] of this.reports) if (report.reporterId === userId) this.reports.set(id, { ...report, reporterId: null });
   }
 
   // ------------------------------------------------------------------
@@ -885,8 +1076,8 @@ export class MemoryEventRepository implements EventRepository {
    * Yang tetap disimpan hanyalah status "sudah dibaca" — itu keputusan
    * pengguna, bukan data turunan.
    */
-  /** Cermin trigger notify_submission_decision() (migration 20260926160001). */
-  private notifySubmitter(submissionId: string, title: string, decision: 'APPROVED' | 'REJECTED'): void {
+  /** Cermin trigger notify_submission_decision() (migration 20261031100001). */
+  private notifySubmitter(submissionId: string, title: string, decision: 'APPROVED' | 'REJECTED', reason: string | null): void {
     const owner = this.submissionOwners.get(submissionId);
     if (!owner) return;
     const event = decision === 'APPROVED' ? this.events.find((candidate) => candidate.title === title) : undefined;
@@ -896,7 +1087,9 @@ export class MemoryEventRepository implements EventRepository {
       message:
         decision === 'APPROVED'
           ? `Kirimanmu "${title}" sudah dicek dan kini tayang. Terima kasih!`
-          : `Kirimanmu "${title}" belum bisa ditayangkan setelah dicek moderator. Pastikan tautan resmi & tenggatnya benar, lalu kirim ulang.`,
+          : reason
+            ? `Kirimanmu "${title}" belum bisa ditayangkan. Alasan moderator: ${reason.slice(0, 300)}`
+            : `Kirimanmu "${title}" belum bisa ditayangkan setelah dicek moderator. Pastikan tautan resmi & tenggatnya benar, lalu kirim ulang.`,
       isRead: false,
       sentAt: new Date().toISOString(),
       event: event ? { id: event.id, slug: event.slug, title: event.title } : null,

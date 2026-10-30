@@ -1,6 +1,11 @@
 import type {
+  AdminUserSummary,
   AnswerValue,
   AppNotification,
+  ContentReport,
+  ReportReason,
+  ReportStatus,
+  ReportSubject,
   BlockedPerson,
   Category,
   ConnectionCounts,
@@ -82,7 +87,8 @@ export interface EventRepository
     NotificationDispatchRepository,
     RegistrationRepository,
     GalleryRepository,
-    MatchmakingRepository {}
+    MatchmakingRepository,
+    TrustSafetyRepository {}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {
@@ -149,6 +155,62 @@ export interface PortfolioRepository {
    * `null` = tidak boleh dilihat ATAU tidak ada — sengaja tidak dibedakan.
    */
   getPublicProfile(viewerId: string, userId: string): Promise<PublicProfile | null>;
+}
+
+/**
+ * Keamanan & kepercayaan (ADR-061): laporan konten, penangguhan, hapus akun.
+ * `reportContent` dipanggil pengguna yang masuk; sisanya hanya dari rute admin
+ * SETELAH `checkAdminAccess()` — kecuali `deleteAccount` untuk akun sendiri
+ * (`actorId === userId`).
+ */
+export interface TrustSafetyRepository {
+  /** Satu laporan TERBUKA per (pelapor, subjek): mengulang tidak menambah baris. */
+  reportContent(reporterId: string, input: ReportContentInput): Promise<void>;
+  listOpenReports(limit: number): Promise<readonly ContentReport[]>;
+  countOpenReports(): Promise<number>;
+  resolveReport(input: ResolveReportInput): Promise<void>;
+  /** Cari nama/email, atau id persis. Kosong = pengguna terbaru. */
+  searchUsers(query: string, limit: number): Promise<readonly AdminUserSummary[]>;
+  /** Admin & diri sendiri dilindungi (`user_protected`); menangguhkan wajib beralasan. */
+  setUserSuspension(input: UserSuspensionInput): Promise<void>;
+  /**
+   * Hapus akun beserta datanya. Berkas Storage (bukti bayar) dihapus DULU;
+   * gagal menghapus berkas = akun tidak dihapus, supaya tidak ada berkas yatim
+   * yang tak bisa dilacak lagi pemiliknya.
+   */
+  deleteAccount(input: DeleteAccountInput): Promise<void>;
+}
+
+export interface ReportContentInput {
+  readonly subjectType: ReportSubject;
+  readonly subjectId: string;
+  readonly reason: ReportReason;
+  readonly details: string | null;
+}
+
+export interface ResolveReportInput {
+  readonly reportId: string;
+  readonly actorId: string;
+  readonly outcome: Extract<ReportStatus, 'RESOLVED' | 'DISMISSED'>;
+  readonly note: string | null;
+  /** Hanya mode seed (log moderasi). */
+  readonly actorName?: string;
+}
+
+export interface UserSuspensionInput {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly suspend: boolean;
+  readonly reason: string | null;
+  readonly actorName?: string;
+}
+
+export interface DeleteAccountInput {
+  readonly userId: string;
+  /** Sama dengan `userId` = hapus mandiri (tidak dicatat sebagai tindakan moderasi). */
+  readonly actorId: string;
+  readonly reason: string | null;
+  readonly actorName?: string;
 }
 
 /** Kiriman komunitas (/submit) dan peninjauannya. */
@@ -504,6 +566,8 @@ export interface ReviewSubmissionInput {
   readonly submissionId: string;
   readonly decision: Extract<EventStatus, 'APPROVED' | 'REJECTED'>;
   readonly reviewerId: string | null;
+  /** Hanya untuk REJECTED: alasan yang dikirim ke pengirim (≤500). */
+  readonly reason?: string;
   /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
   readonly reviewerName?: string;
 }

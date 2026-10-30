@@ -10,37 +10,11 @@ import { formatDateTimeId } from '@/lib/deadline';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
-import type { ModerationStatus, ModerationSubject } from '@/types/domain';
+import { MODERATION_STATUS_TEXT, MODERATION_STATUS_VARIANT, MODERATION_SUBJECT_TEXT } from '@/lib/moderation-labels';
 
 /** Sama dengan batas antrean /admin; angka di atasnya ditulis "50+" — menghitung pasti butuh query lain. */
 const QUEUE_LIMIT = 50;
 const LOG_LIMIT = 5;
-
-const STATUS_TEXT: Record<ModerationStatus, string> = {
-  PENDING: 'Menunggu',
-  APPROVED: 'Disetujui',
-  REJECTED: 'Ditolak',
-  EXPIRED: 'Kedaluwarsa',
-  VERIFIED: 'Terverifikasi',
-  REVOKED: 'Dicabut',
-};
-
-const STATUS_VARIANT: Record<ModerationStatus, 'warning' | 'success' | 'danger' | 'neutral'> = {
-  PENDING: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'danger',
-  EXPIRED: 'neutral',
-  VERIFIED: 'success',
-  REVOKED: 'danger',
-};
-
-const SUBJECT_TEXT: Record<ModerationSubject, string> = {
-  event: 'Kegiatan',
-  submission: 'Kiriman',
-  organizer: 'Penyelenggara',
-  claim: 'Klaim acara',
-  revision: 'Perubahan acara',
-};
 
 interface Queue {
   readonly key: string;
@@ -152,11 +126,11 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-medium">{entry.title}</span>
                   <span className="truncate text-[13px] text-ink-muted">
-                    {SUBJECT_TEXT[entry.subjectType]} · {entry.actorName ?? 'Sistem'} · {formatDateTimeId(entry.createdAt)}
+                    {MODERATION_SUBJECT_TEXT[entry.subjectType]} · {entry.actorName ?? 'Sistem'} · {formatDateTimeId(entry.createdAt)}
                   </span>
                 </span>
-                <Badge variant={STATUS_VARIANT[entry.toStatus]} className="shrink-0">
-                  {STATUS_TEXT[entry.toStatus]}
+                <Badge variant={MODERATION_STATUS_VARIANT[entry.toStatus]} className="shrink-0">
+                  {MODERATION_STATUS_TEXT[entry.toStatus]}
                 </Badge>
               </li>
             ))}

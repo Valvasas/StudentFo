@@ -135,7 +135,7 @@ membuatnya sekarang berarti menampilkan angka karangan di beranda.
 - [x] Koneksi: paginasi `listConnections` (kursor keyset, `countConnections()` untuk
       angka, "Muat lebih banyak" = `?tampil=N`). Uji paritas memori ↔ Supabase +
       1.200 baris melewati `max_rows`. ADR-041. @claude
-- [ ] Koneksi: **laporkan** (antrean moderasi) — tunggu desain moderasi bersama Pesan/Ruang diskusi (ADR-041).
+- [x] Koneksi: **laporkan** — `/laporkan?orang=` dari profil (ADR-061).
 - [ ] DITUNDA — Koneksi: `pg_trgm` untuk pencarian nama bila profil opt-in > ±50k (ADR-040).
       Belum ada data pengguna nyata (pola penundaan Linimasa, ADR-038 #1); jangan tambah
       indeks sebelum ada sinyal butuhnya.
@@ -302,7 +302,7 @@ Belum / butuh keputusan atau akses pemilik:
 - [ ] **BUTUH KONFIRMASI.** Apply `20261014100001` **dan `20261015100001`** ke staging (membuat bucket `event-photos` & `payment-proofs`), `npm run db:verify`, uji unggah sungguhan ke Storage. Urutan rilis: migration dulu, baru kode.
 - [ ] **Produksi:** plafon ukuran permintaan di depan Next (`client_max_body_size 32m` atau setara) — `middlewareClientMaxBodySize` 32 MB berlaku untuk semua rute (ADR-056 § pengerasan). SMTP kustom di Supabase (SMTP bawaan hanya beberapa email/jam → pendaftaran akun cepat kena `rate_limited`).
 - [ ] Retensi data pendaftar & bukti bayar (mis. anonimkan/hapus N hari setelah acara selesai) — butuh keputusan pemilik + job pg_cron.
-- [ ] Hapus akun (produksi, Fase 6a) wajib ikut menghapus berkas bukti di Storage — baris terhapus CASCADE, berkasnya tidak.
+- [x] Hapus akun (produksi, Fase 6a) wajib ikut menghapus berkas bukti di Storage — `deleteAccount` menghapus berkas dulu (ADR-061).
 - [ ] Payment gateway (Midtrans/Xendit) bila diinginkan: akun merchant & kunci pemilik; antarmuka status sudah siap.
 - [ ] Pengumuman ke pendaftar (email massal dari panitia) — butuh pengirim email & batas laju.
 - [x] Syarat & Ketentuan (tetap P0 audit 2026-10-05), kini juga mengatur tanggung jawab penyelenggara atas data pendaftar. → `/terms` (ADR-060), DRAF sampai ditinjau pemilik.
@@ -369,7 +369,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Studio penyelenggara: pemilih rentang analitik (36 px di ponsel), judul acara di beranda penyelenggara & kartu "Acara aktif" (22–26 px) → 44 px; uji baru di 3 proyek, gagal di build lama.
 - [ ] P3 Judul di daftar "Klaim acara" `/penyelenggara` kemungkinan 22 px (pola sama) — tidak ada klaim di data contoh, jadi belum terukur; tambah klaim contoh lalu ukur.
 - [x] `docker build` + `docker run` pertama kali terbukti (image 364 MB, non-root, health OK, CSP/HSTS); tanpa Supabase & tanpa izin demo server menolak melayani (500 + log).
-- [ ] P3 Judul portofolio di `/orang/[id]` 21–41 px (bukan stretched link) — butuh desain ulang baris supaya 44 px tanpa menggeser tata letak.
+- [x] P3 Judul portofolio di `/orang/[id]` 21–41 px → `::after` ≥ 44 px tanpa menggeser baris; dikunci touch-targets (ADR-061).
 - [ ] **BUTUH PEMILIK.** Kedua project Supabase di akun berstatus INACTIVE dan tidak ada yang bernama StudentFo — buat/pulihkan project produksi, lalu terapkan 32 migration berurutan (BUTUH KONFIRMASI eksplisit), `npm run db:verify`.
 - [ ] **BUTUH PEMILIK, P0 produk.** Katalog hari-H kosong bila pipeline tidak jalan: default `gemini-2.0-flash` di `pipeline/run.py` sudah dimatikan Google (1 Jun 2026). Isi `GEMINI_MODEL` dengan model hidup + 10+ sumber nyata, atau siapkan kiriman awal manual lewat `/submit` + `/admin`.
 - [ ] Monitor uptime eksternal ke `/api/health` dengan asersi `dataMode == "supabase"`.
@@ -392,10 +392,29 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] **BUTUH PEMILIK.** Pendaftaran PSE Lingkup Privat (PP 71/2019, Permenkominfo 5/2020) sebelum situs dibuka untuk publik.
 - [ ] **BUTUH PEMILIK.** Tandatangani perjanjian pemrosesan data (DPA) dengan Supabase, hosting, penyedia email; pilih region Singapura — Kebijakan privasi menyatakannya (Ps. 56).
 - [ ] **BUTUH PEMILIK.** Kotak masuk `PRIVACY_CONTACT_EMAIL` dipantau harian: tanggapan permintaan data ≤ 3 × 24 jam, kebocoran ≤ 3 × 24 jam ke subjek data & lembaga.
-- [ ] Hapus akun mandiri (sekarang lewat email): Storage `payment-proofs` dulu, lalu `auth.admin.deleteUser`; uji di staging dengan GoTrue sungguhan.
+- [x] Hapus akun mandiri di Pengaturan (ADR-061). Sisa: uji di staging dengan GoTrue & Storage sungguhan.
 - [ ] Akun Google yang DIBUAT dari `/login` belum punya catatan `legal_consent` (berbasis pemberitahuan). Pertimbangkan meminta centang di halaman sambutan pertama.
-- [ ] Mekanisme pengumuman perubahan dokumen ≥ 14 hari di dalam aplikasi (janji di kedua dokumen) — belum ada komponen banner pengumuman.
+- [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
+
+## Keamanan & kepercayaan MVP 2026-10-31 (@claude) — ADR-061
+
+- [x] Migration `20261031100001_trust_and_safety.sql` + uji SQL `102` (mutation-tested; menemukan 2 perbandingan NULL yang tidak pernah gagal di uji sendiri)
+- [x] Laporan: `/laporkan`, tautan di detail kegiatan & profil orang, antrean `/admin/laporan` (+ turunkan kegiatan)
+- [x] Pengguna: `/admin/pengguna` cari/tangguhkan/cabut/hapus; penangguhan ditegakkan di `getSessionUser` (kedua mode)
+- [x] Hapus akun mandiri (Pengaturan) + berkas Storage; notice di beranda tamu
+- [x] Alasan penolakan kiriman → notifikasi & "Kirimanmu"
+- [x] `instrumentation.ts` + `ERROR_ALERT_WEBHOOK_URL`; `LegalUpdateBanner`; `GEMINI_MODEL` wajib
+- [x] Uji: unit 763, integrasi 95, e2e seed 754 (+ alur lapor→tangguhkan→cabut, hapus akun), e2e Supabase 11, pipeline test_models 15/15
+- [ ] **BUTUH KONFIRMASI.** Apply `20261030100001` dan `20261031100001` ke staging lalu produksi, `npm run db:verify`. Urutan rilis: migration DULU — `getSessionUser` membaca `users.suspended_at`; tanpa kolom itu query profil gagal, semua pengguna jatuh ke nama metadata & peran USER (admin kehilangan `/admin`) sampai migration diterapkan.
+- [ ] **Staging dengan GoTrue sungguhan:** tangguhkan akun uji → pastikan masuk ditolak (`banned_until`) & sesi lain putus; hapus akun uji dengan bukti bayar → berkas hilang dari bucket `payment-proofs`.
+- [ ] **BUTUH PEMILIK.** Isi `ERROR_ALERT_WEBHOOK_URL` (kanal Slack/Discord tim) dan `GEMINI_MODEL`.
+- [ ] Pemberitahuan ke pelapor saat laporannya diputuskan (sekarang diam).
+- [ ] Alarm job pg_cron gagal (`cron.job_run_details`) — tampilkan di `/admin` atau kirim lewat webhook yang sama.
+- [ ] MFA wajib untuk ADMIN (GoTrue MFA TOTP) — butuh uji dengan GoTrue sungguhan.
+- [ ] Pengingat tenggat lewat email: butuh penyedia email (Resend/SMTP) & preferensi kanal per pengguna (ADR-051).
+- [ ] Pesan langsung & Ruang diskusi (masih mode demo; 404 di produksi) — Fase 4, butuh desain moderasi; laporan ADR-061 bisa dipakai ulang.
+- [ ] Buat acara langsung dari studio penyelenggara (kini lewat `/submit` + persetujuan admin).
 
 ## Template tugas baru
 
@@ -533,7 +552,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] `/admin`: panel kondisi antrean (umur tertua, lewat batas 48 jam, keputusan 7 hari).
 - [x] CTA beranda tanpa teks latar berjalan.
 - [x] `docker build` belum dijalankan (tanpa daemon di lingkungan ini) — terbukti build & jalan 2026-10-25 (ADR-059); job CI `docker build` masih belum ada.
-- [ ] Simpan alasan penolakan kiriman (kolom + form admin) supaya "Kirimanmu" bisa menyebut alasan spesifik.
+- [x] Simpan alasan penolakan kiriman (kolom + form admin) supaya "Kirimanmu" bisa menyebut alasan spesifik. (ADR-061)
 - [ ] Terapkan migration 20260930100001–03 ke project Supabase — butuh persetujuan eksplisit pemilik.
 
 ## Skalabilitas UI & ruang napas 2026-09-30 (@claude) — ADR-048
@@ -553,7 +572,7 @@ Dokumen: `docs/rencana-produksi.md` (baseline nyata, koreksi premis, audit per p
 audit skala terukur 10k pengguna / 100k event, desain Fase 1–6). Menunggu persetujuan pemilik.
 
 - [x] Baseline: verify 421/421, db:test lolos, integrasi 64/64, Playwright 359 lolos (118 skip sengaja), e2e Supabase 5/5, pipeline 32/32.
-- [ ] **P0** `gemini-2.0-flash` sudah dimatikan (1 Jun 2026) — ganti & validasi model saat start (Fase 1).
+- [x] **P0** `gemini-2.0-flash` sudah dimatikan (1 Jun 2026) — `GEMINI_MODEL` kini wajib & divalidasi saat start (ADR-061). Pemilik tetap harus mengisi id model hidup.
 - [ ] Hotspot terukur: listing tenggat + count ≈600 ms (Q1), `event_analytics` ≈420 ms (Q5), produsen notifikasi 823 ms + sort di disk (Q6) — Fase 6.
 - [ ] `reviewed_by` terbaca pemilik profil/klaim/revisi penyelenggara (hak SELECT se-tabel) — Fase 3.
 - [ ] Sitemap hanya 4.800 URL. (Retensi `notifications` & email kiriman selesai — ADR-060; `recommendation_signals` sengaja tanpa purge, keputusan pemilik 2026-09-30.)
@@ -584,11 +603,11 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Pesan hasil kosong menyebut penyebab sebenarnya (kata kunci vs filter).
 - [x] Ponsel: tepi pudar tab kategori; navigasi `/admin` satu baris geser + petak antrean 2 kolom.
 - [x] **P0** Syarat & Ketentuan (halaman belum ada) — butuh tinjauan legal pemilik. → `/terms` (ADR-060); tinjauan legal tetap di bagian ADR-060.
-- [ ] **P0** Pemantauan error (Sentry = dependency baru, butuh persetujuan) + alarm pg_cron. (`/api/health` selesai — ADR-059.)
-- [ ] **P0** Manajemen pengguna admin (cari, tangguhkan, cabut peran) + jejak audit lencana/promosi.
+- [x] **P0** Pemantauan error — tanpa dependency: `instrumentation.ts` + webhook opsional (ADR-061). Sisa: alarm pg_cron gagal (`cron.job_run_details`).
+- [x] **P0** Manajemen pengguna admin: cari, tangguhkan, hapus (`/admin/pengguna`, ADR-061). Cabut/beri peran sengaja tetap lewat service_role. Sisa: jejak audit lencana/promosi.
 - [ ] **P0** Buat acara langsung dari studio penyelenggara (semua kolom, termasuk biaya & buku panduan).
 - [ ] **P1** CAPTCHA Supabase Auth di daftar & lupa sandi; MFA wajib untuk ADMIN.
-- [ ] **P1** Laporkan kegiatan + antrean laporan; pengingat email + preferensi kanal (ADR-051).
+- [x] **P1** Laporkan kegiatan & pengguna + antrean `/admin/laporan` (ADR-061). Sisa: pengingat email + preferensi kanal (ADR-051).
 - [ ] **P2** `markNotificationReadAction`: batasi `revalidatePath` ke path yang dikenal.
 
 ## Fitur unggulan: tim, koneksi, kotak masuk 2026-10-05 (@claude) — ADR-054

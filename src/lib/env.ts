@@ -65,6 +65,15 @@ const serverSchema = z.object({
    * menolak semua permintaan (gagal tertutup), bukan terbuka.
    */
   CRON_SECRET: z.string().min(32, 'minimal 32 karakter acak, mis. `openssl rand -hex 32`').optional(),
+  /**
+   * Webhook Slack/Discord untuk ringkasan galat server (ADR-061). Kosong = galat
+   * hanya ke log hosting. https saja: URL webhook adalah rahasia.
+   */
+  ERROR_ALERT_WEBHOOK_URL: z
+    .string()
+    .url()
+    .refine((value) => value.startsWith('https://'), 'harus https://')
+    .optional(),
 }).refine(
   (value) => Boolean(value.TURNSTILE_SITE_KEY) === Boolean(value.TURNSTILE_SECRET_KEY),
   {
@@ -100,6 +109,7 @@ function readEnv(): ServerEnv {
     TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY || undefined,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY || undefined,
     CRON_SECRET: process.env.CRON_SECRET || undefined,
+    ERROR_ALERT_WEBHOOK_URL: process.env.ERROR_ALERT_WEBHOOK_URL || undefined,
   });
 
   if (!parsed.success) {

@@ -25,7 +25,7 @@ cp pipeline/config/sources.example.yaml pipeline/config/sources.yaml
 python pipeline/run.py --config pipeline/config/sources.yaml --dry-run
 
 # Sungguhan
-export NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... GEMINI_API_KEY=...
+export NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... GEMINI_API_KEY=... GEMINI_MODEL=<id model hidup dari models.list>
 python pipeline/run.py --config pipeline/config/sources.yaml
 ```
 

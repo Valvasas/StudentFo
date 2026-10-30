@@ -2,7 +2,7 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Check, GraduationCap, Info, UserPlus } from 'lucide-react';
+import { ArrowLeft, Check, Flag, GraduationCap, Info, UserPlus } from 'lucide-react';
 import { requestConnectionAction } from '@/app/connections/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon } from '@/components/listing/category-icon';
@@ -135,6 +135,15 @@ export default async function PublicProfilePage({
           </p>
         )}
       </section>
+
+      {relation !== 'self' && (
+        <Link
+          href={`/laporkan?orang=${encodeURIComponent(person.userId)}`}
+          className="inline-flex min-h-11 items-center gap-1.5 self-start text-[13px] font-medium text-ink-muted underline-offset-[3px] hover:text-ink hover:underline"
+        >
+          <Flag aria-hidden className="size-3.5" /> Laporkan pengguna ini
+        </Link>
+      )}
     </div>
   );
 }

@@ -1,13 +1,15 @@
 import Link from 'next/link';
-import { BadgeCheck, History, Megaphone, Scale, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Flag, History, Megaphone, Scale, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react';
 import { ScrollRail } from '@/components/ui/scroll-rail';
 import { cn } from '@/lib/utils';
 
-export type AdminSection = 'antrean' | 'penyelenggara' | 'riwayat' | 'kalibrasi' | 'promosi';
+export type AdminSection = 'antrean' | 'laporan' | 'penyelenggara' | 'pengguna' | 'riwayat' | 'kalibrasi' | 'promosi';
 
 const ITEMS: readonly { key: AdminSection; label: string; href: string; icon: LucideIcon }[] = [
   { key: 'antrean', label: 'Antrean moderasi', href: '/admin', icon: ShieldCheck },
+  { key: 'laporan', label: 'Laporan', href: '/admin/laporan', icon: Flag },
   { key: 'penyelenggara', label: 'Penyelenggara', href: '/admin/penyelenggara', icon: BadgeCheck },
+  { key: 'pengguna', label: 'Pengguna', href: '/admin/pengguna', icon: UsersRound },
   { key: 'riwayat', label: 'Riwayat moderasi', href: '/admin/riwayat', icon: History },
   { key: 'kalibrasi', label: 'Kalibrasi rekomendasi', href: '/admin/kalibrasi', icon: Scale },
   { key: 'promosi', label: 'Lencana & promosi', href: '/admin/promosi', icon: Megaphone },
@@ -21,7 +23,7 @@ const ITEMS: readonly { key: AdminSection; label: string; href: string; icon: Lu
  * Di ponsel menggulir horizontal; wadahnya `relative` supaya teks `sr-only`
  * di badge tidak lolos dari kliping dan melebarkan halaman 320px (ADR-054).
  */
-export function AdminNav({ active, trustWaiting = 0 }: { active: AdminSection; trustWaiting?: number }) {
+export function AdminNav({ active, trustWaiting = 0, reportsOpen = 0 }: { active: AdminSection; trustWaiting?: number; reportsOpen?: number }) {
   return (
     <ScrollRail
       aria-label="Ruang kerja moderator"
@@ -42,14 +44,14 @@ export function AdminNav({ active, trustWaiting = 0 }: { active: AdminSection; t
               >
                 <item.icon aria-hidden className="size-4" />
                 {item.label}
-                {item.key === 'penyelenggara' && trustWaiting > 0 && (
+                {((item.key === 'penyelenggara' && trustWaiting > 0) || (item.key === 'laporan' && reportsOpen > 0)) && (
                   <span
                     className={cn(
                       'flex h-5 min-w-5 items-center justify-center rounded-pill px-1.5 text-[11px] font-semibold',
                       on ? 'bg-on-brand text-brand' : 'bg-highlight text-on-highlight',
                     )}
                   >
-                    {trustWaiting}
+                    {item.key === 'laporan' ? reportsOpen : trustWaiting}
                     <span className="sr-only"> menunggu</span>
                   </span>
                 )}

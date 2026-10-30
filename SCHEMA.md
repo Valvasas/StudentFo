@@ -40,6 +40,7 @@ Urutan migration (harus dijalankan berurutan):
 30. `20261014100001_registrations_gallery_payments.sql` — formulir internal, pendaftaran, bukti bayar, galeri + bucket privat (ADR-056; rincian di bagian tabelnya)
 31. `20261015100001_registration_code_retry.sql` — `register_for_event` mencoba ulang kode pendaftaran bila tabrakan
 32. `20261020100001_team_matching.sql` — `team_seekers` + `list_team_candidates()` (ADR-057)
+34. `20261031100001_trust_and_safety.sql` — `content_reports` + `report_content()`/`resolve_content_report()`, `users.suspended_at` + `set_user_suspension()`, `account_storage_paths()`/`delete_user_account()`, `ugc_submissions.rejection_reason`, subjek/status baru di `moderation_log` (ADR-061)
 33. `20261030100001_data_retention.sql` — `purge_old_notifications()` (dibaca > 180 hari / semua > 365 hari) dan `redact_decided_submission_emails()` (email kiriman yang sudah diputuskan > 90 hari → `dihapus@retensi.invalid`); service_role saja + pg_cron (ADR-060)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
@@ -383,6 +384,32 @@ DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom
 `submitted_by_email` dan `payload`; `payload` wajib objek JSON ≤ 16 KB dan
 email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 `src/lib/submission-schema.ts`. Persetujuan lewat RPC `approve_submission()`.
+
+Sejak `20261031100001`: kolom `rejection_reason` (≤500, ditulis service_role
+bersama status REJECTED; trigger notifikasi menyertakannya). Bukan hak tulis klien.
+
+### `content_reports` + penangguhan & hapus akun (ADR-061)
+`content_reports`: `reporter_id` (SET NULL), `subject_type` `event|user`,
+`subject_id` (TANPA FK — laporan bertahan walau subjek dihapus), `reason`
+(daftar tertutup = `REPORT_REASONS` di `src/types/domain.ts`), `details` ≤1000,
+`status` `OPEN|RESOLVED|DISMISSED` + jejak tinjauan (CHECK konsisten). Unik
+satu OPEN per (pelapor, subjek). RLS aktif TANPA policy; semua hak dicabut dari
+`anon`/`authenticated`. Tulis: `report_content()` (DEFINER, `authenticated`,
+pelapor = `auth.uid()`, subjek harus terlihat, 10/hari). Putuskan:
+`resolve_content_report()` (service_role, tercatat di `moderation_log`).
+
+`users.suspended_at` / `suspension_reason` — terbaca pemilik (RLS baris
+sendiri), tidak tertulis klien. `set_user_suspension()` (service_role): ADMIN &
+diri sendiri ditolak, alasan ≥5 karakter, ikut menulis
+`auth.users.banned_until` dan menghapus `auth.sessions`, menutup profil
+Koneksi & kartu pemain, tercatat di log.
+
+`account_storage_paths()` → berkas Storage milik akun (bukti bayar);
+`delete_user_account()` → hapus `auth.users` (CASCADE ke seluruh tabel milik
+pengguna). Keduanya service_role. Aplikasi menghapus berkas DULU.
+`moderation_log` menerima subjek `user`/`report` dan status
+`OPEN|RESOLVED|DISMISSED|ACTIVE|SUSPENDED|DELETED`.
+Uji: `supabase/tests/102_trust_and_safety.test.sql`, `tests/integration/trust-safety.test.ts`.
 
 ## Fungsi (semua `SECURITY DEFINER` punya `SET search_path = public, pg_temp`)
 

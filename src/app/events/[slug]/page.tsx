@@ -11,6 +11,7 @@ import {
   BadgeCheck,
   Bookmark,
   ExternalLink,
+  Flag,
   FileText,
   GraduationCap,
   MapPin,
@@ -551,6 +552,15 @@ export default async function EventDetailPage({
               </div>
             )}
 
+            {/* Setiap tab, bukan hanya tab sumber: penipuan paling sering terlihat
+                dari syarat & biaya (ADR-061). Tamu diarahkan masuk dulu. */}
+            <Link
+              href={`/laporkan?kegiatan=${encodeURIComponent(event.slug)}`}
+              rel="nofollow"
+              className="inline-flex min-h-11 items-center gap-1.5 self-start text-[13px] font-medium text-ink-muted underline-offset-[3px] hover:text-ink hover:underline"
+            >
+              <Flag aria-hidden className="size-3.5" /> Ada yang janggal? Laporkan kegiatan ini
+            </Link>
           </section>
         </div>
 

@@ -12,6 +12,69 @@ terdokumentasi.
 
 ---
 
+## ADR-061 — Keamanan & kepercayaan untuk MVP publik: laporan, penangguhan, hapus akun, pemantauan galat
+
+**Konteks:** Pemilik meminta semua kekurangan MVP dikerjakan sebelum situs dibuka.
+Yang menghalangi operasi publik yang aman, diukur dari kode: tidak ada cara
+melaporkan penipuan/pelecehan, admin tidak bisa menangguhkan atau menghapus
+akun dari aplikasi, hapus akun (janji Kebijakan privasi, UU PDP Pasal 8) hanya
+lewat email tanpa alat, alasan penolakan kiriman tidak disimpan, galat server
+hanya ke log mentah, janji "perubahan diumumkan ≥ 14 hari" tanpa mekanisme,
+dan pipeline memakai model Gemini yang sudah mati sebagai bawaan.
+
+**Keputusan:**
+1. **`content_reports` + `report_content()` (DEFINER).** Pelapor = `auth.uid()`,
+   bukan parameter. Subjek harus terlihat pelapor (kegiatan tayang / akun ada,
+   bukan diri sendiri) — selain itu galat yang sama (tidak bisa dipakai menebak
+   keberadaan akun). Satu laporan TERBUKA per (pelapor, subjek), 10/hari. Tanpa
+   FK ke subjek: laporan tetap ada walau acara/akun dihapus. Tamu tidak bisa
+   melapor (akuntabilitas & spam); tautan "Laporkan" mengarahkan masuk dulu.
+2. **Penangguhan = `users.suspended_at` + `auth.users.banned_until = infinity`
+   + hapus `auth.sessions`.** Aplikasi memperlakukan akun ditangguhkan sebagai
+   tidak masuk SEKETIKA (`getSessionUser`); GoTrue menolak masuk & penyegaran;
+   akses PostgREST langsung paling lama sampai access token (±1 jam) habis.
+   Penangguhan juga menutup profil Koneksi & kartu pemain (tidak dipulihkan
+   otomatis). ADMIN dan diri sendiri tidak bisa ditangguhkan/dihapus dari
+   aplikasi; peran ADMIN tetap hanya lewat service_role.
+3. **`user_banned` dipetakan ke `invalid_credentials`.** Pesan "akunmu
+   ditangguhkan" di halaman masuk membocorkan bahwa email itu terdaftar DAN
+   ditangguhkan kepada siapa pun yang mengetiknya (AGENTS.md #12). Pemilik
+   akun dikabari admin lewat email — antarmuka admin mengingatkannya.
+4. **Satu pintu hapus akun: `delete_user_account()`** untuk hapus mandiri
+   (Pengaturan, frasa "HAPUS AKUN" — bukan sandi, akun Google tidak punya sandi)
+   dan hapus atas permintaan oleh admin (alasan wajib). Berkas Storage dihapus
+   DULU lewat Storage API dari daftar `account_storage_paths()`; gagal = akun
+   tidak dihapus (tidak ada berkas yatim). Log moderasi penghapusan oleh admin
+   berjudul "Akun dihapus" — tanpa nama orang yang meminta datanya dihapus.
+5. **Semua tindakan admin atas pengguna & laporan masuk `moderation_log`**
+   (subjek `user`/`report`, status OPEN/RESOLVED/DISMISSED/ACTIVE/SUSPENDED/
+   DELETED). "Turunkan kegiatan" dari laporan memakai `reviewEvent` biasa
+   (APPROVED → REJECTED) sehingga bisa dikembalikan dari Riwayat.
+6. **`ugc_submissions.rejection_reason`** ditulis bersama status (trigger
+   notifikasi membacanya dari NEW) dan tampil di "Kirimanmu".
+7. **Pemantauan galat tanpa dependency:** `instrumentation.ts`
+   `onRequestError` → satu baris JSON `request_error` (path tanpa query string)
+   + webhook Slack/Discord opsional (`ERROR_ALERT_WEBHOOK_URL`), dibatasi per
+   galat 1×/5 menit dan 10 kiriman/5 menit. Sentry tetap opsi bila pemilik
+   menyetujui dependency.
+8. **Banner perubahan dokumen hukum** tampil otomatis selama tanggal berlaku
+   final di env masih di masa depan — memenuhi janji 14 hari tanpa panel admin.
+9. **Pipeline: `GEMINI_MODEL` wajib, tanpa bawaan, divalidasi `models.get` saat
+   start.** Id pengganti tidak dikarang; harus dicek dengan kunci pemilik.
+10. Label log moderasi disatukan di `src/lib/moderation-labels.ts` (sebelumnya
+    disalin di dua halaman).
+
+**Konsekuensi:** + Penipuan & pelecehan punya jalur lapor → tindak yang
+tercatat. + Hak hapus UU PDP bisa dipakai tanpa menunggu email. + Galat
+produksi terlihat dalam hitungan detik bila webhook diisi. − `banned_until` &
+`auth.sessions` diubah lewat SQL dari fungsi DEFINER: perilaku GoTrue terhadap
+kolom itu harus dibuktikan di staging (lingkungan ini tidak punya GoTrue). −
+Mode seed tidak mengenal peran/email orang contoh: pencarian admin demo hanya
+menemukan orang contoh & pengguna demo yang pernah bertindak. − Belum ada
+pemberitahuan otomatis ke pelapor saat laporannya diputuskan.
+
+---
+
 ## ADR-060 — Dokumen hukum (privasi, cookie, S&K) mengikuti sistem yang sebenarnya; retensi dijalankan; bukti persetujuan & usia
 
 **Konteks:** Pemilik meminta (2026-10-30) dokumen hukum dilengkapi sesuai

@@ -257,6 +257,7 @@ interface ReviewSubmissionInput {
   submissionId: string;
   decision: 'APPROVED' | 'REJECTED';
   reviewerId: string | null;
+  reason?: string; // REJECTED saja, ≤500 → ugc_submissions.rejection_reason (ADR-061)
 }
 ```
 
@@ -464,10 +465,44 @@ gagal → `invalid_presentation` / `event_unavailable`. Mencabut tag `events`.
 
 ### `reviewSubmissionAction` — `src/app/admin/actions.ts`
 
-Field: `submissionId`, `decision` (`APPROVED`/`REJECTED`). Otorisasi
+Field: `submissionId`, `decision` (`APPROVED`/`REJECTED`), `reason` (opsional,
+hanya dipakai saat menolak; dikirim ke pengirim lewat notifikasi & "Kirimanmu"). Otorisasi
 `checkAdminAccess()` di dalam aksi. Sukses → `/admin?notice=submission_approved`
 atau `submission_rejected`; gagal → `/admin?error=<kode>`
 (`submission_duplicate`, `submission_not_found`, `invalid_submission`).
+
+### Keamanan & kepercayaan (ADR-061)
+
+`TrustSafetyRepository` (bagian dari `EventRepository`):
+
+| Method | Siapa | Galat (kode) |
+|---|---|---|
+| `reportContent(reporterId, { subjectType, subjectId, reason, details })` | pengguna masuk; Supabase memakai klien pengguna (`auth.uid()` = pelapor) | `report_unavailable` (subjek tidak terlihat/diri sendiri), `report_rate_limited` (10/hari), `invalid_report` |
+| `listOpenReports(limit)` / `countOpenReports()` | admin | — |
+| `resolveReport({ reportId, actorId, outcome, note })` | admin | `report_not_found` (sudah diputuskan) |
+| `searchUsers(query, limit)` | admin; `query` lewat `normalizeUserSearch` | — |
+| `setUserSuspension({ userId, actorId, suspend, reason })` | admin | `user_not_found`, `user_protected` (ADMIN/diri sendiri), `suspension_reason_required` |
+| `deleteAccount({ userId, actorId, reason })` | pemilik (`actorId === userId`) atau admin | `user_not_found`, `user_protected`, `account_delete_failed` (berkas Storage gagal dihapus — akun TIDAK dihapus) |
+
+Server Action:
+
+- `reportContentAction` (`src/app/laporkan/actions.ts`): `subjectType`,
+  `subjectId`, `reason`, `details`, `self`, `back` (keduanya lewat
+  `safeNextPath`). Sukses → `<back>?notice=report_sent`; gagal → `<self>?error=…`.
+  Tamu → `/login?next=<self>`.
+- `resolveReportAction` (admin): `reportId`, `outcome` (`RESOLVED`|`DISMISSED`,
+  dari tombol), `note`, `takedownEventId` (kotak centang; hanya untuk RESOLVED →
+  `reviewEvent` REJECTED). → `/admin/laporan?notice=report_resolved|report_dismissed`.
+- `setUserSuspensionAction` (admin): `userId`, `mode` (`suspend`|`restore`),
+  `reason`, `q` (dikembalikan sebagai nilai). → `/admin/pengguna?q=…&notice=user_suspended|user_unsuspended`.
+- `deleteUserAction` (admin): `userId`, `reason` (≥5), `confirm` (= `HAPUS AKUN`).
+  → `/admin/pengguna?notice=user_deleted`.
+- `deleteOwnAccountAction` (`src/app/profile/actions.ts`): `confirm`. Sukses →
+  sesi dibersihkan, `/?notice=account_deleted`; gagal → `/profile/settings?error=…#hapus-akun`.
+
+Sesi: `getSessionUser()` mengembalikan `null` untuk akun yang ditangguhkan
+(Supabase: `users.suspended_at`; seed: `isDemoUserSuspended`). Galat GoTrue
+`user_banned` dipetakan ke `invalid_credentials` (tidak membocorkan status akun).
 
 ### `reviewEventAction(formData: FormData): Promise<void>`
 `src/app/admin/actions.ts`. Endpoint HTTP tersembunyi di balik `<form action=...>`
@@ -510,6 +545,19 @@ autentikasi, `Cache-Control: no-store` (juga `HEAD`).
 `tests/integration/smoke.test.ts`). Monitor produksi sebaiknya menegaskan
 `dataMode === "supabase"`: deploy yang kehilangan env Supabase dan menyala
 dengan `ALLOW_DEMO_IN_PRODUCTION` tetap menjawab 200.
+
+### `GET /profile/privacy/ekspor` (ADR-060)
+
+Unduhan JSON `studentfo-account-export/1` milik pengguna yang masuk
+(`Content-Disposition: attachment`, `no-store`). Tamu → `/login?next=/profile/privacy`.
+
+### Pemantauan galat — `src/instrumentation.ts` (ADR-061)
+
+`onRequestError` menulis satu baris JSON per galat server:
+`{"event":"request_error","at","digest","message","method","path","routePath","routeType"}`
+— `path` tanpa query string, `message` ≤300 karakter. Bila `ERROR_ALERT_WEBHOOK_URL`
+diisi, ringkasannya dikirim (`{ text, content }`, Slack & Discord), dibatasi
+galat yang sama 1×/5 menit dan 10 kiriman/5 menit per proses.
 
 ### `POST /api/cron/dispatch-deadline-notifications?limit=100` (ADR-051)
 

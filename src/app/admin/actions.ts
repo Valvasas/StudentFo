@@ -10,6 +10,7 @@ import { dataMode } from '@/lib/env';
 import { toApiError } from '@/lib/errors';
 import { parsePresentationForm } from '@/lib/event-presentation';
 import { formText, formTrimmed } from '@/lib/form-data';
+import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch } from '@/lib/trust-safety';
 
 /**
  * Aksi moderasi.
@@ -90,11 +91,13 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   let failure: ActionErrorCode | null = null;
   try {
     const repository = await getEventRepository();
+    const reason = formText(formData, 'reason').trim().slice(0, 500);
     await repository.reviewSubmission({
       submissionId,
       decision,
       reviewerId: gate.userId,
       reviewerName: gate.userName,
+      ...(decision === 'REJECTED' && reason ? { reason } : {}),
     });
   } catch (error) {
     failure = toActionErrorCode(error);
@@ -270,4 +273,106 @@ export async function restoreRejectedAction(formData: FormData): Promise<void> {
   revalidatePath('/admin');
   revalidatePath(HISTORY);
   redirect(withQuery(HISTORY, { notice: 'moderation_restored' }));
+}
+
+// ----------------------------------------------------------------------
+// Laporan konten & manajemen pengguna (ADR-061)
+// ----------------------------------------------------------------------
+
+const REPORTS_PAGE = '/admin/laporan';
+const USERS_PAGE = '/admin/pengguna';
+
+export async function resolveReportAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const reportId = formTrimmed(formData, 'reportId');
+  const outcome = formText(formData, 'outcome');
+  const note = formText(formData, 'note').trim().slice(0, MODERATION_NOTE_MAX);
+  // Hanya terkirim bila kotak "turunkan kegiatan" dicentang.
+  const takedownEventId = formTrimmed(formData, 'takedownEventId');
+  if (!reportId || (outcome !== 'RESOLVED' && outcome !== 'DISMISSED')) redirect(withQuery(REPORTS_PAGE, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    if (outcome === 'RESOLVED' && takedownEventId) {
+      // Jalur moderasi biasa: tercatat di log sebagai APPROVED → REJECTED oleh admin ini.
+      await repository.reviewEvent({
+        eventId: takedownEventId,
+        decision: 'REJECTED',
+        reviewerId: gate.userId,
+        reviewerName: gate.userName,
+        reason: note || 'Diturunkan setelah laporan pengguna',
+      });
+    }
+    await repository.resolveReport({ reportId, actorId: gate.userId, actorName: gate.userName, outcome, note: note || null });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(withQuery(REPORTS_PAGE, { error: failure }));
+  if (outcome === 'RESOLVED' && takedownEventId) refreshPublicViews();
+  revalidatePath(REPORTS_PAGE);
+  redirect(withQuery(REPORTS_PAGE, { notice: outcome === 'RESOLVED' ? 'report_resolved' : 'report_dismissed' }));
+}
+
+/** Kembali ke pencarian yang sama — hanya sebagai NILAI `q`, bukan path dari form. */
+function usersPage(formData: FormData, feedback: { error?: ActionErrorCode; notice?: ActionNoticeCode }): string {
+  return withQuery(USERS_PAGE, { q: normalizeUserSearch(formText(formData, 'q')) || undefined, ...feedback });
+}
+
+export async function setUserSuspensionAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const userId = formTrimmed(formData, 'userId');
+  const mode = formText(formData, 'mode');
+  if (!userId || (mode !== 'suspend' && mode !== 'restore')) redirect(usersPage(formData, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    await repository.setUserSuspension({
+      userId,
+      actorId: gate.userId,
+      actorName: gate.userName,
+      suspend: mode === 'suspend',
+      reason: formText(formData, 'reason').trim().slice(0, MODERATION_NOTE_MAX) || null,
+    });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(usersPage(formData, { error: failure }));
+  revalidatePath(USERS_PAGE);
+  redirect(usersPage(formData, { notice: mode === 'suspend' ? 'user_suspended' : 'user_unsuspended' }));
+}
+
+/**
+ * Hapus akun atas permintaan pemiliknya (mis. lewat email, UU PDP Pasal 8) atau
+ * karena pelanggaran berat. Wajib alasan + frasa konfirmasi; tercatat di riwayat
+ * tanpa nama pemilik.
+ */
+export async function deleteUserAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const userId = formTrimmed(formData, 'userId');
+  const reason = formText(formData, 'reason').trim().slice(0, MODERATION_NOTE_MAX);
+  if (!userId) redirect(usersPage(formData, { error: 'invalid_request' }));
+  if (!isDeleteConfirmed(formText(formData, 'confirm'))) redirect(usersPage(formData, { error: 'account_delete_confirm' }));
+  if (reason.length < 5) redirect(usersPage(formData, { error: 'suspension_reason_required' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    await repository.deleteAccount({ userId, actorId: gate.userId, actorName: gate.userName, reason });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(usersPage(formData, { error: failure }));
+  revalidatePath(USERS_PAGE);
+  redirect(withQuery(USERS_PAGE, { notice: 'user_deleted' }));
 }

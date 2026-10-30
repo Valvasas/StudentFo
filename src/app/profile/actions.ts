@@ -4,13 +4,17 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ACCOUNT_SIDEBAR_COOKIE, ACCOUNT_SIDEBAR_MAX_AGE, isSidebarCollapsed } from '@/lib/account-sidebar';
+import { type ActionErrorCode, toActionErrorCode, withQuery } from '@/lib/action-feedback';
+import { getSessionUser } from '@/lib/auth';
 import { type AuthErrorCode } from '@/lib/auth-messages';
+import { getEventRepository } from '@/lib/data';
 import { profileSchema } from '@/lib/auth-schema';
-import { updateDemoProfile } from '@/lib/demo/session';
+import { endDemoSession, updateDemoProfile } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
 import { formList, formTrimmed as text } from '@/lib/form-data';
-import { safeNextPath } from '@/lib/safe-redirect';
+import { loginHref, safeNextPath } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { isDeleteConfirmed } from '@/lib/trust-safety';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/domain';
 
 /**
@@ -100,4 +104,39 @@ export async function toggleAccountSidebarAction(formData: FormData): Promise<vo
     secure: process.env.NODE_ENV === 'production',
   });
   redirect(safeNextPath(text(formData, 'returnTo'), '/profile'));
+}
+
+const SETTINGS_PAGE = '/profile/settings';
+
+/**
+ * Hapus akun sendiri (ADR-061, UU PDP Pasal 8). Konfirmasi ketik frasa —
+ * bukan sandi, karena akun Google tidak punya sandi; sesi yang sah + frasa
+ * yang disengaja sudah membuktikan niat pemilik.
+ */
+export async function deleteOwnAccountAction(formData: FormData): Promise<void> {
+  const user = await getSessionUser();
+  if (!user) redirect(loginHref(SETTINGS_PAGE));
+  if (!isDeleteConfirmed(text(formData, 'confirm'))) redirect(`${withQuery(SETTINGS_PAGE, { error: 'account_delete_confirm' })}#hapus-akun`);
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).deleteAccount({ userId: user.id, actorId: user.id, reason: null });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(`${withQuery(SETTINGS_PAGE, { error: failure })}#hapus-akun`);
+
+  // Akun sudah tidak ada; yang tersisa hanya cookie sesi di peramban ini.
+  if (dataMode === 'seed') {
+    await endDemoSession();
+  } else {
+    try {
+      const supabase = await createSupabaseServerClient();
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      console.error('[akun] gagal membersihkan sesi setelah hapus akun:', error);
+    }
+  }
+  revalidatePath('/', 'layout');
+  redirect(withQuery('/', { notice: 'account_deleted' }));
 }

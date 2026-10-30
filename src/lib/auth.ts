@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { demoEmailOf } from '@/lib/demo/personas';
 import { readDemoSession } from '@/lib/demo/session';
+import { isDemoUserSuspended } from '@/lib/data';
 import { dataMode } from '@/lib/env';
 import { NOT_FOUND_TITLE } from '@/lib/page-title';
 import { loginHref } from '@/lib/safe-redirect';
@@ -48,9 +49,14 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('full_name, role, education_level, major, interests')
+    .select('full_name, role, education_level, major, interests, suspended_at')
     .eq('id', user.id)
     .maybeSingle<UserProfileRow>();
+
+  // Akun yang ditangguhkan (ADR-061) diperlakukan tidak masuk SEKETIKA, tanpa
+  // menunggu access token-nya kedaluwarsa. GoTrue (`banned_until`) menolak
+  // masuk & penyegaran berikutnya.
+  if (profile?.suspended_at) return null;
 
   const metadataName =
     typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null;
@@ -78,7 +84,7 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
  */
 async function getDemoUser(): Promise<AuthUser | null> {
   const session = await readDemoSession();
-  if (!session) return null;
+  if (!session || isDemoUserSuspended(session.uid)) return null;
 
   return {
     id: session.uid,

@@ -71,6 +71,9 @@ const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/pendaftar'],
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001/galeri'],
   ['Admin moderator', '/'],
+  ['Admin moderator', '/admin/laporan'],
+  ['Admin moderator', '/admin/pengguna?q=Rani'],
+  ['Mahasiswa', '/laporkan?kegiatan=kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
   ['Mahasiswa', '/pembayaran'],
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026/formulir'],
 ];

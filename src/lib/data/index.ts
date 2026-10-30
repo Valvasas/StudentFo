@@ -90,6 +90,11 @@ export function seedDemoNetwork(userId: string): void {
  * dan riwayat analitik fiktif (persona "Penyelenggara"). Di produksi status
  * ini hanya lahir dari keputusan admin.
  */
+/** Penangguhan akun di mode seed (ADR-061); di produksi dibaca dari `users.suspended_at`. */
+export function isDemoUserSuspended(userId: string): boolean {
+  return dataMode === 'seed' && memoryRepository().isSuspended(userId);
+}
+
 export function seedDemoPortfolio(userId: string): void {
   if (dataMode !== 'seed') throw new Error('seedDemoPortfolio hanya berlaku di mode seed.');
   memoryRepository().seedDemoPortfolio(userId);

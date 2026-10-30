@@ -7,7 +7,7 @@ import { z } from 'zod';
  * yang benar-benar dibaca pengguna. Berbeda dari tanggal berlaku, yang
  * diisi pemilik lewat env setelah meninjau.
  */
-export const LEGAL_REVISION = '2026-10-30';
+export const LEGAL_REVISION = '2026-10-31';
 
 /** Nama pengelola selama pemilik belum mengisi `LEGAL_OPERATOR_NAME`. */
 export const DEFAULT_OPERATOR_NAME = 'Pengelola StudentFo';
@@ -57,4 +57,25 @@ export interface LegalConsentRecord {
 
 export function legalConsentRecord(via: LegalConsentRecord['via'], now: Date = new Date()): LegalConsentRecord {
   return { revision: LEGAL_REVISION, at: now.toISOString(), age_confirmed: true, via };
+}
+
+export interface UpcomingLegalChange {
+  readonly label: string;
+  readonly href: string;
+  readonly effectiveDate: string;
+}
+
+/**
+ * Dokumen final yang tanggal berlakunya masih di depan (`today` = YYYY-MM-DD
+ * WIB). Kedua dokumen menjanjikan perubahan penting diumumkan ≥ 14 hari sebelum
+ * berlaku; pemilik cukup mengisi tanggal berlaku di masa depan, banner tampil
+ * sendiri sampai hari itu tiba.
+ */
+export function upcomingLegalChanges(
+  documents: readonly { readonly label: string; readonly href: string; readonly status: LegalDocumentStatus }[],
+  today: string,
+): UpcomingLegalChange[] {
+  return documents.flatMap(({ label, href, status }) =>
+    status.final && status.effectiveDate > today ? [{ label, href, effectiveDate: status.effectiveDate }] : [],
+  );
 }

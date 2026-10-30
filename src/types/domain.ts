@@ -373,14 +373,70 @@ export interface Submission {
   readonly status: EventStatus;
   readonly createdAt: string;
   readonly payload: SubmissionPayload | null;
+  /** Diisi moderator saat menolak (ADR-061); ditampilkan ke pengirimnya. */
+  readonly rejectionReason: string | null;
 }
 
 /** Status yang bisa muncul di log moderasi — status acara + status penyelenggara (ADR-042). */
-export const MODERATION_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'VERIFIED', 'REVOKED'] as const;
+export const MODERATION_STATUSES = [
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+  'EXPIRED',
+  'VERIFIED',
+  'REVOKED',
+  'OPEN',
+  'RESOLVED',
+  'DISMISSED',
+  'ACTIVE',
+  'SUSPENDED',
+  'DELETED',
+] as const;
 export type ModerationStatus = (typeof MODERATION_STATUSES)[number];
 
-export const MODERATION_SUBJECTS = ['event', 'submission', 'organizer', 'claim', 'revision'] as const;
+export const MODERATION_SUBJECTS = ['event', 'submission', 'organizer', 'claim', 'revision', 'user', 'report'] as const;
 export type ModerationSubject = (typeof MODERATION_SUBJECTS)[number];
+
+// ---------------------------------------------------------------------
+// Laporan konten & manajemen pengguna (ADR-061) — paritas dengan CHECK di
+// migration 20261031100001_trust_and_safety.sql.
+// ---------------------------------------------------------------------
+export const REPORT_SUBJECTS = ['event', 'user'] as const;
+export type ReportSubject = (typeof REPORT_SUBJECTS)[number];
+
+export const REPORT_REASONS = ['scam', 'misleading', 'inappropriate', 'harassment', 'spam', 'impersonation', 'other'] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];
+
+export const REPORT_STATUSES = ['OPEN', 'RESOLVED', 'DISMISSED'] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+export interface ContentReport {
+  readonly id: string;
+  readonly subjectType: ReportSubject;
+  readonly subjectId: string;
+  /** Judul kegiatan / nama pengguna saat ini; null = subjek sudah tidak ada. */
+  readonly subjectLabel: string | null;
+  /** Slug kegiatan untuk tautan; null untuk pengguna atau kegiatan yang sudah hilang. */
+  readonly subjectSlug: string | null;
+  readonly reason: ReportReason;
+  readonly details: string | null;
+  readonly status: ReportStatus;
+  /** null = pelapor sudah menghapus akunnya. */
+  readonly reporterName: string | null;
+  readonly createdAt: string;
+}
+
+/** Baris hasil pencarian pengguna di /admin/pengguna. */
+export interface AdminUserSummary {
+  readonly id: string;
+  readonly fullName: string;
+  /** null di mode seed untuk orang contoh (tidak punya email). */
+  readonly email: string | null;
+  readonly role: 'USER' | 'ADMIN';
+  readonly createdAt: string | null;
+  readonly suspendedAt: string | null;
+  readonly suspensionReason: string | null;
+}
 
 /** Satu baris log moderasi append-only (tabel `moderation_log`). */
 export interface ModerationLogEntry {

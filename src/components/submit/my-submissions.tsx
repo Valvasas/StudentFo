@@ -24,7 +24,8 @@ const STATUS: Record<EventStatus, { label: string; icon: LucideIcon; tone: strin
  */
 export function MySubmissions({ submissions, title = 'Kirimanmu' }: { submissions: readonly Submission[]; title?: string }) {
   if (submissions.length === 0) return null;
-  const hasRejected = submissions.some((submission) => submission.status === 'REJECTED');
+  // Penjelasan umum hanya untuk penolakan TANPA alasan tertulis (kiriman lama, atau moderator tidak mengisinya).
+  const hasRejected = submissions.some((submission) => submission.status === 'REJECTED' && !submission.rejectionReason);
 
   return (
     <section aria-labelledby="kirimanmu" className="flex flex-col gap-3">
@@ -55,6 +56,11 @@ export function MySubmissions({ submissions, title = 'Kirimanmu' }: { submission
                   </Link>
                 )}
               </span>
+              {submission.status === 'REJECTED' && submission.rejectionReason && (
+                <p className="basis-full rounded-sm bg-panel-nested px-3 py-2 text-[13px] leading-relaxed text-ink-soft">
+                  <span className="font-semibold text-ink">Alasan moderator:</span> {submission.rejectionReason}
+                </p>
+              )}
             </li>
           );
         })}

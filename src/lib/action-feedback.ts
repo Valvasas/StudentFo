@@ -74,6 +74,15 @@ export const ACTION_ERROR_CODES = [
   'gallery_full',
   'too_many_photos',
   'photo_not_found',
+  'report_unavailable',
+  'report_rate_limited',
+  'invalid_report',
+  'report_not_found',
+  'user_not_found',
+  'user_protected',
+  'suspension_reason_required',
+  'account_delete_confirm',
+  'account_delete_failed',
   'invalid_request',
   'unknown',
 ] as const;
@@ -153,6 +162,15 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   gallery_full: 'Galeri maksimal 30 foto — sisa kuota tidak cukup untuk unggahan ini. Hapus beberapa foto lama dulu.',
   too_many_photos: 'Maksimal 6 foto sekali unggah. Pilih lebih sedikit lalu unggah sisanya berikutnya.',
   photo_not_found: 'Foto itu sudah tidak ada.',
+  report_unavailable: 'Yang kamu laporkan sudah tidak tersedia.',
+  report_rate_limited: 'Kamu sudah mengirim banyak laporan hari ini. Coba lagi besok, atau hubungi kami lewat email.',
+  invalid_report: 'Pilih alasan laporan, lalu kirim ulang. Keterangan maksimal 1.000 karakter.',
+  report_not_found: 'Laporan itu sudah diputuskan admin lain.',
+  user_not_found: 'Akun itu sudah tidak ada.',
+  user_protected: 'Akun admin dan akunmu sendiri tidak bisa diubah dari sini.',
+  suspension_reason_required: 'Tulis alasan penangguhan (minimal 5 karakter) — alasan ini tercatat di riwayat.',
+  account_delete_confirm: 'Ketik HAPUS AKUN persis untuk mengonfirmasi.',
+  account_delete_failed: 'Akun belum terhapus karena berkas unggahanmu gagal dihapus. Coba lagi sebentar lagi.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -194,6 +212,13 @@ export const ACTION_NOTICE_CODES = [
   'registration_reviewed',
   'photos_uploaded',
   'photo_deleted',
+  'report_sent',
+  'report_resolved',
+  'report_dismissed',
+  'user_suspended',
+  'user_unsuspended',
+  'user_deleted',
+  'account_deleted',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -237,6 +262,13 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   registration_reviewed: 'Keputusan disimpan dan peserta sudah dikabari.',
   photos_uploaded: 'Foto ditambahkan ke galeri acara.',
   photo_deleted: 'Foto dihapus dari galeri.',
+  report_sent: 'Laporan terkirim. Moderator meninjaunya — identitasmu tidak diberitahukan ke pihak yang dilaporkan.',
+  report_resolved: 'Laporan ditandai sudah ditindak dan tercatat di riwayat.',
+  report_dismissed: 'Laporan diabaikan dan tercatat di riwayat.',
+  user_suspended: 'Akun ditangguhkan: tidak bisa masuk lagi dan keluar dari direktori. Kabari pemiliknya lewat email.',
+  user_unsuspended: 'Penangguhan dicabut. Pemilik akun bisa masuk lagi.',
+  user_deleted: 'Akun beserta datanya dihapus dan tercatat di riwayat.',
+  account_deleted: 'Akunmu dan datanya sudah dihapus. Terima kasih sudah memakai StudentFo.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

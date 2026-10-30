@@ -127,7 +127,12 @@ export function SubmissionReviewCard({
       {/* Dua <form> terpisah — lihat catatan tombol Enter di antrean event. */}
       <div className="flex flex-wrap gap-2">
         {payload && <ApproveForm submissionId={submission.id} />}
-        <RejectConfirm action={reviewSubmissionAction} fields={{ submissionId: submission.id, decision: 'REJECTED' }} subject="kiriman ini" />
+        <RejectConfirm
+          action={reviewSubmissionAction}
+          fields={{ submissionId: submission.id, decision: 'REJECTED' }}
+          subject="kiriman ini"
+          reasonFor="pengirim"
+        />
       </div>
     </li>
   );

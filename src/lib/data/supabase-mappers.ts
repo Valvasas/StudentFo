@@ -28,6 +28,8 @@ import type {
   RegistrationStatus,
   Submission,
   TeamMember,
+  AdminUserSummary,
+  ContentReport,
 } from '@/types/domain';
 import { ACHIEVEMENTS, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVerificationBadge } from '@/types/domain';
 import type {
@@ -50,6 +52,8 @@ import type {
   TeamCandidateRow,
   TeamMemberProfileRow,
   TeamSeekerRow,
+  AdminUserRow,
+  ContentReportRow,
 } from '@/types/database';
 
 /**
@@ -149,6 +153,7 @@ export function toSubmission(row: SubmissionRow): Submission {
     status: row.status,
     createdAt: row.created_at,
     payload: fromStoredPayload(row.payload),
+    rejectionReason: row.rejection_reason ?? null,
   };
 }
 
@@ -578,4 +583,36 @@ export function registrationErrorCode(
   }
   if (message.includes('registration_requires_login')) return 'registration_closed';
   return null;
+}
+
+export function toContentReport(
+  row: ContentReportRow,
+  events: ReadonlyMap<string, { slug: string; title: string }>,
+  names: ReadonlyMap<string, string>,
+): ContentReport {
+  const event = row.subject_type === 'event' ? events.get(row.subject_id) : undefined;
+  return {
+    id: row.id,
+    subjectType: row.subject_type,
+    subjectId: row.subject_id,
+    subjectLabel: row.subject_type === 'event' ? (event?.title ?? null) : (names.get(row.subject_id) ?? null),
+    subjectSlug: event?.slug ?? null,
+    reason: row.reason,
+    details: row.details,
+    status: row.status,
+    reporterName: row.reporter_id ? (names.get(row.reporter_id) ?? null) : null,
+    createdAt: row.created_at,
+  };
+}
+
+export function toAdminUserSummary(row: AdminUserRow): AdminUserSummary {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    email: row.email,
+    role: row.role,
+    createdAt: row.created_at,
+    suspendedAt: row.suspended_at,
+    suspensionReason: row.suspension_reason,
+  };
 }

@@ -1,0 +1,52 @@
+import { z } from 'zod';
+import { REPORT_REASONS, REPORT_SUBJECTS, type ReportReason, type ReportSubject } from '@/types/domain';
+
+/** Cermin CHECK `content_reports.details` (migration 20261031100001). */
+export const REPORT_DETAILS_MAX = 1000;
+/** Cermin `set_user_suspension()`: alasan wajib bermakna, bukan satu huruf. */
+export const SUSPENSION_REASON_MIN = 5;
+export const MODERATION_NOTE_MAX = 500;
+/** Frasa yang diketik untuk hapus akun — sengaja panjang supaya tidak terkirim tak sengaja. */
+export const ACCOUNT_DELETE_PHRASE = 'HAPUS AKUN';
+
+const reportSchema = z.object({
+  subjectType: z.enum(REPORT_SUBJECTS),
+  subjectId: z.string().uuid(),
+  reason: z.enum(REPORT_REASONS),
+  details: z
+    .string()
+    // Karakter kendali & pengarah teks (RTL override) dibuang: keterangan dibaca moderator apa adanya.
+    .transform((value) => value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F‪-‮⁦-⁩]/g, '').trim())
+    .pipe(z.string().max(REPORT_DETAILS_MAX)),
+});
+
+export interface ParsedReport {
+  readonly subjectType: ReportSubject;
+  readonly subjectId: string;
+  readonly reason: ReportReason;
+  readonly details: string | null;
+}
+
+export function parseReportForm(input: { subjectType: string; subjectId: string; reason: string; details: string }): ParsedReport | null {
+  const parsed = reportSchema.safeParse(input);
+  if (!parsed.success) return null;
+  return { ...parsed.data, details: parsed.data.details || null };
+}
+
+/**
+ * Kata kunci pencarian pengguna admin → huruf, angka, spasi, dan karakter
+ * email (`@ . _ + -`). Nilainya dirakit ke filter `or(... ilike ...)` PostgREST:
+ * koma dan kurung mengubah BENTUK filter, `%`/`*` mengubah wildcard-nya.
+ */
+export function normalizeUserSearch(raw: string | null | undefined): string {
+  return (raw ?? '')
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}\s.'@_+-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+}
+
+export function isDeleteConfirmed(raw: string | null | undefined): boolean {
+  return (raw ?? '').trim().toUpperCase().replace(/\s+/g, ' ') === ACCOUNT_DELETE_PHRASE;
+}

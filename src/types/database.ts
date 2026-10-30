@@ -1,4 +1,7 @@
 import type {
+  ReportReason,
+  ReportStatus,
+  ReportSubject,
   ConnectionStatus,
   DeadlineLabel,
   EducationLevel,
@@ -96,6 +99,7 @@ export interface UserProfileRow {
   education_level: EducationLevel | null;
   major: string | null;
   interests: string[] | null;
+  suspended_at?: string | null;
 }
 
 export interface SavedEventRow {
@@ -199,6 +203,7 @@ export interface SubmissionRow {
   payload: unknown;
   status: EventStatus;
   created_at: string;
+  rejection_reason?: string | null;
 }
 
 /**
@@ -406,4 +411,27 @@ export interface TeamCandidateRow {
   portfolio_count: number | null;
   portfolio_achievements: string[] | null;
   relation: 'connected' | 'incoming' | 'outgoing' | null;
+}
+
+/** `content_reports` (ADR-061) — dibaca klien admin saja. */
+export interface ContentReportRow {
+  id: string;
+  reporter_id: string | null;
+  subject_type: ReportSubject;
+  subject_id: string;
+  reason: ReportReason;
+  details: string | null;
+  status: ReportStatus;
+  created_at: string;
+}
+
+/** Kolom `users` untuk /admin/pengguna (klien admin). */
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  full_name: string;
+  role: 'USER' | 'ADMIN';
+  created_at: string;
+  suspended_at: string | null;
+  suspension_reason: string | null;
 }

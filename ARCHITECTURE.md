@@ -68,13 +68,15 @@ src/
 │   ├── media/                  foto/[id] (foto galeri, publik, cache 1 hari) · bukti/[id] (bukti bayar, privat, 404 bila tak berhak)
 │   ├── about/                  Tentang — angka dari getStats(), klaim sesuai perilaku sistem
 │   ├── privacy-policy/ · cookie-policy/ · terms/   Dokumen hukum di atas LegalDocument; DRAF sampai pemilik mengisi env (ADR-060)
+│   ├── laporkan/               Form laporan kegiatan/pengguna (?kegiatan=slug | ?orang=id) + actions.ts (ADR-061)
 │   ├── submit/                 Kirim kegiatan (kiriman komunitas, boleh tamu) + actions.ts
 │   ├── notifications/          actions.ts (tandai dibaca)
 │   ├── api/events/[slug]/calendar/   GET berkas .ics semua tenggat (RFC 5545, ADR-049)
 │   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
 │   ├── api/health/             GET untuk monitor uptime: 200 bila database terjangkau (tanpa Data Cache), 503 bila tidak (ADR-059)
 │   ├── icon.tsx / apple-icon.tsx / manifest.ts   Ikon 32/192/512 + 180 dari geometri LogoMark (og/brand-icon.tsx); /favicon.ico = rewrite ke /icon/32 (ADR-059)
-│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055).
+│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); laporan/ & pengguna/ (ADR-061);
+│                               actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055).
 │                               Semua halaman memakai requireAdmin() = 404 bagi non-admin dan generateMetadata (ADR-057)
 │
 ├── components/
@@ -108,7 +110,8 @@ src/
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
 │   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
-│   ├── legal/                  LegalDocument (kerangka 3 dokumen hukum, daftar isi terlipat di ponsel), TocSpy, OperatorRef, ContactNote (ADR-060)
+│   ├── legal/                  LegalDocument (kerangka 3 dokumen hukum, daftar isi terlipat di ponsel), TocSpy, OperatorRef, ContactNote (ADR-060),
+│   │                           LegalUpdateBanner (dokumen yang akan berlaku, ADR-061)
 │   ├── admin/                  SubmissionReviewCard, AdminNav
 │   ├── auth/                   GoogleButton, AuthFeedback
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,
@@ -151,6 +154,9 @@ src/
 │   ├── demo/                   access.ts (murni: host demo & kunci Admin, ADR-057) [teruji], gate.ts (membaca env + header Host), personas, profile-extras
 │   ├── legal.ts                Status dokumen hukum (draf/final) dari env, LEGAL_REVISION, bukti persetujuan daftar (ADR-057, 060) [teruji]
 │   ├── account-export.ts       Salinan data akun JSON untuk /profile/privacy/ekspor — hak akses & portabilitas UU PDP (ADR-060) [teruji]
+│   ├── trust-safety.ts         Validasi form laporan, normalisasi cari pengguna, frasa hapus akun (ADR-061) [teruji]
+│   ├── moderation-labels.ts    Label status/subjek log moderasi & alasan laporan — satu sumber untuk halaman admin
+│   ├── error-alert.ts          Entri galat JSON (tanpa query string) + pembatas webhook; dipakai src/instrumentation.ts (ADR-061) [teruji]
 │   ├── page-title.ts           NOT_FOUND_TITLE, sectionTitle("Bagian · Subjek")
 │   ├── date-input.ts           formatPickedDate(): "2026-12-12" → "Sabtu, 12 Desember 2026", dipakai DateInput [teruji]
 │   ├── destination-label.ts    Nama halaman tujuan untuk "Masuk untuk membuka …" di /login (daftar tertutup per awalan path) [teruji]

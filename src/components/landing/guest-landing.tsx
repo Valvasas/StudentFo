@@ -6,6 +6,8 @@ import { withFallback } from '@/lib/fallback';
 import { cn } from '@/lib/utils';
 import { LandingHero } from './hero';
 import { RevealObserver } from './reveal-observer';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
+import type { RawSearchParams } from '@/lib/search-params';
 
 /**
  * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. Pratinjaunya
@@ -60,7 +62,7 @@ const PREVIEW_LIMIT = 6;
 const sectionClass = 'container-page max-w-[1120px] pt-[clamp(72px,9vw,112px)]';
 const h2Class = 'text-[clamp(28px,4.4vw,40px)] font-bold leading-[1.1] tracking-[-0.03em]';
 
-export async function GuestLanding() {
+export async function GuestLanding({ params = {} }: { params?: RawSearchParams }) {
   const closingSoon = await withFallback(
     'pratinjau tenggat terdekat',
     async () => (await getEventRepository()).listClosingSoon(PREVIEW_LIMIT),
@@ -70,6 +72,8 @@ export async function GuestLanding() {
   return (
     <div className="overflow-x-clip">
       <RevealObserver />
+      {/* Satu-satunya notice yang mendarat di sini: akun baru saja dihapus (ADR-061). */}
+      <ActionFeedback params={params} className="container-page max-w-[1120px] pt-6" />
       <LandingHero />
 
       {closingSoon.length > 0 && (

@@ -139,7 +139,7 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    ```
 5. Job terjadwal sudah ada di `.github/workflows/` (expiry harian, notifikasi
    tenggat, scraper). Isi GitHub Secrets `SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, dan `PIPELINE_SOURCES_YAML`
+   `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL` (wajib, tanpa bawaan — cek id hidup lewat `models.list`), dan `PIPELINE_SOURCES_YAML`
    (isi lengkap `sources.yaml` — berkas itu sengaja tidak disimpan di repo).
 
 ### Autentikasi
