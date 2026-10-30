@@ -64,6 +64,12 @@ test('lapor pengguna → admin menangguhkan → sesi terlapor putus → dicabut 
   await expect(admin.getByText(/Laporan diabaikan/)).toBeVisible();
   await expect(admin.locator('main li').filter({ hasText: `Ajakan berulang ${token}` })).toHaveCount(0);
 
+  // Pelapor dikabari hasilnya — tanpa catatan internal moderator (ADR-062).
+  await a.goto('/');
+  await a.locator('summary[aria-label^="Notifikasi"]').first().click();
+  await expect(a.getByText(/Laporanmu tentang akun yang kamu laporkan sudah ditinjau moderator/).first()).toBeVisible();
+  await expect(a.getByText(`Diperingatkan lewat email ${token}`)).toHaveCount(0);
+
   await admin.goto('/admin/riwayat');
   await expect(admin.getByText(`Diperingatkan lewat email ${token}`)).toBeVisible();
   await expect(admin.getByText(`Pelecehan berulang ${token}`)).toBeVisible();

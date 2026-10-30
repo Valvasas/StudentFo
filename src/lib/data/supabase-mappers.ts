@@ -6,6 +6,7 @@ import { parseStoredFields } from '@/lib/registration-form';
 import type {
   AnswerValue,
   Connection,
+  CronJobHealth,
   DeadlineDispatch,
   EventClaim,
   EventDetail,
@@ -34,6 +35,7 @@ import type {
 import { ACHIEVEMENTS, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVerificationBadge } from '@/types/domain';
 import type {
   ConnectionPeerRow,
+  CronJobHealthRow,
   EventClaimRow,
   EventDeadlineRow,
   EventListingRow,
@@ -602,6 +604,20 @@ export function toContentReport(
     status: row.status,
     reporterName: row.reporter_id ? (names.get(row.reporter_id) ?? null) : null,
     createdAt: row.created_at,
+  };
+}
+
+export function toCronJobHealth(row: CronJobHealthRow): CronJobHealth {
+  return {
+    jobName: row.jobname,
+    schedule: row.schedule,
+    active: row.active,
+    lastStartedAt: row.last_started_at,
+    lastStatus: row.last_status,
+    lastMessage: row.last_message,
+    runs7d: row.runs_7d,
+    failures7d: row.failures_7d,
+    overdue: row.overdue,
   };
 }
 

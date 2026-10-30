@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { REPORT_REASONS, REPORT_SUBJECTS } from '@/types/domain';
-import { isDeleteConfirmed, normalizeUserSearch, parseReportForm, REPORT_DETAILS_MAX } from './trust-safety';
+import { isDeleteConfirmed, normalizeUserSearch, parseReportForm, REPORT_DETAILS_MAX, reportOutcomeMessage } from './trust-safety';
 
 const ID = '7f3a09c2-0000-4000-8000-000000000001';
 
@@ -50,5 +50,19 @@ describe('isDeleteConfirmed', () => {
     expect(isDeleteConfirmed('HAPUS')).toBe(false);
     expect(isDeleteConfirmed('')).toBe(false);
     expect(isDeleteConfirmed(null)).toBe(false);
+  });
+});
+
+describe('reportOutcomeMessage', () => {
+  it('menyebut kegiatan, tapi tidak pernah nama akun yang dilaporkan', () => {
+    expect(reportOutcomeMessage('RESOLVED', 'event', 'Lomba X')).toContain('kegiatan "Lomba X"');
+    expect(reportOutcomeMessage('DISMISSED', 'user', null)).toContain('akun yang kamu laporkan');
+    expect(reportOutcomeMessage('RESOLVED', 'event', null)).toContain('sebuah kegiatan');
+  });
+
+  it('judul dipotong 120 code point (seperti left() Postgres), emoji tidak terbelah', () => {
+    const message = reportOutcomeMessage('RESOLVED', 'event', '😀'.repeat(130));
+    expect(message).toContain(`"${'😀'.repeat(120)}"`);
+    expect(message).not.toContain('\uFFFD');
   });
 });

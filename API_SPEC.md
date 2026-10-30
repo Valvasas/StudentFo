@@ -479,10 +479,14 @@ atau `submission_rejected`; gagal → `/admin?error=<kode>`
 |---|---|---|
 | `reportContent(reporterId, { subjectType, subjectId, reason, details })` | pengguna masuk; Supabase memakai klien pengguna (`auth.uid()` = pelapor) | `report_unavailable` (subjek tidak terlihat/diri sendiri), `report_rate_limited` (10/hari), `invalid_report` |
 | `listOpenReports(limit)` / `countOpenReports()` | admin | — |
-| `resolveReport({ reportId, actorId, outcome, note })` | admin | `report_not_found` (sudah diputuskan) |
+| `resolveReport({ reportId, actorId, outcome, note })` | admin. RESOLVED menutup semua laporan OPEN atas subjek yang sama; setiap pelapor menerima notifikasi `REPORT_RESOLVED`/`REPORT_DISMISSED` (teks `reportOutcomeMessage`, tanpa `note`) | `report_not_found` (sudah diputuskan) |
 | `searchUsers(query, limit)` | admin; `query` lewat `normalizeUserSearch` | — |
 | `setUserSuspension({ userId, actorId, suspend, reason })` | admin | `user_not_found`, `user_protected` (ADMIN/diri sendiri), `suspension_reason_required` |
 | `deleteAccount({ userId, actorId, reason })` | pemilik (`actorId === userId`) atau admin | `user_not_found`, `user_protected`, `account_delete_failed` (berkas Storage gagal dihapus — akun TIDAK dihapus) |
+
+`OperationsRepository.cronJobHealth()` (admin, ADR-062) → `CronJobHealth[]`, atau
+`null` bila tidak ada pg_cron (mode seed, Postgres polos). Status gagal/telat
+dinilai SQL (`overdue`), dipakai juga oleh `.github/workflows/ops-watchdog.yml`.
 
 Server Action:
 

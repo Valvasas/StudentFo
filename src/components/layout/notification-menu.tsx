@@ -5,9 +5,11 @@ import {
   CalendarClock,
   CheckCheck,
   CheckCircle2,
+  Flag,
   Megaphone,
   Receipt,
   ShieldAlert,
+  ShieldCheck,
   UserPlus,
   Users,
   XCircle,
@@ -56,6 +58,8 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   REGISTRATION_REJECTED: XCircle,
   PAYMENT_REJECTED: XCircle,
   PAYMENT_SUBMITTED: Receipt,
+  REPORT_RESOLVED: ShieldCheck,
+  REPORT_DISMISSED: Flag,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {

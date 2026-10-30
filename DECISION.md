@@ -12,6 +12,41 @@ terdokumentasi.
 
 ---
 
+## ADR-062 — Menutup sisa MVP operasional: kabar ke pelapor, kesehatan job terjadwal
+
+**Konteks:** Setelah ADR-061, pemilik meminta semua kekurangan MVP dikerjakan.
+Yang tersisa dan bisa dikode tanpa keputusan/akun pemilik: laporan diputuskan
+dalam diam, job pg_cron (kedaluwarsa acara, pengingat tenggat, retensi yang
+dijanjikan Kebijakan privasi) bisa gagal tanpa ada yang tahu, dan beranda admin
+tidak menampilkan antrean Laporan.
+
+**Keputusan:**
+1. **Pelapor dikabari lewat notifikasi in-app** (`REPORT_RESOLVED` /
+   `REPORT_DISMISSED`) dari dalam `resolve_content_report()`. Teksnya umum
+   (`reportOutcomeMessage`, paritas diuji): tidak menyebut tindakan atas
+   terlapor, tidak menyebut nama akun terlapor, tidak membawa catatan moderator
+   (catatan internal). Tanpa `event_id`: kegiatan yang diturunkan tidak bisa
+   dibuka pelapor. "Ditindak" menutup SEMUA laporan OPEN atas subjek yang sama
+   (tindakannya menjawab semuanya; satu entri riwayat menyebut jumlahnya);
+   "Abaikan" hanya laporan itu — laporan lain bisa membawa bukti lebih kuat.
+2. **`cron_job_health()` + panel "Job terjadwal" di beranda admin + watchdog
+   luar** (`.github/workflows/ops-watchdog.yml`, harian). Aturan "telat" ada di
+   SQL (`overdue`: job harian aktif yang terakhir mulai > 26 jam lalu) supaya
+   admin dan watchdog tidak bisa berbeda pendapat. Watchdog di LUAR database
+   karena job yang mati tidak bisa melaporkan kematiannya; ia mengirim ke
+   `ERROR_ALERT_WEBHOOK_URL` dan selalu menggagalkan run (GitHub mengirim email).
+   Tanpa pg_cron hasilnya kosong → "tidak tersedia", bukan "semua sehat".
+3. **Antrean Laporan pengguna paling depan di beranda admin** — penipuan &
+   pelecehan merugikan orang selama menunggu.
+
+**Konsekuensi:** + Pelapor tahu laporannya dibaca tanpa membocorkan apa pun
+tentang terlapor. + Job yang mati terlihat dalam ≤ 1 hari. − Watchdog bergantung
+pada jadwal GitHub (bisa telat; nonaktif setelah 60 hari tanpa aktivitas repo) —
+beranda admin tetap menampilkan status yang sama. − Uji SQL `104` & `60`
+benar-benar menguji pg_cron hanya di mesin yang memuatnya (README § Uji → pg_cron).
+
+---
+
 ## ADR-061 — Keamanan & kepercayaan untuk MVP publik: laporan, penangguhan, hapus akun, pemantauan galat
 
 **Konteks:** Pemilik meminta semua kekurangan MVP dikerjakan sebelum situs dibuka.

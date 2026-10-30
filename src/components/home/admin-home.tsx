@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowRight, Building2, CircleCheck, Flag, Inbox, type LucideIcon, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Building2, CircleCheck, Flag, Inbox, type LucideIcon, Megaphone, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { CronHealthPanel } from '@/components/admin/cron-health-panel';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { PersonalHome } from '@/components/home/personal-home';
 import { Badge } from '@/components/ui/badge';
@@ -35,15 +36,18 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
   if (!gate.allowed) return <PersonalHome user={user} params={params} />;
 
   const repository = await getEventRepository();
-  const [events, submissions, organizers, claims, revisions, log] = await Promise.all([
+  const [events, submissions, organizers, claims, revisions, reports, log] = await Promise.all([
     repository.listByStatus('PENDING', QUEUE_LIMIT),
     repository.listSubmissions('PENDING', QUEUE_LIMIT),
     repository.listOrganizerApplications('PENDING', QUEUE_LIMIT),
     repository.listClaims('PENDING', QUEUE_LIMIT),
     repository.listRevisions('PENDING', QUEUE_LIMIT),
+    repository.countOpenReports(),
     repository.listModerationLog(LOG_LIMIT),
   ]);
   const queues: Queue[] = [
+    // Penipuan & pelecehan merugikan orang selama menunggu — antrean ini paling depan.
+    { key: 'laporan', label: 'Laporan pengguna', href: '/admin/laporan', icon: Megaphone, count: reports },
     { key: 'acara', label: 'Kegiatan hasil ekstraksi', href: '/admin#antrean-acara', icon: Inbox, count: events.length },
     { key: 'kiriman', label: 'Kiriman komunitas', href: '/admin#kiriman-komunitas', icon: Send, count: submissions.length },
     { key: 'penyelenggara', label: 'Pengajuan penyelenggara', href: '/admin/penyelenggara', icon: Building2, count: organizers.length },
@@ -79,9 +83,9 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
         <h2 id="antrean" className="sr-only">
           Antrean
         </h2>
-        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {queues.map((queue) => (
-            <li key={queue.key} className="max-lg:last:col-span-2">
+            <li key={queue.key}>
               <Link
                 href={queue.href}
                 className={cn(
@@ -109,6 +113,8 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
           ))}
         </ul>
       </section>
+
+      <CronHealthPanel />
 
       <section aria-labelledby="keputusan-terakhir" className="mt-8 rounded-panel border border-line bg-panel p-5 sm:p-6">
         <div className="flex items-center justify-between gap-4">

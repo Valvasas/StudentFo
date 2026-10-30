@@ -37,6 +37,7 @@ import type {
   AnswerValue,
   AppNotification,
   BlockedPerson,
+  CronJobHealth,
   Category,
   CostFilter,
   DeadlineDispatch,
@@ -83,6 +84,7 @@ import type {
 import { toNotificationType } from '@/types/domain';
 import type {
   BlockedPersonRow,
+  CronJobHealthRow,
   CategoryRow,
   ConnectionPairRow,
   ConnectionPeerRow,
@@ -171,6 +173,7 @@ import {
   toEventRevision,
   toAdminUserSummary,
   toContentReport,
+  toCronJobHealth,
   toModerationLogEntry,
   toOrganizerProfile,
   toDeadlineDispatch,
@@ -656,6 +659,14 @@ export class SupabaseEventRepository implements EventRepository {
     return data.map((row) =>
       toContentReport(row, new Map((events.data ?? []).map((event) => [event.id, event])), new Map((users.data ?? []).map((user) => [user.id, user.full_name]))),
     );
+  }
+
+  async cronJobHealth(): Promise<readonly CronJobHealth[] | null> {
+    const { data, error } = await createSupabaseAdminClient().rpc('cron_job_health');
+    if (error) throw upstreamFailure('Gagal membaca status job terjadwal.', error);
+    const rows = (data ?? []) as CronJobHealthRow[];
+    // Kosong = pg_cron tidak ada di database ini (fungsi mengembalikan himpunan kosong).
+    return rows.length === 0 ? null : rows.map(toCronJobHealth);
   }
 
   async countOpenReports(): Promise<number> {

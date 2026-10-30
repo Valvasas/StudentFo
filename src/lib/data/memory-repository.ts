@@ -34,7 +34,7 @@ import {
   type ReviewDecision,
 } from '@/lib/registration-form';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
-import { normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
+import { normalizeUserSearch, reportOutcomeMessage, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
 import type {
   AnswerValue,
   AppNotification,
@@ -814,16 +814,44 @@ export class MemoryEventRepository implements EventRepository {
   async resolveReport({ reportId, actorId, actorName, outcome, note }: ResolveReportInput): Promise<void> {
     const report = this.reports.get(reportId);
     if (!report || report.status !== 'OPEN') throw actionError('report_not_found');
-    this.reports.set(reportId, { ...report, status: outcome });
+    // Cermin resolve_content_report() (migration 20261101100001): "ditindak"
+    // menutup semua laporan terbuka atas subjek yang sama; "abaikan" hanya ini.
+    const closed = [...this.reports.values()].filter(
+      (other) =>
+        other.id === reportId ||
+        (outcome === 'RESOLVED' && other.status === 'OPEN' && other.subjectType === report.subjectType && other.subjectId === report.subjectId),
+    );
+    for (const entry of closed) this.reports.set(entry.id, { ...entry, status: outcome });
+    const others = closed.length - 1;
     this.logModeration({
       subjectType: 'report',
       subjectId: reportId,
-      title: `Laporan ${report.subjectType === 'event' ? 'kegiatan' : 'pengguna'} (${report.reason})`,
+      title: `Laporan ${report.subjectType === 'event' ? 'kegiatan' : 'pengguna'} (${report.reason})${others > 0 ? ` + ${others} laporan lain atas subjek yang sama` : ''}`,
       fromStatus: 'OPEN',
       toStatus: outcome,
       actor: { reviewerId: actorId, reviewerName: actorName },
       reason: note?.trim() || null,
     });
+
+    const eventTitle = report.subjectType === 'event' ? (this.findEvent(report.subjectId)?.title ?? null) : null;
+    const message = reportOutcomeMessage(outcome, report.subjectType, eventTitle);
+    const sentAt = new Date().toISOString();
+    for (const entry of closed) {
+      if (!entry.reporterId) continue;
+      getOrCreate(this.storedNotifications, entry.reporterId, () => []).push({
+        id: `notif-report-${entry.id}`,
+        type: outcome === 'RESOLVED' ? 'REPORT_RESOLVED' : 'REPORT_DISMISSED',
+        message,
+        isRead: false,
+        sentAt,
+        event: null,
+      });
+    }
+  }
+
+  /** Mode seed tidak punya penjadwal (lihat "Notifikasi DITURUNKAN" di bawah). */
+  async cronJobHealth(): Promise<null> {
+    return null;
   }
 
   async searchUsers(query: string, limit: number): Promise<readonly AdminUserSummary[]> {

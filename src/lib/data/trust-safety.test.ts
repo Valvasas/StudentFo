@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CONNECTION_PAGE, type NetworkViewer } from '@/lib/network';
 import { AppError } from '@/lib/errors';
+import { reportOutcomeMessage } from '@/lib/trust-safety';
 import { MemoryEventRepository } from './memory-repository';
 
 /**
@@ -63,6 +64,44 @@ describe('MemoryEventRepository — keamanan & kepercayaan', () => {
     const [log] = await repository.listModerationLog(1);
     expect(log).toMatchObject({ subjectType: 'report', fromStatus: 'OPEN', toStatus: 'DISMISSED', actorName: 'Admin', reason: 'Tidak terbukti' });
     expect(await reason(repository.resolveReport({ reportId: report!.id, actorId: 'admin', outcome: 'RESOLVED', note: null }))).toBe('report_not_found');
+  });
+
+  it('hasil laporan: "ditindak" menutup semua laporan atas subjeknya & mengabari tiap pelapor; "abaikan" hanya laporan itu', async () => {
+    const event = (await repository.listByStatus('APPROVED', 1))[0]!;
+    await repository.reportContent('ana', { subjectType: 'event', subjectId: event.id, reason: 'scam', details: null });
+    await repository.reportContent('budi', { subjectType: 'event', subjectId: event.id, reason: 'misleading', details: null });
+    await repository.reportContent('ana', { subjectType: 'user', subjectId: 'budi', reason: 'harassment', details: null });
+    await repository.reportContent('cici', { subjectType: 'user', subjectId: 'budi', reason: 'harassment', details: null });
+    const open = await repository.listOpenReports(10);
+    const reportOutcomes = async (userId: string) =>
+      (await repository.listNotifications(userId, 50)).filter((n) => n.type === 'REPORT_RESOLVED' || n.type === 'REPORT_DISMISSED');
+
+    await repository.resolveReport({
+      reportId: open.find((report) => report.subjectType === 'event')!.id,
+      actorId: 'admin',
+      actorName: 'Admin',
+      outcome: 'RESOLVED',
+      note: 'Rekening pribadi',
+    });
+    expect((await repository.listOpenReports(10)).map((report) => report.subjectType)).toEqual(['user', 'user']);
+    expect((await repository.listModerationLog(1))[0]!.title).toContain('+ 1 laporan lain');
+    for (const reporter of ['ana', 'budi']) {
+      const [notification] = await reportOutcomes(reporter);
+      expect(notification).toMatchObject({ type: 'REPORT_RESOLVED', message: reportOutcomeMessage('RESOLVED', 'event', event.title), event: null });
+      expect(notification!.message).not.toContain('Rekening pribadi');
+    }
+
+    await repository.resolveReport({
+      reportId: open.find((report) => report.subjectType === 'user' && report.reporterName === 'Ana')!.id,
+      actorId: 'admin',
+      outcome: 'DISMISSED',
+      note: null,
+    });
+    expect(await repository.countOpenReports()).toBe(1);
+    expect((await reportOutcomes('ana')).map((n) => n.type).sort()).toEqual(['REPORT_DISMISSED', 'REPORT_RESOLVED']);
+    expect(await reportOutcomes('cici')).toEqual([]);
+    // Terlapor (budi) hanya punya kabar atas laporannya SENDIRI, bukan bahwa ia dilaporkan.
+    expect((await reportOutcomes('budi')).map((n) => n.type)).toEqual(['REPORT_RESOLVED']);
   });
 
   it('penangguhan: wajib beralasan, keluar dari direktori, tercatat, dan bisa dicabut', async () => {

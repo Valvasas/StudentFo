@@ -207,6 +207,9 @@ export const NOTIFICATION_TYPES = [
   'REGISTRATION_REJECTED',
   'PAYMENT_REJECTED',
   'PAYMENT_SUBMITTED',
+  /** Hasil laporan untuk pelapor (resolve_content_report, ADR-062). */
+  'REPORT_RESOLVED',
+  'REPORT_DISMISSED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -439,6 +442,21 @@ export interface AdminUserSummary {
 }
 
 /** Satu baris log moderasi append-only (tabel `moderation_log`). */
+/** Satu job pg_cron dari `cron_job_health()` (migration 20261101100002, ADR-062). */
+export interface CronJobHealth {
+  readonly jobName: string;
+  readonly schedule: string;
+  readonly active: boolean;
+  readonly lastStartedAt: string | null;
+  /** Status pg_cron apa adanya: succeeded, failed, running, starting, … */
+  readonly lastStatus: string | null;
+  readonly lastMessage: string | null;
+  readonly runs7d: number;
+  readonly failures7d: number;
+  /** Dinilai SQL (satu aturan untuk admin & watchdog luar). */
+  readonly overdue: boolean;
+}
+
 export interface ModerationLogEntry {
   readonly id: string;
   readonly subjectType: ModerationSubject;

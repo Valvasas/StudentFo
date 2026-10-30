@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AppError } from '@/lib/errors';
 import { noCache } from '@/lib/data/cache';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
+import { reportOutcomeMessage } from '@/lib/trust-safety';
 import { actAs, createEvent, createUser, sql } from './harness';
 
 /**
@@ -90,6 +91,59 @@ describe('SupabaseEventRepository — keamanan & kepercayaan', () => {
     expect(sql(`SELECT title FROM public.moderation_log WHERE subject_id = '${target}' AND to_status = 'DELETED'`)).toBe('Akun dihapus');
     expect(await reason(repo.deleteAccount({ userId: target, actorId: admin, reason: null }))).toBe('user_not_found');
     expect(await reason(repo.deleteAccount({ userId: admin, actorId: admin, reason: null }))).toBe('user_protected');
+  });
+
+  it('hasil laporan sampai ke setiap pelapor — teksnya identik dengan mode demo', async () => {
+    const [a, b] = [createUser(), createUser()];
+    const title = `Lomba Hasil Laporan ${'😀'.repeat(130)}`;
+    const event = createEvent({ title });
+    for (const reporter of [a, b]) {
+      actAs(reporter);
+      await repo.reportContent(reporter, { subjectType: 'event', subjectId: event.id, reason: 'scam', details: null });
+    }
+    actAs(null);
+    const admin = createUser({ role: 'ADMIN' });
+    const first = (await repo.listOpenReports(500)).find((report) => report.subjectId === event.id)!;
+    await repo.resolveReport({ reportId: first.id, actorId: admin, outcome: 'RESOLVED', note: 'Catatan internal' });
+
+    expect(sql(`SELECT count(*) FROM public.content_reports WHERE subject_id = '${event.id}' AND status = 'OPEN'`)).toBe('0');
+    for (const reporter of [a, b]) {
+      actAs(reporter);
+      const outcomes = (await repo.listNotifications(reporter, 20)).filter((n) => n.type === 'REPORT_RESOLVED');
+      // Judul dipotong per code point di kedua sisi (`left()` vs Array.from) — emoji tidak terbelah.
+      expect(outcomes.map((n) => n.message)).toEqual([reportOutcomeMessage('RESOLVED', 'event', title)]);
+      expect(outcomes[0]!.event).toBeNull();
+    }
+  });
+
+  it('status job terjadwal: database tanpa pg_cron = null ("tidak tersedia"), bukan daftar kosong yang terbaca "sehat"', async () => {
+    expect(sql(`SELECT count(*) FROM pg_extension WHERE extname = 'pg_cron'`)).toBe('0');
+    expect(await repo.cronJobHealth()).toBeNull();
+
+    // Skema `cron` tiruan (kolom yang dibaca fungsi saja): membuktikan pemetaan
+    // baris → tipe lewat PostgREST tanpa menyalakan pg_cron di database ini.
+    sql(`CREATE SCHEMA cron;
+         CREATE TABLE cron.job (jobid BIGINT PRIMARY KEY, jobname TEXT, schedule TEXT, active BOOLEAN);
+         CREATE TABLE cron.job_run_details (jobid BIGINT, status TEXT, return_message TEXT, start_time TIMESTAMPTZ);
+         INSERT INTO cron.job VALUES (1, 'studentfo-expire-past-events', '5 17 * * *', true), (2, 'milik-orang-lain', '* * * * *', true);
+         INSERT INTO cron.job_run_details VALUES (1, 'failed', 'ERROR: relation x', now() - interval '30 hours'), (2, 'failed', 'bukan urusan kita', now());`);
+    try {
+      expect(await repo.cronJobHealth()).toEqual([
+        {
+          jobName: 'studentfo-expire-past-events',
+          schedule: '5 17 * * *',
+          active: true,
+          lastStartedAt: expect.any(String),
+          lastStatus: 'failed',
+          lastMessage: 'ERROR: relation x',
+          runs7d: 1,
+          failures7d: 1,
+          overdue: true,
+        },
+      ]);
+    } finally {
+      sql('DROP SCHEMA cron CASCADE');
+    }
   });
 
   it('alasan penolakan kiriman sampai ke pengirim', async () => {

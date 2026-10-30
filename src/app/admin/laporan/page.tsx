@@ -51,6 +51,11 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
   const params = await searchParams;
   await requireAdmin();
   const reports = await (await getEventRepository()).listOpenReports(QUEUE_LIMIT);
+  const openPerSubject = new Map<string, number>();
+  for (const report of reports) {
+    const key = `${report.subjectType}:${report.subjectId}`;
+    openPerSubject.set(key, (openPerSubject.get(key) ?? 0) + 1);
+  }
 
   return (
     <div className="container-page py-8">
@@ -62,7 +67,8 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
         </h1>
         <p className="mt-2 max-w-2xl text-ink-soft">
           Penipuan dan pelecehan lebih dulu. Cek kegiatan ke sumber resminya sebelum menurunkannya, dan untuk laporan akun lihat
-          riwayatnya di Pengguna sebelum menangguhkan. Pelapor tidak pernah diberitahukan ke pihak yang dilaporkan.
+          riwayatnya di Pengguna sebelum menangguhkan. Pelapor tidak pernah diberitahukan ke pihak yang dilaporkan; pelapor
+          sendiri menerima notifikasi umum tentang hasilnya, tanpa catatan keputusanmu.
         </p>
       </header>
 
@@ -75,7 +81,9 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
         </p>
       ) : (
         <ul className="flex flex-col gap-4">
-          {reports.map((report) => (
+          {reports.map((report) => {
+            const othersOpen = (openPerSubject.get(`${report.subjectType}:${report.subjectId}`) ?? 1) - 1;
+            return (
             <li key={report.id} className="flex flex-col gap-3 rounded-card border border-line bg-panel p-5 shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
                 <span>
@@ -89,6 +97,12 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
                 </span>
               </div>
               <SubjectLink report={report} />
+              {othersOpen > 0 && (
+                <p className="text-sm text-ink-soft">
+                  Ada {othersOpen} laporan terbuka lain atas {report.subjectType === 'event' ? 'kegiatan' : 'akun'} ini. Semuanya ikut
+                  ditutup (dan setiap pelapornya dikabari) bila kamu menandai yang ini sudah ditindak.
+                </p>
+              )}
               {report.details && (
                 <div className="rounded-card bg-panel-nested p-3 text-sm">
                   <p className="mb-1 font-medium text-ink-muted">Keterangan pelapor</p>
@@ -99,7 +113,7 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
               <form action={resolveReportAction} className="flex flex-col gap-3 border-t border-line/70 pt-3">
                 <input type="hidden" name="reportId" value={report.id} />
                 <label htmlFor={`note-${report.id}`} className="flex flex-col gap-1 text-sm">
-                  <span className="font-medium">Catatan keputusan (tercatat di riwayat)</span>
+                  <span className="font-medium">Catatan keputusan (internal, tercatat di riwayat)</span>
                   <TextArea id={`note-${report.id}`} name="note" rows={2} maxLength={MODERATION_NOTE_MAX} />
                 </label>
                 {report.subjectType === 'event' && report.subjectSlug && (
@@ -120,7 +134,8 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
                 </div>
               </form>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

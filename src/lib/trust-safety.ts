@@ -47,6 +47,24 @@ export function normalizeUserSearch(raw: string | null | undefined): string {
     .slice(0, 80);
 }
 
+/**
+ * Kabar ke pelapor — SAMA PERSIS dengan `resolve_content_report()` (migration
+ * 20261101100001; paritas diuji di integrasi). Sengaja umum: tanpa tindakan
+ * atas terlapor, tanpa nama terlapor, tanpa catatan internal moderator.
+ */
+export function reportOutcomeMessage(outcome: 'RESOLVED' | 'DISMISSED', subjectType: ReportSubject, eventTitle: string | null): string {
+  const about =
+    subjectType === 'user'
+      ? 'akun yang kamu laporkan'
+      : eventTitle === null
+        ? 'sebuah kegiatan'
+        : // Per code point seperti `left()` Postgres, bukan per unit UTF-16.
+          `kegiatan "${Array.from(eventTitle).slice(0, 120).join('')}"`;
+  return outcome === 'RESOLVED'
+    ? `Terima kasih. Laporanmu tentang ${about} sudah ditindaklanjuti moderator. Demi privasi semua pihak, rincian tindakannya tidak kami bagikan.`
+    : `Laporanmu tentang ${about} sudah ditinjau moderator dan belum ditemukan pelanggaran Syarat & Ketentuan. Punya bukti tambahan? Kirim laporan baru.`;
+}
+
 export function isDeleteConfirmed(raw: string | null | undefined): boolean {
   return (raw ?? '').trim().toUpperCase().replace(/\s+/g, ' ') === ACCOUNT_DELETE_PHRASE;
 }

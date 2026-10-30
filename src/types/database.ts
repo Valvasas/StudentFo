@@ -425,6 +425,19 @@ export interface ContentReportRow {
   created_at: string;
 }
 
+/** Baris `cron_job_health()` (migration 20261101100002). */
+export interface CronJobHealthRow {
+  jobname: string;
+  schedule: string;
+  active: boolean;
+  last_started_at: string | null;
+  last_status: string | null;
+  last_message: string | null;
+  runs_7d: number;
+  failures_7d: number;
+  overdue: boolean;
+}
+
 /** Kolom `users` untuk /admin/pengguna (klien admin). */
 export interface AdminUserRow {
   id: string;

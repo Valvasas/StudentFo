@@ -410,8 +410,10 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] GoTrue & Storage sungguhan (Docker): `npm run test:integration:services` + job CI `integration`. Menemukan bug produksi: `banned_until = 'infinity'` membuat GoTrue menjawab 500 di setiap login akun tertangguh → kini `now() + 100 tahun` (ADR-061 #2).
 - [ ] Uji manual ulang di staging (versi GoTrue project bisa lebih baru dari v2.170): tangguhkan akun uji → masuk ditolak & sesi lain putus; hapus akun uji dengan bukti bayar → berkas hilang dari `payment-proofs`.
 - [ ] **BUTUH PEMILIK.** Isi `ERROR_ALERT_WEBHOOK_URL` (kanal Slack/Discord tim) dan `GEMINI_MODEL`.
-- [ ] Pemberitahuan ke pelapor saat laporannya diputuskan (sekarang diam).
-- [ ] Alarm job pg_cron gagal (`cron.job_run_details`) — tampilkan di `/admin` atau kirim lewat webhook yang sama.
+- [x] Pemberitahuan ke pelapor saat laporannya diputuskan — `REPORT_RESOLVED`/`REPORT_DISMISSED`; "ditindak" menutup semua laporan atas subjek yang sama (ADR-062 #1).
+- [x] Alarm job pg_cron gagal/telat — panel "Job terjadwal" di beranda admin + `ops-watchdog.yml` harian (ADR-062 #2).
+- [ ] **BUTUH KONFIRMASI.** Apply `20261101100001` dan `20261101100002` ke staging lalu produksi. Urutan bebas (beranda admin menampilkan "tidak bisa dibaca" sampai `cron_job_health()` ada).
+- [ ] **BUTUH PEMILIK.** Isi secret GitHub `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ERROR_ALERT_WEBHOOK_URL` supaya `ops-watchdog.yml` berjalan.
 - [ ] MFA wajib untuk ADMIN (GoTrue MFA TOTP) — butuh uji dengan GoTrue sungguhan.
 - [ ] Pengingat tenggat lewat email: butuh penyedia email (Resend/SMTP) & preferensi kanal per pengguna (ADR-051).
 - [ ] Pesan langsung & Ruang diskusi (masih mode demo; 404 di produksi) — Fase 4, butuh desain moderasi; laporan ADR-061 bisa dipakai ulang.

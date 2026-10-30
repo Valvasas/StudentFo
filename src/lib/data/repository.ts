@@ -3,6 +3,7 @@ import type {
   AnswerValue,
   AppNotification,
   ContentReport,
+  CronJobHealth,
   ReportReason,
   ReportStatus,
   ReportSubject,
@@ -88,7 +89,8 @@ export interface EventRepository
     RegistrationRepository,
     GalleryRepository,
     MatchmakingRepository,
-    TrustSafetyRepository {}
+    TrustSafetyRepository,
+    OperationsRepository {}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {
@@ -519,6 +521,12 @@ export interface NotificationDispatchRepository {
 export const DISPATCH_LEASE_SECONDS = 900;
 /** Batas satu klaim — cermin `LEAST(..., 500)` di SQL. */
 export const DISPATCH_MAX_BATCH = 500;
+
+/** Kesehatan operasional untuk admin (ADR-062). */
+export interface OperationsRepository {
+  /** null = tidak ada pg_cron di balik implementasi ini (mode seed, Postgres polos). */
+  cronJobHealth(): Promise<readonly CronJobHealth[] | null>;
+}
 
 /** Penghitung pembatas laju (ADR-028). */
 export interface RateLimitRepository {

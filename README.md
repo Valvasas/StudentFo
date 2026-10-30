@@ -297,7 +297,8 @@ Jalankan Postgres lokal untuk `db:test` dengan
 Image polos itu tidak punya pg_cron, jadi `60_pg_cron_jobs` dilewati. Untuk
 menguji jalur pg_cron: pasang `postgresql-<ver>-cron`, lalu di `postgresql.conf`
 `shared_preload_libraries = 'pg_cron'`, `cron.database_name = 'studentfo_migration_test'`,
-`cron.use_background_workers = on`, dan restart.
+`cron.use_background_workers = on`, dan restart. Dengan itu `60_pg_cron_jobs`
+dan bagian pg_cron dari `104_cron_job_health` benar-benar berjalan.
 
 Yang diuji adalah tempat bug paling mahal: perhitungan hari lintas zona waktu,
 ambang urgensi, bobot rekomendasi, parsing parameter URL dari pihak tak dipercaya,
