@@ -27,6 +27,8 @@ export interface AccountExportInput {
   readonly submissions: readonly Submission[];
   readonly organizer: OrganizerProfile | null;
   readonly notifications: readonly AppNotification[];
+  /** Waktu persetujuan pengingat email (ADR-062 #6), null = mati. */
+  readonly deadlineEmailOptIn: string | null;
 }
 
 /**
@@ -50,6 +52,7 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       interests: user.interests,
       signInMethods: user.providers,
     },
+    emailReminders: { deadlineReminders: input.deadlineEmailOptIn !== null, consentedAt: input.deadlineEmailOptIn },
     savedEvents: input.saved.map((event) => ({ title: event.title, url: `/events/${event.slug}` })),
     applicationBoard: input.tracker.map((item) => ({
       event: item.event.title,

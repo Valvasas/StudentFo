@@ -5,7 +5,7 @@ import { noCache } from '@/lib/data/cache';
 import { sortSummaries } from '@/lib/data/listing';
 import { SupabaseEventRepository } from '@/lib/data/supabase-repository';
 import type { EventSummary, SubmissionPayload, UserProfile } from '@/types/domain';
-import { actAs, createEvent, createUser, sql } from './harness';
+import { actAs, createEvent, createUser, serverClient, sql } from './harness';
 
 const repo = new SupabaseEventRepository(noCache);
 const token = `zr${randomUUID().replace(/-/g, '').slice(0, 10)}`;
@@ -191,8 +191,15 @@ describe('dispatch pengingat ke kanal luar (ADR-051)', () => {
     const user = createUser({ fullName: 'Penerima Uji' });
     const { id: eventId } = createEvent({ title: `Lomba Pengingat ${token}`, deadlineInDays: 1 });
     sql(`INSERT INTO saved_events (user_id, event_id) VALUES ('${user}', '${eventId}')`);
+    // Antrean hanya membagikan pengingat milik yang menyetujui email, dibuat sesudahnya (ADR-062 #6).
     sql(`SELECT public.create_deadline_notifications()`);
     const notificationId = sql(`SELECT id FROM notifications WHERE user_id = '${user}' AND event_id = '${eventId}'`);
+    expect((await repo.claimDeadlineDispatches(500)).map((item) => item.notificationId)).not.toContain(notificationId);
+    actAs(user);
+    const since = await repo.setDeadlineEmailReminders(user, true);
+    expect(await repo.getDeadlineEmailOptIn(user)).toBe(since);
+    actAs(null);
+    sql(`UPDATE notifications SET sent_at = now() WHERE id = '${notificationId}'`);
 
     const claimed = (await repo.claimDeadlineDispatches(500)).find((item) => item.notificationId === notificationId);
     expect(claimed).toMatchObject({
@@ -207,5 +214,21 @@ describe('dispatch pengingat ke kanal luar (ADR-051)', () => {
     expect(await repo.acknowledgeDeadlineDispatches([notificationId, 'bukan-uuid', randomUUID()])).toBe(1);
     expect(await repo.acknowledgeDeadlineDispatches([notificationId])).toBe(0);
     expect(sql(`SELECT dispatched_at IS NOT NULL FROM notifications WHERE id = '${notificationId}'`)).toBe('t');
+  });
+
+  it('persetujuan email: hanya lewat RPC milik sendiri; berhenti lewat tautan memakai service_role', async () => {
+    const user = createUser();
+    actAs(user);
+    expect(await repo.getDeadlineEmailOptIn(user)).toBeNull();
+    await expect(serverClient().from('users').update({ deadline_email_opt_in_at: '2000-01-01' }).eq('id', user).then(({ error }) => error?.code)).resolves.toBe('42501');
+    const since = await repo.setDeadlineEmailReminders(user, true);
+    expect(new Date(since!).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    expect(await repo.setDeadlineEmailReminders(user, false)).toBeNull();
+    await repo.setDeadlineEmailReminders(user, true);
+    actAs(null);
+
+    await repo.stopDeadlineEmailsByLink(user);
+    expect(sql(`SELECT deadline_email_opt_in_at IS NULL FROM users WHERE id = '${user}'`)).toBe('t');
+    await expect(repo.stopDeadlineEmailsByLink('bukan-uuid')).resolves.toBeUndefined();
   });
 });

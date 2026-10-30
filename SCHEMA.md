@@ -46,6 +46,7 @@ Urutan migration (harus dijalankan berurutan):
 36. `20261101100002_cron_job_health.sql` — `cron_job_health()` (service_role): status, run 7 hari, `overdue` untuk job `studentfo-*`; kosong tanpa pg_cron (ADR-062)
 37. `20261101100003_admin_mfa.sql` — `is_admin()` kini mensyaratkan klaim JWT `aal = aal2` (MFA TOTP) selain `role = 'ADMIN'`; semua policy & fungsi yang memanggilnya ikut (ADR-062 #4)
 38. `20261101100004_submission_stages.sql` — `approve_submission()` menyalin `payload.stages` (pengumpulan karya/pengumuman/final) ke `event_deadlines` non-utama; kiriman lama/payload asing tetap disetujui tanpa tahapan (ADR-062 #5)
+39. `20261101100005_deadline_email_reminders.sql` — `users.deadline_email_opt_in_at` + `set_deadline_email_reminders()` (authenticated, diri sendiri); `claim_notification_dispatch()` hanya untuk yang setuju, sesudah persetujuan, tidak ditangguhkan, ≤ 4 hari (ADR-062 #6)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di

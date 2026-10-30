@@ -185,6 +185,21 @@ EXCEPTION WHEN insufficient_privilege THEN NULL;
 END$$;
 RESET ROLE;
 
+-- Tanpa persetujuan email (ADR-062 #6) tidak ada yang dibagikan ke kanal luar;
+-- sisa uji ini memakai pengguna yang sudah menyetujui.
+SET LOCAL ROLE service_role;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.claim_notification_dispatch(10, 900)) THEN
+    RAISE EXCEPTION 'pengingat milik pengguna yang belum menyetujui email tidak boleh diklaim';
+  END IF;
+END$$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = '00000000-0000-0000-0000-00000000d0a1';
+SELECT public.set_deadline_email_reminders(true);
+RESET ROLE;
+
 SET LOCAL ROLE service_role;
 DO $$
 DECLARE

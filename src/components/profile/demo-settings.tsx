@@ -66,7 +66,7 @@ export function DemoNotificationCard({ delay }: { delay: number }) {
     : 'Pengingat tenggat mati. Pilih minimal satu hari supaya tidak ada tenggat yang terlewat.';
 
   return (
-    <DetailCard id="notifikasi" icon={<Bell className="size-[18px]" />} title="Notifikasi" description="Pilih kabar apa yang dikirim, dan lewat mana." delay={delay}>
+    <DetailCard id="notifikasi" icon={<Bell className="size-[18px]" />} title="Notifikasi lain (pratinjau)" description="Kanal & topik yang belum aktif — tersimpan di peramban ini saja." delay={delay}>
       <div className="min-w-0 max-w-full overflow-x-auto px-5 sm:px-6">
         <table className="w-full min-w-[440px] border-collapse text-left">
           <caption className="sr-only">Kanal untuk setiap jenis notifikasi</caption>

@@ -488,6 +488,29 @@ export class SupabaseEventRepository implements EventRepository {
     return typeof data === 'number' ? data : 0;
   }
 
+  async getDeadlineEmailOptIn(userId: string): Promise<string | null> {
+    const { data, error } = await (await createSupabaseServerClient())
+      .from('users')
+      .select('deadline_email_opt_in_at')
+      .eq('id', userId)
+      .maybeSingle<{ deadline_email_opt_in_at: string | null }>();
+    if (error) throw upstreamFailure('Gagal membaca pengaturan pengingat email.', error);
+    return data?.deadline_email_opt_in_at ?? null;
+  }
+
+  async setDeadlineEmailReminders(_userId: string, enabled: boolean): Promise<string | null> {
+    // Pemilik = auth.uid() di RPC; waktu persetujuan ditulis server, tidak bisa dipalsukan klien.
+    const { data, error } = await (await createSupabaseServerClient()).rpc('set_deadline_email_reminders', { p_enabled: enabled });
+    if (error) throw upstreamFailure('Gagal menyimpan pengaturan pengingat email.', error, 500);
+    return typeof data === 'string' ? data : null;
+  }
+
+  async stopDeadlineEmailsByLink(userId: string): Promise<void> {
+    if (!isUuid(userId)) return;
+    const { error } = await createSupabaseAdminClient().from('users').update({ deadline_email_opt_in_at: null }).eq('id', userId);
+    if (error) throw upstreamFailure('Gagal menghentikan pengingat email.', error, 500);
+  }
+
   async listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]> {
     // Antrean moderasi berisi baris PENDING yang menurut RLS TIDAK terbaca
     // oleh anon. Dibaca dengan klien admin; otorisasi siapa yang boleh

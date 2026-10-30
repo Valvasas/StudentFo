@@ -45,6 +45,7 @@ const GUEST_ROUTES = [
   '/privacy-policy',
   '/cookie-policy',
   '/terms',
+  '/berhenti-email?token=tidak-valid',
 ];
 const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],

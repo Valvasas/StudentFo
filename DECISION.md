@@ -70,12 +70,35 @@ tidak menampilkan antrean Laporan.
    label, label/tanggal asing dari payload PostgREST dibuang). Kedaluwarsa tetap
    dihitung dari tenggat utama.
 
+6. **Pengingat tenggat lewat email: opt-in, satu kanal, menutup dua
+   penghalang ADR-051.** Persetujuan = `users.deadline_email_opt_in_at` (waktu
+   persetujuan sebagai bukti UU PDP Pasal 22/24), hanya lewat RPC milik sendiri
+   (`set_deadline_email_reminders`); kalimat persetujuan di Pengaturan
+   menyebut apa, ke alamat mana, lewat siapa (Resend, luar negeri), dan cara
+   berhenti — sebelum tombol. `claim_notification_dispatch()` kini hanya
+   membagikan pengingat milik yang setuju, dibuat SESUDAH persetujuan, akun
+   tidak ditangguhkan, ≤ 4 hari — tidak ada kanal luar yang bisa mengirim tanpa
+   persetujuan. Pengirim: `POST /api/cron/send-deadline-emails` (CRON_SECRET;
+   klaim → batch Resend ≤ 100 → ack; batch gagal tidak di-ack → dibagikan lagi
+   setelah sewa; 503 tanpa mengklaim bila belum dikonfigurasi) dipanggil
+   `send-deadline-emails.yml` 07:23 WIB. Setiap email: tautan berhenti
+   bertanda tangan HMAC tanpa sesi (GET hanya halaman konfirmasi — pemindai
+   tautan email membuka setiap URL), header `List-Unsubscribe` +
+   `List-Unsubscribe-Post` (RFC 8058, syarat Gmail/Yahoo untuk pengirim massal),
+   isi kiriman di-escape (judul bisa ditulis siapa pun). Tanpa
+   RESEND_API_KEY/EMAIL_FROM/EMAIL_LINK_SECRET (wajib bertiga) kartunya
+   disembunyikan — menawarkan email yang tidak pernah terkirim lebih buruk.
+   Kebijakan privasi diperbarui (revisi 2026-11-01). WhatsApp/Telegram tetap di
+   luar cakupan: tidak ada kolom identitasnya.
+
 **Konsekuensi:** + Pelapor tahu laporannya dibaca tanpa membocorkan apa pun
 tentang terlapor. + Job yang mati terlihat dalam ≤ 1 hari. + Sandi admin saja
 tidak lagi cukup untuk data pengguna & moderasi. − Watchdog bergantung
 pada jadwal GitHub (bisa telat; nonaktif setelah 60 hari tanpa aktivitas repo) —
 beranda admin tetap menampilkan status yang sama. − Uji SQL `104` & `60`
 benar-benar menguji pg_cron hanya di mesin yang memuatnya (README § Uji → pg_cron).
+− Pengingat email bergantung pada jadwal GitHub (bisa telat; pengingat basi
+dilewati, bukan dikirim) dan pada domain pengirim yang terverifikasi di Resend.
 − Setelah migration `20261101100003`, SEMUA sesi admin yang ada turun ke aal1
 sampai masing-masing memasang autentikator — umumkan ke admin sebelum rilis.
 Pastikan TOTP aktif di Supabase Auth (bawaan: aktif).

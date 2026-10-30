@@ -74,7 +74,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
             </li>
             <li>
-              <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu.
+              <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu. Bila kamu menyalakan
+              pengingat tenggat lewat email, juga waktu persetujuanmu dan catatan email mana yang sudah terkirim.
             </li>
             <li>
               <strong>Laporan:</strong> alasan dan keterangan saat kamu melaporkan kegiatan atau pengguna lain.
@@ -112,7 +113,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             </li>
             <li>
               <strong>Persetujuanmu:</strong> fitur yang membuat dirimu terlihat orang lain (direktori Koneksi, kartu pemain, portofolio publik),
-              masuk dengan Google, dan pemrosesan data pengguna berusia di bawah 18 tahun. Persetujuan bisa kamu tarik kapan saja tanpa
+              masuk dengan Google, pengingat tenggat lewat email (mati sampai kamu menyalakannya di Pengaturan; setiap email memuat tautan
+              berhenti), dan pemrosesan data pengguna berusia di bawah 18 tahun. Persetujuan bisa kamu tarik kapan saja tanpa
               memengaruhi pemrosesan sebelumnya.
             </li>
             <li>
@@ -203,6 +205,10 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             </li>
             <li>
               <strong>Penyedia pengiriman email</strong> — email konfirmasi akun dan atur ulang kata sandi.
+            </li>
+            <li>
+              <strong>Resend</strong> — hanya bila kamu menyalakan pengingat tenggat lewat email: alamat email, namamu, dan judul serta tenggat
+              kegiatan yang diingatkan.
             </li>
             <li>
               <strong>Google</strong> — hanya bila kamu memilih masuk dengan Google.

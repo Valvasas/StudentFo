@@ -484,6 +484,22 @@ atau `submission_rejected`; gagal → `/admin?error=<kode>`
 | `setUserSuspension({ userId, actorId, suspend, reason })` | admin | `user_not_found`, `user_protected` (ADMIN/diri sendiri), `suspension_reason_required` |
 | `deleteAccount({ userId, actorId, reason })` | pemilik (`actorId === userId`) atau admin | `user_not_found`, `user_protected`, `account_delete_failed` (berkas Storage gagal dihapus — akun TIDAK dihapus) |
 
+### Pengingat tenggat lewat email (ADR-062 #6)
+
+`EmailReminderRepository`: `getDeadlineEmailOptIn(userId)` (sesi pemilik),
+`setDeadlineEmailReminders(userId, enabled)` (RPC milik sendiri; mengembalikan
+waktu persetujuan), `stopDeadlineEmailsByLink(userId)` (service_role, dari
+tautan bertanda tangan). `claimDeadlineDispatches` hanya mengembalikan
+pengingat milik yang menyetujui.
+
+- `setDeadlineEmailRemindersAction` (`src/app/profile/actions.ts`): `mode`
+  (`on`|`off`). → `/profile/settings?notice=email_reminders_on|off#pengingat-email`.
+- `POST /api/cron/send-deadline-emails` (Bearer CRON_SECRET) → `{ sent, skipped, failed }`;
+  200, atau 502 bila ada batch gagal (tidak di-ack), 503 `EMAIL_NOT_CONFIGURED`
+  tanpa mengklaim. GET → 405.
+- `POST /api/email/berhenti?token=<userId>.<hmac>` (RFC 8058) → 200 / 400. GET →
+  303 ke `/berhenti-email` (halaman konfirmasi; menghentikan hanya lewat tombol).
+
 ### MFA admin (ADR-062 #4)
 
 `checkAdminAccess()` → `{ allowed: false, reason: 'mfa-required', step: 'enroll' | 'verify' }`

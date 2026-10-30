@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { KeyRound, LogOut, MonitorSmartphone, Pencil, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { BellRing, KeyRound, LogOut, MonitorSmartphone, Pencil, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import { changePasswordAction, signOutAction } from '@/app/auth/actions';
-import { deleteOwnAccountAction } from '@/app/profile/actions';
+import { deleteOwnAccountAction, setDeadlineEmailRemindersAction } from '@/app/profile/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AuthField } from '@/components/auth/auth-field';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -14,6 +14,10 @@ import { buttonVariants } from '@/components/ui/button';
 import { TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { requireUser } from '@/lib/auth';
+import { getEventRepository } from '@/lib/data';
+import { formatDateTimeId } from '@/lib/deadline';
+import { dataMode, emailRemindersConfigured } from '@/lib/env';
+import { withFallback } from '@/lib/fallback';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { ACCOUNT_DELETE_PHRASE } from '@/lib/trust-safety';
@@ -39,6 +43,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const hasPassword = user.providers.includes('email');
   const hasGoogle = user.providers.includes('google');
   const editingPassword = hasPassword && firstParam(params.ubah) === 'sandi';
+  // Tanpa penyedia email terkonfigurasi, kartu disembunyikan: menawarkan email yang tidak pernah terkirim lebih buruk daripada tidak menawarkannya.
+  const emailOffered = emailRemindersConfigured || dataMode === 'seed';
+  const emailOptIn = emailOffered
+    ? await withFallback('pengingat email', async () => (await getEventRepository()).getDeadlineEmailOptIn(user.id), null)
+    : null;
 
   return (
     <AccountShell user={user} active="pengaturan">
@@ -117,6 +126,54 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </form>
           )}
         </DetailCard>
+
+        {emailOffered && (
+          <DetailCard
+            id="pengingat-email"
+            icon={<BellRing className="size-[18px]" />}
+            title="Pengingat tenggat lewat email"
+            description="Email H-3 dan H-1 untuk kegiatan yang kamu simpan atau lacak."
+            delay={90}
+          >
+            <div className="flex flex-col gap-3 border-t border-line/70 px-5 py-4 sm:mx-6 sm:px-0">
+              {emailOptIn ? (
+                <>
+                  <p className="text-[14.5px]">
+                    <strong className="font-semibold">Aktif</strong> sejak {formatDateTimeId(emailOptIn)} · dikirim ke{' '}
+                    <BreakableEmail email={user.email} />
+                  </p>
+                  <form action={setDeadlineEmailRemindersAction}>
+                    <input type="hidden" name="mode" value="off" />
+                    <SubmitButton className={detailButton}>Matikan pengingat email</SubmitButton>
+                  </form>
+                </>
+              ) : (
+                <>
+                  {/* Kalimat persetujuan (UU PDP Pasal 20 & 22): apa, ke mana, lewat siapa, cara berhenti — sebelum tombol. */}
+                  <p className="max-w-[62ch] text-[14px] leading-relaxed text-ink-soft">
+                    Dengan menyalakan, kamu setuju StudentFo mengirim email pengingat ke <BreakableEmail email={user.email} /> melalui
+                    penyedia email kami (Resend, server di luar Indonesia). Paling banyak dua email per kegiatan. Berhenti kapan saja dari
+                    sini atau lewat tautan di setiap email.
+                  </p>
+                  <form action={setDeadlineEmailRemindersAction}>
+                    <input type="hidden" name="mode" value="on" />
+                    <SubmitButton className={detailPrimaryButton}>Nyalakan pengingat email</SubmitButton>
+                  </form>
+                </>
+              )}
+              <p className="text-[12.5px] text-ink-muted">
+                {dataMode === 'seed' ? 'Mode data contoh: tidak ada email yang benar-benar dikirim. ' : ''}
+                Pengingat di lonceng notifikasi tetap berjalan apa pun pilihanmu.
+              </p>
+              <Link
+                href="/privacy-policy"
+                className="-mt-2 inline-flex min-h-11 items-center self-start text-[12.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
+              >
+                Cara kami memproses email ini (Kebijakan privasi)
+              </Link>
+            </div>
+          </DetailCard>
+        )}
 
         {demoFeaturesEnabled && <DemoNotificationCard delay={120} />}
 

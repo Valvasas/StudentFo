@@ -90,7 +90,8 @@ export interface EventRepository
     GalleryRepository,
     MatchmakingRepository,
     TrustSafetyRepository,
-    OperationsRepository {}
+    OperationsRepository,
+    EmailReminderRepository {}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {
@@ -515,6 +516,19 @@ export interface NotificationDispatchRepository {
   claimDeadlineDispatches(limit: number): Promise<readonly DeadlineDispatch[]>;
   /** Mengembalikan jumlah yang benar-benar ditandai terkirim (id asing/belum diklaim diabaikan). */
   acknowledgeDeadlineDispatches(notificationIds: readonly string[]): Promise<number>;
+}
+
+/**
+ * Persetujuan pengingat tenggat lewat email (ADR-062 #6). Antrean dispatch di
+ * atas hanya membagikan pengingat milik yang menyetujui.
+ */
+export interface EmailReminderRepository {
+  /** Waktu persetujuan (ISO) atau null — dibaca dengan sesi pemilik. */
+  getDeadlineEmailOptIn(userId: string): Promise<string | null>;
+  /** Pemilik yang masuk menyalakan/mematikan untuk dirinya; mengembalikan waktu persetujuan. */
+  setDeadlineEmailReminders(userId: string, enabled: boolean): Promise<string | null>;
+  /** Dari tautan bertanda tangan di email, tanpa sesi (service_role). Idempoten. */
+  stopDeadlineEmailsByLink(userId: string): Promise<void>;
 }
 
 /** Sewa klaim dispatch — cermin default `p_lease_seconds` di migration 20261003100003. */

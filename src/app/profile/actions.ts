@@ -140,3 +140,23 @@ export async function deleteOwnAccountAction(formData: FormData): Promise<void> 
   revalidatePath('/', 'layout');
   redirect(withQuery('/', { notice: 'account_deleted' }));
 }
+
+/**
+ * Pengingat tenggat lewat email (ADR-062 #6). Tombol yang ditekan adalah
+ * tindakan persetujuan; waktunya dicatat server (RPC), bukan dari form.
+ */
+export async function setDeadlineEmailRemindersAction(formData: FormData): Promise<void> {
+  const user = await getSessionUser();
+  if (!user) redirect(loginHref(SETTINGS_PAGE));
+  const enabled = text(formData, 'mode') === 'on';
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).setDeadlineEmailReminders(user.id, enabled);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(`${withQuery(SETTINGS_PAGE, { error: failure })}#pengingat-email`);
+  revalidatePath(SETTINGS_PAGE);
+  redirect(`${withQuery(SETTINGS_PAGE, { notice: enabled ? 'email_reminders_on' : 'email_reminders_off' })}#pengingat-email`);
+}

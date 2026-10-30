@@ -31,6 +31,7 @@ const STATIC_ROUTES = [
   '/privacy-policy',
   '/cookie-policy',
   '/terms',
+  '/berhenti-email?token=tidak-valid',
   '/about',
   '/connections',
   '/halaman-yang-tidak-ada',

@@ -227,6 +227,8 @@ export const ACTION_NOTICE_CODES = [
   'account_deleted',
   'mfa_enabled',
   'mfa_verified',
+  'email_reminders_on',
+  'email_reminders_off',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -279,6 +281,8 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   account_deleted: 'Akunmu dan datanya sudah dihapus. Terima kasih sudah memakai StudentFo.',
   mfa_enabled: 'Verifikasi dua langkah aktif. Mulai sekarang, setiap masuk ke panel admin meminta kode dari aplikasi autentikatormu.',
   mfa_verified: 'Terverifikasi. Panel admin terbuka untuk sesi ini.',
+  email_reminders_on: 'Pengingat email aktif. Kamu akan menerima email H-3 dan H-1 untuk kegiatan yang kamu simpan atau lacak.',
+  email_reminders_off: 'Pengingat email dimatikan. Pengingat di lonceng notifikasi tetap berjalan.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

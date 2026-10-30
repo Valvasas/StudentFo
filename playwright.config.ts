@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { DEMO_ADMIN_TEST_KEY } from './tests/e2e/demo-keys';
+import { DEMO_ADMIN_TEST_KEY, EMAIL_TEST_ENV } from './tests/e2e/demo-keys';
 
 /**
  * Audit aksesibilitas otomatis (`npm run test:a11y`). Terpisah dari
@@ -57,6 +57,7 @@ export default defineConfig({
       // Dibekukan saat build (NEXT_PUBLIC_); pengalihan internal, sitemap, dan
       // callback OAuth memakainya, jadi harus menunjuk server uji ini.
       NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`,
+      ...EMAIL_TEST_ENV,
     },
   },
 });

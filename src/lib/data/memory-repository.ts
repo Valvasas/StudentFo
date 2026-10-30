@@ -385,6 +385,8 @@ export class MemoryEventRepository implements EventRepository {
    */
   private readonly demoAnalyticsSignals: (RecommendationSignalInput & { createdAt: string })[] = [];
   /** Cermin `notifications.dispatch_claimed_at` (ms) & `dispatched_at` (ADR-051). */
+  /** Cermin `users.deadline_email_opt_in_at` (ADR-062 #6): userId → waktu persetujuan. */
+  private readonly emailOptIns = new Map<string, string>();
   private readonly dispatchClaims = new Map<string, number>();
   private readonly dispatched = new Set<string>();
   /** Hanya untuk paritas & uji; kalibrasi membaca data produksi, bukan data demo. */
@@ -932,6 +934,7 @@ export class MemoryEventRepository implements EventRepository {
     this.trackerEntries.delete(userId);
     this.readNotifications.delete(userId);
     this.storedNotifications.delete(userId);
+    this.emailOptIns.delete(userId);
     this.organizers.delete(userId);
     this.blocks.delete(userId);
     for (const blocked of this.blocks.values()) blocked.delete(userId);
@@ -1178,6 +1181,10 @@ export class MemoryEventRepository implements EventRepository {
     const due: (DeadlineDispatch & { readonly sortKey: string })[] = [];
 
     for (const userId of userIds) {
+      // Cermin claim_notification_dispatch() (migration 20261101100005): hanya
+      // yang menyetujui email & tidak ditangguhkan. Notifikasi seed diturunkan
+      // (tanpa waktu dibuat), jadi syarat "dibuat sesudah persetujuan" tidak dicerminkan.
+      if (!this.emailOptIns.has(userId) || this.isSuspended(userId)) continue;
       for (const notification of this.deriveNotifications(userId, now)) {
         if (notification.type !== 'DEADLINE_H3' && notification.type !== 'DEADLINE_H1') continue;
         if (this.dispatched.has(notification.id)) continue;
@@ -1210,6 +1217,24 @@ export class MemoryEventRepository implements EventRepository {
       .slice(0, Math.min(Math.max(Math.trunc(limit), 1), DISPATCH_MAX_BATCH));
     for (const item of batch) this.dispatchClaims.set(item.notificationId, now.getTime());
     return batch.map(({ sortKey: _sortKey, ...item }) => item);
+  }
+
+  async getDeadlineEmailOptIn(userId: string): Promise<string | null> {
+    return this.emailOptIns.get(userId) ?? null;
+  }
+
+  async setDeadlineEmailReminders(userId: string, enabled: boolean): Promise<string | null> {
+    if (!enabled) {
+      this.emailOptIns.delete(userId);
+      return null;
+    }
+    const since = this.emailOptIns.get(userId) ?? new Date().toISOString();
+    this.emailOptIns.set(userId, since);
+    return since;
+  }
+
+  async stopDeadlineEmailsByLink(userId: string): Promise<void> {
+    this.emailOptIns.delete(userId);
   }
 
   async acknowledgeDeadlineDispatches(notificationIds: readonly string[]): Promise<number> {

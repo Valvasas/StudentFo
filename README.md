@@ -177,6 +177,11 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    **Ponsel admin hilang:** Authentication → Users → pilih akun → hapus faktor
    MFA-nya; admin memasang ulang dari `/admin/mfa`. Jangan menurunkan
    kewajibannya.
+9. **Pengingat tenggat lewat email (opsional, ADR-062 #6)** — buat akun Resend,
+   verifikasi domain pengirim (SPF/DKIM), isi `RESEND_API_KEY`, `EMAIL_FROM`,
+   `EMAIL_LINK_SECRET` (lihat `.env.example`), lalu secret GitHub `SITE_URL` +
+   `CRON_SECRET` untuk `.github/workflows/send-deadline-emails.yml`. Pengguna
+   menyalakannya sendiri di Pengaturan; tanpa konfigurasi, kartunya tidak tampil.
 
 `SUPABASE_SERVICE_ROLE_KEY` hanya dibutuhkan pipeline dan aksi admin. Kunci itu
 mem-bypass RLS — jangan pernah diberi prefix `NEXT_PUBLIC_`, dan jangan di-commit.

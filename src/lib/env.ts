@@ -74,7 +74,26 @@ const serverSchema = z.object({
     .url()
     .refine((value) => value.startsWith('https://'), 'harus https://')
     .optional(),
+  /**
+   * Pengingat tenggat lewat email (ADR-062 #6), lewat API Resend. Ketiganya
+   * diisi, atau kosongkan ketiganya (fitur tersembunyi). EMAIL_LINK_SECRET =
+   * kunci HMAC tautan berhenti-langganan di setiap email.
+   */
+  RESEND_API_KEY: z.string().min(10).optional(),
+  EMAIL_FROM: z
+    .string()
+    .regex(/^(?:[^<>@\n]+<[^<>@\s]+@[^<>@\s]+>|[^<>@\s]+@[^<>@\s]+)$/, 'mis. "StudentFo <pengingat@domainmu.id>"')
+    .optional(),
+  EMAIL_LINK_SECRET: z.string().min(32, 'minimal 32 karakter acak, mis. `openssl rand -hex 32`').optional(),
 }).refine(
+  (value) => [value.RESEND_API_KEY, value.EMAIL_FROM, value.EMAIL_LINK_SECRET].filter(Boolean).length % 3 === 0,
+  {
+    // Setengah terkonfigurasi = pengaturan menawarkan email yang tidak pernah
+    // terkirim, atau email terkirim tanpa tautan berhenti yang sah.
+    message: 'RESEND_API_KEY, EMAIL_FROM, dan EMAIL_LINK_SECRET harus diisi bersamaan.',
+    path: ['EMAIL_LINK_SECRET'],
+  },
+).refine(
   (value) => Boolean(value.TURNSTILE_SITE_KEY) === Boolean(value.TURNSTILE_SECRET_KEY),
   {
     // Setengah terkonfigurasi = widget tampil tapi server tidak bisa
@@ -110,6 +129,9 @@ function readEnv(): ServerEnv {
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY || undefined,
     CRON_SECRET: process.env.CRON_SECRET || undefined,
     ERROR_ALERT_WEBHOOK_URL: process.env.ERROR_ALERT_WEBHOOK_URL || undefined,
+    RESEND_API_KEY: process.env.RESEND_API_KEY || undefined,
+    EMAIL_FROM: process.env.EMAIL_FROM || undefined,
+    EMAIL_LINK_SECRET: process.env.EMAIL_LINK_SECRET || undefined,
   });
 
   if (!parsed.success) {
@@ -123,6 +145,9 @@ function readEnv(): ServerEnv {
 }
 
 export const env: ServerEnv = readEnv();
+
+/** Pengingat email benar-benar terkirim (ADR-062 #6). Mode seed tidak pernah mengirim. */
+export const emailRemindersConfigured = Boolean(env.RESEND_API_KEY && env.EMAIL_FROM && env.EMAIL_LINK_SECRET);
 
 export type DataMode = 'supabase' | 'seed';
 
