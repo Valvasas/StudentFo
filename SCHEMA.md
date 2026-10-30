@@ -37,6 +37,10 @@ Urutan migration (harus dijalankan berurutan):
 27. `20261003100001_event_cost_promotion_badge_guidebook.sql` — kolom `events.is_free` (NULL = belum diketahui), `price_amount`, `is_featured`/`featured_until`, `verification_badge`, `guidebook_url` + CHECK konsistensi; index parsial `idx_events_featured`; `events_listing` + kolom `is_promoted` (dihitung, bergantung `now()`); `approve_submission()` menyalin biaya & buku panduan (ADR-049)
 28. `20261003100002_personalized_listing_rpc.sql` — RPC `list_personalized_events()` (INVOKER, anon boleh): skor relevansi = `rankEvents()` di SQL sebelum LIMIT/OFFSET (ADR-050)
 29. `20261003100003_notification_dispatch.sql` — `notifications.dispatch_claimed_at`/`dispatched_at` + index antrean; RPC `claim_notification_dispatch()` / `ack_notification_dispatch()` (service_role saja, ADR-051)
+30. `20261014100001_registrations_gallery_payments.sql` — formulir internal, pendaftaran, bukti bayar, galeri + bucket privat (ADR-056; rincian di bagian tabelnya)
+31. `20261015100001_registration_code_retry.sql` — `register_for_event` mencoba ulang kode pendaftaran bila tabrakan
+32. `20261020100001_team_matching.sql` — `team_seekers` + `list_team_candidates()` (ADR-057)
+33. `20261030100001_data_retention.sql` — `purge_old_notifications()` (dibaca > 180 hari / semua > 365 hari) dan `redact_decided_submission_emails()` (email kiriman yang sudah diputuskan > 90 hari → `dihapus@retensi.invalid`); service_role saja + pg_cron (ADR-060)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -479,6 +483,12 @@ ADR-030), jadwal dalam UTC:
 | `studentfo-expire-past-events` | `expire_past_events()` | `5 17 * * *` = 00:05 WIB |
 | `studentfo-deadline-notifications` | `create_deadline_notifications()` | `0 0 * * *` = 07:00 WIB |
 | `studentfo-purge-rate-limit-hits` | `purge_rate_limit_hits()` | `17 18 * * *` = 01:17 WIB |
+| `studentfo-purge-event-view-dedup` | `purge_event_view_dedup()` | `23 18 * * *` = 01:23 WIB |
+| `studentfo-purge-old-notifications` | `purge_old_notifications()` | `29 18 * * *` = 01:29 WIB |
+| `studentfo-redact-submission-emails` | `redact_decided_submission_emails()` | `41 18 * * *` = 01:41 WIB |
+
+Angka retensi (ADR-060) dikutip apa adanya di Kebijakan privasi — mengubah
+salah satunya berarti mengubah dokumen itu dan menaikkan `LEGAL_REVISION`.
 
 Periksa di Supabase: `select jobname, schedule, active from cron.job;` dan
 riwayat: `select * from cron.job_run_details order by start_time desc limit 20;`.

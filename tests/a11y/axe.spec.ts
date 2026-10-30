@@ -29,6 +29,8 @@ const STATIC_ROUTES = [
   '/tracker',
   '/profile',
   '/privacy-policy',
+  '/cookie-policy',
+  '/terms',
   '/about',
   '/connections',
   '/halaman-yang-tidak-ada',

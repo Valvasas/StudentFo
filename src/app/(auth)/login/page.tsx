@@ -59,8 +59,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {/* Google bisa sekaligus MEMBUAT akun dari sini (OAuth tidak membedakan
               masuk & daftar), dan jalur ini tidak melewati centang persetujuan
               di /register — jadi pemberitahuannya ditulis di tempat tombolnya. */}
-          <p className="-mt-1 text-center text-[13px] text-ink-muted">
-            Belum punya akun? Masuk dengan Google sekaligus membuatnya, dan berarti kamu menyetujui{' '}
+          <p className="-mt-1 text-center text-[13px] leading-relaxed text-ink-muted">
+            Belum punya akun? Masuk dengan Google sekaligus membuatnya. Dengan begitu kamu menyatakan berusia 13 tahun ke atas (di bawah 18
+            dengan izin orang tua/wali) dan menyetujui{' '}
+            <Link href="/terms" className="font-medium text-ink underline underline-offset-[3px]">
+              Syarat &amp; Ketentuan
+            </Link>{' '}
+            serta{' '}
             <Link href="/privacy-policy" className="font-medium text-ink underline underline-offset-[3px]">
               Kebijakan privasi
             </Link>

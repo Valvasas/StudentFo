@@ -337,8 +337,8 @@ keputusan tercatat di `moderation_log` oleh trigger.
 | Aksi | Field form | Sukses | Gagal |
 |---|---|---|---|
 | `signInAction` | `email`, `password`, `next` | redirect ke `next` | `/login?error=…&email=…` |
-| `signUpAction` | `accountType`, `fullName`, `email`, `password`, `privacyConsent`, `next`, token Turnstile | `/verify-email?email=…&next=…` (atau langsung tujuan kalau konfirmasi email dimatikan; penyelenggara → `/penyelenggara`) | `/register?error=…&email=…&type=…` — jeda per alamat dari Supabase TIDAK dilaporkan |
-| `signInWithGoogleAction` | `next` (+ `accountType`, `privacyConsent` dari form daftar) | redirect ke URL consent Google | `/login?error=…` atau `/register?error=consent_required…` |
+| `signUpAction` | `accountType`, `fullName`, `email`, `password`, `ageConfirm`, `privacyConsent`, `next`, token Turnstile — `user_metadata.legal_consent` dicatat (ADR-060) | `/verify-email?email=…&next=…` (atau langsung tujuan kalau konfirmasi email dimatikan; penyelenggara → `/penyelenggara`) | `/register?error=…&email=…&type=…` — jeda per alamat dari Supabase TIDAK dilaporkan |
+| `signInWithGoogleAction` | `next` (+ `accountType`, `ageConfirm`, `privacyConsent` dari form daftar; callback membawa `consent=<LEGAL_REVISION>` lalu mencatat `legal_consent`) | redirect ke URL consent Google | `/login?error=…` atau `/register?error=age_required\|consent_required…` |
 | `resendConfirmationAction` | `email`, `next`, token Turnstile | `/verify-email?notice=confirmation_resent` (juga saat GoTrue menjeda alamat itu) | `/verify-email?error=rate_limited|captcha_failed` — `rate_limited` hanya dari batas yang tidak bergantung alamat |
 | `signOutAction` | — | `/` | — |
 | `requestPasswordResetAction` | `email`, token Turnstile | `/forgot-password?notice=reset_email_sent` (juga saat GoTrue menjeda alamat itu) | `rate_limited` (batas per IP kita / batas Supabase yang tidak bergantung alamat) & `captcha_failed` |

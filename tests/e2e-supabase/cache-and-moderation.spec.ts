@@ -132,3 +132,53 @@ test('browser biasa tetap melihat tombol Google', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('button', { name: 'Masuk dengan Google' })).toBeVisible();
 });
+
+/**
+ * Form daftar hanya dirender di mode Supabase (mode seed menawarkan akun demo),
+ * jadi di sinilah centang usia & persetujuan (ADR-060) diuji. Atribut
+ * `required` hanya kenyamanan: Server Action adalah endpoint HTTP sendiri.
+ */
+test.describe('daftar: pernyataan usia dan persetujuan', () => {
+  test('dua centang terpisah, menautkan S&K dan Kebijakan privasi', async ({ page }) => {
+    await page.goto('/register');
+    const age = page.getByRole('checkbox', { name: /berusia 18 tahun ke atas, atau 13–17 tahun/ });
+    const consent = page.getByRole('checkbox', { name: /^Saya menyetujui Syarat & Ketentuan \(tab baru\) dan Kebijakan privasi \(tab baru\)/ });
+    await expect(age).toHaveAttribute('required', '');
+    await expect(consent).toHaveAttribute('required', '');
+    await expect(page.locator('form a[href="/terms"]')).toHaveCount(1);
+    await expect(page.locator('form a[href="/privacy-policy"]')).toHaveCount(1);
+  });
+
+  for (const [field, code, message] of [
+    ['ageConfirm', 'age_required', /StudentFo untuk usia 13 tahun ke atas/],
+    ['privacyConsent', 'consent_required', /Setujui Syarat & Ketentuan dan Kebijakan privasi/],
+  ] as const) {
+    test(`server menolak tanpa ${field}, walau atribut required dibuang`, async ({ page }) => {
+      await page.goto('/register');
+      await page.getByLabel('Nama lengkap').fill('Uji Persetujuan');
+      await page.getByLabel('Email').fill(`persetujuan-${randomUUID()}@uji.example`);
+      await page.locator('#password').fill('rahasia12345');
+      for (const name of ['ageConfirm', 'privacyConsent']) {
+        const box = page.locator(`input[name="${name}"]`);
+        if (name === field) await box.evaluate((el) => el.removeAttribute('required'));
+        else await box.check();
+      }
+      await page.getByRole('button', { name: 'Buat akun' }).click();
+      await expect(page).toHaveURL(new RegExp(`error=${code}`));
+      await expect(page.getByText(message)).toBeVisible();
+    });
+
+    test(`daftar dengan Google tanpa ${field} ditolak sebelum ke Google`, async ({ page }) => {
+      await page.goto('/register');
+      for (const name of ['ageConfirm', 'privacyConsent']) {
+        const box = page.locator(`input[name="${name}"]`);
+        if (name === field) await box.evaluate((el) => el.removeAttribute('required'));
+        else await box.check();
+      }
+      // Nama/email/sandi kosong: tombol Google memakai formAction, jadi buang `required` mereka juga.
+      await page.locator('form [required]').evaluateAll((nodes) => nodes.forEach((node) => node.removeAttribute('required')));
+      await page.getByRole('button', { name: 'Daftar dengan Google' }).click();
+      await expect(page).toHaveURL(new RegExp(`/register\\?.*error=${code}`));
+    });
+  }
+});

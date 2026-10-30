@@ -55,7 +55,7 @@ export function AuthSwitch({ prompt, href, label }: { prompt: string; href: stri
   return (
     <p className="text-center text-sm text-ink-muted">
       {prompt}{' '}
-      <Link href={href} className="inline-flex min-h-11 items-center font-semibold text-ink underline-offset-[3px] hover:underline">
+      <Link href={href} className="inline-flex min-h-11 min-w-11 items-center justify-center font-semibold text-ink underline-offset-[3px] hover:underline">
         {label}
       </Link>
     </p>

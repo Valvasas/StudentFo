@@ -20,7 +20,10 @@ BEGIN
     SELECT * FROM (VALUES
       ('studentfo-expire-past-events',        '5 17 * * *',  'SELECT public.expire_past_events()'),
       ('studentfo-deadline-notifications',    '0 0 * * *',   'SELECT public.create_deadline_notifications()'),
-      ('studentfo-purge-rate-limit-hits',     '17 18 * * *', 'SELECT public.purge_rate_limit_hits()')
+      ('studentfo-purge-rate-limit-hits',     '17 18 * * *', 'SELECT public.purge_rate_limit_hits()'),
+      ('studentfo-purge-event-view-dedup',    '23 18 * * *', 'SELECT public.purge_event_view_dedup()'),
+      ('studentfo-purge-old-notifications',   '29 18 * * *', 'SELECT public.purge_old_notifications()'),
+      ('studentfo-redact-submission-emails',  '41 18 * * *', 'SELECT public.redact_decided_submission_emails()')
     ) AS t(jobname, schedule, command)
   LOOP
     IF NOT EXISTS (
@@ -35,7 +38,7 @@ BEGIN
   END LOOP;
 
   -- Satu nama = satu job: migration yang dijalankan ulang tidak boleh menggandakan jadwal.
-  IF (SELECT count(*) FROM cron.job WHERE jobname LIKE 'studentfo-%') <> 3 THEN
+  IF (SELECT count(*) FROM cron.job WHERE jobname LIKE 'studentfo-%') <> 6 THEN
     RAISE EXCEPTION 'pg_cron: job studentfo-* ganda';
   END IF;
 END$$;

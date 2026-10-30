@@ -72,18 +72,32 @@ describe('signUpSchema', () => {
       fullName: ' Siti  Aminah ',
       email: ' SITI@kampus.ac.id ',
       password: 'rahasia123',
+      ageConfirm: 'yes',
       privacyConsent: 'yes',
     });
     expect(result.fullName).toBe('Siti Aminah');
     expect(result.email).toBe('siti@kampus.ac.id');
   });
 
-  const valid = { accountType: 'organizer', fullName: 'Siti', email: 'siti@kampus.ac.id', password: 'rahasia123', privacyConsent: 'yes' };
+  const valid = {
+    accountType: 'organizer',
+    fullName: 'Siti',
+    email: 'siti@kampus.ac.id',
+    password: 'rahasia123',
+    ageConfirm: 'yes',
+    privacyConsent: 'yes',
+  };
 
-  it('persetujuan Kebijakan privasi wajib — kotak tak dicentang tidak terkirim sama sekali', () => {
+  it('persetujuan S&K + Kebijakan privasi wajib — kotak tak dicentang tidak terkirim sama sekali', () => {
     const result = signUpSchema.safeParse({ ...valid, privacyConsent: '' });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.path).toEqual(['privacyConsent']);
+  });
+
+  it('pernyataan usia wajib dan terpisah dari persetujuan', () => {
+    const result = signUpSchema.safeParse({ ...valid, ageConfirm: undefined });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([['ageConfirm']]);
   });
 
   it('jenis akun hanya dari daftar tertutup', () => {

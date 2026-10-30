@@ -58,9 +58,12 @@ data fiktif. Tiga hal wajib diset eksplisit (ADR-057):
   produksi: dibuka lewat tautan khusus `/demo?akses=<kunci>` yang dikirim ke
   orang tertentu. Tanpa kunci, persona Admin tidak tersedia di produksi.
 
-**Kebijakan privasi** (`/privacy-policy`) berlabel DRAF sampai
-`PRIVACY_CONTACT_EMAIL` dan `PRIVACY_POLICY_EFFECTIVE_DATE` (YYYY-MM-DD) diisi.
-Isi keduanya hanya setelah isi dokumen ditinjau pemilik bersama penasihat hukum.
+**Dokumen hukum** — Kebijakan privasi (`/privacy-policy`), Kebijakan cookie
+(`/cookie-policy`, lampiran kebijakan privasi), dan Syarat & Ketentuan
+(`/terms`) — berlabel DRAF sampai `LEGAL_OPERATOR_NAME`, `PRIVACY_CONTACT_EMAIL`,
+dan tanggal berlaku (`PRIVACY_POLICY_EFFECTIVE_DATE`, `TERMS_EFFECTIVE_DATE`,
+format YYYY-MM-DD) diisi. Isi semuanya hanya setelah isi dokumen ditinjau
+pemilik bersama penasihat hukum (ADR-060).
 
 ## Perintah
 

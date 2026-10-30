@@ -146,14 +146,19 @@ test.describe('tablet sentuh', () => {
     test.describe(`${viewport.width}px`, () => {
       test.use({ viewport, hasTouch: true });
 
-      test('papan jenis, Kebijakan privasi: setiap target ≥ 44px', async ({ page }) => {
+      test('papan jenis, dokumen hukum: setiap target ≥ 44px', async ({ page }) => {
         // Hanya kontrol yang diringkas; tautan di dalam kalimat dikecualikan WCAG 2.5.8.
         for (const [route, scope] of [
           ['/events?type=BEASISWA', 'main nav[aria-label="Jenjang untuk cek kelayakan"]'],
           ['/events?type=MAGANG', 'main section[aria-label="Filter kegiatan"]'],
           ['/privacy-policy', 'main nav'],
+          ['/cookie-policy', 'main nav'],
+          ['/terms', 'main nav'],
         ] as const) {
           await page.goto(route);
+          // Di bawah lg daftar isi terlipat: buka dulu supaya tautannya ikut diukur.
+          const toc = page.locator('main details:has(nav[aria-label="Daftar isi"])');
+          if (await toc.isVisible()) await toc.locator('summary').click();
           await expect.poll(() => smallTargets(page, scope), { timeout: 3000, message: route }).toEqual([]);
         }
       });

@@ -1,23 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { privacyPolicyStatus } from './legal';
+import { DEFAULT_OPERATOR_NAME, LEGAL_REVISION, legalConsentRecord, legalDocumentStatus } from './legal';
 
-describe('privacyPolicyStatus', () => {
-  it('final hanya bila email kontak DAN tanggal berlaku valid', () => {
-    expect(privacyPolicyStatus({ contactEmail: 'privasi@studentfo.id', effectiveDate: '2026-11-01' })).toEqual({
+const complete = { operatorName: 'PT Contoh Edukasi', contactEmail: 'privasi@studentfo.id', effectiveDate: '2026-11-01' };
+
+describe('legalDocumentStatus', () => {
+  it('final hanya bila nama pengelola, email kontak, DAN tanggal berlaku valid', () => {
+    expect(legalDocumentStatus(complete)).toEqual({
       final: true,
+      operatorName: 'PT Contoh Edukasi',
       contactEmail: 'privasi@studentfo.id',
       effectiveDate: '2026-11-01',
     });
   });
 
   it('salah satu kosong atau tidak valid = tetap draf', () => {
-    expect(privacyPolicyStatus({ contactEmail: undefined, effectiveDate: '2026-11-01' })).toEqual({ final: false });
-    expect(privacyPolicyStatus({ contactEmail: 'privasi@studentfo.id', effectiveDate: undefined })).toEqual({ final: false });
-    expect(privacyPolicyStatus({ contactEmail: 'bukan-email', effectiveDate: '2026-11-01' })).toEqual({ final: false });
-    expect(privacyPolicyStatus({ contactEmail: 'privasi@studentfo.id', effectiveDate: '1 November 2026' })).toEqual({ final: false });
+    expect(legalDocumentStatus({ ...complete, contactEmail: undefined }).final).toBe(false);
+    expect(legalDocumentStatus({ ...complete, effectiveDate: undefined }).final).toBe(false);
+    expect(legalDocumentStatus({ ...complete, operatorName: undefined }).final).toBe(false);
+    expect(legalDocumentStatus({ ...complete, contactEmail: 'bukan-email' }).final).toBe(false);
+    expect(legalDocumentStatus({ ...complete, effectiveDate: '1 November 2026' }).final).toBe(false);
+    expect(legalDocumentStatus({ ...complete, operatorName: ' ' }).final).toBe(false);
   });
 
   it('tanggal yang tidak ada di kalender ditolak, bukan digeser', () => {
-    expect(privacyPolicyStatus({ contactEmail: 'privasi@studentfo.id', effectiveDate: '2026-02-31' })).toEqual({ final: false });
+    expect(legalDocumentStatus({ ...complete, effectiveDate: '2026-02-31' }).final).toBe(false);
+  });
+
+  it('draf tetap menyebut pengelola: isian pemilik bila ada, nama generik bila belum', () => {
+    expect(legalDocumentStatus({ ...complete, contactEmail: undefined }).operatorName).toBe('PT Contoh Edukasi');
+    expect(legalDocumentStatus({ operatorName: undefined, contactEmail: undefined, effectiveDate: undefined }).operatorName).toBe(
+      DEFAULT_OPERATOR_NAME,
+    );
+  });
+});
+
+describe('legalConsentRecord', () => {
+  it('mencatat revisi teks yang dibaca, waktu, konfirmasi usia, dan jalurnya', () => {
+    const at = new Date('2026-10-30T03:00:00Z');
+    expect(legalConsentRecord('google', at)).toEqual({ revision: LEGAL_REVISION, at: '2026-10-30T03:00:00.000Z', age_confirmed: true, via: 'google' });
   });
 });
