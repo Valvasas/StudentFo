@@ -167,6 +167,7 @@ describe('biaya, promosi, lencana (ADR-049)', () => {
       location: null,
       isOnline: true,
       deadlineAt: new Date(Date.now() + 12 * 86_400_000).toISOString(),
+      stages: [],
       isFree: false,
       priceAmount: 50000,
       guidebookUrl: 'https://himpunan.example/panduan.pdf',

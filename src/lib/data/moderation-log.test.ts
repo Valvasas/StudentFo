@@ -17,6 +17,7 @@ const payload: SubmissionPayload = {
   location: null,
   isOnline: true,
   deadlineAt: new Date(Date.now() + 10 * 86_400_000).toISOString(),
+  stages: [],
   isFree: null,
   priceAmount: null,
   guidebookUrl: null,

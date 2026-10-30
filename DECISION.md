@@ -55,6 +55,21 @@ tidak menampilkan antrean Laporan.
    MFA. Dibuktikan dengan GoTrue v2.170 sungguhan: integrasi (aal1 → `is_admin()`
    tertutup, aal2 → terbuka) dan e2e lewat UI asli (login → QR → kode → panel).
 
+5. **"Buat acara langsung dari studio" = tetap lewat moderator; yang kurang
+   adalah tahapan jadwal.** Diukur dari kode: studio sudah punya "Kirim acara
+   baru" → `/submit` yang terisi nama lembaga terverifikasi, ditandai di antrean,
+   dan otomatis masuk studio setelah disetujui; biaya, nominal & buku panduan
+   sudah ada (ADR-049). Tayang tanpa moderator SENGAJA tidak dibuat — ADR-042
+   memilih kepercayaan di atas kecepatan, dan akun penyelenggara yang dibajak
+   (tanpa MFA) bisa langsung memasang lomba palsu berbayar. Yang benar-benar
+   hilang: tahapan sesudah pendaftaran (pengumpulan karya, pengumuman, babak
+   final) — `event_deadlines` mendukungnya sejak 0001, jalur kiriman tidak.
+   Kini opsional di form (bagian terlipat, tanpa validasi bawaan peramban yang
+   tak terlihat), harus ≥ tenggat pendaftaran & ≤ 3 tahun, dan
+   `approve_submission()` menyalinnya sebagai tenggat non-utama (satu per
+   label, label/tanggal asing dari payload PostgREST dibuang). Kedaluwarsa tetap
+   dihitung dari tenggat utama.
+
 **Konsekuensi:** + Pelapor tahu laporannya dibaca tanpa membocorkan apa pun
 tentang terlapor. + Job yang mati terlihat dalam ≤ 1 hari. + Sandi admin saja
 tidak lagi cukup untuk data pengguna & moderasi. − Watchdog bergantung

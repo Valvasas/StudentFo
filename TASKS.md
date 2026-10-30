@@ -418,7 +418,8 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] **BUTUH KONFIRMASI.** Apply `20261101100003` ke staging lalu produksi. Umumkan dulu ke admin: semua sesi admin turun ke aal1 sampai autentikator dipasang. Cek Supabase Dashboard → Authentication → MFA: TOTP aktif.
 - [ ] Pengingat tenggat lewat email: butuh penyedia email (Resend/SMTP) & preferensi kanal per pengguna (ADR-051).
 - [ ] Pesan langsung & Ruang diskusi (masih mode demo; 404 di produksi) — Fase 4, butuh desain moderasi; laporan ADR-061 bisa dipakai ulang.
-- [ ] Buat acara langsung dari studio penyelenggara (kini lewat `/submit` + persetujuan admin).
+- [x] Buat acara dari studio: tetap lewat `/submit` + moderator (ADR-042, sengaja); tahapan jadwal (pengumpulan karya/pengumuman/final) kini bisa dikirim (ADR-062 #5).
+- [ ] **BUTUH KONFIRMASI.** Apply `20261101100004` ke staging lalu produksi SEBELUM kode: kiriman bertahapan yang disetujui dengan `approve_submission` lama kehilangan tahapannya (tidak gagal).
 
 ## Template tugas baru
 
@@ -609,8 +610,8 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] **P0** Syarat & Ketentuan (halaman belum ada) — butuh tinjauan legal pemilik. → `/terms` (ADR-060); tinjauan legal tetap di bagian ADR-060.
 - [x] **P0** Pemantauan error — tanpa dependency: `instrumentation.ts` + webhook opsional (ADR-061). Sisa: alarm pg_cron gagal (`cron.job_run_details`).
 - [x] **P0** Manajemen pengguna admin: cari, tangguhkan, hapus (`/admin/pengguna`, ADR-061). Cabut/beri peran sengaja tetap lewat service_role. Sisa: jejak audit lencana/promosi.
-- [ ] **P0** Buat acara langsung dari studio penyelenggara (semua kolom, termasuk biaya & buku panduan).
-- [ ] **P1** CAPTCHA Supabase Auth di daftar & lupa sandi; MFA wajib untuk ADMIN.
+- [x] **P0** Buat acara dari studio (semua kolom, termasuk biaya & buku panduan) — biaya/panduan sudah ada (ADR-049); tahapan jadwal ditambahkan (ADR-062 #5). Tayang tanpa moderator sengaja tidak dibuat (ADR-042).
+- [ ] **P1** CAPTCHA Supabase Auth di daftar & lupa sandi. (MFA wajib untuk ADMIN: selesai, ADR-062 #4.)
 - [x] **P1** Laporkan kegiatan & pengguna + antrean `/admin/laporan` (ADR-061). Sisa: pengingat email + preferensi kanal (ADR-051).
 - [ ] **P2** `markNotificationReadAction`: batasi `revalidatePath` ke path yang dikenal.
 

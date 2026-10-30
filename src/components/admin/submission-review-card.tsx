@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { priceLabel } from '@/lib/currency';
 import { formatDateId, formatDateTimeId } from '@/lib/deadline';
 import { sanitizeExternalUrl } from '@/lib/utils';
-import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type Submission } from '@/types/domain';
+import { DEADLINE_LABEL_TEXT, EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type Submission } from '@/types/domain';
 
 function ApproveForm({ submissionId }: { submissionId: string }) {
   return (
@@ -75,6 +75,12 @@ export function SubmissionReviewCard({
               <dt className="inline text-ink-muted">Tenggat: </dt>
               <dd className="inline">{formatDateTimeId(payload.deadlineAt)}</dd>
             </div>
+            {payload.stages.map((stage) => (
+              <div key={stage.label}>
+                <dt className="inline text-ink-muted">{DEADLINE_LABEL_TEXT[stage.label]}: </dt>
+                <dd className="inline">{formatDateId(stage.deadlineAt)}</dd>
+              </div>
+            ))}
             <div>
               <dt className="inline text-ink-muted">Lokasi: </dt>
               <dd className="inline">{payload.isOnline ? 'Daring' : (payload.location ?? '—')}</dd>

@@ -724,8 +724,12 @@ export class MemoryEventRepository implements EventRepository {
         primaryDeadlineLabel: 'registration',
         registrationLink: payload.registrationLink,
         sourceUrl: payload.sourceUrl ?? payload.registrationLink,
+        // Cermin approve_submission() (migration 20261101100004): tahapan = tenggat non-utama.
         deadlines: [
           { id: `${id}-d0`, label: 'registration', deadlineAt: payload.deadlineAt, isPrimary: true },
+          ...[...payload.stages]
+            .sort((a, b) => a.deadlineAt.localeCompare(b.deadlineAt))
+            .map((stage, index) => ({ id: `${id}-d${index + 1}`, label: stage.label, deadlineAt: stage.deadlineAt, isPrimary: false })),
         ],
         // Cermin approve_submission() (20261003100001): biaya & panduan ikut,
         // kontak/bukti (bahan moderator) tidak.

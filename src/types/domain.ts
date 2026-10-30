@@ -44,6 +44,13 @@ export type EventStatus = (typeof EVENT_STATUSES)[number];
 export const DEADLINE_LABELS = ['registration', 'submission', 'final', 'announcement'] as const;
 export type DeadlineLabel = (typeof DEADLINE_LABELS)[number];
 
+/**
+ * Tahapan setelah pendaftaran yang bisa diisi pengirim kiriman (ADR-062 #5).
+ * Urutan = urutan yang lazim di lomba, dipakai urutan kolom form.
+ */
+export const SUBMISSION_STAGE_LABELS = ['submission', 'announcement', 'final'] as const satisfies readonly DeadlineLabel[];
+export type SubmissionStageLabel = (typeof SUBMISSION_STAGE_LABELS)[number];
+
 export const DEADLINE_LABEL_TEXT: Record<DeadlineLabel, string> = {
   registration: 'Pendaftaran',
   submission: 'Pengumpulan karya',
@@ -356,6 +363,8 @@ export interface SubmissionPayload {
   readonly isOnline: boolean;
   /** ISO 8601 UTC — tenggat pendaftaran, dijadikan tenggat utama saat disetujui. */
   readonly deadlineAt: string;
+  /** Tahapan berikutnya (opsional) → `event_deadlines` non-utama saat disetujui. */
+  readonly stages: readonly { readonly label: SubmissionStageLabel; readonly deadlineAt: string }[];
   /** `null` = pengirim memilih "belum tahu". Disalin ke `events.is_free` saat disetujui. */
   readonly isFree: boolean | null;
   readonly priceAmount: number | null;

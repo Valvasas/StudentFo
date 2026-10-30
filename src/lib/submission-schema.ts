@@ -5,6 +5,7 @@ import { daysUntil } from '@/lib/deadline';
 import {
   EDUCATION_LEVELS,
   EVENT_TYPES,
+  SUBMISSION_STAGE_LABELS,
   type Submission,
   type SubmissionPayload,
 } from '@/types/domain';
@@ -135,6 +136,8 @@ export function createSubmissionSchema(now: Date = new Date()) {
         const days = daysUntil(value, now);
         return days !== null && days <= MAX_DEADLINE_DAYS;
       }, 'Tenggat lebih dari 3 tahun ke depan — periksa lagi tahunnya.'),
+    // `deadlineAt: null` = isian tanggal yang tidak terbaca (kosong sudah dibuang di parseSubmissionForm).
+    stages: z.array(z.object({ label: z.enum(SUBMISSION_STAGE_LABELS), deadlineAt: z.string().nullable() })).max(SUBMISSION_STAGE_LABELS.length),
     costType: z.enum(COST_TYPES, { message: 'Pilih status biaya pendaftaran.' }),
     priceAmount: z.union([z.number(), z.null(), z.literal('invalid')]),
     guidebookUrl: optionalUrl(httpsUrlSchema),
@@ -145,9 +148,23 @@ export function createSubmissionSchema(now: Date = new Date()) {
       if (value.costType === 'paid' && value.priceAmount === 'invalid') {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['priceAmount'], message: 'Nominal biaya tidak valid.' });
       }
+      // Tahapan sesudah pendaftaran: tanggal yang lebih awal dari tenggat
+      // pendaftaran hampir selalu salah ketik bulan/tahun.
+      for (const [index, stage] of value.stages.entries()) {
+        const days = stage.deadlineAt === null ? null : daysUntil(stage.deadlineAt, now);
+        const valid = days !== null && days >= 0 && days <= MAX_DEADLINE_DAYS && stage.deadlineAt! >= value.deadlineAt;
+        if (!valid) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['stages', index],
+            message: 'Tanggal tahapan harus sesudah tenggat pendaftaran dan paling lambat 3 tahun lagi.',
+          });
+        }
+      }
     })
-    .transform(({ costType, priceAmount, ...rest }) => ({
+    .transform(({ costType, priceAmount, stages, ...rest }) => ({
       ...rest,
+      stages: stages.map((stage) => ({ label: stage.label, deadlineAt: stage.deadlineAt! })),
       isFree: costType === 'unknown' ? null : costType === 'free',
       // Nominal hanya bermakna untuk "berbayar"; isian nominal dengan
       // pilihan "gratis" diabaikan, bukan disimpan sebagai data yang
@@ -209,6 +226,10 @@ export function parseSubmissionForm(formData: FormData, now: Date = new Date()) 
     location: text(formData, 'location'),
     isOnline: text(formData, 'isOnline') === 'on',
     deadlineAt: dateInputToDeadlineIso(deadlineRaw) ?? undefined,
+    stages: SUBMISSION_STAGE_LABELS.flatMap((label) => {
+      const raw = text(formData, `stage_${label}`).trim();
+      return raw ? [{ label, deadlineAt: dateInputToDeadlineIso(raw) }] : [];
+    }),
     costType: text(formData, 'costType'),
     priceAmount: parsePriceInput(text(formData, 'priceAmount')),
     guidebookUrl: text(formData, 'guidebookUrl'),
@@ -234,6 +255,11 @@ const storedPayloadSchema = z.object({
   location: z.string().max(120).nullable(),
   is_online: z.boolean(),
   deadline_at: z.string().datetime({ offset: true }),
+  // Lahir di migration 20261101100004 (ADR-062 #5); kiriman lama → [].
+  stages: z
+    .array(z.object({ label: z.enum(SUBMISSION_STAGE_LABELS), deadline_at: z.string().datetime({ offset: true }) }))
+    .max(SUBMISSION_STAGE_LABELS.length)
+    .optional(),
   // Kunci-kunci di bawah lahir di migration 20261003100001; kiriman yang
   // lebih tua tidak memilikinya dan tetap harus terbaca (→ null).
   is_free: z.boolean().nullable().optional(),
@@ -258,6 +284,7 @@ export function toStoredPayload(payload: SubmissionPayload): StoredSubmissionPay
     location: payload.location,
     is_online: payload.isOnline,
     deadline_at: payload.deadlineAt,
+    stages: payload.stages.map((stage) => ({ label: stage.label, deadline_at: stage.deadlineAt })),
     is_free: payload.isFree,
     price_amount: payload.priceAmount,
     guidebook_url: payload.guidebookUrl,
@@ -282,6 +309,7 @@ export function fromStoredPayload(raw: unknown): SubmissionPayload | null {
     location: value.location,
     isOnline: value.is_online,
     deadlineAt: value.deadline_at,
+    stages: (value.stages ?? []).map((stage) => ({ label: stage.label, deadlineAt: stage.deadline_at })),
     isFree: value.is_free ?? null,
     priceAmount: value.is_free === false ? (value.price_amount ?? null) : null,
     guidebookUrl: value.guidebook_url ?? null,

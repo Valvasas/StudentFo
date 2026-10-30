@@ -171,6 +171,33 @@ describe('parseSubmissionForm — biaya, panduan, verifikasi', () => {
   });
 });
 
+describe('parseSubmissionForm — tahapan jadwal', () => {
+  it('kolom tahapan yang diisi saja yang ikut, sebagai 23:59 WIB', () => {
+    const parsed = parseSubmissionForm(validForm({ stage_submission: '2026-02-15', stage_final: '2026-03-01', stage_announcement: '' }), NOW);
+    expect(parsed.success && parsed.data.stages).toEqual([
+      { label: 'submission', deadlineAt: '2026-02-15T16:59:00.000Z' },
+      { label: 'final', deadlineAt: '2026-03-01T16:59:00.000Z' },
+    ]);
+  });
+
+  it('tanpa tahapan = larik kosong', () => {
+    const parsed = parseSubmissionForm(validForm(), NOW);
+    expect(parsed.success && parsed.data.stages).toEqual([]);
+  });
+
+  it('tahapan sebelum tenggat pendaftaran, tanggal rusak, atau > 3 tahun ditandai di kolom "stages"', () => {
+    for (const value of ['2026-01-20', '2026-02-31', '2030-01-01']) {
+      const parsed = parseSubmissionForm(validForm({ stage_final: value }), NOW);
+      expect(parsed.success, value).toBe(false);
+      if (!parsed.success) expect(parsed.error.issues.map((issue) => issue.path[0])).toEqual(['stages']);
+    }
+  });
+
+  it('tahapan di hari yang sama dengan tenggat pendaftaran diterima (karya dikumpulkan bersama pendaftaran)', () => {
+    expect(parseSubmissionForm(validForm({ stage_submission: '2026-02-01' }), NOW).success).toBe(true);
+  });
+});
+
 describe('payload tersimpan', () => {
   it('kiriman lama (sebelum kolom biaya ada) tetap terbaca, biayanya "belum diketahui"', () => {
     const legacy = {
@@ -178,12 +205,12 @@ describe('payload tersimpan', () => {
       registration_link: 'https://lama.example', source_url: null, education_levels: ['D4_S1'],
       category_slugs: [], location: null, is_online: true, deadline_at: '2026-02-01T16:59:00.000Z',
     };
-    expect(fromStoredPayload(legacy)).toMatchObject({ isFree: null, priceAmount: null, guidebookUrl: null, organizerContact: null });
+    expect(fromStoredPayload(legacy)).toMatchObject({ isFree: null, priceAmount: null, guidebookUrl: null, organizerContact: null, stages: [] });
   });
 
   it('bolak-balik toStoredPayload → fromStoredPayload tanpa kehilangan data', () => {
     const parsed = parseSubmissionForm(
-      validForm({ costType: 'paid', priceAmount: '75000', guidebookUrl: 'https://a.example/p.pdf', organizerContact: 'IG @panitia' }),
+      validForm({ costType: 'paid', priceAmount: '75000', guidebookUrl: 'https://a.example/p.pdf', organizerContact: 'IG @panitia', stage_final: '2026-03-01' }),
       NOW,
     );
     expect(parsed.success).toBe(true);

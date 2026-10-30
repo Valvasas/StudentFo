@@ -45,6 +45,7 @@ Urutan migration (harus dijalankan berurutan):
 35. `20261101100001_report_outcome_notifications.sql` — `resolve_content_report()` mengabari setiap pelapor (`REPORT_RESOLVED`/`REPORT_DISMISSED`, teks umum tanpa catatan moderator); "ditindak" menutup semua laporan OPEN atas subjek yang sama (ADR-062)
 36. `20261101100002_cron_job_health.sql` — `cron_job_health()` (service_role): status, run 7 hari, `overdue` untuk job `studentfo-*`; kosong tanpa pg_cron (ADR-062)
 37. `20261101100003_admin_mfa.sql` — `is_admin()` kini mensyaratkan klaim JWT `aal = aal2` (MFA TOTP) selain `role = 'ADMIN'`; semua policy & fungsi yang memanggilnya ikut (ADR-062 #4)
+38. `20261101100004_submission_stages.sql` — `approve_submission()` menyalin `payload.stages` (pengumpulan karya/pengumuman/final) ke `event_deadlines` non-utama; kiriman lama/payload asing tetap disetujui tanpa tahapan (ADR-062 #5)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
