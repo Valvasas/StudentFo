@@ -429,7 +429,9 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 
 - [x] Project "StudentFo staging" (`iwttgkzxudhjatbvywke`, ap-southeast-1) dibuat atas persetujuan pemilik; migration `20260912100001`..`20261101100006` diterapkan & hash dicocokkan; 6 job pg_cron aktif; bucket privat; semua tabel publik ber-RLS.
 - [x] Security & performance advisor dijalankan; temuan yang relevan diperbaiki di `20261101100007`.
-- [ ] Terapkan `20261101100007` ke staging & bersihkan alat bantu sementara (schema `studentfo_migration_runner`, ekstensi `http`) — menunggu persetujuan pemilik di dialog Supabase.
+- [x] `20261101100007` diterapkan ke staging (41 migration tercatat; fungsi trigger tak lagi bisa dipanggil `anon`; `compute_dedup_hash` tetap jalan dengan pgcrypto di `extensions`).
+- [ ] **BUTUH PEMILIK.** Bersihkan alat bantu sementara di SQL Editor staging (dialog konfirmasi `DROP` dibatalkan otomatis oleh klien sesi agen): `DROP SCHEMA studentfo_migration_runner CASCADE; DROP EXTENSION http;` — keduanya tidak terbuka ke API, tidak mendesak.
+- [ ] **BUTUH PEMILIK.** Isi katalog: jaringan sesi agen menolak situs penyelenggara/agregator, jadi tidak ada kegiatan yang dimasukkan (tanpa tautan resmi terverifikasi = tidak dimasukkan). Jalankan pipeline dengan kunci Gemini, atau kirim lewat `/submit` lalu setujui di `/admin`.
 - [ ] **BUTUH PEMILIK.** Hosting (Vercel/Netlify) + env; Authentication → URL Configuration & Google provider; TOTP aktif; uji manual daftar/masuk/hapus akun di staging. Produksi = project terpisah, migration diterapkan dengan cara yang sama.
 
 ## Template tugas baru
