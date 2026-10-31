@@ -107,6 +107,22 @@ tidak menampilkan antrean Laporan.
    riwayat); penanya bisa menghapus; hapus akun = CASCADE; ekspor data memuat
    semuanya (`list_my_event_questions`, termasuk yang disembunyikan).
 
+8. **Staging Supabase pertama + temuan Security Advisor.** Project "StudentFo
+   staging" (ap-southeast-1, paket gratis) dibuat atas persetujuan pemilik.
+   Proxy sesi agen menolak `*.supabase.co` dan password database tidak
+   diberikan API, jadi 40 migration diterapkan lewat MCP: Postgres mengunduh
+   tiap berkas dari commit publik `caee231` (ekstensi `http`) dan
+   menjalankannya — hash SHA-256 & ukuran tiap berkas dicocokkan dengan repo;
+   riwayat dicatat di `supabase_migrations.schema_migrations` dengan versi =
+   nama berkas supaya `supabase db push` tidak mengulang. Temuan advisor
+   yang ditindak (`20261101100007`): EXECUTE fungsi trigger
+   `handle_new_user`/`sync_saved_count` dicabut dari peran API, empat fungsi
+   bantu diberi `search_path` tetap. Yang SENGAJA dibiarkan: view berhak
+   pemilik (ADR-018/040, kolom terbatas), tabel ber-RLS tanpa policy (hanya
+   lewat RPC/service_role), RPC DEFINER yang memang API-nya (semuanya
+   memakai `auth.uid()` di dalam), dan temuan performa level INFO pada
+   database yang belum punya trafik.
+
 **Konsekuensi:** + Pelapor tahu laporannya dibaca tanpa membocorkan apa pun
 tentang terlapor. + Job yang mati terlihat dalam ≤ 1 hari. + Sandi admin saja
 tidak lagi cukup untuk data pengguna & moderasi. − Watchdog bergantung

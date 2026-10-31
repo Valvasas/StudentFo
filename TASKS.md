@@ -425,6 +425,13 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Buat acara dari studio: tetap lewat `/submit` + moderator (ADR-042, sengaja); tahapan jadwal (pengumpulan karya/pengumuman/final) kini bisa dikirim (ADR-062 #5).
 - [ ] **BUTUH KONFIRMASI.** Apply `20261101100004` ke staging lalu produksi SEBELUM kode: kiriman bertahapan yang disetujui dengan `approve_submission` lama kehilangan tahapannya (tidak gagal).
 
+## Staging Supabase 2026-10-31 (@claude) — ADR-062 #8
+
+- [x] Project "StudentFo staging" (`iwttgkzxudhjatbvywke`, ap-southeast-1) dibuat atas persetujuan pemilik; migration `20260912100001`..`20261101100006` diterapkan & hash dicocokkan; 6 job pg_cron aktif; bucket privat; semua tabel publik ber-RLS.
+- [x] Security & performance advisor dijalankan; temuan yang relevan diperbaiki di `20261101100007`.
+- [ ] Terapkan `20261101100007` ke staging & bersihkan alat bantu sementara (schema `studentfo_migration_runner`, ekstensi `http`) — menunggu persetujuan pemilik di dialog Supabase.
+- [ ] **BUTUH PEMILIK.** Hosting (Vercel/Netlify) + env; Authentication → URL Configuration & Google provider; TOTP aktif; uji manual daftar/masuk/hapus akun di staging. Produksi = project terpisah, migration diterapkan dengan cara yang sama.
+
 ## Template tugas baru
 
 ```md
