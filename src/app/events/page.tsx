@@ -185,20 +185,28 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
               </>
             ) : (
               <EmptyState
-                description={
-                  hasActiveFilters({ ...query, search: '' })
-                    ? 'Filter yang kamu pasang terlalu sempit. Coba kurangi satu-dua filter, atau pakai kata kunci yang lebih umum.'
-                    : query.search
-                      ? `Belum ada kegiatan yang cocok dengan “${query.search}”. Periksa ejaannya, atau coba kata yang lebih umum — mis. nama bidang, bukan nama acara lengkap.`
-                      : 'Belum ada kegiatan yang tayang. Data baru masuk setiap hari lewat proses verifikasi.'
-                }
-                actionLabel={
-                  hasActiveFilters({ ...query, search: '' })
-                    ? 'Hapus semua filter'
-                    : query.search
-                      ? 'Hapus kata kunci'
-                      : 'Muat ulang daftar'
-                }
+                {...(hasActiveFilters({ ...query, search: '' })
+                  ? {
+                      description:
+                        'Filter yang kamu pasang terlalu sempit. Coba kurangi satu-dua filter, atau pakai kata kunci yang lebih umum.',
+                      actionLabel: 'Hapus semua filter',
+                    }
+                  : query.search
+                    ? {
+                        description: `Belum ada kegiatan yang cocok dengan “${query.search}”. Periksa ejaannya, atau coba kata yang lebih umum — mis. nama bidang, bukan nama acara lengkap.`,
+                        actionLabel: 'Hapus kata kunci',
+                      }
+                    : // Katalog benar-benar kosong (hari peluncuran): "muat ulang" ke
+                      // halaman yang sama adalah jalan buntu. Arahkan ke yang bisa
+                      // mengisinya — pengirim kegiatan & penyelenggara.
+                      {
+                        title: 'Belum ada kegiatan yang tayang',
+                        description:
+                          'Kegiatan pertama sedang ditinjau moderator. Tahu lomba, beasiswa, atau magang yang belum ada di sini? Kirimkan supaya bisa ditinjau.',
+                        actionHref: '/submit',
+                        actionLabel: 'Kirim kegiatan',
+                        secondary: { href: '/penyelenggara', label: 'Penyelenggara? Pasang acaramu' },
+                      })}
               />
             )}
           </div>

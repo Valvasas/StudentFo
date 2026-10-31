@@ -54,7 +54,7 @@ src/
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
 │   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056)
-│   ├── (auth)/                 Route group — login & register (form biasa), demo/ (akun demo, tidak ditautkan dari mana pun — ADR-057), forgot/reset password
+│   ├── (auth)/                 Route group — login & register peserta (form biasa; pintu penyelenggara di penyelenggara/(akun), ADR-063), demo/ (akun demo, tidak ditautkan dari mana pun — ADR-057), forgot/reset password
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
 │   ├── profile/                Akun: profil, data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), pengaturan, privasi (+ ekspor/ JSON, ADR-060)
 │   ├── tracker/                Papan lamaran + actions.ts (simpan, ubah tahap, hapus)
@@ -62,7 +62,8 @@ src/
 │   │   └── cocok/              Pencocokan tim/partner otomatis (ADR-057, 058): page.tsx = router tipis → form-view.tsx | results-view.tsx, shared.ts, actions.ts
 │   ├── connections/            Koneksi, satu tab per tugas (?tab= untukmu|koneksi|ajakan|peta|pengaturan) + actions.ts (ADR-040, ADR-048)
 │   ├── orang/[id]/             Profil publik + portofolio orang lain, wajib masuk, 404 seragam (ADR-046)
-│   ├── penyelenggara/          Dasbor penyelenggara: acara aktif, riwayat acara (ADR-042/043/046); acara/[id]/ = ruang kerja
+│   ├── penyelenggara/          Tamu: halaman pengenalan studio + tur (ADR-063). Masuk: dasbor penyelenggara — acara aktif, riwayat acara (ADR-042/043/046);
+│   │                           (akun)/masuk & (akun)/daftar = pintu akun penyelenggara, layout sendiri (ADR-063); acara/[id]/ = ruang kerja
 │   │                           per acara dengan tab Ringkasan (analitik) · formulir/ · pendaftar/ (+ ekspor/ CSV) · galeri/ (ADR-056)
 │   ├── pembayaran/             Pendaftaran & tagihan peserta; [id]/ status, instruksi bayar, unggah bukti + actions.ts (ADR-056)
 │   ├── media/                  foto/[id] (foto galeri, publik, cache 1 hari) · bukti/[id] (bukti bayar, privat, 404 bila tak berhak)
@@ -89,7 +90,7 @@ src/
 │   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
 │   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054)
-│   ├── landing/                GuestLanding + Hero — beranda tamu
+│   ├── landing/                GuestLanding + Hero — beranda tamu; product-tour.tsx = mesin tur berpemandu, student-tour/organizer-tour = isi bab (ADR-063)
 │   ├── home/                   RoleHome memilih per peran tampilan (account-role.ts): PersonalHome (peserta — tagihan,
 │   │                           perlu tindakan, pantauan), OrganizerHome (pendaftar baru, bukti bayar menunggu), AdminHome (antrean)
 │   ├── registration/           Sisi peserta formulir internal: RegistrationFieldInput, RequiredChoiceGroup, RegistrationCta,

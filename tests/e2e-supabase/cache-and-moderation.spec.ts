@@ -183,3 +183,33 @@ test.describe('daftar: pernyataan usia dan persetujuan', () => {
     });
   }
 });
+
+/**
+ * Pintu penyelenggara (ADR-063): akun & Server Action yang sama dengan pintu
+ * peserta, tetapi galat kembali ke halaman asalnya (`audience` / jenis akun
+ * tersembunyi), bukan ke /login atau /register peserta.
+ */
+test.describe('pintu akun penyelenggara', () => {
+  test('masuk gagal kembali ke /penyelenggara/masuk dengan email terisi', async ({ page }) => {
+    await page.goto('/penyelenggara/masuk');
+    await page.getByLabel('Email').fill('panitia-tidak-ada@uji.example');
+    await page.locator('#password').fill('salah-sandi-123');
+    await page.getByRole('button', { name: 'Masuk ke studio' }).click();
+    // Kodenya bergantung ada/tidaknya GoTrue (WITH_SUPABASE_SERVICES); yang diuji di sini pintunya.
+    await expect(page).toHaveURL(/\/penyelenggara\/masuk\?error=[a-z_]+&email=panitia-tidak-ada%40uji\.example$/);
+    await expect(page.getByLabel('Email')).toHaveValue('panitia-tidak-ada@uji.example');
+  });
+
+  test('daftar tanpa persetujuan kembali ke /penyelenggara/daftar; jenis akun tidak bisa dipilih di form', async ({ page }) => {
+    await page.goto('/penyelenggara/daftar');
+    await expect(page.locator('input[name="accountType"]')).toHaveValue('organizer');
+    await expect(page.getByRole('radio')).toHaveCount(0);
+    await page.getByLabel('Nama lengkap penanggung jawab').fill('Uji Panitia');
+    await page.getByLabel('Email').fill(`panitia-${randomUUID()}@uji.example`);
+    await page.locator('#password').fill('rahasia12345');
+    await page.locator('input[name="ageConfirm"]').check();
+    await page.locator('input[name="privacyConsent"]').evaluate((el) => el.removeAttribute('required'));
+    await page.getByRole('button', { name: 'Buat akun' }).click();
+    await expect(page).toHaveURL(/\/penyelenggara\/daftar\?error=consent_required/);
+  });
+});

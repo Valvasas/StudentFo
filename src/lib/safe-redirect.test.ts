@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loginHref, safeNextPath } from './safe-redirect';
+import { loginHref, parseAuthAudience, safeNextPath } from './safe-redirect';
 
 describe('safeNextPath', () => {
   it('meloloskan path internal apa adanya', () => {
@@ -62,5 +62,22 @@ describe('loginHref', () => {
 
   it('membuang tujuan yang tidak aman, bukan meneruskannya', () => {
     expect(loginHref('https://situs-palsu.example')).toBe('/login');
+  });
+
+  it('tujuan di dalam studio memakai pintu masuk penyelenggara', () => {
+    expect(loginHref('/penyelenggara')).toBe('/penyelenggara/masuk');
+    expect(loginHref('/penyelenggara/acara/abc/pendaftar?status=diperiksa')).toBe(
+      '/penyelenggara/masuk?next=%2Fpenyelenggara%2Facara%2Fabc%2Fpendaftar%3Fstatus%3Ddiperiksa',
+    );
+    // Awalan yang mirip bukan studio.
+    expect(loginHref('/penyelenggarax')).toBe('/login?next=%2Fpenyelenggarax');
+  });
+});
+
+describe('parseAuthAudience', () => {
+  it('hanya "organizer" yang dikenali; selain itu peserta', () => {
+    expect(parseAuthAudience('organizer')).toBe('organizer');
+    expect(parseAuthAudience('admin')).toBe('participant');
+    expect(parseAuthAudience(undefined)).toBe('participant');
   });
 });

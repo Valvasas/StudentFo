@@ -4,15 +4,18 @@ import { EventCard } from '@/components/event/event-card';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
 import { cn } from '@/lib/utils';
+import { siteUrl } from '@/lib/env';
 import { LandingHero } from './hero';
 import { RevealObserver } from './reveal-observer';
+import { StudentTour } from './student-tour';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import type { RawSearchParams } from '@/lib/search-params';
 
 /**
- * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. Pratinjaunya
- * kegiatan sungguhan dari repository (bukan tangkapan antarmuka buatan), dan
- * setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem — klaim
+ * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. "Segera ditutup"
+ * memakai kegiatan sungguhan dari repository; tur `#cara-kerja` adalah
+ * ilustrasi berlabel yang hanya memperagakan perilaku yang ada (ADR-063).
+ * Setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem — klaim
  * pemasaran yang tidak bisa dipertanggungjawabkan adalah kerugian nyata bagi
  * yang mempercayainya (ADR-039 #4).
  */
@@ -75,6 +78,20 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
       {/* Satu-satunya notice yang mendarat di sini: akun baru saja dihapus (ADR-061). */}
       <ActionFeedback params={params} className="container-page max-w-[1120px] pt-6" />
       <LandingHero />
+
+      <section id="cara-kerja" aria-labelledby="cara-kerja-title" className={`${sectionClass} scroll-mt-20 pt-[clamp(56px,7vw,88px)]`}>
+        <div data-reveal="" className="flex max-w-[640px] flex-col gap-3.5">
+          <h2 id="cara-kerja-title" className={h2Class}>
+            Dari cari sampai diterima, di satu tempat.
+          </h2>
+          <p className="text-[16.5px] leading-relaxed text-ink-muted">
+            Tonton alurnya sebentar, atau pilih langkah yang ingin kamu lihat. Contoh kegiatan di tur ini hanya ilustrasi.
+          </p>
+        </div>
+        <div className="mt-10">
+          <StudentTour host={new URL(siteUrl).host} />
+        </div>
+      </section>
 
       {closingSoon.length > 0 && (
         <section aria-labelledby="tenggat-title" className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')}>
@@ -176,13 +193,13 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
         <div data-reveal="" className="flex flex-col items-start gap-4 rounded-[20px] border border-line bg-panel px-[clamp(24px,4vw,40px)] py-[clamp(32px,5vw,48px)]">
           <h2 className="text-[22px] font-bold leading-tight tracking-[-0.025em]">Untuk penyelenggara</h2>
           <p className="max-w-[40ch] text-[15.5px] leading-relaxed text-ink-muted">
-            Buat formulir pendaftaran, terima bukti pembayaran peserta, dan kelola pendaftar dari satu studio.
+            Verifikasi lembagamu sekali, lalu pasang acara, terima pendaftar, dan periksa bukti bayar dari satu studio.
           </p>
           <Link
             href="/penyelenggara"
             className="press mt-auto flex h-12 items-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
           >
-            Buka studio penyelenggara <ArrowRight aria-hidden className="size-4" />
+            Lihat cara kerja studio <ArrowRight aria-hidden className="size-4" />
           </Link>
         </div>
       </section>

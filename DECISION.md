@@ -12,6 +12,74 @@ terdokumentasi.
 
 ---
 
+## ADR-063 — Tur berpemandu kembali (dengan syarat), pintu akun penyelenggara terpisah
+
+**Konteks:** Pemilik meminta tur animasi beranda (kursor bergerak, kamera
+zoom in/out) dikembalikan — beranda tamu adalah halaman pemasaran — dan
+halaman masuk/daftar peserta dipisah dari penyelenggara supaya tidak terkesan
+generik. Tur lama dihapus di ADR-056 karena (a) warna hex tetap (rusak di mode
+gelap), (b) memperagakan alur yang sudah tidak ada (pilih minat sebagai langkah
+wajib, "Cari tim" di setiap kegiatan), (c) persona & kegiatan tampil seperti
+data sungguhan, dan (d) narasi `aria-live` yang maju sendiri tiap dua detik.
+Pintu akun: `/register` memakai dua kartu radio jenis akun, `/penyelenggara`
+melempar tamu ke `/login` peserta tanpa penjelasan, dan tidak ada halaman yang
+menjelaskan studio kepada penyelenggara yang belum punya akun.
+
+**Keputusan:**
+1. **Tur = mesin + data bab** (`components/landing/product-tour.tsx`), dua
+   isi: pelajar di `/` (cari & saring → cek & simpan → persiapan → papan
+   lamaran) dan penyelenggara di `/penyelenggara` (verifikasi → kirim acara →
+   bukti bayar pendaftar → analitik). Setiap langkah = perilaku yang ada;
+   label sama dengan UI. Yang membuat tur lama dihapus kini syarat:
+   - Warna lewat `var(--color-*)`, jadi mode gelap ikut tanpa cabang.
+   - Nama kegiatan/lembaga berawalan "Contoh", dan kalimat pengantar menyebut
+     "hanya ilustrasi".
+   - Panggung `aria-hidden` TANPA `aria-live`; isinya dibawa daftar langkah
+     (tombol sungguhan).
+   - Hanya jalan saat terlihat & tab aktif, berhenti sendiri setelah satu
+     putaran, dan bisa dijeda (WCAG 2.2.2).
+   - "Kurangi gerak" (OS atau Personalisasi, `isMotionReduced`) = tampilan
+     statis keadaan akhir tiap bab.
+2. **Satu akun, dua pintu.** `/login` & `/register` = peserta;
+   `/penyelenggara/masuk` & `/penyelenggara/daftar` = penyelenggara (route
+   group `penyelenggara/(akun)` dengan layout sendiri: kartu yang sama +
+   urutan tiga langkah sampai acara tayang). Auth backend TIDAK dipisah:
+   - Satu orang bisa peserta sekaligus panitia; dua akun = data ganda &
+     hak yang tercecer.
+   - Hak penyelenggara tetap dari `organizer_profiles` VERIFIED (ADR-042/056).
+   - Yang berbeda hanya tujuan bawaan (`audienceHome`), salinan teks, dan ke
+     halaman mana galat dikembalikan: isian tersembunyi `audience` di form
+     masuk & tombol Google; `accountType` tersembunyi di form daftar
+     menggantikan kartu radio.
+   - `loginHref()` mengarahkan tujuan di bawah `/penyelenggara/` ke pintu
+     penyelenggara, jadi tautan acara dari email panitia tidak mendarat di
+     halaman masuk peserta.
+   - Navbar tamu di halaman studio menunjuk pintu penyelenggara.
+   - `/register?type=organizer` lama dialihkan.
+   - Admin tidak mendapat pintu sendiri (tetap ADR-057: `/admin` 404 bagi
+     non-admin; admin masuk lewat `/login` lalu MFA).
+3. **`/penyelenggara` untuk tamu = halaman pengenalan studio** (bisa
+   diindeks, masuk sitemap; `robots` kini melarang `/penyelenggara/`, bukan
+   `/penyelenggara`). Yang sudah masuk tetap melihat studionya. Pola sama
+   dengan `/` (ADR-053): satu URL, isi menurut sesi; gagal membaca sesi =
+   tamu.
+4. **Katalog kosong di `/events` bukan jalan buntu**: tanpa filter & kata
+   kunci, ajakan "Muat ulang daftar" (ke halaman yang sama) diganti "Kirim
+   kegiatan" + "Penyelenggara? Pasang acaramu". Klaim "data baru masuk setiap
+   hari" dibuang — belum tentu benar di hari peluncuran.
+
+**Konsekuensi:**
+- (+) Beranda menunjukkan produknya tanpa meminta akun.
+- (+) Penyelenggara punya corong sendiri dari halaman pengenalan sampai studio.
+- (+) Akun tetap satu.
+- (−) Dua berkas data tur (±600 + ±400 baris gaya inline) harus ikut diubah
+  saat label UI berubah. Labelnya sengaja sama dengan UI supaya selisih
+  mudah terlihat saat review.
+- (−) `AccountTypeField` dihapus; tes `auth-pages.spec.ts` ditulis ulang
+  untuk dua pintu.
+
+---
+
 ## ADR-062 — Menutup sisa MVP operasional: kabar ke pelapor, kesehatan job terjadwal
 
 **Konteks:** Setelah ADR-061, pemilik meminta semua kekurangan MVP dikerjakan.

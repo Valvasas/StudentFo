@@ -15,11 +15,13 @@ export function EmptyState({
   description = 'Coba longgarkan filternya, atau pakai kata kunci yang lebih umum.',
   actionHref = '/events',
   actionLabel = 'Hapus semua filter',
+  secondary,
 }: {
   title?: string;
   description?: string;
   actionHref?: string;
   actionLabel?: string;
+  secondary?: { readonly href: string; readonly label: string };
 }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-line bg-panel px-6 py-12 text-center sm:py-14">
@@ -29,6 +31,11 @@ export function EmptyState({
       <Button asChild variant="secondary" size="sm" className="mt-2">
         <Link href={actionHref}>{actionLabel}</Link>
       </Button>
+      {secondary && (
+        <Link href={secondary.href} className="inline-flex min-h-11 items-center text-sm font-semibold text-ink underline-offset-[3px] hover:underline">
+          {secondary.label}
+        </Link>
+      )}
     </div>
   );
 }

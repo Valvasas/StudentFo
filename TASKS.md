@@ -432,9 +432,19 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] `20261101100007` diterapkan ke staging (41 migration tercatat; fungsi trigger tak lagi bisa dipanggil `anon`; `compute_dedup_hash` tetap jalan dengan pgcrypto di `extensions`).
 - [ ] **BUTUH PEMILIK.** Bersihkan alat bantu sementara di SQL Editor staging (dialog konfirmasi `DROP` dibatalkan otomatis oleh klien sesi agen): `DROP SCHEMA studentfo_migration_runner CASCADE; DROP EXTENSION http;` — keduanya tidak terbuka ke API, tidak mendesak.
 - [ ] **BUTUH PEMILIK.** Isi katalog: jaringan sesi agen menolak situs penyelenggara/agregator, jadi tidak ada kegiatan yang dimasukkan (tanpa tautan resmi terverifikasi = tidak dimasukkan). Jalankan pipeline dengan kunci Gemini, atau kirim lewat `/submit` lalu setujui di `/admin`.
-- [x] Vercel: project `studentfo` (tim valvasas-projects, region `sin1`, Node 22) terhubung ke repo; env publik (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`) diisi; produksi = https://studentfo-valvasas-projects.vercel.app. Vercel Authentication hanya untuk preview.
+- [x] Vercel: project `studentfo` (tim valvasas-projects, region `sin1`, Node 22) terhubung ke repo; env publik (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`) diisi; produksi = https://studentfo.vercel.app (alias tim: studentfo-valvasas-projects.vercel.app). Vercel Authentication hanya untuk preview.
 - [ ] **BUTUH PEMILIK.** Env rahasia di Vercel: `SUPABASE_SERVICE_ROLE_KEY` (tanpanya panel admin & hapus akun gagal), `RATE_LIMIT_SECRET`, `CRON_SECRET`, Resend, `ERROR_ALERT_WEBHOOK_URL`, data hukum; lalu deploy ulang.
 - [ ] **BUTUH PEMILIK.** Authentication → URL Configuration & Google provider; TOTP aktif; uji manual daftar/masuk/hapus akun di staging. Produksi = project terpisah, migration diterapkan dengan cara yang sama.
+
+## Tur beranda & pintu penyelenggara 2026-10-31 (@claude) — ADR-063
+
+- [x] Mesin tur berpemandu (`product-tour.tsx`): kursor, klik, kamera zoom per langkah. Memakai token tema (mode gelap ikut), berhenti setelah satu putaran, ada tombol jeda, statis saat "kurangi gerak", tanpa `aria-live`.
+- [x] Tur pelajar di beranda (`#cara-kerja`; tombol hero kedua "Lihat cara kerjanya") dan tur penyelenggara di `/penyelenggara`. Semua langkah = fitur yang ada, contoh berlabel "Contoh".
+- [x] `/penyelenggara` untuk tamu = halaman pengenalan studio (indeks + sitemap); `robots` hanya melarang `/penyelenggara/`.
+- [x] Pintu terpisah `/penyelenggara/masuk` & `/penyelenggara/daftar` (layout + langkah verifikasi). `/register` khusus peserta (kartu jenis akun dihapus, `?type=organizer` dialihkan). Galat kembali ke pintu asal (`audience`). `loginHref` sadar studio. Navbar tamu di studio menunjuk pintu penyelenggara.
+- [x] `/events` dengan katalog kosong: ajakan "Kirim kegiatan" + "Pasang acaramu", bukan "Muat ulang".
+- [x] Tes: `safe-redirect.test.ts` (pintu studio), `auth-pages.spec.ts` ditulis ulang, galat pintu penyelenggara di `e2e-supabase` (kembali ke `/penyelenggara/masuk` & `/daftar`). Halaman baru masuk `axe.spec.ts` & `narrow-viewport.spec.ts`. Panggung tur dikecualikan dari axe (gambar `aria-hidden`, pengecualian WCAG 1.4.3).
+- [ ] **BUTUH PEMILIK.** Di Supabase → Authentication → URL Configuration, tambahkan juga `https://studentfo.vercel.app/auth/callback` (pintu penyelenggara memakai callback yang sama, tidak perlu entri baru).
 
 ## Template tugas baru
 

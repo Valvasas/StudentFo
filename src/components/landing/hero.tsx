@@ -4,7 +4,9 @@ import { ArrowRight } from 'lucide-react';
 /**
  * Hero beranda tamu. Tombol utama membuka katalog, bukan pendaftaran akun:
  * mencari tidak butuh akun, dan meminta daftar sebelum pengunjung melihat
- * isinya adalah gesekan terbesar di corong ini.
+ * isinya adalah gesekan terbesar di corong ini. Tombol kedua menuju tur di
+ * bawahnya (ajakan daftar sudah ada di navbar & penutup halaman), dan
+ * penyelenggara langsung diberi pintunya sendiri.
  */
 export function LandingHero() {
   return (
@@ -26,12 +28,18 @@ export function LandingHero() {
             <ArrowRight aria-hidden className="size-4" />
           </Link>
           <Link
-            href="/register"
+            href="#cara-kerja"
             className="press flex h-12 items-center justify-center rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
           >
-            Buat akun
+            Lihat cara kerjanya
           </Link>
         </div>
+        <p className="mt-6 text-[14.5px] text-ink-muted">
+          Menyelenggarakan lomba atau beasiswa?{' '}
+          <Link href="/penyelenggara" className="inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-[3px]">
+            Pasang acaramu
+          </Link>
+        </p>
       </div>
     </section>
   );
