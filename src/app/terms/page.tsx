@@ -111,7 +111,7 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
       body: (
         <>
           <p>
-            Kiriman kegiatan, profil, portofolio, tim, pesan ajakan, dan isian formulir tetap milikmu. Kamu memberi kami izin non-eksklusif dan tanpa
+            Kiriman kegiatan, pertanyaan & jawaban di Tanya jawab, profil, portofolio, tim, pesan ajakan, dan isian formulir tetap milikmu. Kamu memberi kami izin non-eksklusif dan tanpa
             royalti untuk menyimpan, menampilkan, dan menyesuaikan format konten itu sejauh perlu untuk menjalankan StudentFo, selama konten itu
             masih tayang.
           </p>
@@ -119,6 +119,11 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             Kamu menjamin berhak membagikan konten tersebut dan bahwa isinya benar. Kami dapat menolak, menurunkan, atau menyunting format konten
             yang melanggar ketentuan ini atau hukum, dan memberi tahu alasannya bila memungkinkan. Kiriman kegiatan selalu ditinjau moderator
             sebelum tayang.
+          </p>
+          <p>
+            Pertanyaan di Tanya jawab tayang langsung dan bisa dibaca siapa pun. Jangan menulis data pribadi (milikmu atau orang lain), iklan,
+            atau tautan yang tidak berkaitan; pertanyaan seperti itu dapat disembunyikan moderator. Jawaban yang diberi label
+            &ldquo;penyelenggara&rdquo; ditulis penyelenggara terverifikasi kegiatan itu — tetap cocokkan hal penting dengan buku panduan resminya.
           </p>
         </>
       ),

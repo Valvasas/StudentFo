@@ -39,6 +39,7 @@ export const MODERATION_SUBJECT_TEXT: Record<ModerationSubject, string> = {
   revision: 'Perubahan acara',
   user: 'Pengguna',
   report: 'Laporan',
+  question: 'Pertanyaan',
 };
 
 export const REPORT_REASON_TEXT: Record<ReportReason, { label: string; hint: string }> = {
@@ -55,4 +56,5 @@ export const REPORT_REASON_TEXT: Record<ReportReason, { label: string; hint: str
 export const REPORT_REASONS_FOR: Record<ReportSubject, readonly ReportReason[]> = {
   event: ['scam', 'misleading', 'impersonation', 'inappropriate', 'spam', 'other'],
   user: ['harassment', 'scam', 'impersonation', 'spam', 'inappropriate', 'other'],
+  question: ['harassment', 'spam', 'inappropriate', 'scam', 'misleading', 'other'],
 };

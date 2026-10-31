@@ -86,6 +86,12 @@ export const ACTION_ERROR_CODES = [
   'mfa_invalid_code',
   'mfa_rate_limited',
   'mfa_failed',
+  'question_unavailable',
+  'invalid_question',
+  'question_rate_limited',
+  'question_not_found',
+  'question_forbidden',
+  'invalid_answer',
   'invalid_request',
   'unknown',
 ] as const;
@@ -177,6 +183,12 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   mfa_invalid_code: 'Kode tidak cocok atau sudah kedaluwarsa. Masukkan kode TERBARU dari aplikasi autentikator, dan pastikan jam ponselmu otomatis.',
   mfa_rate_limited: 'Terlalu banyak percobaan kode. Tunggu 15 menit lalu coba lagi.',
   mfa_failed: 'Verifikasi dua langkah gagal diproses. Coba lagi sebentar lagi.',
+  question_unavailable: 'Kegiatan ini sudah tidak menerima pertanyaan baru.',
+  invalid_question: 'Tulis pertanyaan 10–500 karakter.',
+  question_rate_limited: 'Kamu sudah bertanya 5 kali hari ini. Coba lagi besok, atau cek buku panduan & tab lainnya.',
+  question_not_found: 'Pertanyaan itu sudah tidak ada.',
+  question_forbidden: 'Hanya penyelenggara terverifikasi kegiatan ini atau moderator yang bisa menjawab.',
+  invalid_answer: 'Tulis jawaban 2–1500 karakter.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
@@ -229,6 +241,10 @@ export const ACTION_NOTICE_CODES = [
   'mfa_verified',
   'email_reminders_on',
   'email_reminders_off',
+  'question_sent',
+  'question_answered',
+  'question_deleted',
+  'question_hidden',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -283,6 +299,10 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   mfa_verified: 'Terverifikasi. Panel admin terbuka untuk sesi ini.',
   email_reminders_on: 'Pengingat email aktif. Kamu akan menerima email H-3 dan H-1 untuk kegiatan yang kamu simpan atau lacak.',
   email_reminders_off: 'Pengingat email dimatikan. Pengingat di lonceng notifikasi tetap berjalan.',
+  question_sent: 'Pertanyaanmu tampil di bawah. Kamu dikabari lewat lonceng saat dijawab.',
+  question_answered: 'Jawaban tersimpan dan penanya dikabari.',
+  question_deleted: 'Pertanyaanmu sudah dihapus.',
+  question_hidden: 'Pertanyaan disembunyikan dan tercatat di riwayat moderasi.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

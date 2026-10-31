@@ -47,6 +47,7 @@ Urutan migration (harus dijalankan berurutan):
 37. `20261101100003_admin_mfa.sql` — `is_admin()` kini mensyaratkan klaim JWT `aal = aal2` (MFA TOTP) selain `role = 'ADMIN'`; semua policy & fungsi yang memanggilnya ikut (ADR-062 #4)
 38. `20261101100004_submission_stages.sql` — `approve_submission()` menyalin `payload.stages` (pengumpulan karya/pengumuman/final) ke `event_deadlines` non-utama; kiriman lama/payload asing tetap disetujui tanpa tahapan (ADR-062 #5)
 39. `20261101100005_deadline_email_reminders.sql` — `users.deadline_email_opt_in_at` + `set_deadline_email_reminders()` (authenticated, diri sendiri); `claim_notification_dispatch()` hanya untuk yang setuju, sesudah persetujuan, tidak ditangguhkan, ≤ 4 hari (ADR-062 #6)
+40. `20261101100006_event_questions.sql` — `event_questions` (RLS tanpa policy) + RPC `list_event_questions` (publik, nama depan), `ask_event_question` (5/hari), `answer_event_question` (pengelola/admin aal2), `delete_event_question` (penanya), `hide_event_question` (service_role), `list_my_event_questions` (ekspor); subjek `question` di `content_reports` & `moderation_log` (ADR-062 #7)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di

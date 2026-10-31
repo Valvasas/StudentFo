@@ -11,7 +11,7 @@ import { SubmitButton } from '@/components/ui/submit-button';
 import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
-import { REPORT_REASON_TEXT } from '@/lib/moderation-labels';
+import { MODERATION_SUBJECT_TEXT, REPORT_REASON_TEXT } from '@/lib/moderation-labels';
 import type { RawSearchParams } from '@/lib/search-params';
 import { MODERATION_NOTE_MAX } from '@/lib/trust-safety';
 import type { ContentReport } from '@/types/domain';
@@ -24,7 +24,23 @@ const QUEUE_LIMIT = 100;
 
 function SubjectLink({ report }: { report: ContentReport }) {
   if (report.subjectLabel === null) {
-    return <span className="text-ink-muted">{report.subjectType === 'event' ? 'Kegiatan' : 'Akun'} sudah tidak ada</span>;
+    return (
+      <span className="text-ink-muted">
+        {report.subjectType === 'event' ? 'Kegiatan' : report.subjectType === 'question' ? 'Pertanyaan' : 'Akun'} sudah tidak ada
+      </span>
+    );
+  }
+  if (report.subjectType === 'question' && report.subjectSlug) {
+    return (
+      <Link
+        href={`/events/${report.subjectSlug}?tab=tanya#q-${report.subjectId}`}
+        target="_blank"
+        className="inline-flex min-h-11 items-center gap-1 break-words font-semibold underline underline-offset-[3px]"
+      >
+        “{report.subjectLabel}” <ExternalLink aria-hidden className="size-3.5 shrink-0" />
+        <span className="sr-only">(tab baru)</span>
+      </Link>
+    );
   }
   if (report.subjectType === 'event' && report.subjectSlug) {
     return (
@@ -90,7 +106,7 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
                   {formatDateTimeId(report.createdAt)} · dilaporkan {report.reporterName ? `oleh ${report.reporterName}` : 'oleh akun yang sudah dihapus'}
                 </span>
                 <span className="flex flex-wrap gap-2">
-                  <Badge variant="neutral">{report.subjectType === 'event' ? 'Kegiatan' : 'Pengguna'}</Badge>
+                  <Badge variant="neutral">{MODERATION_SUBJECT_TEXT[report.subjectType]}</Badge>
                   <Badge variant={report.reason === 'scam' || report.reason === 'harassment' ? 'danger' : 'warning'}>
                     {REPORT_REASON_TEXT[report.reason].label}
                   </Badge>
@@ -99,7 +115,7 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
               <SubjectLink report={report} />
               {othersOpen > 0 && (
                 <p className="text-sm text-ink-soft">
-                  Ada {othersOpen} laporan terbuka lain atas {report.subjectType === 'event' ? 'kegiatan' : 'akun'} ini. Semuanya ikut
+                  Ada {othersOpen} laporan terbuka lain atas {report.subjectType === 'event' ? 'kegiatan' : report.subjectType === 'question' ? 'pertanyaan' : 'akun'} ini. Semuanya ikut
                   ditutup (dan setiap pelapornya dikabari) bila kamu menandai yang ini sudah ditindak.
                 </p>
               )}
@@ -121,6 +137,14 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
                     <input type="checkbox" name="takedownEventId" value={report.subjectId} className="check mt-px" />
                     <span>
                       Turunkan kegiatan ini dari katalog <span className="text-ink-muted">(bisa dikembalikan dari Riwayat moderasi)</span>
+                    </span>
+                  </label>
+                )}
+                {report.subjectType === 'question' && report.subjectLabel !== null && (
+                  <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1 text-sm">
+                    <input type="checkbox" name="hideQuestionId" value={report.subjectId} className="check mt-px" />
+                    <span>
+                      Sembunyikan pertanyaan ini dari halaman kegiatan <span className="text-ink-muted">(tercatat di Riwayat moderasi)</span>
                     </span>
                   </label>
                 )}

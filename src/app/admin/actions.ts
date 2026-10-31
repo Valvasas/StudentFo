@@ -291,6 +291,7 @@ export async function resolveReportAction(formData: FormData): Promise<void> {
   const note = formText(formData, 'note').trim().slice(0, MODERATION_NOTE_MAX);
   // Hanya terkirim bila kotak "turunkan kegiatan" dicentang.
   const takedownEventId = formTrimmed(formData, 'takedownEventId');
+  const hideQuestionId = formTrimmed(formData, 'hideQuestionId');
   if (!reportId || (outcome !== 'RESOLVED' && outcome !== 'DISMISSED')) redirect(withQuery(REPORTS_PAGE, { error: 'invalid_request' }));
 
   let failure: ActionErrorCode | null = null;
@@ -305,6 +306,9 @@ export async function resolveReportAction(formData: FormData): Promise<void> {
         reviewerName: gate.userName,
         reason: note || 'Diturunkan setelah laporan pengguna',
       });
+    }
+    if (outcome === 'RESOLVED' && hideQuestionId) {
+      await repository.hideEventQuestion({ questionId: hideQuestionId, actorId: gate.userId, actorName: gate.userName, reason: note || 'Disembunyikan setelah laporan pengguna' });
     }
     await repository.resolveReport({ reportId, actorId: gate.userId, actorName: gate.userName, outcome, note: note || null });
   } catch (error) {

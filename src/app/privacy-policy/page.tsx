@@ -78,7 +78,12 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               pengingat tenggat lewat email, juga waktu persetujuanmu dan catatan email mana yang sudah terkirim.
             </li>
             <li>
-              <strong>Laporan:</strong> alasan dan keterangan saat kamu melaporkan kegiatan atau pengguna lain.
+              <strong>Tanya jawab kegiatan:</strong> pertanyaan yang kamu kirim di tab Tanya jawab, beserta waktunya. Pertanyaan tampil
+              publik dengan <em>nama depanmu saja</em>; bisa kamu hapus kapan saja, dan ikut terhapus bila akunmu dihapus. Jawaban
+              penyelenggara atau moderator juga tampil publik.
+            </li>
+            <li>
+              <strong>Laporan:</strong> alasan dan keterangan saat kamu melaporkan kegiatan, pertanyaan, atau pengguna lain.
             </li>
             <li>
               <strong>Status akun:</strong> bila akunmu ditangguhkan admin karena melanggar Syarat &amp; Ketentuan, waktu dan alasannya.

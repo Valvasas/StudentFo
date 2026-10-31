@@ -217,6 +217,9 @@ export const NOTIFICATION_TYPES = [
   /** Hasil laporan untuk pelapor (resolve_content_report, ADR-062). */
   'REPORT_RESOLVED',
   'REPORT_DISMISSED',
+  /** Tanya-jawab kegiatan (migration 20261101100006, ADR-062 #7). */
+  'QUESTION_ASKED',
+  'QUESTION_ANSWERED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -406,14 +409,14 @@ export const MODERATION_STATUSES = [
 ] as const;
 export type ModerationStatus = (typeof MODERATION_STATUSES)[number];
 
-export const MODERATION_SUBJECTS = ['event', 'submission', 'organizer', 'claim', 'revision', 'user', 'report'] as const;
+export const MODERATION_SUBJECTS = ['event', 'submission', 'organizer', 'claim', 'revision', 'user', 'report', 'question'] as const;
 export type ModerationSubject = (typeof MODERATION_SUBJECTS)[number];
 
 // ---------------------------------------------------------------------
 // Laporan konten & manajemen pengguna (ADR-061) — paritas dengan CHECK di
 // migration 20261031100001_trust_and_safety.sql.
 // ---------------------------------------------------------------------
-export const REPORT_SUBJECTS = ['event', 'user'] as const;
+export const REPORT_SUBJECTS = ['event', 'user', 'question'] as const;
 export type ReportSubject = (typeof REPORT_SUBJECTS)[number];
 
 export const REPORT_REASONS = ['scam', 'misleading', 'inappropriate', 'harassment', 'spam', 'impersonation', 'other'] as const;
@@ -421,6 +424,18 @@ export type ReportReason = (typeof REPORT_REASONS)[number];
 
 export const REPORT_STATUSES = ['OPEN', 'RESOLVED', 'DISMISSED'] as const;
 export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+/** Satu pertanyaan publik di tab Tanya jawab (ADR-062 #7). Penanya hanya tampil sebagai nama depan. */
+export interface EventQuestion {
+  readonly id: string;
+  readonly body: string;
+  readonly authorFirstName: string;
+  readonly isMine: boolean;
+  readonly createdAt: string;
+  readonly answer: string | null;
+  readonly answeredAs: 'organizer' | 'moderator' | null;
+  readonly answeredAt: string | null;
+}
 
 export interface ContentReport {
   readonly id: string;

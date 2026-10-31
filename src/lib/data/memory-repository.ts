@@ -34,12 +34,21 @@ import {
   type ReviewDecision,
 } from '@/lib/registration-form';
 import { isSubmissionRateLimited } from '@/lib/submission-schema';
-import { normalizeUserSearch, reportOutcomeMessage, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
+import {
+  ANSWER_MAX,
+  normalizeUserSearch,
+  QUESTION_BODY_MAX,
+  QUESTION_BODY_MIN,
+  questionExcerpt,
+  reportOutcomeMessage,
+  SUSPENSION_REASON_MIN,
+} from '@/lib/trust-safety';
 import type {
   AnswerValue,
   AppNotification,
   BlockedPerson,
   Category,
+  EventQuestion,
   Connection,
   ConnectionCounts,
   ConnectionPage,
@@ -99,6 +108,8 @@ import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS } from './re
 import { demoReceiptPng } from './demo-media';
 import type {
   DeleteAccountInput,
+  EventQuestionContext,
+  MyEventQuestion,
   ReportContentInput,
   ResolveReportInput,
   UserSuspensionInput,
@@ -295,6 +306,24 @@ interface ReportEntry {
   createdAt: string;
 }
 
+interface QuestionEntry {
+  id: string;
+  eventId: string;
+  authorId: string;
+  authorName: string;
+  body: string;
+  answer: string | null;
+  answeredAs: 'organizer' | 'moderator' | null;
+  answeredAt: string | null;
+  hiddenAt: string | null;
+  createdAt: string;
+  /** Urutan sisipan: pemecah seri bila dua pertanyaan dibuat di milidetik yang sama. */
+  seq: number;
+}
+
+/** Cermin `ask_event_question()`: 5 pertanyaan per penanya per hari. */
+const QUESTION_RATE_LIMIT_PER_DAY = 5;
+
 /** Cermin batas `report_content()`: 10 laporan per pelapor per hari. */
 const REPORT_RATE_LIMIT_PER_DAY = 10;
 
@@ -399,6 +428,8 @@ export class MemoryEventRepository implements EventRepository {
   /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
   /** Cermin `content_reports` (ADR-061). */
   private readonly reports = new Map<string, ReportEntry>();
+  private readonly questions = new Map<string, QuestionEntry>();
+  private questionSeq = 0;
   /** Cermin `users.suspended_at` / `suspension_reason`. */
   private readonly suspensions = new Map<string, { at: string; reason: string }>();
   private readonly demoSeededUsers = new Set<string>();
@@ -777,10 +808,13 @@ export class MemoryEventRepository implements EventRepository {
   // ------------------------------------------------------------------
 
   async reportContent(reporterId: string, { subjectType, subjectId, reason, details }: ReportContentInput): Promise<void> {
+    const question = subjectType === 'question' ? this.visibleQuestion(subjectId) : undefined;
     const visible =
       subjectType === 'event'
         ? this.events.some((event) => event.id === subjectId && (event.status === 'APPROVED' || event.status === 'EXPIRED'))
-        : subjectId !== reporterId && this.people.has(subjectId);
+        : subjectType === 'question'
+          ? question !== undefined && question.authorId !== reporterId
+          : subjectId !== reporterId && this.people.has(subjectId);
     if (!visible) throw actionError('report_unavailable');
     if (!this.rateLimiter.consume(`report:${reporterId}`, REPORT_RATE_LIMIT_PER_DAY, 86_400)) throw actionError('report_rate_limited');
     const open = [...this.reports.values()].some(
@@ -797,12 +831,20 @@ export class MemoryEventRepository implements EventRepository {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .slice(0, limit)
       .map((report) => {
-        const event = report.subjectType === 'event' ? this.findEvent(report.subjectId) : undefined;
+        const question = report.subjectType === 'question' ? this.questions.get(report.subjectId) : undefined;
+        const event = report.subjectType === 'event' ? this.findEvent(report.subjectId) : question ? this.findEvent(question.eventId) : undefined;
         return {
           id: report.id,
           subjectType: report.subjectType,
           subjectId: report.subjectId,
-          subjectLabel: event ? event.title : (this.people.get(report.subjectId)?.person.fullName ?? null),
+          subjectLabel:
+            report.subjectType === 'question'
+              ? question && !question.hiddenAt
+                ? questionExcerpt(question.body)
+                : null
+              : event
+                ? event.title
+                : (this.people.get(report.subjectId)?.person.fullName ?? null),
           subjectSlug: event?.slug ?? null,
           reason: report.reason,
           details: report.details,
@@ -853,6 +895,136 @@ export class MemoryEventRepository implements EventRepository {
         event: null,
       });
     }
+  }
+
+  // ------------------------------------------------------------------
+  // Tanya-jawab kegiatan (ADR-062 #7) — cermin migration 20261101100006
+  // ------------------------------------------------------------------
+
+  private visibleQuestion(questionId: string): QuestionEntry | undefined {
+    const question = this.questions.get(questionId);
+    const event = question ? this.findEvent(question.eventId) : undefined;
+    return question && !question.hiddenAt && (event?.status === 'APPROVED' || event?.status === 'EXPIRED') ? question : undefined;
+  }
+
+  async listEventQuestions(eventId: string, viewerId: string | null, limit: number): Promise<readonly EventQuestion[]> {
+    const event = this.findEvent(eventId);
+    if (event?.status !== 'APPROVED' && event?.status !== 'EXPIRED') return [];
+    return [...this.questions.values()]
+      .filter((question) => question.eventId === eventId && !question.hiddenAt)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.seq - a.seq)
+      .slice(0, Math.min(Math.max(limit, 1), 100))
+      .map((question) => ({
+        id: question.id,
+        body: question.body,
+        authorFirstName: question.authorName.trim().split(/\s+/)[0] || 'Peserta',
+        isMine: question.authorId === viewerId,
+        createdAt: question.createdAt,
+        answer: question.answer,
+        answeredAs: question.answeredAs,
+        answeredAt: question.answeredAt,
+      }));
+  }
+
+  async askEventQuestion(actor: { readonly id: string; readonly fullName: string }, eventId: string, body: string): Promise<void> {
+    const event = this.findEvent(eventId);
+    if (event?.status !== 'APPROVED') throw actionError('question_unavailable');
+    const text = body.trim();
+    const length = Array.from(text).length;
+    if (length < QUESTION_BODY_MIN || length > QUESTION_BODY_MAX) throw actionError('invalid_question');
+    if (!this.rateLimiter.consume(`question:${actor.id}`, QUESTION_RATE_LIMIT_PER_DAY, 86_400)) throw actionError('question_rate_limited');
+    const id = this.nextId();
+    this.questions.set(id, {
+      id,
+      eventId,
+      authorId: actor.id,
+      authorName: actor.fullName,
+      body: text,
+      answer: null,
+      answeredAs: null,
+      answeredAt: null,
+      hiddenAt: null,
+      createdAt: new Date().toISOString(),
+      seq: (this.questionSeq += 1),
+    });
+    for (const managerId of this.eventManagers.get(eventId)?.keys() ?? []) {
+      if (managerId === actor.id || !this.isVerifiedOrganizer(managerId)) continue;
+      this.upsertEventNotification(managerId, event, 'QUESTION_ASKED', `Ada pertanyaan baru di "${Array.from(event.title).slice(0, 120).join('')}". Jawab dari tab Tanya jawab di halaman kegiatannya.`);
+    }
+  }
+
+  async answerEventQuestion(actor: EventActor, questionId: string, answer: string): Promise<void> {
+    const question = this.questions.get(questionId);
+    if (!question || question.hiddenAt) throw actionError('question_not_found');
+    const role = this.managesEvent(actor.id, question.eventId) ? 'organizer' : actor.isAdmin ? 'moderator' : null;
+    if (!role) throw actionError('question_forbidden');
+    const text = answer.trim();
+    const length = Array.from(text).length;
+    if (length < 2 || length > ANSWER_MAX) throw actionError('invalid_answer');
+    this.questions.set(questionId, { ...question, answer: text, answeredAs: role, answeredAt: new Date().toISOString() });
+    const event = this.findEvent(question.eventId);
+    if (event && question.authorId !== actor.id) {
+      this.upsertEventNotification(
+        question.authorId,
+        event,
+        'QUESTION_ANSWERED',
+        `Pertanyaanmu tentang "${Array.from(event.title).slice(0, 120).join('')}" sudah dijawab ${role === 'organizer' ? 'penyelenggara' : 'moderator'}.`,
+      );
+    }
+  }
+
+  async deleteEventQuestion(userId: string, questionId: string): Promise<void> {
+    if (this.questions.get(questionId)?.authorId !== userId) throw actionError('question_not_found');
+    this.questions.delete(questionId);
+  }
+
+  async hideEventQuestion({ questionId, actorId, actorName, reason }: { questionId: string; actorId: string; actorName?: string; reason: string | null }): Promise<void> {
+    const question = this.questions.get(questionId);
+    if (!question || question.hiddenAt) throw actionError('question_not_found');
+    this.questions.set(questionId, { ...question, hiddenAt: new Date().toISOString() });
+    this.logModeration({
+      subjectType: 'question',
+      subjectId: questionId,
+      title: Array.from(question.body).slice(0, 120).join(''),
+      fromStatus: 'APPROVED',
+      toStatus: 'REJECTED',
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: reason?.trim() || null,
+    });
+  }
+
+  async getEventQuestionContext(questionId: string): Promise<EventQuestionContext | null> {
+    const question = this.visibleQuestion(questionId);
+    const event = question ? this.findEvent(question.eventId) : undefined;
+    return question && event ? { id: question.id, excerpt: questionExcerpt(question.body), eventSlug: event.slug, eventTitle: event.title } : null;
+  }
+
+  async listMyEventQuestions(userId: string): Promise<readonly MyEventQuestion[]> {
+    return [...this.questions.values()]
+      .filter((question) => question.authorId === userId)
+      .sort((a, b) => b.seq - a.seq)
+      .map((question) => {
+        const event = this.findEvent(question.eventId);
+        return {
+          eventTitle: event?.title ?? '(kegiatan dihapus)',
+          eventSlug: event?.slug ?? '',
+          body: question.body,
+          createdAt: question.createdAt,
+          answer: question.answer,
+          hidden: question.hiddenAt !== null,
+        };
+      });
+  }
+
+  /** Cermin `idx_notifications_dedupe`: satu kabar per (pengguna, kegiatan, jenis), diperbarui. */
+  private upsertEventNotification(userId: string, event: EventDetail, type: 'QUESTION_ASKED' | 'QUESTION_ANSWERED', message: string): void {
+    const list = getOrCreate(this.storedNotifications, userId, () => []);
+    const id = `notif-${type}-${userId}-${event.id}`;
+    const entry: AppNotification = { id, type, message, isRead: false, sentAt: new Date().toISOString(), event: { id: event.id, slug: event.slug, title: event.title } };
+    const index = list.findIndex((notification) => notification.id === id);
+    if (index >= 0) list[index] = entry;
+    else list.push(entry);
+    this.readNotifications.get(userId)?.delete(id);
   }
 
   /** Mode seed tidak punya penjadwal (lihat "Notifikasi DITURUNKAN" di bawah). */
@@ -935,6 +1107,7 @@ export class MemoryEventRepository implements EventRepository {
     this.readNotifications.delete(userId);
     this.storedNotifications.delete(userId);
     this.emailOptIns.delete(userId);
+    for (const [id, question] of this.questions) if (question.authorId === userId) this.questions.delete(id);
     this.organizers.delete(userId);
     this.blocks.delete(userId);
     for (const blocked of this.blocks.values()) blocked.delete(userId);

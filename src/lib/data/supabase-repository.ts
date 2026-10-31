@@ -25,7 +25,7 @@ import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
 import { isColdStart } from '@/lib/recommendation';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { toStoredPayload } from '@/lib/submission-schema';
-import { normalizeUserSearch } from '@/lib/trust-safety';
+import { normalizeUserSearch, questionExcerpt } from '@/lib/trust-safety';
 import { IMAGE_EXTENSION, type UploadedImage } from '@/lib/image-file';
 import type { RegistrationFormInput, ReviewDecision } from '@/lib/registration-form';
 import {
@@ -38,6 +38,7 @@ import type {
   AppNotification,
   BlockedPerson,
   CronJobHealth,
+  EventQuestion,
   Category,
   CostFilter,
   DeadlineDispatch,
@@ -85,6 +86,7 @@ import { toNotificationType } from '@/types/domain';
 import type {
   BlockedPersonRow,
   CronJobHealthRow,
+  EventQuestionRow,
   CategoryRow,
   ConnectionPairRow,
   ConnectionPeerRow,
@@ -130,6 +132,8 @@ import {
 import { type CacheLayer, nextDataCache } from './cache';
 import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS } from './repository';
 import type {
+  EventQuestionContext,
+  MyEventQuestion,
   DeleteAccountInput,
   ReportContentInput,
   ResolveReportInput,
@@ -174,6 +178,7 @@ import {
   toAdminUserSummary,
   toContentReport,
   toCronJobHealth,
+  toEventQuestion,
   toModerationLogEntry,
   toOrganizerProfile,
   toDeadlineDispatch,
@@ -488,6 +493,80 @@ export class SupabaseEventRepository implements EventRepository {
     return typeof data === 'number' ? data : 0;
   }
 
+  // ------------------------------------------------------------------
+  // Tanya-jawab kegiatan (ADR-062 #7) — RPC DEFINER, tabel tidak terbaca langsung
+  // ------------------------------------------------------------------
+
+  async listEventQuestions(eventId: string, _viewerId: string | null, limit: number): Promise<readonly EventQuestion[]> {
+    if (!isUuid(eventId)) return [];
+    // Klien sesi: `is_mine` dihitung dari auth.uid() penonton, bukan dari parameter.
+    const { data, error } = await (await createSupabaseServerClient()).rpc('list_event_questions', { p_event: eventId, p_limit: limit });
+    if (error) throw upstreamFailure('Gagal memuat tanya jawab.', error);
+    return rpcRows<EventQuestionRow>(data).map(toEventQuestion);
+  }
+
+  async askEventQuestion(_actor: { readonly id: string; readonly fullName: string }, eventId: string, body: string): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('question_unavailable');
+    const { error } = await (await createSupabaseServerClient()).rpc('ask_event_question', { p_event: eventId, p_body: body });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('question_unavailable');
+    if (sqlState(error) === '23514') throw actionError('invalid_question');
+    if (error.message?.includes('question_rate_limited')) throw actionError('question_rate_limited');
+    throw upstreamFailure('Gagal mengirim pertanyaan.', error, 500);
+  }
+
+  async answerEventQuestion(_actor: EventActor, questionId: string, answer: string): Promise<void> {
+    if (!isUuid(questionId)) throw actionError('question_not_found');
+    const { error } = await (await createSupabaseServerClient()).rpc('answer_event_question', { p_question: questionId, p_answer: answer });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('question_not_found');
+    if (sqlState(error) === '42501') throw actionError('question_forbidden');
+    if (sqlState(error) === '23514') throw actionError('invalid_answer');
+    throw upstreamFailure('Gagal menyimpan jawaban.', error, 500);
+  }
+
+  async deleteEventQuestion(_userId: string, questionId: string): Promise<void> {
+    if (!isUuid(questionId)) throw actionError('question_not_found');
+    const { error } = await (await createSupabaseServerClient()).rpc('delete_event_question', { p_question: questionId });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('question_not_found');
+    throw upstreamFailure('Gagal menghapus pertanyaan.', error, 500);
+  }
+
+  async hideEventQuestion({ questionId, actorId, reason }: { questionId: string; actorId: string; reason: string | null }): Promise<void> {
+    if (!isUuid(questionId)) throw actionError('question_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('hide_event_question', { p_question: questionId, p_actor: actorId, p_reason: reason });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('question_not_found');
+    throw upstreamFailure('Gagal menyembunyikan pertanyaan.', error, 500);
+  }
+
+  async getEventQuestionContext(questionId: string): Promise<EventQuestionContext | null> {
+    if (!isUuid(questionId)) return null;
+    const { data, error } = await createSupabaseAdminClient()
+      .from('event_questions')
+      .select('id, body, hidden_at, events(slug, title, status)')
+      .eq('id', questionId)
+      .maybeSingle<{ id: string; body: string; hidden_at: string | null; events: { slug: string; title: string; status: EventStatus } | null }>();
+    if (error) throw upstreamFailure('Gagal memuat pertanyaan.', error);
+    const event = data?.events;
+    if (!data || data.hidden_at || !event || (event.status !== 'APPROVED' && event.status !== 'EXPIRED')) return null;
+    return { id: data.id, excerpt: questionExcerpt(data.body), eventSlug: event.slug, eventTitle: event.title };
+  }
+
+  async listMyEventQuestions(_userId: string): Promise<readonly MyEventQuestion[]> {
+    const { data, error } = await (await createSupabaseServerClient()).rpc('list_my_event_questions');
+    if (error) throw upstreamFailure('Gagal memuat pertanyaanmu.', error);
+    return rpcRows<{ event_title: string; event_slug: string; body: string; created_at: string; answer: string | null; hidden: boolean }>(data).map((row) => ({
+      eventTitle: row.event_title,
+      eventSlug: row.event_slug,
+      body: row.body,
+      createdAt: row.created_at,
+      answer: row.answer,
+      hidden: row.hidden,
+    }));
+  }
+
   async getDeadlineEmailOptIn(userId: string): Promise<string | null> {
     const { data, error } = await (await createSupabaseServerClient())
       .from('users')
@@ -669,18 +748,37 @@ export class SupabaseEventRepository implements EventRepository {
         ...data.map((row) => row.reporter_id).filter((id): id is string => id !== null),
       ]),
     ];
-    const [events, users] = await Promise.all([
+    const questionIds = [...new Set(data.filter((row) => row.subject_type === 'question').map((row) => row.subject_id))];
+    const [events, users, questions] = await Promise.all([
       eventIds.length
         ? supabase.from('events').select('id, slug, title').in('id', eventIds).returns<{ id: string; slug: string; title: string }[]>()
         : Promise.resolve({ data: [], error: null }),
       userIds.length
         ? supabase.from('users').select('id, full_name').in('id', userIds).returns<{ id: string; full_name: string }[]>()
         : Promise.resolve({ data: [], error: null }),
+      questionIds.length
+        ? supabase
+            .from('event_questions')
+            .select('id, body, hidden_at, events(slug)')
+            .in('id', questionIds)
+            .returns<{ id: string; body: string; hidden_at: string | null; events: { slug: string } | null }[]>()
+        : Promise.resolve({ data: [], error: null }),
     ]);
     if (events.error) throw upstreamFailure('Gagal memuat subjek laporan.', events.error);
     if (users.error) throw upstreamFailure('Gagal memuat subjek laporan.', users.error);
+    if (questions.error) throw upstreamFailure('Gagal memuat subjek laporan.', questions.error);
     return data.map((row) =>
-      toContentReport(row, new Map((events.data ?? []).map((event) => [event.id, event])), new Map((users.data ?? []).map((user) => [user.id, user.full_name]))),
+      toContentReport(
+        row,
+        new Map((events.data ?? []).map((event) => [event.id, event])),
+        new Map((users.data ?? []).map((user) => [user.id, user.full_name])),
+        // Pertanyaan yang sudah disembunyikan tampil sebagai "sudah tidak ada".
+        new Map(
+          (questions.data ?? [])
+            .filter((question) => question.hidden_at === null && question.events)
+            .map((question) => [question.id, { excerpt: questionExcerpt(question.body), eventSlug: question.events!.slug }]),
+        ),
+      ),
     );
   }
 

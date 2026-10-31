@@ -56,10 +56,12 @@ export function reportOutcomeMessage(outcome: 'RESOLVED' | 'DISMISSED', subjectT
   const about =
     subjectType === 'user'
       ? 'akun yang kamu laporkan'
-      : eventTitle === null
-        ? 'sebuah kegiatan'
-        : // Per code point seperti `left()` Postgres, bukan per unit UTF-16.
-          `kegiatan "${Array.from(eventTitle).slice(0, 120).join('')}"`;
+      : subjectType === 'question'
+        ? 'pertanyaan yang kamu laporkan'
+        : eventTitle === null
+          ? 'sebuah kegiatan'
+          : // Per code point seperti `left()` Postgres, bukan per unit UTF-16.
+            `kegiatan "${Array.from(eventTitle).slice(0, 120).join('')}"`;
   return outcome === 'RESOLVED'
     ? `Terima kasih. Laporanmu tentang ${about} sudah ditindaklanjuti moderator. Demi privasi semua pihak, rincian tindakannya tidak kami bagikan.`
     : `Laporanmu tentang ${about} sudah ditinjau moderator dan belum ditemukan pelanggaran Syarat & Ketentuan. Punya bukti tambahan? Kirim laporan baru.`;
@@ -67,4 +69,28 @@ export function reportOutcomeMessage(outcome: 'RESOLVED' | 'DISMISSED', subjectT
 
 export function isDeleteConfirmed(raw: string | null | undefined): boolean {
   return (raw ?? '').trim().toUpperCase().replace(/\s+/g, ' ') === ACCOUNT_DELETE_PHRASE;
+}
+
+/** Cermin CHECK `event_questions` (migration 20261101100006). */
+export const QUESTION_BODY_MIN = 10;
+export const QUESTION_BODY_MAX = 500;
+export const ANSWER_MAX = 1500;
+
+/** Teks bebas pertanyaan/jawaban: markup & karakter kendali dibuang, spasi dirapikan; null = di luar batas. */
+export function normalizeQuestionText(raw: string | null | undefined, min: number, max: number): string | null {
+  const value = (raw ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/<\/?[a-z][^<>]*>/gi, ' ')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const length = Array.from(value).length;
+  return length >= min && length <= max ? value : null;
+}
+
+/** Potongan pertanyaan untuk antrean laporan & /laporkan (per code point, 80). */
+export function questionExcerpt(body: string): string {
+  const chars = Array.from(body.replace(/\s+/g, ' ').trim());
+  return chars.length > 80 ? `${chars.slice(0, 79).join('')}…` : chars.join('');
 }

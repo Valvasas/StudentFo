@@ -38,7 +38,14 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
   const params = await searchParams;
   const slug = typeof params.kegiatan === 'string' ? params.kegiatan.slice(0, 200) : null;
   const personId = typeof params.orang === 'string' ? params.orang.slice(0, 64) : null;
-  const self = slug ? `/laporkan?kegiatan=${encodeURIComponent(slug)}` : personId ? `/laporkan?orang=${encodeURIComponent(personId)}` : '/laporkan';
+  const questionId = typeof params.pertanyaan === 'string' ? params.pertanyaan.slice(0, 64) : null;
+  const self = slug
+    ? `/laporkan?kegiatan=${encodeURIComponent(slug)}`
+    : personId
+      ? `/laporkan?orang=${encodeURIComponent(personId)}`
+      : questionId
+        ? `/laporkan?pertanyaan=${encodeURIComponent(questionId)}`
+        : '/laporkan';
   const user = await requireUser(self);
   const repository = await getEventRepository();
 
@@ -51,6 +58,9 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
   } else if (personId && personId !== user.id) {
     const profile = await repository.getPublicProfile(user.id, personId);
     if (profile) subject = { type: 'user', id: profile.person.userId, label: profile.person.fullName, back: `/orang/${profile.person.userId}` };
+  } else if (questionId) {
+    const question = await repository.getEventQuestionContext(questionId);
+    if (question) subject = { type: 'question', id: question.id, label: `“${question.excerpt}” — ${question.eventTitle}`, back: `/events/${question.eventSlug}?tab=tanya` };
   }
   if (!subject) notFound();
 
@@ -60,7 +70,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         <span className="flex items-center gap-2 font-mono text-xs tracking-[.08em] text-ink-muted">
           <Flag aria-hidden className="size-3.5" /> LAPORAN
         </span>
-        <h1 className="text-[clamp(28px,4.5vw,40px)] leading-[1.05]">{subject.type === 'event' ? 'Laporkan kegiatan' : 'Laporkan pengguna'}</h1>
+        <h1 className="text-[clamp(28px,4.5vw,40px)] leading-[1.05]">{subject.type === 'event' ? 'Laporkan kegiatan' : subject.type === 'question' ? 'Laporkan pertanyaan' : 'Laporkan pengguna'}</h1>
         <p className="break-words text-[15.5px] font-semibold text-ink-soft">{subject.label}</p>
       </header>
 

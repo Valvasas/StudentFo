@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Flag,
   Megaphone,
+  MessageCircleQuestion,
+  MessageCircleReply,
   Receipt,
   ShieldAlert,
   ShieldCheck,
@@ -60,6 +62,8 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   PAYMENT_SUBMITTED: Receipt,
   REPORT_RESOLVED: ShieldCheck,
   REPORT_DISMISSED: Flag,
+  QUESTION_ASKED: MessageCircleQuestion,
+  QUESTION_ANSWERED: MessageCircleReply,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {

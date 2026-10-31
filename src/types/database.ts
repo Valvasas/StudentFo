@@ -425,6 +425,18 @@ export interface ContentReportRow {
   created_at: string;
 }
 
+/** Baris `list_event_questions()` (migration 20261101100006). */
+export interface EventQuestionRow {
+  id: string;
+  body: string;
+  author_first_name: string;
+  is_mine: boolean;
+  created_at: string;
+  answer: string | null;
+  answered_as: 'organizer' | 'moderator' | null;
+  answered_at: string | null;
+}
+
 /** Baris `cron_job_health()` (migration 20261101100002). */
 export interface CronJobHealthRow {
   jobname: string;

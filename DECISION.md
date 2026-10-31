@@ -91,12 +91,30 @@ tidak menampilkan antrean Laporan.
    Kebijakan privasi diperbarui (revisi 2026-11-01). WhatsApp/Telegram tetap di
    luar cakupan: tidak ada kolom identitasnya.
 
+7. **"Ruang diskusi" untuk MVP = Tanya jawab publik per kegiatan; pesan
+   langsung & grup TETAP tidak dibuka.** Platform ini menerima pengguna 13+;
+   saluran privat antar-orang asing adalah kategori risiko PP 17/2025 dan butuh
+   desain moderasi, blokir, & retensi tersendiri. Tanya jawab menjawab
+   kebutuhan nyata (bertanya ke panitia) dengan risiko jauh lebih kecil:
+   publik, satu topik, yang menjawab hanya pengelola terverifikasi
+   (`manages_event()`) atau admin aal2 (label "penyelenggara"/"moderator"
+   disimpan saat menjawab). `event_questions` TANPA policy — semua lewat RPC
+   DEFINER, sehingga yang keluar hanya nama depan penanya, bukan id/profil.
+   Tanya: 10–500 karakter, 5/hari, hanya kegiatan APPROVED (yang sudah tutup
+   tetap terbaca). Pengelola dikabari satu notifikasi per kegiatan yang
+   diperbarui (`idx_notifications_dedupe`), penanya dikabari saat dijawab.
+   Laporan subjek `question` + "sembunyikan" dari antrean (tercatat di
+   riwayat); penanya bisa menghapus; hapus akun = CASCADE; ekspor data memuat
+   semuanya (`list_my_event_questions`, termasuk yang disembunyikan).
+
 **Konsekuensi:** + Pelapor tahu laporannya dibaca tanpa membocorkan apa pun
 tentang terlapor. + Job yang mati terlihat dalam ≤ 1 hari. + Sandi admin saja
 tidak lagi cukup untuk data pengguna & moderasi. − Watchdog bergantung
 pada jadwal GitHub (bisa telat; nonaktif setelah 60 hari tanpa aktivitas repo) —
 beranda admin tetap menampilkan status yang sama. − Uji SQL `104` & `60`
 benar-benar menguji pg_cron hanya di mesin yang memuatnya (README § Uji → pg_cron).
+− Tanya jawab tayang tanpa pra-moderasi (laporan + sembunyikan sesudahnya);
+pemilik perlu memantau antrean Laporan, terutama di kegiatan populer.
 − Pengingat email bergantung pada jadwal GitHub (bisa telat; pengingat basi
 dilewati, bukan dikirim) dan pada domain pengirim yang terverifikasi di Resend.
 − Setelah migration `20261101100003`, SEMUA sesi admin yang ada turun ke aal1

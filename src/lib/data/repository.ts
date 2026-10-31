@@ -4,6 +4,7 @@ import type {
   AppNotification,
   ContentReport,
   CronJobHealth,
+  EventQuestion,
   ReportReason,
   ReportStatus,
   ReportSubject,
@@ -91,7 +92,8 @@ export interface EventRepository
     MatchmakingRepository,
     TrustSafetyRepository,
     OperationsRepository,
-    EmailReminderRepository {}
+    EmailReminderRepository,
+    EventQuestionRepository {}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {
@@ -516,6 +518,41 @@ export interface NotificationDispatchRepository {
   claimDeadlineDispatches(limit: number): Promise<readonly DeadlineDispatch[]>;
   /** Mengembalikan jumlah yang benar-benar ditandai terkirim (id asing/belum diklaim diabaikan). */
   acknowledgeDeadlineDispatches(notificationIds: readonly string[]): Promise<number>;
+}
+
+/** Konteks pertanyaan untuk /laporkan & antrean laporan. */
+export interface EventQuestionContext {
+  readonly id: string;
+  readonly excerpt: string;
+  readonly eventSlug: string;
+  readonly eventTitle: string;
+}
+
+/**
+ * Tanya-jawab publik per kegiatan (ADR-062 #7). Hak dicek di dalam
+ * implementasi (produksi: RPC DEFINER) — menjawab = pengelola terverifikasi
+ * acara itu atau admin (aal2); menghapus = penanya sendiri.
+ */
+export interface EventQuestionRepository {
+  listEventQuestions(eventId: string, viewerId: string | null, limit: number): Promise<readonly EventQuestion[]>;
+  askEventQuestion(actor: { readonly id: string; readonly fullName: string }, eventId: string, body: string): Promise<void>;
+  answerEventQuestion(actor: EventActor, questionId: string, answer: string): Promise<void>;
+  deleteEventQuestion(userId: string, questionId: string): Promise<void>;
+  /** Admin (service_role) setelah `checkAdminAccess()`; tercatat di riwayat moderasi. */
+  hideEventQuestion(input: { readonly questionId: string; readonly actorId: string; readonly actorName?: string; readonly reason: string | null }): Promise<void>;
+  /** Pertanyaan yang masih tampil beserta kegiatannya; null = tidak ada/tersembunyi. */
+  getEventQuestionContext(questionId: string): Promise<EventQuestionContext | null>;
+  /** Ekspor data akun (UU PDP Pasal 7): semua pertanyaan milik sendiri, termasuk yang disembunyikan. */
+  listMyEventQuestions(userId: string): Promise<readonly MyEventQuestion[]>;
+}
+
+export interface MyEventQuestion {
+  readonly eventTitle: string;
+  readonly eventSlug: string;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly answer: string | null;
+  readonly hidden: boolean;
 }
 
 /**

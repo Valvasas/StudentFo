@@ -419,7 +419,9 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Pengingat tenggat lewat email, opt-in: persetujuan + antrean tersaring + pengirim Resend + berhenti satu klik (ADR-062 #6).
 - [ ] **BUTUH KONFIRMASI.** Apply `20261101100005` ke staging lalu produksi SEBELUM kode (kode membaca `deadline_email_opt_in_at`; kartu Pengaturan jatuh ke "mati" bila kolomnya belum ada).
 - [ ] **BUTUH PEMILIK.** Akun Resend + verifikasi domain pengirim (SPF/DKIM/DMARC), isi `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_LINK_SECRET` di hosting, dan secret GitHub `SITE_URL` + `CRON_SECRET` untuk `send-deadline-emails.yml`. Lalu uji kirim ke akun sendiri.
-- [ ] Pesan langsung & Ruang diskusi (masih mode demo; 404 di produksi) — Fase 4, butuh desain moderasi; laporan ADR-061 bisa dipakai ulang.
+- [x] Diskusi versi aman untuk MVP: Tanya jawab publik per kegiatan (tab "Tanya jawab", ADR-062 #7).
+- [ ] **BUTUH KONFIRMASI.** Apply `20261101100006` ke staging lalu produksi SEBELUM kode (tab Tanya jawab menampilkan daftar kosong & gagal mengirim bila RPC-nya belum ada).
+- [ ] Pesan langsung & Ruang diskusi grup (masih mode demo; 404 di produksi) — SENGAJA ditunda: pengguna 13+ (PP 17/2025) butuh desain moderasi, blokir, & retensi khusus saluran privat. Bukan penghalang MVP.
 - [x] Buat acara dari studio: tetap lewat `/submit` + moderator (ADR-042, sengaja); tahapan jadwal (pengumpulan karya/pengumuman/final) kini bisa dikirim (ADR-062 #5).
 - [ ] **BUTUH KONFIRMASI.** Apply `20261101100004` ke staging lalu produksi SEBELUM kode: kiriman bertahapan yang disetujui dengan `approve_submission` lama kehilangan tahapannya (tidak gagal).
 

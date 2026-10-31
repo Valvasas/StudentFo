@@ -46,6 +46,7 @@ const GUEST_ROUTES = [
   '/cookie-policy',
   '/terms',
   '/berhenti-email?token=tidak-valid',
+  '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya',
 ];
 const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],

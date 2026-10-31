@@ -484,6 +484,22 @@ atau `submission_rejected`; gagal → `/admin?error=<kode>`
 | `setUserSuspension({ userId, actorId, suspend, reason })` | admin | `user_not_found`, `user_protected` (ADMIN/diri sendiri), `suspension_reason_required` |
 | `deleteAccount({ userId, actorId, reason })` | pemilik (`actorId === userId`) atau admin | `user_not_found`, `user_protected`, `account_delete_failed` (berkas Storage gagal dihapus — akun TIDAK dihapus) |
 
+### Tanya jawab kegiatan (ADR-062 #7)
+
+`EventQuestionRepository`: `listEventQuestions(eventId, viewerId, limit)`,
+`askEventQuestion(actor, eventId, body)` (`question_unavailable`,
+`invalid_question`, `question_rate_limited`), `answerEventQuestion(actor,
+questionId, answer)` (`question_not_found`, `question_forbidden`,
+`invalid_answer`), `deleteEventQuestion(userId, questionId)`
+(`question_not_found`), `hideEventQuestion({ questionId, actorId, reason })`
+(admin), `getEventQuestionContext(questionId)`, `listMyEventQuestions(userId)`.
+
+- `askQuestionAction` / `answerQuestionAction` / `deleteQuestionAction`
+  (`src/app/events/[slug]/actions.ts`): `slug` (dibatasi `[a-z0-9-]`), `eventId`
+  / `questionId`, `body` / `answer`. → `/events/<slug>?tab=tanya&notice=…#tanya`.
+- `/laporkan?pertanyaan=<id>`; `resolveReportAction` menerima `hideQuestionId`
+  (hanya bersama RESOLVED).
+
 ### Pengingat tenggat lewat email (ADR-062 #6)
 
 `EmailReminderRepository`: `getDeadlineEmailOptIn(userId)` (sesi pemilik),

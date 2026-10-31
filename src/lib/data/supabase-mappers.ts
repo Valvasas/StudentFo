@@ -7,6 +7,7 @@ import type {
   AnswerValue,
   Connection,
   CronJobHealth,
+  EventQuestion,
   DeadlineDispatch,
   EventClaim,
   EventDetail,
@@ -36,6 +37,7 @@ import { ACHIEVEMENTS, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVe
 import type {
   ConnectionPeerRow,
   CronJobHealthRow,
+  EventQuestionRow,
   EventClaimRow,
   EventDeadlineRow,
   EventListingRow,
@@ -591,19 +593,35 @@ export function toContentReport(
   row: ContentReportRow,
   events: ReadonlyMap<string, { slug: string; title: string }>,
   names: ReadonlyMap<string, string>,
+  questions: ReadonlyMap<string, { excerpt: string; eventSlug: string }> = new Map(),
 ): ContentReport {
   const event = row.subject_type === 'event' ? events.get(row.subject_id) : undefined;
+  const question = row.subject_type === 'question' ? questions.get(row.subject_id) : undefined;
   return {
     id: row.id,
     subjectType: row.subject_type,
     subjectId: row.subject_id,
-    subjectLabel: row.subject_type === 'event' ? (event?.title ?? null) : (names.get(row.subject_id) ?? null),
-    subjectSlug: event?.slug ?? null,
+    subjectLabel:
+      row.subject_type === 'event' ? (event?.title ?? null) : row.subject_type === 'question' ? (question?.excerpt ?? null) : (names.get(row.subject_id) ?? null),
+    subjectSlug: event?.slug ?? question?.eventSlug ?? null,
     reason: row.reason,
     details: row.details,
     status: row.status,
     reporterName: row.reporter_id ? (names.get(row.reporter_id) ?? null) : null,
     createdAt: row.created_at,
+  };
+}
+
+export function toEventQuestion(row: EventQuestionRow): EventQuestion {
+  return {
+    id: row.id,
+    body: row.body,
+    authorFirstName: row.author_first_name,
+    isMine: row.is_mine,
+    createdAt: row.created_at,
+    answer: row.answer,
+    answeredAs: row.answered_as,
+    answeredAt: row.answered_at,
   };
 }
 

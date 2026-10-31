@@ -1,4 +1,5 @@
 import type { AuthUser } from '@/lib/auth';
+import type { MyEventQuestion } from '@/lib/data/repository';
 import type {
   AppNotification,
   BlockedPerson,
@@ -29,6 +30,7 @@ export interface AccountExportInput {
   readonly notifications: readonly AppNotification[];
   /** Waktu persetujuan pengingat email (ADR-062 #6), null = mati. */
   readonly deadlineEmailOptIn: string | null;
+  readonly eventQuestions: readonly MyEventQuestion[];
 }
 
 /**
@@ -53,6 +55,14 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       signInMethods: user.providers,
     },
     emailReminders: { deadlineReminders: input.deadlineEmailOptIn !== null, consentedAt: input.deadlineEmailOptIn },
+    eventQuestions: input.eventQuestions.map((question) => ({
+      event: question.eventTitle,
+      url: question.eventSlug ? `/events/${question.eventSlug}?tab=tanya` : null,
+      question: question.body,
+      askedAt: question.createdAt,
+      answer: question.answer,
+      hiddenByModerator: question.hidden,
+    })),
     savedEvents: input.saved.map((event) => ({ title: event.title, url: `/events/${event.slug}` })),
     applicationBoard: input.tracker.map((item) => ({
       event: item.event.title,
