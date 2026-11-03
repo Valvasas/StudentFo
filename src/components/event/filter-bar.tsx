@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowDownUp, Check, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SearchShortcutHint } from '@/components/ui/search-shortcut';
 import { cn } from '@/lib/utils';
 import {
   buildEventHref,
@@ -66,6 +67,7 @@ function FilterChip({
           : 'border-line bg-panel text-ink-soft hover:border-line-strong hover:text-ink',
       )}
     >
+      {active && <Check aria-hidden className="chip-tick -ml-0.5 mr-1.5 size-3.5" strokeWidth={2.6} />}
       {children}
     </Link>
   );
@@ -115,13 +117,16 @@ export function SearchForm({
           maxLength={120}
           placeholder="Cari lomba, beasiswa, magang…"
           aria-label="Kata kunci pencarian"
+          aria-keyshortcuts="/"
+          data-search-shortcut=""
           className={cn(
-            'h-11 w-full rounded-card border border-line bg-panel pl-9 pr-3 text-base',
+            'peer h-11 w-full rounded-card border border-line bg-panel pl-9 pr-3 text-base pointer-fine:pr-11',
             'text-ink placeholder:text-ink-faint',
             'transition-colors duration-150 ease-snap hover:border-line-strong',
             'focus-visible:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
           )}
         />
+        <SearchShortcutHint className="absolute right-3 top-1/2 -translate-y-1/2" />
       </div>
       <Button type="submit">Cari</Button>
     </form>
@@ -132,6 +137,8 @@ interface ActiveFilter {
   readonly key: string;
   readonly label: string;
   readonly href: string;
+  /** Sudah terlihat (dan bisa dilepas) di baris saringan cepat — tidak diulang sebagai chip hapus. */
+  readonly quick?: boolean;
 }
 
 /** Setiap filter yang terpasang sebagai chip "hapus" — supaya panel boleh tertutup tanpa menyembunyikan apa yang aktif. */
@@ -140,7 +147,7 @@ function activeFilters(query: ParsedEventQuery, categories: readonly Category[])
   return [
     ...(query.search ? [{ key: 'q', label: `“${query.search}”`, href: without({ search: '' }) }] : []),
     ...query.types.map((type) => ({ key: `t-${type}`, label: EVENT_TYPE_LABEL[type], href: toggleFilterHref(query, 'types', type) })),
-    ...query.levels.map((level) => ({ key: `l-${level}`, label: EDUCATION_LEVEL_LABEL[level], href: toggleFilterHref(query, 'levels', level) })),
+    ...query.levels.map((level) => ({ key: `l-${level}`, label: EDUCATION_LEVEL_LABEL[level], href: toggleFilterHref(query, 'levels', level), quick: true })),
     ...query.categories.map((slug) => ({
       key: `c-${slug}`,
       label: categories.find((category) => category.slug === slug)?.name ?? slug,
@@ -152,7 +159,7 @@ function activeFilters(query: ParsedEventQuery, categories: readonly Category[])
       href: without({ locations: query.locations.filter((item) => item !== location) }),
     })),
     ...(query.mode ? [{ key: 'mode', label: query.mode === 'online' ? 'Daring' : 'Luring', href: without({ mode: undefined }) }] : []),
-    ...(query.cost ? [{ key: 'cost', label: COST_LABEL[query.cost], href: without({ cost: undefined }) }] : []),
+    ...(query.cost ? [{ key: 'cost', label: COST_LABEL[query.cost], href: without({ cost: undefined }), quick: true }] : []),
     ...(query.includeClosed ? [{ key: 'closed', label: 'Termasuk yang ditutup', href: without({ includeClosed: false }) }] : []),
   ];
 }
@@ -167,13 +174,16 @@ function FilterGroup({ label, children }: { label: string; children: React.React
 }
 
 /**
- * Panel filter (ADR-052: dilipat).
+ * Panel filter (ADR-052: dilipat; ADR-061: saringan cepat).
  *
  * Sebelumnya semua chip (7 jenis, 6 jenjang, 2 biaya, 12 bidang, 3 urutan)
  * tampil sekaligus: di ponsel hasil pertama baru muncul setelah dua layar
- * gulir. Sekarang: kotak pencarian + tombol "Saring" + menu "Urutkan", dan
- * filter yang aktif tampil sebagai chip yang bisa dihapus — jadi panel boleh
- * tertutup tanpa menyembunyikan apa pun yang sedang memengaruhi hasil.
+ * gulir. Sekarang: kotak pencarian, SATU baris saringan cepat (jenjang &
+ * biaya — dua pertanyaan pertama pelajar: "bisa ikut?" dan "bayar?"), lalu
+ * "Saring" untuk sisanya + menu "Urutkan". Jenis tidak ikut baris cepat:
+ * tab navbar sudah merupakan saringan jenis. Filter panel yang aktif tampil
+ * sebagai chip yang bisa dihapus — jadi panel boleh tertutup tanpa
+ * menyembunyikan apa pun yang sedang memengaruhi hasil.
  *
  * Tetap TANPA state klien (AGENTS.md #9): <details> asli. Dengan JavaScript,
  * navigasi Next.js mempertahankan elemen yang sama sehingga panel tetap
@@ -189,13 +199,42 @@ export function FilterBar({
   categories: readonly Category[];
   resultCount: number;
 }) {
-  const chips = activeFilters(query, categories);
+  const active = activeFilters(query, categories);
+  const chips = active.filter((chip) => !chip.quick);
   // Kata kunci tidak dihitung di lencana "Saring": ia sudah terlihat di kotak pencarian.
   const panelCount = chips.filter((chip) => chip.key !== 'q').length;
 
   return (
     <section aria-label="Filter kegiatan" className="flex flex-col gap-4">
       <SearchForm query={query} />
+
+      {/* Satu baris geser di ponsel (bukan dua-tiga baris chip yang menumpuk);
+          `relative` supaya teks sr-only di dalamnya ikut terpotong (ADR-054). */}
+      <div className="relative -mx-5 flex items-center gap-2 overflow-x-auto px-5 py-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+        <div role="group" aria-label="Jenjang" className="flex shrink-0 items-center gap-2">
+          <span aria-hidden className="pr-0.5 text-[13px] font-semibold text-ink-muted">Jenjang</span>
+          {EDUCATION_LEVELS.map((level) => (
+            <FilterChip key={level} href={toggleFilterHref(query, 'levels', level)} active={query.levels.includes(level)}>
+              {EDUCATION_LEVEL_LABEL[level]}
+            </FilterChip>
+          ))}
+        </div>
+        <span aria-hidden className="mx-1.5 h-6 w-px shrink-0 bg-line" />
+        {/* Satu pilihan saja (bukan multi seperti jenjang): "gratis ATAU
+            berbayar" sama dengan tanpa saringan. Kegiatan yang biayanya belum
+            diketahui sengaja tidak masuk keduanya — lihat matchesCost(). */}
+        <div role="group" aria-label="Biaya" className="flex shrink-0 items-center gap-2">
+          {COST_FILTERS.map((cost) => (
+            <FilterChip
+              key={cost}
+              href={buildEventHref(query, { cost: query.cost === cost ? undefined : cost, page: 1 })}
+              active={query.cost === cost}
+            >
+              {COST_LABEL[cost]}
+            </FilterChip>
+          ))}
+        </div>
+      </div>
 
       <div className="relative">
         <details className="group/saring">
@@ -221,27 +260,6 @@ export function FilterBar({
               {EVENT_TYPES.map((type) => (
                 <FilterChip key={type} href={toggleFilterHref(query, 'types', type)} active={query.types.includes(type)}>
                   {EVENT_TYPE_LABEL[type]}
-                </FilterChip>
-              ))}
-            </FilterGroup>
-            <FilterGroup label="Jenjang">
-              {EDUCATION_LEVELS.map((level) => (
-                <FilterChip key={level} href={toggleFilterHref(query, 'levels', level)} active={query.levels.includes(level)}>
-                  {EDUCATION_LEVEL_LABEL[level]}
-                </FilterChip>
-              ))}
-            </FilterGroup>
-            {/* Satu pilihan saja (bukan multi seperti jenjang): "gratis ATAU
-                berbayar" sama dengan tanpa saringan. Kegiatan yang biayanya belum
-                diketahui sengaja tidak masuk keduanya — lihat matchesCost(). */}
-            <FilterGroup label="Biaya">
-              {COST_FILTERS.map((cost) => (
-                <FilterChip
-                  key={cost}
-                  href={buildEventHref(query, { cost: query.cost === cost ? undefined : cost, page: 1 })}
-                  active={query.cost === cost}
-                >
-                  {COST_LABEL[cost]}
                 </FilterChip>
               ))}
             </FilterGroup>
@@ -285,7 +303,7 @@ export function FilterBar({
             <X aria-hidden className="size-3.5 text-ink-muted" />
           </Link>
         ))}
-        {chips.length > 1 && (
+        {active.length > 1 && (
           <Link href="/events" className="inline-flex min-h-11 items-center px-1 text-[13px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
             Hapus semua
           </Link>

@@ -12,14 +12,16 @@ import { cn } from '@/lib/utils';
  * terpenuhi, tanpa mengirim JavaScript apa pun ke browser dan tanpa risiko
  * ketidakcocokan hidrasi antara jam server dan jam perangkat user.
  *
- * Urgensi dibawa BENTUK, bukan warna (palet monokrom, ADR-039): ≤ H-7
- * tampil sebagai label hitam terisi + ikon jam, yang masih aman cukup teks
- * abu-abu. Teksnya selalu menyebut sisa hari, jadi tidak ada informasi yang
- * hanya bisa ditangkap lewat tampilan.
+ * Urgensi dibawa GRADASI BENTUK, bukan warna (palet monokrom, ADR-039;
+ * gradasinya ADR-061): aman = teks biasa, H-7..H-3 = garis tepi + ikon jam,
+ * H-2..hari ini = label terisi + ikon jam. Dulu dua tingkat terakhir sama
+ * persis, sehingga baris "Segera ditutup" berisi enam label hitam identik —
+ * kalau semuanya mendesak, tidak ada yang terbaca mendesak. Teksnya selalu
+ * menyebut sisa hari, jadi tidak ada informasi yang hanya ada di tampilan.
  */
 const URGENCY_CLASS: Record<DeadlineUrgency, string> = {
   safe: 'px-0 text-due-safe',
-  warning: 'bg-brand font-semibold text-on-brand',
+  warning: 'border border-ink-muted bg-panel font-semibold text-ink',
   urgent: 'bg-brand font-semibold text-on-brand',
   closed: 'bg-panel-nested text-ink-muted line-through decoration-1',
   unknown: 'bg-panel-nested text-ink-muted',
@@ -27,18 +29,19 @@ const URGENCY_CLASS: Record<DeadlineUrgency, string> = {
 
 export interface DeadlineTagProps {
   deadlineAt: string | null;
+  now?: Date;
   className?: string;
 }
 
-export function DeadlineTag({ deadlineAt, className }: DeadlineTagProps) {
-  const state = getDeadlineState(deadlineAt);
+export function DeadlineTag({ deadlineAt, now, className }: DeadlineTagProps) {
+  const state = getDeadlineState(deadlineAt, now);
   const Icon = state.urgency === 'closed' ? CalendarOff : Clock;
   const showIcon = state.urgency !== 'safe';
 
   return (
     <span
       className={cn(
-        'inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[6px] px-2 text-xs font-medium',
+        'inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[6px] px-2 text-xs font-medium tabular-nums',
         URGENCY_CLASS[state.urgency],
         className,
       )}

@@ -16,12 +16,19 @@ export const EVENT_TYPES = [
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
+/**
+ * Label tampilan, bukan nilai enum. KONFERENSI ditampilkan "Seminar" supaya
+ * sama dengan tab navbar (`event-type-nav.ts`): sebelumnya tab bilang
+ * "Seminar" sementara chip filter dan kartu bilang "Konferensi" untuk hal
+ * yang sama. Enum-nya tetap — paritas tiga tempat (AGENTS.md #2) tidak
+ * tersentuh.
+ */
 export const EVENT_TYPE_LABEL: Record<EventType, string> = {
   LOMBA: 'Lomba',
   BEASISWA: 'Beasiswa',
   MAGANG: 'Magang',
   WORKSHOP: 'Workshop',
-  KONFERENSI: 'Konferensi',
+  KONFERENSI: 'Seminar',
   PELATIHAN: 'Pelatihan',
   VOLUNTEER: 'Volunteer',
 };

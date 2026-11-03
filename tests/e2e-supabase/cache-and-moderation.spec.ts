@@ -44,7 +44,10 @@ test('katalog kosong: /about tidak memamerkan angka nol, /events menjelaskan kea
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.getByText('kegiatan masih terbuka')).toHaveCount(0);
   await page.goto('/events');
-  await expect(page.getByText('Belum ada kegiatan yang tayang')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Belum ada kegiatan yang sedang buka' })).toBeVisible();
+  // Tidak ada kegiatan karangan untuk "mengisi" katalog kosong (ADR-061).
+  await expect(page.locator('main article')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Kirim kegiatan' })).toHaveAttribute('href', '/submit');
 });
 
 test('listing publik dilayani Data Cache: kunjungan kedua tidak menyentuh database', async ({ page }) => {

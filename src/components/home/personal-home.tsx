@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, ArrowUpRight, Bookmark, Heart, Hourglass, type LucideIcon, ReceiptText, Ticket, UsersRound } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bookmark, Heart, Hourglass, ListChecks, type LucideIcon, ReceiptText, UsersRound } from 'lucide-react';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { DeadlineWeek } from '@/components/event/deadline-week';
@@ -96,7 +96,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
   const profileReady = isProfileComplete(user);
 
   const shortcuts: Shortcut[] = [
-    { href: '/tracker', label: 'Papan lamaran', icon: Ticket },
+    { href: '/tracker', label: 'Papan lamaran', icon: ListChecks },
     { href: '/pembayaran', label: 'Pendaftaran & pembayaran', icon: ReceiptText, count: allUnpaid.length, countLabel: 'belum dibayar' },
     { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, count: saved.length, countLabel: 'tersimpan' },
     { href: '/teams', label: 'Cari tim', icon: UsersRound },

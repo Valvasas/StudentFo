@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { EmptyState } from '@/components/event/empty-state';
 import { EventGrid } from '@/components/event/event-grid';
 import { FilterBar } from '@/components/event/filter-bar';
@@ -13,6 +14,7 @@ import { SeminarAgenda } from '@/components/listing/seminar-agenda';
 import { WorkshopCalendar } from '@/components/listing/workshop-calendar';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { getDeadlineState } from '@/lib/deadline';
 import { eventTypeNavFor } from '@/lib/event-type-nav';
 import {
   buildEventHref,
@@ -163,7 +165,18 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           <SeminarAgenda {...board} />
         </>
       );
-    default:
+    default: {
+      const filtered = hasActiveFilters({ ...query, search: '' });
+      // Katalog benar-benar kosong (bukan saringan yang terlalu sempit): tampilkan
+      // kegiatan NYATA yang pernah tayang, berlabel ditutup — bukan contoh
+      // karangan (ADR-039 #4, ADR-061). Halaman kosong melatih pengunjung pertama
+      // bahwa katalog ini mati; kegiatan palsu menghancurkan alasan orang datang.
+      const catalogEmpty = result.items.length === 0 && !filtered && !query.search;
+      const pastEvents = catalogEmpty
+        ? (await repository.listEvents({ includeClosed: true, sort: 'newest', pageSize: 6 })).items
+            .filter((event) => event.status === 'EXPIRED' || getDeadlineState(event.primaryDeadlineAt, now).urgency === 'closed')
+            .slice(0, 3)
+        : [];
       return (
         <div className="container-page pb-16 pt-8 sm:pt-12">
           <header className="enter mb-8 flex flex-col gap-3 sm:mb-10">
@@ -184,25 +197,48 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
                 </div>
               </>
             ) : (
-              <EmptyState
-                description={
-                  hasActiveFilters({ ...query, search: '' })
-                    ? 'Filter yang kamu pasang terlalu sempit. Coba kurangi satu-dua filter, atau pakai kata kunci yang lebih umum.'
-                    : query.search
-                      ? `Belum ada kegiatan yang cocok dengan “${query.search}”. Periksa ejaannya, atau coba kata yang lebih umum — mis. nama bidang, bukan nama acara lengkap.`
-                      : 'Belum ada kegiatan yang tayang. Data baru masuk setiap hari lewat proses verifikasi.'
-                }
-                actionLabel={
-                  hasActiveFilters({ ...query, search: '' })
-                    ? 'Hapus semua filter'
-                    : query.search
-                      ? 'Hapus kata kunci'
-                      : 'Muat ulang daftar'
-                }
-              />
+              <>
+                {catalogEmpty ? (
+                  <EmptyState
+                    title="Belum ada kegiatan yang sedang buka"
+                    description="Setiap kegiatan dicocokkan moderator dengan sumber resminya sebelum tayang, jadi katalog bisa sepi sementara. Tahu lomba, beasiswa, atau magang yang sedang buka? Kirimkan — kami tinjau dulu."
+                    actionHref="/submit"
+                    actionLabel="Kirim kegiatan"
+                  />
+                ) : (
+                  <EmptyState
+                    description={
+                      filtered
+                        ? 'Filter yang kamu pasang terlalu sempit. Coba kurangi satu-dua filter, atau pakai kata kunci yang lebih umum.'
+                        : `Belum ada kegiatan yang cocok dengan “${query.search}”. Periksa ejaannya, atau coba kata yang lebih umum — mis. nama bidang, bukan nama acara lengkap.`
+                    }
+                    actionLabel={filtered ? 'Hapus semua filter' : 'Hapus kata kunci'}
+                  />
+                )}
+                {pastEvents.length > 0 && (
+                  <section aria-labelledby="pernah-tayang" className="mt-12 flex flex-col gap-4">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <div className="flex flex-col gap-1">
+                        <h2 id="pernah-tayang" className="text-xl font-bold tracking-[-0.02em]">
+                          Pernah tayang di sini
+                        </h2>
+                        <p className="text-sm text-ink-muted">Pendaftarannya sudah ditutup — gambaran kegiatan yang biasa ada di katalog.</p>
+                      </div>
+                      <Link
+                        href={buildEventHref({ includeClosed: true })}
+                        className="inline-flex min-h-11 items-center text-sm font-semibold text-ink-soft underline-offset-4 hover:text-ink hover:underline"
+                      >
+                        Lihat semua yang ditutup
+                      </Link>
+                    </div>
+                    <EventGrid events={pastEvents} savedEventIds={savedEventIds} returnTo={currentHref} />
+                  </section>
+                )}
+              </>
             )}
           </div>
         </div>
       );
+    }
   }
 }

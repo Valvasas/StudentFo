@@ -6,8 +6,9 @@ import { PriceBadge, PromotedBadge } from '@/components/event/price-badge';
 import { SaveButton } from '@/components/event/save-button';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import { isPromoted } from '@/lib/data/listing';
+import { levelSummary } from '@/lib/eligibility';
 import { cn } from '@/lib/utils';
-import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
+import { EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
 
 /**
  * Kartu event.
@@ -47,10 +48,8 @@ export function EventCard({
   className,
 }: EventCardProps) {
   const promoted = isPromoted(event, new Date());
-  const meta = [
-    event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul'),
-    event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(' · '),
-  ].filter(Boolean);
+  const levels = levelSummary(event.educationLevels);
+  const place = event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul');
 
   return (
     <article
@@ -95,7 +94,10 @@ export function EventCard({
 
       <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-ink-muted">
         {event.isOnline ? <Globe aria-hidden className="size-3.5 shrink-0" /> : <MapPin aria-hidden className="size-3.5 shrink-0" />}
-        <span className="line-clamp-1">{meta.join(' · ')}</span>
+        <span className="line-clamp-1">
+          {place} · <span aria-hidden>{levels.short}</span>
+          <span className="sr-only">{levels.full}</span>
+        </span>
       </p>
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-6">

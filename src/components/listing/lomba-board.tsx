@@ -1,10 +1,11 @@
 import { PriceBadge } from '@/components/event/price-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
-import { ArrowRight, Clock } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { DeadlineTag } from '@/components/event/deadline-tag';
 import { Pagination } from '@/components/event/pagination';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
-import { Countdown } from '@/components/listing/countdown';
+import { DaysLeft } from '@/components/listing/countdown';
 import {
   Breadcrumb,
   ChipLink,
@@ -16,9 +17,10 @@ import {
   SearchBox,
   SegmentLinks,
 } from '@/components/listing/listing-ui';
-import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
+import { daysUntil, formatDateTimeId, formatShortDateId } from '@/lib/deadline';
+import { levelSummary } from '@/lib/eligibility';
 import { buildEventHref, hasActiveFilters, type ParsedEventQuery } from '@/lib/search-params';
-import { EDUCATION_LEVEL_LABEL, type Category, type EventSummary, type Paginated } from '@/types/domain';
+import type { Category, EventSummary, Paginated } from '@/types/domain';
 
 export interface BoardProps {
   readonly query: ParsedEventQuery;
@@ -38,7 +40,7 @@ const GROUPS = [
 const addDays = (now: Date, days: number) => new Date(now.getTime() + days * 86_400_000).toISOString();
 
 /**
- * Papan tenggat lomba (kanvas desain Info Lomba): hitung mundur tenggat
+ * Papan tenggat lomba (kanvas desain Info Lomba): sisa hari tenggat
  * terdekat, bilah filter menempel, kartu dikelompokkan per rentang waktu.
  *
  * Kanvas menaruh "Hadiah" sebagai angka besar di kartu. Data hadiah belum
@@ -77,23 +79,25 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
         {top?.primaryDeadlineAt && (
           <Link
             href={`/events/${top.slug}`}
-            className="enter flex flex-col gap-5 rounded-2xl bg-inverse px-7 py-6 text-on-inverse transition-colors duration-200 ease-snap [animation-delay:120ms] [animation-duration:900ms] hover:bg-inverse/90"
+            className="enter group flex flex-col gap-5 rounded-2xl border border-line bg-panel px-7 py-6 shadow-card transition-colors duration-200 ease-snap [animation-delay:120ms] [animation-duration:900ms] hover:border-line-strong"
           >
-            <span className="flex items-center justify-between gap-3">
-              <span className="font-mono text-xs tracking-[.08em] text-on-inverse-muted">TENGGAT TERDEKAT</span>
-              <span className="flex items-center gap-1.5 text-[13px] font-medium">
-                Lihat detail <ArrowRight aria-hidden className="size-3.5" />
+            <span className="flex items-center justify-between gap-3 text-[13px]">
+              <span className="font-semibold text-ink-muted">Tenggat terdekat</span>
+              <span className="flex items-center gap-1.5 font-medium">
+                Lihat detail
+                <ArrowRight aria-hidden className="size-3.5 transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
               </span>
             </span>
             <span className="flex flex-col gap-1">
-              <span className="text-xl font-semibold tracking-[-0.02em]">{top.title}</span>
-              <span className="text-[13.5px] text-on-inverse-muted">{top.organizer}</span>
+              <span className="text-xl font-semibold leading-snug tracking-[-0.02em] group-hover:underline group-hover:decoration-2 group-hover:underline-offset-4">
+                {top.title}
+              </span>
+              <span className="text-[13.5px] text-ink-muted">{top.organizer}</span>
             </span>
-            <Countdown
-              deadlineAt={top.primaryDeadlineAt}
-              renderedAt={now.getTime()}
-              label={`Pendaftaran ${top.title} ${daysLeftLabel(daysUntil(top.primaryDeadlineAt, now)).toLowerCase()}.`}
-            />
+            <span className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-t border-line pt-5">
+              <DaysLeft deadlineAt={top.primaryDeadlineAt} now={now} size="lg" />
+              <span className="text-[13.5px] text-ink-muted">Tutup {formatDateTimeId(top.primaryDeadlineAt)}</span>
+            </span>
           </Link>
         )}
       </div>
@@ -122,16 +126,16 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
         >
           <SegmentLinks label="Jenjang" items={levelSegments(query)} className="self-start" />
           <nav aria-label="Bidang" className="flex flex-wrap gap-2">
-            <ChipLink href={buildEventHref(query, { categories: [], page: 1 })} active={query.categories.length === 0}>
-              <CategoryIcon slug={undefined} /> Semua
+            <ChipLink href={buildEventHref(query, { categories: [], page: 1 })} active={query.categories.length === 0} icon={<CategoryIcon slug={undefined} />}>
+              Semua
             </ChipLink>
             {categories.map((category) => (
               <ChipLink
                 key={category.slug}
                 href={buildEventHref(query, { categories: query.categories.includes(category.slug) ? [] : [category.slug], page: 1 })}
                 active={query.categories.includes(category.slug)}
+                icon={<CategoryIcon slug={category.slug} />}
               >
-                <CategoryIcon slug={category.slug} />
                 {shortCategoryName(category.name)}
               </ChipLink>
             ))}
@@ -146,14 +150,13 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
               <h2 id={`grup-${group.min}`} className="text-[22px] font-bold tracking-[-0.025em]">
                 {group.title}
               </h2>
-              <span className="font-mono text-[13px] text-ink-muted">{group.items.length}</span>
+              <span className="text-[13px] font-medium tabular-nums text-ink-muted">{group.items.length}</span>
               <span aria-hidden className="h-px flex-1 self-center bg-line" />
               <span className="text-[13px] text-ink-muted">{group.range}</span>
             </div>
             <ul className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(290px,100%),1fr))]">
-              {group.items.map(({ event, days }) => {
+              {group.items.map(({ event }) => {
                 const category = categories.find((item) => item.slug === event.categorySlugs[0]);
-                const urgent = days <= 7;
                 const cardDelay = `${delay++ * 60}ms`;
                 return (
                   <li
@@ -178,14 +181,7 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                           {event.primaryDeadlineAt ? formatShortDateId(event.primaryDeadlineAt) : 'Belum diumumkan'}
                         </span>
                       </span>
-                      {urgent ? (
-                        <span className="mb-1 inline-flex h-6 shrink-0 items-center gap-[5px] rounded-[6px] bg-brand px-2 text-[12.5px] font-semibold text-on-brand">
-                          <Clock aria-hidden className="size-3" />
-                          {daysLeftLabel(days)}
-                        </span>
-                      ) : (
-                        days !== 999 && <span className="mb-1 shrink-0 text-[13px] font-semibold">{daysLeftLabel(days)}</span>
-                      )}
+                      {event.primaryDeadlineAt && <DeadlineTag deadlineAt={event.primaryDeadlineAt} now={now} className="mb-1 shrink-0" />}
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <h3 className="text-[16.5px] font-semibold leading-snug tracking-[-0.015em]">
@@ -201,7 +197,7 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                     <PriceBadge event={event} className="self-start" />
                     <ul aria-label="Ringkasan" className="mt-auto flex flex-wrap gap-1.5">
                       {[
-                        event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(' & ') || 'Terbuka umum',
+                        levelSummary(event.educationLevels).short,
                         event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul'),
                         `${event.savedCount.toLocaleString('id-ID')} menyimpan`,
                       ].map((chip) => (

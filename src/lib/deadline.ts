@@ -238,6 +238,24 @@ export function daysLeftLabel(daysLeft: number | null): string {
   return `${daysLeft} hari lagi`;
 }
 
+/**
+ * Sisa jam & menit sebelum tenggat, HANYA bila tenggatnya jatuh hari ini
+ * (WIB) dan belum lewat. Di hari lain angka jam justru menyesatkan:
+ * selisih milidetik ke tenggat besok pagi bisa kurang dari 24 jam sehingga
+ * hitung mundur "00 hari" bertabrakan dengan label "Tutup besok" di kartu.
+ */
+export function timeLeftToday(deadlineIso: string, now: Date = new Date()): string | null {
+  if (daysUntil(deadlineIso, now) !== 0) return null;
+  const left = new Date(deadlineIso).getTime() - now.getTime();
+  if (left <= 0) return null;
+  const totalMinutes = Math.floor(left / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0 && minutes === 0) return 'kurang dari semenit';
+  if (hours === 0) return `${minutes} menit`;
+  return minutes === 0 ? `${hours} jam` : `${hours} jam ${minutes} menit`;
+}
+
 const shortDateFormatter = new Intl.DateTimeFormat('id-ID', { timeZone: JAKARTA_TZ, day: 'numeric', month: 'short' });
 const partsFormatter = new Intl.DateTimeFormat('id-ID', {
   timeZone: JAKARTA_TZ,

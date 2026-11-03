@@ -7,6 +7,7 @@ import { Footer } from '@/components/layout/footer';
 import { Navbar } from '@/components/layout/navbar';
 import { NavigationProgress } from '@/components/layout/navigation-progress';
 import { ThemeScript } from '@/components/layout/theme-script';
+import { SearchShortcut } from '@/components/ui/search-shortcut';
 import { siteUrl } from '@/lib/env';
 import { NONCE_HEADER } from '@/lib/security-headers';
 import './globals.css';
@@ -95,6 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </main>
         <Footer />
+        <SearchShortcut />
       </body>
     </html>
   );

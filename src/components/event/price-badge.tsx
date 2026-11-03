@@ -1,6 +1,7 @@
 import { Megaphone, Ticket } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { priceLabel } from '@/lib/currency';
+import { cn } from '@/lib/utils';
 import type { EventSummary } from '@/types/domain';
 
 /**
@@ -20,7 +21,7 @@ export function PriceBadge({
   const price = priceLabel(event);
   if (price.kind === 'unknown') return null;
   return (
-    <Badge variant={price.kind === 'free' ? 'success' : 'neutral'} className={className}>
+    <Badge variant={price.kind === 'free' ? 'success' : 'neutral'} className={cn('tabular-nums', className)}>
       <Ticket aria-hidden className="size-3.5" />
       <span className="sr-only">Biaya pendaftaran: </span>
       {price.text}

@@ -397,6 +397,23 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] Mekanisme pengumuman perubahan dokumen ≥ 14 hari di dalam aplikasi (janji di kedua dokumen) — belum ada komponen banner pengumuman.
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Membersihkan kesan "buatan AI" 2026-11-03 (@claude) — ADR-061
+
+- [x] Hitung mundur per detik (papan Lomba, panel detail) → `DaysLeft` per hari kalender WIB; jam/menit hanya di H-0 (`timeLeftToday`, teruji)
+- [x] Gradasi urgensi `DeadlineTag`: teks → garis tepi (H-7..H-3) → terisi (H-2..H-0); papan Lomba & Magang memakai komponen yang sama; `tabular-nums` di tag & biaya
+- [x] Label mono kapital, panel statistik gelap, pita gelap Seminar, kotak inisial penyelenggara dihapus; varian `inverse` primitif daftar dibuang
+- [x] `--color-inverse-surface` gelap `#0d0c09` → `#2b2922` (batas panel terlihat; `check:contrast` lulus)
+- [x] Ikon bidang tanpa makna ganda (debat, hukum, pendidikan, bisnis, olahraga, kesehatan, karya tulis)
+- [x] Label KONFERENSI → "Seminar" (sama dengan tab navbar; enum tetap)
+- [x] Landing berpusat pencarian: kotak cari, tab jenis + jumlah yang masih buka, jalan pintas jenjang/gratis/tenggat; tanpa kartu gelap & ikon berkotak
+- [x] Katalog kosong jujur + "Pernah tayang di sini" (kegiatan nyata yang sudah ditutup)
+- [x] `levelSummary()` (teruji) di kartu, papan Lomba, Magang, Seminar
+- [x] Baris saringan cepat Jenjang + Biaya di `/events` (tetap `<a>` + URL)
+- [x] Pintasan "/" ke kotak cari, `BookmarkSubmit` (penanda terisi seketika), `chip-tick`, panah mengangguk
+- [ ] Jalankan `npm run test:e2e:supabase` (butuh Postgres + PostgREST lokal) — tes katalog kosong diperbarui ke judul & ajakan baru, belum dijalankan di sesi ini
+- [ ] Papan per jenis (Lomba, Magang, …) saat katalognya kosong masih memakai `ResultsEmpty` "longgarkan filter" — samakan dengan katalog kosong `/events` bila papan itu ikut tayang tanpa data
+- [ ] Pertimbangkan `DaysLeft` di bilah bawah detail (ponsel) — sekarang masih `daysLeftLabel` teks kecil
+
 ## Template tugas baru
 
 ```md

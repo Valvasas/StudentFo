@@ -209,7 +209,7 @@ export function Picker({
           <div className="flex flex-col gap-2.5 border-b border-line px-3.5 pb-2.5 pt-3.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[13.5px] font-semibold">{title}</span>
-              <span className="font-mono text-[11.5px] text-ink-muted">{total} pilihan</span>
+              <span className="text-[12px] tabular-nums text-ink-muted">{total} pilihan</span>
             </div>
             <div className="relative">
               <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-ink-muted" />
@@ -254,7 +254,7 @@ export function Picker({
               if (row.kind === 'head') {
                 return (
                   <div key={row.key} role="presentation" className="sticky -top-1.5 z-[1] flex items-center justify-between gap-2 bg-panel px-2 pb-1 pt-2.5">
-                    <span className="font-mono text-[11px] uppercase tracking-[.06em] text-ink-muted">{row.label}</span>
+                    <span className="text-[12px] font-semibold text-ink-muted">{row.label}</span>
                     {row.selectable && (
                       <div
                         id={optionId(index)}

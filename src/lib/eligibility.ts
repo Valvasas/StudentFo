@@ -17,3 +17,29 @@ export function eligibilityReason(event: Pick<EventSummary, 'educationLevels'>, 
   return `Khusus ${levels.map((item) => EDUCATION_LEVEL_LABEL[item]).join(' & ')}`;
 }
 
+
+export interface LevelSummary {
+  /** Ringkas untuk baris meta kartu: "SMA/SMK – D4/S1", "D3 · S2 +1". */
+  readonly short: string;
+  /** Daftar lengkap untuk pembaca layar bila `short` memotong sesuatu. */
+  readonly full: string;
+}
+
+/**
+ * Jenjang di kartu tanpa daftar yang memanjang ("SMA/SMK · D3 · D4/S1 · Umum"
+ * memakan satu baris penuh di ponsel dan memotong lokasi). Umum atau daftar
+ * kosong = siapa pun boleh ikut (aturan yang sama dengan `eligibilityReason`),
+ * jadi jenjang spesifiknya tidak menambah informasi. Jenjang berurutan jadi
+ * rentang karena pertanyaan pembaca kartu adalah "jenjangku termasuk?" —
+ * rentang menjawabnya tanpa memotong apa pun.
+ */
+export function levelSummary(levels: readonly EducationLevel[]): LevelSummary {
+  if (levels.length === 0 || levels.includes('UMUM')) return { short: 'Semua jenjang', full: 'Terbuka untuk semua jenjang' };
+  const indexes = ELIGIBILITY_LEVELS.map((level, index) => (levels.includes(level) ? index : -1)).filter((index) => index >= 0);
+  const labels = indexes.map((index) => EDUCATION_LEVEL_LABEL[ELIGIBILITY_LEVELS[index]!]);
+  const full = labels.join(', ');
+  if (labels.length <= 2) return { short: labels.join(' · '), full };
+  const contiguous = indexes.every((index, position) => position === 0 || index === indexes[position - 1]! + 1);
+  if (contiguous) return { short: `${labels[0]} – ${labels[labels.length - 1]}`, full };
+  return { short: `${labels[0]} · ${labels[1]} +${labels.length - 2}`, full };
+}

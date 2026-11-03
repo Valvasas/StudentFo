@@ -86,8 +86,11 @@ src/
 │   │                           illustrations.tsx (404/error/kosong/kalender, logomark, coretan hero — ADR-053),
 │   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
-│   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054)
-│   ├── landing/                GuestLanding + Hero — beranda tamu
+│   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054),
+│   │                           search-shortcut.tsx (pintasan "/" ke kotak cari + petunjuk kbd, ADR-061)
+│   ├── landing/                GuestLanding + Hero (berpusat pencarian: kotak cari, tab jenis + jumlah buka, ADR-061) — beranda tamu
+│   ├── listing/                Lima papan per jenis (Lomba, Beasiswa, Magang, Workshop, Seminar) + listing-ui (primitif tautan),
+│   │                           countdown.tsx (DaysLeft — sisa hari kalender) + time-left-today.tsx (jam di H-0, klien), category-icon.tsx
 │   ├── home/                   RoleHome memilih per peran tampilan (account-role.ts): PersonalHome (peserta — tagihan,
 │   │                           perlu tindakan, pantauan), OrganizerHome (pendaftar baru, bukti bayar menunggu), AdminHome (antrean)
 │   ├── registration/           Sisi peserta formulir internal: RegistrationFieldInput, RequiredChoiceGroup, RegistrationCta,
@@ -96,7 +99,7 @@ src/
 │   │                           (cermin aturan simpan server untuk setCustomValidity, diuji paritas), RegistrationRow, grafik analitik
 │   ├── feedback/               ActionFeedback — render kode ?error=/?notice= (daftar tertutup); CelebrationBurst (perayaan hasil aksi, ADR-055)
 │   ├── event/                  DeadlineTag/Ring/Ticker/Week, EventCard/Grid, FilterBar, Pagination,
-│   │                           EmptyState, SaveButton, PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
+│   │                           EmptyState, SaveButton + BookmarkSubmit (penanda terisi seketika, ADR-061), PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
 │   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS),
 │   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055),
 │   │                           EventGallery + GalleryViewer (galeri foto acara, dialog lightbox, ADR-056), event-photo.ts (src/alt foto)
@@ -133,6 +136,7 @@ src/
 │   ├── currency.ts             formatRupiah, priceLabel (null = tidak ditebak gratis) [teruji]
 │   ├── guidebook.ts            Validasi ulang tautan buku panduan + deteksi PDF [teruji]
 │   ├── event-presentation.ts   Form admin lencana & promosi (Zod) [teruji]
+│   ├── eligibility.ts          Cek kelayakan jenjang (papan Beasiswa) + levelSummary (ringkasan jenjang di kartu, ADR-061) [teruji]
 │   ├── cron-auth.ts            Bearer CRON_SECRET, banding waktu-konstan, gagal tertutup [teruji]
 │   ├── matchmaking.ts          Pencocokan tim/partner: skor 6 komponen, saringan keras, alasan & "kimia", parse/serialize query [teruji, murni] (ADR-057)
 │   ├── matchmaking-schema.ts   Validasi form kartu pemain (Zod) [teruji]

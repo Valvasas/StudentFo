@@ -238,10 +238,11 @@
   --press-drop: 0 0 0 transparent;
   --focus-halo: rgb(239 235 225 / 0.1);
 
-  /* Footer & panel CTA tetap lebih gelap dari halaman supaya batas
-     "isi halaman" vs "penutup" tidak hilang di tema gelap. */
-  --color-inverse-surface: #0d0c09;
-  --color-inverse-nested: #2b2922;
+  /* Permukaan "gelap-selalu" di tema gelap TERANGKAT dari kanvas, bukan
+     lebih gelap: #0d0c09 di atas #15140f hanya ±1,06:1, sehingga panel,
+     toast, dan kartu ajakan larut ke halaman tanpa batas (ADR-061). */
+  --color-inverse-surface: #2b2922;
+  --color-inverse-nested: #3b382f;
   --color-inverse-text: #efebe1;
   --color-inverse-text-muted: #aaa496;
 }
@@ -1216,3 +1217,33 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   animation-delay: var(--d, 0ms);
 }
 
+
+/* =====================================================================
+   11. UMPAN BALIK KECIL YANG MEMUASKAN (ADR-061)
+   Hanya anak dekoratif DI DALAM target (ikon) yang bergerak — kotak sentuh
+   tidak pernah bergeser (ADR-039/055). Sekali jalan saat elemen muncul,
+   jadi ikut aturan reduced-motion §3 tanpa kode tambahan.
+   ===================================================================== */
+@keyframes sf-tick-in {
+  from { opacity: 0; transform: scale(0.4) rotate(-14deg); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Centang di chip filter yang baru aktif: "tumbuh" menggantikan ikon bidang. */
+@utility chip-tick {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-tick-in 260ms var(--easing-spring) both;
+}
+
+@keyframes sf-save-pop {
+  0% { transform: scale(0.7); }
+  55% { transform: scale(1.22); }
+  100% { transform: none; }
+}
+
+/* Penanda simpan terisi seketika saat diketuk, sebelum server menjawab. */
+@utility save-pop {
+  transform-origin: center;
+  animation: sf-save-pop 360ms var(--easing-spring) both;
+}
