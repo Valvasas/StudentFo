@@ -1242,6 +1242,20 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   100% { transform: none; }
 }
 
+/* Gradien urgensi tenggat (ADR-061): satu tinta, intensitas naik PER HARI.
+   `--ramp` = 0 di H-7 … 1 di hari-H (diisi DeadlineTag). Latar & garis
+   dicampur dari tinta tenggat ke permukaan kartu, jadi tetap monokrom,
+   ikut tema gelap tanpa salinan kedua, dan teksnya selalu tinta penuh
+   (≥ 10,8:1 di kedua tema — campuran latarnya paling banyak 14% tinta).
+   Garis tepi mulai dari 52% tinta: di H-7 masih ≥ 3,7:1 terhadap kartu &
+   kanvas (WCAG 1.4.11); 40% hanya 2,8:1. check:contrast tidak bisa membaca
+   color-mix, jadi angka ini diukur terpisah (OKLab) — ukur ulang bila diubah. */
+@utility due-ramp {
+  color: var(--color-deadline-warning);
+  background-color: color-mix(in oklab, var(--color-deadline-urgent) calc(var(--ramp, 0) * 24%), var(--color-surface));
+  border: 1px solid color-mix(in oklab, var(--color-deadline-urgent) calc(52% + var(--ramp, 0) * 48%), var(--color-surface));
+}
+
 /* Penanda simpan terisi seketika saat diketuk, sebelum server menjawab. */
 @utility save-pop {
   transform-origin: center;

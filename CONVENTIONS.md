@@ -133,8 +133,9 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   (`--color-deadline-*`) terpisah — jangan dipertukarkan.
 - Sisa waktu tenggat selalu per HARI KALENDER (`DaysLeft`, `DeadlineTag`) —
   tidak ada hitung mundur detik/milidetik; jam hanya di hari terakhir
-  (`timeLeftToday`). Urgensi dibawa gradasi BENTUK (teks → garis → terisi),
-  bukan warna baru (ADR-061).
+  (`timeLeftToday`). Urgensi dibawa GRADIEN satu tinta per hari (teks →
+  pil bergaris makin pekat → terisi; `due-ramp` + `urgencyRamp`), bukan hue
+  baru (ADR-061).
 - Satu ikon = satu arti di layar yang sama. Sebelum memakai ikon untuk bidang
   baru, cek `event-type-icon.tsx`, `verified-badge.tsx`, `PromotedBadge`, dan
   ikon fakta di detail (ADR-061). Label kecil di halaman fungsional ditulis
@@ -155,7 +156,7 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   `progress-sheen`) + ADR-057 (`scan-overlay`, `scan-results`, `scan-line`,
   `radar-sweep`, `radar-ping`, `blip`, `ring-fill`; §10 `globals.css`) + ADR-058 (`match-motion.css`: `deal-in`,
   `face-turn-out/in`, `stick-in`, `sheet-up/sheet-pop`, `nudge`, `tick-bump`,
-  `undo-return`, token `--ease-pop*`) + ADR-061 (`chip-tick`, `save-pop`; §11 `globals.css`). Rangkaian pemindaian pencocokan wajib
+  `undo-return`, token `--ease-pop*`) + ADR-061 (`chip-tick`, `save-pop`, `due-ramp`; §11 `globals.css`). Rangkaian pemindaian pencocokan wajib
   **gagal-aman**: keadaan BAWAAN elemen = hasil terlihat dan lapisan
   pemindaian tersembunyi; animasi hanya meminjam keadaan sebaliknya selama
   ±2,9 detik. Tanpa JS ia berakhir sendiri, dan di reduced-motion (aturan

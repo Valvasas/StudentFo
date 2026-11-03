@@ -51,11 +51,15 @@ kosong). Temuan yang benar-benar ada:
    menit hanya di hari terakhir (`timeLeftToday`, teruji), berdetak tiap 30
    detik lewat pulau klien kecil `TimeLeftToday` — nilai awal dari jam
    server, jadi tanpa JS tetap benar dan tanpa ketidakcocokan hidrasi.
-2. **Gradasi urgensi berbentuk, tetap monokrom:** aman = teks; H-7..H-3 =
-   garis tepi + ikon jam; H-2..hari ini = label terisi + ikon jam. Ambang
-   `deadline.ts` tidak diubah. Papan Lomba & Magang memakai `DeadlineTag`
-   yang sama (sebelumnya pil buatan sendiri). Tanpa warna baru — amber akan
-   tertukar dengan stabilo, merah dengan error.
+2. **Gradien urgensi satu tinta, tetap monokrom:** aman = teks; H-7..H-3 =
+   pil bergaris yang latar & garisnya makin pekat SETIAP hari (`due-ramp` di
+   §11 `globals.css`: `color-mix` tinta tenggat → permukaan kartu, posisinya
+   dari `urgencyRamp()`, teruji); H-2..hari ini = pil terisi penuh, dan di
+   hari-H ikon jam diganti titik yang berdenyut pelan. Teks selalu tinta
+   penuh (≥ 10,8:1), garis tepi ≥ 3,7:1 sejak H-7. Ambang `deadline.ts`
+   tidak diubah. Papan Lomba & Magang memakai `DeadlineTag` yang sama
+   (sebelumnya pil buatan sendiri). Tanpa hue baru — amber akan tertukar
+   dengan stabilo, merah dengan error.
 3. **Bersih, animasi tetap:** label mono kapital → label biasa; panel
    statistik → permukaan kertas bergaris; pita gelap Seminar → kepala polos
    seperti papan lain (varian `inverse` primitif daftar dihapus karena tak
@@ -93,7 +97,9 @@ kosong). Temuan yang benar-benar ada:
    gerak hanya pada anak dekoratif di dalam target dan tunduk pada
    reduced-motion.
 
-**Konsekuensi:** Tidak ada lagi detik yang berdetak di mana pun — orang yang
+**Konsekuensi:** `check:contrast` tidak bisa membaca `color-mix`, jadi
+kontras gradien diukur terpisah dan angkanya ditulis di sebelah utilitasnya.
+Tidak ada lagi detik yang berdetak di mana pun — orang yang
 menyukai sensasi "launch countdown" kehilangan itu, disengaja. Landing kini
 menjalankan 5 kueri hitungan tambahan per kunjungan tamu (di-cache tag
 `events` di Supabase, ADR-034). `BookmarkSubmit` menampilkan hasil sebelum

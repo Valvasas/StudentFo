@@ -10,6 +10,7 @@ import {
   jakartaDayWindow,
   timeLeftToday,
   urgencyFromDays,
+  urgencyRamp,
 } from './deadline';
 
 // 10 Jan 2026, 20:00 WIB = 13:00 UTC.
@@ -174,5 +175,21 @@ describe('timeLeftToday', () => {
   it('null untuk tenggat yang sudah lewat hari ini dan tanggal rusak', () => {
     expect(timeLeftToday('2026-01-10T05:00:00Z', NOW)).toBeNull();
     expect(timeLeftToday('bukan-tanggal', NOW)).toBeNull();
+  });
+});
+
+describe('urgencyRamp', () => {
+  it('naik rata per hari dari H-7 (0) ke hari-H (1)', () => {
+    expect(urgencyRamp(7)).toBe(0);
+    expect(urgencyRamp(3)).toBe(0.571);
+    expect(urgencyRamp(0)).toBe(1);
+    const steps = [7, 6, 5, 4, 3, 2, 1, 0].map(urgencyRamp);
+    expect(steps).toEqual([...steps].sort((a, b) => a - b));
+  });
+
+  it('0 di luar jendela tujuh hari', () => {
+    expect(urgencyRamp(8)).toBe(0);
+    expect(urgencyRamp(-1)).toBe(0);
+    expect(urgencyRamp(null)).toBe(0);
   });
 });

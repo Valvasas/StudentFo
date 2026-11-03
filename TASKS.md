@@ -400,7 +400,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 ## Membersihkan kesan "buatan AI" 2026-11-03 (@claude) — ADR-061
 
 - [x] Hitung mundur per detik (papan Lomba, panel detail) → `DaysLeft` per hari kalender WIB; jam/menit hanya di H-0 (`timeLeftToday`, teruji)
-- [x] Gradasi urgensi `DeadlineTag`: teks → garis tepi (H-7..H-3) → terisi (H-2..H-0); papan Lomba & Magang memakai komponen yang sama; `tabular-nums` di tag & biaya
+- [x] Gradien urgensi `DeadlineTag`: teks → pil bergaris yang makin pekat tiap hari (H-7..H-3, `due-ramp` + `urgencyRamp`, teruji) → terisi (H-2..H-0, titik berdenyut di hari-H); papan Lomba & Magang memakai komponen yang sama; `tabular-nums` di tag & biaya
 - [x] Label mono kapital, panel statistik gelap, pita gelap Seminar, kotak inisial penyelenggara dihapus; varian `inverse` primitif daftar dibuang
 - [x] `--color-inverse-surface` gelap `#0d0c09` → `#2b2922` (batas panel terlihat; `check:contrast` lulus)
 - [x] Ikon bidang tanpa makna ganda (debat, hukum, pendidikan, bisnis, olahraga, kesehatan, karya tulis)
@@ -410,7 +410,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] `levelSummary()` (teruji) di kartu, papan Lomba, Magang, Seminar
 - [x] Baris saringan cepat Jenjang + Biaya di `/events` (tetap `<a>` + URL)
 - [x] Pintasan "/" ke kotak cari, `BookmarkSubmit` (penanda terisi seketika), `chip-tick`, panah mengangguk
-- [ ] Jalankan `npm run test:e2e:supabase` (butuh Postgres + PostgREST lokal) — tes katalog kosong diperbarui ke judul & ajakan baru, belum dijalankan di sesi ini
+- [x] `npm run test:e2e:supabase` di Postgres 16 + PostgREST sungguhan: 11/11 lulus, termasuk katalog kosong (judul baru, tanpa kartu, ajakan /submit)
 - [ ] Papan per jenis (Lomba, Magang, …) saat katalognya kosong masih memakai `ResultsEmpty` "longgarkan filter" — samakan dengan katalog kosong `/events` bila papan itu ikut tayang tanpa data
 - [ ] Pertimbangkan `DaysLeft` di bilah bawah detail (ponsel) — sekarang masih `daysLeftLabel` teks kecil
 

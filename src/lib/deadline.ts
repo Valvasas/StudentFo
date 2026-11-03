@@ -69,6 +69,16 @@ export function urgencyFromDays(daysLeft: number | null): DeadlineUrgency {
   return 'urgent';
 }
 
+/**
+ * Posisi di gradien urgensi (ADR-061): 0 di H-7 … 1 di hari-H, naik rata
+ * per hari kalender. Di luar jendela tujuh hari (aman, ditutup, tanpa
+ * tanggal) = 0 — gradien hanya bermakna saat tenggat sudah dekat.
+ */
+export function urgencyRamp(daysLeft: number | null): number {
+  if (daysLeft === null || daysLeft < 0 || daysLeft > 7) return 0;
+  return Math.round(((7 - daysLeft) / 7) * 1000) / 1000;
+}
+
 export interface DeadlineState {
   readonly daysLeft: number | null;
   readonly urgency: DeadlineUrgency;
