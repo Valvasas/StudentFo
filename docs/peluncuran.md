@@ -21,9 +21,9 @@ atau commit.
 |---|---|---|
 | Kode | `main` + ADR-061–066 tergabung di cabang `ccr-c5c96a43-8eijqc` | Semua uji hijau (lihat §6) |
 | Supabase staging | `iwttgkzxudhjatbvywke`, Singapura, **paket Free**, 41 migration | Alat bantu `studentfo_migration_runner` + ekstensi `http` belum dihapus |
-| Supabase produksi | **Belum ada** | Org paket Free: maksimal 2 project aktif, keduanya terpakai |
-| Vercel | Project `studentfo`, produksi `studentfo.vercel.app` | Hanya 3 env publik, menunjuk ke Supabase **staging** |
-| Domain | `studentfo.com` **tersedia**, US$12,03/tahun (harga Vercel) | Belum dibeli |
+| Supabase produksi | **`urmmihzjkkbxcwfzvuao` "StudentFo"**, Singapura, paket Free, 41 migration (SHA-256 dicocokkan), 29 tabel ber-RLS, pg_cron aktif | Dibuat 4 Nov setelah "rasvara-" dijeda atas keputusan pemilik. Free = dijeda bila sepi seminggu & tanpa cadangan harian — pertimbangkan Pro sebelum promosi |
+| Vercel | Project `studentfo`, produksi `studentfo.vercel.app`; `studentfo.com` + `www` (308 → apex) **sudah dipasang** | Env masih menunjuk ke Supabase **staging**; `NEXT_PUBLIC_SITE_URL` diganti setelah domain aktif |
+| Domain | `studentfo.com` tersedia, US$12,03/tahun (harga Vercel) | Pemilik membeli sendiri di Vercel → Domains (data WHOIS tidak lewat chat) |
 | Katalog | Kosong | Pipeline butuh `GEMINI_MODEL` hidup + sumber nyata |
 | Dokumen hukum | Berlabel DRAF | Menunggu penasihat hukum |
 
@@ -35,12 +35,14 @@ atau commit.
 |---|---|---|---|
 | 1.1 | Gabungkan cabang `ccr-c5c96a43-8eijqc` ke `main` (PR) | Pemilik (review & merge) | CI `ci.yml` hijau |
 | 1.2 | Hapus alat bantu staging: `DROP SCHEMA studentfo_migration_runner CASCADE; DROP EXTENSION http;` (sudah diperiksa: isinya hanya fungsi `apply`, tidak ada yang memakai `http`) | Pemilik di SQL Editor, atau Claude dengan konfirmasi | Security Advisor tidak lagi menandai `studentfo_migration_runner.apply` |
-| 1.3 | Pilih rencana Supabase produksi: **(a)** upgrade org ke Pro (sekitar US$25/bulan, termasuk kredit compute; cek halaman harga Supabase saat membayar), lalu buat project baru; atau **(b)** jeda project lain di org supaya kuota Free terbuka. Paket Free **tidak disarankan untuk produksi**: project dijeda otomatis bila sepi seminggu dan tanpa cadangan harian | Pemilik | — |
-| 1.4 | Buat project produksi di **ap-southeast-1 (Singapura)** — Kebijakan privasi menjanjikan lokasi ini | Claude (setelah 1.3) | `list_projects` menunjukkan ACTIVE_HEALTHY |
-| 1.5 | Terapkan 41 migration berurutan ke produksi | Claude (izin eksplisit) | `list_migrations` = 41 baris; Security Advisor hanya menyisakan temuan yang disengaja (ADR-062 #8) |
+| 1.3 | ✅ 4 Nov: "rasvara-" dijeda, produksi dibuat di Free. Bila ingin pindah ke Pro nanti: **(a)** upgrade org ke Pro (sekitar US$25/bulan, termasuk kredit compute; cek halaman harga Supabase saat membayar), lalu buat project baru; atau **(b)** jeda project lain di org supaya kuota Free terbuka. Paket Free **tidak disarankan untuk produksi**: project dijeda otomatis bila sepi seminggu dan tanpa cadangan harian | Pemilik | — |
+| 1.4 | ✅ Project produksi `urmmihzjkkbxcwfzvuao` di **ap-southeast-1 (Singapura)** | Claude | ACTIVE_HEALTHY |
+| 1.5 | ✅ 41 migration diterapkan berurutan (diunduh dari commit `ea70afb`, SHA-256 dicocokkan dengan repo) | Claude | `list_migrations` = 41; Advisor = temuan yang sama dengan staging (disengaja, ADR-062 #8) |
+| 1.5a | Samakan versi riwayat produksi dengan nama berkas (sekarang versi waktu-terap, mis. `20261104023555`) supaya `supabase db push` dari mesin pemilik tidak mengulang: `UPDATE supabase_migrations.schema_migrations SET version = <prefiks berkas> WHERE name = <nama>` | Claude (sesi berikut, `execute_sql`) | `list_migrations` menampilkan versi = prefiks berkas |
+| 1.5b | Hapus ekstensi bantu `http` di produksi: `DROP EXTENSION http;` (tidak dipakai objek lain) | Pemilik di SQL Editor, atau Claude bila dialog konfirmasi bisa dijawab | Extensions tidak lagi menampilkan `http` |
 | 1.6 | Supabase Auth (produksi): Site URL = domain final; Redirect URL `https://<domain>/auth/callback`; provider Google; TOTP aktif; **matikan** CAPTCHA bawaan Auth (Turnstile diperiksa server kita, ADR-056); aktifkan *Leaked password protection* (fitur paket Pro) | Pemilik | Daftar + konfirmasi email berhasil di produksi |
 | 1.7 | SMTP kustom lewat Resend (email bawaan Supabase dibatasi beberapa email/jam) | Pemilik | Email konfirmasi tiba dari domain sendiri |
-| 1.8 | Beli `studentfo.com`, pasang di Vercel (Settings → Domains), pilih satu kanonik (apex atau `www`) dan alihkan yang lain | Pemilik beli; Claude bisa memasang ke project | `curl -I https://studentfo.com` → 200 + header HSTS |
+| 1.8 | Beli `studentfo.com` (Vercel → Domains, tim valvasas-projects). Domain & `www` → apex **sudah terpasang** di project | Pemilik beli | `curl -I https://studentfo.com` → 200 + header HSTS; lalu Claude mengganti `NEXT_PUBLIC_SITE_URL` & redeploy |
 | 1.9 | DNS Resend (SPF, DKIM, DMARC) di domain baru | Pemilik | Status domain "Verified" di Resend |
 
 ## Fase 2 — Konfigurasi rahasia (minggu 1–2)

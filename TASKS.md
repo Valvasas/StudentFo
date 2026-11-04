@@ -407,8 +407,12 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Draf kerangka DPIA + penilaian risiko PP 17/2025: `docs/dpia-draf.md` (DRAF — wajib ditinjau penasihat hukum)
 - [x] Domain: `studentfo.com` tersedia (US$12,03/tahun di Vercel), belum dibeli
 - [x] Security Advisor staging diperiksa: temuan tersisa = yang sengaja (ADR-062 #8) + alat bantu migration (butir di atas) + *Leaked password protection* mati (fitur paket Pro)
-- [ ] **BUTUH PEMILIK.** Putuskan paket Supabase produksi (Pro disarankan; Free menjeda project yang sepi & tanpa cadangan), lalu Claude membuat project Singapura + menerapkan 41 migration
-- [ ] **BUTUH PEMILIK.** Beli domain, lalu ikuti `docs/peluncuran.md` Fase 1.8–2
+- [x] Supabase produksi `urmmihzjkkbxcwfzvuao` (Singapura, Free) dibuat setelah "rasvara-" dijeda atas keputusan pemilik; 41 migration diterapkan lewat `apply_migration` (unduh dari commit `ea70afb` + SHA-256 dicocokkan); 29 tabel ber-RLS; Advisor = temuan disengaja yang sama dengan staging
+- [ ] Produksi: samakan versi `supabase_migrations.schema_migrations` dengan prefiks berkas (sekarang versi waktu-terap) — `execute_sql` di sesi berikut
+- [ ] **BUTUH PEMILIK.** Produksi & staging: `DROP EXTENSION http;` (staging juga `DROP SCHEMA studentfo_migration_runner CASCADE;`) — dialog konfirmasi MCP dua kali tidak sampai ke pemilik
+- [ ] Pertimbangkan paket Pro sebelum promosi: Free menjeda project yang sepi seminggu & tanpa cadangan harian
+- [x] `studentfo.com` + `www` (308 → apex) dipasang di project Vercel `studentfo`
+- [ ] **BUTUH PEMILIK.** Beli `studentfo.com` di Vercel → Domains, lalu Claude mengganti `NEXT_PUBLIC_SITE_URL` & redeploy; ikuti `docs/peluncuran.md` Fase 1.6–2
 
 ## Tur, latar bergerak, audit fungsi fitur 2026-11-04 (@claude) — ADR-065
 
