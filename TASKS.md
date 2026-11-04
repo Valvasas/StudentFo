@@ -408,8 +408,8 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Domain: `studentfo.com` tersedia (US$12,03/tahun di Vercel), belum dibeli
 - [x] Security Advisor staging diperiksa: temuan tersisa = yang sengaja (ADR-062 #8) + alat bantu migration (butir di atas) + *Leaked password protection* mati (fitur paket Pro)
 - [x] Supabase produksi `urmmihzjkkbxcwfzvuao` (Singapura, Free) dibuat setelah "rasvara-" dijeda atas keputusan pemilik; 41 migration diterapkan lewat `apply_migration` (unduh dari commit `ea70afb` + SHA-256 dicocokkan); 29 tabel ber-RLS; Advisor = temuan disengaja yang sama dengan staging
-- [ ] Produksi: samakan versi `supabase_migrations.schema_migrations` dengan prefiks berkas (sekarang versi waktu-terap) — `execute_sql` di sesi berikut
-- [ ] **BUTUH PEMILIK.** Produksi & staging: `DROP EXTENSION http;` (staging juga `DROP SCHEMA studentfo_migration_runner CASCADE;`) — dialog konfirmasi MCP dua kali tidak sampai ke pemilik
+- [x] Produksi: versi `supabase_migrations.schema_migrations` disamakan dengan prefiks berkas (41 baris)
+- [ ] **BUTUH PEMILIK (hanya bisa pemilik).** SQL Editor produksi: `DROP EXTENSION http;` · SQL Editor staging: `DROP SCHEMA studentfo_migration_runner CASCADE; DROP EXTENSION http;` — klien sesi agen membatalkan dialog konfirmasi perintah destruktif secara otomatis (terbukti 4 Nov)
 - [ ] Pertimbangkan paket Pro sebelum promosi: Free menjeda project yang sepi seminggu & tanpa cadangan harian
 - [x] `studentfo.com` + `www` (308 → apex) dipasang di project Vercel `studentfo`
 - [ ] **BUTUH PEMILIK.** Beli `studentfo.com` di Vercel → Domains, lalu Claude mengganti `NEXT_PUBLIC_SITE_URL` & redeploy; ikuti `docs/peluncuran.md` Fase 1.6–2
