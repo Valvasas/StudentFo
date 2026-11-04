@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 const at = (ms: number, from = 0, to = 0) => ({ '--d': `${ms}ms`, '--r0': `${from}deg`, '--r1': `${to}deg` }) as CSSProperties;
 
 /**
- * Kolase hero beranda (ADR-062): tumpukan kartu kegiatan yang "digambar"
+ * Kolase hero beranda (ADR-065): tumpukan kartu kegiatan yang "digambar"
  * pulpen, kaca pembesar di atasnya (= cari), label tenggat di kartu depan
  * (= sisa waktu, sama dengan DeadlineTag), penanda buku (= simpan), pesawat kertas
  * yang terbang ke tumpukan (= kiriman masuk katalog). Setiap benda adalah

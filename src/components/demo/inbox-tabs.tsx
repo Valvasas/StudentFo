@@ -19,7 +19,7 @@ export function InboxTabs({ active, description }: { active: 'pesan' | 'diskusi'
           </p>
           <p className="max-w-[52ch] text-[15px] leading-relaxed text-ink-muted">{description}</p>
         </div>
-        {/* Sketsa kecil (ADR-062) hanya di layar lebar: di ponsel kotak masuk
+        {/* Sketsa kecil (ADR-065) hanya di layar lebar: di ponsel kotak masuk
             sendiri yang harus ada di layar pertama. */}
         <ChatSketch className="-mb-2 hidden w-[132px] shrink-0 lg:block" />
       </div>

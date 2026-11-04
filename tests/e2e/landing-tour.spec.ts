@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * Tur beranda (ADR-062). Konfigurasi uji memakai `reducedMotion: 'reduce'`,
+ * Tur beranda (ADR-065). Konfigurasi uji memakai `reducedMotion: 'reduce'`,
  * jadi yang dikunci di sini justru jalur aksesibelnya: tur TIDAK berjalan
  * sendiri, tombolnya maju satu langkah, dan pola tab bisa dipakai dengan
  * keyboard. Hanya fitur yang ada di produksi yang boleh dijanjikan.

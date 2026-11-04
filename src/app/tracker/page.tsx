@@ -118,7 +118,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
               <div key={status} className="flex flex-col gap-1 bg-panel px-5 py-4">
                 <span className="text-[32px] font-bold leading-none tracking-[-0.04em] tabular-nums">{counts[status]}</span>
                 <span className="text-[13px] text-ink-muted">{TRACKER_STATUS_LABEL[status]}</span>
-                {/* Bagian dari semua yang dipantau (ADR-062): sebaran lamaran terbaca
+                {/* Bagian dari semua yang dipantau (ADR-065): sebaran lamaran terbaca
                     sekilas tanpa menjumlah empat angka di kepala. Angkanya tetap teks. */}
                 <span aria-hidden className="mt-2 h-1 overflow-hidden rounded-pill bg-line">
                   <span

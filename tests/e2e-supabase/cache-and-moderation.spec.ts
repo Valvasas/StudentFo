@@ -45,7 +45,7 @@ test('katalog kosong: /about tidak memamerkan angka nol, /events menjelaskan kea
   await expect(page.getByText('kegiatan masih terbuka')).toHaveCount(0);
   await page.goto('/events');
   await expect(page.getByRole('heading', { name: 'Belum ada kegiatan yang sedang buka' })).toBeVisible();
-  // Tidak ada kegiatan karangan untuk "mengisi" katalog kosong (ADR-061).
+  // Tidak ada kegiatan karangan untuk "mengisi" katalog kosong (ADR-064).
   await expect(page.locator('main article')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Kirim kegiatan' })).toHaveAttribute('href', '/submit');
 });

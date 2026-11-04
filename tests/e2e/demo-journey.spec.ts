@@ -68,7 +68,7 @@ test('tim: buat tim → anggota lain bergabung → keluar; ketua melihat jumlah 
   await member.goto(teamUrl);
   await member.getByRole('button', { name: 'Ajukan gabung' }).click();
   await expect(member.getByRole('button', { name: 'Keluar dari tim' })).toBeVisible();
-  // Gabung/keluar tidak lagi senyap (ADR-062): kode notice tertutup, bukan teks di URL.
+  // Gabung/keluar tidak lagi senyap (ADR-065): kode notice tertutup, bukan teks di URL.
   await expect(member).toHaveURL(/notice=team_joined/);
   await expect(member.getByText('Kamu masuk tim.', { exact: false }).first()).toBeVisible();
 

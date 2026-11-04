@@ -21,7 +21,7 @@ import {
  * kunjungan. Bidang baru yang belum dipetakan memakai ikon kisi netral.
  *
  * Tidak boleh memakai ikon yang sudah punya arti lain di kartu/detail yang
- * sama (ADR-061): Trofi/Toga/Koper/Mikrofon = JENIS kegiatan
+ * sama (ADR-064): Trofi/Toga/Koper/Mikrofon = JENIS kegiatan
  * (`event-type-icon.tsx`), Toga juga = jenjang, Megafon = Promosi, Gedung
  * pilar/Sekolah = lencana otoritas, Buku terbuka = buku panduan. Satu ikon
  * dengan dua arti di layar yang sama memaksa pembaca menebak mana yang

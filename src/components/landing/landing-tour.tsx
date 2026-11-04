@@ -6,7 +6,7 @@ import { isMotionReduced } from '@/lib/motion-pref';
 import { cn } from '@/lib/utils';
 
 /**
- * Tur beranda (ADR-062, menggantikan penghapusan tur di ADR-056 atas
+ * Tur beranda (ADR-065, menggantikan penghapusan tur di ADR-056 atas
  * permintaan pemilik — sebagai bagian identitas merek).
  *
  * Yang berbeda dari tur lama, dan alasannya:

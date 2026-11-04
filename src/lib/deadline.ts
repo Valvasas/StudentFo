@@ -70,7 +70,7 @@ export function urgencyFromDays(daysLeft: number | null): DeadlineUrgency {
 }
 
 /**
- * Posisi di gradien urgensi (ADR-061): 0 di H-7 … 1 di hari-H, naik rata
+ * Posisi di gradien urgensi (ADR-064): 0 di H-7 … 1 di hari-H, naik rata
  * per hari kalender. Di luar jendela tujuh hari (aman, ditutup, tanpa
  * tanggal) = 0 — gradien hanya bermakna saat tenggat sudah dekat.
  */
