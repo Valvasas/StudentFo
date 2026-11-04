@@ -26,7 +26,13 @@ import { LEGAL_REVISION, legalConsentRecord } from '@/lib/legal';
 import { PASSWORD_MAX_LENGTH, passwordByteLength } from '@/lib/password-rules';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isAccountRateLimited, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
-import { safeNextPath } from '@/lib/safe-redirect';
+import {
+  audienceHome,
+  audienceLoginPath,
+  ORGANIZER_REGISTER_PATH,
+  parseAuthAudience,
+  safeNextPath,
+} from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -74,13 +80,23 @@ function passwordFailure(password: string): AuthErrorCode {
   return passwordByteLength(password) > PASSWORD_MAX_LENGTH ? 'password_too_long' : 'validation';
 }
 
-/** Kembali ke /register dengan pilihan jenis akun & tujuan tetap utuh. */
+/** Kembali ke halaman daftar asalnya (peserta / penyelenggara, ADR-063) dengan tujuan tetap utuh. */
 function registerHref(failure: AuthErrorCode, email: string, accountType: AccountType | null, next: string): string {
-  return authHref('/register', {
+  const organizer = accountType === 'organizer';
+  return authHref(organizer ? ORGANIZER_REGISTER_PATH : '/register', {
     error: failure,
     email: echoEmail(email),
-    type: accountType === 'organizer' ? accountType : undefined,
-    next: next === '/' ? undefined : next,
+    next: next === audienceHome(organizer ? 'organizer' : 'participant') ? undefined : next,
+  });
+}
+
+/** Kembali ke halaman masuk asalnya; `audience` dikirim form sebagai isian tersembunyi. */
+function loginFailureHref(formData: FormData, failure: AuthErrorCode, next: string, email?: string): string {
+  const audience = parseAuthAudience(field(formData, 'audience'));
+  return authHref(audienceLoginPath(audience), {
+    error: failure,
+    email: email === undefined ? undefined : echoEmail(email),
+    next: next === audienceHome(audience) ? undefined : next,
   });
 }
 
@@ -122,15 +138,7 @@ export async function signInAction(formData: FormData): Promise<void> {
     }
   }
 
-  if (failure) {
-    redirect(
-      authHref('/login', {
-        error: failure,
-        email: echoEmail(email),
-        next: next === '/' ? undefined : next,
-      }),
-    );
-  }
+  if (failure) redirect(loginFailureHref(formData, failure, next, email));
 
   // Navbar dirender di layout dan ikut ter-cache di router klien; tanpa
   // revalidasi, pengguna yang baru masuk masih melihat tombol "Masuk".
@@ -256,7 +264,7 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
     redirect(
       accountType
         ? registerHref(failure, field(formData, 'email'), accountType, requested)
-        : authHref('/login', { error: failure, next: next === '/' ? undefined : next }),
+        : loginFailureHref(formData, failure, next),
     );
   }
 

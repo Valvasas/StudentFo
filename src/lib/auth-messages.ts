@@ -143,6 +143,10 @@ export function mapSupabaseAuthError(error: unknown): AuthErrorCode {
   switch (code) {
     case 'invalid_credentials':
     case 'user_not_found':
+    // Akun ditangguhkan (ADR-061): pesan SAMA dengan sandi salah. Pesan khusus
+    // membocorkan bahwa email itu terdaftar DAN ditangguhkan kepada siapa pun
+    // yang mengetiknya (AGENTS.md #12); pemiliknya dikabari admin lewat email.
+    case 'user_banned':
       return 'invalid_credentials';
     case 'email_not_confirmed':
       return 'email_not_confirmed';

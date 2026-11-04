@@ -25,6 +25,7 @@ import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
 import { isColdStart } from '@/lib/recommendation';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { toStoredPayload } from '@/lib/submission-schema';
+import { normalizeUserSearch, questionExcerpt } from '@/lib/trust-safety';
 import { IMAGE_EXTENSION, type UploadedImage } from '@/lib/image-file';
 import type { RegistrationFormInput, ReviewDecision } from '@/lib/registration-form';
 import {
@@ -36,6 +37,8 @@ import type {
   AnswerValue,
   AppNotification,
   BlockedPerson,
+  CronJobHealth,
+  EventQuestion,
   Category,
   CostFilter,
   DeadlineDispatch,
@@ -76,10 +79,14 @@ import type {
   TrackerItem,
   TrackerStatus,
   TrustRequestStatus,
+  AdminUserSummary,
+  ContentReport,
 } from '@/types/domain';
 import { toNotificationType } from '@/types/domain';
 import type {
   BlockedPersonRow,
+  CronJobHealthRow,
+  EventQuestionRow,
   CategoryRow,
   ConnectionPairRow,
   ConnectionPeerRow,
@@ -99,6 +106,8 @@ import type {
   PersonalizedEventRow,
   RecommendationSignalRow,
   NotificationRow,
+  AdminUserRow,
+  ContentReportRow,
   SubmissionRow,
   TeamCandidateRow,
   TeamMemberCountRow,
@@ -123,6 +132,12 @@ import {
 import { type CacheLayer, nextDataCache } from './cache';
 import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS } from './repository';
 import type {
+  EventQuestionContext,
+  MyEventQuestion,
+  DeleteAccountInput,
+  ReportContentInput,
+  ResolveReportInput,
+  UserSuspensionInput,
   CreateSubmissionInput,
   CalibrationData,
   CreateTeamRepositoryInput,
@@ -160,6 +175,10 @@ import {
   toDetail,
   toEventClaim,
   toEventRevision,
+  toAdminUserSummary,
+  toContentReport,
+  toCronJobHealth,
+  toEventQuestion,
   toModerationLogEntry,
   toOrganizerProfile,
   toDeadlineDispatch,
@@ -276,6 +295,20 @@ interface ListingPage {
 }
 
 const sortedCopy = (values: readonly string[] | undefined) => [...(values ?? [])].sort();
+
+
+/** Galat RPC akun (ADR-061) → kode tertutup. */
+function userActionError(error: PostgrestError, message: string): AppError {
+  switch (sqlState(error)) {
+    case 'P0002':
+      return actionError('user_not_found');
+    case '42501':
+      return actionError('user_protected');
+    case '23514':
+      return actionError('suspension_reason_required');
+  }
+  return upstreamFailure(message, error, 500);
+}
 
 /**
  * Implementasi produksi di atas PostgREST.
@@ -460,6 +493,103 @@ export class SupabaseEventRepository implements EventRepository {
     return typeof data === 'number' ? data : 0;
   }
 
+  // ------------------------------------------------------------------
+  // Tanya-jawab kegiatan (ADR-062 #7) — RPC DEFINER, tabel tidak terbaca langsung
+  // ------------------------------------------------------------------
+
+  async listEventQuestions(eventId: string, _viewerId: string | null, limit: number): Promise<readonly EventQuestion[]> {
+    if (!isUuid(eventId)) return [];
+    // Klien sesi: `is_mine` dihitung dari auth.uid() penonton, bukan dari parameter.
+    const { data, error } = await (await createSupabaseServerClient()).rpc('list_event_questions', { p_event: eventId, p_limit: limit });
+    if (error) throw upstreamFailure('Gagal memuat tanya jawab.', error);
+    return rpcRows<EventQuestionRow>(data).map(toEventQuestion);
+  }
+
+  async askEventQuestion(_actor: { readonly id: string; readonly fullName: string }, eventId: string, body: string): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('question_unavailable');
+    const { error } = await (await createSupabaseServerClient()).rpc('ask_event_question', { p_event: eventId, p_body: body });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('question_unavailable');
+    if (sqlState(error) === '23514') throw actionError('invalid_question');
+    if (error.message?.includes('question_rate_limited')) throw actionError('question_rate_limited');
+    throw upstreamFailure('Gagal mengirim pertanyaan.', error, 500);
+  }
+
+  async answerEventQuestion(_actor: EventActor, questionId: string, answer: string): Promise<void> {
+    if (!isUuid(questionId)) throw actionError('question_not_found');
+    const { error } = await (await createSupabaseServerClient()).rpc('answer_event_question', { p_question: questionId, p_answer: answer });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('question_not_found');
+    if (sqlState(error) === '42501') throw actionError('question_forbidden');
+    if (sqlState(error) === '23514') throw actionError('invalid_answer');
+    throw upstreamFailure('Gagal menyimpan jawaban.', error, 500);
+  }
+
+  async deleteEventQuestion(_userId: string, questionId: string): Promise<void> {
+    if (!isUuid(questionId)) throw actionError('question_not_found');
+    const { error } = await (await createSupabaseServerClient()).rpc('delete_event_question', { p_question: questionId });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('question_not_found');
+    throw upstreamFailure('Gagal menghapus pertanyaan.', error, 500);
+  }
+
+  async hideEventQuestion({ questionId, actorId, reason }: { questionId: string; actorId: string; reason: string | null }): Promise<void> {
+    if (!isUuid(questionId)) throw actionError('question_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('hide_event_question', { p_question: questionId, p_actor: actorId, p_reason: reason });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('question_not_found');
+    throw upstreamFailure('Gagal menyembunyikan pertanyaan.', error, 500);
+  }
+
+  async getEventQuestionContext(questionId: string): Promise<EventQuestionContext | null> {
+    if (!isUuid(questionId)) return null;
+    const { data, error } = await createSupabaseAdminClient()
+      .from('event_questions')
+      .select('id, body, hidden_at, events(slug, title, status)')
+      .eq('id', questionId)
+      .maybeSingle<{ id: string; body: string; hidden_at: string | null; events: { slug: string; title: string; status: EventStatus } | null }>();
+    if (error) throw upstreamFailure('Gagal memuat pertanyaan.', error);
+    const event = data?.events;
+    if (!data || data.hidden_at || !event || (event.status !== 'APPROVED' && event.status !== 'EXPIRED')) return null;
+    return { id: data.id, excerpt: questionExcerpt(data.body), eventSlug: event.slug, eventTitle: event.title };
+  }
+
+  async listMyEventQuestions(_userId: string): Promise<readonly MyEventQuestion[]> {
+    const { data, error } = await (await createSupabaseServerClient()).rpc('list_my_event_questions');
+    if (error) throw upstreamFailure('Gagal memuat pertanyaanmu.', error);
+    return rpcRows<{ event_title: string; event_slug: string; body: string; created_at: string; answer: string | null; hidden: boolean }>(data).map((row) => ({
+      eventTitle: row.event_title,
+      eventSlug: row.event_slug,
+      body: row.body,
+      createdAt: row.created_at,
+      answer: row.answer,
+      hidden: row.hidden,
+    }));
+  }
+
+  async getDeadlineEmailOptIn(userId: string): Promise<string | null> {
+    const { data, error } = await (await createSupabaseServerClient())
+      .from('users')
+      .select('deadline_email_opt_in_at')
+      .eq('id', userId)
+      .maybeSingle<{ deadline_email_opt_in_at: string | null }>();
+    if (error) throw upstreamFailure('Gagal membaca pengaturan pengingat email.', error);
+    return data?.deadline_email_opt_in_at ?? null;
+  }
+
+  async setDeadlineEmailReminders(_userId: string, enabled: boolean): Promise<string | null> {
+    // Pemilik = auth.uid() di RPC; waktu persetujuan ditulis server, tidak bisa dipalsukan klien.
+    const { data, error } = await (await createSupabaseServerClient()).rpc('set_deadline_email_reminders', { p_enabled: enabled });
+    if (error) throw upstreamFailure('Gagal menyimpan pengaturan pengingat email.', error, 500);
+    return typeof data === 'string' ? data : null;
+  }
+
+  async stopDeadlineEmailsByLink(userId: string): Promise<void> {
+    if (!isUuid(userId)) return;
+    const { error } = await createSupabaseAdminClient().from('users').update({ deadline_email_opt_in_at: null }).eq('id', userId);
+    if (error) throw upstreamFailure('Gagal menghentikan pengingat email.', error, 500);
+  }
+
   async listByStatus(status: EventStatus, limit: number): Promise<readonly EventDetail[]> {
     // Antrean moderasi berisi baris PENDING yang menurut RLS TIDAK terbaca
     // oleh anon. Dibaca dengan klien admin; otorisasi siapa yang boleh
@@ -561,7 +691,7 @@ export class SupabaseEventRepository implements EventRepository {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from('ugc_submissions')
-      .select('id, submitted_by_email, submitted_by, payload, status, created_at')
+      .select('id, submitted_by_email, submitted_by, payload, status, created_at, rejection_reason')
       .eq('status', status)
       .order('created_at', { ascending: true })
       .limit(limit)
@@ -569,6 +699,171 @@ export class SupabaseEventRepository implements EventRepository {
 
     if (error) throw upstreamFailure('Gagal memuat kiriman komunitas.', error);
     return data.map(toSubmission);
+  }
+
+  // ------------------------------------------------------------------
+  // Keamanan & kepercayaan (ADR-061)
+  // ------------------------------------------------------------------
+
+  async reportContent(_reporterId: string, { subjectType, subjectId, reason, details }: ReportContentInput): Promise<void> {
+    if (!isUuid(subjectId)) throw actionError('report_unavailable');
+    // Klien pengguna: report_content() memakai auth.uid() sebagai pelapor —
+    // id pelapor dari parameter tidak pernah dipercaya.
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('report_content', {
+      p_subject_type: subjectType,
+      p_subject_id: subjectId,
+      p_reason: reason,
+      p_details: details,
+    });
+    if (!error) return;
+    switch (sqlState(error)) {
+      case 'P0002':
+        throw actionError('report_unavailable');
+      case 'P0001':
+        throw actionError('report_rate_limited');
+      case '23514':
+        throw actionError('invalid_report');
+    }
+    throw upstreamFailure('Gagal mengirim laporan.', error, 500);
+  }
+
+  async listOpenReports(limit: number): Promise<readonly ContentReport[]> {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('content_reports')
+      .select('id, reporter_id, subject_type, subject_id, reason, details, status, created_at')
+      .eq('status', 'OPEN')
+      .order('created_at', { ascending: true })
+      .limit(limit)
+      .returns<ContentReportRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat laporan.', error);
+
+    // Subjek tanpa FK (acara/akun bisa sudah dihapus), jadi judul & nama
+    // dibaca terpisah; yang hilang tampil sebagai "sudah tidak ada".
+    const eventIds = [...new Set(data.filter((row) => row.subject_type === 'event').map((row) => row.subject_id))];
+    const userIds = [
+      ...new Set([
+        ...data.filter((row) => row.subject_type === 'user').map((row) => row.subject_id),
+        ...data.map((row) => row.reporter_id).filter((id): id is string => id !== null),
+      ]),
+    ];
+    const questionIds = [...new Set(data.filter((row) => row.subject_type === 'question').map((row) => row.subject_id))];
+    const [events, users, questions] = await Promise.all([
+      eventIds.length
+        ? supabase.from('events').select('id, slug, title').in('id', eventIds).returns<{ id: string; slug: string; title: string }[]>()
+        : Promise.resolve({ data: [], error: null }),
+      userIds.length
+        ? supabase.from('users').select('id, full_name').in('id', userIds).returns<{ id: string; full_name: string }[]>()
+        : Promise.resolve({ data: [], error: null }),
+      questionIds.length
+        ? supabase
+            .from('event_questions')
+            .select('id, body, hidden_at, events(slug)')
+            .in('id', questionIds)
+            .returns<{ id: string; body: string; hidden_at: string | null; events: { slug: string } | null }[]>()
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (events.error) throw upstreamFailure('Gagal memuat subjek laporan.', events.error);
+    if (users.error) throw upstreamFailure('Gagal memuat subjek laporan.', users.error);
+    if (questions.error) throw upstreamFailure('Gagal memuat subjek laporan.', questions.error);
+    return data.map((row) =>
+      toContentReport(
+        row,
+        new Map((events.data ?? []).map((event) => [event.id, event])),
+        new Map((users.data ?? []).map((user) => [user.id, user.full_name])),
+        // Pertanyaan yang sudah disembunyikan tampil sebagai "sudah tidak ada".
+        new Map(
+          (questions.data ?? [])
+            .filter((question) => question.hidden_at === null && question.events)
+            .map((question) => [question.id, { excerpt: questionExcerpt(question.body), eventSlug: question.events!.slug }]),
+        ),
+      ),
+    );
+  }
+
+  async cronJobHealth(): Promise<readonly CronJobHealth[] | null> {
+    const { data, error } = await createSupabaseAdminClient().rpc('cron_job_health');
+    if (error) throw upstreamFailure('Gagal membaca status job terjadwal.', error);
+    const rows = (data ?? []) as CronJobHealthRow[];
+    // Kosong = pg_cron tidak ada di database ini (fungsi mengembalikan himpunan kosong).
+    return rows.length === 0 ? null : rows.map(toCronJobHealth);
+  }
+
+  async countOpenReports(): Promise<number> {
+    const { count, error } = await createSupabaseAdminClient()
+      .from('content_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'OPEN');
+    if (error) throw upstreamFailure('Gagal menghitung laporan.', error);
+    return count ?? 0;
+  }
+
+  async resolveReport({ reportId, actorId, outcome, note }: ResolveReportInput): Promise<void> {
+    if (!isUuid(reportId)) throw actionError('report_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('resolve_content_report', {
+      p_report: reportId,
+      p_actor: actorId,
+      p_outcome: outcome,
+      p_note: note,
+    });
+    if (!error) return;
+    if (sqlState(error) === 'P0002') throw actionError('report_not_found');
+    if (sqlState(error) === '23514') throw actionError('invalid_report');
+    throw upstreamFailure('Gagal menyimpan keputusan laporan.', error, 500);
+  }
+
+  async searchUsers(query: string, limit: number): Promise<readonly AdminUserSummary[]> {
+    const q = normalizeUserSearch(query);
+    let request = createSupabaseAdminClient()
+      .from('users')
+      .select('id, email, full_name, role, created_at, suspended_at, suspension_reason')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (q && isUuid(q)) request = request.eq('id', q);
+    // `q` sudah lewat normalizeUserSearch(): tanpa koma/kurung/wildcard,
+    // jadi tidak bisa mengubah bentuk filter `or`.
+    else if (q) request = request.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`);
+    const { data, error } = await request.returns<AdminUserRow[]>();
+    if (error) throw upstreamFailure('Gagal mencari pengguna.', error);
+    return data.map(toAdminUserSummary);
+  }
+
+  async setUserSuspension({ userId, actorId, suspend, reason }: UserSuspensionInput): Promise<void> {
+    if (!isUuid(userId)) throw actionError('user_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('set_user_suspension', {
+      p_user: userId,
+      p_actor: actorId,
+      p_suspend: suspend,
+      p_reason: reason,
+    });
+    if (!error) return;
+    throw userActionError(error, 'Gagal mengubah status akun.');
+  }
+
+  async deleteAccount({ userId, actorId, reason }: DeleteAccountInput): Promise<void> {
+    if (!isUuid(userId)) throw actionError('user_not_found');
+    const supabase = createSupabaseAdminClient();
+    const { data, error: listError } = await supabase.rpc('account_storage_paths', { p_user: userId });
+    if (listError) throw upstreamFailure('Gagal membaca berkas akun.', listError, 500);
+    const files = (data ?? []) as { bucket: string; path: string }[];
+
+    // Berkas dulu: Supabase menolak DELETE langsung di storage.objects, dan
+    // setelah baris pendaftaran hilang tidak ada lagi yang tahu path-nya.
+    const byBucket = new Map<string, string[]>();
+    for (const file of files) byBucket.set(file.bucket, [...(byBucket.get(file.bucket) ?? []), file.path]);
+    for (const [bucket, paths] of byBucket) {
+      for (let start = 0; start < paths.length; start += 100) {
+        const removed = await supabase.storage.from(bucket).remove(paths.slice(start, start + 100));
+        if (removed.error) {
+          console.error('[akun] gagal menghapus berkas:', bucket, removed.error.message);
+          throw actionError('account_delete_failed');
+        }
+      }
+    }
+
+    const { error } = await supabase.rpc('delete_user_account', { p_user: userId, p_actor: actorId, p_reason: reason });
+    if (error) throw userActionError(error, 'Gagal menghapus akun.');
   }
 
   async listMySubmissions(userId: string, limit: number): Promise<readonly Submission[]> {
@@ -580,7 +875,7 @@ export class SupabaseEventRepository implements EventRepository {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from('ugc_submissions')
-      .select('id, submitted_by_email, submitted_by, payload, status, created_at')
+      .select('id, submitted_by_email, submitted_by, payload, status, created_at, rejection_reason')
       .eq('submitted_by', userId)
       .order('created_at', { ascending: false })
       .limit(limit)
@@ -590,14 +885,15 @@ export class SupabaseEventRepository implements EventRepository {
     return data.map(toSubmission);
   }
 
-  async reviewSubmission({ submissionId, decision, reviewerId }: ReviewSubmissionInput): Promise<void> {
+  async reviewSubmission({ submissionId, decision, reviewerId, reason }: ReviewSubmissionInput): Promise<void> {
     if (!isUuid(submissionId)) throw actionError('submission_not_found');
     const supabase = createSupabaseAdminClient();
 
     if (decision === 'REJECTED') {
       const { data, error } = await supabase
         .from('ugc_submissions')
-        .update({ status: 'REJECTED', reviewed_by: reviewerId, reviewed_at: new Date().toISOString() })
+        // Alasan di UPDATE yang sama dengan status: trigger notifikasi membacanya dari NEW.
+        .update({ status: 'REJECTED', reviewed_by: reviewerId, reviewed_at: new Date().toISOString(), rejection_reason: reason?.trim() || null })
         .eq('id', submissionId)
         .eq('status', 'PENDING')
         .select('id');

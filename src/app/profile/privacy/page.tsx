@@ -112,9 +112,14 @@ export default async function PrivacyPage() {
               Salinan berformat JSON memuat akun, kegiatan tersimpan, Papan lamaran, portofolio, pendaftaran, tim, koneksi, kartu pemain, kiriman,
               dan notifikasi.
             </p>
-            <Link href="/privacy-policy#kp-9" className={`${actionLink} self-start`}>
-              Hapus akun &amp; hak lain atas datamu <ArrowRight aria-hidden className="size-3.5" />
-            </Link>
+            <span className="flex flex-wrap gap-x-5">
+              <Link href="/profile/settings#hapus-akun" className={actionLink}>
+                Hapus akun <ArrowRight aria-hidden className="size-3.5" />
+              </Link>
+              <Link href="/privacy-policy#kp-9" className={actionLink}>
+                Hak lain atas datamu <ArrowRight aria-hidden className="size-3.5" />
+              </Link>
+            </span>
           </div>
         </DetailCard>
 

@@ -22,6 +22,10 @@ describe('mapSupabaseAuthError', () => {
     expect(AUTH_ERROR_MESSAGE.invalid_credentials).not.toMatch(/tidak terdaftar|belum terdaftar/i);
   });
 
+  it('akun yang ditangguhkan juga tampil sebagai "kredensial salah" (tidak membocorkan keberadaan akun)', () => {
+    expect(mapSupabaseAuthError({ code: 'user_banned', status: 400 })).toBe('invalid_credentials');
+  });
+
   it('mengenali pembatasan laju dari status 429 meski kodenya tak dikenal', () => {
     expect(mapSupabaseAuthError({ status: 429 })).toBe('rate_limited');
   });

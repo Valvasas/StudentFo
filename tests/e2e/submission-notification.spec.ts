@@ -22,6 +22,9 @@ test('pengirim yang masuk dikabari lewat lonceng saat kirimannya disetujui', asy
   await student.getByLabel('Tenggat pendaftaran').fill(new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10));
   await student.locator('input[name="educationLevels"]').first().check();
   await student.locator('input[name="categorySlugs"]').first().check();
+  // Tahapan jadwal (ADR-062 #5) ada di bagian opsional yang terlipat.
+  await student.getByText('Detail tambahan (opsional)').click();
+  await student.getByLabel('Babak final').fill(new Date(Date.now() + 45 * 86_400_000).toISOString().slice(0, 10));
   await student.getByRole('button', { name: 'Kirim untuk diverifikasi' }).click();
   await expect(student).toHaveURL(/notice=submission_received/);
   // Pengirim melihat nasib kirimannya tanpa menunggu notifikasi.
@@ -32,6 +35,7 @@ test('pengirim yang masuk dikabari lewat lonceng saat kirimannya disetujui', asy
   const admin = await adminContext.newPage();
   await signInAsDemo(admin, 'Admin moderator', '/admin');
   const card = admin.getByRole('listitem').filter({ has: admin.getByRole('heading', { name: title }) });
+  await expect(card.getByText('Babak final:')).toBeVisible();
   await card.getByRole('button', { name: /Setujui/ }).click();
   await expect(card).toHaveCount(0);
   await adminContext.close();
@@ -43,6 +47,9 @@ test('pengirim yang masuk dikabari lewat lonceng saat kirimannya disetujui', asy
   await item.click();
   await expect(student).toHaveURL(/\/events\/lomba-kabar-pengirim/);
   await expect(student.getByRole('heading', { level: 1, name: title })).toBeVisible();
+  await student.getByRole('link', { name: /^Tahapan/ }).first().click();
+  await expect(student.getByRole('heading', { name: 'Tahapan dan jadwal' })).toBeVisible();
+  await expect(student.locator('main ol li').filter({ hasText: 'Babak final' })).toHaveCount(1);
 
   await student.goto('/submit');
   await expect(mine).toContainText('Tayang');

@@ -13,6 +13,7 @@ import type { RawSearchParams } from '@/lib/search-params';
  */
 export default async function HomePage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const user = await withFallback('sesi pengguna', getSessionUser, null);
-  if (user) return <RoleHome user={user} params={await searchParams} />;
-  return <GuestLanding />;
+  const params = await searchParams;
+  if (user) return <RoleHome user={user} params={params} />;
+  return <GuestLanding params={params} />;
 }

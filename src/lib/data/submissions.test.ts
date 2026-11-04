@@ -16,6 +16,7 @@ function payload(overrides: Partial<SubmissionPayload> = {}): SubmissionPayload 
     location: null,
     isOnline: true,
     deadlineAt: new Date(Date.now() + 10 * 86_400_000).toISOString(),
+    stages: [],
     isFree: null,
     priceAmount: null,
     guidebookUrl: null,
@@ -55,6 +56,27 @@ describe('MemoryEventRepository — kiriman komunitas', () => {
     expect(event?.deadlines[0]?.isPrimary).toBe(true);
     expect(await repo.listSubmissions('PENDING', 10)).toHaveLength(0);
     expect(await repo.listSubmissions('APPROVED', 10)).toHaveLength(1);
+  });
+
+  it('tahapan kiriman menjadi tenggat non-utama; tenggat utama tetap pendaftaran', async () => {
+    const repo = new MemoryEventRepository();
+    const registration = new Date(Date.now() + 10 * 86_400_000).toISOString();
+    const submission = new Date(Date.now() + 20 * 86_400_000).toISOString();
+    const final = new Date(Date.now() + 40 * 86_400_000).toISOString();
+    await repo.createSubmission({
+      submittedByEmail: 'a@b.co',
+      submittedBy: null,
+      // Urutan isian ≠ urutan waktu: hasilnya tetap urut waktu, seperti di Supabase.
+      payload: payload({ deadlineAt: registration, stages: [{ label: 'final', deadlineAt: final }, { label: 'submission', deadlineAt: submission }] }),
+    });
+    await repo.reviewSubmission({ submissionId: await pendingId(repo), decision: 'APPROVED', reviewerId: null });
+    const [summary] = (await repo.listEvents({ search: 'Poster Hari Lingkungan' })).items;
+    expect(summary!.primaryDeadlineAt).toBe(registration);
+    expect((await repo.getEventBySlug(summary!.slug))!.deadlines.map(({ label, deadlineAt, isPrimary }) => ({ label, deadlineAt, isPrimary }))).toEqual([
+      { label: 'registration', deadlineAt: registration, isPrimary: true },
+      { label: 'submission', deadlineAt: submission, isPrimary: false },
+      { label: 'final', deadlineAt: final, isPrimary: false },
+    ]);
   });
 
   it('menolak duplikat judul + penyelenggara, cermin dedup_hash', async () => {

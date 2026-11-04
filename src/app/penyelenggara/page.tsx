@@ -21,7 +21,10 @@ import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
-import { requireUser, toEventActor, type AuthUser } from '@/lib/auth';
+import { OrganizerLanding } from '@/components/organizer/organizer-landing';
+import { getSessionUser, toEventActor, type AuthUser } from '@/lib/auth';
+import { siteUrl } from '@/lib/env';
+import { withFallback } from '@/lib/fallback';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId } from '@/lib/deadline';
 import { ORGANIZER_LIMITS, ORGANIZER_STATUS_LABEL } from '@/lib/organizer';
@@ -41,10 +44,21 @@ import { applyOrganizerAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Studio penyelenggara',
-  robots: { index: false, follow: false },
-};
+/**
+ * Tamu melihat halaman pengenalan studio (bisa diindeks); yang masuk melihat
+ * studionya (tidak diindeks). `getSessionUser` di-cache per request, jadi
+ * halaman tidak membaca sesi dua kali.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  if (await withFallback('sesi pengguna', getSessionUser, null)) {
+    return { title: 'Studio penyelenggara', robots: { index: false, follow: false } };
+  }
+  return {
+    title: 'Untuk penyelenggara',
+    description:
+      'Pasang lomba, beasiswa, workshop, atau pelatihan di StudentFo. Verifikasi lembagamu sekali, lalu kelola formulir pendaftaran, bukti bayar, dan analitik acara dari satu studio.',
+  };
+}
 
 const SELF = '/penyelenggara';
 
@@ -70,7 +84,10 @@ interface RegistrationSummary {
  */
 export default async function OrganizerStudioPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
-  const user = await requireUser(SELF);
+  // Tamu: halaman pengenalan dengan pintu masuk & daftar penyelenggara
+  // (ADR-063), bukan dilempar ke halaman masuk peserta tanpa penjelasan.
+  const user = await withFallback('sesi pengguna', getSessionUser, null);
+  if (!user) return <OrganizerLanding host={new URL(siteUrl).host} />;
   const repository = await getEventRepository();
   const profile = await repository.getOrganizerProfile(user.id);
   const verified = profile?.status === 'VERIFIED';

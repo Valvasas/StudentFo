@@ -1,6 +1,13 @@
 import type {
+  AdminUserSummary,
   AnswerValue,
   AppNotification,
+  ContentReport,
+  CronJobHealth,
+  EventQuestion,
+  ReportReason,
+  ReportStatus,
+  ReportSubject,
   BlockedPerson,
   Category,
   ConnectionCounts,
@@ -82,7 +89,11 @@ export interface EventRepository
     NotificationDispatchRepository,
     RegistrationRepository,
     GalleryRepository,
-    MatchmakingRepository {}
+    MatchmakingRepository,
+    TrustSafetyRepository,
+    OperationsRepository,
+    EmailReminderRepository,
+    EventQuestionRepository {}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {
@@ -149,6 +160,62 @@ export interface PortfolioRepository {
    * `null` = tidak boleh dilihat ATAU tidak ada — sengaja tidak dibedakan.
    */
   getPublicProfile(viewerId: string, userId: string): Promise<PublicProfile | null>;
+}
+
+/**
+ * Keamanan & kepercayaan (ADR-061): laporan konten, penangguhan, hapus akun.
+ * `reportContent` dipanggil pengguna yang masuk; sisanya hanya dari rute admin
+ * SETELAH `checkAdminAccess()` — kecuali `deleteAccount` untuk akun sendiri
+ * (`actorId === userId`).
+ */
+export interface TrustSafetyRepository {
+  /** Satu laporan TERBUKA per (pelapor, subjek): mengulang tidak menambah baris. */
+  reportContent(reporterId: string, input: ReportContentInput): Promise<void>;
+  listOpenReports(limit: number): Promise<readonly ContentReport[]>;
+  countOpenReports(): Promise<number>;
+  resolveReport(input: ResolveReportInput): Promise<void>;
+  /** Cari nama/email, atau id persis. Kosong = pengguna terbaru. */
+  searchUsers(query: string, limit: number): Promise<readonly AdminUserSummary[]>;
+  /** Admin & diri sendiri dilindungi (`user_protected`); menangguhkan wajib beralasan. */
+  setUserSuspension(input: UserSuspensionInput): Promise<void>;
+  /**
+   * Hapus akun beserta datanya. Berkas Storage (bukti bayar) dihapus DULU;
+   * gagal menghapus berkas = akun tidak dihapus, supaya tidak ada berkas yatim
+   * yang tak bisa dilacak lagi pemiliknya.
+   */
+  deleteAccount(input: DeleteAccountInput): Promise<void>;
+}
+
+export interface ReportContentInput {
+  readonly subjectType: ReportSubject;
+  readonly subjectId: string;
+  readonly reason: ReportReason;
+  readonly details: string | null;
+}
+
+export interface ResolveReportInput {
+  readonly reportId: string;
+  readonly actorId: string;
+  readonly outcome: Extract<ReportStatus, 'RESOLVED' | 'DISMISSED'>;
+  readonly note: string | null;
+  /** Hanya mode seed (log moderasi). */
+  readonly actorName?: string;
+}
+
+export interface UserSuspensionInput {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly suspend: boolean;
+  readonly reason: string | null;
+  readonly actorName?: string;
+}
+
+export interface DeleteAccountInput {
+  readonly userId: string;
+  /** Sama dengan `userId` = hapus mandiri (tidak dicatat sebagai tindakan moderasi). */
+  readonly actorId: string;
+  readonly reason: string | null;
+  readonly actorName?: string;
 }
 
 /** Kiriman komunitas (/submit) dan peninjauannya. */
@@ -453,10 +520,64 @@ export interface NotificationDispatchRepository {
   acknowledgeDeadlineDispatches(notificationIds: readonly string[]): Promise<number>;
 }
 
+/** Konteks pertanyaan untuk /laporkan & antrean laporan. */
+export interface EventQuestionContext {
+  readonly id: string;
+  readonly excerpt: string;
+  readonly eventSlug: string;
+  readonly eventTitle: string;
+}
+
+/**
+ * Tanya-jawab publik per kegiatan (ADR-062 #7). Hak dicek di dalam
+ * implementasi (produksi: RPC DEFINER) — menjawab = pengelola terverifikasi
+ * acara itu atau admin (aal2); menghapus = penanya sendiri.
+ */
+export interface EventQuestionRepository {
+  listEventQuestions(eventId: string, viewerId: string | null, limit: number): Promise<readonly EventQuestion[]>;
+  askEventQuestion(actor: { readonly id: string; readonly fullName: string }, eventId: string, body: string): Promise<void>;
+  answerEventQuestion(actor: EventActor, questionId: string, answer: string): Promise<void>;
+  deleteEventQuestion(userId: string, questionId: string): Promise<void>;
+  /** Admin (service_role) setelah `checkAdminAccess()`; tercatat di riwayat moderasi. */
+  hideEventQuestion(input: { readonly questionId: string; readonly actorId: string; readonly actorName?: string; readonly reason: string | null }): Promise<void>;
+  /** Pertanyaan yang masih tampil beserta kegiatannya; null = tidak ada/tersembunyi. */
+  getEventQuestionContext(questionId: string): Promise<EventQuestionContext | null>;
+  /** Ekspor data akun (UU PDP Pasal 7): semua pertanyaan milik sendiri, termasuk yang disembunyikan. */
+  listMyEventQuestions(userId: string): Promise<readonly MyEventQuestion[]>;
+}
+
+export interface MyEventQuestion {
+  readonly eventTitle: string;
+  readonly eventSlug: string;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly answer: string | null;
+  readonly hidden: boolean;
+}
+
+/**
+ * Persetujuan pengingat tenggat lewat email (ADR-062 #6). Antrean dispatch di
+ * atas hanya membagikan pengingat milik yang menyetujui.
+ */
+export interface EmailReminderRepository {
+  /** Waktu persetujuan (ISO) atau null — dibaca dengan sesi pemilik. */
+  getDeadlineEmailOptIn(userId: string): Promise<string | null>;
+  /** Pemilik yang masuk menyalakan/mematikan untuk dirinya; mengembalikan waktu persetujuan. */
+  setDeadlineEmailReminders(userId: string, enabled: boolean): Promise<string | null>;
+  /** Dari tautan bertanda tangan di email, tanpa sesi (service_role). Idempoten. */
+  stopDeadlineEmailsByLink(userId: string): Promise<void>;
+}
+
 /** Sewa klaim dispatch — cermin default `p_lease_seconds` di migration 20261003100003. */
 export const DISPATCH_LEASE_SECONDS = 900;
 /** Batas satu klaim — cermin `LEAST(..., 500)` di SQL. */
 export const DISPATCH_MAX_BATCH = 500;
+
+/** Kesehatan operasional untuk admin (ADR-062). */
+export interface OperationsRepository {
+  /** null = tidak ada pg_cron di balik implementasi ini (mode seed, Postgres polos). */
+  cronJobHealth(): Promise<readonly CronJobHealth[] | null>;
+}
 
 /** Penghitung pembatas laju (ADR-028). */
 export interface RateLimitRepository {
@@ -504,6 +625,8 @@ export interface ReviewSubmissionInput {
   readonly submissionId: string;
   readonly decision: Extract<EventStatus, 'APPROVED' | 'REJECTED'>;
   readonly reviewerId: string | null;
+  /** Hanya untuk REJECTED: alasan yang dikirim ke pengirim (≤500). */
+  readonly reason?: string;
   /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
   readonly reviewerName?: string;
 }

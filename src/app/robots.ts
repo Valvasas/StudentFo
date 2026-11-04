@@ -11,7 +11,9 @@ export default function robots(): MetadataRoute.Robots {
       // /events/*/daftar: pengalih keluar yang mencatat klik (ADR-032) —
       // crawler yang mengikutinya menggelembungkan sinyal rekomendasi.
       // /api/: berkas .ics & endpoint cron — bukan halaman untuk diindeks.
-      disallow: ['/profile', '/orang/', '/auth/', '/events/*/daftar', '/penyelenggara', '/api/'],
+      // /penyelenggara/ (garis miring): studio & pintu akunnya; /penyelenggara
+      // sendiri adalah halaman pengenalan untuk tamu (ADR-063).
+      disallow: ['/profile', '/orang/', '/auth/', '/events/*/daftar', '/penyelenggara/', '/api/'],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
   };

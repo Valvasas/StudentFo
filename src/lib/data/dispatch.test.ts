@@ -17,6 +17,7 @@ describe('MemoryEventRepository — dispatch pengingat (cermin claim/ack_notific
   it('klaim → tidak dibagikan lagi selama sewa → ack → selesai', async () => {
     const repo = new MemoryEventRepository();
     await repo.saveEvent('user-dispatch', EVENT_H1);
+    await repo.setDeadlineEmailReminders('user-dispatch', true);
 
     const [first, ...rest] = await claimFor(repo, 'user-dispatch');
     expect(rest).toEqual([]);
@@ -35,6 +36,7 @@ describe('MemoryEventRepository — dispatch pengingat (cermin claim/ack_notific
   it('sewa yang habis tanpa ack membuat pengingat diklaim ulang (at-least-once)', async () => {
     const repo = new MemoryEventRepository();
     await repo.saveEvent('user-lease', EVENT_H1);
+    await repo.setDeadlineEmailReminders('user-lease', true);
     const [claimed] = await claimFor(repo, 'user-lease');
 
     vi.useFakeTimers({ now: Date.now() + (DISPATCH_LEASE_SECONDS + 1) * 1000, toFake: ['Date'] });
@@ -45,9 +47,39 @@ describe('MemoryEventRepository — dispatch pengingat (cermin claim/ack_notific
   it('ack sebelum diklaim tidak menandai apa pun', async () => {
     const repo = new MemoryEventRepository();
     await repo.saveEvent('user-early', EVENT_H1);
+    await repo.setDeadlineEmailReminders('user-early', true);
     const [notification] = await repo.listNotifications('user-early', 10);
     expect(await repo.acknowledgeDeadlineDispatches([notification!.id])).toBe(0);
     expect(await claimFor(repo, 'user-early')).toHaveLength(1);
+  });
+});
+
+describe('MemoryEventRepository — persetujuan pengingat email (ADR-062 #6)', () => {
+  it('tanpa persetujuan tidak ada yang dibagikan; setuju → dibagikan; berhenti lewat tautan → berhenti', async () => {
+    const repo = new MemoryEventRepository();
+    await repo.saveEvent('user-email', EVENT_H1);
+    expect(await claimFor(repo, 'user-email')).toEqual([]);
+
+    const since = await repo.setDeadlineEmailReminders('user-email', true);
+    expect(since).not.toBeNull();
+    expect(await repo.setDeadlineEmailReminders('user-email', true)).toBe(since);
+    expect(await repo.getDeadlineEmailOptIn('user-email')).toBe(since);
+    expect(await claimFor(repo, 'user-email')).toHaveLength(1);
+
+    vi.useFakeTimers({ now: Date.now() + (DISPATCH_LEASE_SECONDS + 1) * 1000, toFake: ['Date'] });
+    await repo.stopDeadlineEmailsByLink('user-email');
+    expect(await repo.getDeadlineEmailOptIn('user-email')).toBeNull();
+    expect(await claimFor(repo, 'user-email')).toEqual([]);
+  });
+
+  it('akun yang ditangguhkan tidak dikirimi email', async () => {
+    const repo = new MemoryEventRepository();
+    const viewer = { id: 'user-tangguh', fullName: 'Tangguh', educationLevel: 'D4_S1' as const, major: null, interests: [] };
+    await repo.updateNetworkProfile(viewer, { discoverable: true, headline: null });
+    await repo.saveEvent('user-tangguh', EVENT_H1);
+    await repo.setDeadlineEmailReminders('user-tangguh', true);
+    await repo.setUserSuspension({ userId: 'user-tangguh', actorId: 'admin', suspend: true, reason: 'Uji penangguhan' });
+    expect(await claimFor(repo, 'user-tangguh')).toEqual([]);
   });
 });
 

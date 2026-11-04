@@ -1,46 +1,22 @@
 import Link from 'next/link';
-import { ArrowRight, Building2, CircleCheck, Flag, Inbox, type LucideIcon, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Building2, CircleCheck, Flag, Inbox, KeyRound, type LucideIcon, Megaphone, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { CronHealthPanel } from '@/components/admin/cron-health-panel';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { PersonalHome } from '@/components/home/personal-home';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
-import { checkAdminAccess, type AuthUser } from '@/lib/auth';
+import type { AdminMfaStep } from '@/lib/admin-mfa';
+import { ADMIN_MFA_PATH, checkAdminAccess, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
-import type { ModerationStatus, ModerationSubject } from '@/types/domain';
+import { MODERATION_STATUS_TEXT, MODERATION_STATUS_VARIANT, MODERATION_SUBJECT_TEXT } from '@/lib/moderation-labels';
 
 /** Sama dengan batas antrean /admin; angka di atasnya ditulis "50+" — menghitung pasti butuh query lain. */
 const QUEUE_LIMIT = 50;
 const LOG_LIMIT = 5;
-
-const STATUS_TEXT: Record<ModerationStatus, string> = {
-  PENDING: 'Menunggu',
-  APPROVED: 'Disetujui',
-  REJECTED: 'Ditolak',
-  EXPIRED: 'Kedaluwarsa',
-  VERIFIED: 'Terverifikasi',
-  REVOKED: 'Dicabut',
-};
-
-const STATUS_VARIANT: Record<ModerationStatus, 'warning' | 'success' | 'danger' | 'neutral'> = {
-  PENDING: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'danger',
-  EXPIRED: 'neutral',
-  VERIFIED: 'success',
-  REVOKED: 'danger',
-};
-
-const SUBJECT_TEXT: Record<ModerationSubject, string> = {
-  event: 'Kegiatan',
-  submission: 'Kiriman',
-  organizer: 'Penyelenggara',
-  claim: 'Klaim acara',
-  revision: 'Perubahan acara',
-};
 
 interface Queue {
   readonly key: string;
@@ -48,6 +24,31 @@ interface Queue {
   readonly href: string;
   readonly icon: LucideIcon;
   readonly count: number;
+}
+
+/** Admin dengan sesi aal1: satu tindakan yang jelas, bukan beranda peserta yang membingungkan. */
+function AdminMfaPrompt({ user, step }: { user: AuthUser; step: AdminMfaStep }) {
+  const now = new Date();
+  return (
+    <div className="container-page pb-12 pt-8 sm:pt-12">
+      <div className="enter flex max-w-2xl flex-col gap-4 rounded-panel border border-line bg-panel p-6 shadow-card sm:p-8">
+        <p className="text-sm text-ink-muted">{todayLabel(now)}</p>
+        <h1 className="text-[clamp(26px,4vw,36px)] leading-tight">
+          {greetingFor(now)}, {firstNameOf(user.fullName)}.
+        </h1>
+        <p className="flex items-start gap-2 text-ink-soft">
+          <KeyRound aria-hidden className="mt-1 size-4 shrink-0 text-ink-muted" />
+          {step === 'enroll'
+            ? 'Panel admin mensyaratkan verifikasi dua langkah. Pasang aplikasi autentikator sekali (±2 menit), lalu setiap masuk cukup memasukkan kode 6 digit.'
+            : 'Masukkan kode 6 digit dari aplikasi autentikatormu untuk membuka panel admin di sesi ini.'}
+        </p>
+        <Link href={ADMIN_MFA_PATH} className={buttonVariants({ className: 'self-start' })}>
+          <ShieldCheck aria-hidden className="size-4" />
+          {step === 'enroll' ? 'Pasang verifikasi dua langkah' : 'Masukkan kode'}
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -58,18 +59,22 @@ interface Queue {
 export async function AdminHome({ user, params }: { user: AuthUser; params: RawSearchParams }) {
   // Peran tampilan bukan hak akses: antrean hanya dibaca setelah gerbang yang sama dengan /admin.
   const gate = await checkAdminAccess();
+  if (!gate.allowed && gate.reason === 'mfa-required') return <AdminMfaPrompt user={user} step={gate.step} />;
   if (!gate.allowed) return <PersonalHome user={user} params={params} />;
 
   const repository = await getEventRepository();
-  const [events, submissions, organizers, claims, revisions, log] = await Promise.all([
+  const [events, submissions, organizers, claims, revisions, reports, log] = await Promise.all([
     repository.listByStatus('PENDING', QUEUE_LIMIT),
     repository.listSubmissions('PENDING', QUEUE_LIMIT),
     repository.listOrganizerApplications('PENDING', QUEUE_LIMIT),
     repository.listClaims('PENDING', QUEUE_LIMIT),
     repository.listRevisions('PENDING', QUEUE_LIMIT),
+    repository.countOpenReports(),
     repository.listModerationLog(LOG_LIMIT),
   ]);
   const queues: Queue[] = [
+    // Penipuan & pelecehan merugikan orang selama menunggu — antrean ini paling depan.
+    { key: 'laporan', label: 'Laporan pengguna', href: '/admin/laporan', icon: Megaphone, count: reports },
     { key: 'acara', label: 'Kegiatan hasil ekstraksi', href: '/admin#antrean-acara', icon: Inbox, count: events.length },
     { key: 'kiriman', label: 'Kiriman komunitas', href: '/admin#kiriman-komunitas', icon: Send, count: submissions.length },
     { key: 'penyelenggara', label: 'Pengajuan penyelenggara', href: '/admin/penyelenggara', icon: Building2, count: organizers.length },
@@ -105,9 +110,9 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
         <h2 id="antrean" className="sr-only">
           Antrean
         </h2>
-        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {queues.map((queue) => (
-            <li key={queue.key} className="max-lg:last:col-span-2">
+            <li key={queue.key}>
               <Link
                 href={queue.href}
                 className={cn(
@@ -136,6 +141,8 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
         </ul>
       </section>
 
+      <CronHealthPanel />
+
       <section aria-labelledby="keputusan-terakhir" className="mt-8 rounded-panel border border-line bg-panel p-5 sm:p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 id="keputusan-terakhir" className="text-xl">
@@ -152,11 +159,11 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-medium">{entry.title}</span>
                   <span className="truncate text-[13px] text-ink-muted">
-                    {SUBJECT_TEXT[entry.subjectType]} · {entry.actorName ?? 'Sistem'} · {formatDateTimeId(entry.createdAt)}
+                    {MODERATION_SUBJECT_TEXT[entry.subjectType]} · {entry.actorName ?? 'Sistem'} · {formatDateTimeId(entry.createdAt)}
                   </span>
                 </span>
-                <Badge variant={STATUS_VARIANT[entry.toStatus]} className="shrink-0">
-                  {STATUS_TEXT[entry.toStatus]}
+                <Badge variant={MODERATION_STATUS_VARIANT[entry.toStatus]} className="shrink-0">
+                  {MODERATION_STATUS_TEXT[entry.toStatus]}
                 </Badge>
               </li>
             ))}

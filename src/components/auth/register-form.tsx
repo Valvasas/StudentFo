@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { signUpAction } from '@/app/auth/actions';
-import { AccountTypeField } from '@/components/auth/account-type-field';
 import { AuthCaptcha } from '@/components/auth/auth-captcha';
 import { AuthDivider, AuthField, AuthInput } from '@/components/auth/auth-field';
 import { GoogleButton } from '@/components/auth/google-button';
@@ -13,14 +12,16 @@ import { AGE_CONFIRM_VALUE, PRIVACY_CONSENT_VALUE, type AccountType } from '@/li
 /**
  * Form daftar (mode Supabase). Satu form untuk dua jalur: tombol Google
  * memakai `formAction`, jadi jenis akun & persetujuan ikut terkirim tanpa
- * JavaScript dan divalidasi ulang di server untuk keduanya.
+ * JavaScript dan divalidasi ulang di server untuk keduanya. Jenis akun
+ * ditentukan halamannya (/register peserta, /penyelenggara/daftar, ADR-063),
+ * bukan dipilih di form.
  */
 export function RegisterForm({ next, email, accountType }: { next: string; email: string; accountType: AccountType }) {
   return (
     <form action={signUpAction} className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next} />
-      <AccountTypeField name="accountType" selected={accountType} />
-      <AuthField id="fullName" label="Nama lengkap">
+      <input type="hidden" name="accountType" value={accountType} />
+      <AuthField id="fullName" label={accountType === 'organizer' ? 'Nama lengkap penanggung jawab' : 'Nama lengkap'}>
         <AuthInput id="fullName" name="fullName" type="text" autoComplete="name" required minLength={2} maxLength={120} />
       </AuthField>
       <AuthField id="email" label="Email">
@@ -34,7 +35,7 @@ export function RegisterForm({ next, email, accountType }: { next: string; email
           spellCheck={false}
           required
           maxLength={254}
-          placeholder="nama@kampus.ac.id"
+          placeholder={accountType === 'organizer' ? 'panitia@organisasi.or.id' : 'nama@kampus.ac.id'}
         />
       </AuthField>
       <AuthField id="password" label="Kata sandi">

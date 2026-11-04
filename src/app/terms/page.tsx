@@ -111,7 +111,7 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
       body: (
         <>
           <p>
-            Kiriman kegiatan, profil, portofolio, tim, pesan ajakan, dan isian formulir tetap milikmu. Kamu memberi kami izin non-eksklusif dan tanpa
+            Kiriman kegiatan, pertanyaan & jawaban di Tanya jawab, profil, portofolio, tim, pesan ajakan, dan isian formulir tetap milikmu. Kamu memberi kami izin non-eksklusif dan tanpa
             royalti untuk menyimpan, menampilkan, dan menyesuaikan format konten itu sejauh perlu untuk menjalankan StudentFo, selama konten itu
             masih tayang.
           </p>
@@ -119,6 +119,11 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             Kamu menjamin berhak membagikan konten tersebut dan bahwa isinya benar. Kami dapat menolak, menurunkan, atau menyunting format konten
             yang melanggar ketentuan ini atau hukum, dan memberi tahu alasannya bila memungkinkan. Kiriman kegiatan selalu ditinjau moderator
             sebelum tayang.
+          </p>
+          <p>
+            Pertanyaan di Tanya jawab tayang langsung dan bisa dibaca siapa pun. Jangan menulis data pribadi (milikmu atau orang lain), iklan,
+            atau tautan yang tidak berkaitan; pertanyaan seperti itu dapat disembunyikan moderator. Jawaban yang diberi label
+            &ldquo;penyelenggara&rdquo; ditulis penyelenggara terverifikasi kegiatan itu — tetap cocokkan hal penting dengan buku panduan resminya.
           </p>
         </>
       ),
@@ -132,7 +137,10 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             seperti dijelaskan di Kebijakan privasi.
           </li>
           <li>Pakai fitur ini untuk mencari rekan belajar dan tim, bukan untuk berjualan, merekrut anggota skema berantai, atau mengumpulkan kontak.</li>
-          <li>Kamu bisa memblokir siapa pun kapan saja. Orang yang diblokir tidak bisa melihat atau menghubungimu.</li>
+          <li>
+            Kamu bisa memblokir siapa pun kapan saja — orang yang diblokir tidak bisa melihat atau menghubungimu — dan melaporkan perilaku yang
+            melanggar lewat <strong>Laporkan</strong> di profilnya. Pelapor tidak pernah diberitahukan ke pihak yang dilaporkan.
+          </li>
           <li>
             Kesepakatan di dalam tim — pembagian tugas, biaya, atau hadiah — adalah urusan anggota tim. Kami bisa membantu menindak penyalahgunaan
             fitur, tetapi bukan pihak dalam kesepakatan itu.
@@ -157,8 +165,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               penyelenggara sesuai ketentuan mereka.
             </li>
             <li>
-              Bila kamu menduga penipuan, berhenti membayar dan laporkan kepada kami. Kami dapat menurunkan kegiatan, mencabut status penyelenggara,
-              dan meneruskan laporan ke pihak berwenang.
+              Bila kamu menduga penipuan, berhenti membayar dan tekan <strong>Laporkan</strong> di halaman kegiatan. Kami dapat menurunkan kegiatan,
+              mencabut status penyelenggara, dan meneruskan laporan ke pihak berwenang.
             </li>
           </ul>
           <Callout>
@@ -211,10 +219,11 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
       title: 'Penangguhan dan pengakhiran',
       body: (
         <ul>
-          <li>Kamu bisa berhenti memakai StudentFo kapan saja dan meminta akunmu dihapus seperti dijelaskan di Kebijakan privasi.</li>
+          <li>Kamu bisa berhenti memakai StudentFo kapan saja dan menghapus akunmu sendiri dari Pengaturan → Hapus akun.</li>
           <li>
-            Kami dapat menangguhkan atau menutup akun yang melanggar ketentuan ini. Kami memberi tahu alasannya lebih dulu, kecuali bila harus
-            bertindak segera — misalnya penipuan, keselamatan anak, atau perintah hukum.
+            Kami dapat menangguhkan atau menutup akun yang melanggar ketentuan ini. Akun yang ditangguhkan tidak bisa masuk dan tidak terlihat
+            pengguna lain. Kami memberi tahu alasannya lewat email akunmu, lebih dulu bila memungkinkan — kecuali bila harus bertindak segera,
+            misalnya penipuan, keselamatan anak, atau perintah hukum. Setiap tindakan tercatat dan bisa ditinjau ulang.
           </li>
           <li>Bila menurutmu penangguhan itu keliru, ajukan keberatan lewat kontak di bawah; kami meninjaunya ulang.</li>
         </ul>

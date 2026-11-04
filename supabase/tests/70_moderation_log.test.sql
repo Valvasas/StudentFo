@@ -97,6 +97,14 @@ BEGIN
   END IF;
 END$$;
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-00000000d0a1';
+-- Sandi admin saja (aal1) tidak cukup — ADR-062 #4.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.moderation_log) THEN
+    RAISE EXCEPTION 'admin tanpa MFA (aal1) tidak boleh membaca log moderasi';
+  END IF;
+END$$;
+SET LOCAL request.jwt.claims = '{"aal":"aal2"}';
 DO $$
 BEGIN
   IF (SELECT count(*) FROM public.moderation_log) < 6 THEN

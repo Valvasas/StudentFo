@@ -19,10 +19,12 @@ import type { RawSearchParams } from '@/lib/search-params';
 import { NONCE_HEADER } from '@/lib/security-headers';
 import { HONEYPOT_FIELD } from '@/lib/submission-schema';
 import {
+  DEADLINE_LABEL_TEXT,
   EDUCATION_LEVEL_LABEL,
   EDUCATION_LEVELS,
   EVENT_TYPE_LABEL,
   EVENT_TYPES,
+  SUBMISSION_STAGE_LABELS,
 } from '@/types/domain';
 import { submitEventAction } from './actions';
 
@@ -52,10 +54,11 @@ const FIELD_LABEL: Record<string, string> = {
   guidebookUrl: 'Buku panduan',
   organizerContact: 'Kontak panitia',
   proofLink: 'Bukti kepanitiaan',
+  stages: 'Tahapan jadwal',
 };
 
 const OPTIONAL_DETAIL_LABELS = new Set(
-  ['guidebookUrl', 'description', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]),
+  ['stages', 'guidebookUrl', 'description', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]),
 );
 
 function invalidFieldLabels(raw: RawSearchParams['fields']): string[] {
@@ -270,11 +273,27 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             </span>
             <span className="flex flex-1 flex-col">
               <span className="text-[15px] font-semibold">Detail tambahan (opsional)</span>
-              <span className="text-[12.5px] text-ink-muted">Buku panduan, deskripsi, kontak panitia</span>
+              <span className="text-[12.5px] text-ink-muted">Tahapan jadwal, buku panduan, deskripsi, kontak panitia</span>
             </span>
             <ChevronDown aria-hidden className="size-4 shrink-0 text-ink-muted transition-transform duration-150 ease-snap group-open/opsional:rotate-180" />
           </summary>
           <div className="flex flex-col gap-5 border-t border-line px-5 pb-6 pt-5 sm:px-7">
+            {/* Tanpa `min`/`required`: kontrol di <details> tertutup yang gagal
+                validasi bawaan memblokir kirim tanpa pesan (lihat komentar di atas). */}
+            <fieldset className="flex flex-col gap-3">
+              <legend className="text-[13.5px] font-semibold text-ink">Tahapan sesudah pendaftaran (opsional)</legend>
+              <p className="-mt-1 text-[12.5px] leading-snug text-ink-muted">
+                Isi yang ada saja. Tampil sebagai linimasa di halaman kegiatan; harus sesudah tenggat pendaftaran.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {SUBMISSION_STAGE_LABELS.map((label) => (
+                  <Field key={label} id={`stage_${label}`} label={DEADLINE_LABEL_TEXT[label]}>
+                    <DateInput id={`stage_${label}`} name={`stage_${label}`} />
+                  </Field>
+                ))}
+              </div>
+            </fieldset>
+
             <Field
               id="guidebookUrl"
               label="Buku panduan (opsional)"

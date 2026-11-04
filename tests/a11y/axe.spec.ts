@@ -24,6 +24,9 @@ const STATIC_ROUTES = [
   '/submit?error=invalid_submission&fields=title,email',
   '/login',
   '/register',
+  '/penyelenggara',
+  '/penyelenggara/masuk',
+  '/penyelenggara/daftar',
   '/demo',
   '/forgot-password',
   '/tracker',
@@ -31,6 +34,8 @@ const STATIC_ROUTES = [
   '/privacy-policy',
   '/cookie-policy',
   '/terms',
+  '/berhenti-email?token=tidak-valid',
+  '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya',
   '/about',
   '/connections',
   '/halaman-yang-tidak-ada',
@@ -41,7 +46,11 @@ async function expectNoViolations(page: Page) {
   // sesaat setelah `load`. Tunggu dulu — kalau judulnya memang tidak pernah
   // ada, penantian ini sendiri yang gagal.
   await expect(page).toHaveTitle(/\S/);
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+  // Panggung tur (ADR-063) = gambar antarmuka, `aria-hidden`, tanpa kontrol:
+  // teks di dalamnya "bagian dari gambar" (pengecualian WCAG 1.4.3), dan baris
+  // yang sengaja dipudarkan memang bagian dari peragaannya. Daftar langkah &
+  // tombol tur di luarnya tetap diaudit.
+  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).exclude('[data-tour-stage]').analyze();
   const summary = results.violations.map(
     (v) =>
       `${v.id} (${v.impact}): ${v.help}\n  ${v.nodes
@@ -100,6 +109,11 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin/riwayat'],
   ['Admin moderator', '/admin/kalibrasi'],
   ['Admin moderator', '/admin/promosi'],
+  ['Admin moderator', '/admin/laporan'],
+  ['Admin moderator', '/admin/pengguna'],
+  ['Admin moderator', '/admin/pengguna?q=Rani'],
+  ['Mahasiswa', '/laporkan?kegiatan=kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
+  ['Mahasiswa', '/laporkan?orang=seed-user-1'],
   ['Admin moderator', '/admin/penyelenggara'],
   ['Admin moderator', '/admin/penyelenggara?tab=klaim'],
   ['Admin moderator', '/admin/penyelenggara?tab=perubahan'],

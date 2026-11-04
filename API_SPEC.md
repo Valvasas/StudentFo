@@ -257,6 +257,7 @@ interface ReviewSubmissionInput {
   submissionId: string;
   decision: 'APPROVED' | 'REJECTED';
   reviewerId: string | null;
+  reason?: string; // REJECTED saja, ≤500 → ugc_submissions.rejection_reason (ADR-061)
 }
 ```
 
@@ -464,10 +465,94 @@ gagal → `invalid_presentation` / `event_unavailable`. Mencabut tag `events`.
 
 ### `reviewSubmissionAction` — `src/app/admin/actions.ts`
 
-Field: `submissionId`, `decision` (`APPROVED`/`REJECTED`). Otorisasi
+Field: `submissionId`, `decision` (`APPROVED`/`REJECTED`), `reason` (opsional,
+hanya dipakai saat menolak; dikirim ke pengirim lewat notifikasi & "Kirimanmu"). Otorisasi
 `checkAdminAccess()` di dalam aksi. Sukses → `/admin?notice=submission_approved`
 atau `submission_rejected`; gagal → `/admin?error=<kode>`
 (`submission_duplicate`, `submission_not_found`, `invalid_submission`).
+
+### Keamanan & kepercayaan (ADR-061)
+
+`TrustSafetyRepository` (bagian dari `EventRepository`):
+
+| Method | Siapa | Galat (kode) |
+|---|---|---|
+| `reportContent(reporterId, { subjectType, subjectId, reason, details })` | pengguna masuk; Supabase memakai klien pengguna (`auth.uid()` = pelapor) | `report_unavailable` (subjek tidak terlihat/diri sendiri), `report_rate_limited` (10/hari), `invalid_report` |
+| `listOpenReports(limit)` / `countOpenReports()` | admin | — |
+| `resolveReport({ reportId, actorId, outcome, note })` | admin. RESOLVED menutup semua laporan OPEN atas subjek yang sama; setiap pelapor menerima notifikasi `REPORT_RESOLVED`/`REPORT_DISMISSED` (teks `reportOutcomeMessage`, tanpa `note`) | `report_not_found` (sudah diputuskan) |
+| `searchUsers(query, limit)` | admin; `query` lewat `normalizeUserSearch` | — |
+| `setUserSuspension({ userId, actorId, suspend, reason })` | admin | `user_not_found`, `user_protected` (ADMIN/diri sendiri), `suspension_reason_required` |
+| `deleteAccount({ userId, actorId, reason })` | pemilik (`actorId === userId`) atau admin | `user_not_found`, `user_protected`, `account_delete_failed` (berkas Storage gagal dihapus — akun TIDAK dihapus) |
+
+### Tanya jawab kegiatan (ADR-062 #7)
+
+`EventQuestionRepository`: `listEventQuestions(eventId, viewerId, limit)`,
+`askEventQuestion(actor, eventId, body)` (`question_unavailable`,
+`invalid_question`, `question_rate_limited`), `answerEventQuestion(actor,
+questionId, answer)` (`question_not_found`, `question_forbidden`,
+`invalid_answer`), `deleteEventQuestion(userId, questionId)`
+(`question_not_found`), `hideEventQuestion({ questionId, actorId, reason })`
+(admin), `getEventQuestionContext(questionId)`, `listMyEventQuestions(userId)`.
+
+- `askQuestionAction` / `answerQuestionAction` / `deleteQuestionAction`
+  (`src/app/events/[slug]/actions.ts`): `slug` (dibatasi `[a-z0-9-]`), `eventId`
+  / `questionId`, `body` / `answer`. → `/events/<slug>?tab=tanya&notice=…#tanya`.
+- `/laporkan?pertanyaan=<id>`; `resolveReportAction` menerima `hideQuestionId`
+  (hanya bersama RESOLVED).
+
+### Pengingat tenggat lewat email (ADR-062 #6)
+
+`EmailReminderRepository`: `getDeadlineEmailOptIn(userId)` (sesi pemilik),
+`setDeadlineEmailReminders(userId, enabled)` (RPC milik sendiri; mengembalikan
+waktu persetujuan), `stopDeadlineEmailsByLink(userId)` (service_role, dari
+tautan bertanda tangan). `claimDeadlineDispatches` hanya mengembalikan
+pengingat milik yang menyetujui.
+
+- `setDeadlineEmailRemindersAction` (`src/app/profile/actions.ts`): `mode`
+  (`on`|`off`). → `/profile/settings?notice=email_reminders_on|off#pengingat-email`.
+- `POST /api/cron/send-deadline-emails` (Bearer CRON_SECRET) → `{ sent, skipped, failed }`;
+  200, atau 502 bila ada batch gagal (tidak di-ack), 503 `EMAIL_NOT_CONFIGURED`
+  tanpa mengklaim. GET → 405.
+- `POST /api/email/berhenti?token=<userId>.<hmac>` (RFC 8058) → 200 / 400. GET →
+  303 ke `/berhenti-email` (halaman konfirmasi; menghentikan hanya lewat tombol).
+
+### MFA admin (ADR-062 #4)
+
+`checkAdminAccess()` → `{ allowed: false, reason: 'mfa-required', step: 'enroll' | 'verify' }`
+untuk admin bersesi aal1 (mode Supabase). `requireAdmin()` mengalihkannya ke
+`/admin/mfa`; non-admin tetap `notFound()`.
+
+- `verifyAdminMfaAction` (`src/app/admin/mfa/actions.ts`): `code`. Faktor =
+  faktor TOTP terverifikasi milik sesi. Sukses → `/admin?notice=mfa_verified`.
+- `confirmAdminMfaEnrollmentAction`: `code`, `factorId` (harus faktor TOTP
+  belum-terverifikasi milik sesi). Sukses → `/admin?notice=mfa_enabled`; salah
+  kode → `/admin/mfa?error=mfa_invalid_code&faktor=<id>` (QR tidak diulang).
+- Galat: `mfa_invalid_code`, `mfa_rate_limited` (10/15 menit per akun, atau 429
+  GoTrue), `mfa_failed`.
+
+`OperationsRepository.cronJobHealth()` (admin, ADR-062) → `CronJobHealth[]`, atau
+`null` bila tidak ada pg_cron (mode seed, Postgres polos). Status gagal/telat
+dinilai SQL (`overdue`), dipakai juga oleh `.github/workflows/ops-watchdog.yml`.
+
+Server Action:
+
+- `reportContentAction` (`src/app/laporkan/actions.ts`): `subjectType`,
+  `subjectId`, `reason`, `details`, `self`, `back` (keduanya lewat
+  `safeNextPath`). Sukses → `<back>?notice=report_sent`; gagal → `<self>?error=…`.
+  Tamu → `/login?next=<self>`.
+- `resolveReportAction` (admin): `reportId`, `outcome` (`RESOLVED`|`DISMISSED`,
+  dari tombol), `note`, `takedownEventId` (kotak centang; hanya untuk RESOLVED →
+  `reviewEvent` REJECTED). → `/admin/laporan?notice=report_resolved|report_dismissed`.
+- `setUserSuspensionAction` (admin): `userId`, `mode` (`suspend`|`restore`),
+  `reason`, `q` (dikembalikan sebagai nilai). → `/admin/pengguna?q=…&notice=user_suspended|user_unsuspended`.
+- `deleteUserAction` (admin): `userId`, `reason` (≥5), `confirm` (= `HAPUS AKUN`).
+  → `/admin/pengguna?notice=user_deleted`.
+- `deleteOwnAccountAction` (`src/app/profile/actions.ts`): `confirm`. Sukses →
+  sesi dibersihkan, `/?notice=account_deleted`; gagal → `/profile/settings?error=…#hapus-akun`.
+
+Sesi: `getSessionUser()` mengembalikan `null` untuk akun yang ditangguhkan
+(Supabase: `users.suspended_at`; seed: `isDemoUserSuspended`). Galat GoTrue
+`user_banned` dipetakan ke `invalid_credentials` (tidak membocorkan status akun).
 
 ### `reviewEventAction(formData: FormData): Promise<void>`
 `src/app/admin/actions.ts`. Endpoint HTTP tersembunyi di balik `<form action=...>`
@@ -510,6 +595,19 @@ autentikasi, `Cache-Control: no-store` (juga `HEAD`).
 `tests/integration/smoke.test.ts`). Monitor produksi sebaiknya menegaskan
 `dataMode === "supabase"`: deploy yang kehilangan env Supabase dan menyala
 dengan `ALLOW_DEMO_IN_PRODUCTION` tetap menjawab 200.
+
+### `GET /profile/privacy/ekspor` (ADR-060)
+
+Unduhan JSON `studentfo-account-export/1` milik pengguna yang masuk
+(`Content-Disposition: attachment`, `no-store`). Tamu → `/login?next=/profile/privacy`.
+
+### Pemantauan galat — `src/instrumentation.ts` (ADR-061)
+
+`onRequestError` menulis satu baris JSON per galat server:
+`{"event":"request_error","at","digest","message","method","path","routePath","routeType"}`
+— `path` tanpa query string, `message` ≤300 karakter. Bila `ERROR_ALERT_WEBHOOK_URL`
+diisi, ringkasannya dikirim (`{ text, content }`, Slack & Discord), dibatasi
+galat yang sama 1×/5 menit dan 10 kiriman/5 menit per proses.
 
 ### `POST /api/cron/dispatch-deadline-notifications?limit=100` (ADR-051)
 

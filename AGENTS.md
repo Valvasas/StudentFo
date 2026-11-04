@@ -33,6 +33,9 @@ Kalau perubahan menyentuh `supabase-repository.ts` atau migration, jalankan juga
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run db:test
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run test:integration
+# Menyentuh auth.users/sessions/identities atau Storage? Pakai mode dengan GoTrue
+# & Storage API sungguhan (Docker) — skema stub tidak menangkap perilaku GoTrue.
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run test:integration:services
 ```
 
 Pipeline Python (folder `pipeline/`, proyek terpisah dari Next.js — TIDAK

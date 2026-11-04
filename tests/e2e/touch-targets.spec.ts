@@ -163,9 +163,9 @@ test.describe('tablet sentuh', () => {
         }
       });
 
-      test('profil, data diri, pengaturan, personalisasi, privasi, peta koneksi: setiap target ≥ 44px', async ({ page }) => {
+      test('profil, data diri, pengaturan, personalisasi, privasi, peta koneksi, profil orang: setiap target ≥ 44px', async ({ page }) => {
         await signInAsDemo(page, 'Mahasiswa', '/profile/details');
-        for (const route of ['/profile/details', '/profile/settings', '/profile/personalization', '/profile/privacy', '/connections?tab=peta']) {
+        for (const route of ['/profile/details', '/profile/settings', '/profile/personalization', '/profile/privacy', '/connections?tab=peta', '/orang/seed-user-1']) {
           await page.goto(route);
           await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000, message: route }).toEqual([]);
         }

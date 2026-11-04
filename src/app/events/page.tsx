@@ -169,7 +169,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
       const filtered = hasActiveFilters({ ...query, search: '' });
       // Katalog benar-benar kosong (bukan saringan yang terlalu sempit): tampilkan
       // kegiatan NYATA yang pernah tayang, berlabel ditutup — bukan contoh
-      // karangan (ADR-039 #4, ADR-061). Halaman kosong melatih pengunjung pertama
+      // karangan (ADR-039 #4, ADR-064). Halaman kosong melatih pengunjung pertama
       // bahwa katalog ini mati; kegiatan palsu menghancurkan alasan orang datang.
       const catalogEmpty = result.items.length === 0 && !filtered && !query.search;
       const pastEvents = catalogEmpty
@@ -204,6 +204,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
                     description="Setiap kegiatan dicocokkan moderator dengan sumber resminya sebelum tayang, jadi katalog bisa sepi sementara. Tahu lomba, beasiswa, atau magang yang sedang buka? Kirimkan — kami tinjau dulu."
                     actionHref="/submit"
                     actionLabel="Kirim kegiatan"
+                    secondary={{ href: '/penyelenggara', label: 'Penyelenggara? Pasang acaramu' }}
                   />
                 ) : (
                   <EmptyState
