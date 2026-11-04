@@ -48,6 +48,15 @@ test('katalog kosong: /about tidak memamerkan angka nol, /events menjelaskan kea
   // Tidak ada kegiatan karangan untuk "mengisi" katalog kosong (ADR-064).
   await expect(page.locator('main article')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Kirim kegiatan' })).toHaveAttribute('href', '/submit');
+
+  // Papan per jenis juga: kosong tanpa saringan = ajakan mengisi, bukan "longgarkan filter".
+  for (const [type, noun] of [['LOMBA', 'lomba'], ['BEASISWA', 'beasiswa'], ['MAGANG', 'lowongan magang'], ['KONFERENSI', 'seminar']] as const) {
+    await page.goto(`/events?type=${type}`);
+    await expect(page.getByRole('heading', { name: `Belum ada ${noun} yang sedang buka` })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Kirim kegiatan' })).toHaveAttribute('href', '/submit');
+  }
+  await page.goto('/events?type=LOMBA&q=apa-saja');
+  await expect(page.getByRole('heading', { name: 'Belum ada yang cocok' })).toBeVisible();
 });
 
 test('listing publik dilayani Data Cache: kunjungan kedua tidak menyentuh database', async ({ page }) => {

@@ -370,7 +370,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] P3 Judul di daftar "Klaim acara" `/penyelenggara` kemungkinan 22 px (pola sama) — tidak ada klaim di data contoh, jadi belum terukur; tambah klaim contoh lalu ukur.
 - [x] `docker build` + `docker run` pertama kali terbukti (image 364 MB, non-root, health OK, CSP/HSTS); tanpa Supabase & tanpa izin demo server menolak melayani (500 + log).
 - [x] P3 Judul portofolio di `/orang/[id]` 21–41 px → `::after` ≥ 44 px tanpa menggeser baris; dikunci touch-targets (ADR-061).
-- [ ] **BUTUH PEMILIK.** Kedua project Supabase di akun berstatus INACTIVE dan tidak ada yang bernama StudentFo — buat/pulihkan project produksi, lalu terapkan 32 migration berurutan (BUTUH KONFIRMASI eksplisit), `npm run db:verify`.
+- [~] ~~Kedua project Supabase INACTIVE~~ (basi per 4 Nov): staging `iwttgkzxudhjatbvywke` aktif dengan 41 migration. Produksi BELUM ada — org paket Free penuh (2 project aktif); lihat `docs/peluncuran.md` Fase 1.3–1.5.
 - [ ] **BUTUH PEMILIK, P0 produk.** Katalog hari-H kosong bila pipeline tidak jalan: default `gemini-2.0-flash` di `pipeline/run.py` sudah dimatikan Google (1 Jun 2026). Isi `GEMINI_MODEL` dengan model hidup + 10+ sumber nyata, atau siapkan kiriman awal manual lewat `/submit` + `/admin`.
 - [ ] Monitor uptime eksternal ke `/api/health` dengan asersi `dataMode == "supabase"`.
 - [ ] Uji Safari iOS & WebView Instagram/TikTok di perangkat fisik (WebKit tidak tersedia di lingkungan ini).
@@ -396,6 +396,19 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] Akun Google yang DIBUAT dari `/login` belum punya catatan `legal_consent` (berbasis pemberitahuan). Pertimbangkan meminta centang di halaman sambutan pertama.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
+
+## Penggabungan & persiapan peluncuran 2026-11-04 (@claude) — ADR-066
+
+- [x] `ccr-8508b1ef-wgwvc2` (ADR-061–063) digabung; ADR `main` dinomori ulang 064/065; tur pelajar ADR-063 dihapus (menjanjikan alur persiapan yang 404 di produksi), tur penyelenggara dipertahankan
+- [x] Uji setelah gabung: verify 810, pipeline 13+15+4, db:test, integrasi 101, e2e seed 793, e2e Supabase 13
+- [x] `GEMINI_MODEL` wajib & divalidasi saat start (sudah dari cabang yang digabung)
+- [x] Papan per jenis kosong → `CatalogEmpty` (lihat entri di atas)
+- [x] Runbook peluncuran berurutan: `docs/peluncuran.md` (keadaan nyata akun, env, uji produksi, hukum, isi, hari-H)
+- [x] Draf kerangka DPIA + penilaian risiko PP 17/2025: `docs/dpia-draf.md` (DRAF — wajib ditinjau penasihat hukum)
+- [x] Domain: `studentfo.com` tersedia (US$12,03/tahun di Vercel), belum dibeli
+- [x] Security Advisor staging diperiksa: temuan tersisa = yang sengaja (ADR-062 #8) + alat bantu migration (butir di atas) + *Leaked password protection* mati (fitur paket Pro)
+- [ ] **BUTUH PEMILIK.** Putuskan paket Supabase produksi (Pro disarankan; Free menjeda project yang sepi & tanpa cadangan), lalu Claude membuat project Singapura + menerapkan 41 migration
+- [ ] **BUTUH PEMILIK.** Beli domain, lalu ikuti `docs/peluncuran.md` Fase 1.8–2
 
 ## Tur, latar bergerak, audit fungsi fitur 2026-11-04 (@claude) — ADR-065
 
@@ -424,7 +437,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Baris saringan cepat Jenjang + Biaya di `/events` (tetap `<a>` + URL)
 - [x] Pintasan "/" ke kotak cari, `BookmarkSubmit` (penanda terisi seketika), `chip-tick`, panah mengangguk
 - [x] `npm run test:e2e:supabase` di Postgres 16 + PostgREST sungguhan: 11/11 lulus, termasuk katalog kosong (judul baru, tanpa kartu, ajakan /submit)
-- [ ] Papan per jenis (Lomba, Magang, …) saat katalognya kosong masih memakai `ResultsEmpty` "longgarkan filter" — samakan dengan katalog kosong `/events` bila papan itu ikut tayang tanpa data
+- [x] Papan per jenis saat katalognya kosong: `CatalogEmpty` + `isBoardUnfiltered()` (teruji), dikunci e2e Supabase pada database kosong (ADR-066 sesi lanjutan).
 - [ ] Pertimbangkan `DaysLeft` di bilah bawah detail (ponsel) — sekarang masih `daysLeftLabel` teks kecil
 
 ## Keamanan & kepercayaan MVP 2026-10-31 (@claude) — ADR-061
@@ -460,7 +473,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Project "StudentFo staging" (`iwttgkzxudhjatbvywke`, ap-southeast-1) dibuat atas persetujuan pemilik; migration `20260912100001`..`20261101100006` diterapkan & hash dicocokkan; 6 job pg_cron aktif; bucket privat; semua tabel publik ber-RLS.
 - [x] Security & performance advisor dijalankan; temuan yang relevan diperbaiki di `20261101100007`.
 - [x] `20261101100007` diterapkan ke staging (41 migration tercatat; fungsi trigger tak lagi bisa dipanggil `anon`; `compute_dedup_hash` tetap jalan dengan pgcrypto di `extensions`).
-- [ ] **BUTUH PEMILIK.** Bersihkan alat bantu sementara di SQL Editor staging (dialog konfirmasi `DROP` dibatalkan otomatis oleh klien sesi agen): `DROP SCHEMA studentfo_migration_runner CASCADE; DROP EXTENSION http;` — keduanya tidak terbuka ke API, tidak mendesak.
+- [ ] **BUTUH PEMILIK.** Bersihkan alat bantu staging: `DROP SCHEMA studentfo_migration_runner CASCADE; DROP EXTENSION http;` — diperiksa 4 Nov: isinya hanya fungsi `apply`, tak ada objek lain yang memakai `http`. Percobaan lewat MCP kembali tertahan dialog konfirmasi yang tidak terjawab.
 - [ ] **BUTUH PEMILIK.** Isi katalog: jaringan sesi agen menolak situs penyelenggara/agregator, jadi tidak ada kegiatan yang dimasukkan (tanpa tautan resmi terverifikasi = tidak dimasukkan). Jalankan pipeline dengan kunci Gemini, atau kirim lewat `/submit` lalu setujui di `/admin`.
 - [x] Vercel: project `studentfo` (tim valvasas-projects, region `sin1`, Node 22) terhubung ke repo; env publik (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`) diisi; produksi = https://studentfo.vercel.app (alias tim: studentfo-valvasas-projects.vercel.app). Vercel Authentication hanya untuk preview.
 - [ ] **BUTUH PEMILIK.** Env rahasia di Vercel: `SUPABASE_SERVICE_ROLE_KEY` (tanpanya panel admin & hapus akun gagal), `RATE_LIMIT_SECRET`, `CRON_SECRET`, Resend, `ERROR_ALERT_WEBHOOK_URL`, data hukum; lalu deploy ulang.
