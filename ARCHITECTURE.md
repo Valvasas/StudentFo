@@ -88,7 +88,8 @@ src/
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
 │   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054),
 │   │                           search-shortcut.tsx (pintasan "/" ke kotak cari + petunjuk kbd, ADR-061)
-│   ├── landing/                GuestLanding + Hero (berpusat pencarian: kotak cari, tab jenis + jumlah buka, ADR-061) — beranda tamu
+│   ├── landing/                GuestLanding + Hero (berpusat pencarian: kotak cari, tab jenis + jumlah buka, ADR-061) — beranda tamu;
+│   │                           hero-sketch.tsx (kolase sketsa beranimasi), landing-tour.tsx (tur 5 langkah, klien, ADR-062)
 │   ├── listing/                Lima papan per jenis (Lomba, Beasiswa, Magang, Workshop, Seminar) + listing-ui (primitif tautan),
 │   │                           countdown.tsx (DaysLeft — sisa hari kalender) + time-left-today.tsx (jam di H-0, klien), category-icon.tsx
 │   ├── home/                   RoleHome memilih per peran tampilan (account-role.ts): PersonalHome (peserta — tagihan,
@@ -118,7 +119,8 @@ src/
 │                               ThemeToggle, ThemeScript, DemoBanner, AccountShell (menu akun
 │                               bisa dilipat jadi rel ikon — cookie `sf_sidebar`, ADR-052),
 │                               NavigationProgress (bilah progres + kartu pemuat di tengah layar, ADR-053/055/056),
-│                               route-scene-art.tsx (sketsa mini per adegan rute)
+│                               route-scene-art.tsx (sketsa mini per adegan rute),
+│                               SiteBackdrop (latar kertas bertitik + coretan melayang di root layout, ADR-062)
 │
 ├── lib/
 │   ├── data/                   ← lapisan repository, lihat di bawah

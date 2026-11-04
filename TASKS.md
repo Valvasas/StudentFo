@@ -397,6 +397,19 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] Mekanisme pengumuman perubahan dokumen ≥ 14 hari di dalam aplikasi (janji di kedua dokumen) — belum ada komponen banner pengumuman.
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Tur, latar bergerak, audit fungsi fitur 2026-11-04 (@claude) — ADR-062
+
+- [x] Tur beranda 5 langkah (fitur produksi saja), pola tab + keyboard, jeda, autoplay hanya saat terlihat, reduced-motion aman
+- [x] `SiteBackdrop` (kertas bertitik + coretan melayang + parallax gulir) di root layout; coretan benda hanya di talang ≥ xl
+- [x] Kolase sketsa beranimasi di hero (≥ lg)
+- [x] Panggung ilustrasi di `/teams` & `/connections` (≥ lg), sketsa kecil di kotak masuk, bilah proporsi tahap di papan lamaran
+- [x] Audit fungsi (koneksi, tim, pencocokan, diskusi, pesan, tracker, simpan) sebagai persona demo — semua jalan, 0 error konsol
+- [x] `team_joined` (dirayakan) & `team_left`: gabung/keluar tim tidak lagi tanpa umpan balik
+- [x] Pesan demo: percakapan yang terbuka otomatis di desktop ditandai terbaca
+- [x] Sisa kotak inisial (papan lamaran), ikon tiket "Papan lamaran" di menu akun, label kapital "GRUP KAMU"
+- [ ] Ukur dampak `SiteBackdrop` di ponsel kelas bawah (Lighthouse/Performance panel) setelah tayang — sekarang hanya transform/opacity
+- [ ] Perbarui tur bila perilaku salah satu dari lima fitur berubah (tur menjanjikan perilaku nyata)
+
 ## Membersihkan kesan "buatan AI" 2026-11-03 (@claude) — ADR-061
 
 - [x] Hitung mundur per detik (papan Lomba, panel detail) → `DaysLeft` per hari kalender WIB; jam/menit hanya di H-0 (`timeLeftToday`, teruji)

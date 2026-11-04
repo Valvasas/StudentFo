@@ -3,7 +3,6 @@ import { Check, ChevronRight, Trash2, X } from 'lucide-react';
 import { removeTrackerAction, updateTrackerStatusAction } from '@/app/tracker/actions';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { SelectInput } from '@/components/ui/field';
-import { initialsOf } from '@/lib/initials';
 import { TRACKER_STEPS, TRACKER_STEP_LABEL, trackerProgress } from '@/lib/tracker-progress';
 import { cn } from '@/lib/utils';
 import { EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL, TRACKER_STATUSES, type TrackerItem } from '@/types/domain';
@@ -91,9 +90,6 @@ export function TrackerCard({ item, returnTo = '/tracker' }: { item: TrackerItem
   return (
     <article className="grid gap-x-5 gap-y-3 border-t border-line/70 py-5 first:border-t-0 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
       <div className="flex min-w-0 items-start gap-3.5">
-        <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-brand font-mono text-[13px] font-medium">
-          {initialsOf(event.organizer)}
-        </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <span className="text-[12.5px] font-medium text-ink-muted">{EVENT_TYPE_LABEL[event.eventType]}</span>

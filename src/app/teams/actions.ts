@@ -68,7 +68,9 @@ export async function joinTeamAction(formData: FormData): Promise<void> {
 
   revalidatePath('/teams');
   revalidatePath(`/teams/${teamId}`);
-  redirect(returnTo);
+  // Tanpa kode ini kartu tim yang baru diketuk hilang diam-diam dari daftar
+  // "mencari anggota" (pindah ke "Tim kamu") dan terbaca seperti klik gagal.
+  redirect(withQuery(returnTo, { notice: 'team_joined', error: undefined }));
 }
 
 export async function leaveTeamAction(formData: FormData): Promise<void> {
@@ -87,7 +89,7 @@ export async function leaveTeamAction(formData: FormData): Promise<void> {
 
   revalidatePath('/teams');
   revalidatePath(`/teams/${teamId}`);
-  redirect(returnTo);
+  redirect(withQuery(returnTo, { notice: 'team_left', error: undefined }));
 }
 
 export async function removeTeamMemberAction(formData: FormData): Promise<void> {

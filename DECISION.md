@@ -12,6 +12,67 @@ terdokumentasi.
 
 ---
 
+## ADR-062 — Tur beranda kembali sebagai identitas merek; latar & panggung ilustrasi bergerak; umpan balik tim
+
+**Konteks:** Pemilik meminta tur interaktif beranda dikembalikan ("selalu
+dihilangkan") sebagai bagian branding, latar situs yang lebih hidup dengan
+ilustrasi & animasi, fitur lain yang sama dinamisnya, dan pengecekan fungsi
+koneksi, cari tim ("lobi" — tidak ada fitur bernama lobi; ditafsirkan sebagai
+daftar tim terbuka `/teams` + `/teams/[id]`), ruang diskusi, dan lainnya.
+Tur lama (dihapus ADR-056) adalah mockup peramban palsu 729 baris dengan
+warna tertulis langsung (`#191919`, tidak ikut tema gelap), orang fiktif, dan
+klaim yang tidak sesuai sistem ("data dari profilmu siap disalin" — fitur
+persiapan hanya ada di mode demo).
+
+**Keputusan:**
+1. **Tur baru** (`components/landing/landing-tour.tsx`, `#cara-kerja`): lima
+   langkah fitur yang ADA di produksi — cari & saring, cek sumber (moderasi +
+   pengumuman resmi), simpan + pengingat H-3/H-1 (`lib/notifications.ts`),
+   papan lamaran, pencocokan tim. Panggung = kertas berlabel "Contoh
+   tampilan", bukan peramban palsu; dibangun dari token & kosakata komponen
+   (gradien tenggat, chip bercentang, bilah tahap). Pola tab (panah/Home/End),
+   panggung `aria-hidden` + keterangan `aria-live`. Berjalan sendiri hanya
+   saat ≥ 35% terlihat, tab peramban aktif, dan gerak tidak dikurangi; bilah
+   waktu CSS (`tour-progress`) yang memajukan langkah lewat `animationend`,
+   jadi jeda = `animation-play-state`. Tombol "Jeda tur" (WCAG 2.2.2);
+   memilih langkah sendiri = jeda. Reduced-motion: tidak berjalan sendiri,
+   tombolnya maju satu langkah.
+2. **Latar situs** (`components/layout/site-backdrop.tsx`, root layout):
+   kertas bertitik yang memudar + coretan benda produk (pesawat kertas,
+   kalender, pensil, trofi, penanda, bintang) yang melayang; lapisan luar
+   bergeser mengikuti gulir (`parallax-y`, scroll-driven animation —
+   peningkatan progresif). `fixed -z-10`, `pointer-events-none`,
+   `aria-hidden`, warna `line-strong`. Coretan benda hanya di talang mulai
+   `xl` dan ukurannya di bawah lebar talang 1366px.
+3. **Hero** mendapat kolase sketsa beranimasi (`hero-sketch.tsx`, ≥ `lg`):
+   tumpukan kartu, kaca pembesar, label tenggat, penanda, pesawat kertas.
+4. **Halaman fitur** membalik pembatasan ADR-057: `/teams` dan
+   `/connections` berpanggung ilustrasi (`FeatureHero` `stage`, tampil mulai
+   `lg` — `stageFrom`), kotak masuk mendapat sketsa kecil (≥ `lg`), dan
+   papan lamaran mendapat bilah proporsi per tahap yang tumbuh (angka tetap
+   teks). Form & pengaturan tetap tanpa panggung.
+5. **Hasil audit fungsi** (Playwright sebagai persona demo; semua alur
+   koneksi, tim, pencocokan, diskusi, pesan, tracker, simpan berjalan, 0 error
+   konsol) — yang diperbaiki:
+   - Gabung/keluar tim tidak memberi umpan balik apa pun (kartu hilang
+     diam-diam dari daftar): kode `team_joined` (dirayakan) & `team_left`.
+   - Pesan (demo): percakapan yang otomatis terbuka di panel kanan (≥ md)
+     tetap dihitung "belum dibaca" sampai diklik — kini ditandai terbaca
+     begitu terlihat, menunggu catatan localStorage termuat.
+   - Kotak inisial penyelenggara di papan lamaran (terlewat ADR-061), ikon
+     tiket untuk "Papan lamaran" di menu akun (tiket = biaya), label kapital
+     "GRUP KAMU".
+
+**Konsekuensi:** Setiap halaman memuat satu lapisan SVG latar (±2 KB) dan
+beranda tamu memuat pulau klien tur (±5 KB gz). Coretan latar ada di
+belakang teks di atas kanvas; warnanya lebih pucat dari teks redup mana
+pun, tetapi bila suatu halaman baru meletakkan teks kecil di talang layar
+lebar, periksa keterbacaannya. Tur harus diperbarui bila salah satu dari
+lima fitur berubah perilaku — ia menjanjikan perilaku nyata, bukan gambaran
+bebas. Pemindahan pesan gabung/keluar ke URL (`?notice=`) mengikuti ADR-019.
+
+---
+
 ## ADR-061 — Membersihkan kesan "buatan AI": tenggat per hari kalender, gradasi urgensi berbentuk, landing berpusat pencarian
 
 **Konteks:** Audit visual 2026-11-03 (desktop 1366px + ponsel 390px, terang &

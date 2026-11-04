@@ -8,6 +8,7 @@ import { withFallback } from '@/lib/fallback';
 import { buildEventHref } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 import { LandingHero, type HeroLink } from './hero';
+import { LandingTour } from './landing-tour';
 import { RevealObserver } from './reveal-observer';
 
 /**
@@ -121,6 +122,8 @@ export async function GuestLanding() {
           </ul>
         </section>
       )}
+
+      <LandingTour />
 
       <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>
         <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">

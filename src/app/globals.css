@@ -1261,3 +1261,84 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   transform-origin: center;
   animation: sf-save-pop 360ms var(--easing-spring) both;
 }
+
+/* =====================================================================
+   12. LATAR & PANGGUNG BERGERAK (ADR-062)
+   ===================================================================== */
+
+/* Coretan latar bergeser pelan mengikuti posisi gulir (kedalaman semu).
+   Scroll-driven animation = peningkatan progresif: peramban yang belum
+   mendukung `animation-timeline` menampilkan coretan diam di tempatnya.
+   `animation-timeline` ditulis SETELAH `animation`: shorthand mereset-nya. */
+@keyframes sf-parallax {
+  from { transform: translateY(0); }
+  to { transform: translateY(var(--py, -90px)); }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduce']) .parallax-y {
+      animation: sf-parallax linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+
+/* Tur beranda (ADR-062). Setiap langkah dipasang ulang (`key`), jadi
+   animasi masuknya berjalan lagi; jedanya lewat `--t`. Keadaan akhir =
+   keadaan bawaan elemen, sehingga reduced-motion & tanpa-JS langsung
+   menampilkan panggung yang utuh. */
+@keyframes sf-tour-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@utility tour-in {
+  animation: sf-tour-in 460ms var(--easing-enter) both;
+  animation-delay: var(--t, 0ms);
+}
+
+@keyframes sf-tour-out {
+  to { opacity: 0; }
+}
+
+@utility tour-out {
+  animation: sf-tour-out 160ms var(--easing) both;
+  animation-delay: var(--t, 0ms);
+}
+
+/* Teks yang "diketik": lebar dibuka bertahap (steps), bukan JS per huruf. */
+@keyframes sf-tour-type {
+  from { max-width: 0; }
+  to { max-width: var(--w, 14ch); }
+}
+
+@utility tour-type {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  animation: sf-tour-type 1100ms steps(var(--steps, 12)) both;
+  animation-delay: var(--t, 0ms);
+}
+
+@keyframes sf-tour-caret {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@utility tour-caret {
+  animation: sf-tour-caret 900ms steps(1) infinite;
+}
+
+/* Bilah waktu langkah aktif. `animationend`-nya yang memajukan tur, jadi
+   menjeda bilah (play-state) = menjeda tur, tanpa pewaktu JS yang terpisah. */
+@keyframes sf-tour-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@utility tour-progress {
+  transform-origin: left center;
+  animation: sf-tour-progress var(--dur, 5200ms) linear both;
+}

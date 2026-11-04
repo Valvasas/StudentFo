@@ -114,10 +114,18 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
 
         {items.length > 0 && (
           <div className="enter grid gap-px overflow-hidden rounded-[18px] border border-line bg-line [animation-delay:80ms] [animation-duration:800ms] [grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))]">
-            {(['SAVED', 'APPLIED', 'INTERVIEW', 'ACCEPTED'] as const).map((status) => (
+            {(['SAVED', 'APPLIED', 'INTERVIEW', 'ACCEPTED'] as const).map((status, index) => (
               <div key={status} className="flex flex-col gap-1 bg-panel px-5 py-4">
-                <span className="text-[32px] font-bold leading-none tracking-[-0.04em]">{counts[status]}</span>
+                <span className="text-[32px] font-bold leading-none tracking-[-0.04em] tabular-nums">{counts[status]}</span>
                 <span className="text-[13px] text-ink-muted">{TRACKER_STATUS_LABEL[status]}</span>
+                {/* Bagian dari semua yang dipantau (ADR-062): sebaran lamaran terbaca
+                    sekilas tanpa menjumlah empat angka di kepala. Angkanya tetap teks. */}
+                <span aria-hidden className="mt-2 h-1 overflow-hidden rounded-pill bg-line">
+                  <span
+                    className="grow-x block h-full rounded-pill bg-brand"
+                    style={{ width: `${Math.round((counts[status] / Math.max(items.length, 1)) * 100)}%`, animationDelay: `${200 + index * 120}ms` }}
+                  />
+                </span>
               </div>
             ))}
           </div>

@@ -53,7 +53,7 @@ function Avatar({ conversation, size = 'md' }: { conversation: DemoConversation;
  */
 export function MessagesApp({ events }: { events: Readonly<Record<string, RelatedEvent>> }) {
   const [stored, saveStored, loaded] = useDemoStore<StoredMessages>(MESSAGES_KEY, {}, parseStoredMessages);
-  const [read, saveRead] = useDemoStore<readonly string[]>(READ_KEY, [], parseRead);
+  const [read, saveRead, readLoaded] = useDemoStore<readonly string[]>(READ_KEY, [], parseRead);
   const [selected, setSelected] = useState(DEMO_CONVERSATIONS[0]!.id);
   const [pane, setPane] = useState<'list' | 'chat'>('list');
   const [filter, setFilter] = useState<ConversationFilter>('Semua');
@@ -85,16 +85,31 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' });
   }, [thread.length, selected, typing]);
 
+  const markRead = (conversation: DemoConversation) => {
+    if (read.includes(conversation.id) || conversation.unread === 0) return;
+    saveRead([...read, conversation.id]);
+    // Lencana di navbar membaca angka yang sama (DEMO_UNREAD_KEY).
+    writeDemoJson(DEMO_UNREAD_KEY, Math.max(0, readDemoNumber(DEMO_UNREAD_KEY, DEMO_UNREAD_DEFAULT) - conversation.unread));
+  };
+
+  // Mulai md, percakapan terpilih SUDAH tampil di panel kanan tanpa diklik —
+  // dulu ia baru ditandai terbaca saat diklik, jadi pesan yang jelas terlihat
+  // tetap dihitung "belum dibaca" di daftar dan di navbar. Di ponsel hanya
+  // daftar yang tampil sampai percakapan dibuka. Menunggu `readLoaded` supaya
+  // tidak menimpa catatan terbaca dari localStorage sebelum sempat dibaca.
+  useEffect(() => {
+    if (!readLoaded) return;
+    if (pane === 'chat' || window.matchMedia('(min-width: 48rem)').matches) markRead(current);
+    // markRead/current berubah setiap render; pemicunya cukup pilihan & panel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readLoaded, selected, pane]);
+
   const open = (conversation: DemoConversation) => {
     setSelected(conversation.id);
     setPane('chat');
     setDraft('');
     setTyping(null);
-    if (!read.includes(conversation.id) && conversation.unread > 0) {
-      saveRead([...read, conversation.id]);
-      // Lencana di navbar membaca angka yang sama (DEMO_UNREAD_KEY).
-      writeDemoJson(DEMO_UNREAD_KEY, Math.max(0, readDemoNumber(DEMO_UNREAD_KEY, DEMO_UNREAD_DEFAULT) - conversation.unread));
-    }
+    markRead(conversation);
     requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
   };
 

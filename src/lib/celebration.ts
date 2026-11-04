@@ -43,6 +43,7 @@ type CelebratedCode = Extract<
   | 'payment_submitted'
   | 'seeker_opened'
   | 'match_invited'
+  | 'team_joined'
 >;
 
 export const CELEBRATIONS: Readonly<Record<CelebratedCode, Celebration>> = {
@@ -61,6 +62,7 @@ export const CELEBRATIONS: Readonly<Record<CelebratedCode, Celebration>> = {
   payment_submitted: { stamp: 'TERKIRIM', title: 'Bukti bayar sedang diperiksa', art: 'plane', confetti: false },
   seeker_opened: { stamp: 'SIAP MAIN', title: 'Kartu pemainmu aktif!', art: 'party', confetti: true },
   match_invited: { stamp: 'TERKIRIM', title: 'Ajakan partner sedang terbang', art: 'plane', confetti: false },
+  team_joined: { stamp: 'SATU TIM', title: 'Kamu resmi masuk tim!', art: 'connect', confetti: true },
 };
 
 export function celebrationFor(code: string | null): Celebration | null {

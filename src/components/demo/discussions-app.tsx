@@ -249,7 +249,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
   const groupList = (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <span className="px-2.5 pb-1.5 text-[12.5px] font-semibold uppercase tracking-[.08em] text-ink-muted">Grup kamu</span>
+        <span className="px-2.5 pb-1.5 text-[13px] font-semibold text-ink-muted">Grup kamu</span>
         {groups.map((item) => {
           const info = events[item.eventSlug]!;
           const active = item.id === group.id;
