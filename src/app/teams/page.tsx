@@ -6,7 +6,7 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { DemoTeamRoles } from '@/components/profile/demo-profile-parts';
 import { MyTeamLink, TeamCard } from '@/components/team/team-card';
 import { Avatar } from '@/components/ui/avatar';
-import { FeatureHero, StatTile } from '@/components/ui/feature-hero';
+import { FeatureHero, IllustrationStage, StatTile } from '@/components/ui/feature-hero';
 import { TeamHuddleSketch } from '@/components/ui/feature-illustrations';
 import { SelectInput } from '@/components/ui/field';
 import { getSessionUser } from '@/lib/auth';
@@ -73,6 +73,11 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
 
       <FeatureHero
         note={scoped ? `${EVENT_TYPE_LABEL[scoped.eventType]} · ${scoped.organizer}` : undefined}
+        stage={
+          <IllustrationStage tint="mint" className="min-h-[260px]">
+            <TeamHuddleSketch />
+          </IllustrationStage>
+        }
         title="Cari tim"
         description={
           scoped

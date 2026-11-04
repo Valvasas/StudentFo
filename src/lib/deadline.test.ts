@@ -8,7 +8,9 @@ import {
   daysUntil,
   getDeadlineState,
   jakartaDayWindow,
+  timeLeftToday,
   urgencyFromDays,
+  urgencyRamp,
 } from './deadline';
 
 // 10 Jan 2026, 20:00 WIB = 13:00 UTC.
@@ -153,5 +155,41 @@ describe('tanggal kalender WIB', () => {
   it('nilai rusak tidak melempar', () => {
     expect(jakartaDateParts('bukan-tanggal')).toBeNull();
     expect(formatShortDateId('bukan-tanggal')).toBe('–');
+  });
+});
+
+describe('timeLeftToday', () => {
+  it('jam & menit hanya untuk tenggat hari ini (WIB)', () => {
+    // NOW = 10 Jan 20:00 WIB; tenggat 23:59 WIB hari yang sama.
+    expect(timeLeftToday('2026-01-10T16:59:00Z', NOW)).toBe('3 jam 59 menit');
+    expect(timeLeftToday('2026-01-10T14:00:00Z', NOW)).toBe('1 jam');
+    expect(timeLeftToday('2026-01-10T13:25:30Z', NOW)).toBe('25 menit');
+    expect(timeLeftToday('2026-01-10T13:00:30Z', NOW)).toBe('kurang dari semenit');
+  });
+
+  it('null untuk tenggat besok walau kurang dari 24 jam lagi', () => {
+    // 11 Jan 08:00 WIB: 12 jam lagi, tapi kartu menyebutnya "Tutup besok".
+    expect(timeLeftToday('2026-01-11T01:00:00Z', NOW)).toBeNull();
+  });
+
+  it('null untuk tenggat yang sudah lewat hari ini dan tanggal rusak', () => {
+    expect(timeLeftToday('2026-01-10T05:00:00Z', NOW)).toBeNull();
+    expect(timeLeftToday('bukan-tanggal', NOW)).toBeNull();
+  });
+});
+
+describe('urgencyRamp', () => {
+  it('naik rata per hari dari H-7 (0) ke hari-H (1)', () => {
+    expect(urgencyRamp(7)).toBe(0);
+    expect(urgencyRamp(3)).toBe(0.571);
+    expect(urgencyRamp(0)).toBe(1);
+    const steps = [7, 6, 5, 4, 3, 2, 1, 0].map(urgencyRamp);
+    expect(steps).toEqual([...steps].sort((a, b) => a - b));
+  });
+
+  it('0 di luar jendela tujuh hari', () => {
+    expect(urgencyRamp(8)).toBe(0);
+    expect(urgencyRamp(-1)).toBe(0);
+    expect(urgencyRamp(null)).toBe(0);
   });
 });

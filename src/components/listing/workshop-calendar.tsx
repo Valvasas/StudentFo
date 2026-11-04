@@ -69,7 +69,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
 
       <section aria-label="Filter kegiatan">
         <div className="enter mt-9 flex items-center gap-3 [animation-delay:100ms] [animation-duration:900ms]">
-          <span className="font-mono text-xs uppercase tracking-[.08em] text-ink-muted">Tutup pendaftaran · {monthLabel}</span>
+          <span className="text-[13px] font-semibold text-ink-soft">Tutup pendaftaran · {monthLabel}</span>
           <span aria-hidden className="h-px flex-1 bg-line" />
         </div>
         <nav
@@ -116,16 +116,16 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
         </nav>
         <CollapsibleFilters breakpoint="md" activeCount={query.categories.length} className="mt-6 border-b border-line pb-6">
           <nav aria-label="Bidang" className="flex flex-wrap gap-2">
-            <ChipLink href={withDay(buildEventHref(query, { categories: [], page: 1 }), day)} active={query.categories.length === 0}>
-              <CategoryIcon slug={undefined} /> Semua
+            <ChipLink href={withDay(buildEventHref(query, { categories: [], page: 1 }), day)} active={query.categories.length === 0} icon={<CategoryIcon slug={undefined} />}>
+              Semua
             </ChipLink>
             {categories.map((category) => (
               <ChipLink
                 key={category.slug}
                 href={withDay(buildEventHref(query, { categories: query.categories.includes(category.slug) ? [] : [category.slug], page: 1 }), day)}
                 active={query.categories.includes(category.slug)}
+                icon={<CategoryIcon slug={category.slug} />}
               >
-                <CategoryIcon slug={category.slug} />
                 {shortCategoryName(category.name)}
               </ChipLink>
             ))}
@@ -153,7 +153,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
                 style={{ animationDelay: `${index * 70}ms` }}
               >
                 <div aria-hidden className="flex w-[72px] shrink-0 flex-col items-center self-start overflow-hidden rounded-[12px] border border-brand">
-                  <span className="w-full bg-brand py-[5px] text-center font-mono text-[11px] uppercase tracking-[.08em] text-on-brand">
+                  <span className="w-full bg-brand py-[5px] text-center text-[11.5px] font-semibold text-on-brand">
                     {parts?.month.slice(0, 3) ?? 'TBA'}
                   </span>
                   <span className="pb-0.5 pt-2 text-[30px] font-bold leading-none tracking-[-0.04em]">{parts?.day ?? '–'}</span>

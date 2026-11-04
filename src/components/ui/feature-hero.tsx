@@ -6,12 +6,12 @@ import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 
 /**
- * Kepala halaman: judul + kalimat + aksi. Tanpa `stage` ia satu kolom polos,
- * sama dengan kepala /events — itu bentuk bawaan halaman fungsional (daftar,
- * form, pengaturan). Panggung ilustrasi di kanan hanya untuk "momen" yang
- * memang dirancang sebagai pengalaman, mis. pencocokan tim (ADR-057);
- * memasangnya di halaman daftar membuat dua halaman bertetangga terasa
- * seperti dua produk. Di ponsel panggung turun ke bawah teks.
+ * Kepala halaman: judul + kalimat + aksi, dengan panggung ilustrasi
+ * bergerak di kanan bila ada `stage`. Sejak ADR-062 halaman fitur unggulan
+ * (tim, koneksi) memakainya sebagai identitas merek — membalik pembatasan
+ * ADR-057 atas permintaan pemilik. Panggungnya hanya tampil mulai `lg`
+ * (`stageFrom`): di ponsel layar pertama tetap milik isi & aksi, bukan
+ * gambar. Halaman form & pengaturan tetap tanpa panggung.
  */
 export function FeatureHero({
   note,
@@ -19,6 +19,7 @@ export function FeatureHero({
   description,
   actions,
   stage,
+  stageFrom = 'lg',
   children,
   className,
 }: {
@@ -28,6 +29,8 @@ export function FeatureHero({
   description: ReactNode;
   actions?: ReactNode;
   stage?: ReactNode;
+  /** `lg` = panggung disembunyikan di bawah 1024px (bawaan); `always` = juga di ponsel (momen seperti pencocokan). */
+  stageFrom?: 'lg' | 'always';
   children?: ReactNode;
   className?: string;
 }) {
@@ -40,7 +43,9 @@ export function FeatureHero({
         {actions && <div className="mt-1 flex flex-wrap items-center gap-3">{actions}</div>}
         {children}
       </div>
-      {stage && <div className="enter min-w-0 [animation-delay:140ms] [animation-duration:1000ms]">{stage}</div>}
+      {stage && (
+        <div className={cn('enter min-w-0 [animation-delay:140ms] [animation-duration:1000ms]', stageFrom === 'lg' && 'hidden lg:block')}>{stage}</div>
+      )}
     </header>
   );
 }

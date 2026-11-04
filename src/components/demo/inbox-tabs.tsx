@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Hash, MessageCircle } from 'lucide-react';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
+import { ChatSketch } from '@/components/ui/feature-illustrations';
 import { cn } from '@/lib/utils';
 
 /** Tab Pesan / Ruang diskusi di kepala kedua halaman (kanvas Pesan & Ruang Diskusi). */
@@ -11,11 +12,16 @@ export function InboxTabs({ active, description }: { active: 'pesan' | 'diskusi'
   ] as const;
   return (
     <div className="enter flex flex-col gap-4 [animation-duration:800ms] sm:flex-row sm:items-end sm:justify-between">
-      <div className="flex flex-col gap-2">
-        <p className="font-display text-[clamp(28px,4vw,36px)] font-bold leading-none tracking-[-0.03em]">
-          Kotak masuk
-        </p>
-        <p className="max-w-[52ch] text-[15px] leading-relaxed text-ink-muted">{description}</p>
+      <div className="flex items-end gap-6">
+        <div className="flex flex-col gap-2">
+          <p className="font-display text-[clamp(28px,4vw,36px)] font-bold leading-none tracking-[-0.03em]">
+            Kotak masuk
+          </p>
+          <p className="max-w-[52ch] text-[15px] leading-relaxed text-ink-muted">{description}</p>
+        </div>
+        {/* Sketsa kecil (ADR-062) hanya di layar lebar: di ponsel kotak masuk
+            sendiri yang harus ada di layar pertama. */}
+        <ChatSketch className="-mb-2 hidden w-[132px] shrink-0 lg:block" />
       </div>
       <nav aria-label="Kotak masuk" className="relative">
         <ul className="flex w-fit gap-1 rounded-pill border border-line bg-panel p-1.5">

@@ -1,7 +1,8 @@
 import { PriceBadge } from '@/components/event/price-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
-import { Check, Clock } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { DeadlineTag } from '@/components/event/deadline-tag';
 import { Pagination } from '@/components/event/pagination';
 import { shortCategoryName } from '@/components/listing/category-icon';
 import { LocationFilter } from '@/components/listing/location-filter';
@@ -17,11 +18,10 @@ import {
   CollapsibleFilters,
 } from '@/components/listing/listing-ui';
 import type { BoardProps } from '@/components/listing/lomba-board';
-import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
-import { initialsOf } from '@/lib/initials';
+import { formatShortDateId } from '@/lib/deadline';
+import { levelSummary } from '@/lib/eligibility';
 import { buildEventHref, hasActiveFilters } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
-import { EDUCATION_LEVEL_LABEL } from '@/types/domain';
 
 const MAGANG_LEVELS: readonly LevelOption[] = [
   { label: 'Semua', levels: [] },
@@ -158,8 +158,6 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
 
           <ul className="flex flex-col gap-3">
             {result.items.map((event, index) => {
-              const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
-              const urgent = days !== null && days <= 7;
               const category = categories.find((item) => item.slug === event.categorySlugs[0]);
               return (
                 <li
@@ -167,9 +165,6 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                   className="enter relative flex flex-wrap gap-5 rounded-[14px] border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap [animation-duration:700ms] focus-within:border-brand hover:border-brand hover:shadow-[0_10px_28px_rgba(0,0,0,.06)]"
                   style={{ animationDelay: `${index * 60}ms` }}
                 >
-                  <span aria-hidden className="flex size-[52px] shrink-0 items-center justify-center rounded-[12px] bg-brand text-[15px] font-semibold tracking-[-0.01em] text-on-brand">
-                    {initialsOf(event.organizer)}
-                  </span>
                   <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-2.5">
                     <div className="flex flex-col gap-1">
                       <h2 className="text-[17px] font-semibold tracking-[-0.015em]">
@@ -189,11 +184,9 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                       <li className="flex h-6 items-center rounded-[6px] bg-panel-nested px-[9px] text-[12.5px] font-medium text-ink-soft">
                         {event.isOnline ? 'Daring' : 'Luring'}
                       </li>
-                      {event.educationLevels.length > 0 && (
-                        <li className="flex h-6 items-center rounded-[6px] bg-panel-nested px-[9px] text-[12.5px] font-medium text-ink-soft">
-                          {event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(' · ')}
-                        </li>
-                      )}
+                      <li className="flex h-6 items-center rounded-[6px] bg-panel-nested px-[9px] text-[12.5px] font-medium text-ink-soft">
+                        {levelSummary(event.educationLevels).short}
+                      </li>
                       {category && (
                         <li className="flex h-6 items-center rounded-[6px] border border-line px-[9px] text-[12.5px] text-ink-muted">
                           {shortCategoryName(category.name)}
@@ -209,14 +202,7 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                       </span>
                       <span className="text-xs text-ink-muted">tutup pendaftaran</span>
                     </div>
-                    {urgent ? (
-                      <span className="inline-flex h-6 items-center gap-[5px] rounded-[6px] bg-brand px-2 text-[12.5px] font-semibold text-on-brand">
-                        <Clock aria-hidden className="size-3" />
-                        {daysLeftLabel(days)}
-                      </span>
-                    ) : (
-                      <span className="text-[12.5px] text-ink-muted">{daysLeftLabel(days)}</span>
-                    )}
+                    <DeadlineTag deadlineAt={event.primaryDeadlineAt} now={now} />
                   </div>
                 </li>
               );

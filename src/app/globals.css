@@ -238,10 +238,11 @@
   --press-drop: 0 0 0 transparent;
   --focus-halo: rgb(239 235 225 / 0.1);
 
-  /* Footer & panel CTA tetap lebih gelap dari halaman supaya batas
-     "isi halaman" vs "penutup" tidak hilang di tema gelap. */
-  --color-inverse-surface: #0d0c09;
-  --color-inverse-nested: #2b2922;
+  /* Permukaan "gelap-selalu" di tema gelap TERANGKAT dari kanvas, bukan
+     lebih gelap: #0d0c09 di atas #15140f hanya ±1,06:1, sehingga panel,
+     toast, dan kartu ajakan larut ke halaman tanpa batas (ADR-061). */
+  --color-inverse-surface: #2b2922;
+  --color-inverse-nested: #3b382f;
   --color-inverse-text: #efebe1;
   --color-inverse-text-muted: #aaa496;
 }
@@ -1216,3 +1217,128 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   animation-delay: var(--d, 0ms);
 }
 
+
+/* =====================================================================
+   11. UMPAN BALIK KECIL YANG MEMUASKAN (ADR-061)
+   Hanya anak dekoratif DI DALAM target (ikon) yang bergerak — kotak sentuh
+   tidak pernah bergeser (ADR-039/055). Sekali jalan saat elemen muncul,
+   jadi ikut aturan reduced-motion §3 tanpa kode tambahan.
+   ===================================================================== */
+@keyframes sf-tick-in {
+  from { opacity: 0; transform: scale(0.4) rotate(-14deg); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Centang di chip filter yang baru aktif: "tumbuh" menggantikan ikon bidang. */
+@utility chip-tick {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-tick-in 260ms var(--easing-spring) both;
+}
+
+@keyframes sf-save-pop {
+  0% { transform: scale(0.7); }
+  55% { transform: scale(1.22); }
+  100% { transform: none; }
+}
+
+/* Gradien urgensi tenggat (ADR-061): satu tinta, intensitas naik PER HARI.
+   `--ramp` = 0 di H-7 … 1 di hari-H (diisi DeadlineTag). Latar & garis
+   dicampur dari tinta tenggat ke permukaan kartu, jadi tetap monokrom,
+   ikut tema gelap tanpa salinan kedua, dan teksnya selalu tinta penuh
+   (≥ 10,8:1 di kedua tema — campuran latarnya paling banyak 14% tinta).
+   Garis tepi mulai dari 52% tinta: di H-7 masih ≥ 3,7:1 terhadap kartu &
+   kanvas (WCAG 1.4.11); 40% hanya 2,8:1. check:contrast tidak bisa membaca
+   color-mix, jadi angka ini diukur terpisah (OKLab) — ukur ulang bila diubah. */
+@utility due-ramp {
+  color: var(--color-deadline-warning);
+  background-color: color-mix(in oklab, var(--color-deadline-urgent) calc(var(--ramp, 0) * 24%), var(--color-surface));
+  border: 1px solid color-mix(in oklab, var(--color-deadline-urgent) calc(52% + var(--ramp, 0) * 48%), var(--color-surface));
+}
+
+/* Penanda simpan terisi seketika saat diketuk, sebelum server menjawab. */
+@utility save-pop {
+  transform-origin: center;
+  animation: sf-save-pop 360ms var(--easing-spring) both;
+}
+
+/* =====================================================================
+   12. LATAR & PANGGUNG BERGERAK (ADR-062)
+   ===================================================================== */
+
+/* Coretan latar bergeser pelan mengikuti posisi gulir (kedalaman semu).
+   Scroll-driven animation = peningkatan progresif: peramban yang belum
+   mendukung `animation-timeline` menampilkan coretan diam di tempatnya.
+   `animation-timeline` ditulis SETELAH `animation`: shorthand mereset-nya. */
+@keyframes sf-parallax {
+  from { transform: translateY(0); }
+  to { transform: translateY(var(--py, -90px)); }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduce']) .parallax-y {
+      animation: sf-parallax linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+
+/* Tur beranda (ADR-062). Setiap langkah dipasang ulang (`key`), jadi
+   animasi masuknya berjalan lagi; jedanya lewat `--t`. Keadaan akhir =
+   keadaan bawaan elemen, sehingga reduced-motion & tanpa-JS langsung
+   menampilkan panggung yang utuh. */
+@keyframes sf-tour-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@utility tour-in {
+  animation: sf-tour-in 460ms var(--easing-enter) both;
+  animation-delay: var(--t, 0ms);
+}
+
+@keyframes sf-tour-out {
+  to { opacity: 0; }
+}
+
+@utility tour-out {
+  animation: sf-tour-out 160ms var(--easing) both;
+  animation-delay: var(--t, 0ms);
+}
+
+/* Teks yang "diketik": lebar dibuka bertahap (steps), bukan JS per huruf. */
+@keyframes sf-tour-type {
+  from { max-width: 0; }
+  to { max-width: var(--w, 14ch); }
+}
+
+@utility tour-type {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  animation: sf-tour-type 1100ms steps(var(--steps, 12)) both;
+  animation-delay: var(--t, 0ms);
+}
+
+@keyframes sf-tour-caret {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@utility tour-caret {
+  animation: sf-tour-caret 900ms steps(1) infinite;
+}
+
+/* Bilah waktu langkah aktif. `animationend`-nya yang memajukan tur, jadi
+   menjeda bilah (play-state) = menjeda tur, tanpa pewaktu JS yang terpisah. */
+@keyframes sf-tour-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@utility tour-progress {
+  transform-origin: left center;
+  animation: sf-tour-progress var(--dur, 5200ms) linear both;
+}

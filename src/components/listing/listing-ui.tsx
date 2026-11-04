@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Bookmark, ChevronDown, Search, SearchX, SlidersHorizontal } from 'lucide-react';
+import { Check, ChevronDown, Search, SearchX, SlidersHorizontal } from 'lucide-react';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
+import { BookmarkSubmit } from '@/components/event/bookmark-submit';
 import { HiddenFilters } from '@/components/event/filter-bar';
 import { buildEventHref, type ParsedEventQuery } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
@@ -17,16 +18,16 @@ import type { EducationLevel } from '@/types/domain';
  * semuanya tetap berfungsi tanpa JavaScript.
  */
 
-export function Breadcrumb({ current, inverse = false }: { current: string; inverse?: boolean }) {
+export function Breadcrumb({ current }: { current: string }) {
   return (
     // Disembunyikan di ponsel: tab navbar sudah menandai halaman ini, dan
     // remah roti dua tingkat hanya menambah satu baris sebelum judul.
-    <nav aria-label="Remah roti" className={cn('hidden items-center gap-2 text-[13px] sm:flex', inverse ? 'text-on-inverse-muted' : 'text-ink-muted')}>
-      <Link href="/" className={cn('inline-flex min-h-11 items-center', inverse ? 'hover:text-on-inverse' : 'hover:text-ink')}>
+    <nav aria-label="Remah roti" className="hidden items-center gap-2 text-[13px] text-ink-muted sm:flex">
+      <Link href="/" className="inline-flex min-h-11 items-center hover:text-ink">
         Beranda
       </Link>
       <span aria-hidden>/</span>
-      <span aria-current="page" className={inverse ? 'text-on-inverse' : 'text-ink'}>
+      <span aria-current="page" className="text-ink">
         {current}
       </span>
     </nav>
@@ -63,6 +64,8 @@ export function SearchBox({
         maxLength={120}
         placeholder={placeholder}
         aria-label="Kata kunci pencarian"
+        aria-keyshortcuts="/"
+        data-search-shortcut=""
         className={cn(
           'w-full min-w-0 bg-transparent text-base text-ink placeholder:text-ink-faint',
           large
@@ -93,18 +96,16 @@ export interface SegmentItem {
 export function SegmentLinks({
   items,
   label,
-  inverse = false,
   className,
   stretch = false,
 }: {
   items: readonly SegmentItem[];
   label: string;
-  inverse?: boolean;
   className?: string;
   stretch?: boolean;
 }) {
   return (
-    <nav aria-label={label} className={cn('flex max-w-full gap-0.5 overflow-x-auto rounded-sm p-[3px] [scrollbar-width:none]', inverse ? 'bg-inverse-nested' : 'bg-panel-nested', className)}>
+    <nav aria-label={label} className={cn('flex max-w-full gap-0.5 overflow-x-auto rounded-sm bg-panel-nested p-[3px] [scrollbar-width:none]', className)}>
       {items.map((item) => (
         <Link
           key={item.label}
@@ -115,13 +116,7 @@ export function SegmentLinks({
             'flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-[6px] px-3 text-[13.5px] font-medium transition-colors duration-150 ease-snap sm:min-h-9',
             'relative sm:after:absolute sm:after:inset-x-0 sm:after:-inset-y-1 sm:after:content-[""]',
             stretch && 'flex-1',
-            item.active
-              ? inverse
-                ? 'bg-on-inverse text-inverse'
-                : 'bg-panel text-ink shadow-[0_1px_2px_rgba(0,0,0,.1)]'
-              : inverse
-                ? 'text-on-inverse-muted hover:text-on-inverse'
-                : 'text-ink-muted hover:text-ink',
+            item.active ? 'bg-panel text-ink shadow-[0_1px_2px_rgba(0,0,0,.1)]' : 'text-ink-muted hover:text-ink',
           )}
         >
           {item.label}
@@ -131,17 +126,12 @@ export function SegmentLinks({
   );
 }
 
-export function ChipLink({
-  href,
-  active,
-  children,
-  inverse = false,
-}: {
-  href: string;
-  active: boolean;
-  children: ReactNode;
-  inverse?: boolean;
-}) {
+/**
+ * Chip filter. Saat aktif, ikonnya (bila ada) DIGANTI tanda centang yang
+ * "tumbuh" (`chip-tick`), bukan ditambah di sebelahnya: lebar chip tetap,
+ * jadi deretan chip tidak bergeser di bawah jari yang baru mengetuknya.
+ */
+export function ChipLink({ href, active, icon, children }: { href: string; active: boolean; icon?: ReactNode; children: ReactNode }) {
   return (
     <Link
       href={href}
@@ -150,43 +140,31 @@ export function ChipLink({
       className={cn(
         'relative inline-flex h-9 items-center gap-[7px] rounded-sm border px-3 text-[13.5px] font-medium transition-colors duration-150 ease-snap',
         'after:absolute after:inset-x-0 after:-inset-y-1 after:content-[""]',
-        active
-          ? inverse
-            ? 'border-on-inverse bg-on-inverse text-inverse'
-            : 'border-brand bg-brand text-on-brand'
-          : inverse
-            ? 'border-white/25 text-on-inverse hover:border-white/60'
-            : 'border-line bg-panel text-ink hover:border-line-strong',
+        active ? 'border-brand bg-brand text-on-brand' : 'border-line bg-panel text-ink hover:border-line-strong',
       )}
     >
+      {active ? <Check aria-hidden className="chip-tick size-3.5" strokeWidth={2.6} /> : icon}
       {children}
     </Link>
   );
 }
 
 /** Sakelar filter (kanvas: "Hanya yang gratis"). Tautan, jadi statusnya diumumkan lewat teks tersembunyi. */
-export function ToggleLink({ href, on, children, inverse = false }: { href: string; on: boolean; children: ReactNode; inverse?: boolean }) {
+export function ToggleLink({ href, on, children }: { href: string; on: boolean; children: ReactNode }) {
   return (
     <Link
       href={href}
       scroll={false}
-      className={cn(
-        'flex min-h-11 items-center gap-2.5 rounded-sm px-3 text-[13.5px] font-medium transition-colors duration-150 ease-snap',
-        inverse ? 'text-on-inverse hover:bg-inverse-nested' : 'hover:bg-panel-nested',
-      )}
+      className="flex min-h-11 items-center gap-2.5 rounded-sm px-3 text-[13.5px] font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested"
     >
       <span
         aria-hidden
-        className={cn(
-          'relative h-[18px] w-[30px] shrink-0 rounded-[9px] transition-colors duration-200',
-          on ? (inverse ? 'bg-on-inverse' : 'bg-brand') : inverse ? 'bg-white/25' : 'bg-line-strong',
-        )}
+        className={cn('relative h-[18px] w-[30px] shrink-0 rounded-[9px] transition-colors duration-200', on ? 'bg-brand' : 'bg-line-strong')}
       >
         <span
           className={cn(
-            'absolute left-0.5 top-0.5 size-3.5 rounded-pill shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-transform duration-200',
-            on ? 'translate-x-3' : '',
-            inverse && on ? 'bg-inverse' : 'bg-white',
+            'absolute left-0.5 top-0.5 size-3.5 rounded-pill bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-transform duration-200',
+            on && 'translate-x-3',
           )}
         />
       </span>
@@ -202,13 +180,10 @@ export function SaveToggle({ eventId, isSaved, returnTo, className }: { eventId:
     <form action={toggleSaveEventAction} className={cn('relative z-10', className)}>
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="returnTo" value={returnTo} />
-      <button
-        type="submit"
-        aria-label={isSaved ? 'Hapus dari simpanan' : 'Simpan kegiatan'}
+      <BookmarkSubmit
+        isSaved={isSaved}
         className="flex size-11 items-center justify-center rounded-sm text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested"
-      >
-        <Bookmark aria-hidden className={cn('size-4', isSaved && 'fill-current')} />
-      </button>
+      />
     </form>
   );
 }

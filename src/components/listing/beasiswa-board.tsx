@@ -6,7 +6,6 @@ import { Pagination } from '@/components/event/pagination';
 import { Breadcrumb, PageTitle, ResultsEmpty, SaveToggle, SearchBox, ToggleLink } from '@/components/listing/listing-ui';
 import type { BoardProps } from '@/components/listing/lomba-board';
 import { daysLeftLabel, daysUntil, formatDateId } from '@/lib/deadline';
-import { initialsOf } from '@/lib/initials';
 import { ELIGIBILITY_LEVELS, eligibilityReason } from '@/lib/eligibility';
 import { buildEventHref } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
@@ -56,7 +55,7 @@ export function BeasiswaBoard({
         className="enter mt-10 grid gap-px overflow-hidden rounded-2xl border border-line bg-line [animation-delay:120ms] [animation-duration:900ms] [grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))]"
       >
         <div className="flex flex-col gap-3 bg-panel-nested px-6 py-[22px] sm:col-span-2">
-          <span className="font-mono text-xs tracking-[.06em] text-ink-muted">JENJANG KAMU</span>
+          <span className="text-[13px] font-semibold text-ink-soft">Jenjangmu</span>
           <nav
             aria-label="Jenjang untuk cek kelayakan"
             className="flex max-w-full gap-0.5 self-start overflow-x-auto rounded-sm bg-line p-[3px] [scrollbar-width:none]"
@@ -83,12 +82,12 @@ export function BeasiswaBoard({
             {userLevel ? 'Diisi dari profilmu.' : 'Masuk dan isi profil supaya jenjangmu terpilih otomatis.'}
           </p>
         </div>
-        <div className="flex flex-col justify-center gap-1 bg-inverse px-6 py-[22px] text-on-inverse">
+        <div className="flex flex-col justify-center gap-1 bg-panel px-6 py-[22px]">
           <span className="flex items-baseline gap-2">
-            <span className="text-[44px] font-bold leading-none tracking-[-0.04em]">{eligibleTotal}</span>
-            <span className="text-[15px] text-on-inverse-muted">dari {totalOpen} beasiswa</span>
+            <span className="font-display text-[44px] font-bold leading-none tracking-[-0.04em] tabular-nums">{eligibleTotal}</span>
+            <span className="text-[15px] text-ink-muted">dari {totalOpen} beasiswa</span>
           </span>
-          <span className="text-sm text-on-inverse-muted">terbuka untuk jenjang {EDUCATION_LEVEL_LABEL[level]}</span>
+          <span className="text-sm text-ink-muted">terbuka untuk jenjang {EDUCATION_LEVEL_LABEL[level]}</span>
         </div>
       </section>
 
@@ -138,11 +137,6 @@ export function BeasiswaBoard({
                 style={{ animationDelay: `${index * 60}ms` }}
               >
                 <div className="flex min-w-0 items-center gap-3.5">
-                  {/* Avatar inisial hanya hiasan; di ponsel ia memakan 58px dari
-                      kolom judul dan membuat judul pecah jadi 4–5 baris. */}
-                  <span aria-hidden className="hidden size-11 shrink-0 items-center justify-center rounded-[10px] border border-brand font-mono text-[13px] font-medium sm:flex">
-                    {initialsOf(event.organizer)}
-                  </span>
                   <div className="flex min-w-0 flex-col gap-[3px]">
                     <h2 className="text-[15.5px] font-semibold tracking-[-0.01em]">
                       <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:content-['']">

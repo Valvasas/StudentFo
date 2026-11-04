@@ -14,13 +14,15 @@ test('filter biaya lewat chip berfungsi TANPA JavaScript; kegiatan berbiaya-tak-
   const page = await context.newPage();
   await page.goto('/events');
   const filters = page.getByRole('region', { name: 'Filter kegiatan' });
-  await filters.getByText('Saring', { exact: true }).click();
-  await filters.getByRole('link', { name: 'Gratis', exact: true }).click();
+  // Biaya ada di baris saringan cepat (ADR-061), di luar panel "Saring".
+  const cost = filters.getByRole('group', { name: 'Biaya' });
+  await cost.getByRole('link', { name: 'Gratis', exact: true }).click();
   await expect(page).toHaveURL(/biaya=gratis/);
-  // Tanpa JS halaman dimuat ulang dengan panel tertutup; filter aktif tetap
-  // terlihat sebagai chip "hapus", dan lencana Saring menghitungnya.
-  await expect(filters.getByRole('link', { name: 'Hapus filter Gratis' })).toBeVisible();
-  await expect(filters.locator('summary').filter({ hasText: 'Saring' })).toContainText('1');
+  // Tanpa JS halaman dimuat ulang; chip yang aktif tetap terlihat & tertandai
+  // di baris cepat, jadi tidak diulang sebagai chip "hapus" atau di lencana Saring.
+  await expect(cost.getByRole('link', { name: 'Gratis', exact: true })).toHaveAttribute('aria-current', 'true');
+  await expect(filters.getByRole('link', { name: 'Hapus filter Gratis' })).toHaveCount(0);
+  await expect(filters.locator('summary').filter({ hasText: 'Saring' })).not.toContainText('1');
 
   const cards = page.locator('main article');
   const count = await cards.count();

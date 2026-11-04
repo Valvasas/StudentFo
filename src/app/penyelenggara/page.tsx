@@ -95,7 +95,7 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
     <div className="container-page flex flex-col gap-10 py-8">
       <header className="enter flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 max-w-2xl flex-col gap-2">
-          <p className="font-mono text-xs uppercase tracking-[.08em] text-ink-muted">Studio penyelenggara</p>
+          <p className="text-[13px] font-semibold text-ink-muted">Studio penyelenggara</p>
           <h1 className="text-[clamp(28px,4vw,38px)] leading-tight">
             {verified ? profile.orgName : 'Kelola acaramu di StudentFo'}
           </h1>

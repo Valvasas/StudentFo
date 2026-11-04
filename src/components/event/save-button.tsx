@@ -1,5 +1,6 @@
 import { Bookmark } from 'lucide-react';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
+import { BookmarkSubmit } from '@/components/event/bookmark-submit';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { cn } from '@/lib/utils';
 
@@ -40,22 +41,12 @@ export function SaveButton({
     <form action={toggleSaveEventAction} className={cn('inline-block', className)}>
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="returnTo" value={returnTo} />
-      <SubmitButton
-        className={cn(
-          // Tampil 36px, area sentuh 44px lewat ::after (standar proyek, lihat Button size="sm").
-          "relative z-10 flex size-9 items-center justify-center rounded-pill border border-line bg-panel transition-colors duration-150 ease-snap after:absolute after:-inset-1 after:content-['']",
-          isSaved
-            ? 'border-brand/40 bg-brand/10 text-brand hover:bg-brand/20'
-            : 'text-ink-muted hover:border-line-strong hover:bg-panel-nested hover:text-ink',
-        )}
-        title={isSaved ? 'Hapus dari simpanan' : 'Simpan kegiatan'}
-        aria-label={isSaved ? 'Hapus dari simpanan' : 'Simpan kegiatan'}
-      >
-        <Bookmark
-          aria-hidden
-          className={cn('size-4', isSaved ? 'fill-brand text-brand' : 'text-current')}
-        />
-      </SubmitButton>
+      <BookmarkSubmit
+        isSaved={isSaved}
+        // Tampil 36px, area sentuh 44px lewat ::after (standar proyek, lihat Button size="sm").
+        className="relative z-10 flex size-9 items-center justify-center rounded-pill border border-line bg-panel text-ink-muted transition-colors duration-150 ease-snap after:absolute after:-inset-1 after:content-[''] hover:border-line-strong hover:bg-panel-nested hover:text-ink"
+        savedClassName="border-brand/40 bg-brand/10 text-brand hover:bg-brand/20 hover:text-brand"
+      />
     </form>
   );
 }

@@ -69,6 +69,16 @@ export function urgencyFromDays(daysLeft: number | null): DeadlineUrgency {
   return 'urgent';
 }
 
+/**
+ * Posisi di gradien urgensi (ADR-061): 0 di H-7 … 1 di hari-H, naik rata
+ * per hari kalender. Di luar jendela tujuh hari (aman, ditutup, tanpa
+ * tanggal) = 0 — gradien hanya bermakna saat tenggat sudah dekat.
+ */
+export function urgencyRamp(daysLeft: number | null): number {
+  if (daysLeft === null || daysLeft < 0 || daysLeft > 7) return 0;
+  return Math.round(((7 - daysLeft) / 7) * 1000) / 1000;
+}
+
 export interface DeadlineState {
   readonly daysLeft: number | null;
   readonly urgency: DeadlineUrgency;
@@ -236,6 +246,24 @@ export function daysLeftLabel(daysLeft: number | null): string {
   if (daysLeft === 0) return 'Tutup hari ini';
   if (daysLeft === 1) return 'Tutup besok';
   return `${daysLeft} hari lagi`;
+}
+
+/**
+ * Sisa jam & menit sebelum tenggat, HANYA bila tenggatnya jatuh hari ini
+ * (WIB) dan belum lewat. Di hari lain angka jam justru menyesatkan:
+ * selisih milidetik ke tenggat besok pagi bisa kurang dari 24 jam sehingga
+ * hitung mundur "00 hari" bertabrakan dengan label "Tutup besok" di kartu.
+ */
+export function timeLeftToday(deadlineIso: string, now: Date = new Date()): string | null {
+  if (daysUntil(deadlineIso, now) !== 0) return null;
+  const left = new Date(deadlineIso).getTime() - now.getTime();
+  if (left <= 0) return null;
+  const totalMinutes = Math.floor(left / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0 && minutes === 0) return 'kurang dari semenit';
+  if (hours === 0) return `${minutes} menit`;
+  return minutes === 0 ? `${hours} jam` : `${hours} jam ${minutes} menit`;
 }
 
 const shortDateFormatter = new Intl.DateTimeFormat('id-ID', { timeZone: JAKARTA_TZ, day: 'numeric', month: 'short' });

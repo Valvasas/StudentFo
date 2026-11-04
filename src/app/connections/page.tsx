@@ -19,6 +19,7 @@ import { sectionTitle } from '@/lib/page-title';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 import type { Category, ConnectionCounts, NetworkEventRef } from '@/types/domain';
+import { FeatureHero, IllustrationStage } from '@/components/ui/feature-hero';
 
 /**
  * Koneksi (ADR-040, dipecah per tugas di ADR-048).
@@ -111,14 +112,15 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="container-page pb-24 pt-8 sm:pt-12">
-      <header>
-        <div className="enter flex flex-col gap-3 [animation-duration:900ms]">
-          <h1 className="text-[clamp(32px,6vw,54px)] leading-[1.02] tracking-[-0.035em]">Koneksi</h1>
-          <p className="max-w-[52ch] text-[16px] leading-relaxed text-ink-muted">
-            Temukan orang dengan minat yang sama, lalu ajak mereka satu tim.
-          </p>
-        </div>
-      </header>
+      <FeatureHero
+        title="Koneksi"
+        description="Temukan orang dengan minat yang sama, lalu ajak mereka satu tim."
+        stage={
+          <IllustrationStage tint="sky" className="min-h-[240px]">
+            <ConnectSketch />
+          </IllustrationStage>
+        }
+      />
 
       {/* `relative`: teks sr-only di badge hitungan berposisi absolut; tanpa wadah
           berposisi ia lolos dari kliping gulir ini dan melebarkan halaman di 320px. */}

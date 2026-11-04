@@ -30,7 +30,7 @@ import { ShareButton } from '@/components/event/share-button';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
-import { InlineCountdown } from '@/components/listing/countdown';
+import { DaysLeft } from '@/components/listing/countdown';
 import { RegistrationStatusBadge } from '@/components/organizer/registration-row';
 import { RegistrationCtaBarAction, RegistrationCtaPanel } from '@/components/registration/registration-cta';
 import { registrationCta, registrationEventClosed } from '@/components/registration/registration-view';
@@ -54,7 +54,6 @@ import {
 } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
-import { initialsOf } from '@/lib/initials';
 import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, safeHostname, sanitizeExternalUrl } from '@/lib/utils';
@@ -307,9 +306,6 @@ export default async function EventDetailPage({
             </div>
             <h1 className="text-[clamp(30px,4.6vw,42px)] leading-[1.08] tracking-[-0.04em] [text-wrap:balance]">{event.title}</h1>
             <div className="flex items-center gap-2.5">
-              <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-sm border border-brand font-mono text-xs font-medium">
-                {initialsOf(event.organizer)}
-              </span>
               <span className="flex flex-col gap-px">
                 <span className="flex items-center gap-1.5 text-[15px] font-semibold">
                   {event.organizer}
@@ -470,7 +466,7 @@ export default async function EventDetailPage({
                       const isNext = deadline.id === upcoming?.id;
                       return (
                         <li key={deadline.id} className="grid grid-cols-[88px_24px_minmax(0,1fr)] gap-3 sm:grid-cols-[120px_24px_minmax(0,1fr)]">
-                          <span className="pt-px font-mono text-[13px] text-ink-muted">{formatShortDateId(deadline.deadlineAt)}</span>
+                          <span className="pt-px text-[13px] font-medium tabular-nums text-ink-muted">{formatShortDateId(deadline.deadlineAt)}</span>
                           <span aria-hidden className="flex flex-col items-center">
                             <span className={cn('mt-[3px] size-3.5 shrink-0 rounded-pill border-[1.5px] border-brand', past || isNext ? 'bg-brand' : 'bg-panel')} />
                             {index < event.deadlines.length - 1 && <span className={cn('min-h-7 w-[1.5px] flex-1', past ? 'bg-brand' : 'bg-line')} />}
@@ -502,9 +498,6 @@ export default async function EventDetailPage({
               <div className="flex flex-col gap-4">
                 <h2 className={headingClass}>Penyelenggara</h2>
                 <div className="flex flex-wrap items-center gap-[18px] rounded-[14px] border border-line p-[22px]">
-                  <span aria-hidden className="flex size-14 items-center justify-center rounded-[12px] bg-brand text-base font-semibold text-on-brand">
-                    {initialsOf(event.organizer)}
-                  </span>
                   <div className="flex min-w-[200px] flex-1 flex-col gap-1">
                     <span className="flex items-center gap-1.5 text-base font-semibold">
                       {event.organizer}
@@ -559,14 +552,13 @@ export default async function EventDetailPage({
         <aside aria-label="Pendaftaran" className="hidden min-w-[300px] flex-[0_1_340px] flex-col gap-3 min-[960px]:sticky min-[960px]:top-[88px] min-[960px]:flex">
           <div className="flex flex-col gap-5 rounded-2xl border border-line bg-panel p-6 shadow-[0_12px_32px_rgba(0,0,0,.05)]">
             <div className="flex flex-col gap-2.5">
-              <span className="text-[13px] text-ink-muted">{isClosed ? 'Pendaftaran' : 'Pendaftaran tutup dalam'}</span>
+              <span className="text-[13px] text-ink-muted">{isClosed ? 'Pendaftaran' : 'Sisa waktu pendaftaran'}</span>
               {event.primaryDeadlineAt && !isClosed ? (
-                <InlineCountdown deadlineAt={event.primaryDeadlineAt} renderedAt={now.getTime()} />
+                <DaysLeft deadlineAt={event.primaryDeadlineAt} now={now} />
               ) : (
                 <span className="text-2xl font-semibold">{isClosed ? 'Sudah ditutup' : 'Tanggal belum diumumkan'}</span>
               )}
               <span className="text-[13px] text-ink-muted">
-                <span className="sr-only">{state.longLabel}. </span>
                 {event.primaryDeadlineAt ? `Tutup ${formatDateTimeId(event.primaryDeadlineAt)}` : 'Pantau pengumuman penyelenggara'}
               </span>
             </div>

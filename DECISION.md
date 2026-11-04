@@ -12,6 +12,166 @@ terdokumentasi.
 
 ---
 
+## ADR-062 — Tur beranda kembali sebagai identitas merek; latar & panggung ilustrasi bergerak; umpan balik tim
+
+**Konteks:** Pemilik meminta tur interaktif beranda dikembalikan ("selalu
+dihilangkan") sebagai bagian branding, latar situs yang lebih hidup dengan
+ilustrasi & animasi, fitur lain yang sama dinamisnya, dan pengecekan fungsi
+koneksi, cari tim ("lobi" — tidak ada fitur bernama lobi; ditafsirkan sebagai
+daftar tim terbuka `/teams` + `/teams/[id]`), ruang diskusi, dan lainnya.
+Tur lama (dihapus ADR-056) adalah mockup peramban palsu 729 baris dengan
+warna tertulis langsung (`#191919`, tidak ikut tema gelap), orang fiktif, dan
+klaim yang tidak sesuai sistem ("data dari profilmu siap disalin" — fitur
+persiapan hanya ada di mode demo).
+
+**Keputusan:**
+1. **Tur baru** (`components/landing/landing-tour.tsx`, `#cara-kerja`): lima
+   langkah fitur yang ADA di produksi — cari & saring, cek sumber (moderasi +
+   pengumuman resmi), simpan + pengingat H-3/H-1 (`lib/notifications.ts`),
+   papan lamaran, pencocokan tim. Panggung = kertas berlabel "Contoh
+   tampilan", bukan peramban palsu; dibangun dari token & kosakata komponen
+   (gradien tenggat, chip bercentang, bilah tahap). Pola tab (panah/Home/End),
+   panggung `aria-hidden` + keterangan `aria-live`. Berjalan sendiri hanya
+   saat ≥ 35% terlihat, tab peramban aktif, dan gerak tidak dikurangi; bilah
+   waktu CSS (`tour-progress`) yang memajukan langkah lewat `animationend`,
+   jadi jeda = `animation-play-state`. Tombol "Jeda tur" (WCAG 2.2.2);
+   memilih langkah sendiri = jeda. Reduced-motion: tidak berjalan sendiri,
+   tombolnya maju satu langkah.
+2. **Latar situs** (`components/layout/site-backdrop.tsx`, root layout):
+   kertas bertitik yang memudar + coretan benda produk (pesawat kertas,
+   kalender, pensil, trofi, penanda, bintang) yang melayang; lapisan luar
+   bergeser mengikuti gulir (`parallax-y`, scroll-driven animation —
+   peningkatan progresif). `fixed -z-10`, `pointer-events-none`,
+   `aria-hidden`, warna `line-strong`. Coretan benda hanya di talang mulai
+   `xl` dan ukurannya di bawah lebar talang 1366px.
+3. **Hero** mendapat kolase sketsa beranimasi (`hero-sketch.tsx`, ≥ `lg`):
+   tumpukan kartu, kaca pembesar, label tenggat, penanda, pesawat kertas.
+4. **Halaman fitur** membalik pembatasan ADR-057: `/teams` dan
+   `/connections` berpanggung ilustrasi (`FeatureHero` `stage`, tampil mulai
+   `lg` — `stageFrom`), kotak masuk mendapat sketsa kecil (≥ `lg`), dan
+   papan lamaran mendapat bilah proporsi per tahap yang tumbuh (angka tetap
+   teks). Form & pengaturan tetap tanpa panggung.
+5. **Hasil audit fungsi** (Playwright sebagai persona demo; semua alur
+   koneksi, tim, pencocokan, diskusi, pesan, tracker, simpan berjalan, 0 error
+   konsol) — yang diperbaiki:
+   - Gabung/keluar tim tidak memberi umpan balik apa pun (kartu hilang
+     diam-diam dari daftar): kode `team_joined` (dirayakan) & `team_left`.
+   - Pesan (demo): percakapan yang otomatis terbuka di panel kanan (≥ md)
+     tetap dihitung "belum dibaca" sampai diklik — kini ditandai terbaca
+     begitu terlihat, menunggu catatan localStorage termuat.
+   - Kotak inisial penyelenggara di papan lamaran (terlewat ADR-061), ikon
+     tiket untuk "Papan lamaran" di menu akun (tiket = biaya), label kapital
+     "GRUP KAMU".
+
+**Konsekuensi:** Setiap halaman memuat satu lapisan SVG latar (±2 KB) dan
+beranda tamu memuat pulau klien tur (±5 KB gz). Coretan latar ada di
+belakang teks di atas kanvas; warnanya lebih pucat dari teks redup mana
+pun, tetapi bila suatu halaman baru meletakkan teks kecil di talang layar
+lebar, periksa keterbacaannya. Tur harus diperbarui bila salah satu dari
+lima fitur berubah perilaku — ia menjanjikan perilaku nyata, bukan gambaran
+bebas. Pemindahan pesan gabung/keluar ke URL (`?notice=`) mengikuti ADR-019.
+
+---
+
+## ADR-061 — Membersihkan kesan "buatan AI": tenggat per hari kalender, gradasi urgensi berbentuk, landing berpusat pencarian
+
+**Konteks:** Audit visual 2026-11-03 (desktop 1366px + ponsel 390px, terang &
+gelap, mode seed) atas permintaan pemilik, yang menilai beberapa elemen masih
+terasa "buatan AI". Usulan awal (prompt brainstorming dari alat lain) memuat
+klaim yang tidak cocok dengan kode — palet zinc Tailwind (`#18181B`,
+`#E4E4E7`), tur 4 langkah yang sudah dihapus ADR-056, `vercel.json` untuk
+SPA — dan saran yang bertabrakan dengan keputusan lama (biru "kepercayaan" =
+membalik ADR-005/016/039 untuk keempat kalinya; emerald untuk "terverifikasi"
+DAN "gratis" = dua makna satu warna; contoh kegiatan karangan di katalog
+kosong). Temuan yang benar-benar ada:
+- Papan Lomba: hitung mundur HARI/JAM/MENIT/DETIK berdetak per detik di panel
+  gelap. Dihitung dengan selisih milidetik, sehingga bisa membantah tag kartu
+  di layar yang sama (sekarang 3 Nov 23.30, tenggat 10 Nov 08.00 → kartu
+  "7 hari lagi", panel "06 HARI") — melanggar semangat AGENTS.md #8.
+- Label mono kapital berjarak ("TENGGAT TERDEKAT", "JENJANG KAMU") di
+  halaman fungsional, padahal ADR-052 membatasi mono untuk angka/kode.
+- Panel statistik `bg-inverse` (Beasiswa "2 dari 2", pita gelap Seminar,
+  kartu ajakan beranda); di tema gelap `#0d0c09` di atas `#15140f` hanya
+  ±1,06:1 sehingga batas panel hilang.
+- Tag tenggat `warning` dan `urgent` identik: baris "Segera ditutup" berisi
+  enam label hitam yang sama — kalau semua mendesak, tidak ada yang terbaca
+  mendesak.
+- Ikon bermakna ganda di layar yang sama: Megafon = Debat & Promosi, Gedung
+  pilar = Hukum & lencana pemerintah, Toga = Pendidikan, Beasiswa, & jenjang,
+  Koper = Bisnis & Magang, Trofi = Olahraga & Lomba.
+- Kotak inisial penyelenggara ("PW", "YI") yang terbaca sebagai logo palsu.
+- Label "Konferensi" (filter, kartu) vs tab navbar "Seminar" untuk hal yang sama.
+- Halaman kosong katalog menjanjikan "Data baru masuk setiap hari" padahal
+  sumber scraping nyata belum ada (TASKS.md: "10+ sumber scraping nyata").
+- Landing berkerangka template pemasaran: hero judul + dua tombol, daftar
+  fitur ber-ikon di kotak membulat, kartu ajakan gelap.
+
+**Keputusan (disetujui pemilik):**
+1. **Sisa waktu = hari kalender WIB** (`DaysLeft`, `components/listing/countdown.tsx`):
+   angka besar "N hari lagi" / "Besok" / "Hari ini" dari `daysUntil`. Jam &
+   menit hanya di hari terakhir (`timeLeftToday`, teruji), berdetak tiap 30
+   detik lewat pulau klien kecil `TimeLeftToday` — nilai awal dari jam
+   server, jadi tanpa JS tetap benar dan tanpa ketidakcocokan hidrasi.
+2. **Gradien urgensi satu tinta, tetap monokrom:** aman = teks; H-7..H-3 =
+   pil bergaris yang latar & garisnya makin pekat SETIAP hari (`due-ramp` di
+   §11 `globals.css`: `color-mix` tinta tenggat → permukaan kartu, posisinya
+   dari `urgencyRamp()`, teruji); H-2..hari ini = pil terisi penuh, dan di
+   hari-H ikon jam diganti titik yang berdenyut pelan. Teks selalu tinta
+   penuh (≥ 10,8:1), garis tepi ≥ 3,7:1 sejak H-7. Ambang `deadline.ts`
+   tidak diubah. Papan Lomba & Magang memakai `DeadlineTag` yang sama
+   (sebelumnya pil buatan sendiri). Tanpa hue baru — amber akan tertukar
+   dengan stabilo, merah dengan error.
+3. **Bersih, animasi tetap:** label mono kapital → label biasa; panel
+   statistik → permukaan kertas bergaris; pita gelap Seminar → kepala polos
+   seperti papan lain (varian `inverse` primitif daftar dihapus karena tak
+   terpakai); kotak inisial penyelenggara dihapus (avatar ORANG bertint tetap,
+   ADR-054); `--color-inverse-surface` gelap diangkat ke `#2b2922` (12,23:1
+   untuk teks, terlihat terpisah dari kanvas). KONFERENSI ditampilkan
+   "Seminar" — label saja, enum & paritas tiga tempat tak tersentuh.
+4. **Ikon bidang tanpa makna ganda** (`category-icon.tsx`): Debat =
+   gelembung percakapan, Hukum = timbangan, Pendidikan = tas sekolah, Bisnis =
+   grafik naik, Olahraga = barbel, Kesehatan = detak jantung, Karya tulis =
+   buku catatan berpena. Shortcut "Papan lamaran" tidak lagi memakai tiket
+   (= biaya).
+5. **Landing berpusat pencarian:** layar pertama = kotak cari besar, tab
+   jenis dengan jumlah yang MASIH BUKA (`listEvents` per tab, `newest`, gagal
+   = tanpa angka), dan jalan pintas jenjang/gratis/tenggat. Daftar fakta
+   verifikasi tanpa ikon berkotak; ajakan akun & penyelenggara jadi dua kolom
+   bergaris, bukan kartu gelap.
+6. **Katalog kosong jujur:** judul "Belum ada kegiatan yang sedang buka",
+   ajakan "Kirim kegiatan" (/submit), dan — bila ada — tiga kegiatan NYATA
+   yang pernah tayang dengan label ditutup. Tidak ada contoh karangan di
+   produksi (ADR-039 #4).
+7. **Kartu & filter:** jenjang diringkas `levelSummary()` (Umum/kosong =
+   "Semua jenjang"; ≥ 3 berurutan = rentang "SMA/SMK – D4/S1"; berselang =
+   "+N" dengan daftar lengkap untuk pembaca layar; teruji). `/events` punya
+   baris saringan cepat Jenjang + Biaya di luar panel "Saring" — jenis tidak
+   ikut karena tab navbar sudah merupakan saringan jenis. Filter di baris
+   cepat tidak diulang sebagai chip "hapus" (ADR-044).
+8. **Umpan balik kecil yang membantu:** pintasan "/" ke kotak cari bertanda
+   `data-search-shortcut` (dipasang sekali di root layout, tidak membajak "/"
+   di isian lain; petunjuk `kbd` hanya untuk penunjuk presisi & selama kotak
+   kosong); penanda simpan langsung terisi + `save-pop` selama Server Action
+   berjalan (`BookmarkSubmit`, menggantikan pemutar); centang `chip-tick`
+   menggantikan ikon chip yang baru aktif (lebar chip tetap); panah yang
+   mengangguk saat hover; tab jenis landing masuk bertahap (`rise`). Semua
+   gerak hanya pada anak dekoratif di dalam target dan tunduk pada
+   reduced-motion.
+
+**Konsekuensi:** `check:contrast` tidak bisa membaca `color-mix`, jadi
+kontras gradien diukur terpisah dan angkanya ditulis di sebelah utilitasnya.
+Tidak ada lagi detik yang berdetak di mana pun — orang yang
+menyukai sensasi "launch countdown" kehilangan itu, disengaja. Landing kini
+menjalankan 5 kueri hitungan tambahan per kunjungan tamu (di-cache tag
+`events` di Supabase, ADR-034). `BookmarkSubmit` menampilkan hasil sebelum
+server menjawab; bila aksi gagal, halaman dirender ulang dari data
+sungguhan dan ikonnya kembali benar. Baris saringan cepat menambah satu baris
+(±52 px) di atas hasil di ponsel. Saran yang ditolak (token biru
+"kepercayaan", emerald gabungan, contoh kegiatan karangan, `vercel.json`
+SPA) dicatat di sini supaya tidak diusulkan ulang tanpa membaca alasannya.
+
+---
+
 ## ADR-060 — Dokumen hukum (privasi, cookie, S&K) mengikuti sistem yang sebenarnya; retensi dijalankan; bukti persetujuan & usia
 
 **Konteks:** Pemilik meminta (2026-10-30) dokumen hukum dilengkapi sesuai

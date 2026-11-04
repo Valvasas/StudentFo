@@ -1,17 +1,17 @@
 import {
-  Activity,
-  Briefcase,
-  Code2,
+  Backpack,
+  CodeXml,
+  Dumbbell,
   FlaskConical,
-  GraduationCap,
-  Landmark,
+  HeartPulse,
   LayoutGrid,
   Leaf,
-  Megaphone,
+  MessagesSquare,
+  NotebookPen,
   Palette,
-  PenLine,
   PenTool,
-  Trophy,
+  Scale,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -19,20 +19,27 @@ import {
  * Ikon per bidang. Dipetakan eksplisit supaya kosakata visualnya stabil
  * antar rilis — pengguna belajar "kuas pena = desain" setelah beberapa
  * kunjungan. Bidang baru yang belum dipetakan memakai ikon kisi netral.
+ *
+ * Tidak boleh memakai ikon yang sudah punya arti lain di kartu/detail yang
+ * sama (ADR-061): Trofi/Toga/Koper/Mikrofon = JENIS kegiatan
+ * (`event-type-icon.tsx`), Toga juga = jenjang, Megafon = Promosi, Gedung
+ * pilar/Sekolah = lencana otoritas, Buku terbuka = buku panduan. Satu ikon
+ * dengan dua arti di layar yang sama memaksa pembaca menebak mana yang
+ * dimaksud.
  */
 const ICONS: Readonly<Record<string, LucideIcon>> = {
-  teknologi: Code2,
-  bisnis: Briefcase,
+  teknologi: CodeXml,
+  bisnis: TrendingUp,
   sains: FlaskConical,
   desain: PenTool,
-  'karya-tulis': PenLine,
-  debat: Megaphone,
+  'karya-tulis': NotebookPen,
+  debat: MessagesSquare,
   seni: Palette,
-  olahraga: Trophy,
-  kesehatan: Activity,
+  olahraga: Dumbbell,
+  kesehatan: HeartPulse,
   sosial: Leaf,
-  pendidikan: GraduationCap,
-  hukum: Landmark,
+  pendidikan: Backpack,
+  hukum: Scale,
 };
 
 export function CategoryIcon({ slug, className }: { slug: string | undefined; className?: string }) {

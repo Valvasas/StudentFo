@@ -4,6 +4,7 @@ import {
   Hash,
   Heart,
   IdCard,
+  ListChecks,
   Lock,
   MessageCircle,
   Palette,
@@ -11,7 +12,6 @@ import {
   ReceiptText,
   Settings,
   ShieldCheck,
-  Ticket,
   UserRound,
   Users,
   type LucideIcon,
@@ -117,7 +117,7 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
     key: 'aktivitas',
     title: 'Aktivitas',
     items: [
-      { key: 'daftar', label: 'Papan lamaran', href: '/tracker', icon: Ticket },
+      { key: 'daftar', label: 'Papan lamaran', href: '/tracker', icon: ListChecks },
       { key: 'pembayaran', label: 'Pendaftaran & pembayaran', href: '/pembayaran', icon: ReceiptText, badge: 'payment' },
       { key: 'tersimpan', label: 'Tersimpan', href: '/profile?tab=tersimpan', icon: Bookmark, badge: 'saved' },
       ...(options.demoFeatures

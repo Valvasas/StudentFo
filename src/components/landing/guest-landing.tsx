@@ -1,10 +1,14 @@
 import Link from 'next/link';
-import { ArrowRight, CalendarClock, Link2, Plus, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Plus } from 'lucide-react';
 import { EventCard } from '@/components/event/event-card';
+import { STUDENT_LEVEL_OPTIONS } from '@/components/listing/listing-ui';
 import { getEventRepository } from '@/lib/data';
+import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { withFallback } from '@/lib/fallback';
+import { buildEventHref } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
-import { LandingHero } from './hero';
+import { LandingHero, type HeroLink } from './hero';
+import { LandingTour } from './landing-tour';
 import { RevealObserver } from './reveal-observer';
 
 /**
@@ -16,17 +20,14 @@ import { RevealObserver } from './reveal-observer';
  */
 const CHECKS = [
   {
-    icon: Link2,
     title: 'Tautan ke sumber resmi',
     body: 'Setiap kegiatan menautkan pengumuman aslinya, jadi kamu bisa memastikan langsung ke penyelenggara.',
   },
   {
-    icon: ShieldCheck,
     title: 'Ditinjau moderator',
     body: 'Setiap kegiatan dicocokkan dengan sumbernya. Tidak ada yang tayang tanpa persetujuan.',
   },
   {
-    icon: CalendarClock,
     title: 'Sisa waktu selalu terkini',
     body: 'Sisa hari dihitung ulang setiap kali halaman dibuka, dalam zona waktu WIB.',
   },
@@ -60,17 +61,41 @@ const PREVIEW_LIMIT = 6;
 const sectionClass = 'container-page max-w-[1120px] pt-[clamp(72px,9vw,112px)]';
 const h2Class = 'text-[clamp(28px,4.4vw,40px)] font-bold leading-[1.1] tracking-[-0.03em]';
 
+const SHORTCUTS: readonly HeroLink[] = [
+  ...STUDENT_LEVEL_OPTIONS.filter((option) => option.levels.length > 0).map((option) => ({
+    label: option.label,
+    href: buildEventHref({ levels: option.levels }),
+  })),
+  { label: 'Yang gratis', href: buildEventHref({ cost: 'free' }) },
+  { label: 'Tenggat terdekat', href: buildEventHref({ sort: 'deadline' }) },
+];
+
 export async function GuestLanding() {
-  const closingSoon = await withFallback(
-    'pratinjau tenggat terdekat',
-    async () => (await getEventRepository()).listClosingSoon(PREVIEW_LIMIT),
-    [],
-  );
+  const [closingSoon, typeTotals] = await Promise.all([
+    withFallback('pratinjau tenggat terdekat', async () => (await getEventRepository()).listClosingSoon(PREVIEW_LIMIT), []),
+    // `newest`: hanya totalnya yang dipakai, jadi tidak perlu urutan relevansi
+    // yang menskor seluruh katalog (ADR-050). Gagal = tab tanpa angka, bukan beranda rusak.
+    withFallback<readonly (number | null)[]>(
+      'jumlah kegiatan per jenis',
+      async () => {
+        const repository = await getEventRepository();
+        return Promise.all(
+          EVENT_TYPE_NAV.map(async (item) => (await repository.listEvents({ types: item.types, pageSize: 1, sort: 'newest' })).total),
+        );
+      },
+      EVENT_TYPE_NAV.map(() => null),
+    ),
+  ]);
+  const types: HeroLink[] = EVENT_TYPE_NAV.map((item, index) => ({
+    label: item.label,
+    href: eventTypeHref(item),
+    count: typeTotals[index] ?? null,
+  }));
 
   return (
     <div className="overflow-x-clip">
       <RevealObserver />
-      <LandingHero />
+      <LandingHero types={types} shortcuts={SHORTCUTS} />
 
       {closingSoon.length > 0 && (
         <section aria-labelledby="tenggat-title" className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')}>
@@ -79,10 +104,11 @@ export async function GuestLanding() {
               Segera ditutup
             </h2>
             <Link
-              href="/events?sort=deadline"
-              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold text-ink-soft transition-colors duration-150 ease-snap hover:text-ink"
+              href={buildEventHref({ sort: 'deadline' })}
+              className="group inline-flex min-h-11 shrink-0 items-center gap-1.5 text-[14.5px] font-semibold text-ink-soft transition-colors duration-150 ease-snap hover:text-ink"
             >
-              Lihat semua <ArrowRight aria-hidden className="size-4" />
+              Lihat semua
+              <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
             </Link>
           </div>
           {/* 3 kartu di ponsel, 4 di dua kolom, 6 di tiga kolom: baris yang
@@ -97,6 +123,8 @@ export async function GuestLanding() {
         </section>
       )}
 
+      <LandingTour />
+
       <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>
         <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div data-reveal="" className="flex flex-col gap-3.5">
@@ -108,16 +136,13 @@ export async function GuestLanding() {
               kegiatan di StudentFo.
             </p>
           </div>
-          <ul data-reveal="" className="flex flex-col border-t border-line">
+          {/* Tiga fakta dalam teks biasa, tanpa ikon di kotak membulat: daftar
+              "fitur ber-ikon" adalah kerangka template; isinya yang meyakinkan. */}
+          <ul data-reveal="" className="grid gap-x-10 border-t border-line sm:grid-cols-3 lg:grid-cols-1">
             {CHECKS.map((check) => (
-              <li key={check.title} className="flex gap-4 border-b border-line py-5">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-sm bg-panel-nested">
-                  <check.icon aria-hidden className="size-[18px]" />
-                </span>
-                <span className="flex flex-1 flex-col gap-1">
-                  <span className="text-base font-semibold tracking-[-0.01em]">{check.title}</span>
-                  <span className="text-[14.5px] leading-normal text-ink-muted">{check.body}</span>
-                </span>
+              <li key={check.title} className="flex flex-col gap-1.5 border-b border-line py-5 sm:border-b-0 lg:border-b">
+                <span className="text-base font-semibold tracking-[-0.01em]">{check.title}</span>
+                <span className="text-[14.5px] leading-normal text-ink-muted">{check.body}</span>
               </li>
             ))}
           </ul>
@@ -154,32 +179,35 @@ export async function GuestLanding() {
         </div>
       </section>
 
-      <section aria-labelledby="cta-title" className={`${sectionClass} grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]`}>
-        <div data-reveal="" className="flex flex-col items-start gap-4 rounded-[20px] bg-inverse px-[clamp(24px,5vw,48px)] py-[clamp(32px,5vw,48px)] text-on-inverse">
-          <h2 id="cta-title" className="max-w-[20ch] text-[clamp(26px,3.6vw,36px)] font-bold leading-[1.1] tracking-[-0.03em] text-on-inverse">
-            Tenggat berikutnya mungkin minggu ini.
-          </h2>
-          <p className="max-w-[44ch] text-[16px] leading-relaxed text-on-inverse-muted">
-            Simpan kegiatan yang kamu incar dan dapatkan pengingat sebelum pendaftarannya ditutup.
-          </p>
-          <Link
-            href="/register"
-            className="mt-2 flex h-12 items-center rounded-sm bg-on-inverse px-[22px] text-[15px] font-semibold text-inverse transition-opacity duration-200 ease-snap hover:opacity-90"
-          >
-            Buat akun
-          </Link>
-        </div>
-        <div data-reveal="" className="flex flex-col items-start gap-4 rounded-[20px] border border-line bg-panel px-[clamp(24px,4vw,40px)] py-[clamp(32px,5vw,48px)]">
-          <h2 className="text-[22px] font-bold leading-tight tracking-[-0.025em]">Untuk penyelenggara</h2>
-          <p className="max-w-[40ch] text-[15.5px] leading-relaxed text-ink-muted">
-            Buat formulir pendaftaran, terima bukti pembayaran peserta, dan kelola pendaftar dari satu studio.
-          </p>
-          <Link
-            href="/penyelenggara"
-            className="press mt-auto flex h-12 items-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
-          >
-            Buka studio penyelenggara <ArrowRight aria-hidden className="size-4" />
-          </Link>
+      <section aria-labelledby="cta-title" className={sectionClass}>
+        <div className="grid gap-x-16 gap-y-10 border-t border-line pt-10 lg:grid-cols-2">
+          <div data-reveal="" className="flex flex-col items-start gap-3.5">
+            <h2 id="cta-title" className="max-w-[20ch] text-[clamp(24px,3.2vw,32px)] font-bold leading-[1.12] tracking-[-0.03em]">
+              Tenggat berikutnya mungkin minggu ini.
+            </h2>
+            <p className="max-w-[44ch] text-[15.5px] leading-relaxed text-ink-muted">
+              Simpan kegiatan yang kamu incar dan dapatkan pengingat sebelum pendaftarannya ditutup.
+            </p>
+            <Link
+              href="/register"
+              className="mt-2 flex h-12 items-center rounded-sm bg-brand px-[22px] text-[15px] font-semibold text-on-brand transition-colors duration-200 ease-snap hover:bg-brand-hover"
+            >
+              Buat akun
+            </Link>
+          </div>
+          <div data-reveal="" className="flex flex-col items-start gap-3.5">
+            <h2 className="text-[clamp(22px,2.6vw,26px)] font-bold leading-tight tracking-[-0.025em]">Untuk penyelenggara</h2>
+            <p className="max-w-[44ch] text-[15.5px] leading-relaxed text-ink-muted">
+              Buat formulir pendaftaran, terima bukti pembayaran peserta, dan kelola pendaftar dari satu studio.
+            </p>
+            <Link
+              href="/penyelenggara"
+              className="press group mt-2 flex h-12 items-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
+            >
+              Buka studio penyelenggara
+              <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
+            </Link>
+          </div>
         </div>
       </section>
     </div>
