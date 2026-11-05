@@ -84,6 +84,8 @@ test('persetujuan admin mencabut cache: event langsung tayang, bukan setelah TTL
   await expect(admin.getByRole('heading', { name: 'Antrean moderasi' })).toBeVisible();
   const card = admin.getByRole('listitem').filter({ has: admin.getByRole('heading', { name: title }) });
   await card.getByRole('button', { name: 'Setujui' }).click();
+  // Menayangkan = konfirmasi (ADR-063): tidak bisa ditarik dari panel.
+  await admin.getByRole('alertdialog').getByRole('button', { name: 'Ya, tayangkan', exact: true }).click();
   await expect(card).toHaveCount(0);
 
   await guest.goto(`/events?q=${token}`);

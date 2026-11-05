@@ -6,15 +6,18 @@ import { AccountShell } from '@/components/layout/account-shell';
 import { CategoryIcon } from '@/components/listing/category-icon';
 import { AppearanceSettings } from '@/components/profile/appearance-settings';
 import { DetailCard, detailButton } from '@/components/profile/detail-card';
+import { SettingsHeader } from '@/components/profile/settings-list';
+import { BackLink } from '@/components/ui/back-link';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { sectionTitle } from '@/lib/page-title';
 import { isColdStart } from '@/lib/recommendation';
 import { EDUCATION_LEVEL_LABEL } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Personalisasi',
+  title: sectionTitle('Tampilan & rekomendasi', 'Pengaturan'),
   robots: { index: false, follow: false },
 };
 
@@ -39,14 +42,10 @@ export default async function PersonalizationPage() {
   });
 
   return (
-    <AccountShell user={user} active="personalisasi">
+    <AccountShell user={user} active="pengaturan">
       <div className="flex max-w-[820px] flex-col gap-5">
-        <div className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
-          <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Personalisasi</h1>
-          <p className="max-w-[60ch] text-[15.5px] leading-relaxed text-ink-muted">
-            Atur tampilan StudentFo di perangkat ini, dan apa yang kami dahulukan untukmu.
-          </p>
-        </div>
+        <BackLink href="/profile/settings" label="Pengaturan" className="-mb-3" />
+        <SettingsHeader title="Tampilan & rekomendasi" description="Atur tampilan StudentFo di perangkat ini, dan apa yang kami dahulukan untukmu." />
 
         <DetailCard
           id="tampilan"

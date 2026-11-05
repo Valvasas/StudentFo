@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { EyeOff, Lock } from 'lucide-react';
+import { Eye, EyeOff, Lock } from 'lucide-react';
 import { updateNetworkProfileAction } from '@/app/connections/actions';
 import { controlClass } from '@/components/ui/field';
-import { SubmitButton } from '@/components/ui/submit-button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { NETWORK_LIMITS, type NetworkViewer } from '@/lib/network';
 import { cn } from '@/lib/utils';
 import type { NetworkProfile } from '@/types/domain';
@@ -101,12 +101,21 @@ export function NetworkSettingsForm({
           Email, kegiatan yang kamu simpan, dan status pendaftaranmu tidak pernah ditampilkan.
         </p>
 
-        <SubmitButton
-          pendingLabel="Menyimpan…"
+        {/* Menyalakan visibilitas = data diri sampai ke orang asing; menyembunyikan tidak perlu ditanya. */}
+        <ConfirmSubmit
           className="flex h-12 items-center justify-center rounded-pill bg-brand text-sm font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover active:pt-0.5"
+          when={{ field: 'discoverable', values: profile.discoverable ? [] : ['on'] }}
+          confirm={{
+            title: 'Tampilkan profilmu di Cari Koneksi?',
+            description:
+              'Pengguna lain yang masuk bisa menemukan nama, headline, jurusan, jenjang, minat, dan portofolio publikmu, lalu mengajakmu terhubung. Email tidak pernah ditampilkan, dan kamu bisa menyembunyikannya lagi kapan saja.',
+            confirmLabel: 'Ya, tampilkan',
+            tone: 'neutral',
+            icon: <Eye />,
+          }}
         >
           Simpan pengaturan
-        </SubmitButton>
+        </ConfirmSubmit>
       </form>
 
       <div className="flex flex-col gap-2.5">

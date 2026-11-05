@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { CircleCheck, CircleDot } from 'lucide-react';
-import { FORM_BUILDER_CHANGE_EVENT } from '@/components/organizer/form-builder';
 import {
+  FORM_BUILDER_CHANGE_EVENT,
   REGISTRATION_SETTING_NAMES,
   registrationSettingsIssues,
   type RegistrationSettingName,
 } from '@/components/organizer/registration-settings';
 import { buttonVariants } from '@/components/ui/button';
-import { SubmitButton } from '@/components/ui/submit-button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 
 function snapshot(form: HTMLFormElement): string {
   const data = new FormData(form);
@@ -42,7 +42,7 @@ function syncSettingsValidity(form: HTMLFormElement) {
  * (`registrationSettingsIssues`): pengalihan galat memasang ulang halaman
  * dan membuang pertanyaan yang belum disimpan.
  */
-export function RegistrationSaveBar({ savedLabel }: { savedLabel: string | null }) {
+export function RegistrationSaveBar({ savedLabel, wasOpen }: { savedLabel: string | null; wasOpen: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [dirty, setDirty] = useState(false);
 
@@ -87,9 +87,21 @@ export function RegistrationSaveBar({ savedLabel }: { savedLabel: string | null 
           <span>Belum pernah disimpan</span>
         )}
       </p>
-      <SubmitButton pendingLabel="Menyimpan…" className={buttonVariants({ className: 'shrink-0' })}>
+      {/* Menutup pendaftaran yang sedang buka = tombol Daftar hilang untuk semua
+          pengunjung. Kotak centang yang tidak dicentang tidak masuk FormData (''). */}
+      <ConfirmSubmit
+        className={buttonVariants({ className: 'shrink-0' })}
+        when={{ field: 'isOpen', values: wasOpen ? [''] : [] }}
+        confirm={{
+          title: 'Tutup pendaftaran lewat StudentFo?',
+          description:
+            'Tombol Daftar di halaman acara hilang untuk semua pengunjung. Pendaftar yang sudah masuk tidak terpengaruh, dan kamu bisa membukanya lagi kapan saja.',
+          confirmLabel: 'Ya, tutup & simpan',
+          icon: <CircleDot />,
+        }}
+      >
         Simpan formulir
-      </SubmitButton>
+      </ConfirmSubmit>
     </div>
   );
 }

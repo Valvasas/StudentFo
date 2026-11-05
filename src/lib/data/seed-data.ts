@@ -4,6 +4,7 @@ import type {
   EducationLevel,
   EventStatus,
   EventType,
+  RegistrationStatus,
   TeamSkillSlug,
   TrackerStatus,
   VerificationBadge,
@@ -667,4 +668,18 @@ export const DEMO_STARTER_PORTFOLIO: readonly Omit<SeedPortfolioEntry, 'userId'>
   },
   { eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'APPLIED', achievement: 'BERSERTIFIKAT' },
   { eventSlug: 'beasiswa-talenta-digital-gelombang-1', status: 'REJECTED', achievement: null },
+];
+
+/**
+ * Pendaftaran lampau persona "Mahasiswa" lewat formulir internal — bahan
+ * lencana yang BENAR-BENAR terhitung (ADR-064), selaras dengan riwayat di
+ * atas: lomba & workshop terkonfirmasi (keduanya sudah ditutup), beasiswa
+ * ditolak panitia (tidak dihitung). Sengaja hanya acara yang sudah selesai:
+ * pendaftaran di acara yang masih buka akan menumpuk di daftar pendaftar
+ * persona Penyelenggara setiap kali seseorang masuk demo.
+ */
+export const DEMO_STARTER_REGISTRATIONS: readonly { readonly eventSlug: string; readonly status: RegistrationStatus; readonly note?: string }[] = [
+  { eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'CONFIRMED' },
+  { eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'CONFIRMED' },
+  { eventSlug: 'beasiswa-talenta-digital-gelombang-1', status: 'REJECTED', note: 'Kuota penerima gelombang ini sudah penuh.' },
 ];

@@ -12,6 +12,150 @@ terdokumentasi.
 
 ---
 
+## ADR-064 — Lencana pencapaian DIHITUNG dari catatan pihak ketiga, tidak pernah diberikan atau diklaim
+
+**Konteks:** Pemilik meminta fitur pencapaian/lencana dengan ilustrasi dan
+sistem perolehan yang "matang dan tidak bisa dieksploitasi", contohnya
+lencana keaktifan untuk ikut 3 lomba. Di repo ini sebagian besar "riwayat"
+adalah DILAPORKAN SENDIRI: tahap Papan lamaran ("Sudah daftar", "Diterima")
+dan hasil portofolio ("Juara 1") ditulis pemilik akun tanpa saksi (ADR-046).
+Lencana dari sumber itu = lencana yang bisa dicetak sendiri.
+
+**Keputusan:**
+1. **Tanpa tabel, tanpa penghitung, tanpa aksi "klaim".** `lib/achievements.ts`
+   (murni, teruji) menghitung ulang lencana setiap kali profil dibuka dari
+   `AchievementFacts`. Tidak ada endpoint yang bisa dipanggil berulang, dan
+   tidak ada lencana yang "tertinggal" setelah sumbernya hilang.
+2. **Sumber yang dipakai hanya yang statusnya ditulis pihak lain**
+   (`components/profile/badge-facts.ts`, sesi pemilik + RLS):
+   - pendaftaran internal **CONFIRMED** (RPC `review_event_registration` oleh
+     panitia, atau otomatis untuk acara gratis — `register_for_event`),
+     pada acara **APPROVED/EXPIRED**;
+   - kiriman komunitas yang **disetujui moderator**;
+   - status penyelenggara **VERIFIED** dan acara kelolaan yang sudah ditutup
+     (`organizer_event_history()`).
+3. **Aturan "jadi" (settled):** pendaftaran baru dihitung setelah
+   pendaftaran acaranya DITUTUP (tenggat utama lewat atau EXPIRED) dan masih
+   terkonfirmasi. Sebelum itu tampil "menunggu". Ini menutup pola daftar
+   acara gratis → dapat lencana → batal. Batal kapan pun = hitungan hilang.
+   Acara yang dikelola pemilik sendiri tidak dihitung, satu acara dihitung
+   sekali, tanggal "diraih" = saat acara ke-N jadi (tidak pernah di masa depan).
+4. **Enam lencana bertingkat:** Petarung Lomba 1/3/10, Pembelajar
+   (workshop/seminar/pelatihan) 1/5/15, Penjelajah (jenis berbeda) 2/3/5,
+   Kontributor 1/5/20; khusus penyelenggara: Terverifikasi, Tuan Rumah 1/5/15.
+   Teks aturan + "kenapa adil" ditampilkan apa adanya di setiap kartu.
+5. **Ilustrasi** (`badge-medal.tsx`): medali sketsa, tingkat dibawa BENTUK
+   (lingkaran → roset+pita → roset sorot+pita+kilau) + 1–3 titik, tint =
+   identitas jenis lencana; tanpa teks di SVG, ikut tema gelap.
+6. `EventRegistration.event` mendapat `eventType` & `status` (null bila
+   acara tidak lagi terbaca) di KEDUA repository — lencana harus tahu jenis
+   acara tanpa query per baris.
+7. **Mode demo:** persona Mahasiswa diberi pendaftaran lampau yang memang
+   terhitung (`DEMO_STARTER_REGISTRATIONS`: lomba & workshop terkonfirmasi,
+   beasiswa ditolak) — hanya acara yang sudah selesai, supaya tidak menumpuk
+   di daftar pendaftar persona Penyelenggara.
+
+**Sengaja TIDAK dihitung:** kelengkapan profil, jumlah koneksi/tim (cukup
+dengan akun palsu), Papan lamaran, hasil portofolio.
+
+**Konsekuensi / belum dikerjakan:** Lencana hanya di profil SENDIRI (tab
+privat "Lencana" + deretan medali di kartu profil, pintu "Lencana" di menu akun). Menampilkannya di
+`/orang/[id]` butuh fungsi SQL agregat SECURITY DEFINER baru (pendaftaran
+orang lain memang tertutup RLS) + pilihan privasi "tampilkan lencanaku" —
+lihat TASKS. Celah yang diterima: penyelenggara yang verifikasinya DICABUT
+kehilangan daftar acara kelolaan (`listManagedEvents` kosong), sehingga
+pendaftaran di acaranya sendiri yang dulu tidak lagi dikecualikan — kasus
+sangat jarang dan acaranya tetap harus lolos moderasi.
+
+---
+
+## ADR-063 — Tombol kembali hierarkis-tapi-ingat-asal, konfirmasi lewat `<dialog>`, Pengaturan jadi daftar per konteks
+
+**Konteks:** Audit UX pemilik sebelum membeli domain: di ponsel halaman
+dalam (pengaturan, data diri) tidak punya tombol kembali — menu samping
+akun disembunyikan < 960px, jadi satu-satunya jalan pulang adalah tombol
+kembali perangkat. Keluar akun (tiga pintu) dan aksi penting lain berjalan
+dalam satu ketukan. Halaman Pengaturan menumpuk konteks yang tidak
+berhubungan (cara masuk, notifikasi, sesi, hapus data) dan di produksi
+isinya tinggal dua kartu — terasa kosong dan "buatan AI".
+
+**Keputusan:**
+1. **`BackLink`** (`components/ui/back-link.tsx`): tautan HIERARKIS ke
+   halaman induk (label = nama induk, berfungsi tanpa JS dan dari tautan
+   luar). Bila kunjungan sebelumnya di tab ini adalah induk itu (path sama,
+   query boleh beda), klik memakai `router.back()` supaya saringan & posisi
+   gulir daftar asal pulih (`lib/nav-history.ts`, dicatat `NavigationProgress`).
+   `via` = induk alternatif (Data diri dibuka dari Profil ATAU Pengaturan).
+   Dipasang di semua halaman anak Pengaturan, Data diri, Peminatan, dan
+   menggantikan tautan kembali tulisan tangan di detail tim, papan lamaran,
+   profil orang, dan pembayaran. Bukan `history.back()` buta: itu bisa
+   melempar orang keluar situs.
+2. **`ConfirmSubmit`** (`components/ui/confirm-submit.tsx`): tombol kirim
+   yang membuka `<dialog>` (bottom-sheet di ponsel, `role="alertdialog"`,
+   fokus awal "Batal", Esc/latar = batal) sebelum form dikirim; dialognya
+   anak form, jadi Server Action & `useFormStatus` tidak berubah. Tanpa JS
+   pemicunya tombol kirim biasa (bukan tombol mati). Dipakai untuk: Keluar
+   akun (satu definisi `SignOutForm` untuk menu akun, menu samping,
+   Pengaturan; salinan khusus akun demo karena keluar = data demo hilang),
+   keluar tim, hapus dari Papan lamaran, buka blokir, atur ulang data demo
+   (berlaku untuk semua pengunjung), dan "Tandai lunas" TANPA bukti bayar.
+   Konfirmasi yang sudah ada dengan `<details>` (tolak, blokir, putus
+   koneksi, bubarkan tim, batal daftar, hapus foto) dibiarkan — sudah bekerja
+   tanpa JS. Daftar lengkap per aksi: butir 5.
+3. **Pengaturan = daftar** (`/profile/settings`): kartu identitas + grup
+   Akun (Akun & keamanan, Data diri, Peminatan), Preferensi (Notifikasi,
+   Tampilan & rekomendasi, Privasi & data), Bantuan & informasi (Tentang,
+   Kirim kegiatan, tiga dokumen hukum), lalu Keluar. Setiap baris menyebut
+   keadaan akun saat ini, dan "Belum lengkap" ditandai teks. Halaman baru:
+   `/profile/settings/keamanan` (cara masuk, ganti sandi, sesi) dan
+   `/profile/settings/notifikasi` (daftar jujur isi lonceng dari produsen
+   yang ada; matriks kanal tetap demo-only, ADR-051). Hapus data perangkat
+   (demo) pindah ke Privasi & data. Menu akun kehilangan item Personalisasi
+   & Privasi — satu pintu "Pengaturan" — dan mendapat "Lencana" (ADR-064).
+   Akibatnya menu di ponsel tidak lagi selalu lebih tinggi dari layar: panel
+   yang berakhir di tengah layar memotong tautan halaman di belakangnya jadi
+   sisa beberapa piksel (axe `target-size`). Di bawah `sm` panel kini SELALU
+   setinggi batasnya (`min-h` = `max-h`) dengan "Keluar" di dasar (zona jempol).
+4. Ganti sandi kini kembali ke `/profile/settings/keamanan`; bila gagal,
+   form tetap terbuka (`ubah=sandi`) supaya bisa langsung dicoba lagi.
+
+5. **Audit tuntas seluruh Server Action** (pemilik: "seluruh hal penting
+   harus ada konfirmasinya"). Ukurannya akibat, bukan nama tombol:
+
+   | Aksi | Perlindungan |
+   |---|---|
+   | Keluar · keluar dari semua perangkat · keluar tim · hapus dari Papan lamaran · buka blokir · atur ulang data demo | `ConfirmSubmit` |
+   | Setujui & tayangkan acara/kiriman (tidak bisa ditarik dari panel) · verifikasi penyelenggara · setujui klaim · terapkan revisi | `ConfirmSubmit` (keputusan publikasi/kepercayaan) |
+   | Konfirmasi pembayaran · tandai lunas tanpa bukti · daftar acara berbayar (membuat tagihan) | `ConfirmSubmit` (keputusan uang) |
+   | Tolak / batalkan ajakan koneksi · gabung tim | `ConfirmSubmit` (menyangkut orang lain) |
+   | Ubah tahap yang membuat entri tampil di profil publik · menyalakan "terlihat di Koneksi" · menutup pendaftaran yang sedang buka · mematikan pengingat tenggat | `ConfirmSubmit` dengan `when` — HANYA bila perubahan itu yang terjadi |
+   | Tolak (moderasi/pendaftar/bukti), cabut verifikasi, blokir, putus koneksi, bubarkan tim, keluarkan anggota, batal daftar, hapus foto | `<details>` yang sudah ada (jalan tanpa JS, sebagian dengan alasan wajib) |
+   | Kartu pemain terbuka · kirim pendaftaran gratis · ajakan pencocokan | Sudah punya langkah persetujuan eksplisit (langkah "Siap dicocokkan?", centang berbagi data, lembar "Tinjau ajakan") |
+   | Isian form yang belum disimpan (kirim kegiatan, buka tim, data diri, peminatan, formulir panitia, formulir pendaftaran, ajukan penyelenggara, portofolio, ganti sandi, unggah bukti) | `UnsavedChangesGuard` |
+   | Simpan/tandai kegiatan, ubah tahap biasa, tandai notifikasi dibaca, ciutkan menu | Tanpa konfirmasi — dibalik dengan satu ketukan yang sama |
+
+   Kolom form yang belum sah tidak membuka dialog (`checkValidity`): validasi
+   peramban harus menunjuk kolomnya, bukan tertutup modal.
+6. **`UnsavedChangesGuard`** (`components/ui/unsaved-changes-guard.tsx`):
+   "berubah" = FormData berbeda dari saat dibuka. Tautan internal dicegat di
+   fase capture `window` (sebelum `<Link>` & bilah progres), lalu dialog yang
+   sama; tab ditutup/dimuat ulang = `beforeunload`. Tombol kembali perangkat
+   di dalam aplikasi tidak bisa dicegat tanpa merusak riwayat — tidak dicoba.
+7. **Fitur pengaturan nyata, bukan hiasan:** "Keluar dari semua perangkat"
+   (`signOut({ scope: 'global' })`) di Akun & keamanan, dan saklar pengingat
+   tenggat yang dihormati server — kolom `users.deadline_reminders` (migration
+   20261105100001, hak UPDATE per kolom, `create_deadline_notifications()`
+   melewati akun yang mematikannya, baris profil absen = tetap diingatkan),
+   dicerminkan mode memory (lonceng & antrean dispatch), ikut ekspor data.
+   Saklar kanal email/WhatsApp tetap TIDAK ditawarkan di produksi: belum ada
+   pengirimnya, dan saklar yang tidak mengubah apa pun adalah janji palsu.
+
+**Konsekuensi:** Tautan lama `/profile/settings?notice=…` tetap menampilkan
+kabarnya. Halaman Personalisasi & Privasi tidak berubah URL, hanya judul &
+induknya. Rute baru mendapat adegan pemuat `settings` (`route-scene.ts`).
+Moderator kini menekan dua kali untuk menayangkan — harga yang diterima
+karena penayangan tidak bisa ditarik dari panel.
+
 ## ADR-062 — Tur beranda kembali sebagai identitas merek; latar & panggung ilustrasi bergerak; umpan balik tim
 
 **Konteks:** Pemilik meminta tur interaktif beranda dikembalikan ("selalu

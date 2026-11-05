@@ -10,6 +10,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { SelectInput, TextArea, TextInput } from '@/components/ui/field';
 import { FormStep } from '@/components/ui/form-step';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { daysLeftLabel, daysUntil, formatDateId } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
 import { EVENT_TYPE_LABEL, EVENT_TYPES, type EventSummary, type Team } from '@/types/domain';
@@ -87,6 +88,7 @@ export function CreateTeamForm({
 
   return (
     <form action={createTeamAction} className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:gap-12">
+      <UnsavedChangesGuard />
       <input type="hidden" name="returnTo" value={returnTo} />
 
       <div className="flex min-w-0 flex-col gap-5">

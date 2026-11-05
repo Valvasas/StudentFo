@@ -34,6 +34,9 @@ describe('routeSceneFor', () => {
   it('pengaturan & personalisasi didahulukan dari profil umum', () => {
     expect(routeSceneFor('/profile/settings').key).toBe('settings');
     expect(routeSceneFor('/profile/personalization').key).toBe('settings');
+    expect(routeSceneFor('/profile/settings/keamanan').key).toBe('settings');
+    expect(routeSceneFor('/profile/settings/notifikasi').key).toBe('settings');
+    expect(routeSceneFor('/profile/privacy').key).toBe('settings');
     expect(routeSceneFor('/profile/details').key).toBe('profile');
   });
 

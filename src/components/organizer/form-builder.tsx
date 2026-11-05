@@ -21,6 +21,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
+import { FORM_BUILDER_CHANGE_EVENT } from '@/components/organizer/registration-settings';
 import { buttonVariants } from '@/components/ui/button';
 import { controlClass, SelectInput } from '@/components/ui/field';
 import { hasOptions, newFieldId, REGISTRATION_FORM_LIMITS } from '@/lib/registration-form';
@@ -42,8 +43,7 @@ const TYPE_ICON: Record<FormFieldType, LucideIcon> = {
 
 const LIMITS = REGISTRATION_FORM_LIMITS;
 
-/** Event yang dikirim ke `<form>` induk setiap kali susunan berubah — bilah simpan memakainya untuk tanda "belum disimpan". */
-export const FORM_BUILDER_CHANGE_EVENT = 'sf:form-builder-change';
+
 
 interface DraftField {
   readonly id: string;

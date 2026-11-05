@@ -397,6 +397,25 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] Mekanisme pengumuman perubahan dokumen ≥ 14 hari di dalam aplikasi (janji di kedua dokumen) — belum ada komponen banner pengumuman.
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Audit UX pra-domain: kembali, konfirmasi, Pengaturan, lencana 2026-11-05 (@claude) — ADR-063/064
+
+- [x] `BackLink` (hierarkis, ingat asal lewat `lib/nav-history.ts`, `via` untuk induk ganda) di semua anak Pengaturan, Data diri, Peminatan; menggantikan tautan kembali tulisan tangan di detail tim, papan lamaran, profil orang, pembayaran
+- [x] `ConfirmSubmit` (`<dialog>` alertdialog, fokus "Batal", tanpa JS = kirim biasa): Keluar (3 pintu, satu `SignOutForm`; salinan khusus akun demo), keluar tim, hapus dari Papan lamaran, buka blokir, atur ulang data demo, "Tandai lunas" tanpa bukti
+- [x] Pengaturan jadi daftar per konteks + ringkasan keadaan akun; halaman baru `/profile/settings/keamanan` & `/profile/settings/notifikasi`; hapus data perangkat (demo) → Privasi & data; menu akun satu pintu "Pengaturan"
+- [x] Ganti sandi kembali ke halaman keamanan; gagal = form tetap terbuka
+- [x] Lencana dihitung (`lib/achievements.ts`, 20 tes skenario curang) dari pendaftaran CONFIRMED yang sudah ditutup, kiriman disetujui, verifikasi & acara kelolaan; tab privat "Lencana" + deretan medali di profil; medali SVG bertingkat (bentuk, bukan warna saja), tema gelap
+- [x] `EventRegistration.event.eventType/status` di kedua repository (+ tes memori `lib/data/badges.test.ts`); seed persona Mahasiswa `DEMO_STARTER_REGISTRATIONS`
+- [x] e2e diperbarui untuk dialog konfirmasi (`demo-journey`; `connections` membuktikan buka blokir tetap jalan TANPA JS); rute baru masuk audit axe, 320/375px, target sentuh
+- [x] Menu akun: item "Lencana"; di ponsel panel setinggi batasnya + "Keluar" di dasar (axe `target-size` pada tautan yang terpotong tepi menu)
+- [x] Race lama di e2e tracker (reload sebelum POST Server Action selesai) — kini menunggu respons POST
+- [x] Bukti (putaran akhir): `npm run verify` 782 tes, `npm run db:test` semua migration & tes SQL lolos, Playwright penuh di build produksi mode seed 760 lulus / 0 gagal, `npm run test:integration` (Postgres 16 + PostgREST) 92/92
+- [x] Audit tuntas semua Server Action (tabel di ADR-063 §5): konfirmasi untuk publikasi (tayangkan), kepercayaan (verifikasi, klaim, revisi), uang (konfirmasi bayar, daftar berbayar), orang lain (tolak/batalkan ajakan, gabung tim), privasi (tahap yang membuat publik, terlihat di Koneksi), tutup pendaftaran; `when` = konfirmasi bersyarat, `checkValidity` sebelum dialog
+- [x] `UnsavedChangesGuard` di 11 form (tautan internal + `beforeunload`), e2e `unsaved-guard.spec.ts`
+- [x] Keluar dari semua perangkat (`signOut({ scope: 'global' })`, notice `signed_out_everywhere`)
+- [x] Saklar pengingat tenggat sungguhan: migration `20261105100001` + tes SQL `102_…`, repository kedua mode, tes memori & integrasi, ekspor data, ringkasan di hub; e2e `settings.spec.ts`
+- [ ] Lencana di profil publik `/orang/[id]`: fungsi SQL agregat SECURITY DEFINER (hanya hitungan per lencana, `REVOKE … FROM anon, authenticated` + GRANT eksplisit, ADR-020) + pilihan privasi "tampilkan lencanaku" (bawaan mati)
+- [ ] Kehadiran yang dicatat panitia (check-in) sebagai syarat "ikut" yang lebih kuat dari "terkonfirmasi & ditutup" — butuh kolom & RPC baru
+
 ## Tur, latar bergerak, audit fungsi fitur 2026-11-04 (@claude) — ADR-062
 
 - [x] Tur beranda 5 langkah (fitur produksi saja), pola tab + keyboard, jeda, autoplay hanya saat terlihat, reduced-motion aman

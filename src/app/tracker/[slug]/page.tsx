@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Award, CalendarClock, Check, FileText, History, ListChecks, NotebookPen, Users } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Award, CalendarClock, Check, FileText, History, ListChecks, NotebookPen, Users } from 'lucide-react';
 import { updateTrackerStatusAction } from '@/app/tracker/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
@@ -11,6 +11,7 @@ import { registrationCta, registrationEventClosed } from '@/components/registrat
 import { DemoDocumentsSummary } from '@/components/profile/demo-detail-cards';
 import { PortfolioPanel } from '@/components/tracker/portfolio-form';
 import { TrackerRemoveForm, TrackerStatusForm, TrackerSteps } from '@/components/tracker/tracker-card';
+import { BackLink } from '@/components/ui/back-link';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId, getDeadlineState } from '@/lib/deadline';
@@ -204,9 +205,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
   return (
     <AccountShell user={user} active="daftar">
       <div className="flex flex-col gap-6">
-        <Link href="/tracker" className="-mb-2 flex min-h-11 items-center gap-1.5 self-start text-[13.5px] font-medium text-ink-muted hover:text-ink">
-          <ArrowLeft aria-hidden className="size-4" /> Semua pendaftaran
-        </Link>
+        <BackLink href="/tracker" label="Papan lamaran" className="-mb-2" />
 
         <header className="enter flex flex-col gap-3 [animation-duration:800ms]">
           <span className="font-mono text-xs tracking-[.08em] text-ink-muted">PROSES PENDAFTARAN · {EVENT_TYPE_LABEL[event.eventType].toUpperCase()}</span>

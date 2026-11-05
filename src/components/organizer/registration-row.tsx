@@ -3,6 +3,7 @@ import { Ban, Check, ChevronDown, CircleCheck, CircleX, ExternalLink, Hourglass,
 import { reviewRegistrationAction } from '@/app/penyelenggara/acara/[id]/pendaftar/actions';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { TextArea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { formatRupiah } from '@/lib/currency';
@@ -181,10 +182,25 @@ export function RegistrationRow({
                 {canConfirm && (
                   <form action={reviewRegistrationAction}>
                     <HiddenInputs {...form} decision="confirm" />
-                    <SubmitButton pendingLabel="Menyimpan…" className={buttonVariants({ className: 'w-full' })}>
+                    {/* Keputusan uang yang tidak bisa ditarik kembali selain menolak peserta.
+                        Tanpa bukti unggahan (bayar tunai/di tempat) kalimatnya lebih keras. */}
+                    <ConfirmSubmit
+                      className={buttonVariants({ className: 'w-full' })}
+                      confirm={{
+                        title:
+                          status === 'PAYMENT_REVIEW' ? `Konfirmasi pembayaran ${registration.fullName}?` : `Tandai ${registration.fullName} sudah lunas?`,
+                        description:
+                          status === 'PAYMENT_REVIEW'
+                            ? `Pastikan nominal${registration.feeAmount ? ` ${fee}` : ''} di bukti sudah masuk ke rekening panitia. Peserta langsung diberi tahu pendaftarannya terkonfirmasi.`
+                            : `Belum ada bukti bayar yang diunggah. Lakukan ini hanya bila pembayaran${registration.feeAmount ? ` ${fee}` : ''} sudah kamu terima langsung — peserta langsung diberi tahu pendaftarannya terkonfirmasi.`,
+                        confirmLabel: status === 'PAYMENT_REVIEW' ? 'Ya, konfirmasi' : 'Ya, tandai lunas',
+                        tone: 'neutral',
+                        icon: <Check />,
+                      }}
+                    >
                       <Check aria-hidden />
                       {status === 'PAYMENT_REVIEW' ? DECISION_LABEL.confirm : 'Tandai lunas'}
-                    </SubmitButton>
+                    </ConfirmSubmit>
                   </form>
                 )}
                 {canRejectPayment && (

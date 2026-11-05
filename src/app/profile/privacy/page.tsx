@@ -3,15 +3,18 @@ import Link from 'next/link';
 import { ArrowRight, Download, Share2 } from 'lucide-react';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DetailCard, DetailRows, detailButton } from '@/components/profile/detail-card';
+import { DemoResetCard } from '@/components/profile/demo-settings';
 import { DemoPrivacyControls } from '@/components/profile/privacy-controls';
+import { BackLink } from '@/components/ui/back-link';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { sectionTitle } from '@/lib/page-title';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Privasi & data',
+  title: sectionTitle('Privasi & data', 'Pengaturan'),
   robots: { index: false, follow: false },
 };
 
@@ -41,8 +44,9 @@ export default async function PrivacyPage() {
   const activeRegistrations = registrations.filter((registration) => registration.status !== 'CANCELLED');
 
   return (
-    <AccountShell user={user} active="privasi">
+    <AccountShell user={user} active="pengaturan">
       <div className="flex max-w-[980px] flex-col gap-5">
+        <BackLink href="/profile/settings" label="Pengaturan" className="-mb-3" />
         <div className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
           <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Privasi &amp; data</h1>
           <p className="max-w-[62ch] text-[15.5px] leading-relaxed text-ink-muted">
@@ -119,6 +123,7 @@ export default async function PrivacyPage() {
         </DetailCard>
 
         {demoFeaturesEnabled && <DemoPrivacyControls name={user.fullName} major={user.major} />}
+        {demoFeaturesEnabled && <DemoResetCard delay={0} />}
       </div>
     </AccountShell>
   );

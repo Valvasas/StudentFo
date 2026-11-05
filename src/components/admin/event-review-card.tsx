@@ -2,7 +2,8 @@ import { AlertTriangle, Check, ExternalLink, GraduationCap, MapPin, Tag } from '
 import { reviewEventAction } from '@/app/admin/actions';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { RejectConfirm } from '@/components/admin/reject-confirm';
 import { formatDateTimeId, formatShortDateId } from '@/lib/deadline';
 import { sanitizeExternalUrl } from '@/lib/utils';
@@ -118,9 +119,23 @@ export function EventReviewCard({ event, categoryNames }: { event: EventDetail; 
         <form action={reviewEventAction}>
           <input type="hidden" name="eventId" value={event.id} />
           <input type="hidden" name="decision" value="APPROVED" />
-          <Button type="submit" variant="success" size="sm">
+          <ConfirmSubmit
+            className={buttonVariants({ variant: 'success', size: 'sm' })}
+            confirm={{
+              title: 'Tayangkan kegiatan ini?',
+              description: (
+                <>
+                  <strong className="font-semibold text-ink">{event.title}</strong> langsung tampil di katalog untuk semua pengunjung dan masuk
+                  pengingat orang yang menyimpannya. Penolakan bisa dibatalkan dari Riwayat — penayangan tidak bisa ditarik dari panel ini.
+                </>
+              ),
+              confirmLabel: 'Ya, tayangkan',
+              tone: 'neutral',
+              icon: <Check />,
+            }}
+          >
             <Check aria-hidden /> Setujui
-          </Button>
+          </ConfirmSubmit>
         </form>
         <RejectConfirm action={reviewEventAction} fields={{ eventId: event.id, decision: 'REJECTED' }} subject="kegiatan ini" />
       </div>

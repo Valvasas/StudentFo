@@ -16,7 +16,7 @@ import {
   signUpSchema,
   type AccountType,
 } from '@/lib/auth-schema';
-import { seedDemoNetwork, seedDemoOrganizer, seedDemoPortfolio } from '@/lib/data';
+import { seedDemoNetwork, seedDemoOrganizer, seedDemoParticipation, seedDemoPortfolio } from '@/lib/data';
 import { DEMO_PERSONAS, demoEmailOf, isDemoPersonaId } from '@/lib/demo/personas';
 import { isDemoAdminPersonaAllowed, isDemoAvailable } from '@/lib/demo/gate';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
@@ -41,6 +41,9 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  * try/catch — kalau tidak, blok catch akan menangkapnya dan navigasinya
  * batal tanpa jejak.
  */
+
+/** Halaman ganti kata sandi & sesi (ADR-063). */
+const SECURITY_SETTINGS_PATH = '/profile/settings/keamanan';
 
 function authHref(path: string, params: Record<string, string | undefined>): string {
   const search = new URLSearchParams();
@@ -286,6 +289,7 @@ export async function demoSignInAction(formData: FormData): Promise<void> {
   if (persona === 'mahasiswa') {
     seedDemoNetwork(uid);
     seedDemoPortfolio(uid);
+    seedDemoParticipation({ id: uid, fullName: DEMO_PERSONAS.mahasiswa.fullName, email: demoEmailOf(persona) });
   }
   if (persona === 'penyelenggara') {
     seedDemoOrganizer({ id: uid, fullName: DEMO_PERSONAS.penyelenggara.fullName, email: demoEmailOf(persona) });
@@ -305,6 +309,25 @@ export async function signOutAction(): Promise<void> {
 
   revalidatePath('/', 'layout');
   redirect('/');
+}
+
+/**
+ * Keluar dari SEMUA perangkat (ADR-063): mencabut setiap refresh token akun
+ * ini, termasuk sesi di komputer lab/warnet yang lupa ditutup. Token akses
+ * yang sudah terbit tetap sah sampai kedaluwarsa (±1 jam, batas Supabase) —
+ * kalimat di halaman keamanan tidak menjanjikan "seketika".
+ * Akun demo hanya hidup di cookie perangkat ini, jadi sama dengan keluar biasa.
+ */
+export async function signOutEverywhereAction(): Promise<void> {
+  if (dataMode === 'seed') {
+    await endDemoSession();
+  } else {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut({ scope: 'global' });
+  }
+
+  revalidatePath('/', 'layout');
+  redirect(authHref('/login', { notice: 'signed_out_everywhere' }));
 }
 
 export async function requestPasswordResetAction(formData: FormData): Promise<void> {
@@ -428,7 +451,7 @@ export async function updatePasswordAction(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/', 'layout');
-  redirect(authHref('/profile/settings', { notice: 'password_updated' }));
+  redirect(authHref(SECURITY_SETTINGS_PATH, { notice: 'password_updated' }));
 }
 
 export async function changePasswordAction(formData: FormData): Promise<void> {
@@ -487,10 +510,11 @@ export async function changePasswordAction(formData: FormData): Promise<void> {
     }
   }
 
+  // Gagal = form tetap terbuka (`ubah=sandi`) supaya orang langsung bisa mencoba lagi.
   if (failure) {
-    redirect(authHref('/profile/settings', { error: failure }));
+    redirect(authHref(SECURITY_SETTINGS_PATH, { error: failure, ubah: failure === 'unavailable' ? undefined : 'sandi' }));
   }
 
   revalidatePath('/', 'layout');
-  redirect(authHref('/profile/settings', { notice: 'password_updated' }));
+  redirect(authHref(SECURITY_SETTINGS_PATH, { notice: 'password_updated' }));
 }

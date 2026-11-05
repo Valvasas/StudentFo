@@ -30,6 +30,21 @@ describe('MemoryEventRepository — notifikasi tenggat', () => {
     expect(await repo.countUnreadNotifications(userId)).toBe(1);
   });
 
+  it('saklar pengingat mati = lonceng & antrean dispatch tanpa pengingat; nyala lagi = kembali (cermin migration 20261105100001)', async () => {
+    const repo = new MemoryEventRepository();
+    const userId = 'user-notif-saklar';
+    await repo.saveEvent(userId, EVENT_H1);
+    expect(await repo.getNotificationPreferences(userId)).toEqual({ deadlineReminders: true });
+
+    await repo.updateNotificationPreferences(userId, { deadlineReminders: false });
+    expect(await repo.getNotificationPreferences(userId)).toEqual({ deadlineReminders: false });
+    expect(await repo.listNotifications(userId, 10)).toEqual([]);
+    expect((await repo.claimDeadlineDispatches(50)).some((dispatch) => dispatch.recipient.userId === userId)).toBe(false);
+
+    await repo.updateNotificationPreferences(userId, { deadlineReminders: true });
+    expect((await repo.listNotifications(userId, 10)).map((notification) => notification.type)).toEqual(['DEADLINE_H1']);
+  });
+
   it('memunculkan pengingat untuk kegiatan yang hanya ada di tracker', async () => {
     const repo = new MemoryEventRepository();
     const userId = 'user-notif-2';

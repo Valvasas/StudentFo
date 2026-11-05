@@ -11,6 +11,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
 import { ChoiceGroup, FormStep } from '@/components/ui/form-step';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { jakartaDateKey } from '@/lib/deadline';
@@ -136,6 +137,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
       )}
 
       <form action={submitEventAction} className="mt-8 flex flex-col gap-4">
+        <UnsavedChangesGuard />
         {/* Honeypot — tersembunyi dari manusia dan pembaca layar, lihat submission-schema.ts. */}
         <div aria-hidden className="absolute -left-[9999px] size-px overflow-hidden">
           <label htmlFor={HONEYPOT_FIELD}>Jangan diisi</label>

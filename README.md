@@ -170,6 +170,15 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    ```sql
    UPDATE public.users SET role = 'ADMIN' WHERE email = 'kamu@contoh.com';
    ```
+   Urutannya: (1) daftar akun biasa di `/register` (atau Google) dan
+   konfirmasi email; (2) jalankan SQL di atas dengan email itu; (3) muat ulang
+   halaman — peran dibaca dari database di setiap request, tidak perlu keluar.
+   Navbar lalu menampilkan tombol **Moderasi**, beranda berganti jadi ringkasan
+   antrean, dan menu akun mendapat "Antrean moderasi" (`/admin`, plus
+   `/admin/penyelenggara`, `/admin/promosi`, `/admin/riwayat`,
+   `/admin/kalibrasi`). Bagi akun non-admin `/admin` sengaja **404**, bukan
+   "akses ditolak" — keberadaan panelnya tidak diiklankan (ADR-057). Mencabut:
+   `UPDATE public.users SET role = 'USER' WHERE email = '…';`
 
 `SUPABASE_SERVICE_ROLE_KEY` hanya dibutuhkan pipeline dan aksi admin. Kunci itu
 mem-bypass RLS — jangan pernah diberi prefix `NEXT_PUBLIC_`, dan jangan di-commit.

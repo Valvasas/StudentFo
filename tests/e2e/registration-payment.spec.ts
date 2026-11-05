@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { PAID_DEMO_EVENT, registerForPaidDemoEvent, signInAsDemo, uploadDemoPaymentProof } from './helpers';
+import { confirmDialog, PAID_DEMO_EVENT, registerForPaidDemoEvent, signInAsDemo, uploadDemoPaymentProof } from './helpers';
 
 /**
  * Formulir internal & pembayaran lintas peran (ADR-056), seperti dipakai
@@ -27,6 +27,7 @@ test('peserta daftar → unggah bukti → panitia konfirmasi → peserta terkonf
   // Baris pendaftar = <li><details>; di dalamnya ada <details> lain (tolak bukti, dst).
   await row.locator(':scope > details > summary').click();
   await row.getByRole('button', { name: 'Konfirmasi pembayaran' }).click();
+  await confirmDialog(organizer, 'Ya, konfirmasi');
   await expect(organizer).toHaveURL(/notice=registration_reviewed/);
 
   await student.reload();

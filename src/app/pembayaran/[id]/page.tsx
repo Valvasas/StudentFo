@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, Ban, ChevronDown, CircleX, ExternalLink, MessageSquareText, ShieldAlert } from 'lucide-react';
+import { ArrowRight, Ban, ChevronDown, CircleX, ExternalLink, MessageSquareText, ShieldAlert } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { RegistrationStatusBadge } from '@/components/organizer/registration-row';
 import { CopyCodeButton } from '@/components/registration/copy-code-button';
@@ -11,9 +11,11 @@ import { registrationHref } from '@/components/registration/registration-cta';
 import { RegistrationSteps } from '@/components/registration/registration-steps';
 import { ScrollToTop } from '@/components/registration/scroll-to-top';
 import { registrationSteps } from '@/components/registration/registration-view';
+import { BackLink } from '@/components/ui/back-link';
 import { buttonVariants } from '@/components/ui/button';
 import { ImageUploadField } from '@/components/ui/image-upload-field';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { requireUser, toEventActor } from '@/lib/auth';
 import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
@@ -92,9 +94,7 @@ export default async function RegistrationDetailPage({
   return (
     <div className="container-page pb-24 pt-6 sm:pt-8">
       <div className="mx-auto flex max-w-[980px] flex-col gap-6">
-        <Link href="/pembayaran" className="flex min-h-11 w-fit items-center gap-1.5 text-[13.5px] font-medium text-ink-muted hover:text-ink">
-          <ArrowLeft aria-hidden className="size-4" /> Pembayaran
-        </Link>
+        <BackLink href="/pembayaran" label="Pembayaran" />
 
         <ActionFeedback params={query} />
         {(parseActionNoticeCode(query.notice) || parseActionErrorCode(query.error)) && <ScrollToTop key={randomUUID()} />}
@@ -267,6 +267,7 @@ function ProofPreview({ registration }: { registration: EventRegistration }) {
 function ProofForm({ registrationId, returnTo, label }: { registrationId: string; returnTo: string; label: string }) {
   return (
     <form action={submitPaymentProofAction} className="flex flex-col gap-4">
+      <UnsavedChangesGuard />
       <input type="hidden" name="registrationId" value={registrationId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <ImageUploadField id="proof" name="proof" label={label} hint="Foto atau tangkapan layar bukti transfer. Maks. 5 MB." required />

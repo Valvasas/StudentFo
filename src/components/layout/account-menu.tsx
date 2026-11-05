@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, ChevronDown, LogOut } from 'lucide-react';
-import { signOutAction } from '@/app/auth/actions';
+import { SignOutForm } from '@/components/auth/sign-out-form';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
 import type { AccountBadgeCounts, AccountRoleContext } from '@/components/home/account-role';
 import { accountMenuGroups, type AccountBadge } from '@/lib/account-sidebar';
@@ -48,7 +48,11 @@ export function AccountMenu({ user, context, counts }: { user: AuthUser; context
         <ChevronDown aria-hidden className="size-3.5 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-180" />
       </summary>
 
-      <div className="pop absolute right-0 top-[calc(100%+10px)] z-50 flex max-h-[calc(100dvh-80px)] w-72 max-w-[calc(100vw-32px)] flex-col overflow-y-auto overscroll-contain rounded-modal border border-line bg-panel shadow-overlay">
+      {/* Di ponsel panel SELALU setinggi batasnya, dengan "Keluar" di dasar (zona
+          jempol). Panel yang berakhir di tengah layar memotong tautan halaman di
+          belakangnya jadi sisa beberapa piksel (axe target-size), dan tingginya
+          berubah tiap kali isi menu berubah. */}
+      <div className="pop absolute right-0 top-[calc(100%+10px)] z-50 flex max-h-[calc(100dvh-80px)] w-72 max-w-[calc(100vw-32px)] flex-col overflow-y-auto overscroll-contain rounded-modal border border-line bg-panel shadow-overlay max-sm:min-h-[calc(100dvh-80px)]">
         <Link href="/profile" className="flex items-center gap-3 p-4 transition-colors duration-150 ease-snap hover:bg-panel-nested">
           <span
             aria-hidden
@@ -95,18 +99,13 @@ export function AccountMenu({ user, context, counts }: { user: AuthUser; context
           </div>
         ))}
 
-        {/* Keluar WAJIB lewat POST (Server Action), bukan tautan biasa.
-            Dengan <a href="/logout">, prefetch peramban atau sebuah <img>
-            di situs lain sudah cukup untuk mengeluarkan orang dari akunnya. */}
-        <form action={signOutAction} className="border-t border-line p-1.5">
-          <button
-            type="submit"
-            className="flex min-h-11 w-full items-center gap-2.5 rounded-sm px-2.5 text-left text-sm font-medium text-ink-muted transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
-          >
-            <LogOut aria-hidden className="size-[17px]" />
-            Keluar
-          </button>
-        </form>
+        <SignOutForm
+          className="border-t border-line p-1.5 max-sm:mt-auto"
+          buttonClassName="flex min-h-11 w-full items-center gap-2.5 rounded-sm px-2.5 text-left text-sm font-medium text-ink-muted transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
+        >
+          <LogOut aria-hidden className="size-[17px]" />
+          Keluar
+        </SignOutForm>
       </div>
     </details>
   );

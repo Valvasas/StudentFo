@@ -4,8 +4,11 @@ import { ArrowRight, Bookmark, Check, ChevronRight, Clock, Eye, GraduationCap, L
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { loadAccountRole } from '@/components/home/account-role';
 import { CategoryIcon } from '@/components/listing/category-icon';
 import { AccountShell } from '@/components/layout/account-shell';
+import { BadgeBoard, BadgeStrip } from '@/components/profile/badge-board';
+import { loadBadgeFacts } from '@/components/profile/badge-facts';
 import { PortfolioList, type PortfolioRow } from '@/components/profile/portfolio-list';
 import {
   DemoAboutCard,
@@ -16,6 +19,7 @@ import {
   DemoStatusPicker,
   DemoTeamCard,
 } from '@/components/profile/demo-profile-parts';
+import { evaluateBadges } from '@/lib/achievements';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
@@ -43,6 +47,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 const TABS = [
   { key: 'tentang', label: 'Tentang', private: false, demoOnly: false },
   { key: 'portofolio', label: 'Portofolio', private: false, demoOnly: false },
+  // Privat: profil publik belum menampilkan lencana (ADR-064).
+  { key: 'lencana', label: 'Lencana', private: true, demoOnly: false },
   { key: 'pendaftaran', label: 'Lamaran', private: true, demoOnly: false },
   { key: 'tersimpan', label: 'Tersimpan', private: true, demoOnly: false },
 ] as const;
@@ -62,18 +68,20 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const params = await searchParams;
   const user = await requireUser('/profile');
   const repository = await getEventRepository();
-  const [categories, savedEvents, trackerItems] = await Promise.all([
+  const isPublic = params.tampilan === 'publik';
+  const [categories, savedEvents, trackerItems, badgeFacts] = await Promise.all([
     repository.listCategories(),
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
+    isPublic ? Promise.resolve(null) : loadAccountRole(user).then((context) => loadBadgeFacts(user, context.organizer)),
   ]);
 
-  const isPublic = params.tampilan === 'publik';
   const tabs = TABS.filter((item) => (!isPublic || !item.private) && (demoFeaturesEnabled || !item.demoOnly));
   const rawTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const tab: TabKey = tabs.some((item) => item.key === rawTab) ? (rawTab as TabKey) : 'tentang';
   const tabHref = (key: TabKey) => `/profile?${new URLSearchParams({ ...(key !== 'tentang' ? { tab: key } : {}), ...(isPublic ? { tampilan: 'publik' } : {}) })}`.replace(/\?$/, '');
   const now = new Date();
+  const badges = badgeFacts ? evaluateBadges(badgeFacts, now) : null;
 
   const completeness = profileCompleteness(user);
   const applications = trackerItems.filter((item) => item.status !== 'SAVED');
@@ -93,6 +101,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     }));
   const counts: Partial<Record<TabKey, number>> = {
     portofolio: portfolioRows.length,
+    ...(badges ? { lencana: badges.filter((item) => item.tier > 0).length } : {}),
     pendaftaran: applications.length,
     tersimpan: savedEvents.length,
   };
@@ -102,7 +111,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const togglePublicHref = isPublic ? (tab === 'tentang' ? '/profile' : `/profile?tab=${tab}`) : `/profile?tampilan=publik${tab !== 'tentang' && !TABS.find((item) => item.key === tab)?.private ? `&tab=${tab}` : ''}`;
 
   return (
-    <AccountShell user={user} active="profil">
+    <AccountShell user={user} active={tab === 'lencana' || tab === 'tersimpan' ? tab : 'profil'}>
       <AuthFeedback params={params} />
       <ActionFeedback params={params} />
 
@@ -163,6 +172,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             {demoFeaturesEnabled && <DemoCity />}
           </ul>
           {demoFeaturesEnabled && <DemoStatusPicker editable={!isPublic} />}
+          {badges && <BadgeStrip progress={badges} href={tabHref('lencana')} />}
         </section>
 
         {/* Setelah 100% kartu ini hanya berisi daftar yang dicoret semua —
@@ -341,6 +351,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             {demoFeaturesEnabled && <DemoAchievements isPublic={isPublic} />}
           </>
         )}
+
+        {tab === 'lencana' && <BadgeBoard progress={badges} now={now} />}
 
         {tab === 'pendaftaran' && (
           <section aria-labelledby="pendaftaran-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">

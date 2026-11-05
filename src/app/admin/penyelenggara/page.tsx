@@ -7,6 +7,7 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { RevisionChanges } from '@/components/organizer/revision-changes';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { TextArea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { adminMetadata, requireAdmin } from '@/lib/auth';
@@ -41,7 +42,9 @@ function NoteField({ id, required }: { id: string; required: boolean }) {
 }
 
 /**
- * Tolak/cabut lewat <details> berisi catatan wajib; setuju satu klik.
+ * Tolak/cabut lewat <details> berisi catatan wajib; setuju lewat dialog
+ * konfirmasi yang menyebut hak apa yang diberikan (ADR-063) — keputusan
+ * kepercayaan, bukan sekadar tombol antrean.
  * Dua <form> terpisah — Enter di kolom catatan tidak boleh memicu "setujui".
  */
 function DecisionForms({
@@ -56,7 +59,7 @@ function DecisionForms({
   idField: string;
   id: string;
   tab: TabKey;
-  approve: { value: string; label: string } | null;
+  approve: { value: string; label: string; confirm: { title: string; description: string } } | null;
   reject: { value: string; label: string; danger?: boolean };
 }) {
   return (
@@ -66,9 +69,12 @@ function DecisionForms({
           <input type="hidden" name={idField} value={id} />
           <input type="hidden" name="decision" value={approve.value} />
           <input type="hidden" name="tab" value={tab} />
-          <SubmitButton className={buttonVariants({ variant: 'success', size: 'sm' })}>
+          <ConfirmSubmit
+            className={buttonVariants({ variant: 'success', size: 'sm' })}
+            confirm={{ ...approve.confirm, confirmLabel: `Ya, ${approve.label.toLowerCase()}`, tone: 'neutral', icon: <Check /> }}
+          >
             <Check aria-hidden /> {approve.label}
-          </SubmitButton>
+          </ConfirmSubmit>
         </form>
       )}
       <details className="group min-w-0 flex-1">
@@ -194,7 +200,15 @@ export default async function OrganizerQueuePage({ searchParams }: { searchParam
                       idField="userId"
                       id={profile.userId}
                       tab={tab}
-                      approve={{ value: 'VERIFIED', label: 'Verifikasi' }}
+                      approve={{
+                        value: 'VERIFIED',
+                        label: 'Verifikasi',
+                        confirm: {
+                          title: `Verifikasi ${profile.orgName}?`,
+                          description:
+                            'Akun ini boleh mengelola acara yang ditautkan kepadanya: formulir pendaftaran, data pendaftar, bukti bayar, dan galeri. Verifikasi bisa dicabut kapan saja dengan catatan.',
+                        },
+                      }}
                       reject={{ value: 'REJECTED', label: 'Tolak' }}
                     />
                   </li>
@@ -266,7 +280,14 @@ export default async function OrganizerQueuePage({ searchParams }: { searchParam
                     idField="claimId"
                     id={claim.id}
                     tab={tab}
-                    approve={{ value: 'APPROVED', label: 'Setujui klaim' }}
+                    approve={{
+                      value: 'APPROVED',
+                      label: 'Setujui klaim',
+                      confirm: {
+                        title: `Serahkan “${claim.event.title}” ke ${claim.orgName ?? 'pengaju'}?`,
+                        description: 'Pengaju mendapat hak kelola acara ini, termasuk data pendaftar yang masuk lewat formulir StudentFo. Pastikan buktinya sudah kamu periksa.',
+                      },
+                    }}
                     reject={{ value: 'REJECTED', label: 'Tolak' }}
                   />
                 </li>
@@ -303,7 +324,14 @@ export default async function OrganizerQueuePage({ searchParams }: { searchParam
                     idField="revisionId"
                     id={revision.id}
                     tab={tab}
-                    approve={{ value: 'APPROVED', label: 'Terapkan perubahan' }}
+                    approve={{
+                      value: 'APPROVED',
+                      label: 'Terapkan perubahan',
+                      confirm: {
+                        title: `Terapkan perubahan pada “${revision.event.title}”?`,
+                        description: 'Isi acara yang sedang tayang langsung berubah untuk semua pengunjung, termasuk tenggat yang dipakai pengingat H-3/H-1.',
+                      },
+                    }}
                     reject={{ value: 'REJECTED', label: 'Tolak' }}
                   />
                 </li>

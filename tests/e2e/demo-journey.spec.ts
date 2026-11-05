@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { confirmDialog, signInAsDemo } from './helpers';
 
 /**
  * Perjalanan pengunjung demo di browser sungguhan: klik, form, JS klien,
@@ -36,11 +36,25 @@ test('tracker: simpan → ubah tahap → tahap bertahan setelah reload → hapus
   await page.goto('/tracker');
   const stage = page.getByLabel(new RegExp(`Tahap lamaran untuk ${title.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
   await stage.selectOption('APPLIED');
+  // Tunggu POST Server Action selesai sebelum reload — tanpa ini reload bisa
+  // membatalkan aksi yang masih di jalan (gagal acak saat mesin uji sibuk).
+  const saved = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/tracker');
   await stage.locator('xpath=ancestor::form').getByRole('button', { name: 'Ubah' }).click();
+  // Disimpan → Sudah daftar membuat entri tampil di profil publik bila jenisnya tampil bawaan (ADR-063).
+  const goPublic = page.getByRole('alertdialog', { name: 'Tampilkan di profil publikmu?' });
+  if (await goPublic.isVisible()) await goPublic.getByRole('button', { name: 'Ya, simpan tahap' }).click();
+  await saved;
   await page.reload();
   await expect(page.getByLabel(new RegExp(`Tahap lamaran untuk ${title.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))).toHaveValue('APPLIED');
 
-  await page.getByRole('button', { name: new RegExp(`Hapus .* dari tracker`) }).first().click();
+  await page.getByRole('button', { name: new RegExp(`Hapus .* dari Papan lamaran`) }).first().click();
+  // Menghapus catatan & hasil portofolio = satu langkah konfirmasi (ADR-063); Batal tidak mengubah apa pun.
+  const confirmRemove = page.getByRole('alertdialog', { name: 'Hapus dari Papan lamaran?' });
+  await expect(confirmRemove).toBeVisible();
+  await confirmRemove.getByRole('button', { name: 'Batal' }).click();
+  await expect(confirmRemove).toBeHidden();
+  await page.getByRole('button', { name: new RegExp(`Hapus .* dari Papan lamaran`) }).first().click();
+  await confirmRemove.getByRole('button', { name: 'Ya, hapus' }).click();
   await expect(page).toHaveURL(/tracker/);
 });
 
@@ -67,6 +81,7 @@ test('tim: buat tim → anggota lain bergabung → keluar; ketua melihat jumlah 
   await signInAsDemo(member, 'Siswa baru', '/teams');
   await member.goto(teamUrl);
   await member.getByRole('button', { name: 'Ajukan gabung' }).click();
+  await confirmDialog(member, 'Ya, gabung tim');
   await expect(member.getByRole('button', { name: 'Keluar dari tim' })).toBeVisible();
   // Gabung/keluar tidak lagi senyap (ADR-062): kode notice tertutup, bukan teks di URL.
   await expect(member).toHaveURL(/notice=team_joined/);
@@ -77,6 +92,7 @@ test('tim: buat tim → anggota lain bergabung → keluar; ketua melihat jumlah 
   await expect(leader.getByText('2 dari 3 orang')).toBeVisible();
 
   await member.getByRole('button', { name: 'Keluar dari tim' }).click();
+  await member.getByRole('alertdialog').getByRole('button', { name: 'Ya, keluar dari tim' }).click();
   await expect(member).toHaveURL(/notice=team_left/);
   await leader.reload();
   await expect(leader.getByText('Raka Aditya')).toHaveCount(0);
@@ -102,7 +118,9 @@ test('keluar lewat menu akun menghapus sesi demo', async ({ page }) => {
   const menu = page.locator('details:has(> summary[aria-label^="Menu akun"])');
   await menu.locator('summary').click();
   // Dicari di dalam menu: halaman akun punya tombol "Keluar" kedua di sidebar.
-  await menu.getByRole('button', { name: 'Keluar' }).click();
+  await menu.getByRole('button', { name: 'Keluar', exact: true }).click();
+  // Keluar dari akun demo = datanya hilang, jadi ada konfirmasi (ADR-063).
+  await menu.getByRole('alertdialog', { name: 'Keluar dari akun demo?' }).getByRole('button', { name: 'Ya, keluar' }).click();
   await expect(page.locator('summary[aria-label^="Menu akun"]')).toHaveCount(0);
   // Tamu di /tracker melihat ajakan masuk, bukan papan milik sesi sebelumnya.
   await page.goto('/tracker');

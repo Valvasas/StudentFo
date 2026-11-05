@@ -66,7 +66,13 @@ export function DemoNotificationCard({ delay }: { delay: number }) {
     : 'Pengingat tenggat mati. Pilih minimal satu hari supaya tidak ada tenggat yang terlewat.';
 
   return (
-    <DetailCard id="notifikasi" icon={<Bell className="size-[18px]" />} title="Notifikasi" description="Pilih kabar apa yang dikirim, dan lewat mana." delay={delay}>
+    <DetailCard
+      id="notifikasi"
+      icon={<Bell className="size-[18px]" />}
+      title="Kanal pengiriman (pratinjau)"
+      description="Contoh pilihan email & WhatsApp — belum mengirim apa pun, dan tidak mengubah saklar di atas."
+      delay={delay}
+    >
       <div className="min-w-0 max-w-full overflow-x-auto px-5 sm:px-6">
         <table className="w-full min-w-[440px] border-collapse text-left">
           <caption className="sr-only">Kanal untuk setiap jenis notifikasi</caption>
@@ -130,7 +136,7 @@ export function DemoNotificationCard({ delay }: { delay: number }) {
 
       <div className="mt-2 flex flex-col gap-4 border-t border-line px-5 py-5 sm:px-6">
         <fieldset className="flex flex-col gap-2" disabled={!loaded}>
-          <legend className="mb-2 text-[14.5px] font-semibold">Pengingat tenggat</legend>
+          <legend className="mb-2 text-[14.5px] font-semibold">Hari pengingat lewat kanal (pratinjau)</legend>
           <div className="flex flex-wrap gap-1.5">
             {REMINDER_DAYS.map((day) => {
               const on = prefs.days.includes(day);

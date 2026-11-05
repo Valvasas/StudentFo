@@ -6,6 +6,7 @@ import type {
   EventRegistration,
   EventSummary,
   NetworkProfile,
+  NotificationPreferences,
   OrganizerProfile,
   Submission,
   TeamLink,
@@ -27,6 +28,7 @@ export interface AccountExportInput {
   readonly submissions: readonly Submission[];
   readonly organizer: OrganizerProfile | null;
   readonly notifications: readonly AppNotification[];
+  readonly notificationPreferences: NotificationPreferences;
 }
 
 /**
@@ -49,6 +51,7 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       major: user.major,
       interests: user.interests,
       signInMethods: user.providers,
+      deadlineReminders: input.notificationPreferences.deadlineReminders,
     },
     savedEvents: input.saved.map((event) => ({ title: event.title, url: `/events/${event.slug}` })),
     applicationBoard: input.tracker.map((item) => ({

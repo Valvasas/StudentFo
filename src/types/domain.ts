@@ -224,6 +224,12 @@ export function toNotificationType(value: string): NotificationType {
     : 'SYSTEM';
 }
 
+/** Saklar notifikasi per akun yang benar-benar dihormati server (ADR-063). */
+export interface NotificationPreferences {
+  /** FALSE = tidak dibuatkan pengingat H-3/H-1 (`users.deadline_reminders`). */
+  readonly deadlineReminders: boolean;
+}
+
 /** Rujukan minimal ke event — cukup untuk judul & tautan di menu lonceng. */
 export interface NotificationEventRef {
   readonly id: string;
@@ -835,7 +841,11 @@ export interface EventRegistration {
   readonly id: string;
   /** Kode yang disebut peserta ke panitia, mis. `SF-7F3A09C2`. */
   readonly code: string;
-  readonly event: Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer' | 'primaryDeadlineAt'>;
+  readonly event: Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer' | 'primaryDeadlineAt'> & {
+    /** null = acaranya tidak lagi terbaca (dihapus/disembunyikan). Dipakai lencana (ADR-064). */
+    readonly eventType: EventType | null;
+    readonly status: EventStatus | null;
+  };
   readonly userId: string;
   /** Salinan saat mendaftar — penyelenggara tidak membaca tabel `users`. */
   readonly fullName: string;

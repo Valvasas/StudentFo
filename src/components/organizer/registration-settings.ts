@@ -3,6 +3,15 @@ import { cleanText, parseWholeNumber, REGISTRATION_FORM_LIMITS } from '@/lib/reg
 
 const LIMITS = REGISTRATION_FORM_LIMITS;
 
+/**
+ * Event yang dikirim pembuat formulir ke `<form>` induk setiap kali susunan
+ * pertanyaan berubah — bilah simpan & penjaga "belum disimpan" memakainya.
+ * Di modul murni ini (bukan `form-builder.tsx`) karena halaman server juga
+ * membacanya: nilai dari modul `'use client'` sampai di server sebagai
+ * referensi klien, bukan string.
+ */
+export const FORM_BUILDER_CHANGE_EVENT = 'sf:form-builder-change';
+
 export const CAPACITY_PATTERN = String.raw`[\s.]*|[0-9.\s]*[1-9][0-9.\s]*`;
 
 export const REGISTRATION_SETTING_NAMES = ['capacity', 'feeAmount', 'paymentInstructions'] as const;

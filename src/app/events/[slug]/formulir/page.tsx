@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowUpRight, Ban, CalendarClock, CircleSlash, Eye, Lock, PencilLine, Ticket, Users } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Ban, CalendarClock, CircleSlash, Eye, Lock, PencilLine, ReceiptText, Ticket, Users } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { loadManagedEvent, workspacePath } from '@/components/organizer/event-workspace';
 import { registrationHref } from '@/components/registration/registration-cta';
@@ -11,7 +11,9 @@ import { RegistrationFieldInput } from '@/components/registration/registration-f
 import { ScrollToTop } from '@/components/registration/scroll-to-top';
 import { CONSENT_FIELD, invalidFieldFrom, registrationEventClosed } from '@/components/registration/registration-view';
 import { buttonVariants } from '@/components/ui/button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { parseActionErrorCode } from '@/lib/action-feedback';
 import { requireUser } from '@/lib/auth';
 import { formatRupiah } from '@/lib/currency';
@@ -119,6 +121,7 @@ export default async function RegistrationFormPage({
         {form.intro && <p className="whitespace-pre-line text-[15.5px] leading-[1.7] text-ink-soft">{form.intro}</p>}
 
         <form action={registerForEventAction} className="flex flex-col gap-6">
+          <UnsavedChangesGuard />
           <input type="hidden" name="slug" value={event.slug} />
           <input type="hidden" name="eventId" value={event.id} />
 
@@ -173,21 +176,32 @@ export default async function RegistrationFormPage({
                 </span>
               </label>
             </div>
-            <SubmitButton
-              disabled={preview}
-              pendingLabel="Mengirim…"
-              className={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto sm:self-start' })}
-            >
-              {fee ? (
-                <>
-                  Daftar & lanjut ke pembayaran
-                  <span aria-hidden className="opacity-60">·</span>
-                  {formatRupiah(fee)}
-                </>
-              ) : (
-                'Kirim pendaftaran'
-              )}
-            </SubmitButton>
+            {fee ? (
+              // Berbayar = tagihan atas nama peserta: satu langkah konfirmasi yang menyebut nominalnya.
+              <ConfirmSubmit
+                disabled={preview}
+                className={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto sm:self-start' })}
+                confirm={{
+                  title: `Daftar & buat tagihan ${formatRupiah(fee)}?`,
+                  description: `Jawabanmu langsung terkirim ke ${event.organizer}, dan tagihan dibuat atas namamu. Pendaftaran bisa dibatalkan dari halaman Pembayaran — uang yang sudah ditransfer dikembalikan menurut aturan panitia, bukan oleh StudentFo.`,
+                  confirmLabel: 'Ya, daftar sekarang',
+                  tone: 'neutral',
+                  icon: <ReceiptText />,
+                }}
+              >
+                Daftar & lanjut ke pembayaran
+                <span aria-hidden className="opacity-60">·</span>
+                {formatRupiah(fee)}
+              </ConfirmSubmit>
+            ) : (
+              <SubmitButton
+                disabled={preview}
+                pendingLabel="Mengirim…"
+                className={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto sm:self-start' })}
+              >
+                Kirim pendaftaran
+              </SubmitButton>
+            )}
           </div>
         </form>
       </div>

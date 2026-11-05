@@ -263,7 +263,7 @@ describe('CSV', () => {
     const registration: EventRegistration = {
       id: 'r1',
       code: 'SF-0000ABCD',
-      event: { id: 'e', slug: 'e', title: 'E', organizer: 'O', primaryDeadlineAt: null },
+      event: { id: 'e', slug: 'e', title: 'E', organizer: 'O', primaryDeadlineAt: null, eventType: 'LOMBA', status: 'APPROVED' },
       userId: 'u',
       fullName: 'Dinda',
       email: 'd@x.id',

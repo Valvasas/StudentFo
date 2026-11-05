@@ -57,6 +57,8 @@ test('dua akun demo: opt-in terlihat → diajak → diterima, keduanya dikabari'
   const headline = `Uji koneksi ${Date.now()}`;
   await b.getByLabel('Headline').fill(headline);
   await b.getByRole('button', { name: 'Simpan pengaturan' }).click();
+  // Menyalakan visibilitas = data diri sampai ke orang lain: satu konfirmasi (ADR-063).
+  await b.getByRole('alertdialog', { name: 'Tampilkan profilmu di Cari Koneksi?' }).getByRole('button', { name: 'Ya, tampilkan' }).click();
   await expect(b).toHaveURL(/notice=network_profile_saved/);
 
   await signInAsDemo(a, 'Mahasiswa', '/connections');
@@ -140,6 +142,7 @@ test('blokir tanpa JavaScript: dari daftar koneksi & kartu ajakan, hilang dari m
 
   await page.goto('/connections?tab=pengaturan');
   await expect(blocked.getByRole('listitem')).toHaveCount(2);
+  // JavaScript mati: `ConfirmSubmit` jatuh ke tombol kirim biasa (ADR-063) — aksi tetap jalan, bukan tombol mati.
   await blocked.getByRole('button', { name: 'Buka blokir Rani Prameswari' }).click();
   await expect(page).toHaveURL(/notice=person_unblocked/);
   await expect(blocked.getByRole('listitem')).toHaveCount(1);

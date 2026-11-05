@@ -16,9 +16,13 @@ const loadOrganizerProfile = cache(
     withFallback('profil penyelenggara', async () => (await getEventRepository()).getOrganizerProfile(userId), null),
 );
 
+/** Melempar bila gagal — untuk pemakai yang tidak boleh menebak "kosong" (lencana, ADR-064). Satu query per request. */
+export const loadMyRegistrationsStrict = cache(
+  async (userId: string): Promise<readonly EventRegistration[]> => (await getEventRepository()).listMyRegistrations(userId),
+);
+
 export const loadMyRegistrations = cache(
-  (userId: string): Promise<readonly EventRegistration[]> =>
-    withFallback('pendaftaran saya', async () => (await getEventRepository()).listMyRegistrations(userId), []),
+  (userId: string): Promise<readonly EventRegistration[]> => withFallback('pendaftaran saya', () => loadMyRegistrationsStrict(userId), []),
 );
 
 export interface AccountRoleContext {

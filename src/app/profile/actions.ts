@@ -4,12 +4,15 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ACCOUNT_SIDEBAR_COOKIE, ACCOUNT_SIDEBAR_MAX_AGE, isSidebarCollapsed } from '@/lib/account-sidebar';
+import { toActionErrorCode, withQuery, type ActionErrorCode } from '@/lib/action-feedback';
+import { requireUser } from '@/lib/auth';
 import { type AuthErrorCode } from '@/lib/auth-messages';
 import { profileSchema } from '@/lib/auth-schema';
 import { updateDemoProfile } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
 import { formList, formTrimmed as text } from '@/lib/form-data';
 import { safeNextPath } from '@/lib/safe-redirect';
+import { getEventRepository } from '@/lib/data';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/domain';
 
@@ -100,4 +103,26 @@ export async function toggleAccountSidebarAction(formData: FormData): Promise<vo
     secure: process.env.NODE_ENV === 'production',
   });
   redirect(safeNextPath(text(formData, 'returnTo'), '/profile'));
+}
+
+/**
+ * Saklar pengingat tenggat (ADR-063). Nilai kotak centang, bukan "balik
+ * keadaan": dua tab yang menyimpan bersamaan berakhir di pilihan terakhir
+ * yang jelas, bukan saling membatalkan.
+ */
+export async function updateNotificationPreferencesAction(formData: FormData): Promise<void> {
+  const returnTo = '/profile/settings/notifikasi';
+  const user = await requireUser(returnTo);
+  const deadlineReminders = formData.get('deadlineReminders') === 'on';
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).updateNotificationPreferences(user.id, { deadlineReminders });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(withQuery(returnTo, { error: failure }));
+  revalidatePath('/profile/settings', 'layout');
+  redirect(withQuery(returnTo, { notice: deadlineReminders ? 'reminders_on' : 'reminders_off' }));
 }

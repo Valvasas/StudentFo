@@ -196,6 +196,8 @@ export const ACTION_NOTICE_CODES = [
   'registration_reviewed',
   'photos_uploaded',
   'photo_deleted',
+  'reminders_on',
+  'reminders_off',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -222,6 +224,8 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   claim_reviewed: 'Keputusan klaim disimpan dan tercatat di riwayat.',
   revision_reviewed: 'Keputusan perubahan acara disimpan dan tercatat di riwayat.',
   network_profile_saved: 'Pengaturan jaringan disimpan.',
+  reminders_on: 'Pengingat tenggat menyala. Kegiatan yang kamu simpan atau lacak diingatkan H-3 dan H-1.',
+  reminders_off: 'Pengingat tenggat dimatikan. Pengingat yang sudah ada di lonceng tidak dihapus.',
   portfolio_saved: 'Portofolio diperbarui.',
   moderation_restored: 'Dikembalikan ke antrean moderasi dan tercatat di riwayat.',
   presentation_saved: 'Lencana & promosi disimpan. Katalog publik ikut diperbarui.',

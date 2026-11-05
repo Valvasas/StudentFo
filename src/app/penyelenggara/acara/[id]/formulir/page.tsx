@@ -12,10 +12,11 @@ import {
 } from '@/components/organizer/event-workspace';
 import { FormBuilder } from '@/components/organizer/form-builder';
 import { RegistrationSaveBar } from '@/components/organizer/registration-save-bar';
-import { CAPACITY_PATTERN } from '@/components/organizer/registration-settings';
+import { CAPACITY_PATTERN, FORM_BUILDER_CHANGE_EVENT } from '@/components/organizer/registration-settings';
 import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatShortDateId } from '@/lib/deadline';
@@ -62,6 +63,7 @@ export default async function RegistrationFormPage({
       <ActionFeedback params={query} className="max-w-2xl" />
 
       <form action={saveRegistrationFormAction} className="flex flex-col gap-6">
+        <UnsavedChangesGuard changeEvent={FORM_BUILDER_CHANGE_EVENT} />
         <input type="hidden" name="eventId" value={event.id} />
 
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:grid-rows-[auto_auto_1fr]">
@@ -185,7 +187,7 @@ export default async function RegistrationFormPage({
           </section>
         </div>
 
-        <RegistrationSaveBar savedLabel={form ? `Disimpan ${formatShortDateId(form.updatedAt)}` : null} />
+        <RegistrationSaveBar savedLabel={form ? `Disimpan ${formatShortDateId(form.updatedAt)}` : null} wasOpen={form?.isOpen ?? false} />
       </form>
     </div>
   );

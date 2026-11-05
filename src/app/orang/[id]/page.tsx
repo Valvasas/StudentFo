@@ -2,11 +2,12 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Check, GraduationCap, Info, UserPlus } from 'lucide-react';
+import { Check, GraduationCap, Info, UserPlus } from 'lucide-react';
 import { requestConnectionAction } from '@/app/connections/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon } from '@/components/listing/category-icon';
 import { PortfolioList } from '@/components/profile/portfolio-list';
+import { BackLink } from '@/components/ui/back-link';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -64,9 +65,7 @@ export default async function PublicProfilePage({
 
   return (
     <div className="container-page flex max-w-3xl flex-col gap-6 pb-16 pt-8">
-      <Link href="/connections" className="-mb-2 flex min-h-11 items-center gap-1.5 self-start text-[13.5px] font-medium text-ink-muted hover:text-ink">
-        <ArrowLeft aria-hidden className="size-4" /> Koneksi
-      </Link>
+      <BackLink href="/connections" label="Koneksi" via={[{ href: '/teams/cocok', label: 'Cocokkan tim' }]} className="-mb-2" />
 
       <ActionFeedback params={query} />
 

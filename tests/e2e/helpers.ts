@@ -8,6 +8,11 @@ export type PersonaLabel = 'Mahasiswa' | 'Siswa baru' | 'Admin moderator' | 'Pen
  * Masuk lewat kartu persona demo di /demo, persis seperti pengunjung sungguhan.
  * Persona Admin hanya muncul di tautan berkunci (ADR-057), jadi tesnya membawa kunci.
  */
+/** Tombol "Ya, …" di dialog konfirmasi (`ConfirmSubmit`, ADR-063) yang sedang terbuka. */
+export async function confirmDialog(page: Page, label: string): Promise<void> {
+  await page.getByRole('alertdialog').getByRole('button', { name: label, exact: true }).click();
+}
+
 export async function signInAsDemo(page: Page, persona: PersonaLabel, next = '/'): Promise<void> {
   const key = persona === 'Admin moderator' ? `&akses=${DEMO_ADMIN_TEST_KEY}` : '';
   await page.goto(`/demo?next=${encodeURIComponent(next)}${key}`);
@@ -40,6 +45,7 @@ export async function registerForPaidDemoEvent(page: Page): Promise<string> {
   await page.getByLabel(/Asal kampus/).fill('Universitas Contoh');
   await page.getByRole('checkbox', { name: /Data di formulir ini dibagikan/ }).check();
   await page.getByRole('button', { name: /Daftar & lanjut ke pembayaran/ }).click();
+  await confirmDialog(page, 'Ya, daftar sekarang');
 
   await expect(page).toHaveURL(/\/pembayaran\/[0-9a-f-]{36}\?notice=registration_awaiting_payment/);
   await expect(page.getByText('Menunggu pembayaran').first()).toBeVisible();

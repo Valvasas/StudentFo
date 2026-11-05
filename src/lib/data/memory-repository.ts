@@ -59,6 +59,7 @@ import type {
   ManagerSource,
   ModerationLogEntry,
   ModerationStatus,
+  NotificationPreferences,
   OrganizerHistoryEntry,
   OrganizerProfile,
   OrganizerStatus,
@@ -109,6 +110,7 @@ import type {
 import {
   DEMO_STARTER_NETWORK,
   DEMO_STARTER_PORTFOLIO,
+  DEMO_STARTER_REGISTRATIONS,
   SEED_CATEGORIES,
   SEED_EVENTS,
   SEED_PEOPLE,
@@ -329,6 +331,8 @@ export class MemoryEventRepository implements EventRepository {
   private readonly trackerEntries = new Map<string, Map<string, TrackerEntry>>();
   /** userId -> id notifikasi yang sudah ditandai dibaca. */
   private readonly readNotifications = new Map<string, Set<string>>();
+  /** Cermin `users.deadline_reminders = FALSE` (ADR-063). */
+  private readonly reminderOptOut = new Set<string>();
   private readonly teams = new Map<string, TeamEntry>();
   private readonly submissions = new Map<string, Submission>();
   private readonly rateLimiter = new MemoryRateLimiter();
@@ -910,6 +914,8 @@ export class MemoryEventRepository implements EventRepository {
       isRead: readSet?.has(notification.id) ?? false,
     }));
 
+    // Saklar mati = tidak ada pengingat turunan (lonceng & antrean dispatch), cermin create_deadline_notifications().
+    if (this.reminderOptOut.has(userId)) return stored;
     const sources = new Set<string>(this.savedEvents.get(userId) ?? []);
     for (const eventId of this.trackerEntries.get(userId)?.keys() ?? []) {
       sources.add(eventId);
@@ -1012,6 +1018,15 @@ export class MemoryEventRepository implements EventRepository {
   async markAllNotificationsAsRead(userId: string): Promise<void> {
     const read = getOrCreate(this.readNotifications, userId, () => new Set<string>());
     for (const notification of this.deriveNotifications(userId, new Date())) read.add(notification.id);
+  }
+
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences> {
+    return { deadlineReminders: !this.reminderOptOut.has(userId) };
+  }
+
+  async updateNotificationPreferences(userId: string, preferences: NotificationPreferences): Promise<void> {
+    if (preferences.deadlineReminders) this.reminderOptOut.delete(userId);
+    else this.reminderOptOut.add(userId);
   }
 
   // ------------------------------------------------------------------
@@ -1220,6 +1235,40 @@ export class MemoryEventRepository implements EventRepository {
   seedDemoPortfolio(userId: string, now: Date = new Date()): void {
     if (!this.admitDemoSeed(userId)) return;
     for (const entry of DEMO_STARTER_PORTFOLIO) this.seedPortfolioEntry(userId, entry, now);
+  }
+
+  /**
+   * Pendaftaran lampau persona demo "Mahasiswa" (ADR-064). Hanya mode seed —
+   * di produksi baris ini hanya lahir dari `register_for_event()`.
+   */
+  seedDemoParticipation(user: { id: string; fullName: string; email: string }, now: Date = new Date()): void {
+    if (!this.admitDemoSeed(user.id)) return;
+    for (const entry of DEMO_STARTER_REGISTRATIONS) {
+      const event = this.events.find((candidate) => candidate.slug === entry.eventSlug);
+      const id = `demo-reg-${user.id}-${event?.id ?? entry.eventSlug}`;
+      if (!event || this.registrations.has(id)) continue;
+      // Mendaftar dua minggu sebelum tutup; keputusan panitia beasiswa dua hari setelahnya.
+      const closedAt = Date.parse(event.primaryDeadlineAt ?? now.toISOString());
+      const at = (days: number) => new Date(closedAt + days * MS_PER_DAY).toISOString();
+      const reviewed = entry.status === 'CONFIRMED' ? null : at(2);
+      this.registrations.set(id, {
+        id,
+        code: newRegistrationCode(),
+        eventId: event.id,
+        userId: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        answers: {},
+        status: entry.status,
+        feeAmount: null,
+        proofKey: null,
+        proofUploadedAt: null,
+        reviewNote: entry.note ?? null,
+        reviewedAt: reviewed,
+        createdAt: at(-14),
+        updatedAt: reviewed ?? at(-14),
+      });
+    }
   }
 
   /** Jaringan awal persona demo "Mahasiswa". Hanya mode seed — tidak ada padanannya di produksi. */
@@ -2061,6 +2110,9 @@ export class MemoryEventRepository implements EventRepository {
         title: event?.title ?? '(acara dihapus)',
         organizer: event?.organizer ?? '',
         primaryDeadlineAt: event?.primaryDeadlineAt ?? null,
+        // Cermin `events_listing` + RLS di produksi: hanya acara tayang/kedaluwarsa yang terbaca.
+        eventType: event && isPubliclyVisible(event) ? event.eventType : null,
+        status: event && isPubliclyVisible(event) ? event.status : null,
       },
     };
   }
