@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { confirmDialog, signInAsDemo } from './helpers';
 
 /**
  * Perjalanan pengunjung demo di browser sungguhan: klik, form, JS klien,
@@ -38,10 +38,12 @@ test('tracker: simpan → ubah tahap → tahap bertahan setelah reload → hapus
   await stage.selectOption('APPLIED');
   // Tunggu POST Server Action selesai sebelum reload — tanpa ini reload bisa
   // membatalkan aksi yang masih di jalan (gagal acak saat mesin uji sibuk).
-  await Promise.all([
-    page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/tracker'),
-    stage.locator('xpath=ancestor::form').getByRole('button', { name: 'Ubah' }).click(),
-  ]);
+  const saved = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/tracker');
+  await stage.locator('xpath=ancestor::form').getByRole('button', { name: 'Ubah' }).click();
+  // Disimpan → Sudah daftar membuat entri tampil di profil publik bila jenisnya tampil bawaan (ADR-063).
+  const goPublic = page.getByRole('alertdialog', { name: 'Tampilkan di profil publikmu?' });
+  if (await goPublic.isVisible()) await goPublic.getByRole('button', { name: 'Ya, simpan tahap' }).click();
+  await saved;
   await page.reload();
   await expect(page.getByLabel(new RegExp(`Tahap lamaran untuk ${title.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))).toHaveValue('APPLIED');
 
@@ -79,6 +81,7 @@ test('tim: buat tim → anggota lain bergabung → keluar; ketua melihat jumlah 
   await signInAsDemo(member, 'Siswa baru', '/teams');
   await member.goto(teamUrl);
   await member.getByRole('button', { name: 'Ajukan gabung' }).click();
+  await confirmDialog(member, 'Ya, gabung tim');
   await expect(member.getByRole('button', { name: 'Keluar dari tim' })).toBeVisible();
   // Gabung/keluar tidak lagi senyap (ADR-062): kode notice tertutup, bukan teks di URL.
   await expect(member).toHaveURL(/notice=team_joined/);

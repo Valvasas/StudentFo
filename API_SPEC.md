@@ -52,6 +52,9 @@ interface EventRepository {
   countUnreadNotifications(userId: string): Promise<number>;
   markNotificationAsRead(userId: string, notificationId: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
+  // Saklar pengingat tenggat (ADR-063) — users.deadline_reminders; bawaan { deadlineReminders: true }
+  getNotificationPreferences(userId: string): Promise<NotificationPreferences>;
+  updateNotificationPreferences(userId: string, preferences: NotificationPreferences): Promise<void>;
 
   // Tim lomba (Phase 3)
   listTeams(eventId?: string): Promise<readonly Team[]>;

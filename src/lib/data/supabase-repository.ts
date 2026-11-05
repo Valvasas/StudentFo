@@ -57,6 +57,7 @@ import type {
   ModerationLogEntry,
   NetworkEventRef,
   NetworkProfile,
+  NotificationPreferences,
   OrganizerHistoryEntry,
   OrganizerProfile,
   OrganizerStatus,
@@ -943,6 +944,26 @@ export class SupabaseEventRepository implements EventRepository {
       .eq('is_read', false);
 
     if (error) throw upstreamFailure('Gagal menandai semua notifikasi.', error, 500);
+  }
+
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('deadline_reminders')
+      .eq('id', userId)
+      .maybeSingle<{ deadline_reminders: boolean }>();
+    if (error) throw upstreamFailure('Gagal memuat preferensi notifikasi.', error);
+    // Baris profil absen = perilaku fungsi terjadwal (COALESCE … TRUE): tetap diingatkan.
+    return { deadlineReminders: data?.deadline_reminders ?? true };
+  }
+
+  async updateNotificationPreferences(userId: string, preferences: NotificationPreferences): Promise<void> {
+    const supabase = await createSupabaseServerClient();
+    // Klien sesi + RLS users_update_own + hak kolom (migration 20261105100001):
+    // id yang keliru = nol baris, bukan menimpa akun lain.
+    const { error } = await supabase.from('users').update({ deadline_reminders: preferences.deadlineReminders }).eq('id', userId);
+    if (error) throw upstreamFailure('Gagal menyimpan preferensi notifikasi.', error, 500);
   }
 
   // ------------------------------------------------------------------

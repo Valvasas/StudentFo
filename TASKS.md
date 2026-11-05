@@ -408,7 +408,11 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] e2e diperbarui untuk dialog konfirmasi (`demo-journey`; `connections` membuktikan buka blokir tetap jalan TANPA JS); rute baru masuk audit axe, 320/375px, target sentuh
 - [x] Menu akun: item "Lencana"; di ponsel panel setinggi batasnya + "Keluar" di dasar (axe `target-size` pada tautan yang terpotong tepi menu)
 - [x] Race lama di e2e tracker (reload sebelum POST Server Action selesai) — kini menunggu respons POST
-- [x] Bukti: `npm run verify` (781 tes), Playwright penuh di build produksi mode seed 748 lulus / 0 gagal, `npm run test:integration` (Postgres 16 + PostgREST) 91/91
+- [x] Bukti (putaran akhir): `npm run verify` 782 tes, `npm run db:test` semua migration & tes SQL lolos, Playwright penuh di build produksi mode seed 760 lulus / 0 gagal, `npm run test:integration` (Postgres 16 + PostgREST) 92/92
+- [x] Audit tuntas semua Server Action (tabel di ADR-063 §5): konfirmasi untuk publikasi (tayangkan), kepercayaan (verifikasi, klaim, revisi), uang (konfirmasi bayar, daftar berbayar), orang lain (tolak/batalkan ajakan, gabung tim), privasi (tahap yang membuat publik, terlihat di Koneksi), tutup pendaftaran; `when` = konfirmasi bersyarat, `checkValidity` sebelum dialog
+- [x] `UnsavedChangesGuard` di 11 form (tautan internal + `beforeunload`), e2e `unsaved-guard.spec.ts`
+- [x] Keluar dari semua perangkat (`signOut({ scope: 'global' })`, notice `signed_out_everywhere`)
+- [x] Saklar pengingat tenggat sungguhan: migration `20261105100001` + tes SQL `102_…`, repository kedua mode, tes memori & integrasi, ekspor data, ringkasan di hub; e2e `settings.spec.ts`
 - [ ] Lencana di profil publik `/orang/[id]`: fungsi SQL agregat SECURITY DEFINER (hanya hitungan per lencana, `REVOKE … FROM anon, authenticated` + GRANT eksplisit, ADR-020) + pilihan privasi "tampilkan lencanaku" (bawaan mati)
 - [ ] Kehadiran yang dicatat panitia (check-in) sebagai syarat "ikut" yang lebih kuat dari "terkonfirmasi & ditutup" — butuh kolom & RPC baru
 

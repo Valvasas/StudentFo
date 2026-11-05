@@ -311,6 +311,25 @@ export async function signOutAction(): Promise<void> {
   redirect('/');
 }
 
+/**
+ * Keluar dari SEMUA perangkat (ADR-063): mencabut setiap refresh token akun
+ * ini, termasuk sesi di komputer lab/warnet yang lupa ditutup. Token akses
+ * yang sudah terbit tetap sah sampai kedaluwarsa (±1 jam, batas Supabase) —
+ * kalimat di halaman keamanan tidak menjanjikan "seketika".
+ * Akun demo hanya hidup di cookie perangkat ini, jadi sama dengan keluar biasa.
+ */
+export async function signOutEverywhereAction(): Promise<void> {
+  if (dataMode === 'seed') {
+    await endDemoSession();
+  } else {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut({ scope: 'global' });
+  }
+
+  revalidatePath('/', 'layout');
+  redirect(authHref('/login', { notice: 'signed_out_everywhere' }));
+}
+
 export async function requestPasswordResetAction(formData: FormData): Promise<void> {
   const email = field(formData, 'email');
   let failure: AuthErrorCode | null = null;

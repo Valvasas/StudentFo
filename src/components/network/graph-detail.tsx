@@ -5,6 +5,7 @@ import { ArrowUpRight, Check, UserPlus, Users, X } from 'lucide-react';
 import { removeConnectionAction, requestConnectionAction, respondConnectionAction } from '@/app/connections/actions';
 import { initialsOf } from '@/lib/initials';
 import type { GraphNode } from '@/lib/network-graph';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { cn } from '@/lib/utils';
 import { BlockPersonDetails } from './block-person';
@@ -97,9 +98,17 @@ export function GraphDetail({
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="connectionId" value={person.connectionId} />
             <input type="hidden" name="decision" value="decline" />
-            <SubmitButton className={cn(secondary, 'flex-1')}>
+            <ConfirmSubmit
+              className={cn(secondary, 'flex-1')}
+              confirm={{
+                title: `Tolak ajakan ${node.label}?`,
+                description: 'Ajakan dan pesan pengantarnya dihapus. Dia tidak diberi tahu, dan masih bisa mengajakmu lagi nanti.',
+                confirmLabel: 'Ya, tolak ajakan',
+                tone: 'neutral',
+              }}
+            >
               Tolak
-            </SubmitButton>
+            </ConfirmSubmit>
           </form>
         </div>
       )}
@@ -120,9 +129,17 @@ export function GraphDetail({
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="connectionId" value={person.connectionId} />
           <input type="hidden" name="kind" value="cancel" />
-          <SubmitButton className={cn(secondary, 'w-full')}>
+          <ConfirmSubmit
+            className={cn(secondary, 'w-full')}
+            confirm={{
+              title: `Batalkan ajakan ke ${node.label}?`,
+              description: 'Ajakan ditarik sebelum dijawab, termasuk pesan pengantarmu. Kamu bisa mengajaknya lagi kapan saja.',
+              confirmLabel: 'Ya, batalkan ajakan',
+              tone: 'neutral',
+            }}
+          >
             Batalkan ajakan
-          </SubmitButton>
+          </ConfirmSubmit>
         </form>
       )}
 

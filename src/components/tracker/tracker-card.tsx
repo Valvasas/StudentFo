@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { Check, ChevronRight, Trash2, X } from 'lucide-react';
+import { Check, ChevronRight, Eye, Trash2, X } from 'lucide-react';
 import { removeTrackerAction, updateTrackerStatusAction } from '@/app/tracker/actions';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { SelectInput } from '@/components/ui/field';
+import { defaultPortfolioVisible, isPubliclyListed, PORTFOLIO_STATUSES } from '@/lib/portfolio';
 import { TRACKER_STEPS, TRACKER_STEP_LABEL, trackerProgress } from '@/lib/tracker-progress';
 import { cn } from '@/lib/utils';
 import { EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL, TRACKER_STATUSES, type TrackerItem } from '@/types/domain';
@@ -31,11 +32,33 @@ export function TrackerStatusForm({ item, returnTo }: { item: TrackerItem; retur
           </option>
         ))}
       </SelectInput>
-      <button type="submit" className="h-11 shrink-0 rounded-sm bg-brand px-3.5 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover">
+      {/* Dari "Disimpan"/"Ditolak" ke tahap portofolio = entri muncul di profil
+          publik (bila jenisnya tampil secara bawaan atau dipilih tampil). Hanya
+          perubahan itu yang dikonfirmasi; ganti tahap biasa tetap satu klik. */}
+      <ConfirmSubmit
+        className="h-11 shrink-0 rounded-sm bg-brand px-3.5 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover"
+        when={becomesPublic(item) ? { field: 'status', values: PORTFOLIO_STATUSES } : { field: 'status', values: [] }}
+        confirm={{
+          title: 'Tampilkan di profil publikmu?',
+          description: (
+            <>
+              Tahap ini membuat <strong className="font-semibold text-ink">{item.event.title}</strong> tampil di portofolio profil publikmu (dilihat
+              pengguna lain yang masuk). Kamu bisa menyembunyikannya kapan saja dari halaman lamarannya.
+            </>
+          ),
+          confirmLabel: 'Ya, simpan tahap',
+          tone: 'neutral',
+          icon: <Eye />,
+        }}
+      >
         Ubah
-      </button>
+      </ConfirmSubmit>
     </form>
   );
+}
+
+function becomesPublic(item: TrackerItem): boolean {
+  return !isPubliclyListed(item) && (item.portfolioVisible ?? defaultPortfolioVisible(item.event.eventType));
 }
 
 export function TrackerRemoveForm({ item, returnTo, withLabel = false }: { item: TrackerItem; returnTo: string; withLabel?: boolean }) {

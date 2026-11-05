@@ -67,6 +67,7 @@ export const AUTH_NOTICE_CODES = [
   'email_confirmed',
   'confirmation_resent',
   'profile_saved',
+  'signed_out_everywhere',
 ] as const;
 
 export type AuthNoticeCode = (typeof AUTH_NOTICE_CODES)[number];
@@ -85,6 +86,7 @@ export const AUTH_NOTICE_MESSAGE: Record<AuthNoticeCode, string> = {
   confirmation_resent:
     'Kalau alamat itu masih menunggu konfirmasi, email baru sudah dikirim. Cek kotak masuk dan folder spam.',
   profile_saved: 'Profil tersimpan.',
+  signed_out_everywhere: 'Akunmu sudah dikeluarkan dari semua perangkat. Masuk lagi di perangkat yang sedang kamu pakai.',
 };
 
 function pickFirst(value: string | string[] | undefined): string | undefined {

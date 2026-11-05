@@ -89,7 +89,8 @@ src/
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
 │   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054),
 │   │                           search-shortcut.tsx (pintasan "/" ke kotak cari + petunjuk kbd, ADR-061),
-│   │                           back-link.tsx (BackLink/HistoryLink — kembali hierarkis yang ingat asal), confirm-submit.tsx (`<dialog>` konfirmasi, ADR-063)
+│   │                           back-link.tsx (BackLink/HistoryLink — kembali hierarkis yang ingat asal), confirm-submit.tsx (`<dialog>` konfirmasi,
+│   │                           `when` bersyarat, ConfirmDialog), unsaved-changes-guard.tsx (penjaga isian belum disimpan, ADR-063)
 │   ├── landing/                GuestLanding + Hero (berpusat pencarian: kotak cari, tab jenis + jumlah buka, ADR-061) — beranda tamu;
 │   │                           hero-sketch.tsx (kolase sketsa beranimasi), landing-tour.tsx (tur 5 langkah, klien, ADR-062)
 │   ├── listing/                Lima papan per jenis (Lomba, Beasiswa, Magang, Workshop, Seminar) + listing-ui (primitif tautan),

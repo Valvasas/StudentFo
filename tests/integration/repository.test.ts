@@ -215,3 +215,19 @@ describe('kabar ke pengirim kiriman (ADR-037)', () => {
     ).rejects.toBeInstanceOf(AppError);
   });
 });
+
+describe('getNotificationPreferences / updateNotificationPreferences (ADR-063)', () => {
+  it('bawaan menyala; pemilik mematikan saklarnya sendiri lewat hak kolom; akun lain tidak tersentuh', async () => {
+    const owner = createUser();
+    const other = createUser();
+
+    actAs(owner);
+    expect(await repo.getNotificationPreferences(owner)).toEqual({ deadlineReminders: true });
+    await repo.updateNotificationPreferences(owner, { deadlineReminders: false });
+    expect(await repo.getNotificationPreferences(owner)).toEqual({ deadlineReminders: false });
+
+    // id orang lain dari sesi pemilik = nol baris (RLS users_update_own), bukan menimpa.
+    await repo.updateNotificationPreferences(other, { deadlineReminders: false });
+    expect(sql(`SELECT deadline_reminders FROM public.users WHERE id = '${other}'`)).toBe('t');
+  });
+});

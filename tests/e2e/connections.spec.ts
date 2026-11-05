@@ -57,6 +57,8 @@ test('dua akun demo: opt-in terlihat → diajak → diterima, keduanya dikabari'
   const headline = `Uji koneksi ${Date.now()}`;
   await b.getByLabel('Headline').fill(headline);
   await b.getByRole('button', { name: 'Simpan pengaturan' }).click();
+  // Menyalakan visibilitas = data diri sampai ke orang lain: satu konfirmasi (ADR-063).
+  await b.getByRole('alertdialog', { name: 'Tampilkan profilmu di Cari Koneksi?' }).getByRole('button', { name: 'Ya, tampilkan' }).click();
   await expect(b).toHaveURL(/notice=network_profile_saved/);
 
   await signInAsDemo(a, 'Mahasiswa', '/connections');

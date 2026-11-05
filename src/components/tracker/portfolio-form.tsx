@@ -3,6 +3,7 @@ import { Eye, EyeOff, Info } from 'lucide-react';
 import { updatePortfolioAction } from '@/app/tracker/actions';
 import { SelectInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import {
   ACHIEVEMENT_OPTIONS,
   PORTFOLIO_LIMITS,
@@ -48,6 +49,7 @@ export function PortfolioPanel({ item, returnTo }: { item: TrackerItem; returnTo
 
   return (
     <form action={updatePortfolioAction} className="flex flex-col gap-4">
+      <UnsavedChangesGuard />
       <input type="hidden" name="eventId" value={item.eventId} />
       <input type="hidden" name="returnTo" value={returnTo} />
 

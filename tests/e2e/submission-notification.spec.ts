@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { confirmDialog, signInAsDemo } from './helpers';
 
 /**
  * Alur penuh di browser: mahasiswa (masuk) mengirim kegiatan → admin demo
@@ -33,6 +33,7 @@ test('pengirim yang masuk dikabari lewat lonceng saat kirimannya disetujui', asy
   await signInAsDemo(admin, 'Admin moderator', '/admin');
   const card = admin.getByRole('listitem').filter({ has: admin.getByRole('heading', { name: title }) });
   await card.getByRole('button', { name: /Setujui/ }).click();
+  await confirmDialog(admin, 'Ya, tayangkan');
   await expect(card).toHaveCount(0);
   await adminContext.close();
 

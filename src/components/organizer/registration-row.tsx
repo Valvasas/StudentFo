@@ -182,28 +182,25 @@ export function RegistrationRow({
                 {canConfirm && (
                   <form action={reviewRegistrationAction}>
                     <HiddenInputs {...form} decision="confirm" />
-                    {status === 'PAYMENT_REVIEW' ? (
-                      <SubmitButton pendingLabel="Menyimpan…" className={buttonVariants({ className: 'w-full' })}>
-                        <Check aria-hidden />
-                        {DECISION_LABEL.confirm}
-                      </SubmitButton>
-                    ) : (
-                      // Lunas TANPA bukti unggahan (bayar tunai/di tempat): keputusan uang
-                      // yang tidak bisa ditarik kembali selain menolak peserta.
-                      <ConfirmSubmit
-                        className={buttonVariants({ className: 'w-full' })}
-                        confirm={{
-                          title: `Tandai ${registration.fullName} sudah lunas?`,
-                          description: `Belum ada bukti bayar yang diunggah. Lakukan ini hanya bila pembayaran${registration.feeAmount ? ` ${fee}` : ''} sudah kamu terima langsung — peserta langsung diberi tahu pendaftarannya terkonfirmasi.`,
-                          confirmLabel: 'Ya, tandai lunas',
-                          tone: 'neutral',
-                          icon: <Check />,
-                        }}
-                      >
-                        <Check aria-hidden />
-                        Tandai lunas
-                      </ConfirmSubmit>
-                    )}
+                    {/* Keputusan uang yang tidak bisa ditarik kembali selain menolak peserta.
+                        Tanpa bukti unggahan (bayar tunai/di tempat) kalimatnya lebih keras. */}
+                    <ConfirmSubmit
+                      className={buttonVariants({ className: 'w-full' })}
+                      confirm={{
+                        title:
+                          status === 'PAYMENT_REVIEW' ? `Konfirmasi pembayaran ${registration.fullName}?` : `Tandai ${registration.fullName} sudah lunas?`,
+                        description:
+                          status === 'PAYMENT_REVIEW'
+                            ? `Pastikan nominal${registration.feeAmount ? ` ${fee}` : ''} di bukti sudah masuk ke rekening panitia. Peserta langsung diberi tahu pendaftarannya terkonfirmasi.`
+                            : `Belum ada bukti bayar yang diunggah. Lakukan ini hanya bila pembayaran${registration.feeAmount ? ` ${fee}` : ''} sudah kamu terima langsung — peserta langsung diberi tahu pendaftarannya terkonfirmasi.`,
+                        confirmLabel: status === 'PAYMENT_REVIEW' ? 'Ya, konfirmasi' : 'Ya, tandai lunas',
+                        tone: 'neutral',
+                        icon: <Check />,
+                      }}
+                    >
+                      <Check aria-hidden />
+                      {status === 'PAYMENT_REVIEW' ? DECISION_LABEL.confirm : 'Tandai lunas'}
+                    </ConfirmSubmit>
                   </form>
                 )}
                 {canRejectPayment && (

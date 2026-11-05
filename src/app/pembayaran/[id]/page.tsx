@@ -15,6 +15,7 @@ import { BackLink } from '@/components/ui/back-link';
 import { buttonVariants } from '@/components/ui/button';
 import { ImageUploadField } from '@/components/ui/image-upload-field';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { requireUser, toEventActor } from '@/lib/auth';
 import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
@@ -266,6 +267,7 @@ function ProofPreview({ registration }: { registration: EventRegistration }) {
 function ProofForm({ registrationId, returnTo, label }: { registrationId: string; returnTo: string; label: string }) {
   return (
     <form action={submitPaymentProofAction} className="flex flex-col gap-4">
+      <UnsavedChangesGuard />
       <input type="hidden" name="registrationId" value={registrationId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <ImageUploadField id="proof" name="proof" label={label} hint="Foto atau tangkapan layar bukti transfer. Maks. 5 MB." required />

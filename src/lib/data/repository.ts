@@ -20,6 +20,7 @@ import type {
   EventSummary,
   ManagedEvent,
   ModerationLogEntry,
+  NotificationPreferences,
   OrganizerProfile,
   OrganizerStatus,
   TrustRequestStatus,
@@ -215,6 +216,14 @@ export interface NotificationRepository {
   countUnreadNotifications(userId: string): Promise<number>;
   markNotificationAsRead(userId: string, notificationId: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
+  /**
+   * Saklar pengingat tenggat (ADR-063). Mematikannya menghentikan pengingat
+   * BARU (fungsi terjadwal melewati akun ini); yang sudah ada di lonceng tetap.
+   * Mode memory menurunkan pengingat saat dibaca, jadi di sana pengingat yang
+   * belum dibaca ikut hilang — perbedaan yang diterima untuk data contoh.
+   */
+  getNotificationPreferences(userId: string): Promise<NotificationPreferences>;
+  updateNotificationPreferences(userId: string, preferences: NotificationPreferences): Promise<void>;
 }
 
 /** Tim lomba. */

@@ -194,9 +194,17 @@ export function IncomingRequestCard({
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="connectionId" value={connection.id} />
           <input type="hidden" name="decision" value="decline" />
-          <SubmitButton className={cn(secondary, 'flex-1')}>
+          <ConfirmSubmit
+            className={cn(secondary, 'flex-1')}
+            confirm={{
+              title: `Tolak ajakan ${person.fullName}?`,
+              description: 'Ajakan dan pesan pengantarnya dihapus. Dia tidak diberi tahu, dan masih bisa mengajakmu lagi nanti.',
+              confirmLabel: 'Ya, tolak ajakan',
+              tone: 'neutral',
+            }}
+          >
             Tolak<span className="sr-only"> ajakan {person.fullName}</span>
-          </SubmitButton>
+          </ConfirmSubmit>
         </form>
       </div>
       <BlockPersonDetails targetId={person.userId} name={person.fullName} returnTo={returnTo} className="-mb-2 -mt-2" />
@@ -264,9 +272,17 @@ export function OutgoingRow({ connection, returnTo, now }: { connection: Connect
         <input type="hidden" name="returnTo" value={returnTo} />
         <input type="hidden" name="connectionId" value={connection.id} />
         <input type="hidden" name="kind" value="cancel" />
-        <SubmitButton className="flex min-h-11 items-center rounded-pill px-3.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink">
+        <ConfirmSubmit
+          className="flex min-h-11 items-center rounded-pill px-3.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink"
+          confirm={{
+            title: `Batalkan ajakan ke ${person.fullName}?`,
+            description: 'Ajakan ditarik sebelum dijawab, termasuk pesan pengantarmu. Kamu bisa mengajaknya lagi kapan saja.',
+            confirmLabel: 'Ya, batalkan ajakan',
+            tone: 'neutral',
+          }}
+        >
           Batalkan<span className="sr-only"> ajakan ke {person.fullName}</span>
-        </SubmitButton>
+        </ConfirmSubmit>
       </form>
     </li>
   );

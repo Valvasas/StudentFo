@@ -24,6 +24,7 @@ const base: AccountExportInput = {
   submissions: [],
   organizer: null,
   notifications: [],
+  notificationPreferences: { deadlineReminders: false },
 };
 
 describe('buildAccountExport', () => {
@@ -38,6 +39,7 @@ describe('buildAccountExport', () => {
       major: 'Informatika',
       interests: ['teknologi'],
       signInMethods: ['email'],
+      deadlineReminders: false,
     });
   });
 

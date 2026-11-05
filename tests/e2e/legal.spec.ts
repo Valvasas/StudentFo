@@ -84,6 +84,7 @@ test('Privasi & data mengikuti pilihan visibilitas yang sebenarnya, bukan kalima
   await page.goto('/connections?tab=pengaturan');
   await page.getByRole('switch', { name: /Tampilkan aku di Cari Koneksi/ }).check();
   await page.getByRole('button', { name: 'Simpan pengaturan' }).click();
+  await page.getByRole('alertdialog', { name: 'Tampilkan profilmu di Cari Koneksi?' }).getByRole('button', { name: 'Ya, tampilkan' }).click();
   await expect(page).toHaveURL(/notice=network_profile_saved/);
 
   await page.goto('/profile/privacy');

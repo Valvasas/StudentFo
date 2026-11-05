@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { requireUser, toEventActor, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId } from '@/lib/deadline';
@@ -187,6 +188,7 @@ function StatusBadge({ profile }: { profile: OrganizerProfile }) {
 function ApplicationForm({ profile, submitLabel }: { profile: OrganizerProfile | null; submitLabel: string }) {
   return (
     <form action={applyOrganizerAction} className="flex flex-col gap-4">
+      <UnsavedChangesGuard />
       <input type="hidden" name="returnTo" value={SELF} />
       <Field id="orgName" label="Nama lembaga / organisasi" hint="Sesuai nama resmi, mis. “BEM Fakultas Teknik Universitas X”.">
         <TextInput

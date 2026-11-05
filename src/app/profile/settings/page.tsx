@@ -37,7 +37,12 @@ export const metadata: Metadata = {
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
   const user = await requireUser('/profile/settings');
-  const [context, network] = await Promise.all([loadAccountRole(user), (await getEventRepository()).getNetworkProfile(user.id)]);
+  const repository = await getEventRepository();
+  const [context, network, notifications] = await Promise.all([
+    loadAccountRole(user),
+    repository.getNetworkProfile(user.id),
+    repository.getNotificationPreferences(user.id),
+  ]);
   const hasPassword = user.providers.includes('email');
   const hasGoogle = user.providers.includes('google');
   const { percent } = profileCompleteness(user);
@@ -93,7 +98,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </SettingsGroup>
 
         <SettingsGroup id="grup-preferensi" title="Preferensi">
-          <SettingsRow href="/profile/settings/notifikasi" icon={Bell} label="Notifikasi" summary="Pengingat tenggat H-3 & H-1 dan kabar pendaftaran di lonceng" />
+          <SettingsRow
+            href="/profile/settings/notifikasi"
+            icon={Bell}
+            label="Notifikasi"
+            summary={
+              notifications.deadlineReminders
+                ? 'Pengingat tenggat H-3 & H-1 menyala · kabar pendaftaran di lonceng'
+                : 'Pengingat tenggat dimatikan · kabar pendaftaran tetap di lonceng'
+            }
+            attention={notifications.deadlineReminders ? undefined : 'Pengingat mati'}
+          />
           <SettingsRow
             href="/profile/personalization"
             icon={Palette}

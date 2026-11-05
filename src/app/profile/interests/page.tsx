@@ -8,6 +8,7 @@ import { CategoryIcon } from '@/components/listing/category-icon';
 import { DemoRolePicker } from '@/components/profile/demo-role-picker';
 import { BackLink } from '@/components/ui/back-link';
 import { SelectInput } from '@/components/ui/field';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { PROFILE_EDIT_ORIGINS } from '@/lib/account-sidebar';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -55,6 +56,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
     <AccountShell user={user} active="minat">
       <div className="flex flex-wrap items-start gap-8">
         <form action={updateProfileAction} className="flex min-w-0 flex-[2_1_460px] flex-col gap-9">
+          <UnsavedChangesGuard />
           <input type="hidden" name="returnTo" value="/profile/interests" />
           <input type="hidden" name="fullName" value={user.fullName} />
           <input type="hidden" name="major" value={user.major ?? ''} />

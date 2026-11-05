@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signInAsDemo } from './helpers';
+import { confirmDialog, signInAsDemo } from './helpers';
 
 /**
  * Penyelenggara terverifikasi (ADR-042/043) di browser sungguhan: tidak ada
@@ -38,6 +38,7 @@ test('mahasiswa mengajukan verifikasi → admin memverifikasi → studio terbuka
   await card.getByText('Tolak', { exact: true }).click();
   await expect(card.getByRole('textbox', { name: /Catatan untuk pemohon \(wajib\)/ })).toHaveAttribute('required', '');
   await card.getByRole('button', { name: 'Verifikasi' }).click();
+  await confirmDialog(admin, 'Ya, verifikasi');
   await expect(admin).toHaveURL(/notice=organizer_reviewed/);
 
   await student.goto('/penyelenggara');
@@ -74,6 +75,7 @@ test('penyelenggara: analitik, lalu perubahan acara baru tayang setelah diterapk
 
   await signInAsDemo(admin, 'Admin moderator', '/admin/penyelenggara?tab=perubahan');
   await admin.getByRole('listitem').filter({ hasText: description }).getByRole('button', { name: /Terapkan perubahan/ }).click();
+  await confirmDialog(admin, 'Ya, terapkan perubahan');
   await expect(admin).toHaveURL(/notice=revision_reviewed/);
 
   await org.reload();
@@ -100,6 +102,7 @@ test('penyelenggara: susun formulir, periksa bukti bayar, unduh CSV pendaftar', 
   await expect(proof).toBeVisible();
   const proofSrc = (await proof.getAttribute('src'))!;
   await first.getByRole('button', { name: 'Konfirmasi pembayaran' }).click();
+  await confirmDialog(page, 'Ya, konfirmasi');
   await expect(page).toHaveURL(/notice=registration_reviewed/);
 
   // Menolak bukti wajib beralasan; peserta kembali "Menunggu pembayaran".

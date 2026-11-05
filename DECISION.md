@@ -101,9 +101,7 @@ isinya tinggal dua kartu — terasa kosong dan "buatan AI".
    (berlaku untuk semua pengunjung), dan "Tandai lunas" TANPA bukti bayar.
    Konfirmasi yang sudah ada dengan `<details>` (tolak, blokir, putus
    koneksi, bubarkan tim, batal daftar, hapus foto) dibiarkan — sudah bekerja
-   tanpa JS. **Sengaja tanpa konfirmasi:** aksi yang bisa diulang/dibalik
-   seketika (simpan, batalkan ajakan, ubah tahap, setujui di antrean) —
-   konfirmasi di setiap klik melatih orang menekan "Ya" tanpa membaca.
+   tanpa JS. Daftar lengkap per aksi: butir 5.
 3. **Pengaturan = daftar** (`/profile/settings`): kartu identitas + grup
    Akun (Akun & keamanan, Data diri, Peminatan), Preferensi (Notifikasi,
    Tampilan & rekomendasi, Privasi & data), Bantuan & informasi (Tentang,
@@ -121,9 +119,42 @@ isinya tinggal dua kartu — terasa kosong dan "buatan AI".
 4. Ganti sandi kini kembali ke `/profile/settings/keamanan`; bila gagal,
    form tetap terbuka (`ubah=sandi`) supaya bisa langsung dicoba lagi.
 
+5. **Audit tuntas seluruh Server Action** (pemilik: "seluruh hal penting
+   harus ada konfirmasinya"). Ukurannya akibat, bukan nama tombol:
+
+   | Aksi | Perlindungan |
+   |---|---|
+   | Keluar · keluar dari semua perangkat · keluar tim · hapus dari Papan lamaran · buka blokir · atur ulang data demo | `ConfirmSubmit` |
+   | Setujui & tayangkan acara/kiriman (tidak bisa ditarik dari panel) · verifikasi penyelenggara · setujui klaim · terapkan revisi | `ConfirmSubmit` (keputusan publikasi/kepercayaan) |
+   | Konfirmasi pembayaran · tandai lunas tanpa bukti · daftar acara berbayar (membuat tagihan) | `ConfirmSubmit` (keputusan uang) |
+   | Tolak / batalkan ajakan koneksi · gabung tim | `ConfirmSubmit` (menyangkut orang lain) |
+   | Ubah tahap yang membuat entri tampil di profil publik · menyalakan "terlihat di Koneksi" · menutup pendaftaran yang sedang buka · mematikan pengingat tenggat | `ConfirmSubmit` dengan `when` — HANYA bila perubahan itu yang terjadi |
+   | Tolak (moderasi/pendaftar/bukti), cabut verifikasi, blokir, putus koneksi, bubarkan tim, keluarkan anggota, batal daftar, hapus foto | `<details>` yang sudah ada (jalan tanpa JS, sebagian dengan alasan wajib) |
+   | Kartu pemain terbuka · kirim pendaftaran gratis · ajakan pencocokan | Sudah punya langkah persetujuan eksplisit (langkah "Siap dicocokkan?", centang berbagi data, lembar "Tinjau ajakan") |
+   | Isian form yang belum disimpan (kirim kegiatan, buka tim, data diri, peminatan, formulir panitia, formulir pendaftaran, ajukan penyelenggara, portofolio, ganti sandi, unggah bukti) | `UnsavedChangesGuard` |
+   | Simpan/tandai kegiatan, ubah tahap biasa, tandai notifikasi dibaca, ciutkan menu | Tanpa konfirmasi — dibalik dengan satu ketukan yang sama |
+
+   Kolom form yang belum sah tidak membuka dialog (`checkValidity`): validasi
+   peramban harus menunjuk kolomnya, bukan tertutup modal.
+6. **`UnsavedChangesGuard`** (`components/ui/unsaved-changes-guard.tsx`):
+   "berubah" = FormData berbeda dari saat dibuka. Tautan internal dicegat di
+   fase capture `window` (sebelum `<Link>` & bilah progres), lalu dialog yang
+   sama; tab ditutup/dimuat ulang = `beforeunload`. Tombol kembali perangkat
+   di dalam aplikasi tidak bisa dicegat tanpa merusak riwayat — tidak dicoba.
+7. **Fitur pengaturan nyata, bukan hiasan:** "Keluar dari semua perangkat"
+   (`signOut({ scope: 'global' })`) di Akun & keamanan, dan saklar pengingat
+   tenggat yang dihormati server — kolom `users.deadline_reminders` (migration
+   20261105100001, hak UPDATE per kolom, `create_deadline_notifications()`
+   melewati akun yang mematikannya, baris profil absen = tetap diingatkan),
+   dicerminkan mode memory (lonceng & antrean dispatch), ikut ekspor data.
+   Saklar kanal email/WhatsApp tetap TIDAK ditawarkan di produksi: belum ada
+   pengirimnya, dan saklar yang tidak mengubah apa pun adalah janji palsu.
+
 **Konsekuensi:** Tautan lama `/profile/settings?notice=…` tetap menampilkan
 kabarnya. Halaman Personalisasi & Privasi tidak berubah URL, hanya judul &
 induknya. Rute baru mendapat adegan pemuat `settings` (`route-scene.ts`).
+Moderator kini menekan dua kali untuk menayangkan — harga yang diterima
+karena penayangan tidak bisa ditarik dari panel.
 
 ## ADR-062 — Tur beranda kembali sebagai identitas merek; latar & panggung ilustrasi bergerak; umpan balik tim
 

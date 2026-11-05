@@ -224,6 +224,12 @@ export function toNotificationType(value: string): NotificationType {
     : 'SYSTEM';
 }
 
+/** Saklar notifikasi per akun yang benar-benar dihormati server (ADR-063). */
+export interface NotificationPreferences {
+  /** FALSE = tidak dibuatkan pengingat H-3/H-1 (`users.deadline_reminders`). */
+  readonly deadlineReminders: boolean;
+}
+
 /** Rujukan minimal ke event — cukup untuk judul & tautan di menu lonceng. */
 export interface NotificationEventRef {
   readonly id: string;

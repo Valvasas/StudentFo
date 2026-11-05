@@ -265,10 +265,19 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
                 <p className="text-sm leading-relaxed text-ink-soft">
                   Masih ada <strong className="font-semibold text-ink">{left} kursi</strong>. Setelah bergabung, namamu terlihat oleh anggota lain.
                 </p>
-                <SubmitButton className={primary}>
+                <ConfirmSubmit
+                  className={primary}
+                  confirm={{
+                    title: `Gabung ${team.title}?`,
+                    description: 'Namamu dan peranmu terlihat oleh semua anggota tim ini, dan kamu memakai satu kursi. Kamu bisa keluar kapan saja.',
+                    confirmLabel: 'Ya, gabung tim',
+                    tone: 'neutral',
+                    icon: <Send />,
+                  }}
+                >
                   <Send aria-hidden className="size-4" />
                   Ajukan gabung
-                </SubmitButton>
+                </ConfirmSubmit>
               </form>
             )}
           </div>

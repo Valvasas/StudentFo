@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { KeyRound, LogOut, MonitorSmartphone, Pencil, ShieldCheck, UserRound } from 'lucide-react';
-import { changePasswordAction } from '@/app/auth/actions';
+import { changePasswordAction, signOutEverywhereAction } from '@/app/auth/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AuthField } from '@/components/auth/auth-field';
 import { PasswordInput } from '@/components/auth/password-input';
@@ -10,6 +10,8 @@ import { AccountShell } from '@/components/layout/account-shell';
 import { BreakableEmail, DetailCard, DetailRows, detailButton, detailFields, detailGhostButton, detailPrimaryButton } from '@/components/profile/detail-card';
 import { SettingsHeader } from '@/components/profile/settings-list';
 import { BackLink } from '@/components/ui/back-link';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { requireUser } from '@/lib/auth';
 import { sectionTitle } from '@/lib/page-title';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
@@ -36,6 +38,7 @@ export default async function SecuritySettingsPage({ searchParams }: { searchPar
   const hasPassword = user.providers.includes('email');
   const hasGoogle = user.providers.includes('google');
   const editingPassword = hasPassword && firstParam(params.ubah) === 'sandi';
+  const isDemo = user.providers.includes('demo');
 
   return (
     <AccountShell user={user} active="pengaturan">
@@ -98,6 +101,7 @@ export default async function SecuritySettingsPage({ searchParams }: { searchPar
           />
           {editingPassword && (
             <form id="form-sandi" action={changePasswordAction} className={`${detailFields} border-t border-line pt-5`}>
+              <UnsavedChangesGuard />
               <AuthField id="currentPassword" label="Kata sandi saat ini">
                 <PasswordInput id="currentPassword" name="currentPassword" autoComplete="current-password" required maxLength={72} />
               </AuthField>
@@ -116,7 +120,7 @@ export default async function SecuritySettingsPage({ searchParams }: { searchPar
           id="sesi"
           icon={<MonitorSmartphone className="size-[18px]" />}
           title="Sesi di perangkat ini"
-          description="Keluar bila perangkat ini dipakai bergantian, misalnya komputer lab atau warnet."
+          description="Keluar di perangkat ini, atau cabut semua sesi sekaligus."
           delay={120}
         >
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/70 px-5 py-4 sm:mx-6 sm:px-0">
@@ -131,8 +135,33 @@ export default async function SecuritySettingsPage({ searchParams }: { searchPar
               Keluar dari akun ini
             </SignOutForm>
           </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/70 px-5 py-4 sm:mx-6 sm:px-0">
+            <span className="flex min-w-0 max-w-[46ch] flex-col gap-0.5">
+              <span className="text-[14.5px] font-semibold">Keluar dari semua perangkat</span>
+              <span className="text-[12.5px] leading-snug text-ink-muted">
+                {isDemo
+                  ? 'Akun demo hanya ada di perangkat ini, jadi ini sama dengan keluar biasa.'
+                  : 'Pernah masuk di komputer umum, atau curiga akunmu dipakai orang lain? Semua sesi dicabut, termasuk yang ini.'}
+              </span>
+            </span>
+            <form action={signOutEverywhereAction}>
+              <ConfirmSubmit
+                className={detailButton}
+                confirm={{
+                  title: 'Keluar dari semua perangkat?',
+                  description:
+                    'Setiap peramban & HP yang sedang masuk ke akun ini dikeluarkan, termasuk perangkat ini — kamu perlu masuk lagi di mana pun. Sesi yang sedang dibuka di perangkat lain berakhir paling lambat dalam satu jam.',
+                  confirmLabel: 'Ya, keluarkan semua',
+                  icon: <MonitorSmartphone />,
+                }}
+              >
+                <MonitorSmartphone aria-hidden className="size-3.5" />
+                Keluar dari semua
+              </ConfirmSubmit>
+            </form>
+          </div>
           {hasPassword && (
-            <p className="px-5 pb-5 text-[12.5px] text-ink-muted sm:px-6">Kehilangan perangkat? Ganti kata sandi — semua sesi lain otomatis dikeluarkan.</p>
+            <p className="px-5 pb-5 text-[12.5px] text-ink-muted sm:px-6">Kehilangan perangkat? Ganti kata sandi juga — semua sesi lain otomatis dikeluarkan.</p>
           )}
         </DetailCard>
       </div>

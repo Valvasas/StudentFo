@@ -41,6 +41,7 @@ Urutan migration (harus dijalankan berurutan):
 31. `20261015100001_registration_code_retry.sql` — `register_for_event` mencoba ulang kode pendaftaran bila tabrakan
 32. `20261020100001_team_matching.sql` — `team_seekers` + `list_team_candidates()` (ADR-057)
 33. `20261030100001_data_retention.sql` — `purge_old_notifications()` (dibaca > 180 hari / semua > 365 hari) dan `redact_decided_submission_emails()` (email kiriman yang sudah diputuskan > 90 hari → `dihapus@retensi.invalid`); service_role saja + pg_cron (ADR-060)
+34. `20261105100001_deadline_reminder_preference.sql` — `users.deadline_reminders` (bawaan TRUE, hak UPDATE per kolom) + `create_deadline_notifications()` melewati akun yang mematikannya (ADR-063)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -85,7 +86,8 @@ lewat service_role.
 > bekerja**: di PostgreSQL hak level kolom tidak bisa mengurangi hak level
 > tabel, sementara Supabase memberi `authenticated` hak UPDATE se-tabel.
 > Migration 0005 memperbaikinya dengan mencabut hak tabel lalu memberikan
-> kembali hanya `full_name, education_level, major, interests`. Pola yang
+> kembali hanya `full_name, education_level, major, interests` (ditambah
+> `deadline_reminders` di migration 20261105100001). Pola yang
 > sama wajib dipakai untuk setiap tabel baru yang punya kolom sensitif.
 
 | Kolom | Tipe | Catatan |
@@ -97,6 +99,7 @@ lewat service_role.
 | education_level | education_level? | |
 | major | VARCHAR? | |
 | interests | TEXT[] | dipakai `recommendation.ts` §6 (Phase 2) |
+| deadline_reminders | BOOLEAN | default TRUE; FALSE = `create_deadline_notifications()` tidak membuat pengingat H-3/H-1 (ADR-063). Baris profil absen diperlakukan TRUE |
 | created_at / updated_at | TIMESTAMPTZ | updated_at via trigger `touch_updated_at` |
 
 ### `categories`

@@ -1,13 +1,18 @@
 import type { Metadata } from 'next';
-import { BadgeCheck, Bell, CalendarClock, Inbox, ReceiptText, Send, Users } from 'lucide-react';
+import { BadgeCheck, Bell, BellOff, CalendarClock, Inbox, ReceiptText, Send, Users } from 'lucide-react';
+import { updateNotificationPreferencesAction } from '@/app/profile/actions';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DemoNotificationCard } from '@/components/profile/demo-settings';
-import { DetailCard } from '@/components/profile/detail-card';
+import { DetailCard, detailButton } from '@/components/profile/detail-card';
 import { SettingsHeader } from '@/components/profile/settings-list';
 import { BackLink } from '@/components/ui/back-link';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { requireUser } from '@/lib/auth';
+import { getEventRepository } from '@/lib/data';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { sectionTitle } from '@/lib/page-title';
+import type { RawSearchParams } from '@/lib/search-params';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,8 +56,10 @@ const BELL_TOPICS = [
   },
 ] as const;
 
-export default async function NotificationSettingsPage() {
+export default async function NotificationSettingsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  const params = await searchParams;
   const user = await requireUser('/profile/settings/notifikasi');
+  const preferences = await (await getEventRepository()).getNotificationPreferences(user.id);
 
   return (
     <AccountShell user={user} active="pengaturan">
@@ -60,14 +67,55 @@ export default async function NotificationSettingsPage() {
         <BackLink href="/profile/settings" label="Pengaturan" className="-mb-3" />
         <SettingsHeader title="Notifikasi" description="Kabar apa saja yang sampai ke lonceng di kanan atas, dan kapan pengingat tenggat dikirim." />
 
-        {demoFeaturesEnabled && <DemoNotificationCard delay={60} />}
+        <ActionFeedback params={params} />
+
+        <DetailCard
+          id="pengingat"
+          icon={<CalendarClock className="size-[18px]" />}
+          title="Pengingat tenggat"
+          description="H-3 dan H-1 sebelum tenggat kegiatan yang kamu simpan atau catat di Papan lamaran."
+          delay={60}
+        >
+          <form action={updateNotificationPreferencesAction} className="flex flex-wrap items-center gap-3 border-t border-line/70 px-5 py-4 sm:mx-6 sm:px-0">
+            <label className="flex min-h-11 min-w-[240px] flex-1 cursor-pointer items-center justify-between gap-3 rounded-[16px] bg-panel-nested px-4 py-3 transition-colors duration-200 ease-snap has-[:checked]:bg-tint-mint has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
+              <span className="flex flex-col">
+                <span className="text-[14px] font-semibold">Ingatkan aku sebelum tenggat</span>
+                <span className="text-[12.5px] text-ink-muted">{preferences.deadlineReminders ? 'Sedang menyala' : 'Sedang mati — tenggat tidak diingatkan'}</span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                name="deadlineReminders"
+                defaultChecked={preferences.deadlineReminders}
+                className="relative h-7 w-12 shrink-0 cursor-pointer appearance-none rounded-pill bg-line-strong transition-colors duration-200 ease-snap before:absolute before:left-[3px] before:top-[3px] before:size-[22px] before:rounded-pill before:bg-canvas before:shadow-sm before:transition-transform before:duration-300 before:ease-[var(--easing-spring)] before:content-[''] checked:bg-brand checked:before:translate-x-5 focus-visible:outline-none"
+              />
+            </label>
+            {/* Mematikan = tenggat bisa terlewat tanpa kabar (kegagalan paling mahal, ADR-051): dikonfirmasi.
+                Kotak centang yang dimatikan tidak masuk FormData (''). */}
+            <ConfirmSubmit
+              className={detailButton}
+              when={{ field: 'deadlineReminders', values: preferences.deadlineReminders ? [''] : [] }}
+              confirm={{
+                title: 'Matikan pengingat tenggat?',
+                description:
+                  'Kamu tidak lagi diingatkan H-3 dan H-1 untuk kegiatan yang kamu simpan atau lacak — termasuk yang tenggatnya minggu ini. Tenggat yang terlewat tidak bisa diulang.',
+                confirmLabel: 'Ya, matikan',
+                icon: <BellOff />,
+              }}
+            >
+              Simpan
+            </ConfirmSubmit>
+          </form>
+        </DetailCard>
+
+        {demoFeaturesEnabled && <DemoNotificationCard delay={120} />}
 
         <DetailCard
           id="lonceng"
           icon={<Bell className="size-[18px]" />}
           title="Yang masuk ke lonceng"
-          description="Dikirim otomatis untuk akunmu; tidak perlu dinyalakan."
-          delay={demoFeaturesEnabled ? 120 : 60}
+          description="Dikirim otomatis untuk akunmu. Hanya pengingat tenggat yang bisa dimatikan; kabar lain adalah jawaban atas hal yang kamu ajukan atau terima langsung."
+          delay={demoFeaturesEnabled ? 180 : 120}
         >
           <ul className="flex flex-col border-t border-line/70 sm:mx-6">
             {BELL_TOPICS.map((topic) => (

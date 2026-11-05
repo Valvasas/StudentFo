@@ -16,6 +16,7 @@ import {
 } from '@/components/profile/detail-card';
 import { MajorField } from '@/components/profile/major-field';
 import { BackLink } from '@/components/ui/back-link';
+import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { PROFILE_EDIT_ORIGINS } from '@/lib/account-sidebar';
 import { requireUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
@@ -134,6 +135,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
         >
           {editing === 'identitas' ? (
             <form id="form-identitas" action={updateProfileAction} className={detailFields}>
+              <UnsavedChangesGuard />
               {hidden('fullName')}
               <div className="flex flex-col gap-[7px]">
                 <label htmlFor="fullName" className="text-[13.5px] font-semibold">
@@ -168,6 +170,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
         >
           {editing === 'pendidikan' ? (
             <form id="form-pendidikan" action={updateProfileAction} className={detailFields}>
+              <UnsavedChangesGuard />
               {hidden('education')}
               <fieldset className="col-span-full flex flex-col gap-[7px]">
                 <legend className="mb-[7px] text-[13.5px] font-semibold">Jenjang</legend>

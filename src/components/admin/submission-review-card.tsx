@@ -2,20 +2,35 @@ import { AlertTriangle, BadgeCheck, Check, ExternalLink } from 'lucide-react';
 import { reviewSubmissionAction } from '@/app/admin/actions';
 import { RejectConfirm } from '@/components/admin/reject-confirm';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { priceLabel } from '@/lib/currency';
 import { formatDateId, formatDateTimeId } from '@/lib/deadline';
 import { sanitizeExternalUrl } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type Submission } from '@/types/domain';
 
-function ApproveForm({ submissionId }: { submissionId: string }) {
+function ApproveForm({ submissionId, title }: { submissionId: string; title: string }) {
   return (
     <form action={reviewSubmissionAction}>
       <input type="hidden" name="submissionId" value={submissionId} />
       <input type="hidden" name="decision" value="APPROVED" />
-      <Button type="submit" variant="success" size="sm">
+      <ConfirmSubmit
+        className={buttonVariants({ variant: 'success', size: 'sm' })}
+        confirm={{
+          title: 'Tayangkan kiriman ini?',
+          description: (
+            <>
+              <strong className="font-semibold text-ink">{title}</strong> menjadi kegiatan publik dan pengirimnya diberi tahu. Penolakan bisa dibatalkan
+              dari Riwayat — penayangan tidak bisa ditarik dari panel ini.
+            </>
+          ),
+          confirmLabel: 'Ya, tayangkan',
+          tone: 'neutral',
+          icon: <Check />,
+        }}
+      >
         <Check aria-hidden /> Setujui & tayangkan
-      </Button>
+      </ConfirmSubmit>
     </form>
   );
 }
@@ -126,7 +141,7 @@ export function SubmissionReviewCard({
 
       {/* Dua <form> terpisah — lihat catatan tombol Enter di antrean event. */}
       <div className="flex flex-wrap gap-2">
-        {payload && <ApproveForm submissionId={submission.id} />}
+        {payload && <ApproveForm submissionId={submission.id} title={payload.title} />}
         <RejectConfirm action={reviewSubmissionAction} fields={{ submissionId: submission.id, decision: 'REJECTED' }} subject="kiriman ini" />
       </div>
     </li>
