@@ -3,6 +3,7 @@ import { Ban, Check, ChevronDown, CircleCheck, CircleX, ExternalLink, Hourglass,
 import { reviewRegistrationAction } from '@/app/penyelenggara/acara/[id]/pendaftar/actions';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { TextArea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { formatRupiah } from '@/lib/currency';
@@ -181,10 +182,28 @@ export function RegistrationRow({
                 {canConfirm && (
                   <form action={reviewRegistrationAction}>
                     <HiddenInputs {...form} decision="confirm" />
-                    <SubmitButton pendingLabel="Menyimpan…" className={buttonVariants({ className: 'w-full' })}>
-                      <Check aria-hidden />
-                      {status === 'PAYMENT_REVIEW' ? DECISION_LABEL.confirm : 'Tandai lunas'}
-                    </SubmitButton>
+                    {status === 'PAYMENT_REVIEW' ? (
+                      <SubmitButton pendingLabel="Menyimpan…" className={buttonVariants({ className: 'w-full' })}>
+                        <Check aria-hidden />
+                        {DECISION_LABEL.confirm}
+                      </SubmitButton>
+                    ) : (
+                      // Lunas TANPA bukti unggahan (bayar tunai/di tempat): keputusan uang
+                      // yang tidak bisa ditarik kembali selain menolak peserta.
+                      <ConfirmSubmit
+                        className={buttonVariants({ className: 'w-full' })}
+                        confirm={{
+                          title: `Tandai ${registration.fullName} sudah lunas?`,
+                          description: `Belum ada bukti bayar yang diunggah. Lakukan ini hanya bila pembayaran${registration.feeAmount ? ` ${fee}` : ''} sudah kamu terima langsung — peserta langsung diberi tahu pendaftarannya terkonfirmasi.`,
+                          confirmLabel: 'Ya, tandai lunas',
+                          tone: 'neutral',
+                          icon: <Check />,
+                        }}
+                      >
+                        <Check aria-hidden />
+                        Tandai lunas
+                      </ConfirmSubmit>
+                    )}
                   </form>
                 )}
                 {canRejectPayment && (

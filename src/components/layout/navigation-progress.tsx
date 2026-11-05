@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { RouteSceneArt } from '@/components/layout/route-scene-art';
+import { visitLog } from '@/lib/nav-history';
 import { routeSceneFor, type RouteScene, type RouteSceneKey } from '@/lib/route-scene';
 import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
@@ -152,6 +153,13 @@ export function NavigationProgress() {
       window.removeEventListener('pageshow', onPageShow);
     };
   }, []);
+
+  // Asal untuk tombol kembali (`BackLink`, ADR-063). Di sini karena komponen
+  // ini sudah satu-satunya pengamat path + query di setiap halaman.
+  useEffect(() => {
+    const query = searchParams.toString();
+    visitLog.record(query ? `${pathname}?${query}` : pathname);
+  }, [pathname, searchParams]);
 
   useEffect(() => {
     if (!pending.current) return;

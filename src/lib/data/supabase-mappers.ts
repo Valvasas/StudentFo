@@ -521,6 +521,8 @@ export function toEventRegistration(row: EventRegistrationRow, events: ReadonlyM
       title: event?.title ?? '(acara tidak lagi tayang)',
       organizer: event?.organizer ?? '',
       primaryDeadlineAt: event?.primaryDeadlineAt ?? null,
+      eventType: event?.eventType ?? null,
+      status: event?.status ?? null,
     },
     userId: row.user_id,
     fullName: row.full_name,

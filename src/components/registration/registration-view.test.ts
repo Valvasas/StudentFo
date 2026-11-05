@@ -14,7 +14,7 @@ function registration(id: string, status: RegistrationStatus, feeAmount: number 
   return {
     id,
     code: `SF-${id}`,
-    event: { id: 'e1', slug: 'acara', title: 'Acara', organizer: 'Panitia', primaryDeadlineAt: null },
+    event: { id: 'e1', slug: 'acara', title: 'Acara', organizer: 'Panitia', primaryDeadlineAt: null, eventType: 'LOMBA', status: 'APPROVED' },
     userId: 'u1',
     fullName: 'Ana',
     email: 'ana@contoh.id',

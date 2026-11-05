@@ -15,6 +15,8 @@ import {
   detailPrimaryButton,
 } from '@/components/profile/detail-card';
 import { MajorField } from '@/components/profile/major-field';
+import { BackLink } from '@/components/ui/back-link';
+import { PROFILE_EDIT_ORIGINS } from '@/lib/account-sidebar';
 import { requireUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
@@ -99,6 +101,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
   return (
     <AccountShell user={user} active="data">
       <div className="flex max-w-[820px] flex-col gap-5">
+        <BackLink href="/profile" label="Profil" via={PROFILE_EDIT_ORIGINS} className="-mb-3" />
         <div className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
           <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Data diri</h1>
           <p className="max-w-[60ch] text-[15.5px] leading-relaxed text-ink-muted">

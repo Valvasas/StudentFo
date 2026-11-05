@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import { LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { signOutAction } from '@/app/auth/actions';
 import { toggleAccountSidebarAction } from '@/app/profile/actions';
+import { SignOutForm } from '@/components/auth/sign-out-form';
 import { loadAccountBadges, loadAccountRole } from '@/components/home/account-role';
 import { AccountMenuBadge, accountSubtitle } from '@/components/layout/account-menu';
 import { ACCOUNT_SIDEBAR_COOKIE, accountMenuGroups, isSidebarCollapsed, type AccountSection } from '@/lib/account-sidebar';
@@ -123,19 +123,17 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
             sendiri di puncak memakan 68px yang membuat "Keluar" terdorong
             keluar layar laptop 900px. */}
         <div className={cn('-mt-1 flex border-t border-line pt-1', collapsed ? 'w-11 flex-col items-center' : 'items-center gap-1')}>
-          <form action={signOutAction} className={collapsed ? 'w-11' : 'min-w-0 flex-1'}>
-            <button
-              type="submit"
-              title={collapsed ? 'Keluar' : undefined}
-              className={cn(
-                'flex min-h-11 w-full items-center gap-2.5 rounded-[10px] text-sm font-medium text-ink-muted transition-colors duration-200 ease-snap hover:bg-panel-nested hover:text-ink',
-                collapsed ? 'justify-center' : 'px-2.5',
-              )}
-            >
-              <LogOut aria-hidden className="size-[17px]" />
-              <span className={collapsed ? 'sr-only' : undefined}>Keluar</span>
-            </button>
-          </form>
+          <SignOutForm
+            className={collapsed ? 'w-11' : 'min-w-0 flex-1'}
+            title={collapsed ? 'Keluar' : undefined}
+            buttonClassName={cn(
+              'flex min-h-11 w-full items-center gap-2.5 rounded-[10px] text-sm font-medium text-ink-muted transition-colors duration-200 ease-snap hover:bg-panel-nested hover:text-ink',
+              collapsed ? 'justify-center' : 'px-2.5',
+            )}
+          >
+            <LogOut aria-hidden className="size-[17px]" />
+            <span className={collapsed ? 'sr-only' : undefined}>Keluar</span>
+          </SignOutForm>
           <form action={toggleAccountSidebarAction} className="flex">
             <input type="hidden" name="returnTo" value={returnTo} />
             <button

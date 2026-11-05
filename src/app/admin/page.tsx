@@ -6,7 +6,8 @@ import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { formatWait, REVIEW_SLA_HOURS, summarizeDecisions, summarizeQueue, type QueueHealth } from '@/lib/admin-health';
 import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { DEMO_DATA_TTL_MS, demoDataCreatedAt, getEventRepository } from '@/lib/data';
@@ -131,10 +132,19 @@ export default async function AdminPage({
             </span>
           </p>
           <form action={resetDemoDataAction}>
-            <Button type="submit" variant="secondary" size="sm">
+            <ConfirmSubmit
+              className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+              confirm={{
+                title: 'Atur ulang seluruh data demo?',
+                description:
+                  'Semua kiriman, keputusan moderasi, tim, dan pendaftaran yang dibuat pengunjung pratinjau kembali ke data contoh awal — untuk SEMUA orang yang sedang mencoba, bukan hanya kamu.',
+                confirmLabel: 'Ya, atur ulang',
+                icon: <RotateCcw />,
+              }}
+            >
               <RotateCcw aria-hidden />
               Atur ulang data demo
-            </Button>
+            </ConfirmSubmit>
           </form>
         </div>
       )}

@@ -2,7 +2,7 @@ import { cache, type CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, Crown, LogIn, LogOut, Send, Trash2, UserMinus, UserRoundSearch } from 'lucide-react';
+import { ArrowUpRight, Crown, LogIn, LogOut, Send, Trash2, UserMinus, UserRoundSearch } from 'lucide-react';
 import { deleteTeamAction, joinTeamAction, leaveTeamAction, removeTeamMemberAction } from '@/app/teams/actions';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { EventTypeIcon } from '@/components/event/event-type-icon';
@@ -10,6 +10,8 @@ import { ShareButton } from '@/components/event/share-button';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { SeatMeter, TeamSeats, TeamSlotsBadge } from '@/components/team/team-card';
 import { Avatar } from '@/components/ui/avatar';
+import { BackLink } from '@/components/ui/back-link';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { CelebrateSketch, Confetti } from '@/components/ui/feature-illustrations';
 import { SparkleDoodle } from '@/components/ui/illustrations';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -60,9 +62,7 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
 
   return (
     <div className="container-page pb-24 pt-6 sm:pt-8">
-      <Link href={backHref} className="mb-4 flex min-h-11 w-fit items-center gap-1.5 text-[13.5px] font-medium text-ink-muted hover:text-ink">
-        <ArrowLeft aria-hidden className="size-4" /> Cari tim
-      </Link>
+      <BackLink href={backHref} label="Cari tim" className="mb-4" />
 
       <ActionFeedback params={feedback} className="mb-6 max-w-2xl" />
 
@@ -240,10 +240,21 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
                 <input type="hidden" name="teamId" value={team.id} />
                 <input type="hidden" name="returnTo" value={returnTo} />
                 <p className="text-sm leading-relaxed text-ink-soft">Kamu sudah tergabung di tim ini.</p>
-                <SubmitButton className={secondary}>
+                <ConfirmSubmit
+                  className={secondary}
+                  confirm={{
+                    title: `Keluar dari ${team.title}?`,
+                    description:
+                      left === 0
+                        ? 'Kursimu kembali kosong dan bisa langsung diisi orang lain — tim ini sedang penuh, jadi kamu belum tentu bisa kembali.'
+                        : 'Kursimu kembali kosong dan bisa diisi orang lain. Kamu bisa mengajukan gabung lagi selama masih ada kursi.',
+                    confirmLabel: 'Ya, keluar dari tim',
+                    icon: <LogOut />,
+                  }}
+                >
                   <LogOut aria-hidden className="size-4" />
                   Keluar dari tim
-                </SubmitButton>
+                </ConfirmSubmit>
               </form>
             ) : left === 0 ? (
               <p className="text-sm leading-relaxed text-ink-muted">Tim ini sudah penuh. Coba tim lain, atau buka timmu sendiri.</p>

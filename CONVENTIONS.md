@@ -177,6 +177,15 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
 - Isian baru: pakai `controlClass`/`TextInput`/`SelectInput` (bukan kelas
   isian tulisan tangan); kotak centang & radio pakai `check`, pilihan berbentuk
   chip pakai `choice`; form panjang dipecah dengan `FormStep`.
+- Halaman dalam (anak dari halaman lain) memakai `BackLink` di kepala
+  halamannya — label = nama halaman induk, bukan "Kembali" polos (ADR-063).
+  Jangan menulis `<Link><ArrowLeft/>…</Link>` baru, dan jangan
+  `history.back()` buta.
+- Aksi yang menghapus/memutus sesuatu atau mengubah keadaan orang lain
+  memakai konfirmasi: `ConfirmSubmit` (dialog, tanpa JS = kirim biasa) atau
+  pola `<details>` bila aksinya WAJIB terkonfirmasi tanpa JS. Aksi yang bisa
+  diulang/dibalik seketika (simpan, ubah tahap) tidak diberi konfirmasi —
+  konfirmasi di setiap klik melatih orang menekan "Ya" tanpa membaca.
 - Hasil aksi yang ditunggu orang dirayakan lewat daftar tertutup
   `lib/celebration.ts` — tambah kodenya di sana, jangan menaruh konfeti
   langsung di halaman. Kabar netral/sensitif tidak pernah dirayakan.

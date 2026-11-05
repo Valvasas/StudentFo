@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { BookOpen, Check, Ellipsis, GraduationCap, Heart, Link2, UserPlus, UsersRound, type LucideIcon } from 'lucide-react';
+import { Ban, BookOpen, Check, Ellipsis, GraduationCap, Heart, Link2, UserPlus, UsersRound, type LucideIcon } from 'lucide-react';
 import { removeConnectionAction, requestConnectionAction, respondConnectionAction, unblockPersonAction } from '@/app/connections/actions';
 import { CategoryIcon } from '@/components/listing/category-icon';
 import { Avatar } from '@/components/ui/avatar';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { daysAgoLabel, personMeta, type SuggestionReason, type SuggestionReasonKind } from '@/lib/network';
 import { cn } from '@/lib/utils';
@@ -283,12 +284,19 @@ export function BlockedRow({ person, returnTo, now }: { person: BlockedPerson; r
       <form action={unblockPersonAction}>
         <input type="hidden" name="returnTo" value={returnTo} />
         <input type="hidden" name="targetId" value={person.userId} />
-        <SubmitButton
+        <ConfirmSubmit
           aria-label={`Buka blokir ${person.fullName}`}
           className="flex min-h-11 items-center rounded-pill px-3.5 text-[13px] font-medium text-ink-muted hover:bg-panel-nested hover:text-ink"
+          confirm={{
+            title: `Buka blokir ${person.fullName}?`,
+            description: 'Kalian bisa saling menemukan dan mengajak lagi. Koneksi lama yang terhapus saat diblokir tidak kembali sendiri, dan dia tidak diberi tahu.',
+            confirmLabel: 'Ya, buka blokir',
+            tone: 'neutral',
+            icon: <Ban />,
+          }}
         >
           Buka blokir
-        </SubmitButton>
+        </ConfirmSubmit>
       </form>
     </li>
   );

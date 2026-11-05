@@ -36,11 +36,23 @@ test('tracker: simpan → ubah tahap → tahap bertahan setelah reload → hapus
   await page.goto('/tracker');
   const stage = page.getByLabel(new RegExp(`Tahap lamaran untuk ${title.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
   await stage.selectOption('APPLIED');
-  await stage.locator('xpath=ancestor::form').getByRole('button', { name: 'Ubah' }).click();
+  // Tunggu POST Server Action selesai sebelum reload — tanpa ini reload bisa
+  // membatalkan aksi yang masih di jalan (gagal acak saat mesin uji sibuk).
+  await Promise.all([
+    page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/tracker'),
+    stage.locator('xpath=ancestor::form').getByRole('button', { name: 'Ubah' }).click(),
+  ]);
   await page.reload();
   await expect(page.getByLabel(new RegExp(`Tahap lamaran untuk ${title.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))).toHaveValue('APPLIED');
 
-  await page.getByRole('button', { name: new RegExp(`Hapus .* dari tracker`) }).first().click();
+  await page.getByRole('button', { name: new RegExp(`Hapus .* dari Papan lamaran`) }).first().click();
+  // Menghapus catatan & hasil portofolio = satu langkah konfirmasi (ADR-063); Batal tidak mengubah apa pun.
+  const confirmRemove = page.getByRole('alertdialog', { name: 'Hapus dari Papan lamaran?' });
+  await expect(confirmRemove).toBeVisible();
+  await confirmRemove.getByRole('button', { name: 'Batal' }).click();
+  await expect(confirmRemove).toBeHidden();
+  await page.getByRole('button', { name: new RegExp(`Hapus .* dari Papan lamaran`) }).first().click();
+  await confirmRemove.getByRole('button', { name: 'Ya, hapus' }).click();
   await expect(page).toHaveURL(/tracker/);
 });
 
@@ -77,6 +89,7 @@ test('tim: buat tim → anggota lain bergabung → keluar; ketua melihat jumlah 
   await expect(leader.getByText('2 dari 3 orang')).toBeVisible();
 
   await member.getByRole('button', { name: 'Keluar dari tim' }).click();
+  await member.getByRole('alertdialog').getByRole('button', { name: 'Ya, keluar dari tim' }).click();
   await expect(member).toHaveURL(/notice=team_left/);
   await leader.reload();
   await expect(leader.getByText('Raka Aditya')).toHaveCount(0);
@@ -102,7 +115,9 @@ test('keluar lewat menu akun menghapus sesi demo', async ({ page }) => {
   const menu = page.locator('details:has(> summary[aria-label^="Menu akun"])');
   await menu.locator('summary').click();
   // Dicari di dalam menu: halaman akun punya tombol "Keluar" kedua di sidebar.
-  await menu.getByRole('button', { name: 'Keluar' }).click();
+  await menu.getByRole('button', { name: 'Keluar', exact: true }).click();
+  // Keluar dari akun demo = datanya hilang, jadi ada konfirmasi (ADR-063).
+  await menu.getByRole('alertdialog', { name: 'Keluar dari akun demo?' }).getByRole('button', { name: 'Ya, keluar' }).click();
   await expect(page.locator('summary[aria-label^="Menu akun"]')).toHaveCount(0);
   // Tamu di /tracker melihat ajakan masuk, bukan papan milik sesi sebelumnya.
   await page.goto('/tracker');

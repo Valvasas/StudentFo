@@ -835,7 +835,11 @@ export interface EventRegistration {
   readonly id: string;
   /** Kode yang disebut peserta ke panitia, mis. `SF-7F3A09C2`. */
   readonly code: string;
-  readonly event: Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer' | 'primaryDeadlineAt'>;
+  readonly event: Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer' | 'primaryDeadlineAt'> & {
+    /** null = acaranya tidak lagi terbaca (dihapus/disembunyikan). Dipakai lencana (ADR-064). */
+    readonly eventType: EventType | null;
+    readonly status: EventStatus | null;
+  };
   readonly userId: string;
   /** Salinan saat mendaftar — penyelenggara tidak membaca tabel `users`. */
   readonly fullName: string;

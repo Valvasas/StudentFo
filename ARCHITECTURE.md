@@ -56,7 +56,8 @@ src/
 │   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056)
 │   ├── (auth)/                 Route group — login & register (form biasa), demo/ (akun demo, tidak ditautkan dari mana pun — ADR-057), forgot/reset password
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
-│   ├── profile/                Akun: profil, data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), pengaturan, privasi (+ ekspor/ JSON, ADR-060)
+│   ├── profile/                Akun: profil (+ tab Lencana, ADR-064), data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), privasi (+ ekspor/ JSON, ADR-060);
+│   │                           settings/ = daftar Pengaturan per konteks + keamanan/ (cara masuk, sandi, sesi) + notifikasi/ (ADR-063)
 │   ├── tracker/                Papan lamaran + actions.ts (simpan, ubah tahap, hapus)
 │   ├── teams/                  Cari rekan tim + baru/ (buka tim, halaman sendiri — ADR-054) + [id] detail + actions.ts
 │   │   └── cocok/              Pencocokan tim/partner otomatis (ADR-057, 058): page.tsx = router tipis → form-view.tsx | results-view.tsx, shared.ts, actions.ts
@@ -87,7 +88,8 @@ src/
 │   │                           avatar.tsx (Avatar/AvatarStack bertint), feature-hero.tsx (FeatureHero,
 │   │                           IllustrationStage, StatTile), feature-illustrations.tsx (tim, koneksi,
 │   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054),
-│   │                           search-shortcut.tsx (pintasan "/" ke kotak cari + petunjuk kbd, ADR-061)
+│   │                           search-shortcut.tsx (pintasan "/" ke kotak cari + petunjuk kbd, ADR-061),
+│   │                           back-link.tsx (BackLink/HistoryLink — kembali hierarkis yang ingat asal), confirm-submit.tsx (`<dialog>` konfirmasi, ADR-063)
 │   ├── landing/                GuestLanding + Hero (berpusat pencarian: kotak cari, tab jenis + jumlah buka, ADR-061) — beranda tamu;
 │   │                           hero-sketch.tsx (kolase sketsa beranimasi), landing-tour.tsx (tur 5 langkah, klien, ADR-062)
 │   ├── listing/                Lima papan per jenis (Lomba, Beasiswa, Magang, Workshop, Seminar) + listing-ui (primitif tautan),
@@ -111,10 +113,11 @@ src/
 │   │                           deck/ (MatchDeck, DeckBar, InviteSheet <dialog>, use-card-drag, DeckProvider/controls — klien, mode rail→stack/grid)
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
-│   ├── profile/                PortfolioList (profil sendiri & /orang/[id])
+│   ├── profile/                PortfolioList (profil sendiri & /orang/[id]); SettingsGroup/Row/Header (daftar Pengaturan, ADR-063);
+│   │                           BadgeMedal (medali SVG bertingkat), BadgeBoard/BadgeStrip, badge-facts.ts (bahan lencana dari repository, ADR-064)
 │   ├── legal/                  LegalDocument (kerangka 3 dokumen hukum, daftar isi terlipat di ponsel), TocSpy, OperatorRef, ContactNote (ADR-060)
 │   ├── admin/                  SubmissionReviewCard, AdminNav
-│   ├── auth/                   GoogleButton, AuthFeedback
+│   ├── auth/                   GoogleButton, AuthFeedback, SignOutForm (satu tombol Keluar + konfirmasi untuk tiga pintu, ADR-063)
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,
 │                               ThemeToggle, ThemeScript, DemoBanner, AccountShell (menu akun
 │                               bisa dilipat jadi rel ikon — cookie `sf_sidebar`, ADR-052),
@@ -173,6 +176,8 @@ src/
 │   ├── tint.ts                 tintOf()/coverTintOf() — tint identitas deterministik (ADR-054) [teruji]
 │   ├── route-scene.ts          Rute tujuan → adegan pemuat navigasi, cocok per segmen (ADR-055) [teruji]
 │   ├── celebration.ts          Daftar tertutup notice yang dirayakan (ADR-055) [teruji]
+│   ├── achievements.ts         Lencana DIHITUNG dari catatan pihak ketiga: aturan "jadi", tingkat, tanggal diraih (ADR-064) [teruji, murni]
+│   ├── nav-history.ts          Satu langkah riwayat tab untuk BackLink (`returnsTo`, `visitLog`, ADR-063) [teruji]
 │   ├── appearance.ts           Preferensi tema & gerak per perangkat, kunci localStorage (ADR-055) [teruji]
 │   ├── initials.ts             initialsOf() (orang), monogramOf() (grup/kegiatan) [teruji]
 │   ├── registration-form.ts    Formulir internal: skema kolom, validasi jawaban, mesin status bayar, CSV aman (ADR-056) [teruji]

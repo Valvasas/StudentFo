@@ -174,7 +174,7 @@ fullName, email, isAdmin }` dari `toEventActor(user)` (`src/lib/auth.ts`);
 | `getRegistrationForm(eventId)` | publik (acara tayang) | `null` bila belum ada; `activeCount` = pendaftar hidup |
 | `saveRegistrationForm(actor, eventId, input)` | pengelola terverifikasi / admin | `not_event_manager`, `invalid_registration_form` (CHECK DB) |
 | `registerForEvent(actor, eventId, answers)` | pengguna masuk; jawaban SUDAH lolos `readAnswers()` | `registration_closed` → `registration_exists` → `registration_full` → `registration_rate_limited` (urutan ini di kedua implementasi) |
-| `getMyRegistration(userId, eventId)` / `listMyRegistrations(userId)` | pemilik | — |
+| `getMyRegistration(userId, eventId)` / `listMyRegistrations(userId)` | pemilik | — · `event.eventType`/`event.status` = `null` bila acaranya tidak lagi terbaca publik (dipakai lencana, ADR-064) |
 | `getRegistration(actor, id)` | pemilik / pengelola / admin | `null` untuk selain itu (tidak membedakan "ada tapi bukan milikmu") |
 | `listEventRegistrations(actor, eventId)` / `listRegistrationStats(actor, ids)` | pengelola / admin | `[]` untuk selain itu |
 | `submitPaymentProof(actor, id, image)` | pemilik, status AWAITING_PAYMENT/PAYMENT_REVIEW | `registration_not_found`, `registration_invalid_transition` |

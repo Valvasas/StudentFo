@@ -140,6 +140,7 @@ test('blokir tanpa JavaScript: dari daftar koneksi & kartu ajakan, hilang dari m
 
   await page.goto('/connections?tab=pengaturan');
   await expect(blocked.getByRole('listitem')).toHaveCount(2);
+  // JavaScript mati: `ConfirmSubmit` jatuh ke tombol kirim biasa (ADR-063) — aksi tetap jalan, bukan tombol mati.
   await blocked.getByRole('button', { name: 'Buka blokir Rani Prameswari' }).click();
   await expect(page).toHaveURL(/notice=person_unblocked/);
   await expect(blocked.getByRole('listitem')).toHaveCount(1);

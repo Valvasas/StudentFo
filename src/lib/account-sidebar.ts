@@ -5,9 +5,8 @@ import {
   Heart,
   IdCard,
   ListChecks,
-  Lock,
+  Medal,
   MessageCircle,
-  Palette,
   Radar,
   ReceiptText,
   Settings,
@@ -60,9 +59,8 @@ export type AccountSection =
   | 'koneksi'
   | 'cocok'
   | 'tersimpan'
-  | 'personalisasi'
-  | 'pengaturan'
-  | 'privasi';
+  | 'lencana'
+  | 'pengaturan';
 
 /** Angka di samping item; nilainya dimuat pemanggil (navbar & menu samping). */
 export type AccountBadge = 'unread' | 'saved' | 'payment';
@@ -109,6 +107,7 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
     title: 'Akun',
     items: [
       { key: 'profil', label: 'Profil saya', href: '/profile', icon: UserRound },
+      { key: 'lencana', label: 'Lencana', href: '/profile?tab=lencana', icon: Medal },
       { key: 'data', label: 'Data diri', href: '/profile/details', icon: IdCard },
       { key: 'minat', label: 'Peminatan', href: '/profile/interests', icon: Heart },
     ],
@@ -130,16 +129,25 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
       { key: 'cocok', label: 'Cocokkan tim', href: '/teams/cocok', icon: Radar },
     ],
   };
+  // Tampilan, notifikasi, keamanan, dan privasi dibuka DARI Pengaturan
+  // (ADR-063) — satu pintu, bukan empat item yang memanjangkan menu ponsel.
   const other: AccountMenuGroup = {
     key: 'lainnya',
     title: 'Lainnya',
     items: [
-      { key: 'personalisasi', label: 'Personalisasi', href: '/profile/personalization', icon: Palette },
       { key: 'pengaturan', label: 'Pengaturan', href: '/profile/settings', icon: Settings },
-      { key: 'privasi', label: 'Privasi & data', href: '/profile/privacy', icon: Lock },
       ...(role === 'participant' ? [becomeOrganizer] : []),
     ],
   };
 
   return role === 'participant' ? [activity, account, other] : [workspace, activity, account, other];
 }
+
+/**
+ * Induk lain Data diri & Peminatan selain Profil — keduanya ditautkan dari
+ * Pengaturan dan dari Tampilan & rekomendasi (`BackLink` `via`, ADR-063).
+ */
+export const PROFILE_EDIT_ORIGINS = [
+  { href: '/profile/settings', label: 'Pengaturan' },
+  { href: '/profile/personalization', label: 'Tampilan & rekomendasi' },
+] as const;
