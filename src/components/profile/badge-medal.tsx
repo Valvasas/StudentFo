@@ -5,7 +5,7 @@ import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 
 /**
- * Medali lencana (ADR-064) — aturan ilustrasi ADR-053 tetap: tinta
+ * Medali lencana (ADR-068) — aturan ilustrasi ADR-053 tetap: tinta
  * `currentColor`, isian token (ikut tema gelap), tanpa teks, `aria-hidden`
  * (nama & tingkatnya selalu tertulis di sebelahnya).
  *

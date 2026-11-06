@@ -1,5 +1,5 @@
 /**
- * "Kembali" yang tidak kehilangan tempat (ADR-063).
+ * "Kembali" yang tidak kehilangan tempat (ADR-067).
  *
  * Tombol kembali di halaman dalam adalah tautan HIERARKIS (`/tracker/x` →
  * `/tracker`): bekerja tanpa JavaScript, dari tautan yang dibagikan, dan

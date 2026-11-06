@@ -178,7 +178,7 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   isian tulisan tangan); kotak centang & radio pakai `check`, pilihan berbentuk
   chip pakai `choice`; form panjang dipecah dengan `FormStep`.
 - Halaman dalam (anak dari halaman lain) memakai `BackLink` di kepala
-  halamannya — label = nama halaman induk, bukan "Kembali" polos (ADR-063).
+  halamannya — label = nama halaman induk, bukan "Kembali" polos (ADR-067).
   Jangan menulis `<Link><ArrowLeft/>…</Link>` baru, dan jangan
   `history.back()` buta.
 - Aksi yang menghapus/memutus sesuatu atau mengubah keadaan orang lain

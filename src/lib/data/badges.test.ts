@@ -6,7 +6,7 @@ import type { EventActor } from './repository';
 import { SEED_EVENTS } from './seed-data';
 
 /**
- * Lencana di atas repository sungguhan mode seed (ADR-064): bentuk
+ * Lencana di atas repository sungguhan mode seed (ADR-068): bentuk
  * `EventRegistration.event` yang dibaca lencana, seed persona Mahasiswa,
  * dan jalur "daftar → batal" yang tidak boleh menyisakan hitungan.
  */

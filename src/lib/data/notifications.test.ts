@@ -34,10 +34,10 @@ describe('MemoryEventRepository — notifikasi tenggat', () => {
     const repo = new MemoryEventRepository();
     const userId = 'user-notif-saklar';
     await repo.saveEvent(userId, EVENT_H1);
-    expect(await repo.getNotificationPreferences(userId)).toEqual({ deadlineReminders: true });
+    expect(await repo.getNotificationPreferences(userId)).toEqual({ deadlineReminders: true, adjustable: true });
 
     await repo.updateNotificationPreferences(userId, { deadlineReminders: false });
-    expect(await repo.getNotificationPreferences(userId)).toEqual({ deadlineReminders: false });
+    expect(await repo.getNotificationPreferences(userId)).toEqual({ deadlineReminders: false, adjustable: true });
     expect(await repo.listNotifications(userId, 10)).toEqual([]);
     expect((await repo.claimDeadlineDispatches(50)).some((dispatch) => dispatch.recipient.userId === userId)).toBe(false);
 

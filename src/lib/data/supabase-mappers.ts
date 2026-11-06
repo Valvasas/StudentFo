@@ -182,6 +182,16 @@ export function isUuid(value: string): boolean {
 }
 
 /** Kode SQLSTATE dari error PostgREST, kalau ada. */
+/**
+ * Kolom yang dibaca/ditulis belum ada: Postgres `42703` (SELECT lewat
+ * PostgREST) atau `PGRST204` (kolom tidak ada di cache skema, saat UPDATE).
+ * Dipakai fitur yang boleh tayang lebih dulu daripada migration-nya.
+ */
+export function isMissingColumnError(error: unknown): boolean {
+  const code = sqlState(error);
+  return code === '42703' || code === 'PGRST204';
+}
+
 export function sqlState(error: unknown): string | null {
   if (typeof error !== 'object' || error === null) return null;
   const code = (error as { code?: unknown }).code;

@@ -20,7 +20,11 @@ export function TrackerStatusForm({ item, returnTo }: { item: TrackerItem; retur
       <label htmlFor={`status-${item.id}`} className="sr-only">
         Tahap lamaran untuk {item.event.title}
       </label>
+      {/* `key` memuat status: select tak terkontrol hanya membaca defaultValue saat
+          dipasang, jadi tanpa ini pilihan di layar tertinggal dari server setelah
+          Urungkan atau perubahan dari halaman lain. */}
       <SelectInput
+        key={`${item.id}-${item.status}`}
         id={`status-${item.id}`}
         name="status"
         defaultValue={item.status}
@@ -152,8 +156,10 @@ export function TrackerCard({ item, returnTo = '/tracker' }: { item: TrackerItem
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 pl-[58px] md:pl-0">
-        <TrackerStatusForm item={item} returnTo={returnTo} />
+      <div className="flex items-center gap-1.5">
+        <div className="min-w-0 flex-1 md:flex-none">
+          <TrackerStatusForm item={item} returnTo={returnTo} />
+        </div>
         <TrackerRemoveForm item={item} returnTo={returnTo} />
       </div>
     </article>

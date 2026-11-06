@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 
 /**
- * Daftar Pengaturan (ADR-063): satu grup = satu konteks, satu baris = satu
+ * Daftar Pengaturan (ADR-067): satu grup = satu konteks, satu baris = satu
  * halaman. Setiap baris menyebut KEADAAN SEKARANG ("Kata sandi aktif",
  * "Profil 80% lengkap"), bukan deskripsi umum — orang bisa memeriksa akunnya
  * sekilas tanpa membuka setiap halaman, dan baris yang perlu perhatian

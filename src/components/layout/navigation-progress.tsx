@@ -154,7 +154,7 @@ export function NavigationProgress() {
     };
   }, []);
 
-  // Asal untuk tombol kembali (`BackLink`, ADR-063). Di sini karena komponen
+  // Asal untuk tombol kembali (`BackLink`, ADR-067). Di sini karena komponen
   // ini sudah satu-satunya pengamat path + query di setiap halaman.
   useEffect(() => {
     const query = searchParams.toString();

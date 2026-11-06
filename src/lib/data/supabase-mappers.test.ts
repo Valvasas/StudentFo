@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toSeekerProfile, toSkillSlugs, toSubmission, toTeamCandidate } from './supabase-mappers';
+import { isMissingColumnError, isUuid, keysetAfter, sanitizeSearchQuery, sqlState, toAchievement, toModerationLogEntry, toOrganizerHistoryEntry, toPublicPortfolioEntry, toSeekerProfile, toSkillSlugs, toSubmission, toTeamCandidate } from './supabase-mappers';
+
+describe('isMissingColumnError', () => {
+  it('mengenali kolom yang belum ada (kode tayang sebelum migration-nya) dan tidak menelan galat lain', () => {
+    expect(isMissingColumnError({ code: '42703', message: 'column users.deadline_reminders does not exist' })).toBe(true);
+    expect(isMissingColumnError({ code: 'PGRST204', message: "Could not find the 'deadline_reminders' column" })).toBe(true);
+    expect(isMissingColumnError({ code: '42501', message: 'permission denied' })).toBe(false);
+    expect(isMissingColumnError(new Error('jaringan putus'))).toBe(false);
+    expect(isMissingColumnError(null)).toBe(false);
+  });
+});
 
 describe('isUuid', () => {
   it('menerima UUID dan menolak selainnya sebelum sampai ke Postgres', () => {

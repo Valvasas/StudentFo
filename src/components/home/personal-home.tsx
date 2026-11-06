@@ -213,7 +213,8 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
                 className="flex min-h-11 items-center gap-2 rounded-sm border border-line px-3 py-2 text-sm font-medium transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested"
               >
                 <shortcut.icon aria-hidden className="size-4 shrink-0 text-ink-muted" />
-                <span className="min-w-0 flex-1 truncate">{shortcut.label}</span>
+                {/* Membungkus, bukan dipotong: "Pendaftaran & pembayaran" tidak muat satu baris di kolom 2-ponsel. */}
+                <span className="min-w-0 flex-1 leading-snug [overflow-wrap:anywhere]">{shortcut.label}</span>
                 {shortcut.count !== undefined && shortcut.count > 0 && (
                   <span className="rounded-[6px] bg-panel-nested px-1.5 text-xs font-semibold tabular-nums">
                     {shortcut.count}

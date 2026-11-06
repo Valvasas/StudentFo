@@ -75,6 +75,7 @@ export const ACTION_ERROR_CODES = [
   'too_many_photos',
   'photo_not_found',
   'invalid_request',
+  'reminders_unavailable',
   'unknown',
 ] as const;
 
@@ -154,6 +155,7 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   too_many_photos: 'Maksimal 6 foto sekali unggah. Pilih lebih sedikit lalu unggah sisanya berikutnya.',
   photo_not_found: 'Foto itu sudah tidak ada.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
+  reminders_unavailable: 'Saklar pengingat belum aktif di server ini. Pengingat tenggat tetap dikirim seperti biasa.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
 
@@ -198,6 +200,7 @@ export const ACTION_NOTICE_CODES = [
   'photo_deleted',
   'reminders_on',
   'reminders_off',
+  'undo_done',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -224,6 +227,7 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   claim_reviewed: 'Keputusan klaim disimpan dan tercatat di riwayat.',
   revision_reviewed: 'Keputusan perubahan acara disimpan dan tercatat di riwayat.',
   network_profile_saved: 'Pengaturan jaringan disimpan.',
+  undo_done: 'Dibatalkan — keadaan sebelumnya sudah dikembalikan.',
   reminders_on: 'Pengingat tenggat menyala. Kegiatan yang kamu simpan atau lacak diingatkan H-3 dan H-1.',
   reminders_off: 'Pengingat tenggat dimatikan. Pengingat yang sudah ada di lonceng tidak dihapus.',
   portfolio_saved: 'Portofolio diperbarui.',

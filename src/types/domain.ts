@@ -224,11 +224,19 @@ export function toNotificationType(value: string): NotificationType {
     : 'SYSTEM';
 }
 
-/** Saklar notifikasi per akun yang benar-benar dihormati server (ADR-063). */
+/** Saklar notifikasi per akun yang benar-benar dihormati server (ADR-067). */
 export interface NotificationPreferences {
   /** FALSE = tidak dibuatkan pengingat H-3/H-1 (`users.deadline_reminders`). */
   readonly deadlineReminders: boolean;
+  /**
+   * FALSE = kolomnya belum ada di database ini (migration 20261105100001 belum
+   * diterapkan): saklar tampil terkunci, dan server tetap mengingatkan seperti
+   * sebelumnya. Kode boleh tayang lebih dulu daripada migration-nya.
+   */
+  readonly adjustable: boolean;
 }
+
+export type NotificationPreferencesInput = Pick<NotificationPreferences, 'deadlineReminders'>;
 
 /** Rujukan minimal ke event — cukup untuk judul & tautan di menu lonceng. */
 export interface NotificationEventRef {
@@ -842,7 +850,7 @@ export interface EventRegistration {
   /** Kode yang disebut peserta ke panitia, mis. `SF-7F3A09C2`. */
   readonly code: string;
   readonly event: Pick<EventSummary, 'id' | 'slug' | 'title' | 'organizer' | 'primaryDeadlineAt'> & {
-    /** null = acaranya tidak lagi terbaca (dihapus/disembunyikan). Dipakai lencana (ADR-064). */
+    /** null = acaranya tidak lagi terbaca (dihapus/disembunyikan). Dipakai lencana (ADR-068). */
     readonly eventType: EventType | null;
     readonly status: EventStatus | null;
   };

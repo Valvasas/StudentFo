@@ -149,7 +149,7 @@ function BadgeCard({ item, now, index }: { item: BadgeProgress; now: Date; index
 /**
  * Tab Lencana di profil sendiri. Belum tampil di profil publik: menampilkan
  * lencana orang lain butuh fungsi SQL agregat baru (pendaftaran orang lain
- * tertutup RLS, memang seharusnya) + pilihan privasi — lihat ADR-064.
+ * tertutup RLS, memang seharusnya) + pilihan privasi — lihat ADR-068.
  */
 export function BadgeBoard({ progress, now }: { progress: readonly BadgeProgress[] | null; now: Date }) {
   if (!progress) {

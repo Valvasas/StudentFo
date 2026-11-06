@@ -1,4 +1,4 @@
--- Saklar pengingat tenggat (migration 20261105100001, ADR-063): akun yang
+-- Saklar pengingat tenggat (migration 20261105100001, ADR-067): akun yang
 -- mematikannya tidak dibuatkan pengingat; pemilik hanya bisa mengubah
 -- saklarnya sendiri, dan hak per kolom tidak membuka kolom `role`.
 BEGIN;

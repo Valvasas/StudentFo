@@ -21,7 +21,7 @@ const COPY: ConfirmCopy = {
 };
 
 /**
- * Penjaga isian yang belum disimpan (ADR-063). Taruh DI DALAM `<form>` yang
+ * Penjaga isian yang belum disimpan (ADR-067). Taruh DI DALAM `<form>` yang
  * dijaga. "Berubah" = isi FormData berbeda dari saat halaman dibuka — mengetik
  * lalu mengembalikan isian ke semula tidak memicu peringatan.
  *

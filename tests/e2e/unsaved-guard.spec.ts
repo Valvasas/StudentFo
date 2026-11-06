@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { signInAsDemo } from './helpers';
 
 /**
- * Penjaga isian belum disimpan (ADR-063): berpindah lewat tautan internal saat
+ * Penjaga isian belum disimpan (ADR-067): berpindah lewat tautan internal saat
  * form sudah diubah = dialog; mengembalikan isian ke semula = tanpa dialog;
  * "Tinggalkan" benar-benar berpindah; mengirim form tidak pernah ditahan.
  */

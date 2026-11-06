@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 /**
  * Tautan yang kembali ke halaman asal bila asalnya memang tujuan `href`
  * (saringan & posisi gulir ikut pulih), selain itu tautan biasa. Tanpa
- * JavaScript = tautan biasa. Lihat `lib/nav-history.ts` (ADR-063).
+ * JavaScript = tautan biasa. Lihat `lib/nav-history.ts` (ADR-067).
  */
 export function HistoryLink({ href, className, children }: { href: string; className?: string; children: ReactNode }) {
   const router = useRouter();

@@ -4,7 +4,7 @@ import { joinTeamAction } from '@/app/teams/actions';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { EventTypeIcon } from '@/components/event/event-type-icon';
 import { Avatar, TINT_BG, type AvatarSize } from '@/components/ui/avatar';
-import { SubmitButton } from '@/components/ui/submit-button';
+import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { getDeadlineState } from '@/lib/deadline';
 import { tintOf } from '@/lib/tint';
 import { cn } from '@/lib/utils';
@@ -170,12 +170,20 @@ export function TeamCard({
               <form action={joinTeamAction}>
                 <input type="hidden" name="teamId" value={team.id} />
                 <input type="hidden" name="returnTo" value={returnTo} />
-                <SubmitButton
+                {/* Pintu gabung kedua (selain halaman tim): konfirmasi yang sama, ADR-067. */}
+                <ConfirmSubmit
                   aria-label={`Ajukan gabung ke ${team.title}`}
                   className="flex h-11 items-center gap-1.5 rounded-pill bg-brand px-4 text-[13px] font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover"
+                  confirm={{
+                    title: `Gabung ${team.title}?`,
+                    description: 'Namamu dan peranmu terlihat oleh semua anggota tim ini, dan kamu memakai satu kursi. Kamu bisa keluar kapan saja.',
+                    confirmLabel: 'Ya, gabung tim',
+                    tone: 'neutral',
+                    icon: <Send />,
+                  }}
                 >
                   <Send aria-hidden className="size-3.5" /> Gabung
-                </SubmitButton>
+                </ConfirmSubmit>
               </form>
             ) : (
               <ArrowRight aria-hidden className="size-5 text-ink-muted transition-transform duration-200 ease-snap group-hover:translate-x-1" />
