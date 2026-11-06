@@ -1,5 +1,5 @@
 -- =====================================================================
--- Preferensi pengingat tenggat per akun (ADR-063)
+-- Preferensi pengingat tenggat per akun (ADR-067)
 --
 -- Halaman Notifikasi sebelumnya hanya MENJELASKAN pengingat H-3/H-1; tidak
 -- ada cara mematikannya, padahal pengingat dibuat otomatis untuk setiap

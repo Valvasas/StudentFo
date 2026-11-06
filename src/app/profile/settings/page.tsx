@@ -10,6 +10,7 @@ import { SettingsGroup, SettingsHeader, SettingsRow } from '@/components/profile
 import { BackLink } from '@/components/ui/back-link';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { initialsOf } from '@/lib/initials';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import { isColdStart } from '@/lib/recommendation';
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * Pengaturan = DAFTAR, bukan satu halaman berisi semua kartu (ADR-063).
+ * Pengaturan = DAFTAR, bukan satu halaman berisi semua kartu (ADR-067).
  * Versi lama menumpuk cara masuk, notifikasi, sesi, dan hapus data di satu
  * layar — konteks yang tidak berhubungan, dan di produksi isinya tinggal dua
  * kartu yang terasa kosong. Sekarang setiap konteks punya halamannya sendiri
@@ -41,7 +42,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const [context, network, notifications] = await Promise.all([
     loadAccountRole(user),
     repository.getNetworkProfile(user.id),
-    repository.getNotificationPreferences(user.id),
+    // Pendukung ringkasan saja: gagal dimuat = kalimat bawaan, bukan seluruh halaman jatuh.
+    withFallback('preferensi notifikasi', () => repository.getNotificationPreferences(user.id), { deadlineReminders: true, adjustable: true }),
   ]);
   const hasPassword = user.providers.includes('email');
   const hasGoogle = user.providers.includes('google');

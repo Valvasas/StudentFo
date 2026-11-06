@@ -216,18 +216,36 @@ describe('kabar ke pengirim kiriman (ADR-037)', () => {
   });
 });
 
-describe('getNotificationPreferences / updateNotificationPreferences (ADR-063)', () => {
+describe('getNotificationPreferences / updateNotificationPreferences (ADR-067)', () => {
   it('bawaan menyala; pemilik mematikan saklarnya sendiri lewat hak kolom; akun lain tidak tersentuh', async () => {
     const owner = createUser();
     const other = createUser();
 
     actAs(owner);
-    expect(await repo.getNotificationPreferences(owner)).toEqual({ deadlineReminders: true });
+    expect(await repo.getNotificationPreferences(owner)).toEqual({ deadlineReminders: true, adjustable: true });
     await repo.updateNotificationPreferences(owner, { deadlineReminders: false });
-    expect(await repo.getNotificationPreferences(owner)).toEqual({ deadlineReminders: false });
+    expect(await repo.getNotificationPreferences(owner)).toEqual({ deadlineReminders: false, adjustable: true });
 
     // id orang lain dari sesi pemilik = nol baris (RLS users_update_own), bukan menimpa.
     await repo.updateNotificationPreferences(other, { deadlineReminders: false });
     expect(sql(`SELECT deadline_reminders FROM public.users WHERE id = '${other}'`)).toBe('t');
+  });
+});
+
+describe('preferensi notifikasi sebelum migration 20261105100001 diterapkan', () => {
+  it('kolom belum ada = keadaan bawaan + saklar terkunci, bukan halaman error; menyimpan = kode tertutup', async () => {
+    const owner = createUser();
+    actAs(owner);
+    sql('ALTER TABLE public.users DROP COLUMN deadline_reminders');
+    try {
+      expect(await repo.getNotificationPreferences(owner)).toEqual({ deadlineReminders: true, adjustable: false });
+      await expect(repo.updateNotificationPreferences(owner, { deadlineReminders: false })).rejects.toSatisfy(
+        (error: unknown) => reasonOf(error) === 'reminders_unavailable',
+      );
+    } finally {
+      sql('ALTER TABLE public.users ADD COLUMN deadline_reminders BOOLEAN NOT NULL DEFAULT TRUE');
+      sql('GRANT UPDATE (deadline_reminders) ON public.users TO authenticated');
+    }
+    expect(await repo.getNotificationPreferences(owner)).toEqual({ deadlineReminders: true, adjustable: true });
   });
 });

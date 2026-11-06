@@ -6,7 +6,7 @@ import { dataMode } from '@/lib/env';
 
 /**
  * Tombol "Keluar" — satu definisi untuk menu akun, menu samping, dan
- * Pengaturan, supaya ketiganya meminta konfirmasi yang sama (ADR-063).
+ * Pengaturan, supaya ketiganya meminta konfirmasi yang sama (ADR-067).
  *
  * Tetap POST (Server Action), bukan tautan: dengan `<a href="/logout">`,
  * prefetch peramban atau sebuah `<img>` di situs lain sudah cukup untuk

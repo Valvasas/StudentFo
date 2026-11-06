@@ -43,7 +43,7 @@ function NoteField({ id, required }: { id: string; required: boolean }) {
 
 /**
  * Tolak/cabut lewat <details> berisi catatan wajib; setuju lewat dialog
- * konfirmasi yang menyebut hak apa yang diberikan (ADR-063) — keputusan
+ * konfirmasi yang menyebut hak apa yang diberikan (ADR-067) — keputusan
  * kepercayaan, bukan sekadar tombol antrean.
  * Dua <form> terpisah — Enter di kolom catatan tidak boleh memicu "setujui".
  */

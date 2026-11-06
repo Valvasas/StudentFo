@@ -80,13 +80,20 @@ export default async function NotificationSettingsPage({ searchParams }: { searc
             <label className="flex min-h-11 min-w-[240px] flex-1 cursor-pointer items-center justify-between gap-3 rounded-[16px] bg-panel-nested px-4 py-3 transition-colors duration-200 ease-snap has-[:checked]:bg-tint-mint has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
               <span className="flex flex-col">
                 <span className="text-[14px] font-semibold">Ingatkan aku sebelum tenggat</span>
-                <span className="text-[12.5px] text-ink-muted">{preferences.deadlineReminders ? 'Sedang menyala' : 'Sedang mati — tenggat tidak diingatkan'}</span>
+                <span className="text-[12.5px] text-ink-muted">
+                  {!preferences.adjustable
+                    ? 'Menyala untuk semua akun — saklarnya aktif setelah pembaruan server terpasang'
+                    : preferences.deadlineReminders
+                      ? 'Sedang menyala'
+                      : 'Sedang mati — tenggat tidak diingatkan'}
+                </span>
               </span>
               <input
                 type="checkbox"
                 role="switch"
                 name="deadlineReminders"
                 defaultChecked={preferences.deadlineReminders}
+                disabled={!preferences.adjustable}
                 className="relative h-7 w-12 shrink-0 cursor-pointer appearance-none rounded-pill bg-line-strong transition-colors duration-200 ease-snap before:absolute before:left-[3px] before:top-[3px] before:size-[22px] before:rounded-pill before:bg-canvas before:shadow-sm before:transition-transform before:duration-300 before:ease-[var(--easing-spring)] before:content-[''] checked:bg-brand checked:before:translate-x-5 focus-visible:outline-none"
               />
             </label>
@@ -94,6 +101,7 @@ export default async function NotificationSettingsPage({ searchParams }: { searc
                 Kotak centang yang dimatikan tidak masuk FormData (''). */}
             <ConfirmSubmit
               className={detailButton}
+              disabled={!preferences.adjustable}
               when={{ field: 'deadlineReminders', values: preferences.deadlineReminders ? [''] : [] }}
               confirm={{
                 title: 'Matikan pengingat tenggat?',

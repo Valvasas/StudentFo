@@ -106,7 +106,7 @@ export async function toggleAccountSidebarAction(formData: FormData): Promise<vo
 }
 
 /**
- * Saklar pengingat tenggat (ADR-063). Nilai kotak centang, bukan "balik
+ * Saklar pengingat tenggat (ADR-067). Nilai kotak centang, bukan "balik
  * keadaan": dua tab yang menyimpan bersamaan berakhir di pilihan terakhir
  * yang jelas, bukan saling membatalkan.
  */

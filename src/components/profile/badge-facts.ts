@@ -9,7 +9,7 @@ import type { OrganizerProfile } from '@/types/domain';
 const SUBMISSION_WINDOW = 200;
 
 /**
- * Bahan lencana (ADR-064) dari repository yang sudah ada — tidak ada tabel
+ * Bahan lencana (ADR-068) dari repository yang sudah ada — tidak ada tabel
  * lencana. Setiap sumber dibaca dengan sesi pemilik (RLS), jadi hanya
  * catatannya sendiri, dan statusnya ditulis pihak lain (panitia, moderator).
  *

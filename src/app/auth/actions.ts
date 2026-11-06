@@ -42,7 +42,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  * batal tanpa jejak.
  */
 
-/** Halaman ganti kata sandi & sesi (ADR-063). */
+/** Halaman ganti kata sandi & sesi (ADR-067). */
 const SECURITY_SETTINGS_PATH = '/profile/settings/keamanan';
 
 function authHref(path: string, params: Record<string, string | undefined>): string {
@@ -312,7 +312,7 @@ export async function signOutAction(): Promise<void> {
 }
 
 /**
- * Keluar dari SEMUA perangkat (ADR-063): mencabut setiap refresh token akun
+ * Keluar dari SEMUA perangkat (ADR-067): mencabut setiap refresh token akun
  * ini, termasuk sesi di komputer lab/warnet yang lupa ditutup. Token akses
  * yang sudah terbit tetap sah sampai kedaluwarsa (±1 jam, batas Supabase) —
  * kalimat di halaman keamanan tidak menjanjikan "seketika".

@@ -12,7 +12,12 @@ terdokumentasi.
 
 ---
 
-## ADR-064 — Lencana pencapaian DIHITUNG dari catatan pihak ketiga, tidak pernah diberikan atau diklaim
+## ADR-068 — Lencana pencapaian DIHITUNG dari catatan pihak ketiga, tidak pernah diberikan atau diklaim
+
+> **Penomoran:** ADR-063–066 sudah dipakai garis kerja paralel
+> `ccr-c5c96a43-8eijqc` (belum masuk `main`; migration-nya sudah diterapkan
+> ke Supabase produksi & staging). ADR-067/068 dipilih supaya tidak
+> bertabrakan saat keduanya digabung — lihat TASKS § Audit UX pra-domain.
 
 **Konteks:** Pemilik meminta fitur pencapaian/lencana dengan ilustrasi dan
 sistem perolehan yang "matang dan tidak bisa dieksploitasi", contohnya
@@ -69,7 +74,7 @@ sangat jarang dan acaranya tetap harus lolos moderasi.
 
 ---
 
-## ADR-063 — Tombol kembali hierarkis-tapi-ingat-asal, konfirmasi lewat `<dialog>`, Pengaturan jadi daftar per konteks
+## ADR-067 — Tombol kembali hierarkis-tapi-ingat-asal, konfirmasi lewat `<dialog>`, Pengaturan jadi daftar per konteks
 
 **Konteks:** Audit UX pemilik sebelum membeli domain: di ponsel halaman
 dalam (pengaturan, data diri) tidak punya tombol kembali — menu samping
@@ -111,7 +116,7 @@ isinya tinggal dua kartu — terasa kosong dan "buatan AI".
    `/profile/settings/notifikasi` (daftar jujur isi lonceng dari produsen
    yang ada; matriks kanal tetap demo-only, ADR-051). Hapus data perangkat
    (demo) pindah ke Privasi & data. Menu akun kehilangan item Personalisasi
-   & Privasi — satu pintu "Pengaturan" — dan mendapat "Lencana" (ADR-064).
+   & Privasi — satu pintu "Pengaturan" — dan mendapat "Lencana" (ADR-068).
    Akibatnya menu di ponsel tidak lagi selalu lebih tinggi dari layar: panel
    yang berakhir di tengah layar memotong tautan halaman di belakangnya jadi
    sisa beberapa piksel (axe `target-size`). Di bawah `sm` panel kini SELALU
@@ -132,7 +137,8 @@ isinya tinggal dua kartu — terasa kosong dan "buatan AI".
    | Tolak (moderasi/pendaftar/bukti), cabut verifikasi, blokir, putus koneksi, bubarkan tim, keluarkan anggota, batal daftar, hapus foto | `<details>` yang sudah ada (jalan tanpa JS, sebagian dengan alasan wajib) |
    | Kartu pemain terbuka · kirim pendaftaran gratis · ajakan pencocokan | Sudah punya langkah persetujuan eksplisit (langkah "Siap dicocokkan?", centang berbagi data, lembar "Tinjau ajakan") |
    | Isian form yang belum disimpan (kirim kegiatan, buka tim, data diri, peminatan, formulir panitia, formulir pendaftaran, ajukan penyelenggara, portofolio, ganti sandi, unggah bukti) | `UnsavedChangesGuard` |
-   | Simpan/tandai kegiatan, ubah tahap biasa, tandai notifikasi dibaca, ciutkan menu | Tanpa konfirmasi — dibalik dengan satu ketukan yang sama |
+   | Ubah tahap lamaran (papan & halaman detail) · hapus dari Tersimpan | **Urungkan** (`UndoBar`, `lib/undo.ts`): jalan seketika, satu ketukan mengembalikan keadaan sebelumnya |
+   | Simpan/tandai kegiatan, tandai notifikasi dibaca, ciutkan menu | Tanpa konfirmasi — tombol yang sama langsung membaliknya dan keadaannya terlihat |
 
    Kolom form yang belum sah tidak membuka dialog (`checkValidity`): validasi
    peramban harus menunjuk kolomnya, bukan tertutup modal.
@@ -149,6 +155,25 @@ isinya tinggal dua kartu — terasa kosong dan "buatan AI".
    dicerminkan mode memory (lonceng & antrean dispatch), ikut ekspor data.
    Saklar kanal email/WhatsApp tetap TIDAK ditawarkan di produksi: belum ada
    pengirimnya, dan saklar yang tidak mengubah apa pun adalah janji palsu.
+
+8. **Urungkan** untuk aksi yang bisa dibalik: aksi me-redirect dengan
+   `?urungkan=` berisi DATA dari daftar tertutup (`tahap.<uuid>.<STATUS>` /
+   `simpan.<uuid>`, divalidasi `parseUndoToken`), bukan teks (ADR-019).
+   Tombolnya memanggil Server Action yang sama dengan `undo=restore`: sesi &
+   validasi tetap di sana, urungkan tidak menawarkan urungkan lagi, dan
+   menyimpan ulang tidak dicatat sebagai sinyal minat baru.
+9. **Kode aman terhadap urutan deploy:** bila kolom `deadline_reminders`
+   belum ada (kode tayang sebelum migration-nya), repository mengembalikan
+   `{ deadlineReminders: true, adjustable: false }` — saklar tampil terkunci
+   dan server versi lama tetap mengingatkan — dan menyimpan = kode tertutup
+   `reminders_unavailable`, bukan halaman error. Dibuktikan tes integrasi
+   yang menghapus kolomnya sementara.
+10. **Temuan audit visual ponsel** yang diperbaiki: (a) pintu gabung kedua di
+   kartu daftar tim melewati konfirmasi; (b) pemilih tahap tak terkontrol
+   tertinggal dari server setelah tahap berubah di tempat lain (`key` memuat
+   status); (c) sisa indentasi 58px dari kotak inisial yang sudah dihapus
+   membuat kontrol kartu lamaran menjorok dan ikon hapus terdorong ke baris
+   sendiri; (d) label pintasan beranda terpotong "…" — kini membungkus.
 
 **Konsekuensi:** Tautan lama `/profile/settings?notice=…` tetap menampilkan
 kabarnya. Halaman Personalisasi & Privasi tidak berubah URL, hanya judul &

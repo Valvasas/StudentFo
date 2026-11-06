@@ -8,7 +8,7 @@ export type PersonaLabel = 'Mahasiswa' | 'Siswa baru' | 'Admin moderator' | 'Pen
  * Masuk lewat kartu persona demo di /demo, persis seperti pengunjung sungguhan.
  * Persona Admin hanya muncul di tautan berkunci (ADR-057), jadi tesnya membawa kunci.
  */
-/** Tombol "Ya, …" di dialog konfirmasi (`ConfirmSubmit`, ADR-063) yang sedang terbuka. */
+/** Tombol "Ya, …" di dialog konfirmasi (`ConfirmSubmit`, ADR-067) yang sedang terbuka. */
 export async function confirmDialog(page: Page, label: string): Promise<void> {
   await page.getByRole('alertdialog').getByRole('button', { name: label, exact: true }).click();
 }

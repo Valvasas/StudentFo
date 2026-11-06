@@ -672,7 +672,7 @@ export const DEMO_STARTER_PORTFOLIO: readonly Omit<SeedPortfolioEntry, 'userId'>
 
 /**
  * Pendaftaran lampau persona "Mahasiswa" lewat formulir internal — bahan
- * lencana yang BENAR-BENAR terhitung (ADR-064), selaras dengan riwayat di
+ * lencana yang BENAR-BENAR terhitung (ADR-068), selaras dengan riwayat di
  * atas: lomba & workshop terkonfirmasi (keduanya sudah ditutup), beasiswa
  * ditolak panitia (tidak dihitung). Sengaja hanya acara yang sudah selesai:
  * pendaftaran di acara yang masih buka akan menumpuk di daftar pendaftar

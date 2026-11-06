@@ -397,7 +397,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] Mekanisme pengumuman perubahan dokumen ≥ 14 hari di dalam aplikasi (janji di kedua dokumen) — belum ada komponen banner pengumuman.
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
-## Audit UX pra-domain: kembali, konfirmasi, Pengaturan, lencana 2026-11-05 (@claude) — ADR-063/064
+## Audit UX pra-domain: kembali, konfirmasi, Pengaturan, lencana 2026-11-05 (@claude) — ADR-067/064
 
 - [x] `BackLink` (hierarkis, ingat asal lewat `lib/nav-history.ts`, `via` untuk induk ganda) di semua anak Pengaturan, Data diri, Peminatan; menggantikan tautan kembali tulisan tangan di detail tim, papan lamaran, profil orang, pembayaran
 - [x] `ConfirmSubmit` (`<dialog>` alertdialog, fokus "Batal", tanpa JS = kirim biasa): Keluar (3 pintu, satu `SignOutForm`; salinan khusus akun demo), keluar tim, hapus dari Papan lamaran, buka blokir, atur ulang data demo, "Tandai lunas" tanpa bukti
@@ -409,10 +409,15 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Menu akun: item "Lencana"; di ponsel panel setinggi batasnya + "Keluar" di dasar (axe `target-size` pada tautan yang terpotong tepi menu)
 - [x] Race lama di e2e tracker (reload sebelum POST Server Action selesai) — kini menunggu respons POST
 - [x] Bukti (putaran akhir): `npm run verify` 782 tes, `npm run db:test` semua migration & tes SQL lolos, Playwright penuh di build produksi mode seed 760 lulus / 0 gagal, `npm run test:integration` (Postgres 16 + PostgREST) 92/92
-- [x] Audit tuntas semua Server Action (tabel di ADR-063 §5): konfirmasi untuk publikasi (tayangkan), kepercayaan (verifikasi, klaim, revisi), uang (konfirmasi bayar, daftar berbayar), orang lain (tolak/batalkan ajakan, gabung tim), privasi (tahap yang membuat publik, terlihat di Koneksi), tutup pendaftaran; `when` = konfirmasi bersyarat, `checkValidity` sebelum dialog
+- [x] Audit tuntas semua Server Action (tabel di ADR-067 §5): konfirmasi untuk publikasi (tayangkan), kepercayaan (verifikasi, klaim, revisi), uang (konfirmasi bayar, daftar berbayar), orang lain (tolak/batalkan ajakan, gabung tim), privasi (tahap yang membuat publik, terlihat di Koneksi), tutup pendaftaran; `when` = konfirmasi bersyarat, `checkValidity` sebelum dialog
 - [x] `UnsavedChangesGuard` di 11 form (tautan internal + `beforeunload`), e2e `unsaved-guard.spec.ts`
 - [x] Keluar dari semua perangkat (`signOut({ scope: 'global' })`, notice `signed_out_everywhere`)
 - [x] Saklar pengingat tenggat sungguhan: migration `20261105100001` + tes SQL `102_…`, repository kedua mode, tes memori & integrasi, ekspor data, ringkasan di hub; e2e `settings.spec.ts`
+- [x] Urungkan (ubah tahap, hapus dari Tersimpan): `lib/undo.ts` (teruji), `UndoBar`, e2e `undo.spec.ts`
+- [x] Kode aman urutan deploy untuk `deadline_reminders` (saklar terkunci + `reminders_unavailable`), tes integrasi menghapus kolom sementara
+- [x] Audit visual ponsel 10 halaman (0 geser horizontal, 0 error konsol): pintu gabung di kartu tim kini berkonfirmasi, select tahap tidak tertinggal dari server, kontrol kartu lamaran sejajar, label pintasan beranda membungkus
+- [ ] Terapkan migration `20261105100001_deadline_reminder_preference.sql` ke Supabase staging lalu produksi (butuh persetujuan pemilik; sampai itu saklar tampil terkunci, tidak error). Diperiksa 2026-11-06: tidak ada migration di produksi/staging yang mendefinisikan ulang `create_deadline_notifications()`, jadi tidak menimpa apa pun
+- [ ] **Gabungkan garis kerja `ccr-c5c96a43-8eijqc`** sebelum rilis: belum masuk `main`, padahal ke-41 migration-nya (`trust_and_safety` … `function_hardening`) SUDAH di Supabase produksi & staging — `main` tertinggal dari database-nya sendiri. Konflik yang diketahui: `/profile/settings` (mereka menulis ulang satu halaman; di sini dipecah jadi hub + keamanan + notifikasi), `repository.ts`, `auth.ts`, `profile/actions.ts`, nomor ADR (lihat catatan ADR-068). Setelah digabung, kalimat "Email dan WhatsApp belum dikirim" di halaman Notifikasi harus diganti saklar opt-in email mereka (`set_deadline_email_reminders`), berdampingan dengan saklar pengingat di lonceng
 - [ ] Lencana di profil publik `/orang/[id]`: fungsi SQL agregat SECURITY DEFINER (hanya hitungan per lencana, `REVOKE … FROM anon, authenticated` + GRANT eksplisit, ADR-020) + pilihan privasi "tampilkan lencanaku" (bawaan mati)
 - [ ] Kehadiran yang dicatat panitia (check-in) sebagai syarat "ikut" yang lebih kuat dari "terkonfirmasi & ditutup" — butuh kolom & RPC baru
 

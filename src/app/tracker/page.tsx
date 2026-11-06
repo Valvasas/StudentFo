@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AlarmClock, ArrowRight, BookmarkCheck, Plus, Send, Trophy, Users } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { UndoBar } from '@/components/feedback/undo-bar';
 import { AccountShell } from '@/components/layout/account-shell';
 import { TrackerCard } from '@/components/tracker/tracker-card';
 import { CalendarSketch } from '@/components/ui/illustrations';
@@ -111,6 +112,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
         </div>
 
         <ActionFeedback params={params} className="max-w-2xl" />
+        <UndoBar params={params} returnTo={returnTo} titles={new Map(items.map((item) => [item.event.id, item.event.title]))} className="max-w-2xl" />
 
         {items.length > 0 && (
           <div className="enter grid gap-px overflow-hidden rounded-[18px] border border-line bg-line [animation-delay:80ms] [animation-duration:800ms] [grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))]">

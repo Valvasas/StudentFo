@@ -19,7 +19,7 @@ export interface ConfirmCopy {
 
 /**
  * Tombol kirim yang meminta konfirmasi lewat `<dialog>` sebelum form-nya
- * dikirim (ADR-063). Dipasang DI DALAM `<form action={…}>` pemiliknya.
+ * dikirim (ADR-067). Dipasang DI DALAM `<form action={…}>` pemiliknya.
  *
  * - Dialognya anak form: tombol "Ya, …" adalah `type="submit"` milik form
  *   yang sama, jadi kolom tersembunyi, Server Action, dan status "Memproses…"

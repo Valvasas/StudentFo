@@ -130,7 +130,7 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
     ],
   };
   // Tampilan, notifikasi, keamanan, dan privasi dibuka DARI Pengaturan
-  // (ADR-063) — satu pintu, bukan empat item yang memanjangkan menu ponsel.
+  // (ADR-067) — satu pintu, bukan empat item yang memanjangkan menu ponsel.
   const other: AccountMenuGroup = {
     key: 'lainnya',
     title: 'Lainnya',
@@ -145,7 +145,7 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
 
 /**
  * Induk lain Data diri & Peminatan selain Profil — keduanya ditautkan dari
- * Pengaturan dan dari Tampilan & rekomendasi (`BackLink` `via`, ADR-063).
+ * Pengaturan dan dari Tampilan & rekomendasi (`BackLink` `via`, ADR-067).
  */
 export const PROFILE_EDIT_ORIGINS = [
   { href: '/profile/settings', label: 'Pengaturan' },

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { confirmDialog, signInAsDemo } from './helpers';
 
 /**
- * Pengaturan per konteks (ADR-063): hub → halaman anak → tombol kembali
+ * Pengaturan per konteks (ADR-067): hub → halaman anak → tombol kembali
  * hierarkis, saklar pengingat yang dihormati server (mematikan dikonfirmasi,
  * menyalakan tidak), dan keluar dari semua perangkat di balik konfirmasi.
  */

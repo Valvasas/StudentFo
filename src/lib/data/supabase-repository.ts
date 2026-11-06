@@ -58,6 +58,7 @@ import type {
   NetworkEventRef,
   NetworkProfile,
   NotificationPreferences,
+  NotificationPreferencesInput,
   OrganizerHistoryEntry,
   OrganizerProfile,
   OrganizerStatus,
@@ -158,6 +159,7 @@ import {
   REVISION_COLUMNS,
   sanitizeSearchQuery,
   sqlState,
+  isMissingColumnError,
   toDetail,
   toEventClaim,
   toEventRevision,
@@ -953,16 +955,23 @@ export class SupabaseEventRepository implements EventRepository {
       .select('deadline_reminders')
       .eq('id', userId)
       .maybeSingle<{ deadline_reminders: boolean }>();
+    if (error && isMissingColumnError(error)) {
+      // Kode tayang sebelum migration 20261105100001: fungsi terjadwal versi lama
+      // masih mengingatkan semua orang, jadi itulah keadaan yang jujur ditampilkan.
+      console.warn('[preferensi notifikasi] kolom users.deadline_reminders belum ada — terapkan migration 20261105100001.');
+      return { deadlineReminders: true, adjustable: false };
+    }
     if (error) throw upstreamFailure('Gagal memuat preferensi notifikasi.', error);
     // Baris profil absen = perilaku fungsi terjadwal (COALESCE … TRUE): tetap diingatkan.
-    return { deadlineReminders: data?.deadline_reminders ?? true };
+    return { deadlineReminders: data?.deadline_reminders ?? true, adjustable: true };
   }
 
-  async updateNotificationPreferences(userId: string, preferences: NotificationPreferences): Promise<void> {
+  async updateNotificationPreferences(userId: string, preferences: NotificationPreferencesInput): Promise<void> {
     const supabase = await createSupabaseServerClient();
     // Klien sesi + RLS users_update_own + hak kolom (migration 20261105100001):
     // id yang keliru = nol baris, bukan menimpa akun lain.
     const { error } = await supabase.from('users').update({ deadline_reminders: preferences.deadlineReminders }).eq('id', userId);
+    if (error && isMissingColumnError(error)) throw actionError('reminders_unavailable');
     if (error) throw upstreamFailure('Gagal menyimpan preferensi notifikasi.', error, 500);
   }
 

@@ -1,7 +1,7 @@
 import type { EventStatus, EventType, OrganizerStatus, RegistrationStatus } from '@/types/domain';
 
 /**
- * Lencana pencapaian (ADR-064) — DIHITUNG, tidak pernah DIBERIKAN.
+ * Lencana pencapaian (ADR-068) — DIHITUNG, tidak pernah DIBERIKAN.
  *
  * Tidak ada tabel lencana, tidak ada penghitung, tidak ada tombol "klaim":
  * setiap kali profil dibuka, lencana dihitung ulang dari catatan yang tidak

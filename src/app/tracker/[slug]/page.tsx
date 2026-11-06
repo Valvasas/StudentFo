@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { ArrowRight, ArrowUpRight, Award, CalendarClock, Check, FileText, History, ListChecks, NotebookPen, Users } from 'lucide-react';
 import { updateTrackerStatusAction } from '@/app/tracker/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { UndoBar } from '@/components/feedback/undo-bar';
 import { AccountShell } from '@/components/layout/account-shell';
 import { registrationHref } from '@/components/registration/registration-cta';
 import { registrationCta, registrationEventClosed } from '@/components/registration/registration-view';
@@ -223,6 +224,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
         </header>
 
         <ActionFeedback params={query} className="max-w-2xl" />
+        <UndoBar params={query} returnTo={returnTo} titles={new Map([[event.id, event.title]])} className="max-w-2xl" />
 
         <div className="enter rounded-[18px] border border-line p-5 [animation-delay:80ms] [animation-duration:800ms] sm:p-6">
           <TrackerSteps item={item} />

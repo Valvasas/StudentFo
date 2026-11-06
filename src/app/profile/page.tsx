@@ -4,6 +4,7 @@ import { ArrowRight, Bookmark, Check, ChevronRight, Clock, Eye, GraduationCap, L
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { UndoBar } from '@/components/feedback/undo-bar';
 import { loadAccountRole } from '@/components/home/account-role';
 import { CategoryIcon } from '@/components/listing/category-icon';
 import { AccountShell } from '@/components/layout/account-shell';
@@ -47,7 +48,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 const TABS = [
   { key: 'tentang', label: 'Tentang', private: false, demoOnly: false },
   { key: 'portofolio', label: 'Portofolio', private: false, demoOnly: false },
-  // Privat: profil publik belum menampilkan lencana (ADR-064).
+  // Privat: profil publik belum menampilkan lencana (ADR-068).
   { key: 'lencana', label: 'Lencana', private: true, demoOnly: false },
   { key: 'pendaftaran', label: 'Lamaran', private: true, demoOnly: false },
   { key: 'tersimpan', label: 'Tersimpan', private: true, demoOnly: false },
@@ -114,6 +115,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     <AccountShell user={user} active={tab === 'lencana' || tab === 'tersimpan' ? tab : 'profil'}>
       <AuthFeedback params={params} />
       <ActionFeedback params={params} />
+      <UndoBar params={params} returnTo="/profile?tab=tersimpan" />
 
       {isPublic && (
         <div role="status" className="enter flex flex-wrap items-center gap-3.5 rounded-[12px] bg-inverse px-[18px] py-3.5 text-on-inverse [animation-duration:400ms]">
@@ -448,6 +450,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                         <form action={toggleSaveEventAction}>
                           <input type="hidden" name="eventId" value={event.id} />
                           <input type="hidden" name="returnTo" value="/profile?tab=tersimpan" />
+                          {/* Barisnya langsung hilang dari daftar ini — tawarkan Urungkan (ADR-067). */}
+                          <input type="hidden" name="undo" value="offer" />
                           <button
                             type="submit"
                             aria-label={`Hapus ${event.title} dari tersimpan`}

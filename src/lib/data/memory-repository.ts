@@ -60,6 +60,7 @@ import type {
   ModerationLogEntry,
   ModerationStatus,
   NotificationPreferences,
+  NotificationPreferencesInput,
   OrganizerHistoryEntry,
   OrganizerProfile,
   OrganizerStatus,
@@ -331,7 +332,7 @@ export class MemoryEventRepository implements EventRepository {
   private readonly trackerEntries = new Map<string, Map<string, TrackerEntry>>();
   /** userId -> id notifikasi yang sudah ditandai dibaca. */
   private readonly readNotifications = new Map<string, Set<string>>();
-  /** Cermin `users.deadline_reminders = FALSE` (ADR-063). */
+  /** Cermin `users.deadline_reminders = FALSE` (ADR-067). */
   private readonly reminderOptOut = new Set<string>();
   private readonly teams = new Map<string, TeamEntry>();
   private readonly submissions = new Map<string, Submission>();
@@ -1021,10 +1022,10 @@ export class MemoryEventRepository implements EventRepository {
   }
 
   async getNotificationPreferences(userId: string): Promise<NotificationPreferences> {
-    return { deadlineReminders: !this.reminderOptOut.has(userId) };
+    return { deadlineReminders: !this.reminderOptOut.has(userId), adjustable: true };
   }
 
-  async updateNotificationPreferences(userId: string, preferences: NotificationPreferences): Promise<void> {
+  async updateNotificationPreferences(userId: string, preferences: NotificationPreferencesInput): Promise<void> {
     if (preferences.deadlineReminders) this.reminderOptOut.delete(userId);
     else this.reminderOptOut.add(userId);
   }
@@ -1238,7 +1239,7 @@ export class MemoryEventRepository implements EventRepository {
   }
 
   /**
-   * Pendaftaran lampau persona demo "Mahasiswa" (ADR-064). Hanya mode seed —
+   * Pendaftaran lampau persona demo "Mahasiswa" (ADR-068). Hanya mode seed —
    * di produksi baris ini hanya lahir dari `register_for_event()`.
    */
   seedDemoParticipation(user: { id: string; fullName: string; email: string }, now: Date = new Date()): void {

@@ -9,6 +9,7 @@ import { formText, formTrimmed } from '@/lib/form-data';
 import { parsePortfolioInput } from '@/lib/portfolio';
 import { recordSignal } from '@/lib/recommendation-signals';
 import { safeNextPath } from '@/lib/safe-redirect';
+import { UNDO_PARAM, undoTokenOf } from '@/lib/undo';
 import { TRACKER_STATUSES, type TrackerStatus } from '@/types/domain';
 
 /**
@@ -36,12 +37,24 @@ export async function toggleSaveEventAction(formData: FormData): Promise<void> {
 
   const eventId = formTrimmed(formData, 'eventId');
   if (!eventId) redirect(returnTo);
+  // `offer` = daftar Tersimpan, tempat baris yang dihapus langsung hilang: tawarkan
+  // Urungkan. `restore` = tombol Urungkan itu sendiri: hanya menyimpan (idempoten —
+  // ketukan ganda tidak menghapusnya lagi) dan bukan sinyal minat baru.
+  const undo = formText(formData, 'undo');
 
   let failure: ActionErrorCode | null = null;
+  let removed = false;
   try {
     const repository = await getEventRepository();
-    if (await repository.isEventSaved(user.id, eventId)) {
+    const saved = await repository.isEventSaved(user.id, eventId);
+    if (undo === 'restore') {
+      if (!saved) {
+        await repository.saveEvent(user.id, eventId);
+        await repository.addTrackerItemIfAbsent(user.id, eventId);
+      }
+    } else if (saved) {
       await repository.unsaveEvent(user.id, eventId);
+      removed = true;
     } else {
       await repository.saveEvent(user.id, eventId);
       await repository.addTrackerItemIfAbsent(user.id, eventId);
@@ -53,7 +66,12 @@ export async function toggleSaveEventAction(formData: FormData): Promise<void> {
 
   if (failure) redirect(withQuery(returnTo, { error: failure }));
   refreshTrackerViews();
-  redirect(returnTo);
+  redirect(
+    withQuery(returnTo, {
+      notice: undo === 'restore' ? 'undo_done' : undefined,
+      [UNDO_PARAM]: removed && undo === 'offer' ? undoTokenOf({ kind: 'simpan', eventId }) : undefined,
+    }),
+  );
 }
 
 export async function updateTrackerStatusAction(formData: FormData): Promise<void> {
@@ -64,6 +82,8 @@ export async function updateTrackerStatusAction(formData: FormData): Promise<voi
   const status = formTrimmed(formData, 'status');
   const notesRaw = formData.get('notes');
   const notes = typeof notesRaw === 'string' ? notesRaw.slice(0, 500).trim() || null : undefined;
+  // Tombol Urungkan memanggil aksi yang sama; ia tidak menawarkan urungkan lagi (tanpa ping-pong).
+  const isUndo = formText(formData, 'undo') === 'restore';
 
   if (!eventId || !isTrackerStatus(status)) {
     redirect(withQuery(returnTo, { error: 'invalid_request' }));
@@ -81,7 +101,14 @@ export async function updateTrackerStatusAction(formData: FormData): Promise<voi
 
   if (failure) redirect(withQuery(returnTo, { error: failure }));
   revalidatePath('/tracker');
-  redirect(withQuery(returnTo, { notice: milestoneNotice(previous, status) }));
+  const changed = previous !== null && previous !== status;
+  redirect(
+    withQuery(returnTo, {
+      // Perubahan biasa tidak diberi notice: bilah Urungkan (`UndoBar`) sudah mengabarkannya.
+      notice: isUndo ? 'undo_done' : milestoneNotice(previous, status),
+      [UNDO_PARAM]: !isUndo && changed && previous ? undoTokenOf({ kind: 'tahap', eventId, status: previous }) : undefined,
+    }),
+  );
 }
 
 /**

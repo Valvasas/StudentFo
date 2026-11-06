@@ -24,7 +24,7 @@ const base: AccountExportInput = {
   submissions: [],
   organizer: null,
   notifications: [],
-  notificationPreferences: { deadlineReminders: false },
+  notificationPreferences: { deadlineReminders: false, adjustable: true },
 };
 
 describe('buildAccountExport', () => {
