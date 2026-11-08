@@ -1,16 +1,21 @@
 import type { Metadata } from 'next';
-import { BadgeCheck, Bell, BellOff, CalendarClock, Inbox, ReceiptText, Send, Users } from 'lucide-react';
-import { updateNotificationPreferencesAction } from '@/app/profile/actions';
+import Link from 'next/link';
+import { BadgeCheck, Bell, BellOff, BellRing, CalendarClock, Inbox, ReceiptText, Send, Users } from 'lucide-react';
+import { setDeadlineEmailRemindersAction, updateNotificationPreferencesAction } from '@/app/profile/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DemoNotificationCard } from '@/components/profile/demo-settings';
-import { DetailCard, detailButton } from '@/components/profile/detail-card';
+import { BreakableEmail, DetailCard, detailButton, detailPrimaryButton } from '@/components/profile/detail-card';
 import { SettingsHeader } from '@/components/profile/settings-list';
 import { BackLink } from '@/components/ui/back-link';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { formatDateTimeId } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { dataMode, emailRemindersConfigured } from '@/lib/env';
+import { withFallback } from '@/lib/fallback';
 import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
 
@@ -24,9 +29,10 @@ export const metadata: Metadata = {
 /**
  * Isi lonceng — ditulis dari produsen yang benar-benar ada (trigger & RPC di
  * migration), bukan janji. Pengingat tenggat dibuat `create_deadline_notifications()`
- * dari Tersimpan + Papan lamaran (ADR-017); kanal email/WhatsApp belum
- * dikirim karena belum ada persetujuan kanal per pengguna (ADR-051), jadi
- * halaman ini tidak menawarkan sakelar yang tidak mengubah apa-apa.
+ * dari Tersimpan + Papan lamaran (ADR-017). Email adalah salinan pengingat
+ * yang sama (opt-in, ADR-062 #6), jadi saklar lonceng di atasnya tetap INDUK:
+ * mati = tidak ada pengingat dibuat = tidak ada email. WhatsApp tidak
+ * ditawarkan — belum ada pengirimnya.
  */
 const BELL_TOPICS = [
   {
@@ -59,7 +65,11 @@ const BELL_TOPICS = [
 export default async function NotificationSettingsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
   const user = await requireUser('/profile/settings/notifikasi');
-  const preferences = await (await getEventRepository()).getNotificationPreferences(user.id);
+  const repository = await getEventRepository();
+  const preferences = await repository.getNotificationPreferences(user.id);
+  // Tanpa penyedia email terkonfigurasi, kartu disembunyikan: menawarkan email yang tidak pernah terkirim lebih buruk daripada tidak menawarkannya.
+  const emailOffered = emailRemindersConfigured || dataMode === 'seed';
+  const emailOptIn = emailOffered ? await withFallback('pengingat email', () => repository.getDeadlineEmailOptIn(user.id), null) : null;
 
   return (
     <AccountShell user={user} active="pengaturan">
@@ -116,6 +126,56 @@ export default async function NotificationSettingsPage({ searchParams }: { searc
           </form>
         </DetailCard>
 
+        {emailOffered && (
+          <DetailCard
+            id="pengingat-email"
+            icon={<BellRing className="size-[18px]" />}
+            title="Pengingat tenggat lewat email"
+            description="Salinan pengingat H-3 dan H-1 di atas, dikirim juga ke kotak masukmu."
+            delay={90}
+          >
+            <div className="flex flex-col gap-3 border-t border-line/70 px-5 py-4 sm:mx-6 sm:px-0">
+              {emailOptIn ? (
+                <>
+                  <p className="text-[14.5px]">
+                    <strong className="font-semibold">Aktif</strong> sejak {formatDateTimeId(emailOptIn)} · dikirim ke{' '}
+                    <BreakableEmail email={user.email} />
+                  </p>
+                  <form action={setDeadlineEmailRemindersAction}>
+                    <input type="hidden" name="mode" value="off" />
+                    <SubmitButton className={detailButton}>Matikan pengingat email</SubmitButton>
+                  </form>
+                </>
+              ) : (
+                <>
+                  {/* Kalimat persetujuan (UU PDP Pasal 20 & 22): apa, ke mana, lewat siapa, cara berhenti — sebelum tombol. */}
+                  <p className="max-w-[62ch] text-[14px] leading-relaxed text-ink-soft">
+                    Dengan menyalakan, kamu setuju StudentFo mengirim email pengingat ke <BreakableEmail email={user.email} /> melalui
+                    penyedia email kami (Resend, server di luar Indonesia). Paling banyak dua email per kegiatan. Berhenti kapan saja dari
+                    sini atau lewat tautan di setiap email.
+                  </p>
+                  <form action={setDeadlineEmailRemindersAction}>
+                    <input type="hidden" name="mode" value="on" />
+                    <SubmitButton className={detailPrimaryButton}>Nyalakan pengingat email</SubmitButton>
+                  </form>
+                </>
+              )}
+              <p className="text-[12.5px] text-ink-muted">
+                {dataMode === 'seed' ? 'Mode data contoh: tidak ada email yang benar-benar dikirim. ' : ''}
+                {preferences.deadlineReminders
+                  ? 'Email mengikuti saklar pengingat di atas.'
+                  : 'Saklar pengingat di atas sedang mati, jadi email juga tidak terkirim sampai kamu menyalakannya lagi.'}
+              </p>
+              <Link
+                href="/privacy-policy"
+                className="-mt-2 inline-flex min-h-11 items-center self-start text-[12.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink"
+              >
+                Cara kami memproses email ini (Kebijakan privasi)
+              </Link>
+            </div>
+          </DetailCard>
+        )}
+
         {demoFeaturesEnabled && <DemoNotificationCard delay={120} />}
 
         <DetailCard
@@ -138,7 +198,9 @@ export default async function NotificationSettingsPage({ searchParams }: { searc
           </ul>
           <p className="mx-5 mb-5 mt-1 flex items-start gap-2 rounded-card bg-panel-nested px-3.5 py-3 text-[13.5px] sm:mx-6">
             <Inbox aria-hidden className="mt-0.5 size-4 shrink-0" />
-            Email dan WhatsApp belum dikirim. Kami baru akan mengirim lewat kanal itu setelah kamu sendiri menyalakannya — bukan diam-diam.
+            {emailOptIn
+              ? 'Pengingat tenggat juga dikirim lewat email (kartu di atas). Kabar lain hanya di lonceng; WhatsApp belum dikirim.'
+              : 'Email hanya dikirim untuk pengingat tenggat, dan hanya setelah kamu sendiri menyalakannya di atas — bukan diam-diam. WhatsApp belum dikirim.'}
           </p>
         </DetailCard>
       </div>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import type { InputHTMLAttributes, ReactNode } from 'react';
 import { controlClass } from '@/components/ui/field';
 import { LogoMark } from '@/components/ui/illustrations';
@@ -65,4 +66,20 @@ export function AuthSwitch({ prompt, href, label }: { prompt: string; href: stri
 /** Pertahankan `next` di tautan antarhalaman akun tanpa mengotori URL bawaan. */
 export function withNext(path: string, next: string): string {
   return next === '/' ? path : `${path}?next=${encodeURIComponent(next)}`;
+}
+
+/**
+ * Pintu ke halaman akun untuk peran lain (peserta ↔ penyelenggara, ADR-063).
+ * Dipisah garis dari form supaya tidak terbaca sebagai langkah berikutnya.
+ */
+export function AuthAlternate({ prompt, href, label }: { prompt: string; href: string; label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5 border-t border-line pt-4 text-center text-[13.5px] text-ink-muted">
+      <span>{prompt}</span>
+      <Link href={href} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-ink underline-offset-[3px] hover:underline">
+        {label}
+        <ArrowRight aria-hidden className="size-3.5" />
+      </Link>
+    </div>
+  );
 }

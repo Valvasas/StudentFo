@@ -11,6 +11,7 @@ import {
   BadgeCheck,
   Bookmark,
   ExternalLink,
+  Flag,
   FileText,
   GraduationCap,
   MapPin,
@@ -22,6 +23,7 @@ import { claimEventAction } from '@/app/penyelenggara/actions';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
 import { EventGallery } from '@/components/event/event-gallery';
+import { EventQuestions } from '@/components/event/event-questions';
 import { GuidebookViewer } from '@/components/event/guidebook-viewer';
 import { PromotedBadge } from '@/components/event/price-badge';
 import { RequirementsChecklist } from '@/components/event/requirements-checklist';
@@ -38,7 +40,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { TextArea } from '@/components/ui/field';
 import { RegisterLaunch } from '@/components/event/register-launch';
 import { SubmitButton } from '@/components/ui/submit-button';
-import { getSessionUser } from '@/lib/auth';
+import { checkAdminAccess, getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { isPromoted } from '@/lib/data/listing';
 import { formatRupiah, priceLabel, type PriceLabel } from '@/lib/currency';
@@ -64,6 +66,7 @@ import {
   TRACKER_STATUS_LABEL,
   type EventDetail,
   type EventPhoto,
+  type EventQuestion,
   type EventRegistration,
   type OrganizerProfile,
   type RegistrationForm,
@@ -107,6 +110,7 @@ const TABS = [
   { key: 'ringkasan', label: 'Ringkasan' },
   { key: 'syarat', label: 'Syarat & berkas' },
   { key: 'tahapan', label: 'Tahapan' },
+  { key: 'tanya', label: 'Tanya jawab' },
   { key: 'penyelenggara', label: 'Penyelenggara' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
@@ -174,6 +178,18 @@ export default async function EventDetailPage({
       ? optional<EventRegistration | null>(() => repository.getMyRegistration(user.id, event.id), null, 'pendaftaran sendiri')
       : Promise.resolve(null),
   ]);
+  // Tanya jawab hanya dimuat di tabnya; yang boleh menjawab = pengelola terverifikasi atau admin ber-MFA.
+  const [questions, canAnswer] =
+    tab === 'tanya'
+      ? await Promise.all([
+          optional<readonly EventQuestion[]>(() => repository.listEventQuestions(event.id, user?.id ?? null, 50), [], 'tanya jawab'),
+          user
+            ? Promise.all([checkAdminAccess(), optional(() => repository.listManagedEvents(user.id), [], 'acara kelolaan')]).then(
+                ([gate, managed]) => gate.allowed || managed.some((item) => item.event.id === event.id),
+              )
+            : Promise.resolve(false),
+        ])
+      : [[], false];
   const verifiedOrg = verifiedOrganizers.get(event.id) ?? null;
   const tracked = trackerItems.find((item) => item.eventId === event.id);
   const category = categories.find((item) => item.slug === event.categorySlugs[0]);
@@ -494,6 +510,16 @@ export default async function EventDetailPage({
               </div>
             )}
 
+            {tab === 'tanya' && (
+              <EventQuestions
+                event={event}
+                questions={questions}
+                signedIn={user !== null}
+                canAnswer={canAnswer}
+                acceptsQuestions={event.status === 'APPROVED'}
+              />
+            )}
+
             {tab === 'penyelenggara' && (
               <div className="flex flex-col gap-4">
                 <h2 className={headingClass}>Penyelenggara</h2>
@@ -544,6 +570,15 @@ export default async function EventDetailPage({
               </div>
             )}
 
+            {/* Setiap tab, bukan hanya tab sumber: penipuan paling sering terlihat
+                dari syarat & biaya (ADR-061). Tamu diarahkan masuk dulu. */}
+            <Link
+              href={`/laporkan?kegiatan=${encodeURIComponent(event.slug)}`}
+              rel="nofollow"
+              className="inline-flex min-h-11 items-center gap-1.5 self-start text-[13px] font-medium text-ink-muted underline-offset-[3px] hover:text-ink hover:underline"
+            >
+              <Flag aria-hidden className="size-3.5" /> Ada yang janggal? Laporkan kegiatan ini
+            </Link>
           </section>
         </div>
 

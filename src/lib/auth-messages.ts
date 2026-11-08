@@ -3,11 +3,14 @@
  *
  * Tiga aturan yang dipegang di sini:
  *
- * 1. PESAN TIDAK BOLEH MEMBOCORKAN APAKAH SEBUAH EMAIL TERDAFTAR.
+ * 1. MASUK & LUPA SANDI TIDAK BOLEH MEMBOCORKAN APAKAH SEBUAH EMAIL TERDAFTAR.
  *    "Kata sandi salah" dan "email tidak ditemukan" adalah dua jawaban
  *    berbeda bagi penyerang yang sedang menyusun daftar akun yang valid —
  *    daftar itu yang nanti dipakai untuk credential stuffing. Keduanya
- *    dipetakan ke satu pesan yang sama.
+ *    dipetakan ke satu pesan yang sama. DAFTAR adalah pengecualian yang
+ *    disengaja (ADR-069): `email_taken` memberi tahu bahwa alamatnya sudah
+ *    punya akun — tetapi hanya SETELAH batas laju per IP & CAPTCHA lolos,
+ *    sehingga memeriksa banyak alamat tetap mahal.
  *
  * 2. KODE YANG DIOPER LEWAT URL, BUKAN TEKSNYA.
  *    Form akun memakai redirect (`?error=invalid_credentials`) supaya tetap
@@ -25,6 +28,10 @@ export const AUTH_ERROR_CODES = [
   'email_not_confirmed',
   'weak_password',
   'password_too_long',
+  'password_mismatch',
+  'email_taken',
+  'authority_required',
+  'organizer_details',
   'same_password',
   'rate_limited',
   'provider_disabled',
@@ -46,6 +53,11 @@ export const AUTH_ERROR_MESSAGE: Record<AuthErrorCode, string> = {
     'Email kamu belum dikonfirmasi. Buka tautan yang kami kirim, lalu coba masuk lagi.',
   weak_password: 'Kata sandi terlalu lemah. Minimal 8 karakter, memuat huruf dan angka.',
   password_too_long: 'Kata sandi terlalu panjang: maksimal 72 karakter, dan huruf beraksen atau emoji dihitung lebih dari satu.',
+  password_mismatch: 'Kedua kata sandi belum sama. Ketik ulang kata sandi yang sama di kolom “Ulangi kata sandi”.',
+  email_taken: 'Email ini sudah terdaftar di StudentFo. Masuk dengan email tersebut, atau atur ulang kata sandinya kalau lupa.',
+  authority_required: 'Centang pernyataan bahwa kamu berwenang mewakili lembaga ini.',
+  organizer_details:
+    'Periksa data lembaga: nama 2–160 karakter, pilih jenis lembaga, jabatanmu 2–80 karakter, situs diawali https:// (opsional), dan bukti peran 20–1.000 karakter.',
   same_password: 'Kata sandi baru harus berbeda dari yang sekarang.',
   rate_limited: 'Terlalu banyak percobaan. Tunggu beberapa menit sebelum mencoba lagi.',
   provider_disabled:
@@ -73,11 +85,11 @@ export const AUTH_NOTICE_CODES = [
 export type AuthNoticeCode = (typeof AUTH_NOTICE_CODES)[number];
 
 export const AUTH_NOTICE_MESSAGE: Record<AuthNoticeCode, string> = {
-  // Kalimat ini SENGAJA berlaku untuk dua keadaan sekaligus: email baru dan
-  // email yang ternyata sudah terdaftar. Membedakannya sama saja dengan
-  // menyediakan alat pemeriksa "akun ini ada atau tidak" bagi siapa pun.
+  // Email yang sudah terkonfirmasi kini dijawab `email_taken` (ADR-069). Yang
+  // sampai ke sini: alamat baru, atau akun yang belum pernah dikonfirmasi —
+  // keduanya memang dikirimi tautan konfirmasi.
   check_email:
-    'Kalau alamat itu belum terdaftar, tautan konfirmasi sudah dikirim ke sana. Cek kotak masuk dan folder spam, lalu masuk setelah email dikonfirmasi.',
+    'Tautan konfirmasi sudah dikirim. Cek kotak masuk dan folder spam, lalu masuk setelah email dikonfirmasi.',
   reset_email_sent:
     'Kalau alamat itu terdaftar, tautan penyetelan ulang sudah dikirim. Cek kotak masuk dan folder spam.',
   password_updated: 'Kata sandi berhasil diperbarui. Perangkat lain sudah dikeluarkan.',
@@ -145,7 +157,16 @@ export function mapSupabaseAuthError(error: unknown): AuthErrorCode {
   switch (code) {
     case 'invalid_credentials':
     case 'user_not_found':
+    // Akun ditangguhkan (ADR-061): pesan SAMA dengan sandi salah. Pesan khusus
+    // membocorkan bahwa email itu terdaftar DAN ditangguhkan kepada siapa pun
+    // yang mengetiknya (AGENTS.md #12); pemiliknya dikabari admin lewat email.
+    case 'user_banned':
       return 'invalid_credentials';
+    // Hanya dari signUp (konfirmasi email MATI di project) dan updateUser —
+    // tidak pernah dari masuk/lupa sandi, jadi tidak membuka oracle di sana (ADR-069).
+    case 'user_already_exists':
+    case 'email_exists':
+      return 'email_taken';
     case 'email_not_confirmed':
       return 'email_not_confirmed';
     case 'weak_password':

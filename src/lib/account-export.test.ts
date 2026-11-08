@@ -11,6 +11,7 @@ const base: AccountExportInput = {
     major: 'Informatika',
     interests: ['teknologi'],
     providers: ['email'],
+    organizerDraft: null,
   },
   saved: [],
   tracker: [],
@@ -25,12 +26,18 @@ const base: AccountExportInput = {
   organizer: null,
   notifications: [],
   notificationPreferences: { deadlineReminders: false, adjustable: true },
+  deadlineEmailOptIn: '2026-10-30T01:00:00.000Z',
+  eventQuestions: [{ eventTitle: 'Lomba X', eventSlug: 'lomba-x', body: 'Boleh lintas kampus?', createdAt: '2026-10-30T02:00:00.000Z', answer: null, hidden: true }],
 };
 
 describe('buildAccountExport', () => {
   it('memuat akun, berformat tetap, dan stempel waktu ekspor', () => {
     const result = buildAccountExport(base, new Date('2026-10-30T00:00:00Z'));
     expect(result.format).toBe('studentfo-account-export/1');
+    expect(result.emailReminders).toEqual({ deadlineReminders: true, consentedAt: '2026-10-30T01:00:00.000Z' });
+    expect(result.eventQuestions).toEqual([
+      { event: 'Lomba X', url: '/events/lomba-x?tab=tanya', question: 'Boleh lintas kampus?', askedAt: '2026-10-30T02:00:00.000Z', answer: null, hiddenByModerator: true },
+    ]);
     expect(result.exportedAt).toBe('2026-10-30T00:00:00.000Z');
     expect(result.account).toEqual({
       fullName: 'Siti Aminah',
@@ -39,6 +46,7 @@ describe('buildAccountExport', () => {
       major: 'Informatika',
       interests: ['teknologi'],
       signInMethods: ['email'],
+      organizerApplicationDraft: null,
       deadlineReminders: false,
     });
   });

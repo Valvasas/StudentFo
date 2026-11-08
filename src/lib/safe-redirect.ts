@@ -39,8 +39,39 @@ export function safeNextPath(
   return value;
 }
 
-/** Bangun `/login?next=...` tanpa menghasilkan `?next=/` yang tidak berguna. */
+export const ORGANIZER_HOME_PATH = '/penyelenggara';
+export const ORGANIZER_LOGIN_PATH = '/penyelenggara/masuk';
+export const ORGANIZER_REGISTER_PATH = '/penyelenggara/daftar';
+
+/** Pintu akun mana yang dipakai: penyelenggara punya halaman masuk & daftar sendiri (ADR-063). */
+export type AuthAudience = 'participant' | 'organizer';
+
+export function parseAuthAudience(value: unknown): AuthAudience {
+  return value === 'organizer' ? 'organizer' : 'participant';
+}
+
+/** Tujuan bawaan setelah masuk lewat pintu tertentu. */
+export function audienceHome(audience: AuthAudience): string {
+  return audience === 'organizer' ? ORGANIZER_HOME_PATH : '/';
+}
+
+export function audienceLoginPath(audience: AuthAudience): string {
+  return audience === 'organizer' ? ORGANIZER_LOGIN_PATH : '/login';
+}
+
+function isOrganizerPath(path: string): boolean {
+  const pathname = path.split(/[?#]/)[0] ?? '';
+  return pathname === ORGANIZER_HOME_PATH || pathname.startsWith(`${ORGANIZER_HOME_PATH}/`);
+}
+
+/**
+ * Bangun tautan masuk tanpa `?next=` yang sama dengan tujuan bawaan. Tujuan
+ * di dalam studio diarahkan ke pintu penyelenggara, supaya tamu yang membuka
+ * tautan acara dari email panitia tidak mendarat di halaman masuk peserta.
+ */
 export function loginHref(next?: string | string[] | null): string {
   const target = safeNextPath(next);
-  return target === '/' ? '/login' : `/login?next=${encodeURIComponent(target)}`;
+  const audience: AuthAudience = isOrganizerPath(target) ? 'organizer' : 'participant';
+  const path = audienceLoginPath(audience);
+  return target === audienceHome(audience) ? path : `${path}?next=${encodeURIComponent(target)}`;
 }

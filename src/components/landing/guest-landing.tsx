@@ -1,20 +1,23 @@
 import Link from 'next/link';
 import { ArrowRight, Plus } from 'lucide-react';
 import { EventCard } from '@/components/event/event-card';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { STUDENT_LEVEL_OPTIONS } from '@/components/listing/listing-ui';
 import { getEventRepository } from '@/lib/data';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { withFallback } from '@/lib/fallback';
-import { buildEventHref } from '@/lib/search-params';
+import { buildEventHref, type RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 import { LandingHero, type HeroLink } from './hero';
 import { LandingTour } from './landing-tour';
 import { RevealObserver } from './reveal-observer';
 
 /**
- * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. Pratinjaunya
- * kegiatan sungguhan dari repository (bukan tangkapan antarmuka buatan), dan
- * setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem — klaim
+ * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. "Segera ditutup"
+ * memakai kegiatan sungguhan dari repository; tur `#cara-kerja`
+ * (`LandingTour`) adalah ilustrasi berlabel yang hanya memperagakan perilaku
+ * yang ada di produksi (ADR-065).
+ * Setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem — klaim
  * pemasaran yang tidak bisa dipertanggungjawabkan adalah kerugian nyata bagi
  * yang mempercayainya (ADR-039 #4).
  */
@@ -70,7 +73,7 @@ const SHORTCUTS: readonly HeroLink[] = [
   { label: 'Tenggat terdekat', href: buildEventHref({ sort: 'deadline' }) },
 ];
 
-export async function GuestLanding() {
+export async function GuestLanding({ params = {} }: { params?: RawSearchParams }) {
   const [closingSoon, typeTotals] = await Promise.all([
     withFallback('pratinjau tenggat terdekat', async () => (await getEventRepository()).listClosingSoon(PREVIEW_LIMIT), []),
     // `newest`: hanya totalnya yang dipakai, jadi tidak perlu urutan relevansi
@@ -95,7 +98,10 @@ export async function GuestLanding() {
   return (
     <div className="overflow-x-clip">
       <RevealObserver />
+      {/* Satu-satunya notice yang mendarat di sini: akun baru saja dihapus (ADR-061). */}
+      <ActionFeedback params={params} className="container-page max-w-[1120px] pt-6" />
       <LandingHero types={types} shortcuts={SHORTCUTS} />
+
 
       {closingSoon.length > 0 && (
         <section aria-labelledby="tenggat-title" className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')}>
@@ -198,13 +204,13 @@ export async function GuestLanding() {
           <div data-reveal="" className="flex flex-col items-start gap-3.5">
             <h2 className="text-[clamp(22px,2.6vw,26px)] font-bold leading-tight tracking-[-0.025em]">Untuk penyelenggara</h2>
             <p className="max-w-[44ch] text-[15.5px] leading-relaxed text-ink-muted">
-              Buat formulir pendaftaran, terima bukti pembayaran peserta, dan kelola pendaftar dari satu studio.
+              Verifikasi lembagamu sekali, lalu pasang acara, terima pendaftar, dan periksa bukti bayar dari satu studio.
             </p>
             <Link
               href="/penyelenggara"
               className="press group mt-2 flex h-12 items-center gap-2 rounded-sm border border-line-strong/70 px-5 text-[15px] font-semibold transition-colors duration-200 ease-snap hover:bg-panel-nested"
             >
-              Buka studio penyelenggara
+              Lihat cara kerja studio
               <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
             </Link>
           </div>

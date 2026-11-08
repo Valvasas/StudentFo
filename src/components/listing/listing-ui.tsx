@@ -204,6 +204,36 @@ export function ResultsEmpty({ description, resetHref, className }: { descriptio
   );
 }
 
+/**
+ * Papan yang benar-benar kosong: tidak ada saringan yang bisa dilonggarkan,
+ * jadi "Hapus semua filter" adalah jalan buntu (ADR-064 untuk /events, kini
+ * juga per jenis). Ajakannya ke dua pihak yang bisa mengisinya — pengirim
+ * kegiatan dan penyelenggara — tanpa klaim "data baru masuk setiap hari".
+ */
+export function CatalogEmpty({ noun, className }: { noun: string; className?: string }) {
+  return (
+    <div className={cn('flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line-strong/70 px-6 py-16 text-center', className)}>
+      <SearchX aria-hidden className="size-7 text-ink-muted" />
+      <h2 className="text-lg font-semibold tracking-[-0.02em]">Belum ada {noun} yang sedang buka</h2>
+      <p className="max-w-[46ch] text-[14.5px] leading-relaxed text-ink-muted">
+        Setiap kegiatan dicocokkan moderator dengan sumber resminya sebelum tayang, jadi papan ini bisa sepi sementara. Tahu {noun}{' '}
+        yang sedang buka? Kirimkan — kami tinjau dulu.
+      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+        <Link
+          href="/submit"
+          className="flex min-h-11 items-center rounded-sm border border-line-strong/70 px-4 text-sm font-semibold transition-colors duration-150 ease-snap hover:bg-panel-nested"
+        >
+          Kirim kegiatan
+        </Link>
+        <Link href="/penyelenggara" className="inline-flex min-h-11 items-center text-sm font-semibold text-ink underline-offset-[3px] hover:underline">
+          Penyelenggara? Pasang acaramu
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export interface LevelOption {
   readonly label: string;
   readonly levels: readonly EducationLevel[];

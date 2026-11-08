@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Kepala halaman: judul + kalimat + aksi, dengan panggung ilustrasi
- * bergerak di kanan bila ada `stage`. Sejak ADR-062 halaman fitur unggulan
+ * bergerak di kanan bila ada `stage`. Sejak ADR-065 halaman fitur unggulan
  * (tim, koneksi) memakainya sebagai identitas merek — membalik pembatasan
  * ADR-057 atas permintaan pemilik. Panggungnya hanya tampil mulai `lg`
  * (`stageFrom`): di ponsel layar pertama tetap milik isi & aksi, bukan

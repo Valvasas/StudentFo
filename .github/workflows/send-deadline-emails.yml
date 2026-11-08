@@ -1,0 +1,46 @@
+# Pengirim pengingat tenggat lewat email (ADR-062 #6).
+#
+# pg_cron membuat notifikasi H-3/H-1 pukul 00:00 UTC (07:00 WIB); workflow ini
+# memanggil endpoint pengirim di aplikasi sesudahnya. Hanya pengingat milik
+# pengguna yang MENYALAKAN email yang dikirim (antrean ADR-051 menyaringnya).
+# Telat beberapa jam tetap aman: pengingat basi (kegiatan sudah tutup) dilewati.
+#
+# Secret: SITE_URL (mis. https://studentfo.id), CRON_SECRET.
+name: Send deadline emails
+
+on:
+  schedule:
+    # 00:23 UTC = 07:23 WIB, sesudah create_deadline_notifications().
+    - cron: '23 0 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Kirim pengingat email
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SITE_URL}" || -z "${CRON_SECRET}" ]]; then
+            echo "Secret SITE_URL / CRON_SECRET belum diisi — dilewati."
+            exit 0
+          fi
+          # Satu panggilan mengirim ≤ 500 email; ulangi sampai antrean habis.
+          for _ in $(seq 1 20); do
+            status=$(curl --silent --show-error -o body.json -w '%{http_code}' \
+              -X POST "${SITE_URL%/}/api/cron/send-deadline-emails" \
+              -H "Authorization: Bearer $CRON_SECRET")
+            cat body.json; echo
+            if [[ "$status" == "503" ]]; then
+              echo "Pengiriman email belum dikonfigurasi di aplikasi — dilewati."
+              exit 0
+            fi
+            [[ "$status" == "200" ]] || exit 1
+            [[ "$(jq -r '.sent + .skipped' body.json)" -ge 500 ]] || break
+          done

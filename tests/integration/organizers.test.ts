@@ -22,6 +22,8 @@ async function reason(promise: Promise<unknown>): Promise<string | undefined> {
 
 const application = (orgName: string) => ({
   orgName,
+  orgType: 'ORMAWA' as const,
+  contactRole: 'Ketua Himpunan',
   website: 'https://himpunan.example',
   evidence: 'Saya ketua himpunan, lihat https://himpunan.example/pengurus',
 });

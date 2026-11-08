@@ -6,6 +6,8 @@ import { parseStoredFields } from '@/lib/registration-form';
 import type {
   AnswerValue,
   Connection,
+  CronJobHealth,
+  EventQuestion,
   DeadlineDispatch,
   EventClaim,
   EventDetail,
@@ -18,6 +20,7 @@ import type {
   NetworkPerson,
   OrganizerHistoryEntry,
   OrganizerProfile,
+  OrganizerType,
   PortfolioEntry,
   PortfolioFields,
   TeamCandidate,
@@ -28,10 +31,14 @@ import type {
   RegistrationStatus,
   Submission,
   TeamMember,
+  AdminUserSummary,
+  ContentReport,
 } from '@/types/domain';
-import { ACHIEVEMENTS, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVerificationBadge } from '@/types/domain';
+import { ACHIEVEMENTS, ORGANIZER_TYPES, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVerificationBadge } from '@/types/domain';
 import type {
   ConnectionPeerRow,
+  CronJobHealthRow,
+  EventQuestionRow,
   EventClaimRow,
   EventDeadlineRow,
   EventListingRow,
@@ -50,6 +57,8 @@ import type {
   TeamCandidateRow,
   TeamMemberProfileRow,
   TeamSeekerRow,
+  AdminUserRow,
+  ContentReportRow,
 } from '@/types/database';
 
 /**
@@ -149,6 +158,7 @@ export function toSubmission(row: SubmissionRow): Submission {
     status: row.status,
     createdAt: row.created_at,
     payload: fromStoredPayload(row.payload),
+    rejectionReason: row.rejection_reason ?? null,
   };
 }
 
@@ -276,7 +286,9 @@ export function peopleSearchTerm(search: string): string | null {
   return first ?? null;
 }
 
-export const ORGANIZER_COLUMNS = 'user_id, org_name, website, evidence, status, review_note, reviewed_at, created_at';
+/** Kolom sebelum migration 20261108100001 — cadangan bila kode tayang lebih dulu dari migration-nya. */
+export const LEGACY_ORGANIZER_COLUMNS = 'user_id, org_name, website, evidence, status, review_note, reviewed_at, created_at';
+export const ORGANIZER_COLUMNS = `${LEGACY_ORGANIZER_COLUMNS}, org_type, contact_role`;
 export const CLAIM_COLUMNS = 'id, event_id, user_id, evidence, status, review_note, created_at, event:events(id, slug, title, organizer)';
 export const REVISION_COLUMNS =
   'id, event_id, proposed_by, changes, note, status, review_note, created_at, event:events(id, slug, title, organizer)';
@@ -285,6 +297,8 @@ export function toOrganizerProfile(row: OrganizerProfileRow): OrganizerProfile {
   return {
     userId: row.user_id,
     orgName: row.org_name,
+    orgType: (ORGANIZER_TYPES as readonly string[]).includes(row.org_type ?? '') ? (row.org_type as OrganizerType) : null,
+    contactRole: row.contact_role ?? null,
     website: row.website,
     evidence: row.evidence,
     status: row.status,
@@ -590,4 +604,66 @@ export function registrationErrorCode(
   }
   if (message.includes('registration_requires_login')) return 'registration_closed';
   return null;
+}
+
+export function toContentReport(
+  row: ContentReportRow,
+  events: ReadonlyMap<string, { slug: string; title: string }>,
+  names: ReadonlyMap<string, string>,
+  questions: ReadonlyMap<string, { excerpt: string; eventSlug: string }> = new Map(),
+): ContentReport {
+  const event = row.subject_type === 'event' ? events.get(row.subject_id) : undefined;
+  const question = row.subject_type === 'question' ? questions.get(row.subject_id) : undefined;
+  return {
+    id: row.id,
+    subjectType: row.subject_type,
+    subjectId: row.subject_id,
+    subjectLabel:
+      row.subject_type === 'event' ? (event?.title ?? null) : row.subject_type === 'question' ? (question?.excerpt ?? null) : (names.get(row.subject_id) ?? null),
+    subjectSlug: event?.slug ?? question?.eventSlug ?? null,
+    reason: row.reason,
+    details: row.details,
+    status: row.status,
+    reporterName: row.reporter_id ? (names.get(row.reporter_id) ?? null) : null,
+    createdAt: row.created_at,
+  };
+}
+
+export function toEventQuestion(row: EventQuestionRow): EventQuestion {
+  return {
+    id: row.id,
+    body: row.body,
+    authorFirstName: row.author_first_name,
+    isMine: row.is_mine,
+    createdAt: row.created_at,
+    answer: row.answer,
+    answeredAs: row.answered_as,
+    answeredAt: row.answered_at,
+  };
+}
+
+export function toCronJobHealth(row: CronJobHealthRow): CronJobHealth {
+  return {
+    jobName: row.jobname,
+    schedule: row.schedule,
+    active: row.active,
+    lastStartedAt: row.last_started_at,
+    lastStatus: row.last_status,
+    lastMessage: row.last_message,
+    runs7d: row.runs_7d,
+    failures7d: row.failures_7d,
+    overdue: row.overdue,
+  };
+}
+
+export function toAdminUserSummary(row: AdminUserRow): AdminUserSummary {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    email: row.email,
+    role: row.role,
+    createdAt: row.created_at,
+    suspendedAt: row.suspended_at,
+    suspensionReason: row.suspension_reason,
+  };
 }

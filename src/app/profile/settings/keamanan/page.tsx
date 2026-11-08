@@ -4,6 +4,7 @@ import { KeyRound, LogOut, MonitorSmartphone, Pencil, ShieldCheck, UserRound } f
 import { changePasswordAction, signOutEverywhereAction } from '@/app/auth/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AuthField } from '@/components/auth/auth-field';
+import { ConfirmPasswordInput } from '@/components/auth/confirm-password-input';
 import { PasswordInput } from '@/components/auth/password-input';
 import { SignOutForm } from '@/components/auth/sign-out-form';
 import { AccountShell } from '@/components/layout/account-shell';
@@ -110,7 +111,7 @@ export default async function SecuritySettingsPage({ searchParams }: { searchPar
                 <PasswordInput id="password" name="password" autoComplete="new-password" required minLength={8} maxLength={72} aria-describedby="password-hint" />
               </AuthField>
               <AuthField id="confirmPassword" label="Ulangi kata sandi baru">
-                <PasswordInput id="confirmPassword" name="confirmPassword" autoComplete="new-password" required minLength={8} maxLength={72} />
+                <ConfirmPasswordInput id="confirmPassword" name="confirmPassword" matchId="password" autoComplete="new-password" required />
               </AuthField>
             </form>
           )}

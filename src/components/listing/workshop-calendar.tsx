@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
-import { Breadcrumb, ChipLink, PageTitle, ResultsEmpty, SaveToggle, CollapsibleFilters } from '@/components/listing/listing-ui';
+import { Breadcrumb, ChipLink, PageTitle, CatalogEmpty, ResultsEmpty, SaveToggle, CollapsibleFilters } from '@/components/listing/listing-ui';
 import type { BoardProps } from '@/components/listing/lomba-board';
 import { daysLeftLabel, daysUntil, jakartaDateKey, jakartaDateParts } from '@/lib/deadline';
-import { buildEventHref, type RawSearchParams } from '@/lib/search-params';
+import { buildEventHref, isBoardUnfiltered, type RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL } from '@/types/domain';
 
@@ -209,7 +209,11 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
           })}
         </ul>
       ) : (
-        <ResultsEmpty className="mt-5" description="Tidak ada workshop yang ditutup di tanggal ini. Pilih tanggal bertanda titik, atau lihat semua tanggal." resetHref={buildEventHref({ types: query.types })} />
+        !day && isBoardUnfiltered(query) ? (
+          <CatalogEmpty noun="workshop" className="mt-5" />
+        ) : (
+          <ResultsEmpty className="mt-5" description="Tidak ada workshop yang ditutup di tanggal ini. Pilih tanggal bertanda titik, atau lihat semua tanggal." resetHref={buildEventHref({ types: query.types })} />
+        )
       )}
 
       {!day && result.totalPages > 1 && (

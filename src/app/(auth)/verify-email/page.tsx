@@ -20,9 +20,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * Layar "cek email" setelah daftar + kirim ulang email konfirmasi. Halaman
- * yang SAMA muncul untuk alamat yang ternyata sudah terdaftar (ADR-011), jadi
- * kalimat keduanya menunjuk jalan keluar untuk kasus itu tanpa mengonfirmasinya.
+ * Layar "cek email" setelah daftar + kirim ulang email konfirmasi. Alamat
+ * yang sudah punya akun terkonfirmasi tidak sampai ke sini — daftar
+ * menjawabnya `email_taken` (ADR-069). Yang sampai: alamat baru, atau akun
+ * yang belum pernah dikonfirmasi (Supabase mengirim ulang tautannya).
  */
 export default async function VerifyEmailPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
@@ -44,8 +45,8 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
         subtitle={
           shownEmail ? (
             <>
-              Tautan konfirmasi dikirim ke <strong className="break-all font-semibold text-ink">{shownEmail}</strong>. Sudah
-              pernah daftar dengan email ini? Langsung masuk saja.
+              Tautan konfirmasi dikirim ke <strong className="break-all font-semibold text-ink">{shownEmail}</strong>. Buka
+              tautannya untuk mengaktifkan akun, lalu masuk.
             </>
           ) : (
             'Buka tautan konfirmasi yang kami kirim untuk mengaktifkan akunmu.'

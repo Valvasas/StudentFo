@@ -9,6 +9,8 @@ import { LocationFilter } from '@/components/listing/location-filter';
 import {
   Breadcrumb,
   PageTitle,
+  CatalogEmpty,
+ 
   ResultsEmpty,
   SaveToggle,
   SearchBox,
@@ -20,7 +22,7 @@ import {
 import type { BoardProps } from '@/components/listing/lomba-board';
 import { formatShortDateId } from '@/lib/deadline';
 import { levelSummary } from '@/lib/eligibility';
-import { buildEventHref, hasActiveFilters } from '@/lib/search-params';
+import { buildEventHref, hasActiveFilters, isBoardUnfiltered } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 
 const MAGANG_LEVELS: readonly LevelOption[] = [
@@ -153,7 +155,11 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
           </div>
 
           {result.items.length === 0 && (
-            <ResultsEmpty description="Coba lokasi lain atau kurangi filter bidang." resetHref={buildEventHref({ types: query.types })} />
+            isBoardUnfiltered(query) ? (
+              <CatalogEmpty noun="lowongan magang" />
+            ) : (
+              <ResultsEmpty description="Coba lokasi lain atau kurangi filter bidang." resetHref={buildEventHref({ types: query.types })} />
+            )
           )}
 
           <ul className="flex flex-col gap-3">

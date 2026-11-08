@@ -151,3 +151,12 @@ export function hasActiveFilters(query: ParsedEventQuery): boolean {
     query.cost !== undefined
   );
 }
+
+/**
+ * Papan per jenis tanpa saringan lain (kata kunci, bidang, jenjang, …): bila
+ * hasilnya kosong, berarti katalog jenis itu memang kosong — tawarkan
+ * "Kirim kegiatan", bukan "longgarkan filter" yang tidak bisa dilonggarkan.
+ */
+export function isBoardUnfiltered(query: ParsedEventQuery): boolean {
+  return !hasActiveFilters({ ...query, types: [] });
+}

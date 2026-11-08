@@ -1,4 +1,7 @@
 import type {
+  ReportReason,
+  ReportStatus,
+  ReportSubject,
   ConnectionStatus,
   DeadlineLabel,
   EducationLevel,
@@ -96,6 +99,7 @@ export interface UserProfileRow {
   education_level: EducationLevel | null;
   major: string | null;
   interests: string[] | null;
+  suspended_at?: string | null;
 }
 
 export interface SavedEventRow {
@@ -199,6 +203,7 @@ export interface SubmissionRow {
   payload: unknown;
   status: EventStatus;
   created_at: string;
+  rejection_reason?: string | null;
 }
 
 /**
@@ -287,6 +292,9 @@ export interface BlockedPersonRow {
 export interface OrganizerProfileRow {
   user_id: string;
   org_name: string;
+  /** Absen bila migration 20261108100001 belum diterapkan (dibaca dengan kolom lama). */
+  org_type?: string | null;
+  contact_role?: string | null;
   website: string | null;
   evidence: string;
   status: OrganizerStatus;
@@ -406,4 +414,52 @@ export interface TeamCandidateRow {
   portfolio_count: number | null;
   portfolio_achievements: string[] | null;
   relation: 'connected' | 'incoming' | 'outgoing' | null;
+}
+
+/** `content_reports` (ADR-061) — dibaca klien admin saja. */
+export interface ContentReportRow {
+  id: string;
+  reporter_id: string | null;
+  subject_type: ReportSubject;
+  subject_id: string;
+  reason: ReportReason;
+  details: string | null;
+  status: ReportStatus;
+  created_at: string;
+}
+
+/** Baris `list_event_questions()` (migration 20261101100006). */
+export interface EventQuestionRow {
+  id: string;
+  body: string;
+  author_first_name: string;
+  is_mine: boolean;
+  created_at: string;
+  answer: string | null;
+  answered_as: 'organizer' | 'moderator' | null;
+  answered_at: string | null;
+}
+
+/** Baris `cron_job_health()` (migration 20261101100002). */
+export interface CronJobHealthRow {
+  jobname: string;
+  schedule: string;
+  active: boolean;
+  last_started_at: string | null;
+  last_status: string | null;
+  last_message: string | null;
+  runs_7d: number;
+  failures_7d: number;
+  overdue: boolean;
+}
+
+/** Kolom `users` untuk /admin/pengguna (klien admin). */
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  full_name: string;
+  role: 'USER' | 'ADMIN';
+  created_at: string;
+  suspended_at: string | null;
+  suspension_reason: string | null;
 }

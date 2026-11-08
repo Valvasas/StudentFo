@@ -14,6 +14,7 @@ import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { withFallback } from '@/lib/fallback';
 import { eventTypeNavFor, isFocusedTaskPath } from '@/lib/event-type-nav';
 import { REQUEST_PATH_HEADER } from '@/lib/security-headers';
+import { ORGANIZER_HOME_PATH, ORGANIZER_LOGIN_PATH, ORGANIZER_REGISTER_PATH } from '@/lib/safe-redirect';
 import type { EventType } from '@/types/domain';
 
 /**
@@ -46,6 +47,8 @@ export async function Navbar() {
         ? { href: '/penyelenggara', label: 'Studio', icon: BadgeCheck }
         : null;
   const compact = isFocusedTaskPath(requestUrl.pathname);
+  // Tamu di halaman studio memakai pintu akun penyelenggara (ADR-063).
+  const organizerDoor = requestUrl.pathname === ORGANIZER_HOME_PATH || requestUrl.pathname.startsWith(`${ORGANIZER_HOME_PATH}/`);
   const workspaceActive = workspace !== null && (requestUrl.pathname === workspace.href || requestUrl.pathname.startsWith(`${workspace.href}/`));
 
   return (
@@ -131,13 +134,13 @@ export async function Navbar() {
             <>
               <ThemeToggle />
               <Link
-                href="/login"
+                href={organizerDoor ? ORGANIZER_LOGIN_PATH : '/login'}
                 className="flex min-h-11 items-center rounded-sm px-2.5 text-sm sm:px-3 font-medium text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested"
               >
                 Masuk
               </Link>
               <Link
-                href="/register"
+                href={organizerDoor ? ORGANIZER_REGISTER_PATH : '/register'}
                 className="relative hidden h-9 items-center rounded-sm bg-brand px-3.5 text-sm font-semibold sm:px-4 text-on-brand transition-colors duration-150 ease-snap after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:bg-brand-hover xs:flex"
               >
                 Daftar

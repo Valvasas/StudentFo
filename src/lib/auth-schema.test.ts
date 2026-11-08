@@ -72,6 +72,7 @@ describe('signUpSchema', () => {
       fullName: ' Siti  Aminah ',
       email: ' SITI@kampus.ac.id ',
       password: 'rahasia123',
+      confirmPassword: 'rahasia123',
       ageConfirm: 'yes',
       privacyConsent: 'yes',
     });
@@ -84,9 +85,24 @@ describe('signUpSchema', () => {
     fullName: 'Siti',
     email: 'siti@kampus.ac.id',
     password: 'rahasia123',
+    confirmPassword: 'rahasia123',
     ageConfirm: 'yes',
     privacyConsent: 'yes',
   };
+
+  it('ulangan sandi wajib sama — kosong juga dihitung tidak sama, di jalur confirmPassword', () => {
+    for (const confirmPassword of ['rahasia124', '', 'Rahasia123']) {
+      const result = signUpSchema.safeParse({ ...valid, confirmPassword });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues.map((issue) => issue.path)).toEqual([['confirmPassword']]);
+    }
+  });
+
+  it('zod tetap menjalankan pencocokan walau sandinya lemah — urutan kode diatur auth-failure.ts', () => {
+    const result = signUpSchema.safeParse({ ...valid, password: 'pendek', confirmPassword: 'beda' });
+    const paths = new Set(result.error?.issues.map((issue) => issue.path.join('.')));
+    expect([...paths]).toEqual(['password', 'confirmPassword']);
+  });
 
   it('persetujuan S&K + Kebijakan privasi wajib — kotak tak dicentang tidak terkirim sama sekali', () => {
     const result = signUpSchema.safeParse({ ...valid, privacyConsent: '' });

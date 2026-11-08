@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { type ActionNoticeCode, toActionErrorCode, withQuery } from '@/lib/action-feedback';
-import { requireUser } from '@/lib/auth';
+import { clearOrganizerDraft, requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formText, formTrimmed } from '@/lib/form-data';
 import { buildRevisionChanges, eventClaimSchema, parseOrganizerApplication } from '@/lib/organizer';
@@ -43,6 +43,7 @@ export async function applyOrganizerAction(formData: FormData): Promise<void> {
   } catch (error) {
     failed(returnTo, error);
   }
+  await clearOrganizerDraft(user);
   done(returnTo, 'organizer_applied');
 }
 

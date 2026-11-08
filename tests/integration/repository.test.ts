@@ -25,6 +25,7 @@ function payload(overrides: Partial<SubmissionPayload> = {}): SubmissionPayload 
     location: null,
     isOnline: true,
     deadlineAt: new Date(Date.now() + 20 * 86_400_000).toISOString(),
+    stages: [],
     isFree: null,
     priceAmount: null,
     guidebookUrl: null,
@@ -80,6 +81,33 @@ describe('createSubmission / reviewSubmission', () => {
     await expect(
       repo.reviewSubmission({ submissionId: submission!.id, decision: 'APPROVED', reviewerId: admin }),
     ).rejects.toSatisfy((error) => reasonOf(error) === 'submission_not_found');
+  });
+
+  it('tahapan kiriman → event_deadlines non-utama, urut waktu, sama dengan mode demo', async () => {
+    const admin = createUser({ role: 'ADMIN' });
+    const registration = new Date(Date.now() + 20 * 86_400_000).toISOString();
+    const submissionStage = new Date(Date.now() + 30 * 86_400_000).toISOString();
+    const final = new Date(Date.now() + 50 * 86_400_000).toISOString();
+    const data = payload({
+      deadlineAt: registration,
+      stages: [
+        { label: 'final', deadlineAt: final },
+        { label: 'submission', deadlineAt: submissionStage },
+      ],
+    });
+    await repo.createSubmission({ submittedByEmail: `tahap-${Date.now()}@uji.example`, submittedBy: null, payload: data });
+    const [submission] = (await repo.listSubmissions('PENDING', 100)).filter((s) => s.payload?.title === data.title);
+    expect(submission!.payload!.stages).toEqual(data.stages);
+    await repo.reviewSubmission({ submissionId: submission!.id, decision: 'APPROVED', reviewerId: admin });
+
+    const [summary] = (await repo.listEvents({ search: data.title.split(' ').at(-1)!, includeClosed: true })).items;
+    expect(new Date(summary!.primaryDeadlineAt!).toISOString()).toBe(registration);
+    const detail = await repo.getEventBySlug(summary!.slug);
+    expect(detail!.deadlines.map((deadline) => [deadline.label, new Date(deadline.deadlineAt).toISOString(), deadline.isPrimary])).toEqual([
+      ['registration', registration, true],
+      ['submission', submissionStage, false],
+      ['final', final, false],
+    ]);
   });
 
   it('judul + penyelenggara yang sudah ada → submission_duplicate (dedup_hash)', async () => {

@@ -10,39 +10,14 @@ import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
 import type { RawSearchParams } from '@/lib/search-params';
-import type { ModerationLogEntry, ModerationStatus, ModerationSubject } from '@/types/domain';
+import { MODERATION_STATUS_TEXT, MODERATION_STATUS_VARIANT, MODERATION_SUBJECT_TEXT } from '@/lib/moderation-labels';
+import type { ModerationLogEntry } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
 export const generateMetadata = (): Promise<Metadata> => adminMetadata('Riwayat moderasi');
 
 const HISTORY_LIMIT = 100;
-
-const STATUS_TEXT: Record<ModerationStatus, string> = {
-  PENDING: 'Menunggu',
-  APPROVED: 'Disetujui',
-  REJECTED: 'Ditolak',
-  EXPIRED: 'Kedaluwarsa',
-  VERIFIED: 'Terverifikasi',
-  REVOKED: 'Dicabut',
-};
-
-const STATUS_VARIANT: Record<ModerationStatus, 'warning' | 'success' | 'danger' | 'neutral'> = {
-  PENDING: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'danger',
-  EXPIRED: 'neutral',
-  VERIFIED: 'success',
-  REVOKED: 'danger',
-};
-
-const SUBJECT_TEXT: Record<ModerationSubject, string> = {
-  event: 'Kegiatan',
-  submission: 'Kiriman',
-  organizer: 'Penyelenggara',
-  claim: 'Klaim acara',
-  revision: 'Perubahan acara',
-};
 
 function actorLabel(entry: ModerationLogEntry): string {
   if (!entry.actorId) return 'Sistem / di luar aplikasi';
@@ -96,15 +71,15 @@ export default async function ModerationHistoryPage({ searchParams }: { searchPa
           {entries.map((entry) => (
             <li key={entry.id} className="rounded-card border border-line bg-panel p-4 shadow-card">
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <Badge variant="neutral">{SUBJECT_TEXT[entry.subjectType]}</Badge>
+                <Badge variant="neutral">{MODERATION_SUBJECT_TEXT[entry.subjectType]}</Badge>
                 {entry.fromStatus && (
                   <>
-                    <Badge variant={STATUS_VARIANT[entry.fromStatus]}>{STATUS_TEXT[entry.fromStatus]}</Badge>
+                    <Badge variant={MODERATION_STATUS_VARIANT[entry.fromStatus]}>{MODERATION_STATUS_TEXT[entry.fromStatus]}</Badge>
                     <span aria-hidden>→</span>
                     <span className="sr-only">menjadi</span>
                   </>
                 )}
-                <Badge variant={STATUS_VARIANT[entry.toStatus]}>{STATUS_TEXT[entry.toStatus]}</Badge>
+                <Badge variant={MODERATION_STATUS_VARIANT[entry.toStatus]}>{MODERATION_STATUS_TEXT[entry.toStatus]}</Badge>
               </div>
               <p className="mt-2 break-words font-semibold">{entry.title}</p>
               <p className="mt-1 text-sm text-ink-muted">

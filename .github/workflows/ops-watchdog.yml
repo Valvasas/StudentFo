@@ -1,0 +1,58 @@
+# Watchdog job pg_cron dari LUAR database (ADR-062 #2): job yang mati tidak
+# bisa melaporkan kematiannya sendiri. Membaca cron_job_health() — aturan
+# "gagal"/"telat" sama dengan beranda admin — lalu:
+#   - mengirim ringkasan ke ERROR_ALERT_WEBHOOK_URL (Slack/Discord) bila diisi;
+#   - selalu menggagalkan run, sehingga GitHub mengirim email kegagalan.
+# Hasil kosong = pg_cron tidak aktif = masalah juga.
+#
+# Secret: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ERROR_ALERT_WEBHOOK_URL (opsional).
+# Catatan: GitHub menonaktifkan jadwal setelah 60 hari repo tanpa aktivitas;
+# beranda admin tetap menampilkan status yang sama.
+name: Ops watchdog
+
+on:
+  schedule:
+    # 02:13 UTC = 09:13 WIB, setelah semua job harian (17:05–18:41 & 00:00 UTC).
+    - cron: '13 2 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  cron-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check pg_cron jobs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ERROR_ALERT_WEBHOOK_URL: ${{ secrets.ERROR_ALERT_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SUPABASE_URL}" || -z "${SUPABASE_SERVICE_ROLE_KEY}" ]]; then
+            echo "Secret SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diisi — watchdog dilewati."
+            exit 0
+          fi
+          health=$(curl --silent --show-error --fail-with-body \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/cron_job_health" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          problems=$(jq -r '
+            if length == 0 then "pg_cron tidak aktif: tidak ada job studentfo-* sama sekali"
+            else .[] | select((.active | not) or .last_status == "failed" or .overdue)
+              | "\(.jobname): " + (if (.active | not) then "nonaktif" elif .last_status == "failed" then "gagal — \(.last_message // "")" else "telat jalan (terakhir \(.last_started_at))" end)
+            end' <<<"$health")
+          if [[ -z "$problems" ]]; then
+            echo "Semua job sehat."
+            exit 0
+          fi
+          echo "$problems"
+          if [[ -n "${ERROR_ALERT_WEBHOOK_URL}" ]]; then
+            text=$(printf '⚠️ StudentFo — job terjadwal bermasalah:\n%s' "$problems" | head -c 1900)
+            jq -n --arg t "$text" '{text: $t, content: $t}' \
+              | curl --silent --show-error --fail-with-body -X POST "$ERROR_ALERT_WEBHOOK_URL" -H "Content-Type: application/json" -d @- >/dev/null
+          fi
+          exit 1

@@ -19,17 +19,22 @@ import { registrationEventClosed } from '@/components/registration/registration-
 import { MySubmissions } from '@/components/submit/my-submissions';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
-import { Field, TextArea, TextInput } from '@/components/ui/field';
+import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { OrganizerLanding } from '@/components/organizer/organizer-landing';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
-import { requireUser, toEventActor, type AuthUser } from '@/lib/auth';
+import { getSessionUser, toEventActor, type AuthUser } from '@/lib/auth';
+import { siteUrl } from '@/lib/env';
+import { withFallback } from '@/lib/fallback';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId } from '@/lib/deadline';
-import { ORGANIZER_LIMITS, ORGANIZER_STATUS_LABEL } from '@/lib/organizer';
+import { ORGANIZER_LIMITS, ORGANIZER_STATUS_LABEL, type OrganizerApplicationInput } from '@/lib/organizer';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 import {
   EVENT_TYPE_LABEL,
+  ORGANIZER_TYPES,
+  ORGANIZER_TYPE_LABEL,
   type EventClaim,
   type ManagedEvent,
   type OrganizerHistoryEntry,
@@ -42,10 +47,21 @@ import { applyOrganizerAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Studio penyelenggara',
-  robots: { index: false, follow: false },
-};
+/**
+ * Tamu melihat halaman pengenalan studio (bisa diindeks); yang masuk melihat
+ * studionya (tidak diindeks). `getSessionUser` di-cache per request, jadi
+ * halaman tidak membaca sesi dua kali.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  if (await withFallback('sesi pengguna', getSessionUser, null)) {
+    return { title: 'Studio penyelenggara', robots: { index: false, follow: false } };
+  }
+  return {
+    title: 'Untuk penyelenggara',
+    description:
+      'Pasang lomba, beasiswa, workshop, atau pelatihan di StudentFo. Verifikasi lembagamu sekali, lalu kelola formulir pendaftaran, bukti bayar, dan analitik acara dari satu studio.',
+  };
+}
 
 const SELF = '/penyelenggara';
 
@@ -71,7 +87,10 @@ interface RegistrationSummary {
  */
 export default async function OrganizerStudioPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
-  const user = await requireUser(SELF);
+  // Tamu: halaman pengenalan dengan pintu masuk & daftar penyelenggara
+  // (ADR-063), bukan dilempar ke halaman masuk peserta tanpa penjelasan.
+  const user = await withFallback('sesi pengguna', getSessionUser, null);
+  if (!user) return <OrganizerLanding host={new URL(siteUrl).host} />;
   const repository = await getEventRepository();
   const profile = await repository.getOrganizerProfile(user.id);
   const verified = profile?.status === 'VERIFIED';
@@ -143,7 +162,7 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
                 Mengubah nama, situs, atau bukti mengembalikan lembagamu ke antrean verifikasi. Selama menunggu, lencana,
                 analitik, dan pengajuan perubahan nonaktif.
               </p>
-              <ApplicationForm profile={profile} submitLabel="Simpan & verifikasi ulang" />
+              <ApplicationForm profile={profile} draft={null} submitLabel="Simpan & verifikasi ulang" />
             </div>
           </details>
         </>
@@ -165,7 +184,18 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
             {profile?.status === 'REJECTED' && profile.reviewNote && (
               <p className="rounded-card bg-danger-soft p-3 text-sm text-danger">Catatan moderator: {profile.reviewNote}</p>
             )}
-            <ApplicationForm profile={profile} submitLabel={profile ? 'Kirim ulang pengajuan' : 'Kirim pengajuan'} />
+            {!profile && user.organizerDraft && (
+              <p role="note" className="flex items-start gap-2 rounded-card bg-panel-nested p-3 text-sm text-ink-soft">
+                <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-muted" />
+                Data lembaga dari pendaftaranmu sudah terisi di bawah. Periksa sekali lagi, lalu kirim — pengajuan belum terkirim
+                sebelum tombolnya ditekan.
+              </p>
+            )}
+            <ApplicationForm
+              profile={profile}
+              draft={profile ? null : user.organizerDraft}
+              submitLabel={profile ? 'Kirim ulang pengajuan' : 'Kirim pengajuan'}
+            />
           </section>
           <TrustSteps status={profile?.status ?? null} />
         </div>
@@ -185,7 +215,17 @@ function StatusBadge({ profile }: { profile: OrganizerProfile }) {
   );
 }
 
-function ApplicationForm({ profile, submitLabel }: { profile: OrganizerProfile | null; submitLabel: string }) {
+function ApplicationForm({
+  profile,
+  draft,
+  submitLabel,
+}: {
+  profile: OrganizerProfile | null;
+  /** Draf dari form daftar penyelenggara (ADR-069) — hanya bila belum ada pengajuan. */
+  draft: OrganizerApplicationInput | null;
+  submitLabel: string;
+}) {
+  const initial = profile ?? draft;
   return (
     <form action={applyOrganizerAction} className="flex flex-col gap-4">
       <UnsavedChangesGuard />
@@ -197,12 +237,35 @@ function ApplicationForm({ profile, submitLabel }: { profile: OrganizerProfile |
           required
           minLength={2}
           maxLength={ORGANIZER_LIMITS.orgNameMax}
-          defaultValue={profile?.orgName ?? ''}
+          defaultValue={initial?.orgName ?? ''}
           autoComplete="organization"
         />
       </Field>
+      <Field id="orgType" label="Jenis lembaga">
+        <SelectInput id="orgType" name="orgType" required defaultValue={initial?.orgType ?? ''}>
+          <option value="" disabled>
+            Pilih jenis lembaga
+          </option>
+          {ORGANIZER_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {ORGANIZER_TYPE_LABEL[type]}
+            </option>
+          ))}
+        </SelectInput>
+      </Field>
+      <Field id="contactRole" label="Jabatanmu di lembaga" hint="Mis. Ketua Panitia, Humas, Staf Kemahasiswaan.">
+        <TextInput
+          id="contactRole"
+          name="contactRole"
+          required
+          minLength={ORGANIZER_LIMITS.contactRoleMin}
+          maxLength={ORGANIZER_LIMITS.contactRoleMax}
+          defaultValue={initial?.contactRole ?? ''}
+          autoComplete="organization-title"
+        />
+      </Field>
       <Field id="website" label="Situs atau akun resmi (opsional)" hint="Harus diawali https://. Moderator mengecek nama lembaga di sini.">
-        <TextInput id="website" name="website" type="url" inputMode="url" maxLength={500} placeholder="https://" defaultValue={profile?.website ?? ''} />
+        <TextInput id="website" name="website" type="url" inputMode="url" maxLength={500} placeholder="https://" defaultValue={initial?.website ?? ''} />
       </Field>
       <Field
         id="evidence"
@@ -215,7 +278,7 @@ function ApplicationForm({ profile, submitLabel }: { profile: OrganizerProfile |
           required
           minLength={ORGANIZER_LIMITS.evidenceMin}
           maxLength={ORGANIZER_LIMITS.evidenceMax}
-          defaultValue={profile?.evidence ?? ''}
+          defaultValue={initial?.evidence ?? ''}
         />
       </Field>
       <SubmitButton pendingLabel="Mengirim…" className={buttonVariants({ className: 'self-start' })}>{submitLabel}</SubmitButton>

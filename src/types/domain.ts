@@ -51,6 +51,13 @@ export type EventStatus = (typeof EVENT_STATUSES)[number];
 export const DEADLINE_LABELS = ['registration', 'submission', 'final', 'announcement'] as const;
 export type DeadlineLabel = (typeof DEADLINE_LABELS)[number];
 
+/**
+ * Tahapan setelah pendaftaran yang bisa diisi pengirim kiriman (ADR-062 #5).
+ * Urutan = urutan yang lazim di lomba, dipakai urutan kolom form.
+ */
+export const SUBMISSION_STAGE_LABELS = ['submission', 'announcement', 'final'] as const satisfies readonly DeadlineLabel[];
+export type SubmissionStageLabel = (typeof SUBMISSION_STAGE_LABELS)[number];
+
 export const DEADLINE_LABEL_TEXT: Record<DeadlineLabel, string> = {
   registration: 'Pendaftaran',
   submission: 'Pengumpulan karya',
@@ -214,6 +221,12 @@ export const NOTIFICATION_TYPES = [
   'REGISTRATION_REJECTED',
   'PAYMENT_REJECTED',
   'PAYMENT_SUBMITTED',
+  /** Hasil laporan untuk pelapor (resolve_content_report, ADR-062). */
+  'REPORT_RESOLVED',
+  'REPORT_DISMISSED',
+  /** Tanya-jawab kegiatan (migration 20261101100006, ADR-062 #7). */
+  'QUESTION_ASKED',
+  'QUESTION_ANSWERED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -374,6 +387,8 @@ export interface SubmissionPayload {
   readonly isOnline: boolean;
   /** ISO 8601 UTC — tenggat pendaftaran, dijadikan tenggat utama saat disetujui. */
   readonly deadlineAt: string;
+  /** Tahapan berikutnya (opsional) → `event_deadlines` non-utama saat disetujui. */
+  readonly stages: readonly { readonly label: SubmissionStageLabel; readonly deadlineAt: string }[];
   /** `null` = pengirim memilih "belum tahu". Disalin ke `events.is_free` saat disetujui. */
   readonly isFree: boolean | null;
   readonly priceAmount: number | null;
@@ -394,16 +409,99 @@ export interface Submission {
   readonly status: EventStatus;
   readonly createdAt: string;
   readonly payload: SubmissionPayload | null;
+  /** Diisi moderator saat menolak (ADR-061); ditampilkan ke pengirimnya. */
+  readonly rejectionReason: string | null;
 }
 
 /** Status yang bisa muncul di log moderasi — status acara + status penyelenggara (ADR-042). */
-export const MODERATION_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'VERIFIED', 'REVOKED'] as const;
+export const MODERATION_STATUSES = [
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+  'EXPIRED',
+  'VERIFIED',
+  'REVOKED',
+  'OPEN',
+  'RESOLVED',
+  'DISMISSED',
+  'ACTIVE',
+  'SUSPENDED',
+  'DELETED',
+] as const;
 export type ModerationStatus = (typeof MODERATION_STATUSES)[number];
 
-export const MODERATION_SUBJECTS = ['event', 'submission', 'organizer', 'claim', 'revision'] as const;
+export const MODERATION_SUBJECTS = ['event', 'submission', 'organizer', 'claim', 'revision', 'user', 'report', 'question'] as const;
 export type ModerationSubject = (typeof MODERATION_SUBJECTS)[number];
 
+// ---------------------------------------------------------------------
+// Laporan konten & manajemen pengguna (ADR-061) — paritas dengan CHECK di
+// migration 20261031100001_trust_and_safety.sql.
+// ---------------------------------------------------------------------
+export const REPORT_SUBJECTS = ['event', 'user', 'question'] as const;
+export type ReportSubject = (typeof REPORT_SUBJECTS)[number];
+
+export const REPORT_REASONS = ['scam', 'misleading', 'inappropriate', 'harassment', 'spam', 'impersonation', 'other'] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];
+
+export const REPORT_STATUSES = ['OPEN', 'RESOLVED', 'DISMISSED'] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+/** Satu pertanyaan publik di tab Tanya jawab (ADR-062 #7). Penanya hanya tampil sebagai nama depan. */
+export interface EventQuestion {
+  readonly id: string;
+  readonly body: string;
+  readonly authorFirstName: string;
+  readonly isMine: boolean;
+  readonly createdAt: string;
+  readonly answer: string | null;
+  readonly answeredAs: 'organizer' | 'moderator' | null;
+  readonly answeredAt: string | null;
+}
+
+export interface ContentReport {
+  readonly id: string;
+  readonly subjectType: ReportSubject;
+  readonly subjectId: string;
+  /** Judul kegiatan / nama pengguna saat ini; null = subjek sudah tidak ada. */
+  readonly subjectLabel: string | null;
+  /** Slug kegiatan untuk tautan; null untuk pengguna atau kegiatan yang sudah hilang. */
+  readonly subjectSlug: string | null;
+  readonly reason: ReportReason;
+  readonly details: string | null;
+  readonly status: ReportStatus;
+  /** null = pelapor sudah menghapus akunnya. */
+  readonly reporterName: string | null;
+  readonly createdAt: string;
+}
+
+/** Baris hasil pencarian pengguna di /admin/pengguna. */
+export interface AdminUserSummary {
+  readonly id: string;
+  readonly fullName: string;
+  /** null di mode seed untuk orang contoh (tidak punya email). */
+  readonly email: string | null;
+  readonly role: 'USER' | 'ADMIN';
+  readonly createdAt: string | null;
+  readonly suspendedAt: string | null;
+  readonly suspensionReason: string | null;
+}
+
 /** Satu baris log moderasi append-only (tabel `moderation_log`). */
+/** Satu job pg_cron dari `cron_job_health()` (migration 20261101100002, ADR-062). */
+export interface CronJobHealth {
+  readonly jobName: string;
+  readonly schedule: string;
+  readonly active: boolean;
+  readonly lastStartedAt: string | null;
+  /** Status pg_cron apa adanya: succeeded, failed, running, starting, … */
+  readonly lastStatus: string | null;
+  readonly lastMessage: string | null;
+  readonly runs7d: number;
+  readonly failures7d: number;
+  /** Dinilai SQL (satu aturan untuk admin & watchdog luar). */
+  readonly overdue: boolean;
+}
+
 export interface ModerationLogEntry {
   readonly id: string;
   readonly subjectType: ModerationSubject;
@@ -427,9 +525,33 @@ export interface ModerationLogEntry {
 export const ORGANIZER_STATUSES = ['PENDING', 'VERIFIED', 'REJECTED', 'REVOKED'] as const;
 export type OrganizerStatus = (typeof ORGANIZER_STATUSES)[number];
 
+/**
+ * Jenis lembaga — HARUS sama dengan CHECK `organizer_profiles.org_type`
+ * (migration 20261108100001; dikunci `lib/organizer.test.ts`). Bukan enum SQL:
+ * daftar ini milik moderasi, bukan pipeline, jadi tidak ikut aturan paritas
+ * tiga tempat (AGENTS.md §2).
+ */
+export const ORGANIZER_TYPES = ['KAMPUS', 'ORMAWA', 'SEKOLAH', 'KOMUNITAS', 'PERUSAHAAN', 'PEMERINTAH', 'NIRLABA', 'LAINNYA'] as const;
+export type OrganizerType = (typeof ORGANIZER_TYPES)[number];
+
+export const ORGANIZER_TYPE_LABEL: Record<OrganizerType, string> = {
+  KAMPUS: 'Perguruan tinggi / fakultas',
+  ORMAWA: 'Organisasi mahasiswa (BEM, HIMA, UKM)',
+  SEKOLAH: 'Sekolah / OSIS',
+  KOMUNITAS: 'Komunitas',
+  PERUSAHAAN: 'Perusahaan / startup',
+  PEMERINTAH: 'Instansi pemerintah',
+  NIRLABA: 'Yayasan / organisasi nirlaba',
+  LAINNYA: 'Lainnya',
+};
+
 export interface OrganizerProfile {
   readonly userId: string;
   readonly orgName: string;
+  /** null = pengajuan dari sebelum kolom ini ada (migration 20261108100001). */
+  readonly orgType: OrganizerType | null;
+  /** Jabatan penanggung jawab di lembaga, mis. "Ketua Panitia". */
+  readonly contactRole: string | null;
   readonly website: string | null;
   /** Bukti peran — hanya untuk pemiliknya & admin, tidak pernah publik. */
   readonly evidence: string;

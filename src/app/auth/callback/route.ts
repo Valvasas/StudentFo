@@ -3,6 +3,7 @@ import type { EmailOtpType } from '@supabase/supabase-js';
 import { mapSupabaseAuthError } from '@/lib/auth-messages';
 import { dataMode, siteUrl } from '@/lib/env';
 import { LEGAL_REVISION, legalConsentRecord } from '@/lib/legal';
+import { takeOrganizerDraftCookie } from '@/lib/organizer-draft-cookie';
 import { safeNextPath } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -73,9 +74,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // diperiksa signInWithGoogleAction, tapi OAuth tidak membawa metadata —
     // catat di sini (UU PDP Pasal 24). Hanya revisi yang berlaku sekarang,
     // dan tidak menimpa catatan lama. Gagal mencatat tidak menggagalkan masuk.
-    if (searchParams.get('consent') === LEGAL_REVISION && !data.user?.user_metadata?.legal_consent) {
-      const { error: consentError } = await supabase.auth.updateUser({ data: { legal_consent: legalConsentRecord('google') } });
-      if (consentError) console.error('[auth] gagal mencatat persetujuan:', consentError.code ?? consentError.status);
+    // Draf data lembaga dari form penyelenggara (ADR-069) ikut pindah ke
+    // metadata dengan cara yang sama; draf lama tidak ditimpa.
+    const metadata = data.user?.user_metadata;
+    const organizerDraft = await takeOrganizerDraftCookie();
+    const updates = {
+      ...(searchParams.get('consent') === LEGAL_REVISION && !metadata?.legal_consent ? { legal_consent: legalConsentRecord('google') } : {}),
+      ...(organizerDraft && !metadata?.organizer_application ? { organizer_application: organizerDraft, account_type: 'organizer' } : {}),
+    };
+    if (Object.keys(updates).length > 0) {
+      const { error: updateError } = await supabase.auth.updateUser({ data: updates });
+      if (updateError) console.error('[auth] gagal mencatat persetujuan/draf penyelenggara:', updateError.code ?? updateError.status);
     }
   } else if (tokenHash && otpType) {
     const { error } = await supabase.auth.verifyOtp({ type: otpType, token_hash: tokenHash });

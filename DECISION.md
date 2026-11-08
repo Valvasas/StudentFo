@@ -181,7 +181,44 @@ induknya. Rute baru mendapat adegan pemuat `settings` (`route-scene.ts`).
 Moderator kini menekan dua kali untuk menayangkan — harga yang diterima
 karena penayangan tidak bisa ditarik dari panel.
 
-## ADR-062 — Tur beranda kembali sebagai identitas merek; latar & panggung ilustrasi bergerak; umpan balik tim
+---
+
+## ADR-066 — Penggabungan dua garis kerja paralel: tur beranda milik ADR-065, tur penyelenggara milik ADR-063
+
+**Konteks:** Dua sesi bekerja paralel dari `main` yang sama. Cabang
+`ccr-8508b1ef-wgwvc2` (ADR-061–063: keamanan & kepercayaan, MVP operasional,
+tur berpemandu + pintu penyelenggara) tidak pernah digabung, padahal sembilan
+migration-nya (`20261031100001`, `20261101100001..07`) SUDAH diterapkan ke
+Supabase staging. Sementara itu `main` menerima ADR yang juga bernomor
+061–062 (pembersihan kesan AI, tur & latar bergerak). Akibatnya ada dua tur
+beranda dan dua ADR bernomor sama dengan isi berbeda.
+
+**Keputusan:**
+1. Nomor ADR mengikuti urutan waktu: ADR-061–063 tetap milik cabang
+   tertinggal (30–31 Okt); ADR `main` tanggal 3–4 Nov menjadi **ADR-064**
+   (pembersihan kesan AI) dan **ADR-065** (tur, latar, umpan balik tim).
+   Rujukan di kode & dokumen ikut diganti.
+2. **Beranda `/` memakai tur ADR-065** (`landing-tour.tsx`). Tur pelajar
+   ADR-063 (`student-tour.tsx`, dihapus) memperagakan "Siapkan & daftar —
+   cek berkas, salin datamu", yaitu alur `/events/[slug]/persiapan` yang
+   mengembalikan 404 di produksi (ADR-039 #5) — janji fitur yang tidak ada.
+3. **`/penyelenggara` untuk tamu memakai tur penyelenggara ADR-063**
+   (`organizer-tour.tsx` + mesin `product-tour.tsx`): verifikasi, kirim
+   acara, bukti bayar, analitik — semuanya perilaku produksi.
+4. Dari ADR-063 juga dipertahankan: tautan "Pasang acaramu" di hero, teks
+   ajakan penyelenggara ("Lihat cara kerja studio"), dan tombol sekunder
+   "Penyelenggara? Pasang acaramu" di katalog kosong — digabung dengan
+   "Pernah tayang di sini" milik ADR-064.
+
+**Konsekuensi:** Dua mesin tur hidup berdampingan (pelajar = komponen
+tunggal, penyelenggara = mesin + data bab). Menyatukannya bisa dilakukan
+nanti; untuk peluncuran, keduanya diuji e2e. Ke depan: satu cabang kerja per
+sesi digabung sebelum sesi berikutnya mulai, dan migration hanya diterapkan
+ke staging dari kode yang sudah ada di `main`.
+
+---
+
+## ADR-065 — Tur beranda kembali sebagai identitas merek; latar & panggung ilustrasi bergerak; umpan balik tim
 
 **Konteks:** Pemilik meminta tur interaktif beranda dikembalikan ("selalu
 dihilangkan") sebagai bagian branding, latar situs yang lebih hidup dengan
@@ -228,7 +265,7 @@ persiapan hanya ada di mode demo).
    - Pesan (demo): percakapan yang otomatis terbuka di panel kanan (≥ md)
      tetap dihitung "belum dibaca" sampai diklik — kini ditandai terbaca
      begitu terlihat, menunggu catatan localStorage termuat.
-   - Kotak inisial penyelenggara di papan lamaran (terlewat ADR-061), ikon
+   - Kotak inisial penyelenggara di papan lamaran (terlewat ADR-064), ikon
      tiket untuk "Papan lamaran" di menu akun (tiket = biaya), label kapital
      "GRUP KAMU".
 
@@ -242,7 +279,8 @@ bebas. Pemindahan pesan gabung/keluar ke URL (`?notice=`) mengikuti ADR-019.
 
 ---
 
-## ADR-061 — Membersihkan kesan "buatan AI": tenggat per hari kalender, gradasi urgensi berbentuk, landing berpusat pencarian
+
+## ADR-064 — Membersihkan kesan "buatan AI": tenggat per hari kalender, gradasi urgensi berbentuk, landing berpusat pencarian
 
 **Konteks:** Audit visual 2026-11-03 (desktop 1366px + ponsel 390px, terang &
 gelap, mode seed) atas permintaan pemilik, yang menilai beberapa elemen masih
@@ -338,6 +376,273 @@ sungguhan dan ikonnya kembali benar. Baris saringan cepat menambah satu baris
 (±52 px) di atas hasil di ponsel. Saran yang ditolak (token biru
 "kepercayaan", emerald gabungan, contoh kegiatan karangan, `vercel.json`
 SPA) dicatat di sini supaya tidak diusulkan ulang tanpa membaca alasannya.
+
+---
+
+
+## ADR-063 — Tur berpemandu kembali (dengan syarat), pintu akun penyelenggara terpisah
+
+**Konteks:** Pemilik meminta tur animasi beranda (kursor bergerak, kamera
+zoom in/out) dikembalikan — beranda tamu adalah halaman pemasaran — dan
+halaman masuk/daftar peserta dipisah dari penyelenggara supaya tidak terkesan
+generik. Tur lama dihapus di ADR-056 karena (a) warna hex tetap (rusak di mode
+gelap), (b) memperagakan alur yang sudah tidak ada (pilih minat sebagai langkah
+wajib, "Cari tim" di setiap kegiatan), (c) persona & kegiatan tampil seperti
+data sungguhan, dan (d) narasi `aria-live` yang maju sendiri tiap dua detik.
+Pintu akun: `/register` memakai dua kartu radio jenis akun, `/penyelenggara`
+melempar tamu ke `/login` peserta tanpa penjelasan, dan tidak ada halaman yang
+menjelaskan studio kepada penyelenggara yang belum punya akun.
+
+**Keputusan:**
+1. **Tur = mesin + data bab** (`components/landing/product-tour.tsx`), dua
+   isi: pelajar di `/` (cari & saring → cek & simpan → persiapan → papan
+   lamaran) dan penyelenggara di `/penyelenggara` (verifikasi → kirim acara →
+   bukti bayar pendaftar → analitik). Setiap langkah = perilaku yang ada;
+   label sama dengan UI. Yang membuat tur lama dihapus kini syarat:
+   - Warna lewat `var(--color-*)`, jadi mode gelap ikut tanpa cabang.
+   - Nama kegiatan/lembaga berawalan "Contoh", dan kalimat pengantar menyebut
+     "hanya ilustrasi".
+   - Panggung `aria-hidden` TANPA `aria-live`; isinya dibawa daftar langkah
+     (tombol sungguhan).
+   - Hanya jalan saat terlihat & tab aktif, berhenti sendiri setelah satu
+     putaran, dan bisa dijeda (WCAG 2.2.2).
+   - "Kurangi gerak" (OS atau Personalisasi, `isMotionReduced`) = tampilan
+     statis keadaan akhir tiap bab.
+2. **Satu akun, dua pintu.** `/login` & `/register` = peserta;
+   `/penyelenggara/masuk` & `/penyelenggara/daftar` = penyelenggara (route
+   group `penyelenggara/(akun)` dengan layout sendiri: kartu yang sama +
+   urutan tiga langkah sampai acara tayang). Auth backend TIDAK dipisah:
+   - Satu orang bisa peserta sekaligus panitia; dua akun = data ganda &
+     hak yang tercecer.
+   - Hak penyelenggara tetap dari `organizer_profiles` VERIFIED (ADR-042/056).
+   - Yang berbeda hanya tujuan bawaan (`audienceHome`), salinan teks, dan ke
+     halaman mana galat dikembalikan: isian tersembunyi `audience` di form
+     masuk & tombol Google; `accountType` tersembunyi di form daftar
+     menggantikan kartu radio.
+   - `loginHref()` mengarahkan tujuan di bawah `/penyelenggara/` ke pintu
+     penyelenggara, jadi tautan acara dari email panitia tidak mendarat di
+     halaman masuk peserta.
+   - Navbar tamu di halaman studio menunjuk pintu penyelenggara.
+   - `/register?type=organizer` lama dialihkan.
+   - Admin tidak mendapat pintu sendiri (tetap ADR-057: `/admin` 404 bagi
+     non-admin; admin masuk lewat `/login` lalu MFA).
+3. **`/penyelenggara` untuk tamu = halaman pengenalan studio** (bisa
+   diindeks, masuk sitemap; `robots` kini melarang `/penyelenggara/`, bukan
+   `/penyelenggara`). Yang sudah masuk tetap melihat studionya. Pola sama
+   dengan `/` (ADR-053): satu URL, isi menurut sesi; gagal membaca sesi =
+   tamu.
+4. **Katalog kosong di `/events` bukan jalan buntu**: tanpa filter & kata
+   kunci, ajakan "Muat ulang daftar" (ke halaman yang sama) diganti "Kirim
+   kegiatan" + "Penyelenggara? Pasang acaramu". Klaim "data baru masuk setiap
+   hari" dibuang — belum tentu benar di hari peluncuran.
+
+**Konsekuensi:**
+- (+) Beranda menunjukkan produknya tanpa meminta akun.
+- (+) Penyelenggara punya corong sendiri dari halaman pengenalan sampai studio.
+- (+) Akun tetap satu.
+- (−) Dua berkas data tur (±600 + ±400 baris gaya inline) harus ikut diubah
+  saat label UI berubah. Labelnya sengaja sama dengan UI supaya selisih
+  mudah terlihat saat review.
+- (−) `AccountTypeField` dihapus; tes `auth-pages.spec.ts` ditulis ulang
+  untuk dua pintu.
+
+---
+
+## ADR-062 — Menutup sisa MVP operasional: kabar ke pelapor, kesehatan job terjadwal
+
+**Konteks:** Setelah ADR-061, pemilik meminta semua kekurangan MVP dikerjakan.
+Yang tersisa dan bisa dikode tanpa keputusan/akun pemilik: laporan diputuskan
+dalam diam, job pg_cron (kedaluwarsa acara, pengingat tenggat, retensi yang
+dijanjikan Kebijakan privasi) bisa gagal tanpa ada yang tahu, dan beranda admin
+tidak menampilkan antrean Laporan.
+
+**Keputusan:**
+1. **Pelapor dikabari lewat notifikasi in-app** (`REPORT_RESOLVED` /
+   `REPORT_DISMISSED`) dari dalam `resolve_content_report()`. Teksnya umum
+   (`reportOutcomeMessage`, paritas diuji): tidak menyebut tindakan atas
+   terlapor, tidak menyebut nama akun terlapor, tidak membawa catatan moderator
+   (catatan internal). Tanpa `event_id`: kegiatan yang diturunkan tidak bisa
+   dibuka pelapor. "Ditindak" menutup SEMUA laporan OPEN atas subjek yang sama
+   (tindakannya menjawab semuanya; satu entri riwayat menyebut jumlahnya);
+   "Abaikan" hanya laporan itu — laporan lain bisa membawa bukti lebih kuat.
+2. **`cron_job_health()` + panel "Job terjadwal" di beranda admin + watchdog
+   luar** (`.github/workflows/ops-watchdog.yml`, harian). Aturan "telat" ada di
+   SQL (`overdue`: job harian aktif yang terakhir mulai > 26 jam lalu) supaya
+   admin dan watchdog tidak bisa berbeda pendapat. Watchdog di LUAR database
+   karena job yang mati tidak bisa melaporkan kematiannya; ia mengirim ke
+   `ERROR_ALERT_WEBHOOK_URL` dan selalu menggagalkan run (GitHub mengirim email).
+   Tanpa pg_cron hasilnya kosong → "tidak tersedia", bukan "semua sehat".
+3. **Antrean Laporan pengguna paling depan di beranda admin** — penipuan &
+   pelecehan merugikan orang selama menunggu.
+4. **MFA TOTP wajib untuk admin, ditegakkan di DUA tempat.** (a) `is_admin()`
+   mensyaratkan klaim JWT `aal = aal2` — tanpa ini sandi admin yang bocor tetap
+   membuka semua policy/fungsi admin lewat PostgREST langsung, apa pun yang
+   dilakukan aplikasi. (b) `checkAdminAccess()` (rute service_role) membaca
+   langkah MFA lewat `getAuthenticatorAssuranceLevel(jwt)` — token diverifikasi
+   ulang ke GoTrue, bukan klaim cookie apa adanya; gagal membaca = minta kode.
+   Admin aal1 diarahkan ke `/admin/mfa` (non-admin tetap 404, ADR-057); beranda
+   admin menampilkan satu ajakan, bukan beranda peserta. Pendaftaran: QR dibuat
+   lewat form GET (bukan tautan — prefetch akan membuat rahasia baru dan
+   membatalkan QR yang sedang dipindai), faktor belum-terverifikasi lama
+   dihapus, salah ketik kembali ke faktor yang SAMA. Kode: 6 digit dinormalisasi
+   di server, 10 percobaan/15 menit per akun di atas batas GoTrue. Pemulihan:
+   pemilik proyek menghapus faktor di Supabase Dashboard — sengaja TANPA env
+   untuk mematikan kewajiban ini. Mode seed tidak punya GoTrue: admin demo tanpa
+   MFA. Dibuktikan dengan GoTrue v2.170 sungguhan: integrasi (aal1 → `is_admin()`
+   tertutup, aal2 → terbuka) dan e2e lewat UI asli (login → QR → kode → panel).
+
+5. **"Buat acara langsung dari studio" = tetap lewat moderator; yang kurang
+   adalah tahapan jadwal.** Diukur dari kode: studio sudah punya "Kirim acara
+   baru" → `/submit` yang terisi nama lembaga terverifikasi, ditandai di antrean,
+   dan otomatis masuk studio setelah disetujui; biaya, nominal & buku panduan
+   sudah ada (ADR-049). Tayang tanpa moderator SENGAJA tidak dibuat — ADR-042
+   memilih kepercayaan di atas kecepatan, dan akun penyelenggara yang dibajak
+   (tanpa MFA) bisa langsung memasang lomba palsu berbayar. Yang benar-benar
+   hilang: tahapan sesudah pendaftaran (pengumpulan karya, pengumuman, babak
+   final) — `event_deadlines` mendukungnya sejak 0001, jalur kiriman tidak.
+   Kini opsional di form (bagian terlipat, tanpa validasi bawaan peramban yang
+   tak terlihat), harus ≥ tenggat pendaftaran & ≤ 3 tahun, dan
+   `approve_submission()` menyalinnya sebagai tenggat non-utama (satu per
+   label, label/tanggal asing dari payload PostgREST dibuang). Kedaluwarsa tetap
+   dihitung dari tenggat utama.
+
+6. **Pengingat tenggat lewat email: opt-in, satu kanal, menutup dua
+   penghalang ADR-051.** Persetujuan = `users.deadline_email_opt_in_at` (waktu
+   persetujuan sebagai bukti UU PDP Pasal 22/24), hanya lewat RPC milik sendiri
+   (`set_deadline_email_reminders`); kalimat persetujuan di Pengaturan
+   menyebut apa, ke alamat mana, lewat siapa (Resend, luar negeri), dan cara
+   berhenti — sebelum tombol. `claim_notification_dispatch()` kini hanya
+   membagikan pengingat milik yang setuju, dibuat SESUDAH persetujuan, akun
+   tidak ditangguhkan, ≤ 4 hari — tidak ada kanal luar yang bisa mengirim tanpa
+   persetujuan. Pengirim: `POST /api/cron/send-deadline-emails` (CRON_SECRET;
+   klaim → batch Resend ≤ 100 → ack; batch gagal tidak di-ack → dibagikan lagi
+   setelah sewa; 503 tanpa mengklaim bila belum dikonfigurasi) dipanggil
+   `send-deadline-emails.yml` 07:23 WIB. Setiap email: tautan berhenti
+   bertanda tangan HMAC tanpa sesi (GET hanya halaman konfirmasi — pemindai
+   tautan email membuka setiap URL), header `List-Unsubscribe` +
+   `List-Unsubscribe-Post` (RFC 8058, syarat Gmail/Yahoo untuk pengirim massal),
+   isi kiriman di-escape (judul bisa ditulis siapa pun). Tanpa
+   RESEND_API_KEY/EMAIL_FROM/EMAIL_LINK_SECRET (wajib bertiga) kartunya
+   disembunyikan — menawarkan email yang tidak pernah terkirim lebih buruk.
+   Kebijakan privasi diperbarui (revisi 2026-11-01). WhatsApp/Telegram tetap di
+   luar cakupan: tidak ada kolom identitasnya.
+
+7. **"Ruang diskusi" untuk MVP = Tanya jawab publik per kegiatan; pesan
+   langsung & grup TETAP tidak dibuka.** Platform ini menerima pengguna 13+;
+   saluran privat antar-orang asing adalah kategori risiko PP 17/2025 dan butuh
+   desain moderasi, blokir, & retensi tersendiri. Tanya jawab menjawab
+   kebutuhan nyata (bertanya ke panitia) dengan risiko jauh lebih kecil:
+   publik, satu topik, yang menjawab hanya pengelola terverifikasi
+   (`manages_event()`) atau admin aal2 (label "penyelenggara"/"moderator"
+   disimpan saat menjawab). `event_questions` TANPA policy — semua lewat RPC
+   DEFINER, sehingga yang keluar hanya nama depan penanya, bukan id/profil.
+   Tanya: 10–500 karakter, 5/hari, hanya kegiatan APPROVED (yang sudah tutup
+   tetap terbaca). Pengelola dikabari satu notifikasi per kegiatan yang
+   diperbarui (`idx_notifications_dedupe`), penanya dikabari saat dijawab.
+   Laporan subjek `question` + "sembunyikan" dari antrean (tercatat di
+   riwayat); penanya bisa menghapus; hapus akun = CASCADE; ekspor data memuat
+   semuanya (`list_my_event_questions`, termasuk yang disembunyikan).
+
+8. **Staging Supabase pertama + temuan Security Advisor.** Project "StudentFo
+   staging" (ap-southeast-1, paket gratis) dibuat atas persetujuan pemilik.
+   Proxy sesi agen menolak `*.supabase.co` dan password database tidak
+   diberikan API, jadi 40 migration diterapkan lewat MCP: Postgres mengunduh
+   tiap berkas dari commit publik `caee231` (ekstensi `http`) dan
+   menjalankannya — hash SHA-256 & ukuran tiap berkas dicocokkan dengan repo;
+   riwayat dicatat di `supabase_migrations.schema_migrations` dengan versi =
+   nama berkas supaya `supabase db push` tidak mengulang. Temuan advisor
+   yang ditindak (`20261101100007`): EXECUTE fungsi trigger
+   `handle_new_user`/`sync_saved_count` dicabut dari peran API, empat fungsi
+   bantu diberi `search_path` tetap. Yang SENGAJA dibiarkan: view berhak
+   pemilik (ADR-018/040, kolom terbatas), tabel ber-RLS tanpa policy (hanya
+   lewat RPC/service_role), RPC DEFINER yang memang API-nya (semuanya
+   memakai `auth.uid()` di dalam), dan temuan performa level INFO pada
+   database yang belum punya trafik.
+
+**Konsekuensi:** + Pelapor tahu laporannya dibaca tanpa membocorkan apa pun
+tentang terlapor. + Job yang mati terlihat dalam ≤ 1 hari. + Sandi admin saja
+tidak lagi cukup untuk data pengguna & moderasi. − Watchdog bergantung
+pada jadwal GitHub (bisa telat; nonaktif setelah 60 hari tanpa aktivitas repo) —
+beranda admin tetap menampilkan status yang sama. − Uji SQL `104` & `60`
+benar-benar menguji pg_cron hanya di mesin yang memuatnya (README § Uji → pg_cron).
+− Tanya jawab tayang tanpa pra-moderasi (laporan + sembunyikan sesudahnya);
+pemilik perlu memantau antrean Laporan, terutama di kegiatan populer.
+− Pengingat email bergantung pada jadwal GitHub (bisa telat; pengingat basi
+dilewati, bukan dikirim) dan pada domain pengirim yang terverifikasi di Resend.
+− Setelah migration `20261101100003`, SEMUA sesi admin yang ada turun ke aal1
+sampai masing-masing memasang autentikator — umumkan ke admin sebelum rilis.
+Pastikan TOTP aktif di Supabase Auth (bawaan: aktif).
+
+---
+
+## ADR-061 — Keamanan & kepercayaan untuk MVP publik: laporan, penangguhan, hapus akun, pemantauan galat
+
+**Konteks:** Pemilik meminta semua kekurangan MVP dikerjakan sebelum situs dibuka.
+Yang menghalangi operasi publik yang aman, diukur dari kode: tidak ada cara
+melaporkan penipuan/pelecehan, admin tidak bisa menangguhkan atau menghapus
+akun dari aplikasi, hapus akun (janji Kebijakan privasi, UU PDP Pasal 8) hanya
+lewat email tanpa alat, alasan penolakan kiriman tidak disimpan, galat server
+hanya ke log mentah, janji "perubahan diumumkan ≥ 14 hari" tanpa mekanisme,
+dan pipeline memakai model Gemini yang sudah mati sebagai bawaan.
+
+**Keputusan:**
+1. **`content_reports` + `report_content()` (DEFINER).** Pelapor = `auth.uid()`,
+   bukan parameter. Subjek harus terlihat pelapor (kegiatan tayang / akun ada,
+   bukan diri sendiri) — selain itu galat yang sama (tidak bisa dipakai menebak
+   keberadaan akun). Satu laporan TERBUKA per (pelapor, subjek), 10/hari. Tanpa
+   FK ke subjek: laporan tetap ada walau acara/akun dihapus. Tamu tidak bisa
+   melapor (akuntabilitas & spam); tautan "Laporkan" mengarahkan masuk dulu.
+2. **Penangguhan = `users.suspended_at` + `auth.users.banned_until = now() +
+   100 tahun` + hapus `auth.sessions`.** BUKAN `infinity`: GoTrue (Go) gagal
+   membaca timestamp tak hingga dan menjawab **500 di setiap login akun itu** —
+   ditemukan oleh `npm run test:integration:services` (GoTrue sungguhan), tidak
+   terlihat di uji SQL. 100 tahun = `ban_duration "876000h"` milik API admin
+   GoTrue. Aplikasi memperlakukan akun ditangguhkan sebagai
+   tidak masuk SEKETIKA (`getSessionUser`); GoTrue menolak masuk & penyegaran;
+   akses PostgREST langsung paling lama sampai access token (±1 jam) habis.
+   Penangguhan juga menutup profil Koneksi & kartu pemain (tidak dipulihkan
+   otomatis). ADMIN dan diri sendiri tidak bisa ditangguhkan/dihapus dari
+   aplikasi; peran ADMIN tetap hanya lewat service_role.
+3. **`user_banned` dipetakan ke `invalid_credentials`.** Pesan "akunmu
+   ditangguhkan" di halaman masuk membocorkan bahwa email itu terdaftar DAN
+   ditangguhkan kepada siapa pun yang mengetiknya (AGENTS.md #12). Pemilik
+   akun dikabari admin lewat email — antarmuka admin mengingatkannya.
+4. **Satu pintu hapus akun: `delete_user_account()`** untuk hapus mandiri
+   (Pengaturan, frasa "HAPUS AKUN" — bukan sandi, akun Google tidak punya sandi)
+   dan hapus atas permintaan oleh admin (alasan wajib). Berkas Storage dihapus
+   DULU lewat Storage API dari daftar `account_storage_paths()`; gagal = akun
+   tidak dihapus (tidak ada berkas yatim). Log moderasi penghapusan oleh admin
+   berjudul "Akun dihapus" — tanpa nama orang yang meminta datanya dihapus.
+5. **Semua tindakan admin atas pengguna & laporan masuk `moderation_log`**
+   (subjek `user`/`report`, status OPEN/RESOLVED/DISMISSED/ACTIVE/SUSPENDED/
+   DELETED). "Turunkan kegiatan" dari laporan memakai `reviewEvent` biasa
+   (APPROVED → REJECTED) sehingga bisa dikembalikan dari Riwayat.
+6. **`ugc_submissions.rejection_reason`** ditulis bersama status (trigger
+   notifikasi membacanya dari NEW) dan tampil di "Kirimanmu".
+7. **Pemantauan galat tanpa dependency:** `instrumentation.ts`
+   `onRequestError` → satu baris JSON `request_error` (path tanpa query string)
+   + webhook Slack/Discord opsional (`ERROR_ALERT_WEBHOOK_URL`), dibatasi per
+   galat 1×/5 menit dan 10 kiriman/5 menit. Sentry tetap opsi bila pemilik
+   menyetujui dependency.
+8. **Banner perubahan dokumen hukum** tampil otomatis selama tanggal berlaku
+   final di env masih di masa depan — memenuhi janji 14 hari tanpa panel admin.
+9. **Pipeline: `GEMINI_MODEL` wajib, tanpa bawaan, divalidasi `models.get` saat
+   start.** Id pengganti tidak dikarang; harus dicek dengan kunci pemilik.
+10. Label log moderasi disatukan di `src/lib/moderation-labels.ts` (sebelumnya
+    disalin di dua halaman).
+
+**Konsekuensi:** + Penipuan & pelecehan punya jalur lapor → tindak yang
+tercatat. + Hak hapus UU PDP bisa dipakai tanpa menunggu email. + Galat
+produksi terlihat dalam hitungan detik bila webhook diisi. + `banned_until` &
+`auth.sessions` diubah lewat SQL dari fungsi DEFINER, jadi perilakunya
+dibuktikan dengan GoTrue v2.170 & Storage API v1.14 sungguhan (Docker,
+`npm run test:integration:services`, job CI `integration`): masuk ditolak
+`user_banned`, refresh token lama mati, cabut → bisa masuk lagi; hapus akun
+menghapus objek Storage + `auth.identities`/`sessions` asli. Versi GoTrue di
+project Supabase bisa lebih baru — uji ulang manual di staging tetap perlu. −
+Mode seed tidak mengenal peran/email orang contoh: pencarian admin demo hanya
+menemukan orang contoh & pengguna demo yang pernah bertindak. − Belum ada
+pemberitahuan otomatis ke pelapor saat laporannya diputuskan.
 
 ---
 

@@ -228,6 +228,8 @@ END$$;
 -- 7. Log append-only: tidak bisa dihapus/diubah lewat API.
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-0000000d0a03';
+-- Admin terverifikasi penuh (MFA) pun tidak bisa menghapus log.
+SET LOCAL request.jwt.claims = '{"aal":"aal2"}';
 DO $$
 BEGIN
   BEGIN

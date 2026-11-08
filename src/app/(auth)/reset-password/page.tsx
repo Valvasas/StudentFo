@@ -4,7 +4,7 @@ import { updatePasswordAction } from '@/app/auth/actions';
 import { AuthField, AuthHeading } from '@/components/auth/auth-field';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { NewPasswordInput } from '@/components/auth/new-password-input';
-import { PasswordInput } from '@/components/auth/password-input';
+import { ConfirmPasswordInput } from '@/components/auth/confirm-password-input';
 import { buttonVariants } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
@@ -63,7 +63,7 @@ export default async function ResetPasswordPage({
           <NewPasswordInput id="password" name="password" autoComplete="new-password" required />
         </AuthField>
         <AuthField id="confirmPassword" label="Ulangi kata sandi baru">
-          <PasswordInput id="confirmPassword" name="confirmPassword" autoComplete="new-password" required minLength={8} maxLength={72} />
+          <ConfirmPasswordInput id="confirmPassword" name="confirmPassword" matchId="password" autoComplete="new-password" required />
         </AuthField>
         <SubmitButton pendingLabel="Menyimpan…" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
           Simpan kata sandi baru

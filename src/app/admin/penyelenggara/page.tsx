@@ -15,7 +15,7 @@ import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
-import type { EventDetail } from '@/types/domain';
+import { ORGANIZER_TYPE_LABEL, type EventDetail } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -190,6 +190,12 @@ export default async function OrganizerQueuePage({ searchParams }: { searchParam
                       </span>
                     </div>
                     <h3 className="text-base font-semibold">{profile.orgName}</h3>
+                    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                      <dt className="text-ink-muted">Jenis lembaga</dt>
+                      <dd>{profile.orgType ? ORGANIZER_TYPE_LABEL[profile.orgType] : 'Tidak diisi (pengajuan lama)'}</dd>
+                      <dt className="text-ink-muted">Jabatan pengaju</dt>
+                      <dd className="break-words">{profile.contactRole ?? 'Tidak diisi (pengajuan lama)'}</dd>
+                    </dl>
                     <ExternalRef url={profile.website} label="Situs resmi lembaga" />
                     <div className="rounded-card bg-panel-nested p-3 text-sm">
                       <p className="mb-1 font-medium text-ink-muted">Bukti peran</p>

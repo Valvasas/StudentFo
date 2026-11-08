@@ -240,7 +240,7 @@
 
   /* Permukaan "gelap-selalu" di tema gelap TERANGKAT dari kanvas, bukan
      lebih gelap: #0d0c09 di atas #15140f hanya ±1,06:1, sehingga panel,
-     toast, dan kartu ajakan larut ke halaman tanpa batas (ADR-061). */
+     toast, dan kartu ajakan larut ke halaman tanpa batas (ADR-064). */
   --color-inverse-surface: #2b2922;
   --color-inverse-nested: #3b382f;
   --color-inverse-text: #efebe1;
@@ -1219,7 +1219,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 
 
 /* =====================================================================
-   11. UMPAN BALIK KECIL YANG MEMUASKAN (ADR-061)
+   11. UMPAN BALIK KECIL YANG MEMUASKAN (ADR-064)
    Hanya anak dekoratif DI DALAM target (ikon) yang bergerak — kotak sentuh
    tidak pernah bergeser (ADR-039/055). Sekali jalan saat elemen muncul,
    jadi ikut aturan reduced-motion §3 tanpa kode tambahan.
@@ -1242,7 +1242,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   100% { transform: none; }
 }
 
-/* Gradien urgensi tenggat (ADR-061): satu tinta, intensitas naik PER HARI.
+/* Gradien urgensi tenggat (ADR-064): satu tinta, intensitas naik PER HARI.
    `--ramp` = 0 di H-7 … 1 di hari-H (diisi DeadlineTag). Latar & garis
    dicampur dari tinta tenggat ke permukaan kartu, jadi tetap monokrom,
    ikut tema gelap tanpa salinan kedua, dan teksnya selalu tinta penuh
@@ -1263,7 +1263,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 }
 
 /* =====================================================================
-   12. LATAR & PANGGUNG BERGERAK (ADR-062)
+   12. LATAR & PANGGUNG BERGERAK (ADR-065)
    ===================================================================== */
 
 /* Coretan latar bergeser pelan mengikuti posisi gulir (kedalaman semu).
@@ -1284,7 +1284,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   }
 }
 
-/* Tur beranda (ADR-062). Setiap langkah dipasang ulang (`key`), jadi
+/* Tur beranda (ADR-065). Setiap langkah dipasang ulang (`key`), jadi
    animasi masuknya berjalan lagi; jedanya lewat `--t`. Keadaan akhir =
    keadaan bawaan elemen, sehingga reduced-motion & tanpa-JS langsung
    menampilkan panggung yang utuh. */

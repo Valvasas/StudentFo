@@ -5,8 +5,8 @@ import { redirect } from 'next/navigation';
 import { isPerAddressEmailThrottle, mapSupabaseAuthError, type AuthErrorCode } from '@/lib/auth-messages';
 import {
   AGE_CONFIRM_VALUE,
+  AUTHORITY_CONFIRM_VALUE,
   changePasswordSchema,
-  firstIssue,
   newPasswordSchema,
   parseAccountType,
   postSignUpPath,
@@ -16,6 +16,9 @@ import {
   signUpSchema,
   type AccountType,
 } from '@/lib/auth-schema';
+import { writeOrganizerDraftCookie } from '@/lib/organizer-draft-cookie';
+import { newPasswordFailure, signUpValidationFailure } from '@/lib/auth-failure';
+import { ORGANIZER_DRAFT_FIELDS, organizerApplicationSchema, organizerSignUpSchema, toOrganizerDraft } from '@/lib/organizer';
 import { seedDemoNetwork, seedDemoOrganizer, seedDemoParticipation, seedDemoPortfolio } from '@/lib/data';
 import { DEMO_PERSONAS, demoEmailOf, isDemoPersonaId } from '@/lib/demo/personas';
 import { isDemoAdminPersonaAllowed, isDemoAvailable } from '@/lib/demo/gate';
@@ -23,10 +26,16 @@ import { endDemoSession, startDemoSession } from '@/lib/demo/session';
 import { dataMode, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
 import { LEGAL_REVISION, legalConsentRecord } from '@/lib/legal';
-import { PASSWORD_MAX_LENGTH, passwordByteLength } from '@/lib/password-rules';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isAccountRateLimited, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
-import { safeNextPath } from '@/lib/safe-redirect';
+import {
+  audienceHome,
+  audienceLoginPath,
+  ORGANIZER_HOME_PATH,
+  ORGANIZER_REGISTER_PATH,
+  parseAuthAudience,
+  safeNextPath,
+} from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -69,21 +78,23 @@ function callbackUrl(next: string, consentRevision?: string): string {
   return `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}${consent}`;
 }
 
-/**
- * Sandi > 72 byte UTF-8 (batas bcrypt) diberi kode sendiri: "Ada isian yang
- * belum benar" tidak memberi tahu bahwa huruf beraksen/emoji dihitung ganda.
- */
-function passwordFailure(password: string): AuthErrorCode {
-  return passwordByteLength(password) > PASSWORD_MAX_LENGTH ? 'password_too_long' : 'validation';
-}
-
-/** Kembali ke /register dengan pilihan jenis akun & tujuan tetap utuh. */
+/** Kembali ke halaman daftar asalnya (peserta / penyelenggara, ADR-063) dengan tujuan tetap utuh. */
 function registerHref(failure: AuthErrorCode, email: string, accountType: AccountType | null, next: string): string {
-  return authHref('/register', {
+  const organizer = accountType === 'organizer';
+  return authHref(organizer ? ORGANIZER_REGISTER_PATH : '/register', {
     error: failure,
     email: echoEmail(email),
-    type: accountType === 'organizer' ? accountType : undefined,
-    next: next === '/' ? undefined : next,
+    next: next === audienceHome(organizer ? 'organizer' : 'participant') ? undefined : next,
+  });
+}
+
+/** Kembali ke halaman masuk asalnya; `audience` dikirim form sebagai isian tersembunyi. */
+function loginFailureHref(formData: FormData, failure: AuthErrorCode, next: string, email?: string): string {
+  const audience = parseAuthAudience(field(formData, 'audience'));
+  return authHref(audienceLoginPath(audience), {
+    error: failure,
+    email: email === undefined ? undefined : echoEmail(email),
+    next: next === audienceHome(audience) ? undefined : next,
   });
 }
 
@@ -125,15 +136,7 @@ export async function signInAction(formData: FormData): Promise<void> {
     }
   }
 
-  if (failure) {
-    redirect(
-      authHref('/login', {
-        error: failure,
-        email: echoEmail(email),
-        next: next === '/' ? undefined : next,
-      }),
-    );
-  }
+  if (failure) redirect(loginFailureHref(formData, failure, next, email));
 
   // Navbar dirender di layout dan ikut ter-cache di router klien; tanpa
   // revalidasi, pengguna yang baru masuk masih melihat tombol "Masuk".
@@ -141,104 +144,161 @@ export async function signInAction(formData: FormData): Promise<void> {
   redirect(next);
 }
 
-export async function signUpAction(formData: FormData): Promise<void> {
-  const next = safeNextPath(field(formData, 'next'));
-  const email = field(formData, 'email');
-  const accountType = parseAccountType(field(formData, 'accountType'));
-  const destination = postSignUpPath(accountType ?? 'participant', next);
-  let failure: AuthErrorCode | null = null;
-  let hasSession = false;
+type SignUpOutcome = { readonly failure: AuthErrorCode } | { readonly failure: null; readonly hasSession: boolean };
 
-  if (dataMode === 'seed') {
-    failure = 'unavailable';
-  } else {
-    const parsed = signUpSchema.safeParse({
-      accountType: field(formData, 'accountType'),
-      fullName: field(formData, 'fullName'),
-      email,
-      password: field(formData, 'password'),
-      ageConfirm: field(formData, 'ageConfirm'),
-      privacyConsent: field(formData, 'privacyConsent'),
-    });
-    const ip = await currentClientIp();
+/**
+ * Inti daftar dengan email untuk kedua pintu (peserta & penyelenggara).
+ *
+ * Batas laju & CAPTCHA diperiksa SEBELUM Supabase dipanggil — urutan ini
+ * yang membuat `email_taken` (ADR-069) aman: setiap alamat yang diperiksa
+ * menghabiskan satu CAPTCHA dan satu dari lima jatah per jam per IP.
+ */
+async function signUpWithEmail(
+  formData: FormData,
+  account: { email: string; password: string; fullName: string; accountType: AccountType; organizerDraft?: Record<string, string> },
+  destination: string,
+): Promise<SignUpOutcome> {
+  const ip = await currentClientIp();
+  if (await isRateLimited(ip, [[RATE_LIMITS.signUpPerIp]])) return { failure: 'rate_limited' };
+  // Setelah pembatas laju (pola /submit): banjir dari satu mesin tidak ikut
+  // menghabiskan kuota verifikasi Turnstile.
+  if (!(await passesCaptcha(formData, ip))) return { failure: 'captcha_failed' };
 
-    if (!parsed.success) {
-      failure = firstIssue(parsed.error, 'ageConfirm')
-        ? 'age_required'
-        : firstIssue(parsed.error, 'privacyConsent')
-          ? 'consent_required'
-          : passwordFailure(field(formData, 'password'));
-    } else if (await isRateLimited(ip, [[RATE_LIMITS.signUpPerIp]])) {
-      failure = 'rate_limited';
-    } else if (!(await passesCaptcha(formData, ip))) {
-      // Setelah pembatas laju (pola /submit): banjir dari satu mesin tidak
-      // ikut menghabiskan kuota verifikasi Turnstile.
-      failure = 'captcha_failed';
-    } else {
-      const supabase = await createSupabaseServerClient();
-      const { data, error } = await supabase.auth.signUp({
-        email: parsed.data.email,
-        password: parsed.data.password,
-        options: {
-          // full_name dibaca trigger handle_new_user(). account_type dan
-          // legal_consent hanya catatan: user metadata bisa diubah pemiliknya
-          // sendiri, jadi tidak pernah dipakai untuk izin apa pun.
-          data: {
-            full_name: parsed.data.fullName,
-            account_type: parsed.data.accountType,
-            legal_consent: legalConsentRecord('email'),
-          },
-          emailRedirectTo: callbackUrl(destination),
-        },
-      });
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signUp({
+    email: account.email,
+    password: account.password,
+    options: {
+      // full_name dibaca trigger handle_new_user(). account_type,
+      // legal_consent, dan organizer_application hanya catatan/draf: user
+      // metadata bisa diubah pemiliknya sendiri, jadi tidak pernah dipakai
+      // untuk izin apa pun.
+      data: {
+        full_name: account.fullName,
+        account_type: account.accountType,
+        legal_consent: legalConsentRecord('email'),
+        ...(account.organizerDraft ? { organizer_application: account.organizerDraft } : {}),
+      },
+      emailRedirectTo: callbackUrl(destination),
+    },
+  });
 
-      if (error && isPerAddressEmailThrottle(error)) {
-        // Dua pendaftaran beruntun untuk alamat yang sama akan membedakan
-        // "sudah punya akun" dari "baru" lewat jeda ini — jatuh ke halaman
-        // "cek email" yang seragam, seperti lupa sandi & kirim ulang.
-        console.error('[auth] daftar: jeda per alamat dari Supabase:', error.code ?? error.status);
-      } else if (error) {
-        failure = mapSupabaseAuthError(error);
-      } else {
-        hasSession = data.session !== null;
-      }
-    }
+  if (error && isPerAddressEmailThrottle(error)) {
+    // Jeda per alamat hanya terpasang untuk akun yang ADA tetapi BELUM
+    // dikonfirmasi (akun terkonfirmasi dijawab tanpa mengirim email), dan
+    // tautan pertamanya masih berlaku — "cek email" tetap kalimat yang benar.
+    console.error('[auth] daftar: jeda per alamat dari Supabase:', error.code ?? error.status);
+    return { failure: null, hasSession: false };
   }
+  if (error) return { failure: mapSupabaseAuthError(error) };
+  // Konfirmasi email NYALA: Supabase menjawab alamat yang sudah terkonfirmasi
+  // dengan pengguna samaran tanpa identitas, tanpa membuat akun & tanpa
+  // email. Dulu kasus ini sengaja ditelan (ADR-011) sehingga daftar ulang
+  // tampak "berhasil"; kini dijawab terang (ADR-069). Konfirmasi MATI
+  // menjawabnya `user_already_exists` → kode yang sama lewat mapper.
+  if (data.user && data.user.identities?.length === 0) return { failure: 'email_taken' };
+  return { failure: null, hasSession: data.session !== null };
+}
 
-  if (failure) {
-    redirect(registerHref(failure, email, accountType, next));
-  }
-
+function finishSignUp(outcome: SignUpOutcome, failureHref: (failure: AuthErrorCode) => string, email: string, destination: string): never {
+  if (outcome.failure) redirect(failureHref(outcome.failure));
   // Kalau konfirmasi email dimatikan di project Supabase, signUp langsung
   // memberi sesi dan pengguna tidak perlu dilempar ke halaman "cek email".
-  if (hasSession) {
+  if (outcome.hasSession) {
     revalidatePath('/', 'layout');
     redirect(destination);
   }
-
-  // TIDAK ada percabangan untuk "email sudah terdaftar" di sini, meski
-  // Supabase menandainya lewat `identities: []`. Menampilkan pesan berbeda
-  // untuk kasus itu mengubah halaman daftar jadi alat pemeriksa keanggotaan:
-  // ketik email siapa pun, baca balasannya, tahu dia punya akun atau tidak.
   redirect(authHref('/verify-email', { email: echoEmail(email), next: destination === '/' ? undefined : destination }));
 }
 
+/** Pintu daftar peserta (`/register`). */
+export async function signUpAction(formData: FormData): Promise<void> {
+  const next = safeNextPath(field(formData, 'next'));
+  const email = field(formData, 'email');
+  const password = field(formData, 'password');
+  // Form penyelenggara lama (tanpa data lembaga) yang masih terbuka di tab
+  // seseorang tetap bisa dikirim; pengajuannya diisi di studio.
+  const accountType = parseAccountType(field(formData, 'accountType'));
+  const destination = postSignUpPath(accountType ?? 'participant', next);
+  const failureHref = (failure: AuthErrorCode) => registerHref(failure, email, accountType, next);
+
+  if (dataMode === 'seed') redirect(failureHref('unavailable'));
+
+  const parsed = signUpSchema.safeParse({
+    accountType: field(formData, 'accountType'),
+    fullName: field(formData, 'fullName'),
+    email,
+    password,
+    confirmPassword: field(formData, 'confirmPassword'),
+    ageConfirm: field(formData, 'ageConfirm'),
+    privacyConsent: field(formData, 'privacyConsent'),
+  });
+  if (!parsed.success) redirect(failureHref(signUpValidationFailure(parsed.error, password)));
+
+  const outcome = await signUpWithEmail(formData, parsed.data, destination);
+  finishSignUp(outcome, failureHref, email, destination);
+}
+
+/**
+ * Pintu daftar penyelenggara (`/penyelenggara/daftar`, ADR-069). Data
+ * lembaga divalidasi dengan skema pengajuan studio dan dibawa sebagai draf
+ * di metadata — sebelum email dikonfirmasi belum ada sesi untuk mengajukan.
+ */
+export async function organizerSignUpAction(formData: FormData): Promise<void> {
+  const email = field(formData, 'email');
+  const password = field(formData, 'password');
+  const failureHref = (failure: AuthErrorCode) => registerHref(failure, email, 'organizer', ORGANIZER_HOME_PATH);
+
+  if (dataMode === 'seed') redirect(failureHref('unavailable'));
+
+  const parsed = organizerSignUpSchema.safeParse({
+    fullName: field(formData, 'fullName'),
+    email,
+    password,
+    confirmPassword: field(formData, 'confirmPassword'),
+    ageConfirm: field(formData, 'ageConfirm'),
+    privacyConsent: field(formData, 'privacyConsent'),
+    authority: field(formData, 'authority'),
+    ...readOrganizerFields(formData),
+  });
+  if (!parsed.success) redirect(failureHref(signUpValidationFailure(parsed.error, password)));
+
+  const outcome = await signUpWithEmail(
+    formData,
+    { ...parsed.data, accountType: 'organizer', organizerDraft: toOrganizerDraft(parsed.data) },
+    ORGANIZER_HOME_PATH,
+  );
+  finishSignUp(outcome, failureHref, email, ORGANIZER_HOME_PATH);
+}
+
+function readOrganizerFields(formData: FormData): Record<(typeof ORGANIZER_DRAFT_FIELDS)[number], string> {
+  return Object.fromEntries(ORGANIZER_DRAFT_FIELDS.map((name) => [name, field(formData, name)])) as Record<(typeof ORGANIZER_DRAFT_FIELDS)[number], string>;
+}
+
 export async function signInWithGoogleAction(formData: FormData): Promise<void> {
-  // Dari /register tombol Google berada di form daftar yang sama, jadi ikut
-  // mengirim jenis akun & persetujuan; dari /login keduanya tidak ada.
+  // Dari halaman daftar tombol Google berada di form daftar yang sama, jadi
+  // ikut mengirim jenis akun & persetujuan; dari /login keduanya tidak ada.
   const accountType = parseAccountType(field(formData, 'accountType'));
   const requested = safeNextPath(field(formData, 'next'));
   const next = accountType ? postSignUpPath(accountType, requested) : requested;
+  // Form penyelenggara (ADR-069) mengirim data lembaga; tombol Google lewat
+  // `formNoValidate`, jadi syaratnya diperiksa ulang di sini — pintu Google
+  // tidak boleh lebih longgar daripada pintu email.
+  const organizerForm = accountType === 'organizer' && formData.has('orgName');
   let destination: string | null = null;
-  let failure: AuthErrorCode | null = null;
+  let organizerDraft: Record<string, string> | null = null;
+  let failure: AuthErrorCode | null = dataMode === 'seed' ? 'unavailable' : null;
 
-  if (dataMode === 'seed') {
-    failure = 'unavailable';
-  } else if (accountType && field(formData, 'ageConfirm') !== AGE_CONFIRM_VALUE) {
-    failure = 'age_required';
-  } else if (accountType && field(formData, 'privacyConsent') !== PRIVACY_CONSENT_VALUE) {
-    failure = 'consent_required';
-  } else {
+  if (!failure && organizerForm) {
+    const parsed = organizerApplicationSchema.safeParse(readOrganizerFields(formData));
+    if (!parsed.success) failure = 'organizer_details';
+    else if (field(formData, 'authority') !== AUTHORITY_CONFIRM_VALUE) failure = 'authority_required';
+    else organizerDraft = toOrganizerDraft(parsed.data);
+  }
+  if (!failure && accountType && field(formData, 'ageConfirm') !== AGE_CONFIRM_VALUE) failure = 'age_required';
+  if (!failure && accountType && field(formData, 'privacyConsent') !== PRIVACY_CONSENT_VALUE) failure = 'consent_required';
+
+  if (!failure) {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -252,6 +312,10 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
       failure = error ? mapSupabaseAuthError(error) : 'unknown';
     } else {
       destination = data.url;
+      // OAuth tidak membawa metadata akun: draf dititipkan di cookie berumur
+      // pendek yang hanya terkirim ke /auth/callback, lalu dipindah ke
+      // metadata di sana (pola yang sama dengan bukti persetujuan).
+      if (organizerDraft) await writeOrganizerDraftCookie(organizerDraft);
     }
   }
 
@@ -259,7 +323,7 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
     redirect(
       accountType
         ? registerHref(failure, field(formData, 'email'), accountType, requested)
-        : authHref('/login', { error: failure, next: next === '/' ? undefined : next }),
+        : loginFailureHref(formData, failure, next),
     );
   }
 
@@ -423,7 +487,7 @@ export async function updatePasswordAction(formData: FormData): Promise<void> {
     });
 
     if (!parsed.success) {
-      failure = passwordFailure(field(formData, 'password'));
+      failure = newPasswordFailure(parsed.error, field(formData, 'password')) ?? 'validation';
     } else {
       const supabase = await createSupabaseServerClient();
       const { data: userData } = await supabase.auth.getUser();
@@ -467,7 +531,7 @@ export async function changePasswordAction(formData: FormData): Promise<void> {
     });
 
     if (!parsed.success) {
-      failure = passwordFailure(field(formData, 'password'));
+      failure = newPasswordFailure(parsed.error, field(formData, 'password')) ?? 'validation';
     } else {
       const supabase = await createSupabaseServerClient();
       const { data: userData } = await supabase.auth.getUser();

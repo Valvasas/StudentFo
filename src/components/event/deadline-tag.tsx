@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
  * ketidakcocokan hidrasi antara jam server dan jam perangkat user.
  *
  * Urgensi dibawa GRADIEN satu tinta, bukan warna baru (palet monokrom,
- * ADR-039; gradiennya ADR-061): aman = teks biasa; H-7..H-3 = pil bergaris
+ * ADR-039; gradiennya ADR-064): aman = teks biasa; H-7..H-3 = pil bergaris
  * yang latar & garisnya makin pekat SETIAP hari (`due-ramp`, `urgencyRamp`);
  * H-2..hari ini = pil terisi penuh, dan di hari-H ditambah titik yang
  * berdenyut pelan. Dulu dua tingkat terakhir identik, sehingga baris

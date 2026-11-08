@@ -139,7 +139,7 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    ```
 5. Job terjadwal sudah ada di `.github/workflows/` (expiry harian, notifikasi
    tenggat, scraper). Isi GitHub Secrets `SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, dan `PIPELINE_SOURCES_YAML`
+   `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL` (wajib, tanpa bawaan — cek id hidup lewat `models.list`), dan `PIPELINE_SOURCES_YAML`
    (isi lengkap `sources.yaml` — berkas itu sengaja tidak disimpan di repo).
 
 ### Autentikasi
@@ -179,6 +179,18 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
    `/admin/kalibrasi`). Bagi akun non-admin `/admin` sengaja **404**, bukan
    "akses ditolak" — keberadaan panelnya tidak diiklankan (ADR-057). Mencabut:
    `UPDATE public.users SET role = 'USER' WHERE email = '…';`
+8. **MFA admin (wajib, ADR-062 #4)** — Authentication → Multi-Factor: pastikan
+   TOTP aktif (bawaan Supabase). Admin baru membuka `/admin`, diarahkan ke
+   `/admin/mfa`, memindai QR dengan aplikasi autentikator, lalu setiap sesi
+   diminta kode 6 digit. Tanpa aal2, `is_admin()` di database ikut menolak.
+   **Ponsel admin hilang:** Authentication → Users → pilih akun → hapus faktor
+   MFA-nya; admin memasang ulang dari `/admin/mfa`. Jangan menurunkan
+   kewajibannya.
+9. **Pengingat tenggat lewat email (opsional, ADR-062 #6)** — buat akun Resend,
+   verifikasi domain pengirim (SPF/DKIM), isi `RESEND_API_KEY`, `EMAIL_FROM`,
+   `EMAIL_LINK_SECRET` (lihat `.env.example`), lalu secret GitHub `SITE_URL` +
+   `CRON_SECRET` untuk `.github/workflows/send-deadline-emails.yml`. Pengguna
+   menyalakannya sendiri di Pengaturan; tanpa konfigurasi, kartunya tidak tampil.
 
 `SUPABASE_SERVICE_ROLE_KEY` hanya dibutuhkan pipeline dan aksi admin. Kunci itu
 mem-bypass RLS — jangan pernah diberi prefix `NEXT_PUBLIC_`, dan jangan di-commit.
@@ -294,6 +306,8 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
   npm run db:test                         # semua migration + RLS, FTS, staging, dedup, notifikasi
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
   npm run test:integration                # SupabaseEventRepository lewat PostgREST sungguhan + paritas demo↔produksi
+DATABASE_URL=… npm run test:integration:services  # sama, + GoTrue & Storage API sungguhan (butuh Docker):
+                                          #   penangguhan, hapus akun + berkas Storage (ADR-061)
 npm run test:a11y                         # Playwright mode seed: axe WCAG 2.2 (termasuk di balik login demo), CSP, target 44px,
                                           #   320/375px, tanpa-JS, perjalanan demo (183 uji di 3 proyek)
 DATABASE_URL=… npm run test:e2e:supabase   # build produksi mode Supabase: Data Cache, revalidateTag, admin, in-app browser
@@ -304,7 +318,8 @@ Jalankan Postgres lokal untuk `db:test` dengan
 Image polos itu tidak punya pg_cron, jadi `60_pg_cron_jobs` dilewati. Untuk
 menguji jalur pg_cron: pasang `postgresql-<ver>-cron`, lalu di `postgresql.conf`
 `shared_preload_libraries = 'pg_cron'`, `cron.database_name = 'studentfo_migration_test'`,
-`cron.use_background_workers = on`, dan restart.
+`cron.use_background_workers = on`, dan restart. Dengan itu `60_pg_cron_jobs`
+dan bagian pg_cron dari `104_cron_job_health` benar-benar berjalan.
 
 Yang diuji adalah tempat bug paling mahal: perhitungan hari lintas zona waktu,
 ambang urgensi, bobot rekomendasi, parsing parameter URL dari pihak tak dipercaya,

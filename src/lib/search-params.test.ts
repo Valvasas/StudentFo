@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildEventHref, hasActiveFilters, parseEventQuery, toggleFilterHref } from './search-params';
+import { buildEventHref, hasActiveFilters, isBoardUnfiltered, parseEventQuery, toggleFilterHref } from './search-params';
 
 describe('parseEventQuery', () => {
   it('membuang nilai yang tidak dikenal alih-alih melempar error', () => {
@@ -104,5 +104,20 @@ describe('filter lokasi & mode', () => {
   it('lokasi & mode dihitung sebagai filter aktif', () => {
     expect(hasActiveFilters(parseEventQuery({ lokasi: 'Bandung' }))).toBe(true);
     expect(hasActiveFilters(parseEventQuery({ mode: 'daring' }))).toBe(true);
+  });
+});
+
+describe('isBoardUnfiltered', () => {
+  it('jenis papan sendiri tidak dihitung sebagai saringan', () => {
+    expect(isBoardUnfiltered(parseEventQuery({ type: 'LOMBA' }))).toBe(true);
+    expect(isBoardUnfiltered(parseEventQuery({ type: ['WORKSHOP', 'PELATIHAN'] }))).toBe(true);
+  });
+
+  it('kata kunci, bidang, jenjang, biaya, atau "tampilkan yang ditutup" = papan tersaring', () => {
+    expect(isBoardUnfiltered(parseEventQuery({ type: 'LOMBA', q: 'desain' }))).toBe(false);
+    expect(isBoardUnfiltered(parseEventQuery({ type: 'LOMBA', kategori: 'desain' }))).toBe(false);
+    expect(isBoardUnfiltered(parseEventQuery({ type: 'BEASISWA', jenjang: 'S2' }))).toBe(false);
+    expect(isBoardUnfiltered(parseEventQuery({ type: 'MAGANG', biaya: 'gratis' }))).toBe(false);
+    expect(isBoardUnfiltered(parseEventQuery({ type: 'LOMBA', tampilkan: 'semua' }))).toBe(false);
   });
 });
