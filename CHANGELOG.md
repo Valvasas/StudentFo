@@ -69,6 +69,12 @@ yang tidak memuat migration yang sudah ada di produksi
 ## Riwayat (terbaru di atas)
 
 ### 2026-11-08 — cabang `claude/registration-form-competition-features-sptvfz`
+> **Status penggabungan:** bagian 1 (gabung versi produksi + form daftar
+> penyelenggara, ulangi sandi, email ganda) MASUK `main` lewat PR #26 (`d4ab7c9`).
+> Bagian 2 (pendataan kinerja, lobi, lencana publik, penjaga anti-regresi —
+> `c0dc1a3`) di-push SETELAH PR #26 di-merge: **belum di `main` sampai PR
+> berikutnya digabung.** Jangan mulai sesi baru dari `main` sebelum itu.
+
 - Gabung `ccr-c5c96a43-8eijqc` (versi produksi) ke cabang kerja; konflik Pengaturan diselesaikan dengan hub ADR-067.
 - Form daftar penyelenggara terpisah dengan data lembaga; ulangi kata sandi di semua form sandi baru; email ganda ditolak terang (ADR-069).
 - Pendataan kinerja sebelum keluar ke tautan resmi + dasbor `/admin/kinerja` (ADR-070).
