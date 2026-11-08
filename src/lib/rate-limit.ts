@@ -35,6 +35,8 @@ export const RATE_LIMITS = {
    * tidak membuka celah "kunci akun orang lain" seperti batas per-email.
    */
   reauthPerAccount: { name: 'reauth-account', limit: 10, windowSeconds: 60 * 60 },
+  /** Kode TOTP admin per AKUN (ADR-062): 6 digit = 10⁶ kemungkinan; 10 tebakan/15 menit. */
+  mfaPerAccount: { name: 'mfa-account', limit: 10, windowSeconds: 15 * 60 },
   submissionPerIp: { name: 'submit-ip', limit: 5, windowSeconds: 60 * 60 },
   /** Sinyal rekomendasi: di atas ini, klik dianggap penggelembungan dan tidak dicatat (tetap dialihkan). */
   signalPerIp: { name: 'signal-ip', limit: 60, windowSeconds: 60 * 60 },

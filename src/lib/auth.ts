@@ -2,8 +2,10 @@ import 'server-only';
 import { cache } from 'react';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
+import { readAdminMfaStep, type AdminMfaStep } from '@/lib/admin-mfa';
 import { demoEmailOf } from '@/lib/demo/personas';
 import { readDemoSession } from '@/lib/demo/session';
+import { isDemoUserSuspended } from '@/lib/data';
 import { dataMode } from '@/lib/env';
 import { NOT_FOUND_TITLE } from '@/lib/page-title';
 import { loginHref } from '@/lib/safe-redirect';
@@ -48,9 +50,14 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('full_name, role, education_level, major, interests')
+    .select('full_name, role, education_level, major, interests, suspended_at')
     .eq('id', user.id)
     .maybeSingle<UserProfileRow>();
+
+  // Akun yang ditangguhkan (ADR-061) diperlakukan tidak masuk SEKETIKA, tanpa
+  // menunggu access token-nya kedaluwarsa. GoTrue (`banned_until`) menolak
+  // masuk & penyegaran berikutnya.
+  if (profile?.suspended_at) return null;
 
   const metadataName =
     typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null;
@@ -78,7 +85,7 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
  */
 async function getDemoUser(): Promise<AuthUser | null> {
   const session = await readDemoSession();
-  if (!session) return null;
+  if (!session || isDemoUserSuspended(session.uid)) return null;
 
   return {
     id: session.uid,
@@ -109,7 +116,17 @@ export async function requireUser(returnTo: string): Promise<AuthUser> {
 
 export type AdminGate =
   | { allowed: true; reason: 'demo' | 'admin'; userId: string; userName: string }
-  | { allowed: false; reason: 'unauthenticated' | 'not-admin' };
+  | { allowed: false; reason: 'unauthenticated' | 'not-admin' }
+  | { allowed: false; reason: 'mfa-required'; step: AdminMfaStep };
+
+/**
+ * Langkah MFA yang masih kurang untuk admin (ADR-062 #4); null = sesi aal2.
+ * Mode seed tidak punya GoTrue — persona admin demo tidak diminta kode.
+ */
+export const adminMfaStep = cache(async (): Promise<AdminMfaStep | null> => {
+  if (dataMode === 'seed') return null;
+  return readAdminMfaStep(await createSupabaseServerClient());
+});
 
 /**
  * Gerbang dasbor moderasi.
@@ -124,6 +141,9 @@ export async function checkAdminAccess(): Promise<AdminGate> {
   const user = await getSessionUser();
   if (!user) return { allowed: false, reason: 'unauthenticated' };
   if (user.role !== 'ADMIN') return { allowed: false, reason: 'not-admin' };
+  // Sandi admin yang bocor tidak boleh cukup untuk moderasi & data pengguna.
+  const step = await adminMfaStep();
+  if (step) return { allowed: false, reason: 'mfa-required', step };
 
   return {
     allowed: true,
@@ -143,9 +163,14 @@ export type AdminAccess = Extract<AdminGate, { allowed: true }>;
  */
 export async function requireAdmin(): Promise<AdminAccess> {
   const gate = await checkAdminAccess();
+  // Admin sungguhan yang belum verifikasi diarahkan ke langkah MFA; hanya ia
+  // yang sampai di cabang ini, jadi tidak ada yang bocor ke non-admin.
+  if (!gate.allowed && gate.reason === 'mfa-required') redirect(ADMIN_MFA_PATH);
   if (!gate.allowed) notFound();
   return gate;
 }
+
+export const ADMIN_MFA_PATH = '/admin/mfa';
 
 /**
  * Metadata halaman admin. `export const metadata` statis dievaluasi SEBELUM

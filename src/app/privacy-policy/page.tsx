@@ -74,7 +74,19 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
             </li>
             <li>
-              <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu.
+              <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu. Bila kamu menyalakan
+              pengingat tenggat lewat email, juga waktu persetujuanmu dan catatan email mana yang sudah terkirim.
+            </li>
+            <li>
+              <strong>Tanya jawab kegiatan:</strong> pertanyaan yang kamu kirim di tab Tanya jawab, beserta waktunya. Pertanyaan tampil
+              publik dengan <em>nama depanmu saja</em>; bisa kamu hapus kapan saja, dan ikut terhapus bila akunmu dihapus. Jawaban
+              penyelenggara atau moderator juga tampil publik.
+            </li>
+            <li>
+              <strong>Laporan:</strong> alasan dan keterangan saat kamu melaporkan kegiatan, pertanyaan, atau pengguna lain.
+            </li>
+            <li>
+              <strong>Status akun:</strong> bila akunmu ditangguhkan admin karena melanggar Syarat &amp; Ketentuan, waktu dan alasannya.
             </li>
             <li>
               <strong>Sinyal rekomendasi:</strong> catatan bahwa sebuah kegiatan disimpan atau tombol daftarnya diklik, beserta jenjang dan minatmu
@@ -106,7 +118,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             </li>
             <li>
               <strong>Persetujuanmu:</strong> fitur yang membuat dirimu terlihat orang lain (direktori Koneksi, kartu pemain, portofolio publik),
-              masuk dengan Google, dan pemrosesan data pengguna berusia di bawah 18 tahun. Persetujuan bisa kamu tarik kapan saja tanpa
+              masuk dengan Google, pengingat tenggat lewat email (mati sampai kamu menyalakannya di Pengaturan; setiap email memuat tautan
+              berhenti), dan pemrosesan data pengguna berusia di bawah 18 tahun. Persetujuan bisa kamu tarik kapan saja tanpa
               memengaruhi pemrosesan sebelumnya.
             </li>
             <li>
@@ -163,8 +176,9 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               salinan itu ia menjadi pengendali data tersendiri yang wajib mematuhi UU PDP.
             </li>
             <li>
-              <strong>Moderator dan admin StudentFo:</strong> kiriman kegiatan beserta email pengirimnya, pengajuan penyelenggara, dan — hanya bila
-              diperlukan untuk menangani laporan, sengketa, atau penyalahgunaan — data pendaftaran.
+              <strong>Moderator dan admin StudentFo:</strong> kiriman kegiatan beserta email pengirimnya, pengajuan penyelenggara, laporan beserta
+              nama pelapornya, dan — hanya bila diperlukan untuk menangani laporan, sengketa, atau penyalahgunaan — data pendaftaran. Pihak yang
+              kamu laporkan tidak pernah diberi tahu siapa pelapornya.
             </li>
             <li>
               <strong>Aparat yang berwenang:</strong> hanya bila diwajibkan peraturan perundang-undangan.
@@ -198,6 +212,10 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               <strong>Penyedia pengiriman email</strong> — email konfirmasi akun dan atur ulang kata sandi.
             </li>
             <li>
+              <strong>Resend</strong> — hanya bila kamu menyalakan pengingat tenggat lewat email: alamat email, namamu, dan judul serta tenggat
+              kegiatan yang diingatkan.
+            </li>
+            <li>
               <strong>Google</strong> — hanya bila kamu memilih masuk dengan Google.
             </li>
           </ul>
@@ -226,7 +244,7 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
           <ul>
             <li>
               <strong>Akun, profil, aktivitas, koneksi, kartu pemain, dan pendaftaran:</strong> selama akunmu aktif. Saat akun dihapus, semuanya ikut
-              terhapus, termasuk bukti pembayaran.
+              terhapus, termasuk berkas bukti pembayaran. Foto galeri yang kamu unggah sebagai penyelenggara tetap menjadi bagian halaman acaranya.
             </li>
             <li>
               <strong>Notifikasi:</strong> yang sudah dibaca dihapus otomatis setelah 180 hari; semua notifikasi dihapus setelah 365 hari.
@@ -240,7 +258,12 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               yang tersisa hanya angka total per acara.
             </li>
             <li>
-              <strong>Tim yang kamu buat dan sinyal rekomendasi:</strong> tetap ada setelah akunmu dihapus, tetapi tautannya ke akunmu diputus.
+              <strong>Tim yang kamu buat, laporan yang kamu kirim, dan sinyal rekomendasi:</strong> tetap ada setelah akunmu dihapus, tetapi
+              tautannya ke akunmu diputus.
+            </li>
+            <li>
+              <strong>Catatan tindakan moderasi</strong> (keputusan laporan, penangguhan, dan penghapusan akun oleh admin) disimpan sebagai jejak
+              audit agar setiap tindakan bisa dipertanggungjawabkan. Catatan penghapusan tidak memuat namamu.
             </li>
             <li>
               <strong>Salinan cadangan basis data:</strong> data yang sudah dihapus bisa tertinggal di cadangan otomatis penyedia sampai cadangan itu
@@ -266,7 +289,10 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               mengakses dan mendapat salinan datamu, serta menerimanya dalam format yang bisa dibaca mesin — unduh dari{' '}
               <InlineLink href="/profile/privacy">Privasi &amp; data</InlineLink>, atau minta salinan lengkap lewat kontak di bawah;
             </li>
-            <li>mengakhiri pemrosesan dan meminta penghapusan akun beserta datanya;</li>
+            <li>
+              mengakhiri pemrosesan dan menghapus akun beserta datanya — langsung dari{' '}
+              <InlineLink href="/profile/privacy#hapus-akun">Pengaturan → Privasi &amp; data → Hapus akun</InlineLink>, atau lewat kontak di bawah;
+            </li>
             <li>menarik persetujuan — misalnya menutup kartu pemain atau menyembunyikan profilmu di Koneksi;</li>
             <li>menyatakan keberatan atas keputusan yang diambil hanya berdasarkan pemrosesan otomatis;</li>
             <li>meminta penundaan atau pembatasan pemrosesan;</li>

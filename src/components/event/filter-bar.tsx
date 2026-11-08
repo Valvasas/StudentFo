@@ -174,7 +174,7 @@ function FilterGroup({ label, children }: { label: string; children: React.React
 }
 
 /**
- * Panel filter (ADR-052: dilipat; ADR-061: saringan cepat).
+ * Panel filter (ADR-052: dilipat; ADR-064: saringan cepat).
  *
  * Sebelumnya semua chip (7 jenis, 6 jenjang, 2 biaya, 12 bidang, 3 urutan)
  * tampil sekaligus: di ponsel hasil pertama baru muncul setelah dua layar

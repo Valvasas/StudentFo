@@ -15,10 +15,10 @@ async function listingHits(): Promise<number> {
 }
 
 /** Cookie sesi @supabase/ssr untuk pengguna ini (token diverifikasi stack uji seperti GoTrue). */
-async function signIn(context: BrowserContext, userId: string): Promise<void> {
+async function signIn(context: BrowserContext, userId: string, aal: 'aal1' | 'aal2' = 'aal1'): Promise<void> {
   const email = `${userId}@uji.example`;
   const now = Math.floor(Date.now() / 1000);
-  const accessToken = signJwt({ role: 'authenticated', sub: userId, email }, process.env.INTEGRATION_JWT_SECRET!);
+  const accessToken = signJwt({ role: 'authenticated', aud: 'authenticated', sub: userId, email, aal }, process.env.INTEGRATION_JWT_SECRET!);
   const session = {
     access_token: accessToken,
     token_type: 'bearer',
@@ -45,9 +45,18 @@ test('katalog kosong: /about tidak memamerkan angka nol, /events menjelaskan kea
   await expect(page.getByText('kegiatan masih terbuka')).toHaveCount(0);
   await page.goto('/events');
   await expect(page.getByRole('heading', { name: 'Belum ada kegiatan yang sedang buka' })).toBeVisible();
-  // Tidak ada kegiatan karangan untuk "mengisi" katalog kosong (ADR-061).
+  // Tidak ada kegiatan karangan untuk "mengisi" katalog kosong (ADR-064).
   await expect(page.locator('main article')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Kirim kegiatan' })).toHaveAttribute('href', '/submit');
+
+  // Papan per jenis juga: kosong tanpa saringan = ajakan mengisi, bukan "longgarkan filter".
+  for (const [type, noun] of [['LOMBA', 'lomba'], ['BEASISWA', 'beasiswa'], ['MAGANG', 'lowongan magang'], ['KONFERENSI', 'seminar']] as const) {
+    await page.goto(`/events?type=${type}`);
+    await expect(page.getByRole('heading', { name: `Belum ada ${noun} yang sedang buka` })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Kirim kegiatan' })).toHaveAttribute('href', '/submit');
+  }
+  await page.goto('/events?type=LOMBA&q=apa-saja');
+  await expect(page.getByRole('heading', { name: 'Belum ada yang cocok' })).toBeVisible();
 });
 
 test('listing publik dilayani Data Cache: kunjungan kedua tidak menyentuh database', async ({ page }) => {
@@ -78,7 +87,8 @@ test('persetujuan admin mencabut cache: event langsung tayang, bukan setelah TTL
   expect((await guest.goto(`/events/${slug}`))?.status()).toBe(404);
 
   const adminContext = await browser.newContext();
-  await signIn(adminContext, createUser({ role: 'ADMIN', fullName: 'Admin E2E' }));
+  // aal2 = sudah verifikasi dua langkah (ADR-062); alur MFA-nya sendiri di admin-mfa.spec.ts.
+  await signIn(adminContext, createUser({ role: 'ADMIN', fullName: 'Admin E2E' }), 'aal2');
   const admin = await adminContext.newPage();
   await admin.goto('/admin');
   await expect(admin.getByRole('heading', { name: 'Antrean moderasi' })).toBeVisible();
@@ -186,4 +196,34 @@ test.describe('daftar: pernyataan usia dan persetujuan', () => {
       await expect(page).toHaveURL(new RegExp(`/register\\?.*error=${code}`));
     });
   }
+});
+
+/**
+ * Pintu penyelenggara (ADR-063): akun & Server Action yang sama dengan pintu
+ * peserta, tetapi galat kembali ke halaman asalnya (`audience` / jenis akun
+ * tersembunyi), bukan ke /login atau /register peserta.
+ */
+test.describe('pintu akun penyelenggara', () => {
+  test('masuk gagal kembali ke /penyelenggara/masuk dengan email terisi', async ({ page }) => {
+    await page.goto('/penyelenggara/masuk');
+    await page.getByLabel('Email').fill('panitia-tidak-ada@uji.example');
+    await page.locator('#password').fill('salah-sandi-123');
+    await page.getByRole('button', { name: 'Masuk ke studio' }).click();
+    // Kodenya bergantung ada/tidaknya GoTrue (WITH_SUPABASE_SERVICES); yang diuji di sini pintunya.
+    await expect(page).toHaveURL(/\/penyelenggara\/masuk\?error=[a-z_]+&email=panitia-tidak-ada%40uji\.example$/);
+    await expect(page.getByLabel('Email')).toHaveValue('panitia-tidak-ada@uji.example');
+  });
+
+  test('daftar tanpa persetujuan kembali ke /penyelenggara/daftar; jenis akun tidak bisa dipilih di form', async ({ page }) => {
+    await page.goto('/penyelenggara/daftar');
+    await expect(page.locator('input[name="accountType"]')).toHaveValue('organizer');
+    await expect(page.getByRole('radio')).toHaveCount(0);
+    await page.getByLabel('Nama lengkap penanggung jawab').fill('Uji Panitia');
+    await page.getByLabel('Email').fill(`panitia-${randomUUID()}@uji.example`);
+    await page.locator('#password').fill('rahasia12345');
+    await page.locator('input[name="ageConfirm"]').check();
+    await page.locator('input[name="privacyConsent"]').evaluate((el) => el.removeAttribute('required'));
+    await page.getByRole('button', { name: 'Buat akun' }).click();
+    await expect(page).toHaveURL(/\/penyelenggara\/daftar\?error=consent_required/);
+  });
 });

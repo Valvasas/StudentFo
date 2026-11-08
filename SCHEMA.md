@@ -41,7 +41,15 @@ Urutan migration (harus dijalankan berurutan):
 31. `20261015100001_registration_code_retry.sql` — `register_for_event` mencoba ulang kode pendaftaran bila tabrakan
 32. `20261020100001_team_matching.sql` — `team_seekers` + `list_team_candidates()` (ADR-057)
 33. `20261030100001_data_retention.sql` — `purge_old_notifications()` (dibaca > 180 hari / semua > 365 hari) dan `redact_decided_submission_emails()` (email kiriman yang sudah diputuskan > 90 hari → `dihapus@retensi.invalid`); service_role saja + pg_cron (ADR-060)
-34. `20261105100001_deadline_reminder_preference.sql` — `users.deadline_reminders` (bawaan TRUE, hak UPDATE per kolom) + `create_deadline_notifications()` melewati akun yang mematikannya (ADR-067)
+34. `20261031100001_trust_and_safety.sql` — `content_reports` + `report_content()`/`resolve_content_report()`, `users.suspended_at` + `set_user_suspension()`, `account_storage_paths()`/`delete_user_account()`, `ugc_submissions.rejection_reason`, subjek/status baru di `moderation_log` (ADR-061)
+35. `20261101100001_report_outcome_notifications.sql` — `resolve_content_report()` mengabari setiap pelapor (`REPORT_RESOLVED`/`REPORT_DISMISSED`, teks umum tanpa catatan moderator); "ditindak" menutup semua laporan OPEN atas subjek yang sama (ADR-062)
+36. `20261101100002_cron_job_health.sql` — `cron_job_health()` (service_role): status, run 7 hari, `overdue` untuk job `studentfo-*`; kosong tanpa pg_cron (ADR-062)
+37. `20261101100003_admin_mfa.sql` — `is_admin()` kini mensyaratkan klaim JWT `aal = aal2` (MFA TOTP) selain `role = 'ADMIN'`; semua policy & fungsi yang memanggilnya ikut (ADR-062 #4)
+38. `20261101100004_submission_stages.sql` — `approve_submission()` menyalin `payload.stages` (pengumpulan karya/pengumuman/final) ke `event_deadlines` non-utama; kiriman lama/payload asing tetap disetujui tanpa tahapan (ADR-062 #5)
+39. `20261101100005_deadline_email_reminders.sql` — `users.deadline_email_opt_in_at` + `set_deadline_email_reminders()` (authenticated, diri sendiri); `claim_notification_dispatch()` hanya untuk yang setuju, sesudah persetujuan, tidak ditangguhkan, ≤ 4 hari (ADR-062 #6)
+40. `20261101100006_event_questions.sql` — `event_questions` (RLS tanpa policy) + RPC `list_event_questions` (publik, nama depan), `ask_event_question` (5/hari), `answer_event_question` (pengelola/admin aal2), `delete_event_question` (penanya), `hide_event_question` (service_role), `list_my_event_questions` (ekspor); subjek `question` di `content_reports` & `moderation_log` (ADR-062 #7)
+41. `20261101100007_function_hardening.sql` — EXECUTE fungsi trigger `handle_new_user`/`sync_saved_count` dicabut dari `anon`/`authenticated`; `search_path` tetap untuk `touch_updated_at`, `slugify`, `compute_dedup_hash`, `events_fill_derived` (temuan Security Advisor, ADR-062 #8)
+42. `20261105100001_deadline_reminder_preference.sql` — `users.deadline_reminders` (bawaan TRUE, hak UPDATE per kolom) + `create_deadline_notifications()` melewati akun yang mematikannya (ADR-067)
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -386,6 +394,35 @@ DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom
 `submitted_by_email` dan `payload`; `payload` wajib objek JSON ≤ 16 KB dan
 email ≤ 254 karakter (CHECK). Bentuk `payload` (snake_case) dikontrak di
 `src/lib/submission-schema.ts`. Persetujuan lewat RPC `approve_submission()`.
+
+Sejak `20261031100001`: kolom `rejection_reason` (≤500, ditulis service_role
+bersama status REJECTED; trigger notifikasi menyertakannya). Bukan hak tulis klien.
+
+### `content_reports` + penangguhan & hapus akun (ADR-061)
+`content_reports`: `reporter_id` (SET NULL), `subject_type` `event|user`,
+`subject_id` (TANPA FK — laporan bertahan walau subjek dihapus), `reason`
+(daftar tertutup = `REPORT_REASONS` di `src/types/domain.ts`), `details` ≤1000,
+`status` `OPEN|RESOLVED|DISMISSED` + jejak tinjauan (CHECK konsisten). Unik
+satu OPEN per (pelapor, subjek). RLS aktif TANPA policy; semua hak dicabut dari
+`anon`/`authenticated`. Tulis: `report_content()` (DEFINER, `authenticated`,
+pelapor = `auth.uid()`, subjek harus terlihat, 10/hari). Putuskan:
+`resolve_content_report()` (service_role, tercatat di `moderation_log`;
+mulai 20261101100001 juga mengabari pelapor dan — untuk RESOLVED — menutup
+semua laporan OPEN atas subjek yang sama).
+
+`users.suspended_at` / `suspension_reason` — terbaca pemilik (RLS baris
+sendiri), tidak tertulis klien. `set_user_suspension()` (service_role): ADMIN &
+diri sendiri ditolak, alasan ≥5 karakter, ikut menulis
+`auth.users.banned_until` (now() + 100 tahun — `infinity` membuat GoTrue
+500) dan menghapus `auth.sessions`, menutup profil
+Koneksi & kartu pemain, tercatat di log.
+
+`account_storage_paths()` → berkas Storage milik akun (bukti bayar);
+`delete_user_account()` → hapus `auth.users` (CASCADE ke seluruh tabel milik
+pengguna). Keduanya service_role. Aplikasi menghapus berkas DULU.
+`moderation_log` menerima subjek `user`/`report` dan status
+`OPEN|RESOLVED|DISMISSED|ACTIVE|SUSPENDED|DELETED`.
+Uji: `supabase/tests/102_trust_and_safety.test.sql`, `tests/integration/trust-safety.test.ts`.
 
 ## Fungsi (semua `SECURITY DEFINER` punya `SET search_path = public, pg_temp`)
 

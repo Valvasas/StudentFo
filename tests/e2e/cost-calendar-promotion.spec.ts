@@ -14,7 +14,7 @@ test('filter biaya lewat chip berfungsi TANPA JavaScript; kegiatan berbiaya-tak-
   const page = await context.newPage();
   await page.goto('/events');
   const filters = page.getByRole('region', { name: 'Filter kegiatan' });
-  // Biaya ada di baris saringan cepat (ADR-061), di luar panel "Saring".
+  // Biaya ada di baris saringan cepat (ADR-064), di luar panel "Saring".
   const cost = filters.getByRole('group', { name: 'Biaya' });
   await cost.getByRole('link', { name: 'Gratis', exact: true }).click();
   await expect(page).toHaveURL(/biaya=gratis/);

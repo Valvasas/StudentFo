@@ -4,16 +4,17 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ACCOUNT_SIDEBAR_COOKIE, ACCOUNT_SIDEBAR_MAX_AGE, isSidebarCollapsed } from '@/lib/account-sidebar';
-import { toActionErrorCode, withQuery, type ActionErrorCode } from '@/lib/action-feedback';
-import { requireUser } from '@/lib/auth';
+import { type ActionErrorCode, toActionErrorCode, withQuery } from '@/lib/action-feedback';
+import { getSessionUser, requireUser } from '@/lib/auth';
 import { type AuthErrorCode } from '@/lib/auth-messages';
+import { getEventRepository } from '@/lib/data';
 import { profileSchema } from '@/lib/auth-schema';
-import { updateDemoProfile } from '@/lib/demo/session';
+import { endDemoSession, updateDemoProfile } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
 import { formList, formTrimmed as text } from '@/lib/form-data';
-import { safeNextPath } from '@/lib/safe-redirect';
-import { getEventRepository } from '@/lib/data';
+import { loginHref, safeNextPath } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { isDeleteConfirmed } from '@/lib/trust-safety';
 import { EDUCATION_LEVELS, type EducationLevel } from '@/types/domain';
 
 /**
@@ -125,4 +126,62 @@ export async function updateNotificationPreferencesAction(formData: FormData): P
   if (failure) redirect(withQuery(returnTo, { error: failure }));
   revalidatePath('/profile/settings', 'layout');
   redirect(withQuery(returnTo, { notice: deadlineReminders ? 'reminders_on' : 'reminders_off' }));
+}
+
+/** Hapus akun tinggal di Privasi & data (hak penghapusan UU PDP, di samping unduh salinan). */
+const PRIVACY_PAGE = '/profile/privacy';
+/** Pengingat email berdampingan dengan saklar pengingat di lonceng (ADR-067). */
+const NOTIFICATION_SETTINGS_PAGE = '/profile/settings/notifikasi';
+
+/**
+ * Hapus akun sendiri (ADR-061, UU PDP Pasal 8). Konfirmasi ketik frasa —
+ * bukan sandi, karena akun Google tidak punya sandi; sesi yang sah + frasa
+ * yang disengaja sudah membuktikan niat pemilik.
+ */
+export async function deleteOwnAccountAction(formData: FormData): Promise<void> {
+  const user = await getSessionUser();
+  if (!user) redirect(loginHref(PRIVACY_PAGE));
+  if (!isDeleteConfirmed(text(formData, 'confirm'))) redirect(`${withQuery(PRIVACY_PAGE, { error: 'account_delete_confirm' })}#hapus-akun`);
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).deleteAccount({ userId: user.id, actorId: user.id, reason: null });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(`${withQuery(PRIVACY_PAGE, { error: failure })}#hapus-akun`);
+
+  // Akun sudah tidak ada; yang tersisa hanya cookie sesi di peramban ini.
+  if (dataMode === 'seed') {
+    await endDemoSession();
+  } else {
+    try {
+      const supabase = await createSupabaseServerClient();
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      console.error('[akun] gagal membersihkan sesi setelah hapus akun:', error);
+    }
+  }
+  revalidatePath('/', 'layout');
+  redirect(withQuery('/', { notice: 'account_deleted' }));
+}
+
+/**
+ * Pengingat tenggat lewat email (ADR-062 #6). Tombol yang ditekan adalah
+ * tindakan persetujuan; waktunya dicatat server (RPC), bukan dari form.
+ */
+export async function setDeadlineEmailRemindersAction(formData: FormData): Promise<void> {
+  const user = await getSessionUser();
+  if (!user) redirect(loginHref(NOTIFICATION_SETTINGS_PAGE));
+  const enabled = text(formData, 'mode') === 'on';
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).setDeadlineEmailReminders(user.id, enabled);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(`${withQuery(NOTIFICATION_SETTINGS_PAGE, { error: failure })}#pengingat-email`);
+  revalidatePath(NOTIFICATION_SETTINGS_PAGE);
+  redirect(`${withQuery(NOTIFICATION_SETTINGS_PAGE, { notice: enabled ? 'email_reminders_on' : 'email_reminders_off' })}#pengingat-email`);
 }

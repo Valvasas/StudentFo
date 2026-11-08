@@ -41,7 +41,7 @@ export default async function AdminPage({
 
   const repository = await getEventRepository();
   const demoCreatedAt = demoDataCreatedAt();
-  const [pending, submissions, organizerQueue, claimQueue, revisionQueue, categories, recentLog] = await Promise.all([
+  const [pending, submissions, organizerQueue, claimQueue, revisionQueue, categories, recentLog, reportsOpen] = await Promise.all([
     repository.listByStatus('PENDING', QUEUE_LIMIT),
     repository.listSubmissions('PENDING', QUEUE_LIMIT),
     repository.listOrganizerApplications('PENDING', QUEUE_LIMIT),
@@ -49,6 +49,7 @@ export default async function AdminPage({
     repository.listRevisions('PENDING', QUEUE_LIMIT),
     repository.listCategories(),
     repository.listModerationLog(300),
+    repository.countOpenReports(),
   ]);
   const categoryNames = Object.fromEntries(categories.map((category) => [category.slug, category.name]));
   const submitterStatuses = await repository.listOrganizerStatuses(
@@ -69,7 +70,7 @@ export default async function AdminPage({
 
   return (
     <div className="container-page py-8">
-      <AdminNav active="antrean" trustWaiting={trustWaiting} />
+      <AdminNav active="antrean" trustWaiting={trustWaiting} reportsOpen={reportsOpen} />
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl">Antrean moderasi</h1>

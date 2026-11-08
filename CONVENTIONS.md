@@ -121,7 +121,7 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   warna lewat `currentColor`/token supaya ikut tema gelap (ADR-053). Kepala
   halaman fitur unggulan (tim, koneksi, kotak masuk) boleh memakai ilustrasi
   dari `feature-illustrations.tsx` — tetap satu per layar (ADR-054).
-  ADR-057 sempat membatasinya ke "momen" saja; ADR-062 (permintaan pemilik)
+  ADR-057 sempat membatasinya ke "momen" saja; ADR-065 (permintaan pemilik)
   mengembalikan panggung ke `/teams` & `/connections` dan sketsa kecil di
   kotak masuk — panggung halaman fungsional HANYA mulai `lg` (`FeatureHero`
   `stageFrom="lg"`), form & pengaturan tetap polos. Latar situs
@@ -136,10 +136,10 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   tidak ada hitung mundur detik/milidetik; jam hanya di hari terakhir
   (`timeLeftToday`). Urgensi dibawa GRADIEN satu tinta per hari (teks →
   pil bergaris makin pekat → terisi; `due-ramp` + `urgencyRamp`), bukan hue
-  baru (ADR-061).
+  baru (ADR-064).
 - Satu ikon = satu arti di layar yang sama. Sebelum memakai ikon untuk bidang
   baru, cek `event-type-icon.tsx`, `verified-badge.tsx`, `PromotedBadge`, dan
-  ikon fakta di detail (ADR-061). Label kecil di halaman fungsional ditulis
+  ikon fakta di detail (ADR-064). Label kecil di halaman fungsional ditulis
   biasa (huruf kalimat, sans), bukan mono kapital berjarak.
 - Target sentuh minimal 44px; focus ring di semua elemen fokusable. Kontrol
   boleh diringkas (30–36px) untuk mouse, tetapi ringkasnya dikunci ke JENIS
@@ -157,7 +157,7 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   `progress-sheen`) + ADR-057 (`scan-overlay`, `scan-results`, `scan-line`,
   `radar-sweep`, `radar-ping`, `blip`, `ring-fill`; §10 `globals.css`) + ADR-058 (`match-motion.css`: `deal-in`,
   `face-turn-out/in`, `stick-in`, `sheet-up/sheet-pop`, `nudge`, `tick-bump`,
-  `undo-return`, token `--ease-pop*`) + ADR-061 (`chip-tick`, `save-pop`, `due-ramp`; §11 `globals.css`) + ADR-062 (`parallax-y`, `tour-in`, `tour-out`, `tour-type`, `tour-caret`, `tour-progress`; §12). Rangkaian pemindaian pencocokan wajib
+  `undo-return`, token `--ease-pop*`) + ADR-064 (`chip-tick`, `save-pop`, `due-ramp`; §11 `globals.css`) + ADR-065 (`parallax-y`, `tour-in`, `tour-out`, `tour-type`, `tour-caret`, `tour-progress`; §12). Rangkaian pemindaian pencocokan wajib
   **gagal-aman**: keadaan BAWAAN elemen = hasil terlihat dan lapisan
   pemindaian tersembunyi; animasi hanya meminjam keadaan sebaliknya selama
   ±2,9 detik. Tanpa JS ia berakhir sendiri, dan di reduced-motion (aturan

@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS auth.users (
   email              TEXT,
   raw_user_meta_data JSONB NOT NULL DEFAULT '{}'::jsonb
 );
+-- Kolom & tabel GoTrue yang disentuh penangguhan akun (ADR-061).
+ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS banned_until TIMESTAMPTZ;
+CREATE TABLE IF NOT EXISTS auth.sessions (
+  id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE
+);
 
 -- Definisi yang sama dengan Supabase: PostgREST >= 9 hanya mengisi
 -- `request.jwt.claims` (JSON); `request.jwt.claim.sub` tetap dibaca untuk

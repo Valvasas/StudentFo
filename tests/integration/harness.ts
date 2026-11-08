@@ -14,19 +14,31 @@ const DATABASE_URL = process.env.INTEGRATION_DATABASE_URL;
  */
 const rewriteFetch: typeof fetch = (input, init) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-  return fetch(url.replace(`${SUPABASE_URL}/rest/v1`, POSTGREST_URL), init);
+  // GoTrue & Storage asli hanya ada di mode WITH_SUPABASE_SERVICES=1 (ADR-061).
+  const target = url
+    .replace(`${SUPABASE_URL}/rest/v1`, POSTGREST_URL)
+    .replace(`${SUPABASE_URL}/storage/v1`, process.env.STORAGE_URL ?? `${SUPABASE_URL}/storage/v1`)
+    .replace(`${SUPABASE_URL}/auth/v1`, process.env.GOTRUE_URL ?? `${SUPABASE_URL}/auth/v1`);
+  return fetch(target, init);
 };
 
 let currentUserId: string | null = null;
 
-/** Pengguna yang "sedang masuk" untuk createSupabaseServerClient(); null = tamu (anon). */
-export function actAs(userId: string | null): void {
+let currentAal: 'aal1' | 'aal2' = 'aal1';
+
+/**
+ * Pengguna yang "sedang masuk" untuk createSupabaseServerClient(); null = tamu
+ * (anon). `aal2` = sesi yang sudah verifikasi dua langkah — `is_admin()`
+ * mensyaratkannya (ADR-062 #4).
+ */
+export function actAs(userId: string | null, aal: 'aal1' | 'aal2' = 'aal1'): void {
   currentUserId = userId;
+  currentAal = aal;
 }
 
-export function clientFor(userId: string | null): SupabaseClient {
+export function clientFor(userId: string | null, aal: 'aal1' | 'aal2' = 'aal1'): SupabaseClient {
   const secret = process.env.INTEGRATION_JWT_SECRET!;
-  const token = userId ? signJwt({ role: 'authenticated', sub: userId }, secret) : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const token = userId ? signJwt({ role: 'authenticated', sub: userId, aal }, secret) : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createClient(SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { fetch: rewriteFetch, headers: { Authorization: `Bearer ${token}` } },
@@ -34,7 +46,15 @@ export function clientFor(userId: string | null): SupabaseClient {
 }
 
 export function serverClient(): SupabaseClient {
-  return clientFor(currentUserId);
+  return clientFor(currentUserId, currentAal);
+}
+
+/** Klien yang menyimpan sesi GoTrue-nya sendiri (di memori), seperti peramban — untuk alur MFA sungguhan. */
+export function sessionClient(): SupabaseClient {
+  return createClient(SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: rewriteFetch },
+  });
 }
 
 export function adminClient(): SupabaseClient {

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
  * Sisa waktu menuju tenggat dalam HARI KALENDER WIB — sumber yang sama
  * dengan tag di kartu (`daysUntil`, AGENTS.md #8).
  *
- * Penggantinya hitung mundur hari/jam/menit/detik (ADR-061). Hitung mundur
+ * Penggantinya hitung mundur hari/jam/menit/detik (ADR-064). Hitung mundur
  * itu memakai selisih milidetik, jadi di satu layar kartu bisa menulis
  * "7 hari lagi" sementara panelnya "06 HARI", dan detik yang terus berdetak
  * untuk tenggat yang masih seminggu lagi hanya membuat cemas. Jam baru

@@ -63,6 +63,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <SettingsHeader title="Pengaturan" description="Akun, kabar yang kamu terima, tampilan, dan privasi — masing-masing di halamannya sendiri." />
 
         <AuthFeedback params={params} />
+        <ActionFeedback params={params} />
 
         <Link
           href="/profile"

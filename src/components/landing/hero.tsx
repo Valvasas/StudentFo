@@ -12,12 +12,15 @@ export interface HeroLink {
 }
 
 /**
- * Hero beranda tamu, berpusat pada pencarian (ADR-061). Halaman ini adalah
+ * Hero beranda tamu, berpusat pada pencarian (ADR-064). Halaman ini adalah
  * katalog, jadi layar pertama harus sudah bisa DIPAKAI: kotak cari, jenis
  * kegiatan beserta jumlah yang masih buka, dan jalan pintas untuk pertanyaan
  * pertama pelajar ("untuk jenjangku?", "gratis?"). Sebelumnya layar pertama
  * berisi judul + dua tombol — kerangka template pemasaran yang menunda isi
  * satu ketukan lagi. Semuanya `<form method="get">` + tautan: jalan tanpa JS.
+ *
+ * Pintu penyelenggara ("Pasang acaramu", ADR-063) tetap di sini: penyelenggara yang mendarat di beranda pelajar langsung
+ * diberi jalannya sendiri.
  */
 export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; shortcuts: readonly HeroLink[] }) {
   return (
@@ -94,6 +97,12 @@ export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; 
               {shortcut.label}
             </Link>
           ))}
+        </p>
+        <p className="text-[14px] text-ink-muted">
+          Menyelenggarakan lomba atau beasiswa?{' '}
+          <Link href="/penyelenggara" className="inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-[3px]">
+            Pasang acaramu
+          </Link>
         </p>
       </div>
       {/* Hanya di layar lebar: di ponsel layar pertama milik kotak cari. */}

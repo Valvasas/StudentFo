@@ -132,7 +132,7 @@ def live_dependencies():
 
     missing = [
         name
-        for name in ("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY")
+        for name in ("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY", "GEMINI_MODEL")
         if not os.getenv(name)
     ]
     if missing:
@@ -143,9 +143,18 @@ def live_dependencies():
 
     genai_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     # Id model pihak ketiga bisa dipensiunkan tanpa ada perubahan di repo
-    # ini. Diambil dari env supaya penggantiannya cukup lewat secret CI,
-    # bukan rilis kode.
-    gemini_model = os.getenv("GEMINI_MODEL") or "gemini-2.0-flash"
+    # ini, jadi WAJIB dari env (secret CI) dan tanpa nilai bawaan: bawaan lama
+    # `gemini-2.0-flash` dimatikan Google 1 Juni 2026 dan membuat setiap sumber
+    # gagal diam-diam tiap malam (ADR-061). Dicek sekali di awal — gagal keras
+    # dengan pesan jelas, bukan gagal per sumber.
+    gemini_model = os.environ["GEMINI_MODEL"].strip()
+    try:
+        genai_client.models.get(model=gemini_model)
+    except Exception as error:  # noqa: BLE001 — galat SDK beragam; pesannya yang penting
+        raise RuntimeError(
+            f"model Gemini '{gemini_model}' tidak tersedia untuk kunci ini ({error}). "
+            "Cek daftar model hidup lewat models.list lalu perbarui secret GEMINI_MODEL."
+        ) from error
 
     async def extract_fn(content: str, url: str, slugs: list[str]) -> str:
         response = await asyncio.to_thread(

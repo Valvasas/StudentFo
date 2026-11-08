@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { MapPin, Monitor } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
 import { shortCategoryName } from '@/components/listing/category-icon';
-import { Breadcrumb, ChipLink, PageTitle, ResultsEmpty, SaveToggle, SegmentLinks, CollapsibleFilters } from '@/components/listing/listing-ui';
+import { Breadcrumb, ChipLink, PageTitle, CatalogEmpty, ResultsEmpty, SaveToggle, SegmentLinks, CollapsibleFilters } from '@/components/listing/listing-ui';
 import type { BoardProps } from '@/components/listing/lomba-board';
 import { daysLeftLabel, daysUntil, formatTimeId, jakartaDateKey, jakartaDateParts } from '@/lib/deadline';
 import { levelSummary } from '@/lib/eligibility';
-import { buildEventHref } from '@/lib/search-params';
+import { buildEventHref, isBoardUnfiltered } from '@/lib/search-params';
 import type { EventSummary } from '@/types/domain';
 
 /**
@@ -143,9 +143,12 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
           );
         })}
 
-        {result.items.length === 0 && (
-          <ResultsEmpty className="mt-8" description="Coba pilih bidang lain atau cara hadir yang berbeda." resetHref={buildEventHref({ types: query.types })} />
-        )}
+        {result.items.length === 0 &&
+          (isBoardUnfiltered(query) ? (
+            <CatalogEmpty noun="seminar" className="mt-8" />
+          ) : (
+            <ResultsEmpty className="mt-8" description="Coba pilih bidang lain atau cara hadir yang berbeda." resetHref={buildEventHref({ types: query.types })} />
+          ))}
 
         {result.totalPages > 1 && (
           <div className="mt-8">

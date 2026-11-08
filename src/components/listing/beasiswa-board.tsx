@@ -3,11 +3,11 @@ import { VerifiedBadge } from '@/components/event/verified-badge';
 import Link from 'next/link';
 import { Check, ChevronRight } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
-import { Breadcrumb, PageTitle, ResultsEmpty, SaveToggle, SearchBox, ToggleLink } from '@/components/listing/listing-ui';
+import { Breadcrumb, PageTitle, CatalogEmpty, ResultsEmpty, SaveToggle, SearchBox, ToggleLink } from '@/components/listing/listing-ui';
 import type { BoardProps } from '@/components/listing/lomba-board';
 import { daysLeftLabel, daysUntil, formatDateId } from '@/lib/deadline';
 import { ELIGIBILITY_LEVELS, eligibilityReason } from '@/lib/eligibility';
-import { buildEventHref } from '@/lib/search-params';
+import { buildEventHref, isBoardUnfiltered } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, type EducationLevel } from '@/types/domain';
 
@@ -180,11 +180,15 @@ export function BeasiswaBoard({
           })}
         </ul>
       ) : (
-        <ResultsEmpty
-          className="mt-6"
-          description="Belum ada beasiswa terbuka untuk pilihan ini. Matikan “Hanya yang memenuhi syarat” untuk melihat semua beasiswa beserta syaratnya."
-          resetHref={baseHref}
-        />
+        isBoardUnfiltered(query) ? (
+          <CatalogEmpty noun="beasiswa" className="mt-6" />
+        ) : (
+          <ResultsEmpty
+            className="mt-6"
+            description="Belum ada beasiswa terbuka untuk pilihan ini. Matikan “Hanya yang memenuhi syarat” untuk melihat semua beasiswa beserta syaratnya."
+            resetHref={baseHref}
+          />
+        )
       )}
 
       <p className="mt-5 max-w-[70ch] text-[13px] leading-relaxed text-ink-muted">

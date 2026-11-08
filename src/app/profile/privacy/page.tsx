@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Download, Share2 } from 'lucide-react';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
+import { DeleteAccountCard } from '@/components/profile/delete-account-card';
 import { DetailCard, DetailRows, detailButton } from '@/components/profile/detail-card';
 import { DemoResetCard } from '@/components/profile/demo-settings';
 import { DemoPrivacyControls } from '@/components/profile/privacy-controls';
@@ -10,6 +12,7 @@ import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { sectionTitle } from '@/lib/page-title';
+import type { RawSearchParams } from '@/lib/search-params';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +32,8 @@ const actionLink = 'inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font
  * (ADR-057) itu tidak lagi benar (ADR-060). Kendali per kolom di bawahnya
  * hanya mode data contoh.
  */
-export default async function PrivacyPage() {
+export default async function PrivacyPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  const params = await searchParams;
   const user = await requireUser('/profile/privacy');
   const repository = await getEventRepository();
   const [saved, tracker, registrations, network, seeker] = await Promise.all([
@@ -56,6 +60,8 @@ export default async function PrivacyPage() {
             Baca kebijakan privasi <ArrowRight aria-hidden className="size-3.5" />
           </Link>
         </div>
+
+        <ActionFeedback params={params} />
 
         <DetailCard
           id="terlihat"
@@ -116,14 +122,20 @@ export default async function PrivacyPage() {
               Salinan berformat JSON memuat akun, kegiatan tersimpan, Papan lamaran, portofolio, pendaftaran, tim, koneksi, kartu pemain, kiriman,
               dan notifikasi.
             </p>
-            <Link href="/privacy-policy#kp-9" className={`${actionLink} self-start`}>
-              Hapus akun &amp; hak lain atas datamu <ArrowRight aria-hidden className="size-3.5" />
-            </Link>
+            <span className="flex flex-wrap gap-x-5">
+              <Link href="#hapus-akun" className={actionLink}>
+                Hapus akun <ArrowRight aria-hidden className="size-3.5" />
+              </Link>
+              <Link href="/privacy-policy#kp-9" className={actionLink}>
+                Hak lain atas datamu <ArrowRight aria-hidden className="size-3.5" />
+              </Link>
+            </span>
           </div>
         </DetailCard>
 
         {demoFeaturesEnabled && <DemoPrivacyControls name={user.fullName} major={user.major} />}
         {demoFeaturesEnabled && <DemoResetCard delay={0} />}
+        <DeleteAccountCard delay={0} />
       </div>
     </AccountShell>
   );

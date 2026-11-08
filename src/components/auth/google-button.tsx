@@ -4,6 +4,7 @@ import { signInWithGoogleAction } from '@/app/auth/actions';
 import { IntentSubmitButton } from '@/components/auth/intent-submit';
 import { buttonVariants } from '@/components/ui/button';
 import { detectInAppBrowser } from '@/lib/in-app-browser';
+import type { AuthAudience } from '@/lib/safe-redirect';
 
 /**
  * Lambang Google digambar inline, bukan diambil dari lucide-react.
@@ -42,7 +43,18 @@ function GoogleMark() {
  * pilihan jenis akun & persetujuan ikut terkirim. `formNoValidate` karena
  * isian email/sandi di form itu tidak relevan untuk jalur Google.
  */
-export async function GoogleButton({ next, label, withinForm = false }: { next: string; label: string; withinForm?: boolean }) {
+export async function GoogleButton({
+  next,
+  label,
+  withinForm = false,
+  audience = 'participant',
+}: {
+  next: string;
+  label: string;
+  withinForm?: boolean;
+  /** Ke halaman masuk mana galat dikembalikan (form mandiri saja; di dalam form daftar sudah ada jenis akun). */
+  audience?: AuthAudience;
+}) {
   const inApp = detectInAppBrowser((await headers()).get('user-agent'));
 
   if (inApp) {
@@ -74,6 +86,7 @@ export async function GoogleButton({ next, label, withinForm = false }: { next: 
   return (
     <form action={signInWithGoogleAction}>
       <input type="hidden" name="next" value={next} />
+      <input type="hidden" name="audience" value={audience} />
       {button}
     </form>
   );

@@ -1,41 +1,48 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { demoSignInAction } from '@/app/auth/actions';
-import { AccountTypeField } from '@/components/auth/account-type-field';
-import { AuthHeading, AuthSwitch, withNext } from '@/components/auth/auth-field';
+import { AuthAlternate, AuthHeading, AuthSwitch, withNext } from '@/components/auth/auth-field';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { RegisterForm } from '@/components/auth/register-form';
 import { buttonVariants } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { isDemoAvailable } from '@/lib/demo/gate';
-import { parseAccountType } from '@/lib/auth-schema';
 import { dataMode } from '@/lib/env';
-import { safeNextPath } from '@/lib/safe-redirect';
+import { ORGANIZER_REGISTER_PATH, safeNextPath } from '@/lib/safe-redirect';
 import type { RawSearchParams } from '@/lib/search-params';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Daftar',
-  description: 'Buat akun StudentFo gratis — sebagai peserta atau penyelenggara kegiatan.',
+  description: 'Buat akun StudentFo gratis untuk menyimpan lomba, beasiswa, dan magang serta diingatkan sebelum tenggatnya.',
   robots: { index: false, follow: true },
 };
 
+/** Daftar peserta. Penyelenggara punya pintunya sendiri (ADR-063). */
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
   const next = safeNextPath(params.next);
 
   if (await getSessionUser()) redirect(next);
 
-  // `?type=organizer` bisa dipakai tautan "Jadi penyelenggara" dan dipakai
-  // ulang saat form dikembalikan dengan error.
-  const accountType = parseAccountType(params.type) ?? 'participant';
-  const heading = <AuthHeading title="Buat akun StudentFo" subtitle="Gratis untuk peserta dan penyelenggara kegiatan." />;
-  const toLogin = <AuthSwitch prompt="Sudah punya akun?" href={withNext('/login', next)} label="Masuk" />;
+  // Tautan lama `/register?type=organizer` (email, bookmark) tetap sampai.
+  if (params.type === 'organizer') {
+    const query = new URLSearchParams();
+    for (const key of ['error', 'email'] as const) {
+      const value = params[key];
+      if (typeof value === 'string') query.set(key, value);
+    }
+    redirect(query.size > 0 ? `${ORGANIZER_REGISTER_PATH}?${query}` : ORGANIZER_REGISTER_PATH);
+  }
 
-  // Mode demo tidak bisa membuat akun sungguhan: pilihan jenis akun
-  // dipetakan ke persona demo yang setara, tanpa form palsu.
+  const heading = <AuthHeading title="Buat akun StudentFo" subtitle="Gratis. Simpan kegiatan incaranmu dan dapatkan pengingat sebelum tenggatnya." />;
+  const toLogin = <AuthSwitch prompt="Sudah punya akun?" href={withNext('/login', next)} label="Masuk" />;
+  const toOrganizer = <AuthAlternate prompt="Mewakili lembaga, kampus, atau komunitas?" href={ORGANIZER_REGISTER_PATH} label="Daftar sebagai penyelenggara" />;
+
+  // Mode demo tidak bisa membuat akun sungguhan: dipetakan ke persona demo
+  // yang setara, tanpa form palsu.
   if (dataMode === 'seed' && (await isDemoAvailable())) {
     return (
       <>
@@ -43,12 +50,13 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
         <AuthFeedback params={params} />
         <form action={demoSignInAction} className="flex flex-col gap-4">
           <input type="hidden" name="next" value={next} />
-          <AccountTypeField name="persona" selected={accountType} values={{ participant: 'mahasiswa', organizer: 'penyelenggara' }} />
+          <input type="hidden" name="persona" value="mahasiswa" />
           <SubmitButton pendingLabel="Menyiapkan…" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
             Coba dengan akun demo
           </SubmitButton>
         </form>
         {toLogin}
+        {toOrganizer}
       </>
     );
   }
@@ -59,8 +67,9 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
     <>
       {heading}
       <AuthFeedback params={params} />
-      <RegisterForm next={next} email={email} accountType={accountType} />
+      <RegisterForm next={next} email={email} accountType="participant" />
       {toLogin}
+      {toOrganizer}
     </>
   );
 }

@@ -12,6 +12,8 @@ import {
   CollapsibleFilters,
   levelSegments,
   PageTitle,
+  CatalogEmpty,
+ 
   ResultsEmpty,
   SaveToggle,
   SearchBox,
@@ -19,7 +21,7 @@ import {
 } from '@/components/listing/listing-ui';
 import { daysUntil, formatDateTimeId, formatShortDateId } from '@/lib/deadline';
 import { levelSummary } from '@/lib/eligibility';
-import { buildEventHref, hasActiveFilters, type ParsedEventQuery } from '@/lib/search-params';
+import { buildEventHref, hasActiveFilters, isBoardUnfiltered, type ParsedEventQuery } from '@/lib/search-params';
 import type { Category, EventSummary, Paginated } from '@/types/domain';
 
 export interface BoardProps {
@@ -213,12 +215,15 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
           </section>
         ))}
 
-        {result.items.length === 0 && (
-          <ResultsEmpty
-            description="Coba kata kunci lain atau longgarkan filter yang sedang aktif."
-            resetHref={buildEventHref({ types: query.types })}
-          />
-        )}
+        {result.items.length === 0 &&
+          (isBoardUnfiltered(query) ? (
+            <CatalogEmpty noun="lomba" />
+          ) : (
+            <ResultsEmpty
+              description="Coba kata kunci lain atau longgarkan filter yang sedang aktif."
+              resetHref={buildEventHref({ types: query.types })}
+            />
+          ))}
 
         {result.totalPages > 1 && <Pagination query={query} totalPages={result.totalPages} />}
       </div>

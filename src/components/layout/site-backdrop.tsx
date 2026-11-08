@@ -5,7 +5,7 @@ const motion = (delayMs: number, from = 0, to = 0, travel = -90) =>
   ({ '--d': `${delayMs}ms`, '--r0': `${from}deg`, '--r1': `${to}deg`, '--py': `${travel}px` }) as CSSProperties;
 
 /**
- * Latar "buku sketsa" seluruh situs (ADR-062): kertas bertitik yang memudar
+ * Latar "buku sketsa" seluruh situs (ADR-065): kertas bertitik yang memudar
  * ke bawah, plus coretan benda-benda produk (pesawat kertas = kiriman,
  * kalender = tenggat, trofi = lomba, penanda = simpanan) yang melayang pelan.
  *
