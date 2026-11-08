@@ -20,6 +20,7 @@ import type {
   NetworkPerson,
   OrganizerHistoryEntry,
   OrganizerProfile,
+  OrganizerType,
   PortfolioEntry,
   PortfolioFields,
   TeamCandidate,
@@ -33,7 +34,7 @@ import type {
   AdminUserSummary,
   ContentReport,
 } from '@/types/domain';
-import { ACHIEVEMENTS, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVerificationBadge } from '@/types/domain';
+import { ACHIEVEMENTS, ORGANIZER_TYPES, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVerificationBadge } from '@/types/domain';
 import type {
   ConnectionPeerRow,
   CronJobHealthRow,
@@ -285,7 +286,9 @@ export function peopleSearchTerm(search: string): string | null {
   return first ?? null;
 }
 
-export const ORGANIZER_COLUMNS = 'user_id, org_name, website, evidence, status, review_note, reviewed_at, created_at';
+/** Kolom sebelum migration 20261108100001 — cadangan bila kode tayang lebih dulu dari migration-nya. */
+export const LEGACY_ORGANIZER_COLUMNS = 'user_id, org_name, website, evidence, status, review_note, reviewed_at, created_at';
+export const ORGANIZER_COLUMNS = `${LEGACY_ORGANIZER_COLUMNS}, org_type, contact_role`;
 export const CLAIM_COLUMNS = 'id, event_id, user_id, evidence, status, review_note, created_at, event:events(id, slug, title, organizer)';
 export const REVISION_COLUMNS =
   'id, event_id, proposed_by, changes, note, status, review_note, created_at, event:events(id, slug, title, organizer)';
@@ -294,6 +297,8 @@ export function toOrganizerProfile(row: OrganizerProfileRow): OrganizerProfile {
   return {
     userId: row.user_id,
     orgName: row.org_name,
+    orgType: (ORGANIZER_TYPES as readonly string[]).includes(row.org_type ?? '') ? (row.org_type as OrganizerType) : null,
+    contactRole: row.contact_role ?? null,
     website: row.website,
     evidence: row.evidence,
     status: row.status,

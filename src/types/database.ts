@@ -292,6 +292,9 @@ export interface BlockedPersonRow {
 export interface OrganizerProfileRow {
   user_id: string;
   org_name: string;
+  /** Absen bila migration 20261108100001 belum diterapkan (dibaca dengan kolom lama). */
+  org_type?: string | null;
+  contact_role?: string | null;
   website: string | null;
   evidence: string;
   status: OrganizerStatus;

@@ -16,7 +16,7 @@ import {
   type NetworkViewer,
 } from '@/lib/network';
 import { buildDeadlineWeek, daysUntil, getDeadlineState, jakartaDateKey } from '@/lib/deadline';
-import { ORGANIZER_RATE_LIMITS, type OrganizerApplicationInput } from '@/lib/organizer';
+import { ORGANIZER_RATE_LIMITS, sameOrganizerIdentity, type OrganizerApplicationInput } from '@/lib/organizer';
 import { ANALYTICS_MIN_GROUP, kAnonymize } from '@/lib/organizer-analytics';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
 import { clampCandidateWindow } from '@/lib/matchmaking';
@@ -1996,9 +1996,7 @@ export class MemoryEventRepository implements EventRepository {
   async applyAsOrganizer(actor: OrganizerActor, input: OrganizerApplicationInput): Promise<void> {
     const existing = this.organizers.get(actor.id);
     if (existing?.status === 'REVOKED') throw actionError('organizer_revoked');
-    const unchanged =
-      existing && existing.orgName === input.orgName && existing.website === input.website && existing.evidence === input.evidence;
-    if (unchanged) return;
+    if (existing && sameOrganizerIdentity(existing, input)) return;
     if (!this.rateLimiter.consume(`organizer:${actor.id}`, ORGANIZER_RATE_LIMITS.profileWritesPerDay, 86_400)) {
       throw actionError('organizer_rate_limited');
     }
@@ -2006,6 +2004,8 @@ export class MemoryEventRepository implements EventRepository {
     this.organizers.set(actor.id, {
       userId: actor.id,
       orgName: input.orgName,
+      orgType: input.orgType,
+      contactRole: input.contactRole,
       website: input.website,
       evidence: input.evidence,
       status: 'PENDING',
@@ -2414,6 +2414,8 @@ export class MemoryEventRepository implements EventRepository {
     this.organizers.set(user.id, {
       userId: user.id,
       orgName: 'Himpunan Mahasiswa Informatika',
+      orgType: 'ORMAWA',
+      contactRole: 'Ketua Himpunan',
       website: 'https://example.org/himpunan',
       evidence: 'Surat tugas ketua himpunan dan akun Instagram resmi himpunan.',
       status: 'VERIFIED',

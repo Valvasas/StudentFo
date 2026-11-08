@@ -18,7 +18,7 @@ import {
   type NetworkViewer,
   type SuggestionCandidate,
 } from '@/lib/network';
-import { type OrganizerApplicationInput, toStoredRevisionChanges } from '@/lib/organizer';
+import { type OrganizerApplicationInput, sameOrganizerIdentity, toStoredRevisionChanges } from '@/lib/organizer';
 import { parseEventAnalytics } from '@/lib/organizer-analytics';
 import { clampCandidateWindow } from '@/lib/matchmaking';
 import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
@@ -160,6 +160,7 @@ import {
   isUuid,
   keysetAfter,
   LISTING_COLUMNS,
+  LEGACY_ORGANIZER_COLUMNS,
   ORGANIZER_COLUMNS,
   organizerErrorCode,
   PHOTO_COLUMNS,
@@ -1873,11 +1874,10 @@ export class SupabaseEventRepository implements EventRepository {
   async getOrganizerProfile(userId: string): Promise<OrganizerProfile | null> {
     if (!isUuid(userId)) return null;
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from('organizer_profiles')
-      .select(ORGANIZER_COLUMNS)
-      .eq('user_id', userId)
-      .maybeSingle<OrganizerProfileRow>();
+    const read = (columns: string) => supabase.from('organizer_profiles').select(columns).eq('user_id', userId).maybeSingle<OrganizerProfileRow>();
+    let { data, error } = await read(ORGANIZER_COLUMNS);
+    // Kode tayang sebelum migration 20261108100001: baca kolom lama, jenis & jabatan = null.
+    if (error && isMissingColumnError(error)) ({ data, error } = await read(LEGACY_ORGANIZER_COLUMNS));
     if (error) throw upstreamFailure('Gagal memuat profil penyelenggara.', error);
     return data ? toOrganizerProfile(data) : null;
   }
@@ -1885,22 +1885,19 @@ export class SupabaseEventRepository implements EventRepository {
   async applyAsOrganizer(actor: OrganizerActor, input: OrganizerApplicationInput): Promise<void> {
     const existing = await this.getOrganizerProfile(actor.id);
     if (existing?.status === 'REVOKED') throw actionError('organizer_revoked');
-    if (
-      existing &&
-      existing.orgName === input.orgName &&
-      existing.website === input.website &&
-      existing.evidence === input.evidence
-    ) {
-      return;
-    }
+    if (existing && sameOrganizerIdentity(existing, input)) return;
 
     const supabase = await createSupabaseServerClient();
-    const fields = { org_name: input.orgName, website: input.website, evidence: input.evidence };
+    const legacy = { org_name: input.orgName, website: input.website, evidence: input.evidence };
+    const write = (fields: Record<string, string | null>) =>
+      existing
+        ? supabase.from('organizer_profiles').update(fields).eq('user_id', actor.id)
+        : supabase.from('organizer_profiles').insert({ user_id: actor.id, ...fields });
     // Status tidak dikirim: kolomnya tidak termasuk hak tulis klien, dan
     // trigger mengembalikannya ke PENDING bila identitas berubah.
-    const { error } = existing
-      ? await supabase.from('organizer_profiles').update(fields).eq('user_id', actor.id)
-      : await supabase.from('organizer_profiles').insert({ user_id: actor.id, ...fields });
+    let { error } = await write({ ...legacy, org_type: input.orgType, contact_role: input.contactRole });
+    // Migration 20261108100001 belum diterapkan: pengajuan tetap masuk tanpa dua kolom baru.
+    if (error && isMissingColumnError(error)) ({ error } = await write(legacy));
     if (error) throw organizerFailure(error, 'Gagal menyimpan pengajuan penyelenggara.');
   }
 
@@ -2053,15 +2050,18 @@ export class SupabaseEventRepository implements EventRepository {
 
   async listOrganizerApplications(status: OrganizerStatus, limit: number): Promise<readonly OrganizerProfile[]> {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from('organizer_profiles')
-      // Dua FK ke users (user_id, reviewed_by) → embed wajib menyebut FK-nya.
-      .select(`${ORGANIZER_COLUMNS}, applicant:users!organizer_profiles_user_id_fkey(full_name, email)`)
-      .eq('status', status)
-      .order('created_at', { ascending: true })
-      .limit(limit)
-      .returns<OrganizerProfileRow[]>();
-    if (error) throw upstreamFailure('Gagal memuat antrean penyelenggara.', error);
+    const read = (columns: string) =>
+      supabase
+        .from('organizer_profiles')
+        // Dua FK ke users (user_id, reviewed_by) → embed wajib menyebut FK-nya.
+        .select(`${columns}, applicant:users!organizer_profiles_user_id_fkey(full_name, email)`)
+        .eq('status', status)
+        .order('created_at', { ascending: true })
+        .limit(limit)
+        .returns<OrganizerProfileRow[]>();
+    let { data, error } = await read(ORGANIZER_COLUMNS);
+    if (error && isMissingColumnError(error)) ({ data, error } = await read(LEGACY_ORGANIZER_COLUMNS));
+    if (error || !data) throw upstreamFailure('Gagal memuat antrean penyelenggara.', error);
     return data.map(toOrganizerProfile);
   }
 

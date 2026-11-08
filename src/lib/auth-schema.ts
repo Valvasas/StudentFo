@@ -76,18 +76,31 @@ export const PRIVACY_CONSENT_VALUE = 'yes';
  */
 export const AGE_CONFIRM_VALUE = 'yes';
 
-export const signUpSchema = z.object({
-  accountType: z.enum(ACCOUNT_TYPES),
+/** Pernyataan wewenang mewakili lembaga di form daftar penyelenggara. */
+export const AUTHORITY_CONFIRM_VALUE = 'yes';
+
+export const PASSWORD_MISMATCH = { path: ['confirmPassword'], message: 'Konfirmasi kata sandi tidak sama.' };
+export const passwordsMatch = (value: { password: string; confirmPassword: string }) => value.password === value.confirmPassword;
+
+/** Kolom akun bersama kedua pintu daftar; skema penyelenggara di `lib/organizer.ts` menambah data lembaga. */
+export const signUpFields = {
   fullName: fullNameSchema,
   email: emailSchema,
   password: passwordSchema,
+  // Tanpa `min(1)`: kosong = tidak sama, dan kode `password_mismatch` lebih
+  // berguna daripada "ada isian yang belum benar" (urutan kode: auth-failure.ts).
+  confirmPassword: z.string(),
   ageConfirm: z.literal(AGE_CONFIRM_VALUE, {
     errorMap: () => ({ message: 'Konfirmasi usiamu untuk membuat akun.' }),
   }),
   privacyConsent: z.literal(PRIVACY_CONSENT_VALUE, {
     errorMap: () => ({ message: 'Setujui Syarat & Ketentuan dan Kebijakan privasi untuk membuat akun.' }),
   }),
-});
+};
+
+export const signUpSchema = z
+  .object({ accountType: z.enum(ACCOUNT_TYPES), ...signUpFields })
+  .refine(passwordsMatch, PASSWORD_MISMATCH);
 
 /**
  * Tujuan pertama setelah akun aktif. Penyelenggara selalu ke studio, tempat

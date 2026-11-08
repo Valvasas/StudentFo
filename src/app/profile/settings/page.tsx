@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Bell, ChevronRight, Cookie, FileText, Heart, IdCard, Info, KeyRound, Lock, LogOut, Palette, Scale, Send } from 'lucide-react';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { SignOutForm } from '@/components/auth/sign-out-form';
 import { loadAccountRole } from '@/components/home/account-role';
 import { accountSubtitle } from '@/components/layout/account-menu';

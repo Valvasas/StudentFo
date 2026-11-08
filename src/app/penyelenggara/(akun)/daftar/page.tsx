@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { demoSignInAction } from '@/app/auth/actions';
 import { AuthAlternate, AuthHeading, AuthSwitch } from '@/components/auth/auth-field';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
-import { RegisterForm } from '@/components/auth/register-form';
+import { OrganizerRegisterForm } from '@/components/auth/organizer-register-form';
 import { buttonVariants } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
@@ -21,9 +21,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * Pintu daftar penyelenggara (ADR-063). Setelah daftar selalu ke studio untuk
- * mengajukan verifikasi (`postSignUpPath`); `account_type` di metadata hanya
- * catatan, hak penyelenggara tetap dari profil VERIFIED.
+ * Pintu daftar penyelenggara (ADR-063) dengan form-nya sendiri (ADR-069):
+ * data lembaga + penanggung jawab, bukan form peserta berlabel lain. Setelah
+ * email dikonfirmasi langsung ke studio, tempat pengajuan yang sudah terisi
+ * tinggal dikirim; hak penyelenggara tetap dari profil VERIFIED.
  */
 export default async function OrganizerRegisterPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const params = await searchParams;
@@ -31,7 +32,12 @@ export default async function OrganizerRegisterPage({ searchParams }: { searchPa
   // Sudah punya akun peserta? Tidak perlu akun kedua — langsung ke studio.
   if (await getSessionUser()) redirect(ORGANIZER_HOME_PATH);
 
-  const heading = <AuthHeading title="Daftarkan lembagamu" subtitle="Buat akun penanggung jawab, lalu ajukan verifikasi di studio." />;
+  const heading = (
+    <AuthHeading
+      title="Daftarkan lembagamu"
+      subtitle="Data lembaga dan penanggung jawab sekaligus — dipakai moderator untuk memverifikasi sebelum acaramu bisa dikelola."
+    />
+  );
   const toLogin = <AuthSwitch prompt="Sudah punya akun?" href={ORGANIZER_LOGIN_PATH} label="Masuk ke studio" />;
   const toParticipant = <AuthAlternate prompt="Mendaftar untuk ikut kegiatan?" href="/register" label="Daftar sebagai peserta" />;
 
@@ -58,8 +64,8 @@ export default async function OrganizerRegisterPage({ searchParams }: { searchPa
   return (
     <>
       {heading}
-      <AuthFeedback params={params} />
-      <RegisterForm next={ORGANIZER_HOME_PATH} email={email} accountType="organizer" />
+      <AuthFeedback params={params} loginPath={ORGANIZER_LOGIN_PATH} />
+      <OrganizerRegisterForm email={email} restore={typeof params.error === 'string'} />
       {toLogin}
       {toParticipant}
     </>

@@ -43,6 +43,8 @@ async function managedEvent(): Promise<{ organizer: string; eventId: string; slu
   actAs(organizer);
   await repo.applyAsOrganizer({ id: organizer, fullName: 'Panitia Formulir', email: 'p@uji' }, {
     orgName: `Himpunan ${event.id.slice(0, 6)}`,
+    orgType: 'ORMAWA',
+    contactRole: 'Ketua Himpunan',
     website: 'https://himpunan.example',
     evidence: 'Saya ketua himpunan, lihat https://himpunan.example/pengurus',
   });

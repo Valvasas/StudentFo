@@ -131,7 +131,7 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   invalid_network_profile: 'Headline maksimal 140 karakter.',
   invalid_connection_message: 'Pesan pengantar maksimal 280 karakter.',
   invalid_organizer_application:
-    'Data belum lengkap. Isi nama lembaga, situs resmi (https://, opsional), dan jelaskan peranmu minimal 20 karakter beserta tautan bukti.',
+    'Data belum lengkap. Isi nama lembaga, jenis lembaga, jabatanmu, situs resmi (https://, opsional), dan jelaskan peranmu minimal 20 karakter beserta tautan bukti.',
   organizer_revoked: 'Status penyelenggara akun ini dicabut. Hubungi moderator bila menurutmu ini keliru.',
   organizer_not_verified: 'Fitur ini hanya untuk penyelenggara terverifikasi.',
   organizer_rate_limited: 'Terlalu banyak perubahan pengajuan hari ini. Coba lagi besok.',

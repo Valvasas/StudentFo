@@ -92,3 +92,33 @@ describe('parseAuthNoticeCode', () => {
     expect(parseAuthNoticeCode('kamu_menang_undian')).toBeNull();
   });
 });
+
+describe('email sudah terdaftar saat DAFTAR (ADR-069)', () => {
+  it('signUp dengan konfirmasi email mati (`user_already_exists`) dan perubahan email (`email_exists`) → email_taken', () => {
+    expect(mapSupabaseAuthError({ code: 'user_already_exists', status: 422 })).toBe('email_taken');
+    expect(mapSupabaseAuthError({ code: 'email_exists', status: 422 })).toBe('email_taken');
+    expect(parseAuthErrorCode('email_taken')).toBe('email_taken');
+  });
+
+  it('pesannya terang dan menunjuk jalan keluar, tidak berbentuk pengandaian', () => {
+    expect(AUTH_ERROR_MESSAGE.email_taken).toMatch(/sudah terdaftar/);
+    expect(AUTH_ERROR_MESSAGE.email_taken).toMatch(/Masuk/);
+  });
+
+  it('pengecualian HANYA untuk daftar: masuk & lupa sandi tetap seragam', () => {
+    expect(AUTH_ERROR_MESSAGE.invalid_credentials).not.toMatch(/terdaftar/i);
+    expect(AUTH_NOTICE_MESSAGE.reset_email_sent).toMatch(/^Kalau alamat itu terdaftar/);
+    expect(mapSupabaseAuthError({ code: 'user_not_found' })).toBe('invalid_credentials');
+  });
+
+  it('halaman "cek email" kini hanya untuk alamat baru / belum dikonfirmasi — tanpa pengandaian membingungkan', () => {
+    expect(AUTH_NOTICE_MESSAGE.check_email).not.toMatch(/^Kalau/);
+  });
+});
+
+describe('ulangi kata sandi', () => {
+  it('kode sendiri, bukan "ada isian yang belum benar"', () => {
+    expect(parseAuthErrorCode('password_mismatch')).toBe('password_mismatch');
+    expect(AUTH_ERROR_MESSAGE.password_mismatch).not.toBe(AUTH_ERROR_MESSAGE.validation);
+  });
+});

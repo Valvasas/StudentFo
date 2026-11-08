@@ -11,6 +11,7 @@ const base: AccountExportInput = {
     major: 'Informatika',
     interests: ['teknologi'],
     providers: ['email'],
+    organizerDraft: null,
   },
   saved: [],
   tracker: [],
@@ -45,6 +46,7 @@ describe('buildAccountExport', () => {
       major: 'Informatika',
       interests: ['teknologi'],
       signInMethods: ['email'],
+      organizerApplicationDraft: null,
       deadlineReminders: false,
     });
   });

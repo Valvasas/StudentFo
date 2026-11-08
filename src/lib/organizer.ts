@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AUTHORITY_CONFIRM_VALUE, PASSWORD_MISMATCH, passwordsMatch, signUpFields } from '@/lib/auth-schema';
 import { daysUntil, jakartaDateKey } from '@/lib/deadline';
 import { formList, formText } from '@/lib/form-data';
 import { dateInputToDeadlineIso } from '@/lib/submission-schema';
@@ -7,6 +8,8 @@ import {
   type EducationLevel,
   type EventDetail,
   type EventRevisionChanges,
+  ORGANIZER_TYPES,
+  type OrganizerProfile,
   type OrganizerStatus,
 } from '@/types/domain';
 
@@ -18,6 +21,8 @@ import {
 
 export const ORGANIZER_LIMITS = {
   orgNameMax: 160,
+  contactRoleMin: 2,
+  contactRoleMax: 80,
   evidenceMin: 20,
   evidenceMax: 1000,
   noteMax: 500,
@@ -34,12 +39,26 @@ const httpsUrl = z
   .url('Tautan harus alamat web lengkap, diawali https://')
   .refine((value) => /^https:\/\/\S+$/i.test(value), 'Tautan harus diawali https:// (bukan http://).');
 
+const collapsedText = (min: number, max: number, minMessage: string, maxMessage: string) =>
+  z
+    .string()
+    .trim()
+    .transform((value) => value.replace(/\s+/g, ' '))
+    .pipe(z.string().min(min, minMessage).max(max, maxMessage));
+
 export const organizerApplicationSchema = z.object({
   orgName: z
     .string()
     .trim()
     .transform((value) => value.replace(/\s+/g, ' '))
     .pipe(z.string().min(2, 'Nama lembaga minimal 2 karakter.').max(ORGANIZER_LIMITS.orgNameMax, 'Nama lembaga maksimal 160 karakter.')),
+  orgType: z.enum(ORGANIZER_TYPES, { errorMap: () => ({ message: 'Pilih jenis lembaga.' }) }),
+  contactRole: collapsedText(
+    ORGANIZER_LIMITS.contactRoleMin,
+    ORGANIZER_LIMITS.contactRoleMax,
+    'Tulis jabatanmu di lembaga, mis. “Ketua Panitia”.',
+    'Jabatan maksimal 80 karakter.',
+  ),
   website: z.union([httpsUrl, z.literal('').transform(() => null)]),
   evidence: z
     .string()
@@ -49,12 +68,75 @@ export const organizerApplicationSchema = z.object({
 });
 export type OrganizerApplicationInput = z.infer<typeof organizerApplicationSchema>;
 
+/**
+ * Daftar penyelenggara (`/penyelenggara/daftar`, ADR-069): akun penanggung
+ * jawab + data lembaga yang SAMA dengan pengajuan verifikasi di studio — satu
+ * skema, jadi apa yang lolos di sini pasti lolos saat diajukan. Data lembaga
+ * bukan izin apa pun; status tetap diputuskan moderator (ADR-042).
+ */
+export const organizerSignUpSchema = z
+  .object({
+    ...signUpFields,
+    ...organizerApplicationSchema.shape,
+    authority: z.literal(AUTHORITY_CONFIRM_VALUE, {
+      errorMap: () => ({ message: 'Nyatakan bahwa kamu berwenang mewakili lembaga ini.' }),
+    }),
+  })
+  .refine(passwordsMatch, PASSWORD_MISMATCH);
+
+/**
+ * Pengajuan yang tidak mengubah identitas apa pun tidak dikirim ulang — kalau
+ * dikirim, trigger memakan jatah batas laju harian tanpa alasan. Kolom yang
+ * dibandingkan = kolom yang dihitung identitas oleh trigger
+ * `enforce_organizer_profile_write` (migration 20261108100001).
+ */
+export function sameOrganizerIdentity(
+  profile: Pick<OrganizerProfile, 'orgName' | 'orgType' | 'contactRole' | 'website' | 'evidence'>,
+  input: OrganizerApplicationInput,
+): boolean {
+  return (
+    profile.orgName === input.orgName &&
+    profile.orgType === input.orgType &&
+    profile.contactRole === input.contactRole &&
+    profile.website === input.website &&
+    profile.evidence === input.evidence
+  );
+}
+
+/** Kolom pengajuan di form — sama di studio dan di form daftar penyelenggara. */
+export const ORGANIZER_DRAFT_FIELDS = ['orgName', 'orgType', 'contactRole', 'website', 'evidence'] as const;
+
 export function parseOrganizerApplication(formData: FormData) {
   return organizerApplicationSchema.safeParse({
     orgName: formText(formData, 'orgName'),
+    orgType: formText(formData, 'orgType'),
+    contactRole: formText(formData, 'contactRole'),
     website: formText(formData, 'website'),
     evidence: formText(formData, 'evidence'),
   });
+}
+
+/**
+ * Draf pengajuan dari form daftar penyelenggara, dibawa di user metadata
+ * sampai email dikonfirmasi (sebelum itu belum ada sesi untuk mengajukan).
+ * Metadata bisa diubah pemiliknya sendiri, jadi draf hanya PENGISI form
+ * studio — divalidasi ulang di sini dan lagi saat pengajuan dikirim.
+ */
+export function parseOrganizerDraft(raw: unknown): OrganizerApplicationInput | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const parsed = organizerApplicationSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+/** Bentuk draf di metadata — `website: null` disimpan sebagai string kosong supaya lolos skema yang sama. */
+export function toOrganizerDraft(input: OrganizerApplicationInput): Record<string, string> {
+  return {
+    orgName: input.orgName,
+    orgType: input.orgType,
+    contactRole: input.contactRole,
+    website: input.website ?? '',
+    evidence: input.evidence,
+  };
 }
 
 export const eventClaimSchema = z.object({

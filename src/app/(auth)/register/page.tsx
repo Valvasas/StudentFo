@@ -67,7 +67,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
     <>
       {heading}
       <AuthFeedback params={params} />
-      <RegisterForm next={next} email={email} accountType="participant" />
+      <RegisterForm next={next} email={email} restore={typeof params.error === 'string'} />
       {toLogin}
       {toOrganizer}
     </>

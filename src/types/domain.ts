@@ -525,9 +525,33 @@ export interface ModerationLogEntry {
 export const ORGANIZER_STATUSES = ['PENDING', 'VERIFIED', 'REJECTED', 'REVOKED'] as const;
 export type OrganizerStatus = (typeof ORGANIZER_STATUSES)[number];
 
+/**
+ * Jenis lembaga — HARUS sama dengan CHECK `organizer_profiles.org_type`
+ * (migration 20261108100001; dikunci `lib/organizer.test.ts`). Bukan enum SQL:
+ * daftar ini milik moderasi, bukan pipeline, jadi tidak ikut aturan paritas
+ * tiga tempat (AGENTS.md §2).
+ */
+export const ORGANIZER_TYPES = ['KAMPUS', 'ORMAWA', 'SEKOLAH', 'KOMUNITAS', 'PERUSAHAAN', 'PEMERINTAH', 'NIRLABA', 'LAINNYA'] as const;
+export type OrganizerType = (typeof ORGANIZER_TYPES)[number];
+
+export const ORGANIZER_TYPE_LABEL: Record<OrganizerType, string> = {
+  KAMPUS: 'Perguruan tinggi / fakultas',
+  ORMAWA: 'Organisasi mahasiswa (BEM, HIMA, UKM)',
+  SEKOLAH: 'Sekolah / OSIS',
+  KOMUNITAS: 'Komunitas',
+  PERUSAHAAN: 'Perusahaan / startup',
+  PEMERINTAH: 'Instansi pemerintah',
+  NIRLABA: 'Yayasan / organisasi nirlaba',
+  LAINNYA: 'Lainnya',
+};
+
 export interface OrganizerProfile {
   readonly userId: string;
   readonly orgName: string;
+  /** null = pengajuan dari sebelum kolom ini ada (migration 20261108100001). */
+  readonly orgType: OrganizerType | null;
+  /** Jabatan penanggung jawab di lembaga, mis. "Ketua Panitia". */
+  readonly contactRole: string | null;
   readonly website: string | null;
   /** Bukti peran — hanya untuk pemiliknya & admin, tidak pernah publik. */
   readonly evidence: string;

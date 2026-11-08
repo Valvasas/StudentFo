@@ -7,6 +7,7 @@ import { demoEmailOf } from '@/lib/demo/personas';
 import { readDemoSession } from '@/lib/demo/session';
 import { isDemoUserSuspended } from '@/lib/data';
 import { dataMode } from '@/lib/env';
+import { parseOrganizerDraft, type OrganizerApplicationInput } from '@/lib/organizer';
 import { NOT_FOUND_TITLE } from '@/lib/page-title';
 import { loginHref } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -24,6 +25,12 @@ export interface AuthUser {
   readonly interests: readonly string[];
   /** 'email', 'google', … — halaman profil memakainya untuk tahu apakah ada kata sandi yang bisa diganti. */
   readonly providers: readonly string[];
+  /**
+   * Draf pengajuan dari form daftar penyelenggara (ADR-069) — HANYA pengisi
+   * form studio. Metadata bisa ditulis pemiliknya sendiri, jadi ini bukan
+   * izin apa pun; null bila tidak ada atau tidak lolos skema pengajuan.
+   */
+  readonly organizerDraft: OrganizerApplicationInput | null;
 }
 
 /**
@@ -75,8 +82,21 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
     major: profile?.major ?? null,
     interests: profile?.interests ?? [],
     providers: user.app_metadata?.providers ?? (user.app_metadata?.provider ? [user.app_metadata.provider] : []),
+    organizerDraft: parseOrganizerDraft(user.user_metadata?.organizer_application),
   };
 });
+
+/**
+ * Buang draf pengajuan dari metadata setelah pengajuannya benar-benar
+ * terkirim — supaya data lembaga tidak tinggal di dua tempat. Gagal membuang
+ * tidak menggagalkan pengajuan (draf hanya dipakai saat belum ada profil).
+ */
+export async function clearOrganizerDraft(user: AuthUser): Promise<void> {
+  if (dataMode === 'seed' || !user.organizerDraft) return;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.updateUser({ data: { organizer_application: null } });
+  if (error) console.error('[auth] gagal membuang draf penyelenggara:', error.code ?? error.status);
+}
 
 /**
  * Pengguna demo (mode seed) dari cookie bertanda tangan. Bentuknya identik
@@ -96,6 +116,7 @@ async function getDemoUser(): Promise<AuthUser | null> {
     major: session.major,
     interests: session.interests,
     providers: ['demo'],
+    organizerDraft: null,
   };
 }
 

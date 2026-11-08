@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { ORGANIZER_TYPES } from '@/types/domain';
 import {
   buildRevisionChanges,
   fromStoredRevisionChanges,
+  organizerSignUpSchema,
   parseOrganizerApplication,
+  parseOrganizerDraft,
+  sameOrganizerIdentity,
+  toOrganizerDraft,
   toStoredRevisionChanges,
 } from './organizer';
 
@@ -36,21 +42,107 @@ describe('parseOrganizerApplication', () => {
     const result = parseOrganizerApplication(
       form([
         ['orgName', '  Himpunan   Mahasiswa  '],
+        ['orgType', 'ORMAWA'],
+        ['contactRole', ' Ketua   Himpunan '],
         ['website', 'https://himpunan.example'],
         ['evidence', 'Saya ketua, lihat https://himpunan.example/pengurus'],
       ]),
     );
     expect(result.success && result.data).toEqual({
       orgName: 'Himpunan Mahasiswa',
+      orgType: 'ORMAWA',
+      contactRole: 'Ketua Himpunan',
       website: 'https://himpunan.example',
       evidence: 'Saya ketua, lihat https://himpunan.example/pengurus',
     });
   });
 
+  const base: [string, string][] = [['orgType', 'KOMUNITAS'], ['contactRole', 'Ketua']];
+
   it('menolak situs non-https dan bukti yang terlalu pendek', () => {
-    expect(parseOrganizerApplication(form([['orgName', 'Himpunan'], ['website', 'http://x.example'], ['evidence', 'x'.repeat(30)]])).success).toBe(false);
-    expect(parseOrganizerApplication(form([['orgName', 'Himpunan'], ['website', 'javascript:alert(1)'], ['evidence', 'x'.repeat(30)]])).success).toBe(false);
-    expect(parseOrganizerApplication(form([['orgName', 'Himpunan'], ['website', ''], ['evidence', 'singkat']])).success).toBe(false);
+    expect(parseOrganizerApplication(form([...base, ['orgName', 'Himpunan'], ['website', 'http://x.example'], ['evidence', 'x'.repeat(30)]])).success).toBe(false);
+    expect(parseOrganizerApplication(form([...base, ['orgName', 'Himpunan'], ['website', 'javascript:alert(1)'], ['evidence', 'x'.repeat(30)]])).success).toBe(false);
+    expect(parseOrganizerApplication(form([...base, ['orgName', 'Himpunan'], ['website', ''], ['evidence', 'singkat']])).success).toBe(false);
+  });
+
+  it('jenis lembaga & jabatan wajib — pengajuan tanpa keduanya (bentuk lama) ditolak', () => {
+    const legacy: [string, string][] = [['orgName', 'Himpunan'], ['website', ''], ['evidence', 'x'.repeat(30)]];
+    expect(parseOrganizerApplication(form(legacy)).success).toBe(false);
+    expect(parseOrganizerApplication(form([...legacy, ['orgType', 'ADMIN'], ['contactRole', 'Ketua']])).success).toBe(false);
+    expect(parseOrganizerApplication(form([...legacy, ['orgType', 'KAMPUS'], ['contactRole', 'K']])).success).toBe(false);
+    expect(parseOrganizerApplication(form([...legacy, ...base])).success).toBe(true);
+  });
+});
+
+describe('ORGANIZER_TYPES ↔ CHECK org_type (migration 20261108100001)', () => {
+  it('daftar di kode identik dengan CHECK di SQL — beda satu nilai = pengajuan gagal di database', () => {
+    const sql = readFileSync(new URL('../../supabase/migrations/20261108100001_organizer_signup_fields.sql', import.meta.url), 'utf8');
+    const check = /org_type IN \(([^)]+)\)/.exec(sql)?.[1] ?? '';
+    expect(check.split(',').map((value) => value.trim().replace(/'/g, ''))).toEqual([...ORGANIZER_TYPES]);
+  });
+});
+
+describe('draf pengajuan di metadata (ADR-069)', () => {
+  const application = {
+    orgName: 'Himpunan Mahasiswa',
+    orgType: 'ORMAWA' as const,
+    contactRole: 'Ketua Himpunan',
+    website: null,
+    evidence: 'Saya ketua, lihat https://himpunan.example/pengurus',
+  };
+
+  it('pulang-pergi tanpa kehilangan data; situs kosong tetap null', () => {
+    expect(parseOrganizerDraft(toOrganizerDraft(application))).toEqual(application);
+  });
+
+  it('metadata ditulis pemiliknya sendiri: bentuk asing, kolom kurang, atau situs berbahaya = tidak ada draf', () => {
+    expect(parseOrganizerDraft(null)).toBeNull();
+    expect(parseOrganizerDraft('Himpunan')).toBeNull();
+    expect(parseOrganizerDraft({ orgName: 'Himpunan' })).toBeNull();
+    expect(parseOrganizerDraft({ ...toOrganizerDraft(application), website: 'javascript:alert(1)' })).toBeNull();
+  });
+
+  it('identitas sama = tidak dikirim ulang; jabatan berbeda = identitas berubah', () => {
+    expect(sameOrganizerIdentity(application, application)).toBe(true);
+    expect(sameOrganizerIdentity(application, { ...application, contactRole: 'Humas' })).toBe(false);
+    expect(sameOrganizerIdentity({ ...application, orgType: null }, application)).toBe(false);
+  });
+});
+
+describe('organizerSignUpSchema', () => {
+  const valid = {
+    fullName: 'Siti Aminah',
+    email: 'siti@himpunan.ac.id',
+    password: 'rahasia123',
+    confirmPassword: 'rahasia123',
+    ageConfirm: 'yes',
+    privacyConsent: 'yes',
+    authority: 'yes',
+    orgName: 'Himpunan Mahasiswa',
+    orgType: 'ORMAWA',
+    contactRole: 'Ketua',
+    website: '',
+    evidence: 'Saya ketua, lihat https://himpunan.example/pengurus',
+  };
+
+  it('akun + data lembaga lolos bersama; situs kosong jadi null', () => {
+    const result = organizerSignUpSchema.safeParse(valid);
+    expect(result.success && result.data.website).toBeNull();
+  });
+
+  it('pernyataan wewenang wajib, terpisah dari usia & persetujuan', () => {
+    const result = organizerSignUpSchema.safeParse({ ...valid, authority: '' });
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([['authority']]);
+  });
+
+  it('data lembaga ikut syarat pengajuan studio: bukti terlalu pendek ditolak', () => {
+    const result = organizerSignUpSchema.safeParse({ ...valid, evidence: 'singkat' });
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([['evidence']]);
+  });
+
+  it('ulangan sandi wajib sama', () => {
+    const result = organizerSignUpSchema.safeParse({ ...valid, confirmPassword: 'rahasia124' });
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([['confirmPassword']]);
   });
 });
 

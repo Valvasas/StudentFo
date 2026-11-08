@@ -55,6 +55,8 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       major: user.major,
       interests: user.interests,
       signInMethods: user.providers,
+      // Draf pengajuan penyelenggara yang belum dikirim (ADR-069) — tinggal di metadata akun.
+      organizerApplicationDraft: user.organizerDraft,
       deadlineReminders: input.notificationPreferences.deadlineReminders,
     },
     emailReminders: { deadlineReminders: input.deadlineEmailOptIn !== null, consentedAt: input.deadlineEmailOptIn },
