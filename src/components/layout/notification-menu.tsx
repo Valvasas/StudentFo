@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarClock,
   CheckCheck,
+  DoorOpen,
   CheckCircle2,
   Flag,
   Megaphone,
@@ -64,6 +65,7 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   REPORT_DISMISSED: Flag,
   QUESTION_ASKED: MessageCircleQuestion,
   QUESTION_ANSWERED: MessageCircleReply,
+  LOBBY_INVITE: DoorOpen,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {

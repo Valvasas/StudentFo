@@ -13,7 +13,7 @@ export default function robots(): MetadataRoute.Robots {
       // /api/: berkas .ics & endpoint cron — bukan halaman untuk diindeks.
       // /penyelenggara/ (garis miring): studio & pintu akunnya; /penyelenggara
       // sendiri adalah halaman pengenalan untuk tamu (ADR-063).
-      disallow: ['/profile', '/orang/', '/auth/', '/events/*/daftar', '/penyelenggara/', '/api/'],
+      disallow: ['/profile', '/orang/', '/auth/', '/events/*/daftar', '/events/*/sebelum-daftar', '/lobi', '/penyelenggara/', '/api/'],
     },
     sitemap: `${siteUrl}/sitemap.xml`,
   };

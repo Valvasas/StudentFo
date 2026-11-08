@@ -463,3 +463,40 @@ export interface AdminUserRow {
   suspended_at: string | null;
   suspension_reason: string | null;
 }
+
+/** `outbound_surveys` + judul acara (ADR-070) — hanya dibaca klien admin. */
+export interface OutboundSurveyRow {
+  event_id: string;
+  signed_in: boolean;
+  education_level: string;
+  source: string;
+  plan: string | null;
+  province: string | null;
+  institution: string | null;
+  created_at: string;
+  event: { title: string; slug: string } | null;
+}
+
+/** RPC `lobby_roster(p_event)` (ADR-071). */
+export interface LobbyRosterRow {
+  user_id: string;
+  full_name: string;
+  intent: string;
+  note: string | null;
+  joined_at: string;
+  relation: string;
+}
+
+/** Baris sendiri di `lobby_members`. */
+export interface LobbyMemberRow {
+  event_id: string;
+  intent: string;
+  note: string | null;
+  created_at: string;
+}
+
+/** RPC `lobby_member_counts(p_events)`. */
+export interface LobbyCountRow {
+  event_id: string;
+  member_count: number;
+}

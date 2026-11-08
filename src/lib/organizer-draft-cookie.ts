@@ -10,7 +10,8 @@ import type { OrganizerApplicationInput } from '@/lib/organizer';
  * `path` /auth/callback — tidak ikut terkirim ke halaman lain — lalu
  * dipindah ke metadata oleh callback dan langsung dihapus.
  */
-const COOKIE = 'sf_org_draft';
+export const ORGANIZER_DRAFT_COOKIE = 'sf_org_draft';
+const COOKIE = ORGANIZER_DRAFT_COOKIE;
 const CALLBACK_PATH = '/auth/callback';
 const MAX_AGE_SECONDS = 30 * 60;
 

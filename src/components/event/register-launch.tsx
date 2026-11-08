@@ -90,12 +90,12 @@ export function RegisterLaunch({
               <div className="flex min-w-0 flex-1 flex-col gap-2.5">
                 <div aria-live="polite" className="flex flex-col gap-1">
                   <h2 id={titleId} className="pr-8 text-[16px] font-bold leading-snug tracking-[-0.015em]">
-                    Formulir resmi dibuka di tab baru
+                    Pendaftaran dibuka di tab baru
                   </h2>
                   <p className="text-[13px] leading-relaxed text-ink-muted">
                     {recordedLabel
                       ? `Sudah tercatat di Pendaftaran: ${recordedLabel}.`
-                      : 'Selesaikan di sana. Sudah terkirim? Catat di Pendaftaran supaya tahap berikutnya terlacak.'}
+                      : 'Jawab dulu pertanyaan singkat StudentFo bila diminta, lalu selesaikan formulir resminya. Sudah terkirim? Catat di Pendaftaran supaya tahap berikutnya terlacak.'}
                   </p>
                 </div>
                 {!recordedLabel && (

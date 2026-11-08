@@ -25,7 +25,10 @@ import type {
   EventRevisionChanges,
   EventStatus,
   EventSummary,
+  LobbySummary,
+  LobbyView,
   ManagedEvent,
+  OutboundSurveyRecord,
   ModerationLogEntry,
   NotificationPreferences,
   NotificationPreferencesInput,
@@ -58,6 +61,9 @@ import type { EventPresentationInput } from '@/lib/event-presentation';
 import type { CalibrationEvent, CalibrationSignal } from '@/lib/recommendation-calibration';
 import type { UploadedImage } from '@/lib/image-file';
 import type { RegistrationFormInput, ReviewDecision } from '@/lib/registration-form';
+import type { AchievementFacts } from '@/lib/achievements';
+import type { LobbyMemberInput } from '@/lib/lobby';
+import type { OutboundSurveyAnswers } from '@/lib/outbound-survey';
 
 /**
  * Kontrak akses data. Seluruh UI berbicara HANYA lewat antarmuka ini —
@@ -95,7 +101,62 @@ export interface EventRepository
     TrustSafetyRepository,
     OperationsRepository,
     EmailReminderRepository,
-    EventQuestionRepository {}
+    EventQuestionRepository,
+    OutboundSurveyRepository,
+    LobbyRepository,
+    BadgeRepository {}
+
+/**
+ * Lencana di profil publik & lobi (ADR-072). Lencana tetap DIHITUNG
+ * `evaluateBadges` di aplikasi; repository hanya menyerahkan fakta milik
+ * orang yang MEMILIH menampilkannya dan yang boleh dilihat pembaca.
+ */
+export interface BadgeRepository {
+  /** `adjustable: false` = kolom belum ada (migration 20261108100004 belum diterapkan): saklar terkunci, lencana privat. */
+  getBadgeVisibility(userId: string): Promise<{ readonly show: boolean; readonly adjustable: boolean }>;
+  setBadgeVisibility(userId: string, show: boolean): Promise<void>;
+  /** Maks. 100 orang. Tidak ada di peta = lencananya tidak tampil untuk pembaca ini. Pemilik selalu melihat miliknya. */
+  listPublicBadgeFacts(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, AchievementFacts>>;
+}
+
+/** Pendataan kinerja sebelum keluar ke tautan pendaftaran (ADR-070). Tanpa identitas pengisi. */
+export interface OutboundSurveyInput extends OutboundSurveyAnswers {
+  readonly eventId: string;
+  readonly signedIn: boolean;
+}
+
+/** Batas baca dasbor kinerja — cukup untuk 90 hari di skala sekarang; di atasnya butuh agregat SQL. */
+export const OUTBOUND_READ_LIMIT = 5000;
+
+export interface OutboundSurveyRepository {
+  /**
+   * Hanya server, setelah saringan bot & batas laju. Pemanggil MENELAN galat:
+   * pencatatan tidak boleh menahan orang di jalan menuju pendaftaran.
+   */
+  recordOutboundSurvey(input: OutboundSurveyInput): Promise<void>;
+  /** Admin: jawaban sejak `since`, terbaru dulu, berbatas. Tabel belum ada (urutan deploy) = []. */
+  listOutboundSurveys(since: Date): Promise<readonly OutboundSurveyRecord[]>;
+}
+
+/**
+ * Lobi lomba (ADR-071). Kelayakan = `lib/lobby.ts` di kedua implementasi,
+ * dicerminkan `can_use_lobby()`/`lobby_is_open()` di SQL. Anggota lain hanya
+ * terbaca oleh sesama anggota; blokir menyembunyikan dua arah.
+ */
+export interface LobbyRepository {
+  /** Lomba yang lobinya bisa dimasuki pengguna + keanggotaannya + jumlah anggota (tanpa nama). */
+  listMyLobbies(userId: string): Promise<readonly LobbySummary[]>;
+  /** null = tidak berhak (belum mendaftar, bukan lomba, tidak tayang). */
+  getLobby(viewer: NetworkViewer, eventId: string): Promise<LobbyView | null>;
+  /** Bergabung atau memperbarui kartu lobi. Belum mendaftar → `lobby_forbidden`; ditutup → `lobby_closed`. */
+  joinLobby(actor: NetworkViewer, eventId: string, input: LobbyMemberInput): Promise<void>;
+  leaveLobby(actorId: string, eventId: string): Promise<void>;
+  /**
+   * Ajak koneksi (diterima) ikut lomba ini. 'invited' = ajakan baru (notifikasi
+   * dikirim, satu per orang per lomba); 'already' = sudah pernah diajak pembaca.
+   */
+  inviteToLobby(actor: NetworkViewer, eventId: string, inviteeId: string): Promise<'invited' | 'already'>;
+}
 
 /** Katalog publik: listing, detail, statistik beranda. */
 export interface EventCatalogRepository {

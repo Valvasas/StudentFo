@@ -12,6 +12,163 @@ terdokumentasi.
 
 ---
 
+## ADR-072 — Lencana boleh tampil di profil publik & lobi: opt-in, fakta tanpa identitas acara, dihitung aturan yang sama
+
+**Konteks:** Pemilik meminta fitur lencana "dimatangkan". ADR-068 sendiri
+mencatat celahnya: lencana hanya terlihat oleh pemiliknya, jadi tidak punya
+fungsi sosial apa pun — padahal lobi lomba (ADR-071) justru butuh sinyal
+kredibilitas saat memilih rekan tim.
+
+**Keputusan:**
+1. **Opt-in, bawaan mati** (`users.show_badges`, hak UPDATE per kolom). Tab
+   Lencana pernah dijanjikan privat; mengubahnya diam-diam melanggar janji itu.
+2. **SQL menyerahkan FAKTA, bukan lencana.** `public_badge_facts(p_users[])`
+   (SECURITY DEFINER, maks. 100 orang) mengembalikan bahan `evaluateBadges` —
+   jenis/status/tenggat acara + waktu konfirmasi, jumlah kiriman disetujui,
+   status penyelenggara, waktu tutup acara kelolaan — TANPA id, judul, atau
+   jawaban formulir, dan sudah membuang acara yang dikelola sendiri. Aturan
+   anti-curang tetap SATU salinan di `lib/achievements.ts`; menghitung di SQL
+   berarti dua salinan yang suatu hari berbeda.
+3. **Siapa yang menerima:** pemilik sendiri, atau pembaca yang lolos
+   `can_view_profile()` / sesama anggota lobi (`shares_lobby_with`) tanpa
+   blokir. Akun ditangguhkan tidak pernah.
+4. Tampil sebagai `PublicBadges` (hanya yang SUDAH diraih, tanpa progres) di
+   `/orang/[id]`, pratinjau "Lihat sebagai publik", dan kartu anggota lobi
+   (maks. 2). Saklar di tab Lencana. Ikut ekspor data.
+5. Kode aman urutan deploy: kolom belum ada → saklar terkunci, lencana privat.
+
+**Sengaja TIDAK:** lencana dari aktivitas lobi/ajakan (bisa diternakkan dengan
+akun palsu — alasan yang sama dengan ADR-068), notifikasi "lencana baru" (tidak
+ada catatan kapan terakhir dilihat; perlu tabel, ditunda). Kandidat berikutnya
+yang layak: lencana "Juara terverifikasi" dari konfirmasi hasil oleh
+penyelenggara — sudah pernah dirancang di cabang usang `ccr-a2058300-u92ao5`
+(lihat CHANGELOG.md), harus di-port ulang, bukan di-merge.
+
+---
+
+## ADR-071 — Lobi lomba: ruang per lomba untuk yang sudah mendaftar, timbal-balik, ajak hanya koneksi
+
+**Konteks:** Pemilik meminta "lobby di akun setelah mendaftar sebuah lomba"
+untuk mencari partner/tim dan mengajak teman sebelum lomba. Permintaan serupa
+sebelumnya (konteks ADR-065) ditafsirkan sebagai `/teams` — "tidak ada fitur
+bernama lobi" — sehingga kebutuhannya tidak pernah terpenuhi.
+
+**Keputusan:**
+1. **Pintu:** `/lobi` (menu akun, tepat di bawah Pendaftaran) dan
+   `/lobi/[slug]`; tautan dari halaman acara & status lamaran begitu terdaftar.
+2. **Siapa:** lomba (LOMBA) yang tayang/kedaluwarsa, dan pembaca sudah
+   mendaftar = Papan lamaran APPLIED/INTERVIEW/ACCEPTED ATAU pendaftaran
+   formulir yang masih hidup. Tahap Papan lamaran dilaporkan sendiri (ADR-046)
+   — diterima: lobi ruang sapa, bukan sumber hak/lencana. Tanpa itu pengguna
+   tautan resmi (mayoritas acara) tidak pernah bisa masuk.
+3. **Privasi timbal-balik** (pola kartu pemain ADR-057): bergabung = pilihan
+   sendiri; daftar anggota hanya untuk sesama anggota (`lobby_roster()`);
+   sebelum bergabung hanya JUMLAH. Blokir menyembunyikan dua arah; akun
+   ditangguhkan tidak tampil.
+4. **Bergabung = boleh disapa sesama anggota lobi itu.** Policy
+   `connections_insert_requester` diperluas: target `is_discoverable` ATAU
+   `shares_lobby_with()`. Tanpa ini anggota yang tidak membuka profil di
+   Koneksi tidak bisa diajak terhubung — lobi tak berguna. Blokir tetap menang.
+5. **Ajak teman:** hanya koneksi yang sudah diterima (`invite_to_lobby`, 20/hari),
+   sekali per pasangan per lomba; notifikasi `LOBBY_INVITE` ke halaman lomba.
+   `idx_notifications_dedupe` membuat diajak tiga teman = SATU kabar — fitur
+   anti-spam, bukan bug. Teman di luar StudentFo: tombol bagikan tautan lomba.
+6. **Tim:** lobi menampilkan tim `/teams` untuk lomba itu + pintu "Buka tim" —
+   lobi tidak membuat konsep tim kedua.
+7. Tulis lewat RPC (`join_lobby`); upsert PostgREST butuh hak UPDATE kolom kunci.
+   Ditutup (tenggat lewat / EXPIRED) = arsip baca. Mode demo: lobi contoh
+   `SEED_LOBBY` + persona Mahasiswa sudah terdaftar di lombanya.
+
+**Konsekuensi:** kode aman urutan deploy (tabel/RPC belum ada → lobi kosong,
+bergabung `lobby_unavailable`). Diuji: `111_event_lobby.test.sql`,
+`lib/lobby.test.ts`, `lib/data/lobby.test.ts`, `e2e/lobby.spec.ts`.
+
+---
+
+## ADR-070 — Pendataan kinerja postingan sebelum keluar ke tautan resmi: tanpa identitas, tidak pernah menahan
+
+**Konteks:** Pemilik ingin mendata kinerja tiap postingan lomba/acara: sebelum
+pengunjung pergi ke halaman lomba di situs penyelenggara, ia mengisi form di
+StudentFo — untuk kebutuhan pemilik sendiri, bukan fitur publik.
+
+**Keputusan:**
+1. **Gerbang di satu pintu:** `/events/[slug]/daftar` (rute keluar yang sudah
+   ada, ADR-032) mengalihkan tujuan LUAR ke `/events/[slug]/sebelum-daftar`
+   bila peramban belum menjawab untuk acara itu (cookie `sf_out`, id acara
+   saja). Acara berformulir StudentFo tidak lewat gerbang — datanya sudah ada.
+   Tujuan dipilih `registrationDestination()` — SATU sumber untuk rute & aksi.
+2. **Isi:** jenjang (terisi dari profil), sumber info, rencana (LOMBA saja),
+   provinsi & asal sekolah/kampus (opsional). Wajib 2–3 pertanyaan; tujuan
+   pendataan ditulis terang di atas form.
+3. **Tanpa identitas:** tabel `outbound_surveys` tanpa user_id/email (hanya
+   `signed_in`), tulis server-only (service_role) setelah saringan bot, batas
+   30/jam per IP & honeypot; baca admin. Karena tidak terhubung ke akun, tidak
+   ikut ekspor/hapus akun — dicantumkan begitu di Kebijakan privasi. Retensi
+   365 hari (`purge_old_outbound_surveys`, pg_cron).
+4. **Tidak pernah menahan:** gagal mencatat (bot, banjir, DB, migration belum
+   ada) = jawaban tidak dicatat, pengunjung tetap diantar.
+5. **Aksi mengalihkan LANGSUNG ke URL resmi.** Redirect Server Action ke path
+   internal membuat Next merender tujuan itu di server — dan mengikuti 303
+   `/daftar` sampai ke situs penyelenggara (terbukti di log e2e: fetch
+   `example.org` dari server). Klik `register_click` dicatat di aksi.
+6. **Dasbor `/admin/kinerja`** (rentang 7/30/90): per postingan (jawaban, % akun
+   masuk, sumber teratas, pencari tim) + distribusi; provinsi & institusi di
+   bawah 5 jawaban digabung (k-anonim, pola ADR-043).
+
+**Konsekuensi (jujur):** gerbang wajib menambah satu langkah sebelum
+pendaftaran resmi dan pasti menurunkan sebagian klik keluar — keputusan pemilik.
+Bila angka klik turun tajam, ubah jadi bisa dilewati (satu tombol "Lewati").
+
+---
+
+## ADR-069 — Pintu daftar penyelenggara berisi data lembaga; ulangi kata sandi; email ganda ditolak saat DAFTAR
+
+**Konteks:** Pemilik: form daftar penyelenggara harus terpisah dengan
+ketentuan berbeda supaya profesional; perlu kolom ulangi kata sandi; daftar
+ulang dengan email yang sama "masih bisa" — kurang profesional. Investigasi:
+pintu terpisah SUDAH dibuat (ADR-063) di cabang `ccr-c5c96a43-8eijqc` yang
+migration-nya sudah di produksi tetapi kodenya tidak pernah masuk `main`;
+isinya pun masih form peserta berlabel lain. Email ganda tidak pernah membuat
+akun kedua (GoTrue menjawab pengguna samaran `identities: []`), tetapi UI
+sengaja menampilkan "cek email" yang sama (ADR-011) — bagi pemilik itu terbaca
+sebagai "terdaftar lagi".
+
+**Keputusan:**
+1. **Gabungkan dulu** `ccr-c5c96a43-8eijqc` (commit `1d4b3a4`). Pengaturan tetap
+   hub ADR-067; pengingat email → `/profile/settings/notifikasi`, hapus akun →
+   `/profile/privacy`. Lalu penjaga anti-regresi: `CHANGELOG.md`,
+   `supabase/APPLIED_MIGRATIONS.txt` (42 baris, dicocokkan ke produksi),
+   `migrations-manifest.test.ts` di `verify`, `npm run check:sync`.
+2. **Form penyelenggara** (`OrganizerRegisterForm`): data lembaga (nama, JENIS,
+   situs, bukti) + penanggung jawab (nama, JABATAN, email kerja) + pernyataan
+   wewenang. Skemanya = skema pengajuan studio, jadi yang lolos daftar pasti
+   lolos diajukan. Draf dibawa di user metadata (email) atau cookie httpOnly
+   30 menit khusus `/auth/callback` (Google), lalu MENGISI form studio —
+   pengajuan tetap tindakan eksplisit pemilik akun, bukan efek samping callback.
+   Kolom baru `org_type`, `contact_role` dihitung identitas oleh trigger (ganti
+   = verifikasi ulang) dan tampil di antrean admin.
+3. **Ulangi kata sandi** di keempat form sandi baru, dicek saat mengetik di
+   kedua kolom (`setCustomValidity`); server memetakan ke `password_mismatch`,
+   `same_password`, `weak_password` (`lib/auth-failure.ts`). Zod v3 tetap
+   menjalankan refine pada objek "kotor", jadi urutan kode itulah yang diuji.
+4. **Email ganda saat DAFTAR → `email_taken`** dengan tautan Masuk/Lupa sandi ke
+   pintu yang benar. Ini MELONGGARKAN ADR-011 khusus daftar, atas permintaan
+   pemilik, dengan alasan: pemeriksaan hanya terjadi setelah batas laju
+   5/jam/IP dan CAPTCHA lolos (tiap alamat yang dicek = satu CAPTCHA), dan
+   produk ini tidak menyimpan data yang membuat keanggotaannya sensitif.
+   Masuk & lupa sandi TETAP seragam (AGENTS.md #12 diperbarui). Konfirmasi email
+   mati di project → `user_already_exists` → kode yang sama (dulu jatuh ke
+   "terjadi kesalahan di sisi kami").
+5. Penahan isian (`FieldMemory`, sessionStorage, tanpa sandi) karena galat
+   server di form tanpa JS menghapus isian panjang.
+
+**Konsekuensi:** alamat yang terdaftar BISA diketahui lewat halaman daftar
+dengan biaya satu CAPTCHA per alamat — trade-off sadar. Membaliknya = hapus
+cabang `identities` di `signUpWithEmail` dan petakan `user_already_exists`
+kembali ke jawaban seragam.
+
+---
+
 ## ADR-068 — Lencana pencapaian DIHITUNG dari catatan pihak ketiga, tidak pernah diberikan atau diklaim
 
 > **Penomoran:** ADR-063–066 sudah dipakai garis kerja paralel

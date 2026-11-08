@@ -6,6 +6,7 @@ import type {
   Connection,
   EventRegistration,
   EventSummary,
+  LobbySummary,
   NetworkProfile,
   NotificationPreferences,
   OrganizerProfile,
@@ -33,6 +34,10 @@ export interface AccountExportInput {
   /** Waktu persetujuan pengingat email (ADR-062 #6), null = mati. */
   readonly deadlineEmailOptIn: string | null;
   readonly eventQuestions: readonly MyEventQuestion[];
+  /** Lobi lomba (ADR-071): hanya yang kartunya pernah kamu pasang. */
+  readonly lobbies: readonly LobbySummary[];
+  /** Pilihan "tampilkan lencanaku" (ADR-072). */
+  readonly showBadges: boolean;
 }
 
 /**
@@ -114,8 +119,21 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       createdAt: submission.createdAt,
     })),
     organizer: input.organizer
-      ? { organization: input.organizer.orgName, website: input.organizer.website, evidence: input.organizer.evidence, status: input.organizer.status }
+      ? {
+          organization: input.organizer.orgName,
+          organizationType: input.organizer.orgType,
+          role: input.organizer.contactRole,
+          website: input.organizer.website,
+          evidence: input.organizer.evidence,
+          status: input.organizer.status,
+        }
       : null,
+    lobbies: input.lobbies.flatMap((lobby) =>
+      lobby.membership
+        ? [{ event: lobby.event.title, url: `/lobi/${lobby.event.slug}`, status: lobby.membership.intent, note: lobby.membership.note, joinedAt: lobby.membership.joinedAt }]
+        : [],
+    ),
+    badges: { shownToOthers: input.showBadges },
     notifications: input.notifications.map((notification) => ({
       type: notification.type,
       message: notification.message,

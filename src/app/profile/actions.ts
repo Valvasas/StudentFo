@@ -185,3 +185,20 @@ export async function setDeadlineEmailRemindersAction(formData: FormData): Promi
   revalidatePath(NOTIFICATION_SETTINGS_PAGE);
   redirect(`${withQuery(NOTIFICATION_SETTINGS_PAGE, { notice: enabled ? 'email_reminders_on' : 'email_reminders_off' })}#pengingat-email`);
 }
+
+/** Saklar "tampilkan lencanaku" (ADR-072). Nilai eksplisit dari form, bukan "balik keadaan" — dua tab tidak saling membatalkan. */
+export async function setBadgeVisibilityAction(formData: FormData): Promise<void> {
+  const returnTo = '/profile?tab=lencana';
+  const user = await requireUser(returnTo);
+  const show = text(formData, 'show') === 'on';
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).setBadgeVisibility(user.id, show);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { error: failure }));
+  revalidatePath('/profile');
+  redirect(withQuery(returnTo, { notice: show ? 'badges_shown' : 'badges_hidden' }));
+}

@@ -239,6 +239,24 @@ diabaikan, bukan galat):
 | `gaya` | `juara` \| `belajar` | `seimbang` |
 | `tampil` | `6` \| `12` \| `18` \| `24` | `6` |
 
+### Pendataan kinerja, lobi, lencana publik (ADR-070–072)
+
+| Method | Kontrak |
+|---|---|
+| `recordOutboundSurvey(input)` | Server-only; TANPA identitas (`signedIn` saja). Pemanggil menelan galat — tidak pernah menahan pengunjung |
+| `listOutboundSurveys(since)` | Admin; terbaru dulu, maks. `OUTBOUND_READ_LIMIT` (5000, per halaman `range()`); tabel belum ada = `[]` |
+| `listMyLobbies(userId)` | Lomba yang sudah didaftar (`lobbyEventsOf`) + kartu sendiri + jumlah anggota (tanpa nama) |
+| `getLobby(viewer, eventId)` | `null` = tidak berhak. Anggota lain hanya bila pembaca sudah bergabung; `invitable` = koneksi diterima yang belum di roster & belum diajak |
+| `joinLobby(actor, eventId, input)` | Upsert kartu; `lobby_forbidden` / `lobby_closed` / `lobby_unavailable` |
+| `leaveLobby(actorId, eventId)` | Hapus kartu sendiri |
+| `inviteToLobby(actor, eventId, inviteeId)` | `'invited'` / `'already'`; `lobby_invite_invalid` (bukan koneksi/diblokir), `lobby_rate_limited` (20/hari) |
+| `getBadgeVisibility(userId)` | `{ show, adjustable }`; kolom belum ada → `adjustable: false` |
+| `setBadgeVisibility(userId, show)` | `badges_unavailable` bila kolom belum ada |
+| `listPublicBadgeFacts(viewerId, userIds)` | Peta userId → `AchievementFacts` (id acara buatan); hanya pemilik / opt-in yang boleh dilihat. Hitung dengan `evaluateBadges` |
+
+`requestConnection` kini juga menerima target yang SATU LOBI dengan pelaku
+walau tidak "bisa ditemukan" (cermin policy `connections_insert_requester`).
+
 ### `ReviewEventInput`
 
 ```ts
@@ -364,6 +382,27 @@ Aturan yang mengikat seluruh tabel di atas:
   (`signOut({ scope: 'others' })`).
 - **`changePasswordAction` memverifikasi kata sandi lama** dengan
   `signInWithPassword` sebelum mengganti.
+
+### Aksi daftar — `src/app/auth/actions.ts` (ADR-069)
+- `signUpAction` (peserta) & `organizerSignUpAction` (penyelenggara) berbagi
+  `signUpWithEmail()`: batas laju → CAPTCHA → `signUp`. `identities: []` /
+  `user_already_exists` → `?error=email_taken`. Validasi → kode dari
+  `signUpValidationFailure()` (`lib/auth-failure.ts`).
+- `organizerSignUpAction` membawa draf lembaga di `options.data.organizer_application`;
+  `signInWithGoogleAction` dari form penyelenggara memvalidasi data lembaga lalu
+  menitipkan draf di cookie `sf_org_draft`, dipindah ke metadata oleh `/auth/callback`.
+
+### Aksi lobi — `src/app/lobi/actions.ts` (ADR-071)
+`joinLobbyAction`, `leaveLobbyAction`, `inviteToLobbyAction` — semuanya membaca
+`slug` (divalidasi), `requireUser()` sendiri, kembali ke `/lobi/<slug>`
+dengan notice `lobby_joined|lobby_updated|lobby_left|lobby_invited|lobby_already_invited`.
+
+### `submitOutboundSurveyAction` — `src/app/events/[slug]/sebelum-daftar/actions.ts` (ADR-070)
+Validasi (`parseOutboundSurvey`) → catat (tidak pernah melempar) → cookie
+`sf_out` → `register_click` → `redirect(urlResmi)` LANGSUNG.
+
+### `setBadgeVisibilityAction` — `src/app/profile/actions.ts` (ADR-072)
+`show=on|off` eksplisit → `/profile?tab=lencana&notice=badges_shown|badges_hidden`.
 
 ### `updateProfileAction(formData)` — `src/app/profile/actions.ts`
 

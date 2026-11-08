@@ -27,6 +27,11 @@ const base: AccountExportInput = {
   notifications: [],
   notificationPreferences: { deadlineReminders: false, adjustable: true },
   deadlineEmailOptIn: '2026-10-30T01:00:00.000Z',
+  lobbies: [
+    { event: { id: 'e1', slug: 'lomba-x', title: 'Lomba X', organizer: 'Panitia', status: 'APPROVED', primaryDeadlineAt: null }, membership: { intent: 'CARI_TIM', note: 'Cari backend', joinedAt: '2026-11-01T00:00:00.000Z' }, memberCount: 3 },
+    { event: { id: 'e2', slug: 'lomba-y', title: 'Lomba Y', organizer: 'Panitia', status: 'APPROVED', primaryDeadlineAt: null }, membership: null, memberCount: 9 },
+  ],
+  showBadges: true,
   eventQuestions: [{ eventTitle: 'Lomba X', eventSlug: 'lomba-x', body: 'Boleh lintas kampus?', createdAt: '2026-10-30T02:00:00.000Z', answer: null, hidden: true }],
 };
 

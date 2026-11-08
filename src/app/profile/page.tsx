@@ -10,6 +10,7 @@ import { CategoryIcon } from '@/components/listing/category-icon';
 import { AccountShell } from '@/components/layout/account-shell';
 import { BadgeBoard, BadgeStrip } from '@/components/profile/badge-board';
 import { loadBadgeFacts } from '@/components/profile/badge-facts';
+import { BadgeVisibilityToggle, PublicBadges } from '@/components/profile/public-badges';
 import { PortfolioList, type PortfolioRow } from '@/components/profile/portfolio-list';
 import {
   DemoAboutCard,
@@ -21,6 +22,7 @@ import {
   DemoTeamCard,
 } from '@/components/profile/demo-profile-parts';
 import { evaluateBadges } from '@/lib/achievements';
+import { withFallback } from '@/lib/fallback';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
@@ -70,11 +72,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const user = await requireUser('/profile');
   const repository = await getEventRepository();
   const isPublic = params.tampilan === 'publik';
-  const [categories, savedEvents, trackerItems, badgeFacts] = await Promise.all([
+  const [categories, savedEvents, trackerItems, badgeFacts, badgeVisibility] = await Promise.all([
     repository.listCategories(),
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
-    isPublic ? Promise.resolve(null) : loadAccountRole(user).then((context) => loadBadgeFacts(user, context.organizer)),
+    // Juga di tampilan publik: pratinjau harus menunjukkan lencana bila pemiliknya memilih menampilkannya (ADR-072).
+    loadAccountRole(user).then((context) => loadBadgeFacts(user, context.organizer)),
+    withFallback('pilihan lencana', () => repository.getBadgeVisibility(user.id), { show: false, adjustable: false }),
   ]);
 
   const tabs = TABS.filter((item) => (!isPublic || !item.private) && (demoFeaturesEnabled || !item.demoOnly));
@@ -174,7 +178,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             {demoFeaturesEnabled && <DemoCity />}
           </ul>
           {demoFeaturesEnabled && <DemoStatusPicker editable={!isPublic} />}
-          {badges && <BadgeStrip progress={badges} href={tabHref('lencana')} />}
+          {badges && !isPublic && <BadgeStrip progress={badges} href={tabHref('lencana')} />}
+          {badges && isPublic && badgeVisibility.show && <PublicBadges progress={badges} />}
         </section>
 
         {/* Setelah 100% kartu ini hanya berisi daftar yang dicoret semua —
@@ -354,7 +359,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           </>
         )}
 
-        {tab === 'lencana' && <BadgeBoard progress={badges} now={now} />}
+        {tab === 'lencana' && (
+          <>
+            <BadgeVisibilityToggle show={badgeVisibility.show} adjustable={badgeVisibility.adjustable} />
+            <BadgeBoard progress={badges} now={now} />
+          </>
+        )}
 
         {tab === 'pendaftaran' && (
           <section aria-labelledby="pendaftaran-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">

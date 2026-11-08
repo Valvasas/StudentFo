@@ -50,12 +50,16 @@ const GUEST_ROUTES = [
   '/terms',
   '/berhenti-email?token=tidak-valid',
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya',
+  '/events/olimpiade-matematika-pelajar-tingkat-nasional/sebelum-daftar',
 ];
 const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],
   ['Admin moderator', '/admin/riwayat'],
   ['Admin moderator', '/admin/kalibrasi'],
+  ['Admin moderator', '/admin/kinerja'],
   ['Mahasiswa', '/tracker'],
+  ['Mahasiswa', '/lobi'],
+  ['Mahasiswa', '/lobi/kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
   ['Mahasiswa', '/profile'],
   ['Mahasiswa', '/profile/details'],
   ['Mahasiswa', '/profile/settings'],

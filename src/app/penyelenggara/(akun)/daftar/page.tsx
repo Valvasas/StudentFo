@@ -45,7 +45,7 @@ export default async function OrganizerRegisterPage({ searchParams }: { searchPa
     return (
       <>
         {heading}
-        <AuthFeedback params={params} />
+        <AuthFeedback params={params} loginPath={ORGANIZER_LOGIN_PATH} />
         <form action={demoSignInAction} className="flex flex-col gap-4">
           <input type="hidden" name="next" value={ORGANIZER_HOME_PATH} />
           <input type="hidden" name="persona" value="penyelenggara" />

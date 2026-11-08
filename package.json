@@ -21,7 +21,8 @@
     "test:a11y": "playwright test",
     "test:integration": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true bash scripts/with-postgrest.sh npx vitest run --config vitest.integration.config.ts",
     "test:integration:services": "WITH_SUPABASE_SERVICES=1 VITE_CONFIG_NATIVE_IGNORE_WARNING=true bash scripts/with-postgrest.sh npx vitest run --config vitest.integration.config.ts",
-    "test:e2e:supabase": "bash scripts/with-postgrest.sh bash scripts/e2e-supabase.sh"
+    "test:e2e:supabase": "bash scripts/with-postgrest.sh bash scripts/e2e-supabase.sh",
+    "check:sync": "node scripts/check-sync.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",

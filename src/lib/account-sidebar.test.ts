@@ -31,6 +31,13 @@ describe('accountMenuGroups', () => {
     expect(keys.indexOf('pembayaran')).toBe(keys.indexOf('daftar') + 1);
   });
 
+  it('lobi lomba tepat di bawah pendaftaran — langkah sesudah mendaftar (ADR-071)', () => {
+    for (const role of ['participant', 'organizer', 'admin'] as const) {
+      const keys = keysOf(role);
+      expect(keys.indexOf('lobi')).toBe(keys.indexOf('pembayaran') + 1);
+    }
+  });
+
   it('peserta tidak mendapat grup "Ruang kerja"; pintunya bernama "Jadi penyelenggara"', () => {
     const groups = accountMenuGroups('participant', { demoFeatures: false });
     expect(groups.map((group) => group.key)).not.toContain('kerja');

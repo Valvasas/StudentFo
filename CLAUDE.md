@@ -11,9 +11,11 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
   data/error: `API_SPEC.md`. Gaya kode: `CONVENTIONS.md`. Alasan di balik
   keputusan yang tidak jelas dari kode: `DECISION.md` dan
   `supabase/DEVIATIONS.md`. Pekerjaan yang belum selesai: `TASKS.md`.
-- Repo ini **bukan** git repository saat ditulis (cek `git status` dulu
-  kalau kamu berencana melakukan operasi git — mungkin perlu `git init`
-  atas persetujuan user).
+- **Langkah 0:** `git fetch origin && npm run check:sync -- --fetch`, lalu
+  baca `CHANGELOG.md`. Banyak permintaan pemilik adalah pengulangan fitur yang
+  SUDAH dibuat di cabang yang tak tergabung — cek dulu sebelum membangun ulang.
+- Supabase MCP tersedia? Cocokkan `list_migrations` produksi
+  (`urmmihzjkkbxcwfzvuao`) dengan `supabase/APPLIED_MIGRATIONS.txt` (baca saja).
 
 ## Alur kerja yang disarankan
 
@@ -29,9 +31,13 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
 4. Kalau perubahan menyentuh migration Supabase: **jangan** jalankan
    `supabase db push` atau apply ke project remote tanpa konfirmasi
    eksplisit — itu operasi yang menyentuh state bersama.
-5. Perbarui `TASKS.md` (checklist) dan, kalau kamu membuat keputusan
-   arsitektural baru atau menyimpang dari sesuatu yang terdokumentasi,
+5. Perbarui `TASKS.md` (checklist), `CHANGELOG.md` (baris peta "versi yang
+   berlaku" bila perilaku pengguna berubah), dan — kalau kamu membuat keputusan
+   arsitektural baru atau menyimpang dari sesuatu yang terdokumentasi —
    tambahkan entri ke `DECISION.md`.
+6. Sebelum sesi berakhir: commit & push, dan sampaikan ke pemilik bila cabang
+   belum digabung ke `main`. Cabang yang menggantung adalah sumber "versi lama
+   dipakai lagi".
 
 ## Hal spesifik yang sering salah kalau tidak dicek dulu
 
@@ -56,6 +62,12 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
   Jangan pernah menaruh teks pesan di URL (ADR-019).
 - Migration yang membuat tabel/view/fungsi baru: `REVOKE … FROM anon,
   authenticated` eksplisit — `FROM PUBLIC` saja tidak cukup di Supabase (ADR-020).
+- Pengaturan akun = hub + halaman per konteks (ADR-067). Pengingat email
+  tinggal di `/profile/settings/notifikasi`, Hapus akun di `/profile/privacy`.
+  Jangan menyatukannya kembali ke satu halaman.
+- Server Action yang menuju tautan LUAR: `redirect(urlLuar)` langsung. Redirect
+  ke path internal yang lalu 303 ke luar membuat Next merender & mengikuti
+  tujuan itu di server (ADR-070).
 - Proyek hanya punya SATU root (folder ini). Salinan lama yang dulu bertumpuk
   sudah dipindah keluar repo — jangan buat salinan proyek di dalam repo.
 

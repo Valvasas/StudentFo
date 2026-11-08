@@ -683,3 +683,27 @@ export const DEMO_STARTER_REGISTRATIONS: readonly { readonly eventSlug: string; 
   { eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'CONFIRMED' },
   { eventSlug: 'beasiswa-talenta-digital-gelombang-1', status: 'REJECTED', note: 'Kuota penerima gelombang ini sudah penuh.' },
 ];
+
+/**
+ * Lobi lomba contoh (ADR-071): anggota tetap di satu lomba tim, supaya lobi
+ * persona Mahasiswa tidak kosong. Seed-user-1 adalah koneksi persona itu
+ * (`DEMO_STARTER_NETWORK.accepted`) — status "Terhubung" ikut terlihat.
+ */
+export const SEED_LOBBY = {
+  eventSlug: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026',
+  members: [
+    { userId: 'seed-user-2', intent: 'CARI_TIM', note: 'Backend Go & basis data. Cari frontend dan desainer.', joinedDaysAgo: 1 },
+    { userId: 'seed-user-9', intent: 'CARI_ANGGOTA', note: 'Tim 2 orang (mobile + backend), butuh UI/UX.', joinedDaysAgo: 2 },
+    { userId: 'seed-user-10', intent: 'CARI_TIM', note: 'Ilustrator & motion — siap pegang desain dan video pitch.', joinedDaysAgo: 3 },
+    { userId: 'seed-user-1', intent: 'SIAP', note: 'Tim sudah lengkap, senang berbagi pengalaman hackathon.', joinedDaysAgo: 5 },
+  ],
+  /**
+   * Anggota yang menyalakan "tampilkan lencanaku" (ADR-072), dengan pendaftaran
+   * TERKONFIRMASI di acara yang sudah ditutup — lencananya dihitung aturan
+   * biasa, tidak diberikan langsung. Acara selesai saja, pola ADR-068 #7.
+   */
+  badgeHolders: [
+    { userId: 'seed-user-9', eventSlugs: ['lomba-desain-ui-ux-nasional-edisi-lalu', 'workshop-riset-pengguna-angkatan-3'] },
+    { userId: 'seed-user-2', eventSlugs: ['lomba-desain-ui-ux-nasional-edisi-lalu'] },
+  ],
+} as const;

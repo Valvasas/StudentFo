@@ -20,7 +20,9 @@ import {
 } from '@/lib/network';
 import { type OrganizerApplicationInput, sameOrganizerIdentity, toStoredRevisionChanges } from '@/lib/organizer';
 import { parseEventAnalytics } from '@/lib/organizer-analytics';
+import type { AchievementFacts } from '@/lib/achievements';
 import { clampCandidateWindow } from '@/lib/matchmaking';
+import { isLobbyOpen, LOBBY_LIMITS, lobbyEventsOf, rankLobbyMembers, type LobbyMemberInput } from '@/lib/lobby';
 import { PORTFOLIO_STATUSES, type PortfolioInput } from '@/lib/portfolio';
 import { isColdStart } from '@/lib/recommendation';
 import type { EventPresentationInput } from '@/lib/event-presentation';
@@ -83,8 +85,14 @@ import type {
   TrustRequestStatus,
   AdminUserSummary,
   ContentReport,
+  LobbyEventRef,
+  LobbyIntent,
+  LobbyMember,
+  LobbySummary,
+  LobbyView,
+  OutboundSurveyRecord,
 } from '@/types/domain';
-import { toNotificationType } from '@/types/domain';
+import { LOBBY_INTENTS, toNotificationType } from '@/types/domain';
 import type {
   BlockedPersonRow,
   CronJobHealthRow,
@@ -122,6 +130,10 @@ import type {
   RegistrationFormRow,
   RegistrationStatsRow,
   TrackerRow,
+  LobbyCountRow,
+  LobbyMemberRow,
+  LobbyRosterRow,
+  OutboundSurveyRow,
 } from '@/types/database';
 import {
   chooseCountMode,
@@ -132,7 +144,7 @@ import {
   totalPagesFor,
 } from './listing';
 import { type CacheLayer, nextDataCache } from './cache';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS } from './repository';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
 import type {
   EventQuestionContext,
   MyEventQuestion,
@@ -144,6 +156,7 @@ import type {
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
+  OutboundSurveyInput,
   EventActor,
   EventRepository,
   OrganizerActor,
@@ -199,6 +212,12 @@ import {
   toSeekerProfile,
   toTeamCandidate,
   toTeamMember,
+  isMissingRelationError,
+  lobbyErrorCode,
+  OUTBOUND_SURVEY_COLUMNS,
+  toLobbyMemberRow,
+  toOutboundSurveyRecord,
+  toPublicBadgeFacts,
 } from './supabase-mappers';
 
 export { sanitizeSearchQuery } from './supabase-mappers';
@@ -228,6 +247,11 @@ const MANAGED_EVENTS_LIMIT = 200;
 const TRUST_LIST_LIMIT = 50;
 
 /** Penolakan yang dikenal dari trigger/RPC penyelenggara → kode aksi; sisanya 500. */
+function lobbyFailure(error: PostgrestError, message: string): AppError {
+  const code = lobbyErrorCode(error);
+  return code ? actionError(code) : upstreamFailure(message, error, 500);
+}
+
 function organizerFailure(error: PostgrestError, message: string): AppError {
   const code = organizerErrorCode(error);
   return code ? actionError(code) : upstreamFailure(message, error, 500);
@@ -2532,6 +2556,167 @@ export class SupabaseEventRepository implements EventRepository {
       .maybeSingle<Pick<EventPhotoRow, 'storage_path'>>();
     if (error) throw upstreamFailure('Gagal memuat foto.', error);
     return data ? downloadPrivateFile(PHOTO_BUCKET, data.storage_path) : null;
+  }
+
+  async recordOutboundSurvey(input: OutboundSurveyInput): Promise<void> {
+    if (!isUuid(input.eventId)) return;
+    // service_role: tabelnya sengaja tanpa jalur tulis dari browser (ADR-070, pola ADR-032).
+    const { error } = await createSupabaseAdminClient().from('outbound_surveys').insert({
+      event_id: input.eventId,
+      signed_in: input.signedIn,
+      education_level: input.educationLevel,
+      source: input.source,
+      plan: input.plan,
+      province: input.province,
+      institution: input.institution,
+    });
+    if (error) throw upstreamFailure('Gagal mencatat pendataan kinerja.', error, 500);
+  }
+
+  async listOutboundSurveys(since: Date): Promise<readonly OutboundSurveyRecord[]> {
+    const supabase = createSupabaseAdminClient();
+    const rows: OutboundSurveyRow[] = [];
+    // Per halaman range(): PostgREST diam-diam memotong di max_rows (lihat fetchAllPages).
+    for (let from = 0; from < OUTBOUND_READ_LIMIT; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('outbound_surveys')
+        .select(OUTBOUND_SURVEY_COLUMNS)
+        .gte('created_at', since.toISOString())
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, Math.min(from + PAGE_SIZE, OUTBOUND_READ_LIMIT) - 1)
+        .returns<OutboundSurveyRow[]>();
+      // Migration 20261108100002 belum diterapkan: dasbor kosong, bukan halaman galat.
+      if (error && isMissingRelationError(error)) return [];
+      if (error) throw upstreamFailure('Gagal memuat pendataan kinerja.', error);
+      rows.push(...data);
+      if (data.length < PAGE_SIZE) break;
+    }
+    return rows.flatMap((row) => toOutboundSurveyRecord(row) ?? []);
+  }
+
+  private async lobbyEventsFor(userId: string): Promise<readonly LobbyEventRef[]> {
+    const [tracker, registrations] = await Promise.all([this.listTrackerItems(userId), this.listMyRegistrations(userId)]);
+    return lobbyEventsOf(tracker, registrations);
+  }
+
+  async listMyLobbies(userId: string): Promise<readonly LobbySummary[]> {
+    const events = await this.lobbyEventsFor(userId);
+    if (events.length === 0) return [];
+    const supabase = await createSupabaseServerClient();
+    const ids = events.map((event) => event.id);
+    const [mine, counts] = await Promise.all([
+      supabase.from('lobby_members').select('event_id, intent, note, created_at').eq('user_id', userId).in('event_id', ids).returns<LobbyMemberRow[]>(),
+      supabase.rpc('lobby_member_counts', { p_events: ids }),
+    ]);
+    // Migration 20261108100003 belum diterapkan: lobi tampil kosong; bergabung dijawab `lobby_unavailable`.
+    for (const error of [mine.error, counts.error]) {
+      if (error && !isMissingRelationError(error)) throw upstreamFailure('Gagal memuat lobi lomba.', error);
+    }
+    const memberships = new Map((mine.data ?? []).map((row) => [row.event_id, row]));
+    const countOf = new Map(rpcRows<LobbyCountRow>(counts.data).map((row) => [row.event_id, row.member_count]));
+    return events.map((event) => {
+      const row = memberships.get(event.id);
+      const intent = row && (LOBBY_INTENTS as readonly string[]).includes(row.intent) ? (row.intent as LobbyIntent) : null;
+      return {
+        event,
+        membership: row && intent ? { intent, note: row.note, joinedAt: row.created_at } : null,
+        memberCount: countOf.get(event.id) ?? 0,
+      };
+    });
+  }
+
+  async getLobby(viewer: NetworkViewer, eventId: string): Promise<LobbyView | null> {
+    if (!isUuid(eventId)) return null;
+    const event = (await this.lobbyEventsFor(viewer.id)).find((candidate) => candidate.id === eventId);
+    if (!event) return null;
+
+    const supabase = await createSupabaseServerClient();
+    const [mine, roster, counts, invites, connections] = await Promise.all([
+      supabase.from('lobby_members').select('event_id, intent, note, created_at').eq('event_id', eventId).eq('user_id', viewer.id).maybeSingle<LobbyMemberRow>(),
+      supabase.rpc('lobby_roster', { p_event: eventId }),
+      supabase.rpc('lobby_member_counts', { p_events: [eventId] }),
+      supabase.from('lobby_invites').select('invitee_id').eq('event_id', eventId).eq('inviter_id', viewer.id).returns<{ invitee_id: string }[]>(),
+      this.listConnections(viewer.id, { limit: LOBBY_LIMITS.inviteCandidates, cursor: null, kind: 'accepted' }),
+    ]);
+    for (const error of [mine.error, roster.error, counts.error, invites.error]) {
+      if (error && !isMissingRelationError(error)) throw upstreamFailure('Gagal memuat lobi lomba.', error);
+    }
+
+    const intent = mine.data && (LOBBY_INTENTS as readonly string[]).includes(mine.data.intent) ? (mine.data.intent as LobbyIntent) : null;
+    const me: LobbyMember | null =
+      mine.data && intent
+        ? { userId: viewer.id, fullName: viewer.fullName, intent, note: mine.data.note, joinedAt: mine.data.created_at, relation: 'self' }
+        : null;
+    // RPC sudah mengosongkan roster bagi bukan anggota; dicek lagi di sini supaya
+    // kebijakan timbal-balik tidak bergantung pada satu lapis saja.
+    const members = me ? rpcRows<LobbyRosterRow>(roster.data).flatMap((row) => toLobbyMemberRow(row) ?? []) : [];
+    const invitedIds = new Set((invites.data ?? []).map((row) => row.invitee_id));
+    const rosterIds = new Set(members.map((member) => member.userId));
+    const peers = connections.items.map((connection) => ({ userId: connection.person.userId, fullName: connection.person.fullName }));
+
+    return {
+      event,
+      open: isLobbyOpen(event),
+      me,
+      members: rankLobbyMembers(members, me?.intent ?? null),
+      memberCount: rpcRows<LobbyCountRow>(counts.data)[0]?.member_count ?? 0,
+      invitable: peers.filter((peer) => !rosterIds.has(peer.userId) && !invitedIds.has(peer.userId)),
+      invited: peers.filter((peer) => invitedIds.has(peer.userId)),
+    };
+  }
+
+  async joinLobby(actor: NetworkViewer, eventId: string, input: LobbyMemberInput): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('lobby_forbidden');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('join_lobby', { p_event: eventId, p_intent: input.intent, p_note: input.note ?? '' });
+    if (error) throw lobbyFailure(error, 'Gagal bergabung ke lobi.');
+  }
+
+  async leaveLobby(actorId: string, eventId: string): Promise<void> {
+    if (!isUuid(eventId)) return;
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('lobby_members').delete().eq('event_id', eventId).eq('user_id', actorId);
+    if (error) throw lobbyFailure(error, 'Gagal keluar dari lobi.');
+  }
+
+  async getBadgeVisibility(userId: string): Promise<{ readonly show: boolean; readonly adjustable: boolean }> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from('users').select('show_badges').eq('id', userId).maybeSingle<{ show_badges: boolean }>();
+    // Kode tayang sebelum migration 20261108100004: saklar terkunci, lencana tetap privat.
+    if (error && isMissingColumnError(error)) return { show: false, adjustable: false };
+    if (error) throw upstreamFailure('Gagal memuat pilihan lencana.', error);
+    return { show: data?.show_badges ?? false, adjustable: true };
+  }
+
+  async setBadgeVisibility(userId: string, show: boolean): Promise<void> {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('users').update({ show_badges: show }).eq('id', userId);
+    if (error && isMissingColumnError(error)) throw actionError('badges_unavailable');
+    if (error) throw upstreamFailure('Gagal menyimpan pilihan lencana.', error, 500);
+  }
+
+  async listPublicBadgeFacts(_viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, AchievementFacts>> {
+    const ids = [...new Set(userIds)].filter(isUuid).slice(0, 100);
+    if (ids.length === 0) return new Map();
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('public_badge_facts', { p_users: ids });
+    if (error && isMissingRelationError(error)) return new Map();
+    if (error) throw upstreamFailure('Gagal memuat lencana.', error);
+    const result = new Map<string, AchievementFacts>();
+    for (const row of rpcRows<{ user_id: string; facts: unknown }>(data)) {
+      const facts = toPublicBadgeFacts(row.facts);
+      if (facts) result.set(row.user_id, facts);
+    }
+    return result;
+  }
+
+  async inviteToLobby(actor: NetworkViewer, eventId: string, inviteeId: string): Promise<'invited' | 'already'> {
+    if (!isUuid(eventId) || !isUuid(inviteeId)) throw actionError('lobby_invite_invalid');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('invite_to_lobby', { p_event: eventId, p_invitee: inviteeId });
+    if (error) throw lobbyFailure(error, 'Gagal mengirim ajakan lobi.');
+    return data === true ? 'invited' : 'already';
   }
 }
 

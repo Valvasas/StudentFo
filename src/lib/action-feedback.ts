@@ -94,6 +94,14 @@ export const ACTION_ERROR_CODES = [
   'invalid_answer',
   'invalid_request',
   'reminders_unavailable',
+  'lobby_forbidden',
+  'lobby_closed',
+  'lobby_invite_invalid',
+  'lobby_rate_limited',
+  'lobby_unavailable',
+  'invalid_lobby',
+  'invalid_outbound_survey',
+  'badges_unavailable',
   'unknown',
 ] as const;
 
@@ -192,6 +200,14 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   invalid_answer: 'Tulis jawaban 2–1500 karakter.',
   invalid_request: 'Permintaan tidak dikenali. Muat ulang halaman lalu coba lagi.',
   reminders_unavailable: 'Saklar pengingat belum aktif di server ini. Pengingat tenggat tetap dikirim seperti biasa.',
+  lobby_forbidden: 'Lobi hanya untuk peserta lomba ini. Tandai “Sudah daftar” di Pendaftaran atau daftar lewat formulirnya dulu.',
+  lobby_closed: 'Pendaftaran lomba ini sudah ditutup — lobinya hanya bisa dibaca.',
+  lobby_invite_invalid: 'Hanya koneksi yang sudah terhubung yang bisa diajak dari lobi.',
+  lobby_rate_limited: 'Kamu sudah mengirim 20 ajakan lobi hari ini. Coba lagi besok.',
+  lobby_unavailable: 'Lobi lomba belum aktif di server ini. Coba lagi setelah pembaruan terpasang.',
+  invalid_lobby: 'Pilih statusmu di lobi, dan catatan maksimal 160 karakter.',
+  badges_unavailable: 'Pilihan menampilkan lencana belum aktif di server ini. Lencanamu tetap privat.',
+  invalid_outbound_survey: 'Jawab pertanyaan yang bertanda wajib dulu — asal sekolah/kampus maksimal 120 karakter.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
 
@@ -252,6 +268,13 @@ export const ACTION_NOTICE_CODES = [
   'question_answered',
   'question_deleted',
   'question_hidden',
+  'lobby_joined',
+  'lobby_updated',
+  'lobby_left',
+  'lobby_invited',
+  'lobby_already_invited',
+  'badges_shown',
+  'badges_hidden',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -279,6 +302,13 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   revision_reviewed: 'Keputusan perubahan acara disimpan dan tercatat di riwayat.',
   network_profile_saved: 'Pengaturan jaringan disimpan.',
   undo_done: 'Dibatalkan — keadaan sebelumnya sudah dikembalikan.',
+  lobby_joined: 'Kamu masuk lobi. Sapa peserta lain atau ajak temanmu ikut lomba ini.',
+  lobby_updated: 'Kartu lobimu diperbarui.',
+  lobby_left: 'Kamu keluar dari lobi. Kartumu tidak lagi terlihat peserta lain.',
+  lobby_invited: 'Ajakan terkirim — temanmu dapat notifikasi berisi tautan lomba ini.',
+  lobby_already_invited: 'Kamu sudah pernah mengajak teman ini untuk lomba ini.',
+  badges_shown: 'Lencana yang sudah kamu raih kini tampil di profil publik dan lobi lomba.',
+  badges_hidden: 'Lencanamu kembali privat — hanya kamu yang melihatnya.',
   reminders_on: 'Pengingat tenggat menyala. Kegiatan yang kamu simpan atau lacak diingatkan H-3 dan H-1.',
   reminders_off: 'Pengingat tenggat dimatikan. Pengingat yang sudah ada di lonceng tidak dihapus.',
   portfolio_saved: 'Portofolio diperbarui.',

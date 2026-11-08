@@ -397,6 +397,24 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Daftar penyelenggara, pendataan kinerja, lobi, lencana publik, anti-regresi 2026-11-08 (@claude) — ADR-069–072
+
+- [x] Gabung `ccr-c5c96a43-8eijqc` (versi produksi, 8 migration) ke cabang kerja; Pengaturan tetap hub ADR-067 (pengingat email → Notifikasi, hapus akun → Privasi & data); uji gabungan diperbaiki (dialog konfirmasi ADR-067 di `trust-safety.spec.ts`)
+- [x] Form daftar penyelenggara terpisah berisi data lembaga + penanggung jawab + wewenang; migration `20261108100001` (`org_type`, `contact_role`); draf → form studio; antrean admin menampilkannya (ADR-069)
+- [x] Ulangi kata sandi di 4 form (daftar ×2, setel ulang, ganti) + kode `password_mismatch`/`same_password`/`weak_password`
+- [x] Email ganda saat daftar → `email_taken` + tautan Masuk/Lupa sandi; masuk & lupa sandi tetap seragam (AGENTS #12 diperbarui)
+- [x] Pendataan kinerja `/events/[slug]/sebelum-daftar` + `/admin/kinerja`; migration `20261108100002` (tanpa identitas, retensi 365 hari) (ADR-070)
+- [x] Lobi lomba `/lobi`, `/lobi/[slug]`; migration `20261108100003` (RLS timbal-balik, ajak koneksi, policy koneksi + `shares_lobby_with`) (ADR-071)
+- [x] Lencana opt-in di profil publik, pratinjau publik, & lobi; migration `20261108100004` (`show_badges`, `public_badge_facts`) (ADR-072)
+- [x] Kebijakan privasi & cookie memuat data/cookie baru; ekspor data memuat lobi, pilihan lencana, draf lembaga, jenis & jabatan
+- [x] Anti-regresi: `CHANGELOG.md`, `supabase/APPLIED_MIGRATIONS.txt` (dicocokkan ke produksi: 42), `migrations-manifest.test.ts`, `npm run check:sync`, Langkah 0 di AGENTS/CLAUDE
+- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan 4 migration `20261108100001..04` ke staging → uji alur dua akun (daftar penyelenggara email & Google, email ganda, lobi + ajak, lencana publik, pendataan) → produksi; tambahkan barisnya ke `supabase/APPLIED_MIGRATIONS.txt` di commit yang sama
+- [ ] **BUTUH PEMILIK.** Template email "Confirm signup" Supabase: pastikan tautan memakai `{{ .ConfirmationURL }}`/`token_hash` ke `/auth/callback` (draf lembaga ikut lewat metadata, tidak perlu ubah)
+- [ ] Putuskan cabang usang `ccr-a2058300-u92ao5` (verifikasi hasil oleh penyelenggara — kandidat lencana "Juara terverifikasi") & `ccr-4d61ed42-skxs6m` (digantikan ADR-056): port ulang atau hapus. Jangan merge mentah
+- [ ] Pantau klik keluar setelah gerbang pendataan tayang; turun tajam → tambah "Lewati" (ADR-070 konsekuensi)
+- [ ] Lencana: notifikasi "tingkat baru" butuh catatan terakhir dilihat (tabel kecil) — ditunda (ADR-072)
+- [ ] Pertimbangkan SessionStart hook yang menjalankan `npm run check:sync` otomatis di awal setiap sesi agen
+
 ## Audit UX pra-domain: kembali, konfirmasi, Pengaturan, lencana 2026-11-05 (@claude) — ADR-067/068
 
 - [x] `BackLink` (hierarkis, ingat asal lewat `lib/nav-history.ts`, `via` untuk induk ganda) di semua anak Pengaturan, Data diri, Peminatan; menggantikan tautan kembali tulisan tangan di detail tim, papan lamaran, profil orang, pembayaran

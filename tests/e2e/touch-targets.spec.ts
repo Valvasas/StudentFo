@@ -125,7 +125,7 @@ test('pencocokan tim (form, hasil, saringan terbuka): setiap target ≥ 44px', a
 
 test('studio penyelenggara (beranda, dasbor, ringkasan & rentang analitik): setiap target ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Penyelenggara', '/penyelenggara');
-  for (const route of ['/penyelenggara', '/', `/penyelenggara/acara/${PAID_DEMO_EVENT.id}`]) {
+  for (const route of ['/penyelenggara', '/', `/penyelenggara/acara/${PAID_DEMO_EVENT.id}`, '/lobi', '/lobi/kompetisi-inovasi-perangkat-lunak-nusantara-2026']) {
     await page.goto(route);
     await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000, message: route }).toEqual([]);
   }

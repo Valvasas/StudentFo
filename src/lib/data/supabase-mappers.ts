@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import type { AchievementFacts } from '@/lib/achievements';
 import type { ActionErrorCode } from '@/lib/action-feedback';
 import { fromStoredPayload } from '@/lib/submission-schema';
 import type { ConnectionCursor } from '@/lib/network';
@@ -21,6 +23,12 @@ import type {
   OrganizerHistoryEntry,
   OrganizerProfile,
   OrganizerType,
+  EducationLevel,
+  OutboundPlan,
+  OutboundSource,
+  OutboundSurveyRecord,
+  LobbyIntent,
+  LobbyMember,
   PortfolioEntry,
   PortfolioFields,
   TeamCandidate,
@@ -34,7 +42,21 @@ import type {
   AdminUserSummary,
   ContentReport,
 } from '@/types/domain';
-import { ACHIEVEMENTS, ORGANIZER_TYPES, REGISTRATION_STATUSES, TEAM_SKILL_SLUGS, toTeamRole, toVerificationBadge } from '@/types/domain';
+import {
+  ACHIEVEMENTS,
+  EDUCATION_LEVELS,
+  EVENT_STATUSES,
+  EVENT_TYPES,
+  ORGANIZER_STATUSES,
+  LOBBY_INTENTS,
+  ORGANIZER_TYPES,
+  OUTBOUND_PLANS,
+  OUTBOUND_SOURCES,
+  REGISTRATION_STATUSES,
+  TEAM_SKILL_SLUGS,
+  toTeamRole,
+  toVerificationBadge,
+} from '@/types/domain';
 import type {
   ConnectionPeerRow,
   CronJobHealthRow,
@@ -59,6 +81,8 @@ import type {
   TeamSeekerRow,
   AdminUserRow,
   ContentReportRow,
+  LobbyRosterRow,
+  OutboundSurveyRow,
 } from '@/types/database';
 
 /**
@@ -200,6 +224,16 @@ export function isUuid(value: string): boolean {
 export function isMissingColumnError(error: unknown): boolean {
   const code = sqlState(error);
   return code === '42703' || code === 'PGRST204';
+}
+
+/**
+ * Tabel/fungsi belum ada — kode tayang sebelum migration-nya (urutan deploy):
+ * Postgres `42P01`/`42883`, atau PostgREST `PGRST205` (tabel) / `PGRST202`
+ * (fungsi) tidak ada di cache skema.
+ */
+export function isMissingRelationError(error: unknown): boolean {
+  const code = sqlState(error);
+  return code === '42P01' || code === '42883' || code === 'PGRST205' || code === 'PGRST202';
 }
 
 export function sqlState(error: unknown): string | null {
@@ -364,6 +398,86 @@ export function organizerErrorCode(
   if (/revision_invalid_link|revision_deadline_past|revision_not_manager/.test(message)) return 'revision_rejected_by_db';
   if (message.includes('analytics_forbidden')) return 'not_event_manager';
   return null;
+}
+
+const publicBadgeFactsSchema = z.object({
+  registrations: z.array(
+    z.object({
+      event_type: z.enum(EVENT_TYPES),
+      event_status: z.enum(EVENT_STATUSES),
+      deadline_at: z.string().nullable(),
+      confirmed_at: z.string(),
+    }),
+  ),
+  approved_submissions: z.number().int().nonnegative(),
+  organizer_status: z.enum(ORGANIZER_STATUSES).nullable(),
+  organizer_reviewed_at: z.string().nullable(),
+  hosted_closed_at: z.array(z.string().nullable()),
+});
+
+/**
+ * Hasil `public_badge_facts()` (ADR-072) → bahan `evaluateBadges`. JSONB =
+ * tak dipercaya: bentuk asing → null (lencananya tidak tampil), bukan galat.
+ * Id acara sengaja tidak diserahkan SQL; diganti id buatan per baris.
+ */
+export function toPublicBadgeFacts(raw: unknown): AchievementFacts | null {
+  const parsed = publicBadgeFactsSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const facts = parsed.data;
+  return {
+    registrations: facts.registrations.map((row, index) => ({
+      eventId: `publik-${index + 1}`,
+      eventType: row.event_type,
+      eventStatus: row.event_status,
+      deadlineAt: row.deadline_at,
+      status: 'CONFIRMED',
+      confirmedAt: row.confirmed_at,
+    })),
+    managedEventIds: [],
+    approvedSubmissions: facts.approved_submissions,
+    organizerStatus: facts.organizer_status,
+    organizerReviewedAt: facts.organizer_reviewed_at,
+    hostedEventClosedAt: facts.hosted_closed_at,
+  };
+}
+
+/** Galat bernama dari RPC lobi (migration 20261108100003) → kode tertutup. */
+export function lobbyErrorCode(error: { code?: string; message?: string } | null): Exclude<ActionErrorCode, 'unknown'> | null {
+  if (isMissingRelationError(error)) return 'lobby_unavailable';
+  const message = error?.message ?? '';
+  for (const code of ['lobby_forbidden', 'lobby_closed', 'lobby_invite_invalid', 'lobby_rate_limited'] as const) {
+    if (message.includes(code)) return code;
+  }
+  // CHECK `lobby_members.note` (> 160) / `intent` — hanya bisa lolos bila validasi aplikasi dilewati.
+  if (sqlState(error) === '23514') return 'invalid_lobby';
+  return null;
+}
+
+export const OUTBOUND_SURVEY_COLUMNS = 'event_id, signed_in, education_level, source, plan, province, institution, created_at, event:events(title, slug)';
+
+/** Baris asing (nilai di luar daftar, mis. ditulis SQL editor) dibuang, bukan dipercaya. */
+export function toOutboundSurveyRecord(row: OutboundSurveyRow): OutboundSurveyRecord | null {
+  if (!(EDUCATION_LEVELS as readonly string[]).includes(row.education_level)) return null;
+  if (!(OUTBOUND_SOURCES as readonly string[]).includes(row.source)) return null;
+  const plan = row.plan && (OUTBOUND_PLANS as readonly string[]).includes(row.plan) ? (row.plan as OutboundPlan) : null;
+  return {
+    eventId: row.event_id,
+    eventTitle: row.event?.title ?? null,
+    eventSlug: row.event?.slug ?? null,
+    signedIn: row.signed_in,
+    educationLevel: row.education_level as EducationLevel,
+    source: row.source as OutboundSource,
+    plan,
+    province: row.province,
+    institution: row.institution,
+    createdAt: row.created_at,
+  };
+}
+
+export function toLobbyMemberRow(row: LobbyRosterRow): LobbyMember | null {
+  if (!(LOBBY_INTENTS as readonly string[]).includes(row.intent)) return null;
+  const relation = row.relation === 'connected' || row.relation === 'pending' ? row.relation : 'none';
+  return { userId: row.user_id, fullName: row.full_name, intent: row.intent as LobbyIntent, note: row.note, joinedAt: row.joined_at, relation };
 }
 
 /**

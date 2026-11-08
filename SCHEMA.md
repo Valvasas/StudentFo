@@ -50,6 +50,12 @@ Urutan migration (harus dijalankan berurutan):
 40. `20261101100006_event_questions.sql` — `event_questions` (RLS tanpa policy) + RPC `list_event_questions` (publik, nama depan), `ask_event_question` (5/hari), `answer_event_question` (pengelola/admin aal2), `delete_event_question` (penanya), `hide_event_question` (service_role), `list_my_event_questions` (ekspor); subjek `question` di `content_reports` & `moderation_log` (ADR-062 #7)
 41. `20261101100007_function_hardening.sql` — EXECUTE fungsi trigger `handle_new_user`/`sync_saved_count` dicabut dari `anon`/`authenticated`; `search_path` tetap untuk `touch_updated_at`, `slugify`, `compute_dedup_hash`, `events_fill_derived` (temuan Security Advisor, ADR-062 #8)
 42. `20261105100001_deadline_reminder_preference.sql` — `users.deadline_reminders` (bawaan TRUE, hak UPDATE per kolom) + `create_deadline_notifications()` melewati akun yang mematikannya (ADR-067)
+43. `20261108100001_organizer_signup_fields.sql` — `organizer_profiles.org_type` (CHECK = `ORGANIZER_TYPES`) & `contact_role`, GRANT INSERT/UPDATE per kolom, trigger identitas ikut menghitung keduanya (ADR-069)
+44. `20261108100002_outbound_surveys.sql` — `outbound_surveys` (tanpa user_id; tulis service_role, baca admin) + `purge_old_outbound_surveys()` 365 hari di pg_cron (ADR-070)
+45. `20261108100003_event_lobby.sql` — `lobby_members`, `lobby_invites`; `can_use_lobby`, `lobby_is_open`, RPC `join_lobby`, `lobby_roster`, `lobby_member_counts`, `invite_to_lobby`; `shares_lobby_with` + policy `connections_insert_requester` diperluas (ADR-071)
+46. `20261108100004_public_badges.sql` — `users.show_badges` (bawaan FALSE) + `public_badge_facts(uuid[])` (ADR-072)
+
+> Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–42 per 2026-11-08). #43–46 belum.
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -423,6 +429,32 @@ pengguna). Keduanya service_role. Aplikasi menghapus berkas DULU.
 `moderation_log` menerima subjek `user`/`report` dan status
 `OPEN|RESOLVED|DISMISSED|ACTIVE|SUSPENDED|DELETED`.
 Uji: `supabase/tests/102_trust_and_safety.test.sql`, `tests/integration/trust-safety.test.ts`.
+
+### `outbound_surveys` (Pendataan kinerja — ADR-070)
+| Kolom | Catatan |
+|---|---|
+| `event_id` | FK `events` ON DELETE CASCADE |
+| `signed_in` | satu-satunya jejak pengisi — TANPA user_id/email |
+| `education_level` | enum `education_level` |
+| `source`, `plan` | CHECK = `OUTBOUND_SOURCES`/`OUTBOUND_PLANS` (dikunci `outbound-survey.test.ts`); `plan` NULL selain lomba |
+| `province`, `institution` | opsional; dasbor menggabungkan bucket < 5 (k-anonim) |
+
+RLS: SELECT `is_admin()` saja; tidak ada hak tulis klien (service_role). Retensi 365 hari.
+Uji: `supabase/tests/110_outbound_surveys.test.sql`.
+
+### `lobby_members`, `lobby_invites` (Lobi lomba — ADR-071)
+`lobby_members` PK (event_id, user_id), `intent` CHECK = `LOBBY_INTENTS`, `note` ≤ 160.
+Klien hanya SELECT/DELETE baris sendiri; tulis lewat `join_lobby()`; roster
+orang lain lewat `lobby_roster()` (hanya untuk sesama anggota, tanpa blokir &
+akun ditangguhkan). `lobby_invites` PK (event_id, inviter_id, invitee_id),
+klien SELECT ajakan sendiri; tulis lewat `invite_to_lobby()` (koneksi diterima,
+20/hari, notifikasi `LOBBY_INVITE` ON CONFLICT DO NOTHING).
+Uji: `supabase/tests/111_event_lobby.test.sql`.
+
+### `users.show_badges` (Lencana publik — ADR-072)
+Bawaan FALSE, GRANT UPDATE per kolom. `public_badge_facts(uuid[])` menyerahkan
+fakta lencana tanpa id/judul acara untuk pemilik atau pembaca yang lolos
+`can_view_profile()`/`shares_lobby_with()`. Uji: `supabase/tests/112_public_badges.test.sql`.
 
 ## Fungsi (semua `SECURITY DEFINER` punya `SET search_path = public, pg_temp`)
 

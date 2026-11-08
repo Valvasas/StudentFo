@@ -1,0 +1,55 @@
+# Migration yang SUDAH diterapkan ke Supabase PRODUKSI (urmmihzjkkbxcwfzvuao).
+#
+# Kenapa berkas ini ada: dua kali kode tertinggal dari database-nya sendiri —
+# migration diterapkan dari cabang yang tidak pernah digabung ke main, lalu sesi
+# berikutnya mulai dari main (versi lama) dan membangun ulang hal yang sudah ada.
+# `src/lib/migrations-manifest.test.ts` (ikut `npm run verify`) gagal bila ada
+# baris di sini yang berkasnya tidak ada di supabase/migrations/.
+#
+# ATURAN: setiap kali menerapkan migration ke produksi (atas persetujuan pemilik),
+# tambahkan barisnya di sini DALAM COMMIT YANG SAMA dan pastikan commit itu masuk
+# main. Jangan pernah menghapus baris. Format: <versi> <nama>.
+#
+# Terakhir dicocokkan langsung ke produksi: 2026-11-08 (list_migrations, 42 baris).
+20260912100001 init_types_and_tables
+20260912100002 functions_and_triggers
+20260912100003 row_level_security
+20260912100004 views_and_seed_taxonomy
+20260913100001 account_hardening
+20260913110001 stats_and_saved_events
+20260914100001 deadline_notifications
+20260914100002 team_member_profiles
+20260923100001 security_hardening
+20260923110001 submission_rate_limit
+20260925100001 pipeline_and_notification_reliability
+20260926100001 rls_initplan
+20260926110001 rate_limits
+20260926120001 pg_cron_jobs
+20260926130001 moderation_log
+20260926140001 recommendation_signals
+20260926150001 events_listing_search_vector
+20260926160001 submission_notifications
+20260927100001 network
+20260928100001 connection_blocks
+20260928110001 organizers
+20260928120001 event_analytics
+20260929100001 portfolio_and_history
+20260930100001 optimize_event_categories_and_indexing
+20260930100002 team_atomic_rpc
+20260930100003 submission_owner_index
+20261003100001 event_cost_promotion_badge_guidebook
+20261003100002 personalized_listing_rpc
+20261003100003 notification_dispatch
+20261014100001 registrations_gallery_payments
+20261015100001 registration_code_retry
+20261020100001 team_matching
+20261030100001 data_retention
+20261031100001 trust_and_safety
+20261101100001 report_outcome_notifications
+20261101100002 cron_job_health
+20261101100003 admin_mfa
+20261101100004 submission_stages
+20261101100005 deadline_email_reminders
+20261101100006 event_questions
+20261101100007 function_hardening
+20261105100001 deadline_reminder_preference

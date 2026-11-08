@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { FIELD_MEMORY_PREFIX } from '@/lib/form-data';
 
 type Restorable = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
@@ -28,7 +29,7 @@ export function FieldMemory({ storageKey, fields, restore }: { storageKey: strin
   useEffect(() => {
     const form = anchor.current?.closest('form');
     if (!form) return;
-    const key = `sf_form:${storageKey}`;
+    const key = `${FIELD_MEMORY_PREFIX}${storageKey}`;
 
     try {
       const saved = restore ? (JSON.parse(sessionStorage.getItem(key) ?? 'null') as unknown) : null;

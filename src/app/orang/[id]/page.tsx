@@ -7,10 +7,13 @@ import { requestConnectionAction } from '@/app/connections/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon } from '@/components/listing/category-icon';
 import { PortfolioList } from '@/components/profile/portfolio-list';
+import { PublicBadges } from '@/components/profile/public-badges';
 import { BackLink } from '@/components/ui/back-link';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { evaluateBadges } from '@/lib/achievements';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { initialsOf } from '@/lib/initials';
 import type { RawSearchParams } from '@/lib/search-params';
 import { EDUCATION_LEVEL_LABEL, type ProfileRelation, type PublicProfile } from '@/types/domain';
@@ -56,12 +59,18 @@ export default async function PublicProfilePage({
 
   const [profile, repository] = await Promise.all([loadProfile(user.id, id), getEventRepository()]);
   if (!profile) notFound();
-  const categories = await repository.listCategories();
+  const [categories, badgeFacts] = await Promise.all([
+    repository.listCategories(),
+    withFallback('lencana publik', () => repository.listPublicBadgeFacts(user.id, [id]), new Map()),
+  ]);
   const { person, relation, portfolio } = profile;
   const interests = person.interests
     .map((slug) => categories.find((category) => category.slug === slug))
     .filter((category): category is NonNullable<typeof category> => Boolean(category));
   const now = new Date();
+  // Hanya ada bila pemiliknya menyalakan "tampilkan lencanaku" (ADR-072); dihitung aturan yang sama dengan profilnya sendiri.
+  const facts = badgeFacts.get(person.userId);
+  const badges = facts ? evaluateBadges(facts, now) : null;
 
   return (
     <div className="container-page flex max-w-3xl flex-col gap-6 pb-16 pt-8">
@@ -106,6 +115,7 @@ export default async function PublicProfilePage({
           {[person.major, person.educationLevel ? EDUCATION_LEVEL_LABEL[person.educationLevel] : null].filter(Boolean).join(' · ') ||
             'Program studi & jenjang belum diisi'}
         </p>
+        {badges && <PublicBadges progress={badges} />}
         {interests.length > 0 && (
           <ul aria-label="Minat" className="flex flex-wrap gap-1.5">
             {interests.map((category) => (

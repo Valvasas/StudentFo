@@ -45,6 +45,48 @@ export const EDUCATION_LEVEL_LABEL: Record<EducationLevel, string> = {
   UMUM: 'Umum',
 };
 
+/**
+ * Pendataan kinerja postingan (ADR-070): jawaban singkat sebelum keluar ke
+ * tautan pendaftaran resmi. Daftar HARUS sama dengan CHECK di migration
+ * 20261108100002 (dikunci `lib/outbound-survey.test.ts`). Bukan enum SQL:
+ * milik analitik pemilik, tidak dibaca pipeline.
+ */
+export const OUTBOUND_SOURCES = ['INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TEMAN', 'GOOGLE', 'STUDENTFO', 'LAINNYA'] as const;
+export type OutboundSource = (typeof OUTBOUND_SOURCES)[number];
+export const OUTBOUND_SOURCE_LABEL: Record<OutboundSource, string> = {
+  INSTAGRAM: 'Instagram',
+  TIKTOK: 'TikTok',
+  WHATSAPP: 'Grup WhatsApp / Telegram',
+  TEMAN: 'Teman, guru, atau dosen',
+  GOOGLE: 'Pencarian Google',
+  STUDENTFO: 'Jelajah di StudentFo',
+  LAINNYA: 'Lainnya',
+};
+
+/** Hanya ditanyakan untuk LOMBA — "ikut bersama tim" tidak bermakna untuk beasiswa atau magang. */
+export const OUTBOUND_PLANS = ['SENDIRI', 'TIM', 'CARI_TIM', 'LIHAT'] as const;
+export type OutboundPlan = (typeof OUTBOUND_PLANS)[number];
+export const OUTBOUND_PLAN_LABEL: Record<OutboundPlan, string> = {
+  SENDIRI: 'Ikut sendiri',
+  TIM: 'Bersama tim yang sudah ada',
+  CARI_TIM: 'Masih mencari tim atau partner',
+  LIHAT: 'Baru lihat-lihat',
+};
+
+/** Satu jawaban, untuk dasbor admin. TIDAK ada identitas pengisi — hanya tanda masuk/tamu. */
+export interface OutboundSurveyRecord {
+  readonly eventId: string;
+  readonly eventTitle: string | null;
+  readonly eventSlug: string | null;
+  readonly signedIn: boolean;
+  readonly educationLevel: EducationLevel;
+  readonly source: OutboundSource;
+  readonly plan: OutboundPlan | null;
+  readonly province: string | null;
+  readonly institution: string | null;
+  readonly createdAt: string;
+}
+
 export const EVENT_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
@@ -227,6 +269,8 @@ export const NOTIFICATION_TYPES = [
   /** Tanya-jawab kegiatan (migration 20261101100006, ADR-062 #7). */
   'QUESTION_ASKED',
   'QUESTION_ANSWERED',
+  /** Teman mengajak ikut lomba dari lobinya (RPC invite_to_lobby, ADR-071). Satu per orang per lomba. */
+  'LOBBY_INVITE',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -1015,4 +1059,61 @@ export interface EventPhoto {
 export interface StoredFile {
   readonly bytes: Uint8Array;
   readonly contentType: string;
+}
+
+/**
+ * Lobi lomba (ADR-071): ruang per lomba untuk yang SUDAH mendaftar — mencari
+ * tim/partner dan mengajak teman sebelum lomba. Daftar HARUS sama dengan
+ * CHECK `lobby_members.intent` (migration 20261108100003; dikunci
+ * `lib/lobby.test.ts`).
+ */
+export const LOBBY_INTENTS = ['CARI_TIM', 'CARI_ANGGOTA', 'SIAP'] as const;
+export type LobbyIntent = (typeof LOBBY_INTENTS)[number];
+export const LOBBY_INTENT_LABEL: Record<LobbyIntent, string> = {
+  CARI_TIM: 'Mencari tim',
+  CARI_ANGGOTA: 'Timku butuh anggota',
+  SIAP: 'Tim sudah lengkap',
+};
+
+/** Hubungan pembaca dengan anggota lobi — menentukan tombol yang ditawarkan. */
+export type LobbyRelation = 'self' | 'connected' | 'pending' | 'none';
+
+export interface LobbyMember {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly intent: LobbyIntent;
+  readonly note: string | null;
+  readonly joinedAt: string;
+  readonly relation: LobbyRelation;
+}
+
+export interface LobbyEventRef {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly organizer: string;
+  readonly status: EventStatus;
+  readonly primaryDeadlineAt: string | null;
+}
+
+/** Satu baris di "Lobi lomba saya". `memberCount` = jumlah saja, tanpa nama, sebelum bergabung. */
+export interface LobbySummary {
+  readonly event: LobbyEventRef;
+  /** Kartu lobi milik sendiri; null = belum bergabung. */
+  readonly membership: Pick<LobbyMember, 'intent' | 'note' | 'joinedAt'> | null;
+  readonly memberCount: number;
+}
+
+export interface LobbyView {
+  readonly event: LobbyEventRef;
+  /** false = pendaftaran lomba sudah ditutup: lobi hanya bisa dibaca. */
+  readonly open: boolean;
+  /** null = belum bergabung; daftar anggota baru terlihat setelah bergabung (timbal-balik, pola kartu pemain ADR-057). */
+  readonly me: LobbyMember | null;
+  readonly members: readonly LobbyMember[];
+  readonly memberCount: number;
+  /** Koneksi yang bisa diajak ikut lomba ini (belum di lobi, belum diajak pembaca). */
+  readonly invitable: readonly { readonly userId: string; readonly fullName: string }[];
+  /** Koneksi yang sudah diajak pembaca untuk lomba ini. */
+  readonly invited: readonly { readonly userId: string; readonly fullName: string }[];
 }

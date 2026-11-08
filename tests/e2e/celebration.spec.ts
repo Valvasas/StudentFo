@@ -18,7 +18,7 @@ test('daftar ke formulir resmi → tandai terdaftar → dirayakan sekali, tidak 
   await page.getByRole('link', { name: /Daftar sekarang/ }).click();
   await (await popup).close();
 
-  const card = page.getByRole('region', { name: 'Formulir resmi dibuka di tab baru' });
+  const card = page.getByRole('region', { name: 'Pendaftaran dibuka di tab baru' });
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: 'Sudah, tandai terdaftar' }).click();
 
