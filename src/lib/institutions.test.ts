@@ -49,3 +49,12 @@ describe('kualitas data impor', () => {
     expect(searchInstitutions('smtk', 'sekolah').every((hit) => hit.kind === 'KEA')).toBe(true);
   });
 });
+
+describe('peringkat pencarian', () => {
+  it('kota ikut dicari; kata persis mengalahkan awalan; kampus bersingkatan didahulukan', () => {
+    expect(searchInstitutions('its surabaya')[0]?.short).toBe('ITS');
+    expect(searchInstitutions('stis')[0]?.name).toBe('Politeknik Statistika STIS');
+    expect(searchInstitutions('telkom')[0]?.name).toBe('Universitas Telkom');
+    expect(searchInstitutions('man 2 kota malang')[0]?.name).toBe('MAN 2 Kota Malang');
+  });
+});

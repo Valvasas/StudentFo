@@ -34,6 +34,7 @@ const STATIC_ROUTES = [
   '/privacy-policy',
   '/cookie-policy',
   '/terms',
+  '/sumber-data',
   '/berhenti-email?token=tidak-valid',
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya',
   '/about',

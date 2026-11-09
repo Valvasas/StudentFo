@@ -1,7 +1,7 @@
 import 'server-only';
 import { INSTITUTION_ROWS, INSTITUTION_SOURCE as SOURCE } from '@/data/institutions';
 import { INSTITUTION_ID, INSTITUTION_KINDS, isCampusKind, type InstitutionHit, type InstitutionKind } from '@/lib/institution-kinds';
-import { regionLabel } from '@/lib/wilayah';
+import { regencyName, regionLabel } from '@/lib/wilayah';
 
 /**
  * Direktori tempat studi (ADR-076): ±45 ribu SMA/SMK/MA/SLB dan perguruan
@@ -76,7 +76,9 @@ function index() {
     const normalizedName = normalizeQuery(name);
     const extra = EXPANSIONS.flatMap(([pattern, words]) => (pattern.test(normalizedName) ? [words] : []));
     const normalizedShort = short ? normalizeQuery(short) : null;
-    const tokens = [...new Set(`${normalizedName} ${extra.join(' ')} ${normalizedShort ?? ''} ${initials(normalizedName)}`.split(' ').filter(Boolean))];
+    // Nama kab/kota ikut dicari: "its surabaya", "uin malang" — orang menambah kota untuk membedakan.
+    const city = regionCode ? normalizeQuery((regencyName(regionCode) ?? '').replace(/^(Kabupaten|Kota)( Administrasi)? /, '')) : '';
+    const tokens = [...new Set(`${normalizedName} ${extra.join(' ')} ${normalizedShort ?? ''} ${initials(normalizedName)} ${city}`.split(' ').filter(Boolean))];
     entries.push({
       hit: { id, name, short: short || null, kind, negeri: negeri === '1', region: regionLabel(regionCode || null) },
       tokens,
@@ -100,6 +102,10 @@ function score(entry: Entry, query: string, words: readonly string[]): number {
   if (entry.normalizedShort === query) value += 100;
   if (entry.normalizedName === query) value += 80;
   else if (entry.normalizedName.startsWith(query)) value += 40;
+  // Kata yang cocok PERSIS mengalahkan awalan: "stis" → Politeknik Statistika STIS, bukan "Stisi …".
+  value += 6 * words.filter((word) => entry.tokens.includes(word)).length;
+  // Kampus bersingkatan resmi = yang paling sering dicari; "telkom" → Universitas Telkom dulu.
+  if (entry.hit.short) value += 4;
   if (isCampusKind(entry.hit.kind)) value += 3;
   if (entry.hit.negeri) value += 1;
   // Nama pendek lebih dulu di antara yang sama-sama cocok ("UI" sebelum "UI… Cabang …").
