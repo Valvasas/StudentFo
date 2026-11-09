@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Check, ChevronDown, Plus, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -112,6 +112,30 @@ export function Picker({
   const optionCount = selectable.length + (custom ? 1 : 0);
   const activeIndex = Math.min(active, Math.max(optionCount - 1, 0));
   const optionId = (index: number) => `${baseId}-opt-${index}`;
+  const [box, setBox] = useState<CSSProperties | null>(null);
+
+  // Popover ditambatkan ke tombolnya, tetapi lebarnya (340/280px) bisa lebih
+  // besar dari ruang di sisi tombol: di ponsel, pemilih lokasi di kolom kanan
+  // dulu meluber keluar layar. Posisi dihitung ulang supaya selalu utuh di
+  // viewport dengan jarak 16px — tetap `absolute` (bukan `fixed`), karena
+  // leluhur beranimasi `transform` mengubah acuan posisi `fixed`.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const trigger = triggerRef.current?.getBoundingClientRect();
+      if (!trigger) return;
+      const gutter = 16;
+      const viewport = document.documentElement.clientWidth;
+      const preferred = variant === 'field' ? Math.max(trigger.width, 280) : 340;
+      const width = Math.min(preferred, viewport - gutter * 2);
+      const start = align === 'right' ? trigger.right - width : trigger.left;
+      const left = Math.min(Math.max(start, gutter), viewport - gutter - width);
+      setBox({ left: left - trigger.left, width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [open, align, variant]);
 
   useEffect(() => {
     if (!open) return;
@@ -200,10 +224,13 @@ export function Picker({
           role="dialog"
           aria-label={title}
           onKeyDown={onKeyDown}
+          style={box ?? undefined}
           className={cn(
             'pop absolute top-[calc(100%+8px)] z-[60] flex max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-modal border border-line bg-panel shadow-overlay',
-            align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left',
-            variant === 'field' ? 'w-full min-w-[280px]' : 'w-[340px]',
+            align === 'right' ? 'origin-top-right' : 'origin-top-left',
+            // Sebelum terukur (render pertama) posisi bawaan lama; `box` menimpanya.
+            !box && (align === 'right' ? 'right-0' : 'left-0'),
+            !box && (variant === 'field' ? 'w-full min-w-[280px]' : 'w-[340px]'),
           )}
         >
           <div className="flex flex-col gap-2.5 border-b border-line px-3.5 pb-2.5 pt-3.5">
