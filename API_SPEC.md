@@ -258,7 +258,10 @@ diabaikan, bukan galat):
 | `getStudyProfile(userId)` | Tempat studi, domisili (sampai kecamatan), bidang spesifik milik sendiri (ADR-075/076); kolom belum ada → `available: false` |
 | `saveStudyPlace(userId, input)` | Klien anon + hak kolom; `study_profile_unavailable` / `invalid_study_place` (CHECK) |
 | `saveStudyFields(userId, fields)` | `false` bila kolom belum ada (kategori minat tetap tersimpan) |
-| `listPublicProfileDetails(viewerId, userIds)` | Peta userId → `PublicProfileDetails` (kab/kota saja); aturan `public_profile_details()`. Tampilkan lewat `presentStudyProfile` |
+| `listPublicProfileDetails(viewerId, userIds)` | Peta userId → `PublicProfileDetails` (kab/kota saja, + username & bio); aturan `public_profile_details()`. Tampilkan lewat `presentStudyProfile` |
+| `getProfileIdentity(userId)` | Username, bio, keterlihatan milik sendiri (ADR-077); kolom belum ada → `available: false` |
+| `saveProfileIdentity(userId, input)` | `username_taken` (unik), `invalid_profile_identity` (CHECK), `profile_identity_unavailable` |
+| `resolveUsername(viewerId, username)` | id bila pembaca boleh melihat; tidak ada / tidak boleh = `null` (404 yang sama) |
 
 `requestConnection` kini juga menerima target yang SATU LOBI dengan pelaku
 walau tidak "bisa ditemukan" (cermin policy `connections_insert_requester`).
@@ -415,9 +418,19 @@ Lalu catat (tidak pernah melempar) → cookie `sf_out` → `register_click` →
 (`OFF|OPTIONAL|REQUIRED`), `fields` (JSON dari `FormBuilder`). Gagal →
 `invalid_outbound_config`; sukses → `notice=outbound_config_saved`.
 
+### `updateProfileIdentityAction` — `src/app/profile/actions.ts` (ADR-077)
+Field: `username` (boleh diawali @, huruf besar dinormalisasi), `bio` (≤280),
+`profileVisibility` (`MEMBERS|NETWORK`). → `/profile/details`
+`notice=profile_identity_saved` atau `?ubah=publik&error=username_taken|invalid_profile_identity|profile_identity_unavailable`.
+
+### Halaman profil — `/u/[username]` & `/orang/[id]` (ADR-077)
+Wajib masuk (tamu → `/login?next=`). `/orang/[id]` → 307 ke `/u/<username>`
+(query ikut) bila username ada. Profil sendiri → `/profile?tampilan=publik`.
+Tidak ada / tidak boleh dilihat = 404 yang sama.
+
 ### `updateStudyPlaceAction` — `src/app/profile/actions.ts` (ADR-076)
 Field: `institutionId` (opsional, harus ada di direktori), `institution`
-(teks, 2–120), `domicile` (kode wilayah yang ADA). → `/profile/details`
+(teks, 2–120), `domicile` (kode wilayah yang ADA, atau `LN` = luar negeri). → `/profile/details`
 `notice=study_place_saved` atau `?ubah=asal&error=invalid_study_place|study_profile_unavailable`.
 
 ### `setBadgeVisibilityAction` — `src/app/profile/actions.ts` (ADR-072)

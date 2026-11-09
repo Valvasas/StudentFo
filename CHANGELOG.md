@@ -48,14 +48,18 @@ yang tidak memuat migration yang sudah ada di produksi
 | Peminatan | 19 kategori + 150 bidang spesifik (`lib/study-fields.ts`, `users.study_fields`), bidang membawa induknya (ADR-075); `MAJORS` ±260 prodi/jurusan | 12 kategori saja; `MAJORS` ±60 contoh | `study-fields.test.ts`, `study-place.spec.ts` |
 | Lobi | `/lobi` + `/lobi/[slug]`: lobi per lomba untuk yang SUDAH mendaftar (ADR-071) | "Lobi" ditafsirkan sebagai `/teams` (konteks ADR-065) — JANGAN ditafsirkan ulang | `lobby.spec.ts`, `lobby.test.ts` ×2, `111_event_lobby.test.sql` |
 | Lencana | Dihitung dari catatan pihak ketiga (ADR-068); opt-in tampil di profil publik & lobi (ADR-072) | — (jangan buat tabel lencana / aksi klaim) | `achievements.test.ts`, `public-badges.test.ts`, `112_public_badges.test.sql` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–076 | Nomor ganda 061/062 | — |
+| Profil publik | `/u/[username]` + username/bio/keterlihatan di Data diri (ADR-077); bawaan MEMBERS (anggota yang masuk), NETWORK = hanya koneksi | Profil hanya terbaca bila "bisa ditemukan" (ADR-040); kartu demo "Profil publik" (localStorage, dilepas) | `profile-identity.test.ts`, `114_profile_identity.test.sql`, `profile-identity.spec.ts` |
+| Email Auth | `supabase/templates/*.html` dari `auth-email-templates.ts`, tautan `token_hash` (ADR-078), dipasang pemilik (`docs/email-templates.md`) | Template bawaan Supabase / `{{ .ConfirmationURL }}` PKCE | `auth-email-templates.test.ts` |
+| Pilihan "Lainnya" | Prodi (isian bebas), kampus ("pakai teks ini"), domisili ("Luar negeri" = LN), lokasi kegiatan (datalist 503 kab/kota) | Prodi custom tersembunyi di "Pakai …" | `study-place.spec.ts`, `wilayah.test.ts` |
+| Pemilih melayang di ponsel | Posisi dijepit ke viewport saat dibuka (`Picker`) | Popover 340px ditambatkan ke tombol → meluber | `picker-viewport.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–078 | Nomor ganda 061/062 | — |
 
 ## Migration
 
 - Produksi: **42** migration, dicocokkan langsung 2026-11-08 → `supabase/APPLIED_MIGRATIONS.txt`.
 - Belum diterapkan (urut): `20261108100001_organizer_signup_fields`,
   `20261108100002_outbound_surveys` (bentuk ADR-073 — diubah di tempat karena belum pernah diterapkan),
-  `20261108100003_event_lobby`, `20261108100004_public_badges`, `20261109100001_profile_details`.
+  `20261108100003_event_lobby`, `20261108100004_public_badges`, `20261109100001_profile_details` (username/bio/keterlihatan ikut di sini).
   Kode aman urutan deploy: tanpa migration ini fitur terkait turun anggun
   (kolom lama, lobi kosong + `lobby_unavailable`, survei tidak dicatat tapi
   pengunjung tetap diantar dengan pertanyaan bawaan, lencana tetap privat,
@@ -72,6 +76,12 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 4, sebelum merge)
+- Bug live: `/submit`, beranda admin, `/admin`, ekspor data crash tanpa `SUPABASE_SERVICE_ROLE_KEY` (log Vercel) → kini turun anggun; kunci itu tetap harus diisi pemilik.
+- Pemilih melayang tidak meluber di ponsel; opsi "Lainnya" di prodi/kampus/domisili/lokasi.
+- Username, bio, `/u/[username]`, profil terbuka untuk anggota (ADR-077); template email Auth (ADR-078).
+- Migration `20261109100001` diganti nama `profile_details` (belum pernah diterapkan); migration lobi memakai ALTER POLICY.
 
 ### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 3)
 - Pendataan kinerja: pertanyaan diatur admin + Lewati (ADR-073).

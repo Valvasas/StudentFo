@@ -397,6 +397,19 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Perbaikan pra-merge: bug live, ponsel, "Lainnya", profil publik, email 2026-11-09 (@claude) — ADR-077/078
+
+- [x] Bug live dari log Vercel: `/submit` (kirim kegiatan), beranda admin, `/admin/*`, ekspor data crash tanpa `SUPABASE_SERVICE_ROLE_KEY` → turun anggun + petunjuk untuk admin
+- [x] Pemilih melayang (lokasi, kab/kota, prodi) dijepit ke viewport ponsel — `picker-viewport.spec.ts` gagal 3/4 di versi lama
+- [x] "Lainnya": prodi (isian bebas), kampus (pakai teks), domisili luar negeri (LN), lokasi kegiatan (datalist 503 kab/kota), filter lokasi magang seluruh kab/kota
+- [x] Username, bio, `/u/[username]`, keterlihatan profil MEMBERS/NETWORK (ADR-077); kebijakan privasi, Privasi & data, ekspor diselaraskan
+- [x] Template email Supabase Auth ala StudentFo + `docs/email-templates.md` (ADR-078)
+- [x] Lookup direktori per id 316 → 15 ms cold start
+- [ ] **BUTUH PEMILIK.** Vercel → Environment Variables: `SUPABASE_SERVICE_ROLE_KEY` (kunci service_role project yang dipakai situs = staging saat ini), tandai Sensitive, redeploy — tanpa ini panel admin, pendataan kinerja, & ekspor kiriman tidak berjalan
+- [ ] **BUTUH PEMILIK.** Tempel 8 template email di Supabase (staging & produksi) sesuai `docs/email-templates.md`
+- [ ] Tinjau bawaan `profile_visibility = MEMBERS` untuk pengguna < 18 tahun bersama DPIA (ADR-077 risiko)
+- [ ] Foto profil (Storage + moderasi gambar); masa tenggang sebelum username yang dilepas bisa diklaim orang lain
+
 ## Pertanyaan pendataan diatur admin, wilayah lengkap, bidang spesifik, tempat studi 2026-11-09 (@claude) — ADR-073–076
 
 - [x] Pendataan kinerja: `/admin/kinerja/pertanyaan` (3 bawaan bermode + FormBuilder terbatas, maks. 8), tombol Lewati (dicatat), dasbor per pertanyaan; migration `20261108100002` diubah di tempat (ADR-073)

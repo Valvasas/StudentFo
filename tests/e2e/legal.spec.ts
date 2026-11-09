@@ -76,10 +76,18 @@ test.describe('ponsel', () => {
 
 test('Privasi & data mengikuti pilihan visibilitas yang sebenarnya, bukan kalimat tetap', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'terang', 'satu proyek cukup');
-  // Setiap masuk demo = identitas baru yang terisolasi, bawaannya tersembunyi (opt-in).
+  // Setiap masuk demo = identitas baru yang terisolasi; bawaan profil = terbuka untuk anggota (ADR-077).
   await signInAsDemo(page, 'Mahasiswa', '/profile/privacy');
   const main = page.locator('main');
-  await expect(main.getByText('Tidak ada — profilmu tersembunyi dan kartu pemainmu tertutup')).toBeVisible();
+  await expect(main.getByText(/karena kamu memilih profil terbuka untuk semua anggota/)).toBeVisible();
+
+  // Pilih "hanya koneksi" → kalimatnya ikut berubah.
+  await page.goto('/profile/details?ubah=publik');
+  await page.getByRole('radio', { name: /Hanya koneksi/ }).check();
+  await page.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page).toHaveURL(/notice=profile_identity_saved/);
+  await page.goto('/profile/privacy');
+  await expect(main.getByText(/Hanya koneksimu & sesama peserta lobi lomba/)).toBeVisible();
 
   await page.goto('/connections?tab=pengaturan');
   await page.getByRole('switch', { name: /Tampilkan aku di Cari Koneksi/ }).check();
@@ -89,7 +97,7 @@ test('Privasi & data mengikuti pilihan visibilitas yang sebenarnya, bukan kalima
 
   await page.goto('/profile/privacy');
   await expect(main.getByText(/Profil publikmu tanpa email .* karena profilmu terlihat di Koneksi/)).toBeVisible();
-  for (const name of ['Atur visibilitas Koneksi', 'Atur kartu pemain']) {
+  for (const name of ['Atur siapa yang boleh membuka profil', 'Atur visibilitas Koneksi', 'Atur kartu pemain']) {
     expect((await main.getByRole('link', { name }).boundingBox())!.height, name).toBeGreaterThanOrEqual(44);
   }
 });

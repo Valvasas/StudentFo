@@ -78,6 +78,14 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
 - Pertanyaan pendataan kinerja diatur admin (ADR-073): jangan menambah
   pertanyaan di kode/CHECK SQL; ubah `DEFAULT_OUTBOUND_CONFIG` hanya bersama
   baris bawaan migration (dikunci tes).
+- Keterlihatan profil (ADR-077) diatur `is_discoverable()`/`can_view_profile()`
+  + `users.profile_visibility`; jangan menambah jalur baca profil sendiri di
+  halaman. Tes yang menguji "orang tersembunyi" harus memasang NETWORK eksplisit.
+- Template email Auth: ubah `src/lib/email/auth-email-templates.ts` lalu
+  `npm run email:templates` — jangan edit `supabase/templates/*.html` langsung.
+- Migration yang akan diterapkan lewat Supabase MCP: hindari perintah hapus
+  (DROP …) bila ada padanan ALTER/CREATE OR REPLACE — MCP meminta konfirmasi
+  pemilik untuk perintah destruktif dan bisa habis waktu.
 - Proyek hanya punya SATU root (folder ini). Salinan lama yang dulu bertumpuk
   sudah dipindah keluar repo — jangan buat salinan proyek di dalam repo.
 

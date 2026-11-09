@@ -82,7 +82,7 @@ const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/discussions'],
   ['Mahasiswa', '/profile?tab=portofolio'],
   ['Mahasiswa', '/tracker/lomba-desain-ui-ux-nasional-edisi-lalu'],
-  ['Mahasiswa', '/orang/seed-user-1'],
+  ['Mahasiswa', '/orang/seed-user-5'],
   ['Penyelenggara', '/penyelenggara'],
   ['Penyelenggara', '/'],
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/formulir'],

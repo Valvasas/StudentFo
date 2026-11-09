@@ -12,6 +12,68 @@ terdokumentasi.
 
 ---
 
+## ADR-078 — Template email Supabase Auth ala StudentFo, tautan token_hash
+
+**Konteks:** Email konfirmasi, lupa sandi, dsb. masih template bawaan Supabase
+(bahasa Inggris, tanpa identitas). Pemilik meminta desain "ala StudentFo".
+
+**Keputusan:**
+1. Satu layout di `src/lib/email/auth-email-templates.ts` (kertas krem,
+   tinta, sorotan stabilo; tabel & gaya inline; tombol anti-peluru + tautan
+   cadangan; peringatan anti-penipuan) → `supabase/templates/*.html` lewat
+   `npm run email:templates`. Tes menjaga berkas = sumber.
+2. Tautan `{{ .SiteURL }}/auth/callback?token_hash=…&type=…&next=…`, BUKAN
+   `{{ .ConfirmationURL }}` (PKCE): PKCE butuh cookie di peramban tempat
+   mendaftar → gagal saat email dibuka di ponsel. `type` dikunci tes agar
+   selalu diterima `/auth/callback`.
+3. `{{ .SiteURL }}`, bukan `{{ .RedirectTo }}`: RedirectTo jatuh ke Site URL
+   (tanpa `?`) bila tidak cocok daftar izin, dan tautan jadi rusak.
+   Konsekuensi: setelah konfirmasi selalu ke `/` (tujuan asal tidak dibawa).
+4. Kode OTP tidak di subjek (tampil di notifikasi layar kunci).
+5. Dipasang PEMILIK di dasbor (tidak ada token Management API di sesi agen):
+   `docs/email-templates.md`.
+
+---
+
+## ADR-077 — Username, bio, dan profil terbuka untuk anggota yang masuk
+
+**Konteks:** Pemilik meminta halaman profil, bio, dan username per pengguna
+"agar makin interaktif", dan menyatakan kota & kampus "tak apa ditampilkan
+di publik". Sampai ADR-076 profil hanya terbaca bila pemiliknya bisa
+ditemukan di Koneksi / membuka kartu pemain / sudah berkoneksi (ADR-040).
+
+**Keputusan:**
+1. `users.username` (3–30, huruf kecil/angka/titik/garis bawah, unik, daftar
+   terlarang: admin, studentfo, …), `users.bio` (≤ 280), halaman
+   `/u/[username]`; `/orang/[id]` dialihkan ke sana bila username ada.
+   Saran username dari nama; keunikan dijaga indeks unik (kode `username_taken`).
+2. `users.profile_visibility`: **MEMBERS (bawaan)** = semua anggota yang
+   MASUK boleh membuka profil, mengajak terhubung, dan memblokir;
+   **NETWORK** = aturan lama ADR-040. Diwujudkan dengan memperluas
+   `is_discoverable()` & `can_view_profile()` (CREATE OR REPLACE) — semua
+   jalur yang sudah memakainya (public_profile, portofolio, lencana, detail
+   profil, policy ajakan & blokir) ikut konsisten tanpa disentuh satu per satu.
+3. **Yang TIDAK berubah:** tamu & mesin pencari tidak pernah (semua fungsi
+   butuh `auth.uid()`, halaman `noindex`); muncul di saran & pencarian
+   Koneksi (`network_directory`) tetap opt-in; email & kecamatan tidak pernah
+   tampil; blokir & penangguhan menutup.
+4. `user_id_by_username()` mengembalikan null untuk "tidak ada" DAN "tidak
+   boleh dilihat" — URL bukan alat menebak siapa yang terdaftar.
+5. Tes lama yang menguji aturan "tersembunyi" kini memasang NETWORK secara
+   eksplisit (SQL & harness integrasi); MEMBERS diuji `114_profile_identity`.
+
+**Risiko yang diterima (perlu ditinjau bersama DPIA, `docs/dpia-draf.md`):**
+pengguna 13–17 tahun ikut bawaan MEMBERS — nama, sekolah, dan kab/kota
+terlihat oleh anggota lain yang masuk. Mitigasi: tanpa tamu/mesin pencari,
+tanpa kontak/kecamatan, blokir & laporkan di setiap profil, satu klik ke
+"hanya koneksi". Bila tinjauan hukum meminta, ubah DEFAULT kolom ke NETWORK
+untuk akun baru — kodenya tidak perlu berubah.
+
+**Sengaja TIDAK:** foto profil (butuh Storage + moderasi gambar), username
+bisa diklaim ulang setelah dilepas tanpa masa tenggang (ditunda).
+
+---
+
 ## ADR-076 — Direktori tempat studi: data resmi dibekukan di repo, dicari di server, diisi sendiri (bukan diverifikasi)
 
 **Konteks:** Pemilik meminta informasi "tempat studi" seperti "Universitas

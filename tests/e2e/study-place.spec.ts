@@ -83,7 +83,7 @@ test('Peminatan: bidang spesifik ikut memilih bidang induknya', async ({ page })
 });
 
 test('profil publik orang lain & lobi menampilkan tempat studinya', async ({ page }) => {
-  await signInAsDemo(page, 'Mahasiswa', '/orang/seed-user-1');
+  await signInAsDemo(page, 'Mahasiswa', '/u/rani.prameswari');
   await expect(page.getByText('Universitas Indonesia (UI)')).toBeVisible();
   await expect(page.getByText('Kota Depok, Jawa Barat')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Bidang peminatan spesifik' })).toContainText('Desain UI/UX');

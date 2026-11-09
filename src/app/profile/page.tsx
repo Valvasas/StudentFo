@@ -173,7 +173,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14.5px] text-ink-muted">
                 <span className="font-medium">@{identity.username}</span>
                 {!isPublic && (
-                  <Link href={`/u/${identity.username}`} className="text-[13px] font-medium text-ink underline underline-offset-[3px]">
+                  <Link href={`/u/${identity.username}`} className="inline-flex min-h-11 items-center text-[13px] font-medium text-ink underline underline-offset-[3px]">
                     Buka profil publikmu
                   </Link>
                 )}
@@ -181,7 +181,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             )}
             {identity?.bio && <p className="max-w-[62ch] whitespace-pre-line break-words text-[15px] leading-relaxed text-ink-soft">{identity.bio}</p>}
             {identity?.available && !identity.username && !isPublic && (
-              <Link href="/profile/details?ubah=publik#publik" className="w-fit text-[13.5px] font-medium text-ink underline underline-offset-[3px]">
+              <Link href="/profile/details?ubah=publik#publik" className="inline-flex min-h-11 w-fit items-center text-[13.5px] font-medium text-ink underline underline-offset-[3px]">
                 Pasang username & bio supaya profilmu mudah dibagikan
               </Link>
             )}

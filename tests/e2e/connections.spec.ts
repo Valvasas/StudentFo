@@ -50,7 +50,7 @@ test('dua akun demo: opt-in terlihat → diajak → diterima, keduanya dikabari'
   const b = await bContext.newPage();
 
   await signInAsDemo(b, 'Siswa baru', '/connections');
-  await expect(b.getByText('Profilmu belum bisa ditemukan.')).toBeVisible();
+  await expect(b.getByText('Profilmu belum muncul di saran & pencarian Koneksi.')).toBeVisible();
   await b.getByRole('link', { name: 'Atur sekarang' }).click();
   await expect(b).toHaveURL(/tab=pengaturan/);
   await b.getByRole('switch', { name: /Tampilkan aku di Cari Koneksi/ }).check();
