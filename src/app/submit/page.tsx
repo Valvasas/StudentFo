@@ -14,6 +14,7 @@ import { SubmitButton } from '@/components/ui/submit-button';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { jakartaDateKey } from '@/lib/deadline';
 import { env } from '@/lib/env';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -82,7 +83,8 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   const [categories, organizerProfile, mySubmissions] = await Promise.all([
     repository.listCategories(),
     user ? repository.getOrganizerProfile(user.id) : Promise.resolve(null),
-    user ? repository.listMySubmissions(user.id, 5) : Promise.resolve([]),
+    // Daftar "kirimanmu" pelengkap saja: gagal dimuat tidak boleh menutup form kirimnya.
+    user ? withFallback('kiriman saya', () => repository.listMySubmissions(user.id, 5), []) : Promise.resolve([]),
   ]);
   const verifiedOrg = organizerProfile?.status === 'VERIFIED' ? organizerProfile.orgName : null;
   const invalidFields = invalidFieldLabels(params.fields);

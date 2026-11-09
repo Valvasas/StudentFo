@@ -99,7 +99,7 @@ export default async function OrganizerStudioPage({ searchParams }: { searchPara
         repository.listManagedEvents(user.id),
         repository.listMyClaims(user.id),
         repository.listOrganizerHistory(user.id),
-        repository.listMySubmissions(user.id, 10),
+        withFallback('kiriman saya', () => repository.listMySubmissions(user.id, 10), []),
       ])
     : [[], [], [], []];
   // Kiriman yang sudah disetujui sudah tampil sebagai acara kelolaan; di sini

@@ -68,4 +68,10 @@ describe('buildAccountExport', () => {
     expect(result.network.connections[0]).toMatchObject({ name: 'Bima', status: 'ACCEPTED', message: 'Halo' });
     expect(result.network.blocked).toEqual([{ name: 'Spam', since: '2026-10-02T00:00:00Z' }]);
   });
+
+  it('kiriman gagal dimuat: ekspor tetap jadi dan mengatakannya, bukan galat 500 atau daftar kosong yang menyesatkan', () => {
+    const result = buildAccountExport({ ...base, submissions: null });
+    expect(result.submissions).toEqual({ unavailable: expect.stringContaining('tidak bisa dimuat') });
+    expect(result.studyPlace).toMatchObject({ institutionId: '001002', domicileCode: '32.76.03' });
+  });
 });

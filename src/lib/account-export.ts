@@ -28,7 +28,8 @@ export interface AccountExportInput {
   readonly connectionsTruncated: boolean;
   readonly blocked: readonly BlockedPerson[];
   readonly seeker: TeamSeekerProfile | null;
-  readonly submissions: readonly Submission[];
+  /** null = gagal dimuat (mis. kunci server belum diisi) — ekspor tetap jalan dan mengatakannya terang. */
+  readonly submissions: readonly Submission[] | null;
   readonly organizer: OrganizerProfile | null;
   readonly notifications: readonly AppNotification[];
   readonly notificationPreferences: NotificationPreferences;
@@ -115,12 +116,13 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       blocked: input.blocked.map((person) => ({ name: person.fullName, since: person.blockedAt })),
     },
     playerCard: input.seeker,
-    submissions: input.submissions.map((submission) => ({
-      title: submission.payload?.title ?? null,
-      status: submission.status,
-      email: submission.submittedByEmail,
-      createdAt: submission.createdAt,
-    })),
+    submissions:
+      input.submissions?.map((submission) => ({
+        title: submission.payload?.title ?? null,
+        status: submission.status,
+        email: submission.submittedByEmail,
+        createdAt: submission.createdAt,
+      })) ?? { unavailable: 'Kiriman kegiatanmu tidak bisa dimuat saat ekspor ini dibuat. Coba unduh lagi nanti.' },
     organizer: input.organizer
       ? {
           organization: input.organizer.orgName,

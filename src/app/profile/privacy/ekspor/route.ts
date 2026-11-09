@@ -1,6 +1,7 @@
 import { buildAccountExport } from '@/lib/account-export';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { jakartaDateKey } from '@/lib/deadline';
 import { CONNECTION_PAGE } from '@/lib/network';
 
@@ -23,7 +24,7 @@ export async function GET(): Promise<Response> {
     repository.listConnections(user.id, { limit: CONNECTION_PAGE.maxLimit, cursor: null }),
     repository.listBlockedPeople(user.id),
     repository.getSeekerProfile(user.id),
-    repository.listMySubmissions(user.id, 200),
+    withFallback('kiriman (ekspor)', () => repository.listMySubmissions(user.id, 200), null),
     repository.getOrganizerProfile(user.id),
     repository.listNotifications(user.id, 200),
     repository.getNotificationPreferences(user.id),
