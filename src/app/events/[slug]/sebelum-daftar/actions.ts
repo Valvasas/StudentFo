@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { withQuery } from '@/lib/action-feedback';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { formText, formTrimmed } from '@/lib/form-data';
 import { institutionById } from '@/lib/institutions';
 import { parseOutboundAnswers, SKIPPED_ANSWERS, type OutboundSurveyAnswers } from '@/lib/outbound-survey';
@@ -43,14 +44,22 @@ export async function submitOutboundSurveyAction(formData: FormData): Promise<vo
   // "Lewati" tidak divalidasi sama sekali — apa pun isian setengah jadinya, ia dibuang.
   const skipped = formText(formData, 'intent') === 'skip';
   let answers = SKIPPED_ANSWERS;
+  // Pertanyaan gagal dimuat: jawaban tidak bisa divalidasi, jadi tidak dicatat —
+  // tetapi orangnya tetap diantar. Menahan pendaftar demi statistik = salah urutan.
+  let recordable = true;
   if (!skipped) {
-    const parsed = parseOutboundAnswers(formData, await repository.getOutboundSurveyConfig(), (id) => institutionById(id)?.name ?? null);
-    if (!parsed.ok) redirect(withQuery(`/events/${event.slug}/sebelum-daftar`, { error: 'invalid_outbound_survey', kolom: parsed.problem }));
-    answers = parsed.value;
+    const config = await withFallback('pertanyaan pendataan', () => repository.getOutboundSurveyConfig(), null);
+    if (config) {
+      const parsed = parseOutboundAnswers(formData, config, (id) => institutionById(id)?.name ?? null);
+      if (!parsed.ok) redirect(withQuery(`/events/${event.slug}/sebelum-daftar`, { error: 'invalid_outbound_survey', kolom: parsed.problem }));
+      answers = parsed.value;
+    } else {
+      recordable = false;
+    }
   }
 
   const destination = await registrationDestination(event, repository);
-  await recordVisit(event.id, answers, skipped, formText(formData, HONEYPOT_FIELD) !== '');
+  if (recordable) await recordVisit(event.id, answers, skipped, formText(formData, HONEYPOT_FIELD) !== '');
   await rememberOutboundSurvey(event.id);
   if (!destination) redirect(`/events/${event.slug}`);
   await recordSignal('register_click', event.id, await getSessionUser());

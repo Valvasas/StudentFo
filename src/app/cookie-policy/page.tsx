@@ -53,7 +53,7 @@ const COOKIES: readonly StorageItem[] = [
   {
     names: [OUTBOUND_SURVEY_COOKIE],
     purpose:
-      'Mengingat acara mana yang pendataan singkatnya sudah kamu jawab, supaya tidak ditanya ulang saat menekan Daftar. Hanya berisi id acara, tanpa jawabanmu (HttpOnly).',
+      'Mengingat acara mana yang pendataan singkatnya sudah kamu jawab atau lewati, supaya tidak ditanya ulang saat menekan Daftar. Hanya berisi id acara, tanpa jawabanmu (HttpOnly).',
     lifetime: '180 hari',
     category: 'Wajib',
   },

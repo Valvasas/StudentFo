@@ -11,6 +11,7 @@ import { RegionPicker } from '@/components/ui/region-picker';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { isSurveyEmpty, OUTBOUND_LIMITS, surveyQuestionCount } from '@/lib/outbound-survey';
 import { hasAnsweredOutboundSurvey } from '@/lib/outbound-survey-cookie';
 import { sectionTitle } from '@/lib/page-title';
@@ -65,8 +66,12 @@ export default async function BeforeRegisterPage({
   const eventPath = `/events/${event.slug}`;
   const destination = await registrationDestination(event, repository);
   if (!destination) redirect(eventPath);
-  const config = await repository.getOutboundSurveyConfig();
-  if (destination.kind === 'internal' || isSurveyEmpty(config) || (await hasAnsweredOutboundSurvey(event.id))) redirect(`${eventPath}/daftar`);
+  if (destination.kind === 'internal' || (await hasAnsweredOutboundSurvey(event.id))) redirect(`${eventPath}/daftar`);
+  // Pertanyaan gagal dimuat = langsung ke tautan resmi, bukan halaman galat —
+  // dan bukan kembali ke `/daftar`, yang bisa memantul ke sini lagi (ADR-070).
+  const config = await withFallback('pertanyaan pendataan', () => repository.getOutboundSurveyConfig(), null);
+  if (!config) redirect(destination.url);
+  if (isSurveyEmpty(config)) redirect(`${eventPath}/daftar`);
 
   const user = await getSessionUser();
   const host = safeHostname(destination.url);
