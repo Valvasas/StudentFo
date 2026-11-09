@@ -129,9 +129,29 @@ export function searchInstitutions(rawQuery: string, scope: InstitutionScope = '
     .map(({ entry }) => entry.hit);
 }
 
+/**
+ * Peta id → baris mentah, TERPISAH dari indeks pencarian: profil, lobi, dan
+ * Koneksi hanya butuh lookup per id, dan membangun token 49 ribu baris
+ * (±300 ms) di cold start fungsi-fungsi itu sia-sia. Peta ini ±20 ms.
+ */
+let lines: ReadonlyMap<string, string> | null = null;
+
+function lineById(): ReadonlyMap<string, string> {
+  if (lines) return lines;
+  const map = new Map<string, string>();
+  for (const line of INSTITUTION_ROWS.split('\n')) map.set(line.slice(0, line.indexOf('\t')), line);
+  lines = map;
+  return map;
+}
+
 export function institutionById(id: string): InstitutionHit | null {
   if (!INSTITUTION_ID.test(id)) return null;
-  return index().byId.get(id)?.hit ?? null;
+  if (cache) return cache.byId.get(id)?.hit ?? null;
+  const line = lineById().get(id);
+  if (!line) return null;
+  const [, name = '', kind = '', negeri, regionCode, short] = line.split('\t');
+  if (!name || !isKind(kind)) return null;
+  return { id, name, short: short || null, kind, negeri: negeri === '1', region: regionLabel(regionCode || null) };
 }
 
 export function institutionCount(): number {
