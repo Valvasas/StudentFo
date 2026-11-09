@@ -478,6 +478,23 @@ export interface OutboundSurveyRow {
   event: { title: string; slug: string } | null;
 }
 
+/** Kolom tempat studi milik sendiri di `users` (ADR-075/076). */
+export interface StudyProfileRow {
+  institution_id: string | null;
+  institution_name: string | null;
+  domicile_code: string | null;
+  study_fields: string[] | null;
+}
+
+/** RPC `public_study_profiles(p_users)` — domisili sudah terpotong ke kab/kota. */
+export interface PublicStudyProfileRow {
+  user_id: string;
+  institution_id: string | null;
+  institution_name: string | null;
+  region_code: string | null;
+  study_fields: string[] | null;
+}
+
 /** `outbound_survey_config` (ADR-073) — satu baris, dibaca server. */
 export interface OutboundSurveyConfigRow {
   ask_education: string;

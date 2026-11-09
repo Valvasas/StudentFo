@@ -781,6 +781,30 @@ export interface NetworkPerson {
   readonly interests: readonly string[];
 }
 
+/**
+ * Tempat studi, domisili & bidang spesifik milik sendiri (ADR-075/076).
+ * `available` = false: kolomnya belum ada di database (migration
+ * 20261109100001 belum diterapkan) — form dikunci, bukan gagal diam-diam.
+ */
+export interface StudyProfile {
+  readonly institutionId: string | null;
+  readonly institutionName: string | null;
+  /** Kode Kemendagri sampai kecamatan — hanya pemiliknya yang melihat kecamatan. */
+  readonly domicileCode: string | null;
+  readonly studyFields: readonly string[];
+  readonly available: boolean;
+}
+
+export type StudyPlaceInput = Pick<StudyProfile, 'institutionId' | 'institutionName' | 'domicileCode'>;
+
+/** Yang boleh dilihat orang lain (`public_study_profiles`): domisili terpotong ke kab/kota. */
+export interface PublicStudyProfile {
+  readonly institutionId: string | null;
+  readonly institutionName: string | null;
+  readonly regionCode: string | null;
+  readonly studyFields: readonly string[];
+}
+
 export interface Connection {
   readonly id: string;
   /** Pihak lawan dari sudut pandang pembaca. */

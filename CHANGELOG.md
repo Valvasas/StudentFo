@@ -42,19 +42,24 @@ yang tidak memuat migration yang sudah ada di produksi
 | Ulangi kata sandi | `ConfirmPasswordInput` di daftar ×2, setel ulang, ganti sandi; kode `password_mismatch`/`same_password`/`weak_password` | Mismatch → "Ada isian yang belum benar" | `auth-failure.test.ts` |
 | Pengaturan | Hub `/profile/settings` + `keamanan/` + `notifikasi/` (ADR-067). Pengingat email di **Notifikasi**, Hapus akun di **Privasi & data** | Satu halaman Pengaturan berisi semuanya (cabang `ccr-c5c96a43`) | `settings.spec.ts`, `email-reminders.spec.ts`, `trust-safety.spec.ts` |
 | Tur beranda | `landing-tour.tsx` (ADR-065); tur penyelenggara `organizer-tour.tsx` + `product-tour.tsx` (ADR-063/066) | `student-tour.tsx` (dihapus, menjanjikan alur 404) | `landing-tour.spec.ts` |
-| Keluar ke tautan resmi | `/events/[slug]/daftar` → **pendataan kinerja** `/sebelum-daftar` sekali per acara → tautan resmi (ADR-070) | Langsung ke tautan resmi | `register-redirect.spec.ts`, `outbound-survey.test.ts`, `110_outbound_surveys.test.sql` |
+| Keluar ke tautan resmi | `/events/[slug]/daftar` → **pendataan kinerja** `/sebelum-daftar` sekali per acara → tautan resmi (ADR-070). Pertanyaan **diatur admin** di `/admin/kinerja/pertanyaan` + tombol **Lewati** (ADR-073) | Langsung ke tautan resmi; pertanyaan dikunci di kode/CHECK SQL (`source`/`plan`, ADR-070 awal) | `register-redirect.spec.ts`, `outbound-survey.test.ts`, `110_outbound_surveys.test.sql` |
+| Wilayah | `lib/wilayah.ts` + `wilayah-districts.ts`: 38 prov / 514 kab-kota / 7.285 kecamatan (Kepmendagri, ADR-074), `RegionPicker`. `REGIONS` TETAP untuk filter lokasi acara & jarak (butuh titik) | — (jangan "melengkapi" `REGIONS` tanpa koordinat; jangan ganti filter acara ke wilayah lengkap tanpa normalisasi `location`) | `wilayah.test.ts`, `geo.test.ts` |
+| Tempat studi | Direktori resmi `src/data/institutions.ts` (±40 rb SMA/SMK/MA/PT) + `/api/institusi` + `InstitutionPicker`; kolom `users.institution_*`, `domicile_code`; tampil lewat `public_study_profiles()` (ADR-076) | `CAMPUSES` (50 kampus contoh, dihapus) | `institutions.test.ts`, `study-profile.test.ts`, `study-place.spec.ts`, `113_study_profile.test.sql` |
+| Peminatan | 19 kategori + 150 bidang spesifik (`lib/study-fields.ts`, `users.study_fields`), bidang membawa induknya (ADR-075); `MAJORS` ±260 prodi/jurusan | 12 kategori saja; `MAJORS` ±60 contoh | `study-fields.test.ts`, `study-place.spec.ts` |
 | Lobi | `/lobi` + `/lobi/[slug]`: lobi per lomba untuk yang SUDAH mendaftar (ADR-071) | "Lobi" ditafsirkan sebagai `/teams` (konteks ADR-065) — JANGAN ditafsirkan ulang | `lobby.spec.ts`, `lobby.test.ts` ×2, `111_event_lobby.test.sql` |
 | Lencana | Dihitung dari catatan pihak ketiga (ADR-068); opt-in tampil di profil publik & lobi (ADR-072) | — (jangan buat tabel lencana / aksi klaim) | `achievements.test.ts`, `public-badges.test.ts`, `112_public_badges.test.sql` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–072 | Nomor ganda 061/062 | — |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–076 | Nomor ganda 061/062 | — |
 
 ## Migration
 
 - Produksi: **42** migration, dicocokkan langsung 2026-11-08 → `supabase/APPLIED_MIGRATIONS.txt`.
-- Belum diterapkan (butuh persetujuan pemilik, urut): `20261108100001_organizer_signup_fields`,
-  `20261108100002_outbound_surveys`, `20261108100003_event_lobby`, `20261108100004_public_badges`.
+- Belum diterapkan (urut): `20261108100001_organizer_signup_fields`,
+  `20261108100002_outbound_surveys` (bentuk ADR-073 — diubah di tempat karena belum pernah diterapkan),
+  `20261108100003_event_lobby`, `20261108100004_public_badges`, `20261109100001_study_profile_and_fields`.
   Kode aman urutan deploy: tanpa migration ini fitur terkait turun anggun
   (kolom lama, lobi kosong + `lobby_unavailable`, survei tidak dicatat tapi
-  pengunjung tetap diantar, lencana tetap privat).
+  pengunjung tetap diantar dengan pertanyaan bawaan, lencana tetap privat,
+  kartu tempat studi & bidang spesifik disembunyikan).
 
 ## Cabang usang (ada migration, TIDAK di produksi, JANGAN digabung tanpa tinjauan)
 
@@ -67,6 +72,14 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 3)
+- Pendataan kinerja: pertanyaan diatur admin + Lewati (ADR-073).
+- Wilayah lengkap Kepmendagri (ADR-074), bidang peminatan spesifik + 7 kategori (ADR-075),
+  direktori tempat studi dari Data Referensi Kemendikdasmen + tampil di profil/lobi/Koneksi (ADR-076).
+- Halaman `/sumber-data` (atribusi ODbL), kebijakan privasi diperbarui.
+- **Memperbarui data referensi:** jalankan crawler terpisah (bukan bagian build) lalu
+  `node scripts/import-institutions.mjs …` dan `node scripts/import-wilayah.mjs …`; tinjau diff-nya.
 
 ### 2026-11-08 — cabang `claude/registration-form-competition-features-sptvfz`
 > **Status penggabungan:** bagian 1 (gabung versi produksi + form daftar

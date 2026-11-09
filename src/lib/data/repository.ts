@@ -29,6 +29,9 @@ import type {
   LobbyView,
   ManagedEvent,
   OutboundSurveyConfig,
+  PublicStudyProfile,
+  StudyPlaceInput,
+  StudyProfile,
   OutboundSurveyRecord,
   ModerationLogEntry,
   NotificationPreferences,
@@ -104,6 +107,7 @@ export interface EventRepository
     EmailReminderRepository,
     EventQuestionRepository,
     OutboundSurveyRepository,
+    StudyProfileRepository,
     LobbyRepository,
     BadgeRepository {}
 
@@ -118,6 +122,17 @@ export interface BadgeRepository {
   setBadgeVisibility(userId: string, show: boolean): Promise<void>;
   /** Maks. 100 orang. Tidak ada di peta = lencananya tidak tampil untuk pembaca ini. Pemilik selalu melihat miliknya. */
   listPublicBadgeFacts(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, AchievementFacts>>;
+}
+
+/** Tempat studi, domisili & bidang spesifik (ADR-075/076). */
+export interface StudyProfileRepository {
+  getStudyProfile(userId: string): Promise<StudyProfile>;
+  /** Kolom belum ada = `actionError('study_profile_unavailable')`. Nilai sudah divalidasi pemanggil. */
+  saveStudyPlace(userId: string, input: StudyPlaceInput): Promise<void>;
+  /** Kolom belum ada = tidak menyimpan dan mengembalikan false — kategori minat tetap tersimpan. */
+  saveStudyFields(userId: string, fields: readonly string[]): Promise<boolean>;
+  /** Maks. 100 orang. Tidak ada di peta = pembaca tidak boleh melihatnya (aturan `public_study_profiles`). */
+  listPublicStudyProfiles(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicStudyProfile>>;
 }
 
 /** Pendataan kinerja sebelum keluar ke tautan pendaftaran (ADR-070/073). Tanpa identitas pengisi. */

@@ -3,7 +3,7 @@
  * data — aman diimpor komponen klien; datanya sendiri (±45 ribu baris) hanya
  * di server (`lib/institutions.ts`).
  */
-export const INSTITUTION_KINDS = ['PTN', 'PTS', 'PTK', 'SMA', 'SMK', 'MA', 'SLB'] as const;
+export const INSTITUTION_KINDS = ['PTN', 'PTS', 'PTK', 'SMA', 'SMK', 'MA', 'KEA', 'SLB', 'SM'] as const;
 export type InstitutionKind = (typeof INSTITUTION_KINDS)[number];
 
 export const INSTITUTION_KIND_LABEL: Record<InstitutionKind, string> = {
@@ -13,7 +13,11 @@ export const INSTITUTION_KIND_LABEL: Record<InstitutionKind, string> = {
   SMA: 'SMA',
   SMK: 'SMK',
   MA: 'MA',
+  /** Setara SMA di bawah Kemenag: pesantren muadalah/diniyah formal ulya, SMTK, SM Agama Katolik/Hindu. */
+  KEA: 'Keagamaan',
   SLB: 'SLB',
+  /** Terdaftar di jenjang menengah atas, namanya tanpa awalan baku. */
+  SM: 'Sekolah menengah',
 };
 
 export function isCampusKind(kind: InstitutionKind): boolean {

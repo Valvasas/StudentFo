@@ -2,6 +2,7 @@ import type { AuthUser } from '@/lib/auth';
 import type { MyEventQuestion } from '@/lib/data/repository';
 import type {
   AppNotification,
+  StudyProfile,
   BlockedPerson,
   Connection,
   EventRegistration,
@@ -38,6 +39,8 @@ export interface AccountExportInput {
   readonly lobbies: readonly LobbySummary[];
   /** Pilihan "tampilkan lencanaku" (ADR-072). */
   readonly showBadges: boolean;
+  /** Tempat studi, domisili (sampai kecamatan — ini datamu sendiri) & bidang spesifik (ADR-075/076). */
+  readonly studyProfile: StudyProfile;
 }
 
 /**
@@ -134,6 +137,12 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
         : [],
     ),
     badges: { shownToOthers: input.showBadges },
+    studyPlace: {
+      institutionId: input.studyProfile.institutionId,
+      institutionName: input.studyProfile.institutionName,
+      domicileCode: input.studyProfile.domicileCode,
+      studyFields: input.studyProfile.studyFields,
+    },
     notifications: input.notifications.map((notification) => ({
       type: notification.type,
       message: notification.message,

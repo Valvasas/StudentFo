@@ -5,9 +5,10 @@ import { notFound, redirect } from 'next/navigation';
 import { Check, Flag, GraduationCap, Info, UserPlus } from 'lucide-react';
 import { requestConnectionAction } from '@/app/connections/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
-import { CategoryIcon } from '@/components/listing/category-icon';
+import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
 import { PortfolioList } from '@/components/profile/portfolio-list';
 import { PublicBadges } from '@/components/profile/public-badges';
+import { StudyPlaceLine } from '@/components/profile/study-place';
 import { BackLink } from '@/components/ui/back-link';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { evaluateBadges } from '@/lib/achievements';
@@ -15,6 +16,7 @@ import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
 import { initialsOf } from '@/lib/initials';
+import { presentStudyProfile } from '@/lib/study-profile';
 import type { RawSearchParams } from '@/lib/search-params';
 import { EDUCATION_LEVEL_LABEL, type ProfileRelation, type PublicProfile } from '@/types/domain';
 
@@ -59,9 +61,10 @@ export default async function PublicProfilePage({
 
   const [profile, repository] = await Promise.all([loadProfile(user.id, id), getEventRepository()]);
   if (!profile) notFound();
-  const [categories, badgeFacts] = await Promise.all([
+  const [categories, badgeFacts, studyProfiles] = await Promise.all([
     repository.listCategories(),
     withFallback('lencana publik', () => repository.listPublicBadgeFacts(user.id, [id]), new Map()),
+    withFallback('tempat studi', () => repository.listPublicStudyProfiles(user.id, [id]), new Map()),
   ]);
   const { person, relation, portfolio } = profile;
   const interests = person.interests
@@ -71,6 +74,8 @@ export default async function PublicProfilePage({
   // Hanya ada bila pemiliknya menyalakan "tampilkan lencanaku" (ADR-072); dihitung aturan yang sama dengan profilnya sendiri.
   const facts = badgeFacts.get(person.userId);
   const badges = facts ? evaluateBadges(facts, now) : null;
+  const studyProfile = studyProfiles.get(person.userId);
+  const studyView = studyProfile ? presentStudyProfile(studyProfile) : null;
 
   return (
     <div className="container-page flex max-w-3xl flex-col gap-6 pb-16 pt-8">
@@ -115,13 +120,14 @@ export default async function PublicProfilePage({
           {[person.major, person.educationLevel ? EDUCATION_LEVEL_LABEL[person.educationLevel] : null].filter(Boolean).join(' · ') ||
             'Program studi & jenjang belum diisi'}
         </p>
+        {studyView && <StudyPlaceLine view={studyView} withFields />}
         {badges && <PublicBadges progress={badges} />}
         {interests.length > 0 && (
           <ul aria-label="Minat" className="flex flex-wrap gap-1.5">
             {interests.map((category) => (
               <li key={category.slug} className="flex h-[30px] items-center gap-1.5 rounded-sm bg-panel-nested px-[11px] text-[13px] font-medium">
                 <CategoryIcon slug={category.slug} />
-                {category.name.split(' & ')[0]}
+                {shortCategoryName(category.name)}
               </li>
             ))}
           </ul>

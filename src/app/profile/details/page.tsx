@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Award, FileText, GraduationCap, IdCard, Pencil, Phone, Sparkles } from 'lucide-react';
-import { updateProfileAction } from '@/app/profile/actions';
+import { Award, FileText, GraduationCap, IdCard, MapPin, Pencil, Phone, Sparkles } from 'lucide-react';
+import { updateProfileAction, updateStudyPlaceAction } from '@/app/profile/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DemoDetailCards } from '@/components/profile/demo-detail-cards';
@@ -15,10 +15,16 @@ import {
   detailPrimaryButton,
 } from '@/components/profile/detail-card';
 import { MajorField } from '@/components/profile/major-field';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { InstitutionPicker } from '@/components/ui/institution-picker';
+import { RegionPicker } from '@/components/ui/region-picker';
 import { BackLink } from '@/components/ui/back-link';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { PROFILE_EDIT_ORIGINS } from '@/lib/account-sidebar';
 import { requireUser } from '@/lib/auth';
+import { getEventRepository } from '@/lib/data';
+import { presentStudyProfile, STUDY_PLACE_LIMITS } from '@/lib/study-profile';
+import { districtName } from '@/lib/wilayah-districts';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { EDUCATION_LEVELS, EDUCATION_LEVEL_LABEL } from '@/types/domain';
@@ -30,7 +36,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const EDITABLE = ['identitas', 'pendidikan'] as const;
+const EDITABLE = ['identitas', 'pendidikan', 'asal'] as const;
 type Editable = (typeof EDITABLE)[number];
 
 /**
@@ -47,6 +53,14 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
   const user = await requireUser('/profile/details');
   const requested = firstParam(params.ubah);
   const editing: Editable | null = EDITABLE.find((key) => key === requested) ?? null;
+  const studyProfile = await (await getEventRepository()).getStudyProfile(user.id);
+  const studyView = presentStudyProfile({ ...studyProfile, regionCode: studyProfile.domicileCode });
+  const district = studyProfile.domicileCode?.length === 8 ? districtName(studyProfile.domicileCode) : null;
+  const studyError = firstParam(params.error);
+  const studyFeedback = {
+    error: studyError === 'invalid_study_place' || studyError === 'study_profile_unavailable' ? studyError : undefined,
+    notice: firstParam(params.notice) === 'study_place_saved' ? 'study_place_saved' : undefined,
+  };
 
   const hidden = (omit: 'fullName' | 'education') => (
     <>
@@ -89,6 +103,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
   const jumps = [
     { href: '#identitas', label: 'Identitas', icon: IdCard },
     { href: '#pendidikan', label: 'Pendidikan', icon: GraduationCap },
+    ...(studyProfile.available ? [{ href: '#asal', label: 'Tempat studi', icon: MapPin }] : []),
     ...(demoFeaturesEnabled
       ? [
           { href: '#profil-publik', label: 'Profil publik', icon: Sparkles },
@@ -123,6 +138,8 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
         </div>
 
         <AuthFeedback params={params} />
+        {/* Hanya kode kartu tempat studi — kode bersama (mis. `unknown`) sudah ditangani AuthFeedback, jangan tampil dua kali. */}
+        <ActionFeedback params={studyFeedback} />
 
         <DetailCard
           id="identitas"
@@ -207,6 +224,59 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
             />
           )}
         </DetailCard>
+
+        {studyProfile.available && (
+          <DetailCard
+            id="asal"
+            icon={<MapPin className="size-[18px]" />}
+            title="Tempat studi & domisili"
+            description="Tampil di profil publik, lobi lomba, dan kartu koneksi — supaya orang tahu kamu dari mana. Kecamatan hanya untukmu."
+            editing={editing === 'asal'}
+            actions={actions('asal')}
+            delay={150}
+          >
+            {editing === 'asal' ? (
+              <form id="form-asal" action={updateStudyPlaceAction} className={detailFields}>
+                <UnsavedChangesGuard />
+                <div className="col-span-full flex flex-col gap-[7px]">
+                  <label htmlFor="institution" className="text-[13.5px] font-semibold">
+                    Sekolah / kampus
+                  </label>
+                  <InstitutionPicker
+                    id="institution"
+                    defaultId={studyProfile.institutionId}
+                    defaultName={studyView.institution}
+                    minLength={STUDY_PLACE_LIMITS.institutionMin}
+                    maxLength={STUDY_PLACE_LIMITS.institutionMax}
+                    describedBy="institution-hint"
+                  />
+                  <span id="institution-hint" className="text-[12.5px] text-ink-muted">
+                    Ketik nama atau singkatannya (mis. UI, ITB, SMAN 3 Bandung). Data SMA/SMK/MA & perguruan tinggi dari Data
+                    Referensi Kemendikdasmen. Kosongkan untuk menghapus.
+                  </span>
+                </div>
+                <div className="col-span-full flex flex-col gap-[7px]">
+                  <span id="domicile-label" className="text-[13.5px] font-semibold">
+                    Domisili
+                  </span>
+                  <RegionPicker name="domicile" defaultValue={studyProfile.domicileCode} labelledBy="domicile-label" withDistrict districtLabelId="district-label" />
+                </div>
+              </form>
+            ) : (
+              <DetailRows
+                rows={[
+                  { label: 'Sekolah / kampus', value: studyView.institution ?? 'Belum diisi', empty: !studyView.institution, wide: true },
+                  {
+                    label: 'Domisili',
+                    value: studyView.region ? (district ? `Kec. ${district}, ${studyView.region}` : studyView.region) : 'Belum diisi',
+                    empty: !studyView.region,
+                    wide: true,
+                  },
+                ]}
+              />
+            )}
+          </DetailCard>
+        )}
 
         {demoFeaturesEnabled && <DemoDetailCards baseDelay={180} />}
       </div>

@@ -37,6 +37,11 @@ test('lobi: daftar lobi → anggota tersembunyi sebelum bergabung → bergabung,
   // Citra tidak menyalakannya: tanpa lencana.
   await expect(members.getByRole('listitem').filter({ hasText: 'Citra Lestari' }).getByRole('list', { name: 'Lencana yang diraih' })).toHaveCount(0);
   await expect(members.getByRole('listitem').filter({ hasText: 'Rani Prameswari' }).getByText('Terhubung')).toBeVisible();
+  // Tempat studi sesama peserta (ADR-076): kampus + kab/kota, kecamatan tidak pernah tampil.
+  const rani = members.getByRole('listitem').filter({ hasText: 'Rani Prameswari' });
+  await expect(rani).toContainText('Universitas Indonesia (UI)');
+  await expect(rani).toContainText('Kota Depok, Jawa Barat');
+  await expect(rani).not.toContainText('Kec.');
 
   const dimas = members.getByRole('listitem').filter({ hasText: 'Dimas Arya' });
   await dimas.getByRole('button', { name: 'Ajak terhubung' }).click();

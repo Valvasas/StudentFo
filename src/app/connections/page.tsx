@@ -18,7 +18,9 @@ import { buildNetworkGraph, buildPreviewGraph } from '@/lib/network-graph';
 import { sectionTitle } from '@/lib/page-title';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
-import type { Category, ConnectionCounts, NetworkEventRef } from '@/types/domain';
+import { withFallback } from '@/lib/fallback';
+import { presentStudyProfile } from '@/lib/study-profile';
+import type { Category, ConnectionCounts, NetworkEventRef, PublicStudyProfile } from '@/types/domain';
 import { FeatureHero, IllustrationStage } from '@/components/ui/feature-hero';
 
 /**
@@ -204,6 +206,15 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
   ]);
   const suggestions = await repository.suggestPeople(user, { search, interest, limit: NETWORK_LIMITS.suggestionLimit, viewerEvents });
   const shown = expanded ? suggestions : suggestions.slice(0, SUGGESTION_PREVIEW);
+  const studyProfiles = await withFallback(
+    'tempat studi saran koneksi',
+    () => repository.listPublicStudyProfiles(user.id, shown.map((item) => item.person.userId)),
+    new Map<string, PublicStudyProfile>(),
+  );
+  const studyOf = (userId: string) => {
+    const profile = studyProfiles.get(userId);
+    return profile ? presentStudyProfile(profile) : null;
+  };
   const incoming = incomingPage?.items ?? [];
   const mine = categories.filter((category) => user.interests.includes(category.slug));
   const others = categories.filter((category) => !user.interests.includes(category.slug));
@@ -314,6 +325,7 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
                     viewerInterests={user.interests}
                     categoryName={categoryName}
                     returnTo={returnTo}
+                    study={studyOf(suggestion.person.userId)}
                   />
                 </li>
               ))}

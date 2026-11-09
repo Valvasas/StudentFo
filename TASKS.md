@@ -397,6 +397,19 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Pertanyaan pendataan diatur admin, wilayah lengkap, bidang spesifik, tempat studi 2026-11-09 (@claude) — ADR-073–076
+
+- [x] Pendataan kinerja: `/admin/kinerja/pertanyaan` (3 bawaan bermode + FormBuilder terbatas, maks. 8), tombol Lewati (dicatat), dasbor per pertanyaan; migration `20261108100002` diubah di tempat (ADR-073)
+- [x] Wilayah Kepmendagri lengkap (`src/data/wilayah/`, `lib/wilayah*.ts`, `/api/wilayah/[kode]`, `RegionPicker`) + atribusi ODbL di `/sumber-data` (ADR-074)
+- [x] 7 kategori baru + 150 bidang spesifik (`users.study_fields`, induk otomatis), `MAJORS` ±260 prodi/jurusan (ADR-075)
+- [x] Direktori tempat studi dari Data Referensi Kemendikdasmen (`src/data/institutions.ts`, `/api/institusi`, `InstitutionPicker`), singkatan PT terkurasi; kartu "Tempat studi & domisili" di Data diri; tampil di profil publik, pratinjau, lobi, saran Koneksi lewat `public_study_profiles()`; migration `20261109100001` (ADR-076)
+- [x] Kebijakan privasi (tempat studi, domisili, Lewati), ekspor data memuat tempat studi
+- [ ] Verifikasi email kampus untuk tanda "terverifikasi" (butuh daftar domain resmi per PT) (ADR-076 sengaja-tidak)
+- [ ] Saran Koneksi: alasan "satu kampus/sekolah" & saringan per kampus (perubahan `suggestPeople` di kedua repository)
+- [ ] Bidang spesifik di skor saran Koneksi / kecocokan tim (ADR-075 sengaja-tidak)
+- [ ] Filter lokasi acara ke 514 kab/kota: butuh normalisasi `events.location` + titik-tengah kab/kota (ADR-074 #3)
+- [ ] Perbarui data referensi berkala (crawler + `scripts/import-*.mjs`), tinjau diff
+
 ## Daftar penyelenggara, pendataan kinerja, lobi, lencana publik, anti-regresi 2026-11-08 (@claude) — ADR-069–072
 
 - [x] Gabung `ccr-c5c96a43-8eijqc` (versi produksi, 8 migration) ke cabang kerja; Pengaturan tetap hub ADR-067 (pengingat email → Notifikasi, hapus akun → Privasi & data); uji gabungan diperbaiki (dialog konfirmasi ADR-067 di `trust-safety.spec.ts`)
@@ -411,7 +424,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan 4 migration `20261108100001..04` ke staging → uji alur dua akun (daftar penyelenggara email & Google, email ganda, lobi + ajak, lencana publik, pendataan) → produksi; tambahkan barisnya ke `supabase/APPLIED_MIGRATIONS.txt` di commit yang sama
 - [ ] **BUTUH PEMILIK.** Template email "Confirm signup" Supabase: pastikan tautan memakai `{{ .ConfirmationURL }}`/`token_hash` ke `/auth/callback` (draf lembaga ikut lewat metadata, tidak perlu ubah)
 - [ ] Putuskan cabang usang `ccr-a2058300-u92ao5` (verifikasi hasil oleh penyelenggara — kandidat lencana "Juara terverifikasi") & `ccr-4d61ed42-skxs6m` (digantikan ADR-056): port ulang atau hapus. Jangan merge mentah
-- [ ] Pantau klik keluar setelah gerbang pendataan tayang; turun tajam → tambah "Lewati" (ADR-070 konsekuensi)
+- [x] ~~Pantau klik keluar … tambah "Lewati"~~ — Lewati sudah ada sejak ADR-073; pantau porsi "Melewati" di `/admin/kinerja`
 - [ ] Lencana: notifikasi "tingkat baru" butuh catatan terakhir dilihat (tabel kecil) — ditunda (ADR-072)
 - [ ] Pertimbangkan SessionStart hook yang menjalankan `npm run check:sync` otomatis di awal setiap sesi agen
 

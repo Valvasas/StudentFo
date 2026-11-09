@@ -92,6 +92,9 @@ import type {
   LobbySummary,
   LobbyView,
   OutboundSurveyConfig,
+  PublicStudyProfile,
+  StudyPlaceInput,
+  StudyProfile,
   OutboundSurveyRecord,
 } from '@/types/domain';
 import { LOBBY_INTENTS, toNotificationType } from '@/types/domain';
@@ -136,6 +139,8 @@ import type {
   LobbyMemberRow,
   LobbyRosterRow,
   OutboundSurveyConfigRow,
+  PublicStudyProfileRow,
+  StudyProfileRow,
   OutboundSurveyRow,
 } from '@/types/database';
 import {
@@ -221,6 +226,7 @@ import {
   OUTBOUND_SURVEY_COLUMNS,
   toLobbyMemberRow,
   toOutboundSurveyConfig,
+  toPublicStudyProfile,
   toOutboundSurveyRecord,
   toPublicBadgeFacts,
 } from './supabase-mappers';
@@ -2745,6 +2751,55 @@ export class SupabaseEventRepository implements EventRepository {
       if (facts) result.set(row.user_id, facts);
     }
     return result;
+  }
+
+  async getStudyProfile(userId: string): Promise<StudyProfile> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('institution_id, institution_name, domicile_code, study_fields')
+      .eq('id', userId)
+      .maybeSingle<StudyProfileRow>();
+    // Kode tayang sebelum migration 20261109100001: form dikunci, bukan halaman galat.
+    if (error && isMissingColumnError(error)) return { institutionId: null, institutionName: null, domicileCode: null, studyFields: [], available: false };
+    if (error) throw upstreamFailure('Gagal memuat tempat studi.', error);
+    return {
+      institutionId: data?.institution_id ?? null,
+      institutionName: data?.institution_name ?? null,
+      domicileCode: data?.domicile_code ?? null,
+      studyFields: data?.study_fields ?? [],
+      available: true,
+    };
+  }
+
+  async saveStudyPlace(userId: string, input: StudyPlaceInput): Promise<void> {
+    // Klien anon + hak UPDATE per kolom, pola updateProfileAction: id keliru = nol baris, bukan profil orang lain.
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from('users')
+      .update({ institution_id: input.institutionId, institution_name: input.institutionName, domicile_code: input.domicileCode })
+      .eq('id', userId);
+    if (error && isMissingColumnError(error)) throw actionError('study_profile_unavailable');
+    if (error && sqlState(error) === '23514') throw actionError('invalid_study_place');
+    if (error) throw upstreamFailure('Gagal menyimpan tempat studi.', error, 500);
+  }
+
+  async saveStudyFields(userId: string, fields: readonly string[]): Promise<boolean> {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('users').update({ study_fields: [...fields] }).eq('id', userId);
+    if (error && isMissingColumnError(error)) return false;
+    if (error) throw upstreamFailure('Gagal menyimpan bidang peminatan.', error, 500);
+    return true;
+  }
+
+  async listPublicStudyProfiles(_viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicStudyProfile>> {
+    const ids = [...new Set(userIds)].filter(isUuid).slice(0, 100);
+    if (ids.length === 0) return new Map();
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('public_study_profiles', { p_users: ids });
+    if (error && isMissingRelationError(error)) return new Map();
+    if (error) throw upstreamFailure('Gagal memuat tempat studi.', error);
+    return new Map(rpcRows<PublicStudyProfileRow>(data).map((row) => [row.user_id, toPublicStudyProfile(row)]));
   }
 
   async inviteToLobby(actor: NetworkViewer, eventId: string, inviteeId: string): Promise<'invited' | 'already'> {

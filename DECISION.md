@@ -12,6 +12,145 @@ terdokumentasi.
 
 ---
 
+## ADR-076 — Direktori tempat studi: data resmi dibekukan di repo, dicari di server, diisi sendiri (bukan diverifikasi)
+
+**Konteks:** Pemilik meminta informasi "tempat studi" seperti "Universitas
+Indonesia (UI)" supaya orang tahu sesamanya dari mana dan mudah terkoneksi,
+plus "data dan singkatan semua SMA, SMK, MA, PTN dan PTS di Indonesia".
+
+**Keputusan:**
+1. **Sumber:** daftar satuan pendidikan per kecamatan di Data Referensi
+   Kemendikdasmen (`referensi.data.kemendikdasmen.go.id`, publik, tanpa
+   login; robots.txt kosong) — SMA/SMK/MA/SLB + satuan keagamaan setara SMA
+   (SPM/PDF Ulya, SMTK, SM Agama) dan seluruh perguruan tinggi (kode PT
+   PDDikti). Diunduh oleh crawler sopan (jeda per permintaan, maks. 2
+   koneksi, berhenti di kecamatan bernilai 0) yang dijalankan TERPISAH dari
+   build. PDDikti sendiri memasang verifikasi peramban anti-bot — itu tanda
+   tidak boleh diunduh otomatis, jadi TIDAK dipakai atau diakali.
+2. **Dibekukan di repo** oleh `scripts/import-institutions.mjs` →
+   `src/data/institutions.ts` (satu string TSV: id, nama, jenis, negeri,
+   kode kab/kota, singkatan). Bukan JSON: impor JSON 3+ MB membuat `tsc`
+   menginferensi tipe tiap baris (+10 detik per pemeriksaan). Bukan tabel
+   Supabase: data publik yang sama untuk semua orang, berubah lewat diff yang
+   bisa ditinjau, dan mode seed mendapat data yang sama persis.
+3. **Pembersihan saat impor:** PT luar negeri (kode 9xxxxx) dibuang; lokasi
+   PT di "Kep. Seribu" (dipakai sumber sebagai "belum diisi") tidak
+   dipercaya; nama wilayah dipetakan ke kode Kemendagri (ADR-074); nama
+   ALL-CAPS dirapikan; IAIN/STAIN yang sudah menjadi UIN disembunyikan HANYA
+   bila ada UIN di provinsi yang sama yang memuat semua kata intinya.
+4. **Singkatan dikurasi tangan** (`src/data/institution-aliases.json`, kunci =
+   nama persis di sumber): sumber resmi tidak punya kolom singkatan. Importer
+   melaporkan kunci yang tidak cocok. Singkatan HANYA bila dipakai kampusnya
+   sendiri — tidak ada singkatan tebakan untuk ±5.400 PTS; pencarian tetap
+   menemukan inisial ("ubn") tanpa menampilkannya sebagai singkatan resmi.
+   Nama sekolah resmi sudah berbentuk singkat (SMAN/SMKN/MAN) dan pencarian
+   mengenali bentuk panjangnya ("SMA Negeri 8 Jakarta").
+5. **Dicari di server** (`lib/institutions.ts`, `/api/institusi`, maks. 12
+   hasil, cache CDN) — peramban tidak pernah menerima seluruh daftar.
+   `InstitutionPicker` = combobox: id direktori ATAU teks bebas (kursus,
+   pesantren tanpa NPSN, kampus luar negeri). Id menang atas teks: nama
+   diambil dari direktori.
+6. **Disimpan di `users`** (`institution_id/_name`, `domicile_code`) dan
+   ditampilkan lewat RPC `public_study_profiles(uuid[])` — aturan siapa
+   boleh melihat SAMA dengan lencana publik (ADR-072): diri sendiri,
+   `can_view_profile`, atau sesama anggota lobi tanpa blokir. Kecamatan
+   dipotong di SQL (dan sekali lagi di mapper). `network_directory` tidak
+   ditambah kolom (ADR-040/041). Tampil di profil publik, pratinjau publik,
+   kartu lobi, dan kartu saran Koneksi.
+7. **Diisi sendiri, tidak diverifikasi** — tidak ada tanda centang
+   "terverifikasi" di tampilan; disebut terang di kebijakan privasi.
+
+**Sengaja TIDAK:** verifikasi email kampus (butuh daftar domain resmi per PT —
+kandidat berikutnya), menyaring saran Koneksi per kampus (butuh perubahan
+`suggestPeople` di dua repository), sinkron otomatis berkala (diperbarui
+manual dengan menjalankan crawler + importer, lihat `scripts/`).
+
+---
+
+## ADR-075 — Bidang peminatan spesifik di bawah kategori; tujuh kategori baru
+
+**Konteks:** "Bidang peminatan luaskan dan spesifikan agar menjangkau banyak
+prodi dan jurusan." 12 kategori awal tidak menampung Teknik Sipil, Akuntansi,
+Pertanian, Bahasa, Media, Keagamaan, Pariwisata.
+
+**Keputusan:**
+1. **Tujuh kategori baru** di tabel `categories` (teknik, ekonomi, pertanian,
+   bahasa, media, agama, pariwisata). Pipeline AI membaca daftar kategori
+   dari tabel, jadi klasifikasi acara ikut meluas tanpa kode pipeline baru.
+   `shortCategoryName` memotong di " & " DAN ", ".
+2. **Bidang spesifik** (150, `lib/study-fields.ts`) masing-masing punya
+   satu kategori induk; disimpan di `users.study_fields` (maks. 15). Memilih
+   bidang = ikut memilih induknya (`withParentCategories`), sehingga skor
+   rekomendasi — yang membaca kategori — tidak pernah kehilangan sinyal.
+   Slug STABIL (tersimpan); label boleh diganti.
+3. **Daftar prodi/jurusan** (`MAJORS`) diperluas ke ±260 nama: rumpun PT
+   akademik & vokasi, peminatan SMA/MA, program keahlian SMK (Spektrum
+   Keahlian terbaru + nama Kurikulum 2013 yang masih dipakai). Tetap bukan
+   daftar tertutup. `CAMPUSES` (50 kampus contoh, tidak dipakai) dihapus —
+   digantikan direktori ADR-076.
+
+**Sengaja TIDAK:** memakai bidang spesifik di skor rekomendasi acara (acara
+hanya berlabel kategori) atau saran Koneksi — kandidat berikutnya.
+
+---
+
+## ADR-074 — Wilayah administratif lengkap (Kepmendagri) terpisah dari daftar kota bertitik-tengah
+
+**Konteks:** "Data provinsi, kabupaten, kecamatan masih kurang lengkap dan
+beberapa tidak ada." `REGIONS` memang hanya ±200 kota contoh — sengaja,
+karena filter lokasi acara & jarak pencarian tim butuh titik-tengah (`geo.ts`).
+
+**Keputusan:**
+1. **Data:** `idn-area-data@4.0.1` (ODbL 1.0, bersumber Kepmendagri terbaru)
+   → `scripts/import-wilayah.mjs` → `src/data/wilayah/` (38 provinsi, 514
+   kab/kota, 7.285 kecamatan). Bukan dependensi npm: dibekukan, pembaruan
+   terlihat sebagai diff. Atribusi ODbL di `/sumber-data` (tautan footer).
+2. **Dua modul:** `lib/wilayah.ts` (provinsi + kab/kota, ±17 KB, aman untuk
+   peramban) dan `lib/wilayah-districts.ts` (server saja); kecamatan diminta
+   per kab/kota lewat `/api/wilayah/[kode]` (cache CDN).
+3. **`REGIONS` TIDAK diganti** — tetap sumber filter lokasi acara & kota
+   kartu pemain yang butuh koordinat. Wilayah lengkap dipakai untuk "dari
+   mana orangnya": domisili profil (sampai kecamatan, hanya pemiliknya yang
+   melihat kecamatan) dan pendataan kinerja (sampai kab/kota).
+4. `RegionPicker`: satu pemilih melayang 514 kab/kota berkelompok provinsi
+   (memilih kelompok = provinsinya saja) + daftar kecamatan opsional. Nilai =
+   satu kode terdalam; server memeriksa kodenya ada, bukan sekadar berbentuk benar.
+
+---
+
+## ADR-073 — Pertanyaan pendataan kinerja diatur admin, selalu bisa dilewati
+
+**Konteks:** Pemilik: "tambahkan fitur lewati, dan admin/moderator bisa
+menambah, mengubah, atau mengurangi pertanyaan". ADR-070 mengunci pertanyaan
+di kode dan CHECK SQL.
+
+**Keputusan:**
+1. Migration `20261108100002` **diubah di tempat** — belum pernah diterapkan
+   ke database mana pun. `outbound_survey_config` (satu baris, tertutup untuk
+   klien; dibaca/ditulis server dengan service_role setelah
+   `checkAdminAccess()`): tiga pertanyaan bawaan bermode Tidak ditanyakan/
+   Opsional/Wajib (jenjang, domisili kab/kota, asal sekolah/kampus) +
+   `questions` JSONB berbentuk `FormField` (ADR-056). `outbound_surveys`:
+   `skipped`, `region_code`, `institution_id`, `answers` JSONB; CHECK
+   melarang "lewati" yang membawa jawaban.
+2. **Editor** `/admin/kinerja/pertanyaan` memakai `FormBuilder` yang sama
+   dengan formulir pendaftaran, dibatasi ke jenis yang bisa dihitung & tidak
+   mengundang identitas (pilihan, kotak centang, jawaban singkat, angka —
+   tanpa email/telepon/tautan/paragraf), maks. 8. Validasi jawaban =
+   `readAnswers()` yang sama. Tidak ada peran "moderator" terpisah di skema:
+   moderator = `role = 'ADMIN'`.
+3. **Lewati** = tombol `formNoValidate`; dicatat sebagai kunjungan
+   `skipped` (tanpa jawaban), mengingat cookie, mencatat klik, lalu
+   mengantar ke tautan resmi — sama seperti menjawab. Semua pertanyaan
+   dimatikan = layar pendataan tidak muncul; konfigurasi gagal dimuat =
+   langsung ke pendaftaran (ADR-070: statistik tidak boleh menahan orang).
+4. **Dasbor** menghitung terhadap pertanyaan SAAT INI: kunjungan, menjawab
+   vs melewati per postingan, distribusi tiap pertanyaan (angka: rata-rata/
+   median/rentang; teks bebas & wilayah & institusi: k-anonim ≥ 5).
+   Jawaban pertanyaan yang dihapus tetap tersimpan sampai retensi, tidak tampil.
+
+---
+
 ## ADR-072 — Lencana boleh tampil di profil publik & lobi: opt-in, fakta tanpa identitas acara, dihitung aturan yang sama
 
 **Konteks:** Pemilik meminta fitur lencana "dimatangkan". ADR-068 sendiri

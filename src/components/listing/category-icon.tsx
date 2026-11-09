@@ -1,16 +1,23 @@
 import {
   Backpack,
+  BookHeart,
+  Calculator,
   CodeXml,
   Dumbbell,
   FlaskConical,
+  HardHat,
   HeartPulse,
+  Languages,
   LayoutGrid,
   Leaf,
   MessagesSquare,
   NotebookPen,
   Palette,
+  Palmtree,
   PenTool,
+  Radio,
   Scale,
+  Sprout,
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
@@ -40,6 +47,14 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
   sosial: Leaf,
   pendidikan: Backpack,
   hukum: Scale,
+  // Migration 20261109100001 (ADR-075).
+  teknik: HardHat,
+  ekonomi: Calculator,
+  pertanian: Sprout,
+  bahasa: Languages,
+  media: Radio,
+  agama: BookHeart,
+  pariwisata: Palmtree,
 };
 
 export function CategoryIcon({ slug, className }: { slug: string | undefined; className?: string }) {
@@ -47,7 +62,7 @@ export function CategoryIcon({ slug, className }: { slug: string | undefined; cl
   return <Icon aria-hidden className={className ?? 'size-3.5'} />;
 }
 
-/** "Teknologi & IT" → "Teknologi" — label ringkas untuk chip & kartu. */
+/** "Teknologi & IT" → "Teknologi", "Ekonomi, Keuangan & Akuntansi" → "Ekonomi" — label ringkas untuk chip & kartu. */
 export function shortCategoryName(name: string): string {
-  return name.split(' & ')[0] ?? name;
+  return name.split(/ & |, /)[0] ?? name;
 }

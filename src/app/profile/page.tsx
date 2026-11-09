@@ -11,6 +11,7 @@ import { AccountShell } from '@/components/layout/account-shell';
 import { BadgeBoard, BadgeStrip } from '@/components/profile/badge-board';
 import { loadBadgeFacts } from '@/components/profile/badge-facts';
 import { BadgeVisibilityToggle, PublicBadges } from '@/components/profile/public-badges';
+import { StudyPlaceLine } from '@/components/profile/study-place';
 import { PortfolioList, type PortfolioRow } from '@/components/profile/portfolio-list';
 import {
   DemoAboutCard,
@@ -22,6 +23,7 @@ import {
   DemoTeamCard,
 } from '@/components/profile/demo-profile-parts';
 import { evaluateBadges } from '@/lib/achievements';
+import { presentStudyProfile } from '@/lib/study-profile';
 import { withFallback } from '@/lib/fallback';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -72,14 +74,17 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const user = await requireUser('/profile');
   const repository = await getEventRepository();
   const isPublic = params.tampilan === 'publik';
-  const [categories, savedEvents, trackerItems, badgeFacts, badgeVisibility] = await Promise.all([
+  const [categories, savedEvents, trackerItems, badgeFacts, badgeVisibility, studyProfile] = await Promise.all([
     repository.listCategories(),
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
     // Juga di tampilan publik: pratinjau harus menunjukkan lencana bila pemiliknya memilih menampilkannya (ADR-072).
     loadAccountRole(user).then((context) => loadBadgeFacts(user, context.organizer)),
     withFallback('pilihan lencana', () => repository.getBadgeVisibility(user.id), { show: false, adjustable: false }),
+    withFallback('tempat studi', () => repository.getStudyProfile(user.id), null),
   ]);
+  // Pratinjau publik memotong domisili ke kab/kota, sama dengan public_study_profiles().
+  const studyView = studyProfile ? presentStudyProfile({ ...studyProfile, regionCode: studyProfile.domicileCode }) : null;
 
   const tabs = TABS.filter((item) => (!isPublic || !item.private) && (demoFeaturesEnabled || !item.demoOnly));
   const rawTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
@@ -175,8 +180,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   'Program studi & jenjang belum diisi'}
               </span>
             </li>
-            {demoFeaturesEnabled && <DemoCity />}
+            {demoFeaturesEnabled && !studyView?.region && <DemoCity />}
           </ul>
+          {studyView && <StudyPlaceLine view={studyView} withFields />}
           {demoFeaturesEnabled && <DemoStatusPicker editable={!isPublic} />}
           {badges && !isPublic && <BadgeStrip progress={badges} href={tabHref('lencana')} />}
           {badges && isPublic && badgeVisibility.show && <PublicBadges progress={badges} />}

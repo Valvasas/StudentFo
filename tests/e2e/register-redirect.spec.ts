@@ -35,8 +35,7 @@ test('pendataan kinerja: sekali per acara, lalu keluar ke tautan resmi; kunjunga
   const href = '/events/program-relawan-literasi-desa-angkatan-7';
   await page.goto(`${href}/sebelum-daftar`);
   await expect(page.getByText(/tidak memuat nama atau email/)).toBeVisible();
-  // Bukan lomba: pertanyaan rencana tidak ditanyakan.
-  await expect(page.getByRole('group', { name: /Rencanamu/ })).toHaveCount(0);
+  await expect(page.getByText(/boleh dilewati/)).toBeVisible();
 
   await page.getByRole('button', { name: /Lanjut ke pendaftaran resmi/ }).click();
   // Isian wajib kosong: peramban menahan kiriman, tetap di halaman ini.
@@ -55,7 +54,23 @@ test('pendataan kinerja: sekali per acara, lalu keluar ke tautan resmi; kunjunga
   expect([303, 307]).toContain(survey.status());
 });
 
-test('pendataan lomba menanyakan rencana + menunjuk lobi; admin melihat hasilnya tanpa identitas', async ({ page, context, browser }) => {
+test('Lewati: tanpa mengisi apa pun langsung ke tautan resmi, tidak ditanya lagi untuk acara itu', async ({ page, context }) => {
+  test.skip(test.info().project.name !== 'terang', 'alur, bukan tampilan');
+  let external: string | null = null;
+  await context.route(/^(?!http:\/\/(localhost|127\.0\.0\.1))/, (route) => {
+    external = route.request().url();
+    return route.abort();
+  });
+  const href = '/events/program-relawan-literasi-desa-angkatan-7';
+  await page.goto(`${href}/sebelum-daftar`);
+  // Pertanyaan wajib dibiarkan kosong — Lewati tidak boleh ditahan validasi peramban.
+  await page.getByRole('button', { name: 'Lewati' }).click();
+  await expect.poll(() => external).toMatch(/^https?:\/\//);
+  const survey = await page.request.get(`${href}/sebelum-daftar`, { maxRedirects: 0 });
+  expect([303, 307]).toContain(survey.status());
+});
+
+test('pendataan lomba menunjuk lobi, asal sekolah dari direktori; admin melihat hasilnya tanpa identitas', async ({ page, context, browser }) => {
   test.skip(test.info().project.name !== 'terang', 'alur, bukan tampilan');
   await context.route(/^(?!http:\/\/(localhost|127\.0\.0\.1))/, (route) => route.abort());
   const href = '/events/olimpiade-matematika-pelajar-tingkat-nasional';
@@ -64,7 +79,11 @@ test('pendataan lomba menanyakan rencana + menunjuk lobi; admin melihat hasilnya
   await page.getByRole('radio', { name: 'SMA/SMK' }).check();
   await page.getByRole('radio', { name: 'TikTok' }).check();
   await page.getByRole('radio', { name: 'Masih mencari tim atau partner' }).check();
-  await page.getByLabel('Asal sekolah / kampus (opsional)').fill('SMA Rahasia Satu Orang');
+  const institution = page.getByRole('combobox', { name: 'Asal sekolah / kampus (opsional)' });
+  await institution.fill('sman 8 jakarta');
+  await page.getByRole('option', { name: /SMAN 8 Jakarta/ }).click();
+  await expect(institution).toHaveValue('SMAN 8 Jakarta');
+  await expect(page.getByText('Terpilih dari direktori resmi.')).toBeVisible();
   await page.getByRole('button', { name: /Lanjut ke pendaftaran resmi/ }).click();
   await expect(page).not.toHaveURL(/sebelum-daftar/);
 
@@ -72,9 +91,35 @@ test('pendataan lomba menanyakan rencana + menunjuk lobi; admin melihat hasilnya
   await signInAsDemo(admin, 'Admin moderator', '/admin/kinerja');
   const row = admin.getByRole('row', { name: /Olimpiade Matematika Pelajar/ });
   await expect(row).toBeVisible();
+  await expect(admin.getByRole('term').filter({ hasText: 'Melewati' })).toBeVisible();
   // k-anonim: asal sekolah dengan < 5 jawaban tidak disebut namanya.
-  await expect(admin.getByText('SMA Rahasia Satu Orang', { exact: false })).toHaveCount(0);
+  await expect(admin.getByRole('region', { name: 'Asal sekolah / kampus' }).getByText('SMAN 8 JAKARTA')).toHaveCount(0);
   await admin.close();
+});
+
+test('admin menyusun pertanyaan pendataan: bawaan + pertanyaan tambahan, tersimpan', async ({ page }) => {
+  test.skip(test.info().project.name !== 'terang', 'alur, bukan tampilan');
+  await signInAsDemo(page, 'Admin moderator', '/admin/kinerja');
+  await page.getByRole('link', { name: 'Atur pertanyaan' }).click();
+  await expect(page).toHaveURL(/\/admin\/kinerja\/pertanyaan$/);
+  await expect(page.getByLabel('Jenjang pendidikan')).toHaveValue('REQUIRED');
+  await expect(page.getByLabel('Domisili kabupaten/kota')).toHaveValue('OPTIONAL');
+  await expect(page.getByRole('button', { name: /^Pertanyaan 1: Dari mana kamu tahu info ini/ })).toBeVisible();
+  // Jenis pembawa identitas tidak ditawarkan.
+  await page.getByRole('button', { name: 'Tambah pertanyaan' }).click();
+  await expect(page.getByRole('button', { name: 'Email' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Nomor telepon' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tutup pilihan jenis' }).click();
+  // Simpan tanpa perubahan: idempoten, aman untuk tes lain yang berjalan bersamaan.
+  await page.getByRole('button', { name: 'Simpan pertanyaan' }).click();
+  await expect(page).toHaveURL(/notice=outbound_config_saved/);
+});
+
+test('pendataan & editor tertutup untuk peserta biasa', async ({ page }) => {
+  test.skip(test.info().project.name !== 'terang', 'alur, bukan tampilan');
+  await signInAsDemo(page, 'Mahasiswa', '/profile');
+  const response = await page.goto('/admin/kinerja/pertanyaan');
+  expect(response?.status()).toBe(404);
 });
 
 test('slug tak dikenal & parameter tujuan palsu tidak pernah mengalihkan ke luar situs', async ({ request, baseURL }) => {

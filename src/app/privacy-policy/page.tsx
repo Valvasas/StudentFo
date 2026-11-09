@@ -75,15 +75,24 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
             </li>
             <li>
+              <strong>Tempat studi, domisili & bidang peminatan (bila kamu mengisinya):</strong> nama sekolah/kampus (dipilih dari direktori
+              resmi atau diketik sendiri), domisili sampai kecamatan, dan bidang peminatan spesifik. Orang yang boleh melihat profilmu —
+              koneksimu, pengguna Koneksi bila kamu memilih bisa ditemukan, dan sesama peserta lobi lomba — melihat tempat studi, bidang
+              peminatan, dan kabupaten/kota domisilimu. <em>Kecamatan tidak pernah ditampilkan ke siapa pun selain kamu.</em> Tempat studi diisi
+              sendiri dan tidak kami verifikasi.
+            </li>
+            <li>
               <strong>Lobi lomba (bila kamu bergabung):</strong> status mencari tim/anggota dan catatan singkat di lobi lomba yang kamu ikuti,
               serta koneksi mana yang kamu ajak ikut lomba itu.
             </li>
             <li>
-              <strong>Pendataan kinerja postingan:</strong> sebelum kamu diarahkan ke situs pendaftaran resmi penyelenggara, kami menanyakan
-              jenjang pendidikanmu, dari mana kamu tahu info itu, rencana ikut (untuk lomba), dan — bila kamu mau — provinsi domisili dan asal
-              sekolah/kampus. Jawaban ini <em>tidak</em> memuat nama, email, atau id akunmu (hanya tanda apakah kamu sedang masuk), tidak dikirim
-              ke penyelenggara, dan hanya dipakai pengelola StudentFo untuk menilai postingan mana yang benar-benar dipakai. Asal sekolah/kampus
-              dan provinsi hanya ditampilkan sebagai angka bila ada sedikitnya lima jawaban yang sama.
+              <strong>Pendataan kinerja postingan:</strong> sebelum kamu diarahkan ke situs pendaftaran resmi penyelenggara, kami menampilkan
+              beberapa pertanyaan singkat yang disusun pengelola StudentFo — bawaannya jenjang pendidikan, dari mana kamu tahu info itu, rencana
+              ikut, dan bila kamu mau kabupaten/kota domisili serta asal sekolah/kampus. Kamu boleh menekan <em>Lewati</em>; yang kami catat
+              saat itu hanya bahwa ada kunjungan yang melewati. Jawaban ini <em>tidak</em> memuat nama, email, atau id akunmu (hanya tanda
+              apakah kamu sedang masuk), tidak dikirim ke penyelenggara, dan hanya dipakai pengelola StudentFo untuk menilai postingan mana yang
+              benar-benar dipakai. Pertanyaan tidak pernah meminta email atau nomor telepon. Wilayah, asal sekolah/kampus, dan jawaban teks
+              hanya ditampilkan sebagai angka bila ada sedikitnya lima jawaban yang sama.
             </li>
             <li>
               <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu. Bila kamu menyalakan

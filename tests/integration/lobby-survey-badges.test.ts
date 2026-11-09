@@ -132,3 +132,34 @@ describe('SupabaseEventRepository — lencana publik', () => {
     }
   });
 });
+
+describe('SupabaseEventRepository — tempat studi & bidang spesifik (ADR-075/076)', () => {
+  it('pemilik menyimpan lewat RLS; pembaca yang boleh melihat menerima kab/kota, bukan kecamatan', async () => {
+    const owner = person('Pemilik Studi Integrasi');
+    const reader = person('Pembaca Studi Integrasi');
+
+    actAs(owner.id);
+    expect(await repo.getStudyProfile(owner.id)).toEqual({ institutionId: null, institutionName: null, domicileCode: null, studyFields: [], available: true });
+    await repo.saveStudyPlace(owner.id, { institutionId: '001002', institutionName: 'Universitas Indonesia', domicileCode: '32.76.03' });
+    expect(await repo.saveStudyFields(owner.id, ['ui-ux'])).toBe(true);
+    expect(await repo.getStudyProfile(owner.id)).toMatchObject({ institutionId: '001002', domicileCode: '32.76.03', studyFields: ['ui-ux'] });
+
+    actAs(reader.id);
+    expect((await repo.listPublicStudyProfiles(reader.id, [owner.id])).size).toBe(0);
+    sql(`INSERT INTO public.network_profiles (user_id, is_discoverable) VALUES ('${owner.id}', true)`);
+    expect((await repo.listPublicStudyProfiles(reader.id, [owner.id])).get(owner.id)).toEqual({
+      institutionId: '001002',
+      institutionName: 'Universitas Indonesia',
+      regionCode: '32.76',
+      studyFields: ['ui-ux'],
+    });
+  });
+
+  it('nilai di luar CHECK = kode tertutup, bukan galat mentah', async () => {
+    const owner = createUser();
+    actAs(owner);
+    await expect(repo.saveStudyPlace(owner, { institutionId: '001002', institutionName: null, domicileCode: null })).rejects.toSatisfy(
+      (error: unknown) => reasonOf(error) === 'invalid_study_place',
+    );
+  });
+});

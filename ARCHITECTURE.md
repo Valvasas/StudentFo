@@ -181,7 +181,10 @@ src/
 │   ├── auth-messages.ts        Kode & pesan auth, pemetaan error Supabase [teruji]
 │   ├── auth-failure.ts         Galat validasi form akun → SATU kode tertutup, urut prioritas (ADR-069) [teruji]
 │   ├── organizer-draft-cookie.ts  Titipan draf lembaga lewat Google OAuth (cookie httpOnly khusus /auth/callback, ADR-069)
-│   ├── outbound-survey.ts      Pendataan kinerja: skema, cookie "sudah menjawab", ringkasan k-anonim (ADR-070) [teruji, murni]
+│   ├── outbound-survey.ts      Pendataan kinerja: konfigurasi admin, validasi jawaban, Lewati, ringkasan k-anonim (ADR-070/073) [teruji, murni]
+│   ├── wilayah.ts · wilayah-districts.ts   Wilayah Kepmendagri lengkap: prov/kab-kota (aman klien) & kecamatan (server) (ADR-074) [teruji]
+│   ├── institutions.ts · institution-kinds.ts   Direktori tempat studi (server) + jenis/tampilan (klien) (ADR-076) [teruji]
+│   ├── study-fields.ts · study-profile.ts   Bidang peminatan spesifik (ADR-075); simpan & tampil tempat studi (ADR-076) [teruji]
 │   ├── outbound-survey-cookie.ts · registration-destination.ts   Cookie `sf_out`; tujuan "Daftar" satu sumber untuk rute & aksi (ADR-070)
 │   ├── lobby.ts                Lobi: kelayakan, buka/tutup, urutan anggota, validasi kartu — cermin SQL (ADR-071) [teruji, murni]
 │   ├── migrations-manifest.test.ts  Penjaga: migration di produksi (supabase/APPLIED_MIGRATIONS.txt) wajib ada berkasnya

@@ -111,6 +111,9 @@ import type {
   LobbySummary,
   LobbyView,
   OutboundSurveyConfig,
+  PublicStudyProfile,
+  StudyPlaceInput,
+  StudyProfile,
   OutboundSurveyRecord,
 } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
@@ -153,6 +156,7 @@ import {
   type SeedPortfolioEntry,
   SEED_PERSON_CONNECTIONS,
   SEED_TEAMS,
+  SEED_STUDY_PROFILES,
   type SeedEvent,
 } from './seed-data';
 
@@ -460,6 +464,8 @@ export class MemoryEventRepository implements EventRepository {
   /** Pendataan kinerja (ADR-070/073) — tanpa identitas pengisi, sama dengan tabel `outbound_surveys`. */
   private readonly outboundSurveys: (OutboundSurveyInput & { createdAt: string })[] = [];
   private outboundConfig: OutboundSurveyConfig = DEFAULT_OUTBOUND_CONFIG;
+  /** Tempat studi & bidang spesifik (ADR-075/076) — kolom `users` di produksi. */
+  private readonly studyProfiles = new Map<string, Omit<StudyProfile, 'available'>>(SEED_STUDY_PROFILES);
   /** Cermin `users.show_badges` (ADR-072): bawaan privat. */
   private readonly badgeVisible = new Set<string>();
   /** Lobi lomba (ADR-071): eventId → userId → kartu. */
@@ -3118,6 +3124,40 @@ export class MemoryEventRepository implements EventRepository {
   }
 
   /** Cermin `public_badge_facts()`: pemilik, atau opt-in + (boleh lihat profil ATAU satu lobi tanpa blokir). */
+  async getStudyProfile(userId: string): Promise<StudyProfile> {
+    const stored = this.studyProfiles.get(userId);
+    return { institutionId: null, institutionName: null, domicileCode: null, studyFields: [], ...stored, available: true };
+  }
+
+  async saveStudyPlace(userId: string, input: StudyPlaceInput): Promise<void> {
+    const current = this.studyProfiles.get(userId);
+    this.studyProfiles.set(userId, { studyFields: current?.studyFields ?? [], ...input });
+  }
+
+  async saveStudyFields(userId: string, fields: readonly string[]): Promise<boolean> {
+    const current = this.studyProfiles.get(userId) ?? { institutionId: null, institutionName: null, domicileCode: null };
+    this.studyProfiles.set(userId, { ...current, studyFields: [...fields] });
+    return true;
+  }
+
+  /** Cermin `public_study_profiles()`: diri sendiri, boleh melihat profil, atau satu lobi tanpa blokir; kecamatan dipotong. */
+  async listPublicStudyProfiles(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicStudyProfile>> {
+    const result = new Map<string, PublicStudyProfile>();
+    for (const userId of [...new Set(userIds)].slice(0, 100)) {
+      if (this.suspensions.has(userId)) continue;
+      const allowed = userId === viewerId || this.canViewProfile(viewerId, userId) || (this.sharesLobby(viewerId, userId) && !this.isBlocked(viewerId, userId));
+      const stored = this.studyProfiles.get(userId);
+      if (!allowed || !stored) continue;
+      result.set(userId, {
+        institutionId: stored.institutionId,
+        institutionName: stored.institutionName,
+        regionCode: stored.domicileCode?.slice(0, 5) ?? null,
+        studyFields: stored.studyFields,
+      });
+    }
+    return result;
+  }
+
   async listPublicBadgeFacts(viewerId: string, userIds: readonly string[], now: Date = new Date()): Promise<ReadonlyMap<string, AchievementFacts>> {
     const result = new Map<string, AchievementFacts>();
     for (const userId of [...new Set(userIds)].slice(0, 100)) {

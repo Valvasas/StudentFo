@@ -9,6 +9,7 @@ import { ShareButton } from '@/components/event/share-button';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { PublicBadges } from '@/components/profile/public-badges';
+import { StudyPlaceLine } from '@/components/profile/study-place';
 import { TeamCard } from '@/components/team/team-card';
 import { Avatar } from '@/components/ui/avatar';
 import { BackLink } from '@/components/ui/back-link';
@@ -26,7 +27,8 @@ import { withFallback } from '@/lib/fallback';
 import { LOBBY_LIMITS } from '@/lib/lobby';
 import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
-import { LOBBY_INTENT_LABEL, LOBBY_INTENTS, type LobbyMember, type LobbyView } from '@/types/domain';
+import { presentStudyProfile, type StudyPlaceView } from '@/lib/study-profile';
+import { LOBBY_INTENT_LABEL, LOBBY_INTENTS, type LobbyMember, type LobbyView, type PublicStudyProfile } from '@/types/domain';
 import { inviteToLobbyAction, joinLobbyAction, leaveLobbyAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -90,7 +92,19 @@ function LobbyCardForm({ lobby, slug }: { lobby: LobbyView; slug: string }) {
   );
 }
 
-function MemberRow({ member, slug, eventTitle, badges }: { member: LobbyMember; slug: string; eventTitle: string; badges: readonly BadgeProgress[] | null }) {
+function MemberRow({
+  member,
+  slug,
+  eventTitle,
+  badges,
+  study,
+}: {
+  member: LobbyMember;
+  slug: string;
+  eventTitle: string;
+  badges: readonly BadgeProgress[] | null;
+  study: StudyPlaceView | null;
+}) {
   return (
     <li className="flex flex-col gap-3 rounded-[14px] border border-line p-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 gap-3">
@@ -100,6 +114,7 @@ function MemberRow({ member, slug, eventTitle, badges }: { member: LobbyMember; 
           <Badge variant={member.intent === 'SIAP' ? 'neutral' : 'brand'} className="self-start">
             {LOBBY_INTENT_LABEL[member.intent]}
           </Badge>
+          {study && <StudyPlaceLine view={study} />}
           {member.note && <p className="break-words text-[13.5px] leading-relaxed text-ink-soft">{member.note}</p>}
           {badges && <PublicBadges progress={badges} limit={2} compact className="mt-1" />}
         </div>
@@ -150,9 +165,18 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
   const now = new Date();
   const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
   // Lencana anggota yang memilih menampilkannya (ADR-072) — sinyal saat memilih rekan tim.
-  const badgeFacts = lobby?.members.length
-    ? await withFallback('lencana anggota lobi', () => repository.listPublicBadgeFacts(user.id, lobby.members.map((member) => member.userId)), new Map())
-    : new Map<string, AchievementFacts>();
+  const memberIds = lobby?.members.map((member) => member.userId) ?? [];
+  const [badgeFacts, studyProfiles] = memberIds.length
+    ? await Promise.all([
+        withFallback('lencana anggota lobi', () => repository.listPublicBadgeFacts(user.id, memberIds), new Map<string, AchievementFacts>()),
+        // "Dari mana" sesama peserta (ADR-076) — sinyal pertama saat mencari rekan satu kota/kampus.
+        withFallback('tempat studi anggota lobi', () => repository.listPublicStudyProfiles(user.id, memberIds), new Map<string, PublicStudyProfile>()),
+      ])
+    : [new Map<string, AchievementFacts>(), new Map<string, PublicStudyProfile>()];
+  const studyOf = (userId: string) => {
+    const profile = studyProfiles.get(userId);
+    return profile ? presentStudyProfile(profile) : null;
+  };
   const badgesOf = (userId: string) => {
     const facts = badgeFacts.get(userId);
     return facts ? evaluateBadges(facts, now) : null;
@@ -259,7 +283,7 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
               ) : (
                 <ul className="flex flex-col gap-3">
                   {lobby.members.map((member) => (
-                    <MemberRow key={member.userId} member={member} slug={event.slug} eventTitle={event.title} badges={badgesOf(member.userId)} />
+                    <MemberRow key={member.userId} member={member} slug={event.slug} eventTitle={event.title} badges={badgesOf(member.userId)} study={studyOf(member.userId)} />
                   ))}
                 </ul>
               )}

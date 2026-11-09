@@ -4,7 +4,7 @@
  * Kemendikdasmen (referensi.data.kemendikdasmen.go.id — daftar satuan
  * pendidikan per kecamatan, publik, tanpa login) ke `src/data/institutions.json`.
  *
- *   node scripts/import-institutions.mjs <dikti.jsonl> <dikmen.jsonl>
+ *   node scripts/import-institutions.mjs <dikti.jsonl> <dikmen.jsonl> [dikmen-lain.jsonl …]
  *
  * Format masukan: satu objek JSON per baris {id, name, status, regency,
  * province, ...} — keluaran crawler sopan yang dijalankan terpisah (bukan
@@ -14,9 +14,9 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const [diktiPath, dikmenPath] = process.argv.slice(2);
-if (!diktiPath || !dikmenPath) {
-  console.error('Pakai: node scripts/import-institutions.mjs <dikti.jsonl> <dikmen.jsonl>');
+const [diktiPath, ...dikmenPaths] = process.argv.slice(2);
+if (!diktiPath || dikmenPaths.length === 0) {
+  console.error('Pakai: node scripts/import-institutions.mjs <dikti.jsonl> <dikmen.jsonl> [dikmen-lain.jsonl …]');
   process.exit(1);
 }
 
@@ -45,6 +45,7 @@ for (const [code, name] of wilayah.regencies) {
 }
 // Nama yang berubah sejak data referensi ditulis (Kepmendagri terbaru menang).
 const RENAMED = {
+  kotapadangsidempuan: 'kotapadangsidimpuan',
   kabupatentobasamosir: 'kabupatentoba',
   kotabaubau: 'kotabaubau',
   kabupatenpangkajenekepulauan: 'kabupatenpangkajenedankepulauan',
@@ -90,13 +91,23 @@ function campusKind(row) {
   // Kode PT 3xxxxx–5xxxxx = PT kementerian/lembaga lain (kedinasan).
   return prefix === '3' || prefix === '4' || prefix === '5' ? 'PTK' : 'PTN';
 }
-function schoolKind(name) {
-  const head = name.toUpperCase().replace(/[^A-Z ]/g, ' ').trim().split(/\s+/)[0] ?? '';
-  if (/^(SLB|SMALB|SMLB|SMKLB|SLBN|SLBS)/.test(head)) return 'SLB';
-  if (/^SMK/.test(head) || head === 'SMKN' || head === 'SMKS') return 'SMK';
-  if (/^SMA/.test(head)) return 'SMA';
-  if (/^(MA|MAN|MAS|MAK)$/.test(head)) return 'MA';
-  return null;
+/**
+ * Jenis dari nama — sumbernya tidak punya kolom jenjang yang bisa dipakai di
+ * daftar per kecamatan. Satuan keagamaan setara SMA (SPM/PDF Ulya pesantren,
+ * SMTK, SM Agama Katolik/Hindu) ikut; SDLB/SMPLB bukan jenjang menengah atas.
+ */
+function schoolKind(rawName) {
+  const name = rawName.toUpperCase().replace(/^UPTD?\s+/, '').replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const head = name.split(' ')[0] ?? '';
+  if (/^(SDLB|SMPLB)$/.test(head)) return null;
+  if (/^(SLB|SMALB|SMLB|SMKLB|SLBN|SLBS|SKH|SKHN)$/.test(head) || name.startsWith('SEKOLAH LUAR BIASA') || name.startsWith('SEKOLAH KHUSUS')) return 'SLB';
+  if (head.startsWith('SMK') || head === 'SUPM' || name.startsWith('SEKOLAH MENENGAH KEJURUAN')) return 'SMK';
+  if (/^(SMTK|SMTKN|SMAK|SMAKN)$/.test(head) || name.startsWith('SM AGAMA') || name.startsWith('SEKOLAH MENENGAH AGAMA') || name.startsWith('SEKOLAH MENENGAH TEOLOGI')) return 'KEA';
+  if (head.startsWith('SMA') || name.startsWith('SEKOLAH MENENGAH ATAS')) return 'SMA';
+  if (/^(MA|MAN|MAS|MAK)$/.test(head) || name.startsWith('MADRASAH ALIYAH')) return 'MA';
+  if (/^(SPM|PDF|MUADALAH|TMI|TARBIYATUL)$/.test(head) || name.startsWith('MADRASAH')) return 'KEA';
+  // Terdaftar di jenjang menengah atas tetapi namanya tanpa awalan baku (kebanyakan pesantren).
+  return 'SM';
 }
 
 // --- Bangun ---------------------------------------------------------------
@@ -106,7 +117,7 @@ const usedAliases = new Set();
 
 const rows = [];
 const seen = new Set();
-const skipped = { foreign: 0, unknownKind: 0, duplicate: 0 };
+const skipped = { foreign: 0, unknownKind: 0, duplicate: 0, supersededByUin: 0 };
 
 for (const row of readJsonl(diktiPath)) {
   // Kode 9xxxxx = PT luar negeri (mitra/penyetaraan), bukan tempat studi di Indonesia.
@@ -126,7 +137,33 @@ for (const row of readJsonl(diktiPath)) {
   rows.push([row.id, name, kind, kind === 'PTS' ? 0 : 1, regionCodeOf({ ...row, kind: 'campus' }), short]);
 }
 
-for (const row of readJsonl(dikmenPath)) {
+// IAIN/STAIN yang sudah bertransformasi menjadi UIN kadang masih tercatat di
+// samping penerusnya. Disembunyikan HANYA bila ada UIN di provinsi yang sama
+// yang namanya memuat semua kata inti IAIN itu ("IAIN Walisongo Semarang" →
+// "UIN Walisongo Semarang") — selain itu dibiarkan, lebih baik dobel daripada hilang.
+const IAIN_PREFIX = /^(IAIN|STAIN|Institut Agama Islam Negeri|Sekolah Tinggi Agama Islam Negeri)\s+/i;
+const coreWords = (name) =>
+  name
+    .replace(IAIN_PREFIX, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 2);
+const provinceOfRow = new Map(readJsonl(diktiPath).map((row) => [row.id, row.province]));
+const uins = rows.filter((row) => /^Universitas Islam Negeri /i.test(row[1]));
+const superseded = new Set(
+  rows
+    .filter((row) => IAIN_PREFIX.test(row[1]))
+    .filter((row) => {
+      const words = coreWords(row[1]);
+      return words.length > 0 && uins.some((uin) => provinceOfRow.get(uin[0]) === provinceOfRow.get(row[0]) && words.every((word) => uin[1].toLowerCase().includes(word)));
+    })
+    .map((row) => row[0]),
+);
+for (let index = rows.length - 1; index >= 0; index -= 1) if (superseded.has(rows[index][0])) rows.splice(index, 1);
+skipped.supersededByUin = superseded.size;
+if (process.env.VERBOSE) console.log('Disembunyikan (sudah jadi UIN):', [...superseded].join(', '));
+
+for (const row of dikmenPaths.flatMap(readJsonl)) {
   const kind = schoolKind(row.name);
   if (!kind) {
     skipped.unknownKind += 1;

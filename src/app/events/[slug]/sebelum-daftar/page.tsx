@@ -163,7 +163,7 @@ export default async function BeforeRegisterPage({
           )}
 
           {config.questions.map((field) => (
-            <RegistrationFieldInput key={field.id} field={field} invalid={problem === `field:${field.id}`} />
+            <RegistrationFieldInput key={field.id} field={field} invalid={problem === `field:${field.id}`} radioMax={8} />
           ))}
 
           <div className="flex flex-col gap-3 border-t border-line pt-5">

@@ -68,6 +68,16 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
 - Server Action yang menuju tautan LUAR: `redirect(urlLuar)` langsung. Redirect
   ke path internal yang lalu 303 ke luar membuat Next merender & mengikuti
   tujuan itu di server (ADR-070).
+- Wilayah: `lib/wilayah.ts` (514 kab/kota, 7.285 kecamatan, ADR-074) untuk
+  "dari mana orangnya"; `lib/regions.ts` (`REGIONS`) TETAP untuk filter lokasi
+  acara & jarak tim karena butuh titik-tengah. Jangan menyatukan keduanya.
+- Data referensi besar (`src/data/institutions.ts`) = string TSV hasil
+  `scripts/import-institutions.mjs`, JANGAN diedit tangan dan jangan diubah ke
+  JSON (impor JSON multi-MB memperlambat `tsc` ±10 detik). Singkatan PT hanya
+  dari `src/data/institution-aliases.json` — jangan menebak singkatan.
+- Pertanyaan pendataan kinerja diatur admin (ADR-073): jangan menambah
+  pertanyaan di kode/CHECK SQL; ubah `DEFAULT_OUTBOUND_CONFIG` hanya bersama
+  baris bawaan migration (dikunci tes).
 - Proyek hanya punya SATU root (folder ini). Salinan lama yang dulu bertumpuk
   sudah dipindah keluar repo — jangan buat salinan proyek di dalam repo.
 
