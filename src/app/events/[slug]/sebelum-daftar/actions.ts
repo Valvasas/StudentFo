@@ -6,7 +6,8 @@ import { withQuery } from '@/lib/action-feedback';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formText, formTrimmed } from '@/lib/form-data';
-import { parseOutboundSurvey, type OutboundSurveyAnswers } from '@/lib/outbound-survey';
+import { institutionById } from '@/lib/institutions';
+import { parseOutboundAnswers, SKIPPED_ANSWERS, type OutboundSurveyAnswers } from '@/lib/outbound-survey';
 import { rememberOutboundSurvey } from '@/lib/outbound-survey-cookie';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { recordSignal } from '@/lib/recommendation-signals';
@@ -16,18 +17,18 @@ import { isLikelyHumanAgent } from '@/lib/signal-filter';
 import { HONEYPOT_FIELD } from '@/lib/submission-schema';
 
 /**
- * Catat jawaban pendataan kinerja (ADR-070). TIDAK PERNAH melempar: bot,
- * banjir dari satu IP, honeypot terisi, atau database yang gagal hanya
- * membuat jawaban tidak dicatat — orangnya tetap diantar ke pendaftaran.
+ * Catat kunjungan pendataan kinerja (ADR-070/073). TIDAK PERNAH melempar:
+ * bot, banjir dari satu IP, honeypot terisi, atau database yang gagal hanya
+ * membuat kunjungan tidak dicatat — orangnya tetap diantar ke pendaftaran.
  * Menahan pendaftar demi angka statistik adalah urutan prioritas yang salah.
  */
-async function recordAnswers(eventId: string, answers: OutboundSurveyAnswers, honeypotFilled: boolean): Promise<void> {
+async function recordVisit(eventId: string, answers: OutboundSurveyAnswers, skipped: boolean, honeypotFilled: boolean): Promise<void> {
   try {
     const requestHeaders = await headers();
     if (honeypotFilled || !isLikelyHumanAgent(requestHeaders.get('user-agent'))) return;
     if (await isRateLimited(requestClientIp(requestHeaders), [[RATE_LIMITS.outboundSurveyPerIp]])) return;
     const signedIn = Boolean(await getSessionUser());
-    await (await getEventRepository()).recordOutboundSurvey({ ...answers, eventId, signedIn });
+    await (await getEventRepository()).recordOutboundSurvey({ ...answers, eventId, signedIn, skipped });
   } catch (error) {
     console.error('[pendataan-kinerja] gagal dicatat:', error);
   }
@@ -39,11 +40,17 @@ export async function submitOutboundSurveyAction(formData: FormData): Promise<vo
   const event = /^[a-z0-9-]{1,255}$/.test(slug) ? await repository.getEventBySlug(slug) : null;
   if (!event) redirect('/events');
 
-  const parsed = parseOutboundSurvey(formData, event.eventType);
-  if (!parsed.success) redirect(withQuery(`/events/${event.slug}/sebelum-daftar`, { error: 'invalid_outbound_survey' }));
+  // "Lewati" tidak divalidasi sama sekali — apa pun isian setengah jadinya, ia dibuang.
+  const skipped = formText(formData, 'intent') === 'skip';
+  let answers = SKIPPED_ANSWERS;
+  if (!skipped) {
+    const parsed = parseOutboundAnswers(formData, await repository.getOutboundSurveyConfig(), (id) => institutionById(id)?.name ?? null);
+    if (!parsed.ok) redirect(withQuery(`/events/${event.slug}/sebelum-daftar`, { error: 'invalid_outbound_survey', kolom: parsed.problem }));
+    answers = parsed.value;
+  }
 
   const destination = await registrationDestination(event, repository);
-  await recordAnswers(event.id, parsed.data, formText(formData, HONEYPOT_FIELD) !== '');
+  await recordVisit(event.id, answers, skipped, formText(formData, HONEYPOT_FIELD) !== '');
   await rememberOutboundSurvey(event.id);
   if (!destination) redirect(`/events/${event.slug}`);
   await recordSignal('register_click', event.id, await getSessionUser());

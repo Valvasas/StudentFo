@@ -28,6 +28,7 @@ import type {
   LobbySummary,
   LobbyView,
   ManagedEvent,
+  OutboundSurveyConfig,
   OutboundSurveyRecord,
   ModerationLogEntry,
   NotificationPreferences,
@@ -63,7 +64,7 @@ import type { UploadedImage } from '@/lib/image-file';
 import type { RegistrationFormInput, ReviewDecision } from '@/lib/registration-form';
 import type { AchievementFacts } from '@/lib/achievements';
 import type { LobbyMemberInput } from '@/lib/lobby';
-import type { OutboundSurveyAnswers } from '@/lib/outbound-survey';
+import type { OutboundConfigInput, OutboundSurveyAnswers } from '@/lib/outbound-survey';
 
 /**
  * Kontrak akses data. Seluruh UI berbicara HANYA lewat antarmuka ini —
@@ -119,22 +120,27 @@ export interface BadgeRepository {
   listPublicBadgeFacts(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, AchievementFacts>>;
 }
 
-/** Pendataan kinerja sebelum keluar ke tautan pendaftaran (ADR-070). Tanpa identitas pengisi. */
+/** Pendataan kinerja sebelum keluar ke tautan pendaftaran (ADR-070/073). Tanpa identitas pengisi. */
 export interface OutboundSurveyInput extends OutboundSurveyAnswers {
   readonly eventId: string;
   readonly signedIn: boolean;
+  readonly skipped: boolean;
 }
 
 /** Batas baca dasbor kinerja — cukup untuk 90 hari di skala sekarang; di atasnya butuh agregat SQL. */
 export const OUTBOUND_READ_LIMIT = 5000;
 
 export interface OutboundSurveyRepository {
+  /** Pertanyaan yang berlaku. Tabel belum ada (urutan deploy) = `DEFAULT_OUTBOUND_CONFIG`. */
+  getOutboundSurveyConfig(): Promise<OutboundSurveyConfig>;
+  /** Admin saja (diperiksa pemanggil). Tabel belum ada = `actionError('outbound_unavailable')`. */
+  saveOutboundSurveyConfig(input: OutboundConfigInput, actorId: string): Promise<void>;
   /**
    * Hanya server, setelah saringan bot & batas laju. Pemanggil MENELAN galat:
    * pencatatan tidak boleh menahan orang di jalan menuju pendaftaran.
    */
   recordOutboundSurvey(input: OutboundSurveyInput): Promise<void>;
-  /** Admin: jawaban sejak `since`, terbaru dulu, berbatas. Tabel belum ada (urutan deploy) = []. */
+  /** Admin: kunjungan sejak `since`, terbaru dulu, berbatas. Tabel belum ada (urutan deploy) = []. */
   listOutboundSurveys(since: Date): Promise<readonly OutboundSurveyRecord[]>;
 }
 

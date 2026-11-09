@@ -71,20 +71,28 @@ describe('SupabaseEventRepository — lobi lomba', () => {
 });
 
 describe('SupabaseEventRepository — pendataan kinerja', () => {
-  it('tulis lewat service_role, baca admin dengan judul acara, tanpa identitas', async () => {
+  it('tulis lewat service_role (jawab & lewati), baca admin dengan judul acara, tanpa identitas', async () => {
     const event = createEvent();
-    await repo.recordOutboundSurvey({
-      eventId: event.id,
-      signedIn: true,
-      educationLevel: 'SMA_SMK',
-      source: 'TIKTOK',
-      plan: 'CARI_TIM',
-      province: 'Jawa Barat',
-      institution: 'SMA Integrasi',
-    });
+    const answers = { educationLevel: 'SMA_SMK' as const, regionCode: '32.73', institutionId: '001002', institution: 'Universitas Indonesia', answers: { f_sumber: 'TikTok' } };
+    await repo.recordOutboundSurvey({ ...answers, eventId: event.id, signedIn: true, skipped: false });
+    await repo.recordOutboundSurvey({ ...answers, eventId: event.id, signedIn: false, skipped: true });
     const rows = (await repo.listOutboundSurveys(new Date(Date.now() - 60_000))).filter((row) => row.eventId === event.id);
-    expect(rows).toEqual([expect.objectContaining({ eventTitle: event.title, eventSlug: event.slug, source: 'TIKTOK', plan: 'CARI_TIM', signedIn: true })]);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((row) => !row.skipped)).toMatchObject({ eventTitle: event.title, eventSlug: event.slug, regionCode: '32.73', institutionId: '001002', answers: { f_sumber: 'TikTok' }, signedIn: true });
+    expect(rows.find((row) => row.skipped)).toMatchObject({ educationLevel: null, institution: null, answers: {} });
     expect(sql(`SELECT count(*) FROM information_schema.columns WHERE table_name = 'outbound_surveys' AND column_name = 'user_id'`)).toBe('0');
+  });
+
+  it('konfigurasi: bawaan dari migration, simpan admin lewat service_role', async () => {
+    const admin = createUser();
+    const before = await repo.getOutboundSurveyConfig();
+    expect(before.questions.map((field) => field.id)).toEqual(['f_sumber', 'f_rencana']);
+    try {
+      await repo.saveOutboundSurveyConfig({ askEducation: 'OFF', askRegion: 'REQUIRED', askInstitution: 'OPTIONAL', questions: [] }, admin);
+      expect(await repo.getOutboundSurveyConfig()).toMatchObject({ askEducation: 'OFF', askRegion: 'REQUIRED', questions: [] });
+    } finally {
+      await repo.saveOutboundSurveyConfig(before, admin);
+    }
   });
 });
 

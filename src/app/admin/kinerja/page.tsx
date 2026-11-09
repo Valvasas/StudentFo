@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BarChart3, ShieldCheck } from 'lucide-react';
+import { BarChart3, ListChecks, ShieldCheck } from 'lucide-react';
 import { AdminNav } from '@/components/admin/admin-nav';
 import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
-import { OUTBOUND_LIMITS, OUTBOUND_RANGES, parseOutboundRange, summarizeOutboundSurveys, type CountRow } from '@/lib/outbound-survey';
+import { buttonVariants } from '@/components/ui/button';
+import { formatAnswer } from '@/lib/registration-form';
+import { OUTBOUND_LIMITS, OUTBOUND_RANGES, parseOutboundRange, summarizeOutboundSurveys, type CountRow, type QuestionSummary } from '@/lib/outbound-survey';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
-import { EDUCATION_LEVEL_LABEL, OUTBOUND_PLAN_LABEL, OUTBOUND_SOURCE_LABEL } from '@/types/domain';
+import { EDUCATION_LEVEL_LABEL } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,10 +59,50 @@ function Distribution<K extends string>({
       )}
       {hidden ? (
         <p className="text-[12.5px] text-ink-muted">
-          {hidden.toLocaleString('id-ID')} jawaban lain digabung — nama dengan kurang dari {OUTBOUND_LIMITS.minBucket} jawaban tidak ditampilkan.
+          {hidden.toLocaleString('id-ID')} jawaban lain digabung — jawaban dengan kurang dari {OUTBOUND_LIMITS.minBucket} pengisi tidak ditampilkan.
         </p>
       ) : null}
     </section>
+  );
+}
+
+function QuestionCard({ summary }: { summary: QuestionSummary }) {
+  const id = `q-${summary.field.id}`;
+  if (summary.kind === 'number') {
+    return (
+      <section aria-labelledby={id} className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-panel p-5 shadow-card">
+        <h2 id={id} className="text-base font-semibold">
+          {summary.field.label}
+        </h2>
+        {summary.answered === 0 ? (
+          <p className="text-sm text-ink-muted">Belum ada jawaban.</p>
+        ) : (
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            {[
+              ['Dijawab', summary.answered.toLocaleString('id-ID')],
+              ['Rata-rata', formatAnswer(summary.mean ?? undefined)],
+              ['Median', formatAnswer(summary.median ?? undefined)],
+              ['Rentang', `${formatAnswer(summary.min ?? undefined)}–${formatAnswer(summary.max ?? undefined)}`],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-[12.5px] text-ink-muted">{label}</dt>
+                <dd className="font-semibold tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </section>
+    );
+  }
+  return (
+    <Distribution
+      id={id}
+      title={summary.field.label}
+      rows={summary.rows}
+      total={summary.answered}
+      label={(key) => key}
+      hidden={summary.kind === 'text' ? summary.hidden : undefined}
+    />
   );
 }
 
@@ -74,9 +116,9 @@ export default async function OutboundPerformancePage({ searchParams }: { search
   await requireAdmin();
   const range = parseOutboundRange((await searchParams).rentang);
   const since = new Date(Date.now() - range * 86_400_000);
-  const summary = summarizeOutboundSurveys(await (await getEventRepository()).listOutboundSurveys(since));
-  const planTotal = summary.byPlan.reduce((sum, row) => sum + row.count, 0);
-  const topSource = summary.bySource[0];
+  const repository = await getEventRepository();
+  const [records, config] = await Promise.all([repository.listOutboundSurveys(since), repository.getOutboundSurveyConfig()]);
+  const summary = summarizeOutboundSurveys(records, config);
 
   return (
     <div className="container-page py-8">
@@ -89,9 +131,13 @@ export default async function OutboundPerformancePage({ searchParams }: { search
           </h1>
           <p className="mt-2 text-ink-soft">
             Jawaban singkat pengunjung tepat sebelum keluar ke tautan pendaftaran resmi — siapa yang benar-benar menuju
-            pendaftaran, dan dari mana mereka tahu. Acara berformulir StudentFo tidak lewat pendataan ini.
+            pendaftaran, dan berapa yang memilih melewati. Acara berformulir StudentFo tidak lewat pendataan ini.
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+        <Link href="/admin/kinerja/pertanyaan" className={buttonVariants({ variant: 'secondary' })}>
+          <ListChecks aria-hidden /> Atur pertanyaan
+        </Link>
         <nav aria-label="Rentang waktu" className="flex gap-1 rounded-pill border border-line bg-panel p-1">
           {OUTBOUND_RANGES.map((days) => (
             <Link
@@ -107,14 +153,15 @@ export default async function OutboundPerformancePage({ searchParams }: { search
             </Link>
           ))}
         </nav>
+        </div>
       </header>
 
       <dl className="mb-6 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
         {[
-          { label: 'Jawaban', value: summary.total.toLocaleString('id-ID') },
-          { label: 'Dari akun yang masuk', value: `${percent(summary.signedIn, summary.total)}%` },
-          { label: 'Sumber terbanyak', value: topSource ? OUTBOUND_SOURCE_LABEL[topSource.key] : '—' },
-          { label: 'Postingan dengan jawaban', value: summary.events.length.toLocaleString('id-ID') },
+          { label: 'Menuju pendaftaran', value: summary.visits.toLocaleString('id-ID') },
+          { label: 'Menjawab', value: `${summary.answered.toLocaleString('id-ID')} · ${percent(summary.answered, summary.visits)}%` },
+          { label: 'Melewati', value: `${summary.skipped.toLocaleString('id-ID')} · ${percent(summary.skipped, summary.visits)}%` },
+          { label: 'Dari akun yang masuk', value: `${percent(summary.signedIn, summary.visits)}%` },
         ].map((tile) => (
           <div key={tile.label} className="rounded-card border border-line bg-panel p-4 shadow-card">
             <dt className="text-[13px] text-ink-muted">{tile.label}</dt>
@@ -132,14 +179,13 @@ export default async function OutboundPerformancePage({ searchParams }: { search
         ) : (
           <div className="mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Tabel kinerja per postingan">
             <table className="w-full min-w-[560px] text-left text-sm">
-              <caption className="sr-only">Jumlah jawaban, porsi akun masuk, sumber teratas, dan pencari tim per postingan</caption>
+              <caption className="sr-only">Jumlah yang menuju pendaftaran, porsi yang melewati, dan porsi akun masuk per postingan</caption>
               <thead className="text-ink-muted">
                 <tr>
                   <th scope="col" className="py-2 pr-4 font-medium">Postingan</th>
-                  <th scope="col" className="py-2 pr-4 font-medium">Jawaban</th>
-                  <th scope="col" className="py-2 pr-4 font-medium">Akun masuk</th>
-                  <th scope="col" className="py-2 pr-4 font-medium">Sumber teratas</th>
-                  <th scope="col" className="py-2 font-medium">Mencari tim</th>
+                  <th scope="col" className="py-2 pr-4 font-medium">Menuju pendaftaran</th>
+                  <th scope="col" className="py-2 pr-4 font-medium">Melewati</th>
+                  <th scope="col" className="py-2 font-medium">Akun masuk</th>
                 </tr>
               </thead>
               <tbody>
@@ -154,10 +200,9 @@ export default async function OutboundPerformancePage({ searchParams }: { search
                         (event.eventTitle ?? 'Acara tidak lagi tersedia')
                       )}
                     </th>
-                    <td className="py-2.5 pr-4 tabular-nums">{event.responses.toLocaleString('id-ID')}</td>
-                    <td className="py-2.5 pr-4 tabular-nums">{percent(event.signedIn, event.responses)}%</td>
-                    <td className="py-2.5 pr-4">{event.topSource ? OUTBOUND_SOURCE_LABEL[event.topSource] : '—'}</td>
-                    <td className="py-2.5 tabular-nums">{event.lookingForTeam.toLocaleString('id-ID')}</td>
+                    <td className="py-2.5 pr-4 tabular-nums">{event.visits.toLocaleString('id-ID')}</td>
+                    <td className="py-2.5 pr-4 tabular-nums">{percent(event.skipped, event.visits)}%</td>
+                    <td className="py-2.5 tabular-nums">{percent(event.signedIn, event.visits)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -167,24 +212,35 @@ export default async function OutboundPerformancePage({ searchParams }: { search
       </section>
 
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))]">
-        <Distribution id="sumber" title="Dari mana tahu info" rows={summary.bySource} total={summary.total} label={(key) => OUTBOUND_SOURCE_LABEL[key]} />
-        <Distribution id="jenjang" title="Jenjang" rows={summary.byLevel} total={summary.total} label={(key) => EDUCATION_LEVEL_LABEL[key]} />
-        <Distribution id="rencana" title="Rencana (lomba saja)" rows={summary.byPlan} total={planTotal} label={(key) => OUTBOUND_PLAN_LABEL[key]} />
-        <Distribution id="provinsi" title="Provinsi domisili" rows={summary.provinces} total={summary.total} label={(key) => key} hidden={summary.hiddenProvinces} />
-        <Distribution
-          id="institusi"
-          title="Asal sekolah / kampus"
-          rows={summary.institutions}
-          total={summary.total}
-          label={(key) => key}
-          hidden={summary.hiddenInstitutions}
-        />
+        {summary.questions.map((question) => (
+          <QuestionCard key={question.field.id} summary={question} />
+        ))}
+        {config.askEducation !== 'OFF' && (
+          <Distribution id="jenjang" title="Jenjang" rows={summary.byLevel} total={summary.answered} label={(key) => EDUCATION_LEVEL_LABEL[key]} />
+        )}
+        {config.askRegion !== 'OFF' && (
+          <>
+            <Distribution id="provinsi" title="Provinsi domisili" rows={summary.provinces} total={summary.answered} label={(key) => key} hidden={summary.hiddenProvinces} />
+            <Distribution id="kabkota" title="Kabupaten/kota domisili" rows={summary.regencies} total={summary.answered} label={(key) => key} hidden={summary.hiddenRegencies} />
+          </>
+        )}
+        {config.askInstitution !== 'OFF' && (
+          <Distribution
+            id="institusi"
+            title="Asal sekolah / kampus"
+            rows={summary.institutions}
+            total={summary.answered}
+            label={(key) => key}
+            hidden={summary.hiddenInstitutions}
+          />
+        )}
       </div>
 
       <p role="note" className="mt-8 flex max-w-3xl items-start gap-2 rounded-card bg-panel-nested p-4 text-sm text-ink-soft">
         <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
         Jawaban tidak memuat nama, email, atau id akun — hanya tanda masuk/tamu — dan dihapus otomatis setelah 365 hari.
-        Satu peramban menjawab sekali per acara; jawaban dari bot dan banjir satu IP tidak dicatat.
+        Satu peramban menjawab atau melewati sekali per acara; kunjungan dari bot dan banjir satu IP tidak dicatat.
+        Persentase per pertanyaan dihitung dari yang menjawab, bukan yang melewati.
       </p>
     </div>
   );

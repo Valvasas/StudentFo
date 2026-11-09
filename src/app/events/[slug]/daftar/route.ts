@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { siteUrl } from '@/lib/env';
+import { isSurveyEmpty } from '@/lib/outbound-survey';
 import { hasAnsweredOutboundSurvey } from '@/lib/outbound-survey-cookie';
 import { recordSignal } from '@/lib/recommendation-signals';
 import { registrationDestination } from '@/lib/registration-destination';
@@ -20,10 +21,25 @@ import { registrationDestination } from '@/lib/registration-destination';
  * halaman acara — supaya pendaftar tidak lolos dari alur bayar & verifikasi.
  *
  * Tujuan LUAR melewati pendataan kinerja dulu (ADR-070): sekali per acara per
- * peramban. Aksi pendataan lalu mengantar langsung ke tujuan & mencatat klik
+ * peramban, dijawab atau dilewati (ADR-073). Aksi pendataan lalu mengantar langsung ke tujuan & mencatat klik
  * sendiri (tujuan dari `registrationDestination()` yang sama); di sini klik
  * hanya dicatat saat benar-benar keluar, jadi tidak terhitung dua kali.
  */
+/**
+ * Admin mematikan semua pertanyaan (ADR-073) = tidak ada layar pendataan.
+ * Konfigurasi yang gagal dimuat juga = langsung ke pendaftaran: statistik
+ * tidak pernah boleh menahan orang di depan pintu pendaftaran.
+ */
+async function shouldAskSurvey(eventId: string, repository: Awaited<ReturnType<typeof getEventRepository>>): Promise<boolean> {
+  if (await hasAnsweredOutboundSurvey(eventId)) return false;
+  try {
+    return !isSurveyEmpty(await repository.getOutboundSurveyConfig());
+  } catch (error) {
+    console.error('[pendataan-kinerja] konfigurasi gagal dimuat:', error);
+    return false;
+  }
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
@@ -37,7 +53,7 @@ export async function GET(
   if (!destination) {
     return NextResponse.redirect(new URL(`/events/${event.slug}`, siteUrl), 303);
   }
-  if (destination.kind === 'external' && !(await hasAnsweredOutboundSurvey(event.id))) {
+  if (destination.kind === 'external' && (await shouldAskSurvey(event.id, repository))) {
     return NextResponse.redirect(new URL(`/events/${event.slug}/sebelum-daftar`, siteUrl), 303);
   }
 

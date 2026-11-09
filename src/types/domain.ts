@@ -46,44 +46,46 @@ export const EDUCATION_LEVEL_LABEL: Record<EducationLevel, string> = {
 };
 
 /**
- * Pendataan kinerja postingan (ADR-070): jawaban singkat sebelum keluar ke
- * tautan pendaftaran resmi. Daftar HARUS sama dengan CHECK di migration
- * 20261108100002 (dikunci `lib/outbound-survey.test.ts`). Bukan enum SQL:
- * milik analitik pemilik, tidak dibaca pipeline.
+ * Pendataan kinerja postingan (ADR-070, diubah ADR-073): jawaban singkat
+ * sebelum keluar ke tautan pendaftaran resmi. Pertanyaannya DIATUR ADMIN di
+ * /admin/kinerja/pertanyaan: tiga pertanyaan bawaan yang bisa dimatikan/
+ * diwajibkan (jenjang, domisili, asal sekolah/kampus) + pertanyaan sendiri
+ * berbentuk `FormField`. Pengunjung boleh melewatinya; lewati juga dicatat.
  */
-export const OUTBOUND_SOURCES = ['INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TEMAN', 'GOOGLE', 'STUDENTFO', 'LAINNYA'] as const;
-export type OutboundSource = (typeof OUTBOUND_SOURCES)[number];
-export const OUTBOUND_SOURCE_LABEL: Record<OutboundSource, string> = {
-  INSTAGRAM: 'Instagram',
-  TIKTOK: 'TikTok',
-  WHATSAPP: 'Grup WhatsApp / Telegram',
-  TEMAN: 'Teman, guru, atau dosen',
-  GOOGLE: 'Pencarian Google',
-  STUDENTFO: 'Jelajah di StudentFo',
-  LAINNYA: 'Lainnya',
+export const SURVEY_ASK_MODES = ['OFF', 'OPTIONAL', 'REQUIRED'] as const;
+export type SurveyAskMode = (typeof SURVEY_ASK_MODES)[number];
+export const SURVEY_ASK_MODE_LABEL: Record<SurveyAskMode, string> = {
+  OFF: 'Tidak ditanyakan',
+  OPTIONAL: 'Opsional',
+  REQUIRED: 'Wajib',
 };
 
-/** Hanya ditanyakan untuk LOMBA — "ikut bersama tim" tidak bermakna untuk beasiswa atau magang. */
-export const OUTBOUND_PLANS = ['SENDIRI', 'TIM', 'CARI_TIM', 'LIHAT'] as const;
-export type OutboundPlan = (typeof OUTBOUND_PLANS)[number];
-export const OUTBOUND_PLAN_LABEL: Record<OutboundPlan, string> = {
-  SENDIRI: 'Ikut sendiri',
-  TIM: 'Bersama tim yang sudah ada',
-  CARI_TIM: 'Masih mencari tim atau partner',
-  LIHAT: 'Baru lihat-lihat',
-};
+export interface OutboundSurveyConfig {
+  readonly askEducation: SurveyAskMode;
+  readonly askRegion: SurveyAskMode;
+  readonly askInstitution: SurveyAskMode;
+  /** Pertanyaan tambahan admin — jenisnya dibatasi `OUTBOUND_QUESTION_TYPES` (tanpa email/telepon: jawaban tetap anonim). */
+  readonly questions: readonly FormField[];
+  /** null = belum pernah diubah (bawaan migration / mode memori). */
+  readonly updatedAt: string | null;
+}
 
-/** Satu jawaban, untuk dasbor admin. TIDAK ada identitas pengisi — hanya tanda masuk/tamu. */
+/** Satu kunjungan ke layar pendataan, untuk dasbor admin. TIDAK ada identitas pengisi — hanya tanda masuk/tamu. */
 export interface OutboundSurveyRecord {
   readonly eventId: string;
   readonly eventTitle: string | null;
   readonly eventSlug: string | null;
   readonly signedIn: boolean;
-  readonly educationLevel: EducationLevel;
-  readonly source: OutboundSource;
-  readonly plan: OutboundPlan | null;
-  readonly province: string | null;
+  /** Menekan "Lewati": semua kolom jawaban kosong (CHECK di tabel). */
+  readonly skipped: boolean;
+  readonly educationLevel: EducationLevel | null;
+  /** Kode provinsi (`32`) atau kab/kota (`32.73`) — lihat `lib/wilayah.ts`. */
+  readonly regionCode: string | null;
+  /** NPSN / kode PT dari direktori (ADR-076); null = diketik bebas atau tidak diisi. */
+  readonly institutionId: string | null;
   readonly institution: string | null;
+  /** Jawaban pertanyaan tambahan, kunci = `FormField.id`. */
+  readonly answers: Readonly<Record<string, AnswerValue>>;
   readonly createdAt: string;
 }
 

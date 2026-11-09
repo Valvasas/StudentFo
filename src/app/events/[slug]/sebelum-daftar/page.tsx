@@ -3,27 +3,22 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ArrowUpRight, ShieldCheck, Users } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { RegistrationFieldInput } from '@/components/registration/registration-field-input';
 import { buttonVariants } from '@/components/ui/button';
-import { Field, SelectInput, TextInput } from '@/components/ui/field';
 import { ChoiceGroup } from '@/components/ui/form-step';
+import { InstitutionPicker } from '@/components/ui/institution-picker';
+import { RegionPicker } from '@/components/ui/region-picker';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
-import { asksPlan, OUTBOUND_LIMITS, PROVINCES } from '@/lib/outbound-survey';
+import { isSurveyEmpty, OUTBOUND_LIMITS, surveyQuestionCount } from '@/lib/outbound-survey';
 import { hasAnsweredOutboundSurvey } from '@/lib/outbound-survey-cookie';
 import { sectionTitle } from '@/lib/page-title';
 import { registrationDestination } from '@/lib/registration-destination';
-import type { RawSearchParams } from '@/lib/search-params';
+import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { HONEYPOT_FIELD } from '@/lib/submission-schema';
 import { safeHostname } from '@/lib/utils';
-import {
-  EDUCATION_LEVEL_LABEL,
-  EDUCATION_LEVELS,
-  OUTBOUND_PLAN_LABEL,
-  OUTBOUND_PLANS,
-  OUTBOUND_SOURCE_LABEL,
-  OUTBOUND_SOURCES,
-} from '@/types/domain';
+import { EDUCATION_LEVEL_LABEL, EDUCATION_LEVELS, type SurveyAskMode } from '@/types/domain';
 import { submitOutboundSurveyAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -36,12 +31,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+function Optional({ mode }: { mode: SurveyAskMode }) {
+  return mode === 'OPTIONAL' ? <span className="font-normal text-ink-muted"> (opsional)</span> : null;
+}
+
+function ProblemText({ id, children }: { id: string; children: string }) {
+  return (
+    <p id={id} className="text-[13px] font-medium text-danger">
+      {children}
+    </p>
+  );
+}
+
 /**
- * Pendataan kinerja postingan (ADR-070): satu layar singkat antara "Daftar"
- * dan tautan pendaftaran resmi. Hanya untuk tujuan LUAR — acara berformulir
- * StudentFo sudah punya datanya sendiri — dan hanya sekali per acara per
- * peramban. Isian wajib cuma tiga (dua untuk selain lomba), jenjang terisi
- * dari profil; tujuannya dijelaskan terang di atas form, bukan di catatan kaki.
+ * Pendataan kinerja postingan (ADR-070, ADR-073): satu layar singkat antara
+ * "Daftar" dan tautan pendaftaran resmi. Pertanyaannya disusun admin
+ * (/admin/kinerja/pertanyaan); pengunjung selalu bisa menekan "Lewati".
+ * Hanya untuk tujuan LUAR, dan hanya sekali per acara per peramban — dijawab
+ * ATAU dilewati. Tujuannya dijelaskan terang di atas form, bukan di catatan kaki.
  */
 export default async function BeforeRegisterPage({
   params,
@@ -58,11 +65,13 @@ export default async function BeforeRegisterPage({
   const eventPath = `/events/${event.slug}`;
   const destination = await registrationDestination(event, repository);
   if (!destination) redirect(eventPath);
-  if (destination.kind === 'internal' || (await hasAnsweredOutboundSurvey(event.id))) redirect(`${eventPath}/daftar`);
+  const config = await repository.getOutboundSurveyConfig();
+  if (destination.kind === 'internal' || isSurveyEmpty(config) || (await hasAnsweredOutboundSurvey(event.id))) redirect(`${eventPath}/daftar`);
 
   const user = await getSessionUser();
-  const withPlan = asksPlan(event.eventType);
   const host = safeHostname(destination.url);
+  const count = surveyQuestionCount(config);
+  const problem = firstParam(query.error) === 'invalid_outbound_survey' ? firstParam(query.kolom) : undefined;
 
   return (
     <div className="container-page pb-24 pt-6 sm:pt-8">
@@ -80,7 +89,7 @@ export default async function BeforeRegisterPage({
         <p role="note" className="flex items-start gap-3 rounded-card border border-line bg-panel-nested p-4 text-[14px] leading-relaxed text-ink-soft">
           <ShieldCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-ink-muted" />
           <span>
-            Bantu StudentFo mengukur postingan ini — {withPlan ? 'tiga' : 'dua'} pertanyaan wajib, sekitar 15 detik. Jawabanmu{' '}
+            Bantu StudentFo mengukur postingan ini — {count} pertanyaan singkat, boleh dilewati. Jawabanmu{' '}
             <strong className="font-semibold text-ink">tidak memuat nama atau email</strong>, tidak dikirim ke penyelenggara, dan
             dihapus setelah satu tahun.{' '}
             <Link href="/privacy-policy#kp-2" className="font-medium text-ink underline underline-offset-[3px]">
@@ -99,73 +108,85 @@ export default async function BeforeRegisterPage({
             <input id={HONEYPOT_FIELD} name={HONEYPOT_FIELD} type="text" tabIndex={-1} autoComplete="off" />
           </div>
 
-          <ChoiceGroup legend="Jenjang pendidikanmu sekarang" hint={user?.educationLevel ? 'terisi dari profilmu' : undefined}>
-            <div className="flex flex-wrap gap-2">
-              {EDUCATION_LEVELS.map((level) => (
-                <label key={level} className="choice">
-                  <input type="radio" name="educationLevel" value={level} required defaultChecked={user?.educationLevel === level} className="check" />
-                  {EDUCATION_LEVEL_LABEL[level]}
-                </label>
-              ))}
-            </div>
-          </ChoiceGroup>
-
-          <ChoiceGroup legend="Dari mana kamu tahu info ini?">
-            <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-              {OUTBOUND_SOURCES.map((source) => (
-                <label key={source} className="choice">
-                  <input type="radio" name="source" value={source} required className="check" />
-                  {OUTBOUND_SOURCE_LABEL[source]}
-                </label>
-              ))}
-            </div>
-          </ChoiceGroup>
-
-          {withPlan && (
-            <ChoiceGroup legend="Rencanamu untuk lomba ini?">
-              <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-                {OUTBOUND_PLANS.map((plan) => (
-                  <label key={plan} className="choice">
-                    <input type="radio" name="plan" value={plan} required className="check" />
-                    {OUTBOUND_PLAN_LABEL[plan]}
+          {config.askEducation !== 'OFF' && (
+            <ChoiceGroup
+              legend={config.askEducation === 'OPTIONAL' ? 'Jenjang pendidikanmu sekarang (opsional)' : 'Jenjang pendidikanmu sekarang'}
+              hint={user?.educationLevel ? 'terisi dari profilmu' : undefined}
+            >
+              <div className="flex flex-wrap gap-2">
+                {EDUCATION_LEVELS.map((level) => (
+                  <label key={level} className="choice">
+                    <input
+                      type="radio"
+                      name="educationLevel"
+                      value={level}
+                      required={config.askEducation === 'REQUIRED'}
+                      defaultChecked={user?.educationLevel === level}
+                      className="check"
+                    />
+                    {EDUCATION_LEVEL_LABEL[level]}
                   </label>
                 ))}
               </div>
+              {problem === 'educationLevel' && <ProblemText id="educationLevel-error">Pilih jenjangmu.</ProblemText>}
             </ChoiceGroup>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="province" label="Provinsi domisili (opsional)">
-              <SelectInput id="province" name="province" defaultValue="">
-                <option value="">Tidak ingin menyebut</option>
-                {PROVINCES.map((province) => (
-                  <option key={province} value={province}>
-                    {province}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <Field id="institution" label="Asal sekolah / kampus (opsional)">
-              <TextInput
+          {config.askRegion !== 'OFF' && (
+            <div className="flex flex-col gap-2">
+              <span id="region-label" className="text-[15px] font-semibold">
+                Domisili kabupaten / kota
+                <Optional mode={config.askRegion} />
+              </span>
+              <RegionPicker name="region" defaultValue={null} labelledBy="region-label" optional={config.askRegion === 'OPTIONAL'} />
+              {problem === 'region' && <ProblemText id="region-error">Pilih kabupaten/kota domisilimu.</ProblemText>}
+            </div>
+          )}
+
+          {config.askInstitution !== 'OFF' && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="institution" className="text-[15px] font-semibold">
+                Asal sekolah / kampus
+                <Optional mode={config.askInstitution} />
+              </label>
+              <InstitutionPicker
                 id="institution"
-                name="institution"
+                defaultId={null}
+                defaultName={null}
                 minLength={OUTBOUND_LIMITS.institutionMin}
                 maxLength={OUTBOUND_LIMITS.institutionMax}
-                autoComplete="organization"
-                placeholder="Mis. SMAN 1 Bandung"
+                required={config.askInstitution === 'REQUIRED'}
+                describedBy={problem === 'institution' ? 'institution-error' : undefined}
               />
-            </Field>
-          </div>
+              {problem === 'institution' && <ProblemText id="institution-error">Pilih dari daftar, atau tulis nama sekolah/kampusmu (2–120 karakter).</ProblemText>}
+            </div>
+          )}
 
-          <div className="flex flex-col gap-2 border-t border-line pt-5">
-            <SubmitButton pendingLabel="Membuka pendaftaran…" className={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto sm:self-start' })}>
-              Lanjut ke pendaftaran resmi <ArrowUpRight aria-hidden />
-            </SubmitButton>
-            {host && <p className="text-[12.5px] text-ink-muted">Setelah ini kamu diarahkan ke {host}.</p>}
+          {config.questions.map((field) => (
+            <RegistrationFieldInput key={field.id} field={field} invalid={problem === `field:${field.id}`} />
+          ))}
+
+          <div className="flex flex-col gap-3 border-t border-line pt-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <SubmitButton pendingLabel="Membuka pendaftaran…" className={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto' })}>
+                Lanjut ke pendaftaran resmi <ArrowUpRight aria-hidden />
+              </SubmitButton>
+              {/* formNoValidate: melewati tidak boleh ditahan isian wajib peramban. */}
+              <button
+                type="submit"
+                name="intent"
+                value="skip"
+                formNoValidate
+                className={buttonVariants({ variant: 'ghost', size: 'lg', className: 'w-full sm:w-auto' })}
+              >
+                Lewati
+              </button>
+            </div>
+            {host && <p className="text-[12.5px] text-ink-muted">Keduanya langsung mengarahkanmu ke {host}.</p>}
           </div>
         </form>
 
-        {withPlan && (
+        {event.eventType === 'LOMBA' && (
           <p className="flex items-start gap-2 text-[13.5px] text-ink-muted">
             <Users aria-hidden className="mt-0.5 size-4 shrink-0" />
             <span>

@@ -110,10 +110,12 @@ import type {
   LobbyRelation,
   LobbySummary,
   LobbyView,
+  OutboundSurveyConfig,
   OutboundSurveyRecord,
 } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
+import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
 import { demoReceiptPng } from './demo-media';
 import type {
@@ -455,8 +457,9 @@ export class MemoryEventRepository implements EventRepository {
   private questionSeq = 0;
   /** Cermin `users.suspended_at` / `suspension_reason`. */
   private readonly suspensions = new Map<string, { at: string; reason: string }>();
-  /** Pendataan kinerja (ADR-070) — tanpa identitas pengisi, sama dengan tabel `outbound_surveys`. */
+  /** Pendataan kinerja (ADR-070/073) — tanpa identitas pengisi, sama dengan tabel `outbound_surveys`. */
   private readonly outboundSurveys: (OutboundSurveyInput & { createdAt: string })[] = [];
+  private outboundConfig: OutboundSurveyConfig = DEFAULT_OUTBOUND_CONFIG;
   /** Cermin `users.show_badges` (ADR-072): bawaan privat. */
   private readonly badgeVisible = new Set<string>();
   /** Lobi lomba (ADR-071): eventId → userId → kartu. */
@@ -2988,9 +2991,19 @@ export class MemoryEventRepository implements EventRepository {
     };
   }
 
+  async getOutboundSurveyConfig(): Promise<OutboundSurveyConfig> {
+    return this.outboundConfig;
+  }
+
+  async saveOutboundSurveyConfig(input: OutboundConfigInput, _actorId: string): Promise<void> {
+    this.outboundConfig = { ...input, questions: input.questions.map((field) => ({ ...field, options: [...field.options] })), updatedAt: new Date().toISOString() };
+  }
+
   async recordOutboundSurvey(input: OutboundSurveyInput): Promise<void> {
     if (!this.findEvent(input.eventId)) return;
-    this.outboundSurveys.push({ ...input, createdAt: new Date().toISOString() });
+    // Cermin CHECK `outbound_surveys_skip_is_empty`: lewati = tanpa jawaban apa pun.
+    const row = input.skipped ? { ...input, ...SKIPPED_ANSWERS } : input;
+    this.outboundSurveys.push({ ...row, createdAt: new Date().toISOString() });
   }
 
   async listOutboundSurveys(since: Date): Promise<readonly OutboundSurveyRecord[]> {

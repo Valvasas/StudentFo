@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppError } from '@/lib/errors';
+import { DEFAULT_OUTBOUND_CONFIG } from '@/lib/outbound-survey';
 import { CONNECTION_PAGE, type NetworkViewer } from '@/lib/network';
 import { MemoryEventRepository } from './memory-repository';
 import { SEED_LOBBY } from './seed-data';
@@ -144,24 +145,29 @@ describe('MemoryEventRepository — lobi contoh (mode demo)', () => {
 });
 
 describe('MemoryEventRepository — pendataan kinerja', () => {
-  it('menyimpan tanpa identitas, membaca per rentang dengan judul acara', async () => {
+  const answers = { educationLevel: 'SMA_SMK' as const, regionCode: '32.73', institutionId: null, institution: null, answers: { f_sumber: 'Instagram' } };
+
+  it('menyimpan tanpa identitas, membaca per rentang dengan judul acara; lewati = tanpa jawaban', async () => {
     const repository = new MemoryEventRepository();
     const event = (await repository.listEvents({ types: ['LOMBA'] })).items[0]!;
-    await repository.recordOutboundSurvey({
-      eventId: event.id,
-      signedIn: false,
-      educationLevel: 'SMA_SMK',
-      source: 'INSTAGRAM',
-      plan: 'CARI_TIM',
-      province: null,
-      institution: null,
-    });
-    await repository.recordOutboundSurvey({ eventId: 'tidak-ada', signedIn: false, educationLevel: 'D3', source: 'GOOGLE', plan: null, province: null, institution: null });
+    await repository.recordOutboundSurvey({ ...answers, eventId: event.id, signedIn: false, skipped: false });
+    // Lewati dengan isian setengah jadi: cermin CHECK outbound_surveys_skip_is_empty.
+    await repository.recordOutboundSurvey({ ...answers, eventId: event.id, signedIn: true, skipped: true });
+    await repository.recordOutboundSurvey({ ...answers, eventId: 'tidak-ada', signedIn: false, skipped: false });
 
     const rows = await repository.listOutboundSurveys(new Date(Date.now() - 86_400_000));
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ eventTitle: event.title, eventSlug: event.slug, source: 'INSTAGRAM', signedIn: false });
+    expect(rows).toHaveLength(2);
+    expect(rows.find((row) => !row.skipped)).toMatchObject({ eventTitle: event.title, eventSlug: event.slug, regionCode: '32.73', answers: { f_sumber: 'Instagram' } });
+    expect(rows.find((row) => row.skipped)).toMatchObject({ educationLevel: null, regionCode: null, answers: {} });
     expect(Object.keys(rows[0]!)).not.toContain('userId');
     expect(await repository.listOutboundSurveys(new Date(Date.now() + 60_000))).toEqual([]);
+  });
+
+  it('konfigurasi: bawaan sampai admin menyimpan', async () => {
+    const repository = new MemoryEventRepository();
+    expect(await repository.getOutboundSurveyConfig()).toEqual(DEFAULT_OUTBOUND_CONFIG);
+    await repository.saveOutboundSurveyConfig({ askEducation: 'OFF', askRegion: 'OFF', askInstitution: 'REQUIRED', questions: [] }, 'seed-admin');
+    expect(await repository.getOutboundSurveyConfig()).toMatchObject({ askEducation: 'OFF', askInstitution: 'REQUIRED', questions: [] });
+    expect((await repository.getOutboundSurveyConfig()).updatedAt).not.toBeNull();
   });
 });

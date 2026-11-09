@@ -464,17 +464,27 @@ export interface AdminUserRow {
   suspension_reason: string | null;
 }
 
-/** `outbound_surveys` + judul acara (ADR-070) — hanya dibaca klien admin. */
+/** `outbound_surveys` + judul acara (ADR-070/073) — hanya dibaca klien admin. */
 export interface OutboundSurveyRow {
   event_id: string;
   signed_in: boolean;
-  education_level: string;
-  source: string;
-  plan: string | null;
-  province: string | null;
+  skipped: boolean;
+  education_level: string | null;
+  region_code: string | null;
+  institution_id: string | null;
   institution: string | null;
+  answers: unknown;
   created_at: string;
   event: { title: string; slug: string } | null;
+}
+
+/** `outbound_survey_config` (ADR-073) — satu baris, dibaca server. */
+export interface OutboundSurveyConfigRow {
+  ask_education: string;
+  ask_region: string;
+  ask_institution: string;
+  questions: unknown;
+  updated_at: string | null;
 }
 
 /** RPC `lobby_roster(p_event)` (ADR-071). */

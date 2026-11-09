@@ -1,6 +1,7 @@
 import 'server-only';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { actionError } from '@/lib/action-feedback';
+import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
 import { type AppError, upstreamFailure } from '@/lib/errors';
 import {
@@ -90,6 +91,7 @@ import type {
   LobbyMember,
   LobbySummary,
   LobbyView,
+  OutboundSurveyConfig,
   OutboundSurveyRecord,
 } from '@/types/domain';
 import { LOBBY_INTENTS, toNotificationType } from '@/types/domain';
@@ -133,6 +135,7 @@ import type {
   LobbyCountRow,
   LobbyMemberRow,
   LobbyRosterRow,
+  OutboundSurveyConfigRow,
   OutboundSurveyRow,
 } from '@/types/database';
 import {
@@ -214,8 +217,10 @@ import {
   toTeamMember,
   isMissingRelationError,
   lobbyErrorCode,
+  OUTBOUND_CONFIG_COLUMNS,
   OUTBOUND_SURVEY_COLUMNS,
   toLobbyMemberRow,
+  toOutboundSurveyConfig,
   toOutboundSurveyRecord,
   toPublicBadgeFacts,
 } from './supabase-mappers';
@@ -2558,17 +2563,48 @@ export class SupabaseEventRepository implements EventRepository {
     return data ? downloadPrivateFile(PHOTO_BUCKET, data.storage_path) : null;
   }
 
+  async getOutboundSurveyConfig(): Promise<OutboundSurveyConfig> {
+    const { data, error } = await createSupabaseAdminClient()
+      .from('outbound_survey_config')
+      .select(OUTBOUND_CONFIG_COLUMNS)
+      .eq('id', 1)
+      .maybeSingle<OutboundSurveyConfigRow>();
+    // Migration 20261108100002 belum diterapkan: pertanyaan bawaan, bukan halaman galat.
+    if (error && isMissingRelationError(error)) return DEFAULT_OUTBOUND_CONFIG;
+    if (error) throw upstreamFailure('Gagal memuat pertanyaan pendataan.', error);
+    return data ? toOutboundSurveyConfig(data) : DEFAULT_OUTBOUND_CONFIG;
+  }
+
+  async saveOutboundSurveyConfig(input: OutboundConfigInput, actorId: string): Promise<void> {
+    // service_role setelah checkAdminAccess() di aksi — tabelnya tertutup untuk klien (ADR-073).
+    const { error } = await createSupabaseAdminClient()
+      .from('outbound_survey_config')
+      .upsert({
+        id: 1,
+        ask_education: input.askEducation,
+        ask_region: input.askRegion,
+        ask_institution: input.askInstitution,
+        questions: input.questions,
+        updated_at: new Date().toISOString(),
+        updated_by: isUuid(actorId) ? actorId : null,
+      });
+    if (error && isMissingRelationError(error)) throw actionError('outbound_unavailable');
+    if (error) throw upstreamFailure('Gagal menyimpan pertanyaan pendataan.', error, 500);
+  }
+
   async recordOutboundSurvey(input: OutboundSurveyInput): Promise<void> {
     if (!isUuid(input.eventId)) return;
+    const answers = input.skipped ? SKIPPED_ANSWERS : input;
     // service_role: tabelnya sengaja tanpa jalur tulis dari browser (ADR-070, pola ADR-032).
     const { error } = await createSupabaseAdminClient().from('outbound_surveys').insert({
       event_id: input.eventId,
       signed_in: input.signedIn,
-      education_level: input.educationLevel,
-      source: input.source,
-      plan: input.plan,
-      province: input.province,
-      institution: input.institution,
+      skipped: input.skipped,
+      education_level: answers.educationLevel,
+      region_code: answers.regionCode,
+      institution_id: answers.institutionId,
+      institution: answers.institution,
+      answers: answers.answers,
     });
     if (error) throw upstreamFailure('Gagal mencatat pendataan kinerja.', error, 500);
   }

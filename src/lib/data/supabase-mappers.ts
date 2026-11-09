@@ -4,6 +4,7 @@ import type { ActionErrorCode } from '@/lib/action-feedback';
 import { fromStoredPayload } from '@/lib/submission-schema';
 import type { ConnectionCursor } from '@/lib/network';
 import { fromStoredRevisionChanges } from '@/lib/organizer';
+import { parseStoredOutboundConfig } from '@/lib/outbound-survey';
 import { parseStoredFields } from '@/lib/registration-form';
 import type {
   AnswerValue,
@@ -24,8 +25,7 @@ import type {
   OrganizerProfile,
   OrganizerType,
   EducationLevel,
-  OutboundPlan,
-  OutboundSource,
+  OutboundSurveyConfig,
   OutboundSurveyRecord,
   LobbyIntent,
   LobbyMember,
@@ -50,8 +50,6 @@ import {
   ORGANIZER_STATUSES,
   LOBBY_INTENTS,
   ORGANIZER_TYPES,
-  OUTBOUND_PLANS,
-  OUTBOUND_SOURCES,
   REGISTRATION_STATUSES,
   TEAM_SKILL_SLUGS,
   toTeamRole,
@@ -82,6 +80,7 @@ import type {
   AdminUserRow,
   ContentReportRow,
   LobbyRosterRow,
+  OutboundSurveyConfigRow,
   OutboundSurveyRow,
 } from '@/types/database';
 
@@ -453,25 +452,42 @@ export function lobbyErrorCode(error: { code?: string; message?: string } | null
   return null;
 }
 
-export const OUTBOUND_SURVEY_COLUMNS = 'event_id, signed_in, education_level, source, plan, province, institution, created_at, event:events(title, slug)';
+export const OUTBOUND_SURVEY_COLUMNS =
+  'event_id, signed_in, skipped, education_level, region_code, institution_id, institution, answers, created_at, event:events(title, slug)';
+
+const answerValue = z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]);
+const storedAnswers = z.record(answerValue);
 
 /** Baris asing (nilai di luar daftar, mis. ditulis SQL editor) dibuang, bukan dipercaya. */
 export function toOutboundSurveyRecord(row: OutboundSurveyRow): OutboundSurveyRecord | null {
-  if (!(EDUCATION_LEVELS as readonly string[]).includes(row.education_level)) return null;
-  if (!(OUTBOUND_SOURCES as readonly string[]).includes(row.source)) return null;
-  const plan = row.plan && (OUTBOUND_PLANS as readonly string[]).includes(row.plan) ? (row.plan as OutboundPlan) : null;
+  if (row.education_level !== null && !(EDUCATION_LEVELS as readonly string[]).includes(row.education_level)) return null;
+  const answers = storedAnswers.safeParse(row.answers ?? {});
+  if (!answers.success) return null;
   return {
     eventId: row.event_id,
     eventTitle: row.event?.title ?? null,
     eventSlug: row.event?.slug ?? null,
     signedIn: row.signed_in,
-    educationLevel: row.education_level as EducationLevel,
-    source: row.source as OutboundSource,
-    plan,
-    province: row.province,
+    skipped: row.skipped,
+    educationLevel: row.education_level as EducationLevel | null,
+    regionCode: row.region_code,
+    institutionId: row.institution_id,
     institution: row.institution,
+    answers: answers.data,
     createdAt: row.created_at,
   };
+}
+
+export const OUTBOUND_CONFIG_COLUMNS = 'ask_education, ask_region, ask_institution, questions, updated_at';
+
+export function toOutboundSurveyConfig(row: OutboundSurveyConfigRow): OutboundSurveyConfig {
+  return parseStoredOutboundConfig({
+    askEducation: row.ask_education,
+    askRegion: row.ask_region,
+    askInstitution: row.ask_institution,
+    questions: row.questions,
+    updatedAt: row.updated_at,
+  });
 }
 
 export function toLobbyMemberRow(row: LobbyRosterRow): LobbyMember | null {
