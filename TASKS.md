@@ -407,6 +407,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Lookup direktori per id 316 → 15 ms cold start
 - [x] Penjaga isian belum disimpan: patokan = isi render server, bukan isi saat hidrasi — ketikan sebelum skrip dimuat (ponsel lambat, isi otomatis peramban) dulu lolos tanpa peringatan
 - [x] 5 migration (`20261108100001`–`04`, `20261109100001`) diterapkan ke staging & produksi; sidik skema lokal = staging = produksi
+- [x] CI merah sejak PR #26 dibereskan: tes mode Supabase memakai form daftar lama (ulangi sandi, isian lembaga); tombol "Coba dengan akun demo penyelenggara" meluber di 320px (label `nowrap` → boleh dua baris, tinggi tetap); detektor `narrow-viewport` kini menyebut teks yang meluber
 - [ ] **BUTUH PEMILIK.** Vercel → Environment Variables: `SUPABASE_SERVICE_ROLE_KEY` (kunci service_role project yang dipakai situs = staging saat ini), tandai Sensitive, redeploy — tanpa ini panel admin, pendataan kinerja, & ekspor kiriman tidak berjalan
 - [ ] **BUTUH PEMILIK.** Tempel 8 template email di Supabase (staging & produksi) sesuai `docs/email-templates.md`
 - [ ] Tinjau bawaan `profile_visibility = MEMBERS` untuk pengguna < 18 tahun bersama DPIA (ADR-077 risiko)

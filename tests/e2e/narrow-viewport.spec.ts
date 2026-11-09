@@ -24,6 +24,18 @@ async function overflowOf(page: Page): Promise<{ page: number; offenders: string
       .filter((node) => !node.closest('[aria-hidden="true"]') && !node.closest('.skip-link'))
       .map((node) => `${node.tagName.toLowerCase()}.${String(node.getAttribute('class') ?? '').split(' ').slice(0, 3).join('.')} → ${Math.round(node.getBoundingClientRect().right - width)}px`)
       .slice(0, 5);
+    // Teks yang meluber dari kotaknya sendiri (mis. label tombol `whitespace-nowrap`) tidak membuat kotak
+    // mana pun melewati tepi — tanpa ini pesan gagalnya `[]` dan pelakunya harus dicari manual.
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode() && offenders.length < 8) {
+      const text = walker.currentNode;
+      const parent = text.parentElement;
+      if (!parent || !text.textContent?.trim() || parent.closest('[aria-hidden="true"], .skip-link')) continue;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      const right = Math.max(0, ...[...range.getClientRects()].map((rect) => rect.right));
+      if (right > width + 1) offenders.push(`teks "${(text.textContent ?? '').trim().slice(0, 40)}" di <${parent.tagName.toLowerCase()}> → ${Math.round(right - width)}px`);
+    }
     return { page: document.documentElement.scrollWidth - width, offenders };
   });
 }
