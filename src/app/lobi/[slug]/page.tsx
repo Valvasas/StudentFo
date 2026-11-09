@@ -28,7 +28,7 @@ import { LOBBY_LIMITS } from '@/lib/lobby';
 import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
 import { presentStudyProfile, type StudyPlaceView } from '@/lib/study-profile';
-import { LOBBY_INTENT_LABEL, LOBBY_INTENTS, type LobbyMember, type LobbyView, type PublicStudyProfile } from '@/types/domain';
+import { LOBBY_INTENT_LABEL, LOBBY_INTENTS, type LobbyMember, type LobbyView, type PublicProfileDetails } from '@/types/domain';
 import { inviteToLobbyAction, joinLobbyAction, leaveLobbyAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -170,9 +170,9 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
     ? await Promise.all([
         withFallback('lencana anggota lobi', () => repository.listPublicBadgeFacts(user.id, memberIds), new Map<string, AchievementFacts>()),
         // "Dari mana" sesama peserta (ADR-076) — sinyal pertama saat mencari rekan satu kota/kampus.
-        withFallback('tempat studi anggota lobi', () => repository.listPublicStudyProfiles(user.id, memberIds), new Map<string, PublicStudyProfile>()),
+        withFallback('tempat studi anggota lobi', () => repository.listPublicProfileDetails(user.id, memberIds), new Map<string, PublicProfileDetails>()),
       ])
-    : [new Map<string, AchievementFacts>(), new Map<string, PublicStudyProfile>()];
+    : [new Map<string, AchievementFacts>(), new Map<string, PublicProfileDetails>()];
   const studyOf = (userId: string) => {
     const profile = studyProfiles.get(userId);
     return profile ? presentStudyProfile(profile) : null;

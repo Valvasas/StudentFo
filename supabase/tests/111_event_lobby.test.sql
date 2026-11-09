@@ -7,6 +7,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-0000000f2a02', 'b@lobi', '{"full_name":"Bima Lobi"}'),
   ('00000000-0000-4000-8000-0000000f2a03', 'c@lobi', '{"full_name":"Citra Lobi"}'),
   ('00000000-0000-4000-8000-0000000f2a04', 'd@lobi', '{"full_name":"Dodi Lobi"}');
+-- Tes ini menguji aturan keterlihatan NETWORK (ADR-040); bawaan MEMBERS diuji 114_profile_identity.
+UPDATE public.users SET profile_visibility = 'NETWORK';
 
 INSERT INTO public.events (id, title, organizer, event_type, registration_link, source_url, status, reviewed_at) VALUES
   ('00000000-0000-4000-8000-0000000f2e01', 'Lomba Lobi Uji', 'Panitia Lobi', 'LOMBA', 'https://daftar.example/lobi', 'https://sumber.example/lobi', 'APPROVED', now()),

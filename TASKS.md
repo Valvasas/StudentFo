@@ -402,7 +402,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Pendataan kinerja: `/admin/kinerja/pertanyaan` (3 bawaan bermode + FormBuilder terbatas, maks. 8), tombol Lewati (dicatat), dasbor per pertanyaan; migration `20261108100002` diubah di tempat (ADR-073)
 - [x] Wilayah Kepmendagri lengkap (`src/data/wilayah/`, `lib/wilayah*.ts`, `/api/wilayah/[kode]`, `RegionPicker`) + atribusi ODbL di `/sumber-data` (ADR-074)
 - [x] 7 kategori baru + 150 bidang spesifik (`users.study_fields`, induk otomatis), `MAJORS` ±260 prodi/jurusan (ADR-075)
-- [x] Direktori tempat studi dari Data Referensi Kemendikdasmen (`src/data/institutions.ts`, `/api/institusi`, `InstitutionPicker`), singkatan PT terkurasi; kartu "Tempat studi & domisili" di Data diri; tampil di profil publik, pratinjau, lobi, saran Koneksi lewat `public_study_profiles()`; migration `20261109100001` (ADR-076)
+- [x] Direktori tempat studi dari Data Referensi Kemendikdasmen (`src/data/institutions.ts`, `/api/institusi`, `InstitutionPicker`), singkatan PT terkurasi; kartu "Tempat studi & domisili" di Data diri; tampil di profil publik, pratinjau, lobi, saran Koneksi lewat `public_profile_details()`; migration `20261109100001` (ADR-076)
 - [x] Kebijakan privasi (tempat studi, domisili, Lewati), ekspor data memuat tempat studi
 - [ ] Verifikasi email kampus untuk tanda "terverifikasi" (butuh daftar domain resmi per PT) (ADR-076 sengaja-tidak)
 - [ ] Saran Koneksi: alasan "satu kampus/sekolah" & saringan per kampus (perubahan `suggestPeople` di kedua repository)

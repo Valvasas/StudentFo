@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 const SUMMARY = [
   'Kami tidak menjual datamu dan tidak memasang iklan atau pelacak pihak ketiga.',
-  'Profilmu tersembunyi sampai kamu sendiri memilih terlihat — di Koneksi atau lewat kartu pemain.',
+  'Profilmu hanya bisa dibuka anggota StudentFo yang sudah masuk — tidak pernah tamu atau mesin pencari — dan bisa kamu batasi ke koneksimu saja. Email & kecamatanmu tidak pernah tampil.',
   'Data dirimu sampai ke penyelenggara hanya bila kamu mendaftar lewat formulir StudentFo mereka.',
   'Kamu bisa mengakses, memperbaiki, mengunduh, dan meminta penghapusan datamu; kami menindaklanjuti paling lambat 3 × 24 jam.',
 ];
@@ -75,10 +75,14 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
             </li>
             <li>
+              <strong>Username, bio & pilihan siapa yang boleh membuka profilmu:</strong> bawaannya semua anggota yang sudah masuk boleh
+              membuka profilmu dan mengajakmu terhubung; kamu bisa mengubahnya menjadi &ldquo;hanya koneksi&rdquo; kapan saja. Muncul di saran &
+              pencarian Koneksi tetap pilihan terpisah yang bawaannya mati. Pengguna yang kamu blokir tidak pernah bisa membuka profilmu.
+            </li>
+            <li>
               <strong>Tempat studi, domisili & bidang peminatan (bila kamu mengisinya):</strong> nama sekolah/kampus (dipilih dari direktori
-              resmi atau diketik sendiri), domisili sampai kecamatan, dan bidang peminatan spesifik. Orang yang boleh melihat profilmu —
-              koneksimu, pengguna Koneksi bila kamu memilih bisa ditemukan, dan sesama peserta lobi lomba — melihat tempat studi, bidang
-              peminatan, dan kabupaten/kota domisilimu. <em>Kecamatan tidak pernah ditampilkan ke siapa pun selain kamu.</em> Tempat studi diisi
+              resmi atau diketik sendiri), domisili sampai kecamatan, dan bidang peminatan spesifik. Orang yang boleh membuka profilmu (lihat butir di atas) dan
+              sesama peserta lobi lomba melihat tempat studi, bidang peminatan, dan kabupaten/kota domisilimu. <em>Kecamatan tidak pernah ditampilkan ke siapa pun selain kamu.</em> Tempat studi diisi
               sendiri dan tidak kami verifikasi.
             </li>
             <li>

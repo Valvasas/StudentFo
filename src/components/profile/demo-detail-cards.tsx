@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { AlertCircle, Award, Check, FileText, MapPin, Pencil, Phone, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, Award, Check, FileText, Pencil, Phone, Plus, Trash2, Upload, X } from 'lucide-react';
 import { useDemoStore } from '@/components/demo/use-demo-store';
 import {
   DEFAULT_DOCUMENTS,
@@ -18,8 +18,6 @@ import {
   type DemoDocument,
   type ProfileExtras,
 } from '@/lib/demo/profile-extras';
-import { REGIONS } from '@/lib/regions';
-import { Picker } from '@/components/ui/picker';
 import {
   DetailCard,
   DetailRows,
@@ -31,26 +29,18 @@ import {
 } from '@/components/profile/detail-card';
 import { cn } from '@/lib/utils';
 
-type Editing = 'publik' | 'kontak' | null;
+type Editing = 'kontak' | null;
 type Draft = Pick<ProfileExtras, 'headline' | 'bio' | 'city' | 'phone' | 'whatsapp' | 'linkedin' | 'portfolio'>;
 type Errors = Partial<Record<keyof Draft, string>>;
 
-const CITY_OPTIONS = REGIONS.flatMap(([group, cities]) => cities.map((label) => ({ label, group })));
-const HEADLINE_MAX = 90;
-const BIO_MAX = 280;
 
 const todayLabel = () => new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date());
 
-function validate(section: Exclude<Editing, null>, draft: Draft): Errors {
+function validate(draft: Draft): Errors {
   const errors: Errors = {};
-  if (section === 'publik') {
-    if (draft.headline.length > HEADLINE_MAX) errors.headline = `Maksimal ${HEADLINE_MAX} karakter.`;
-    if (draft.bio.length > BIO_MAX) errors.bio = `Maksimal ${BIO_MAX} karakter.`;
-  } else {
-    if (draft.phone.trim() && !normalizePhone(draft.phone)) errors.phone = 'Nomor belum valid. Contoh: 0812 3456 7890.';
-    if (draft.linkedin.trim() && !toExternalUrl(draft.linkedin)) errors.linkedin = 'Tulis alamat web, misalnya linkedin.com/in/nama.';
-    if (draft.portfolio.trim() && !toExternalUrl(draft.portfolio)) errors.portfolio = 'Tulis alamat web, misalnya behance.net/nama.';
-  }
+  if (draft.phone.trim() && !normalizePhone(draft.phone)) errors.phone = 'Nomor belum valid. Contoh: 0812 3456 7890.';
+  if (draft.linkedin.trim() && !toExternalUrl(draft.linkedin)) errors.linkedin = 'Tulis alamat web, misalnya linkedin.com/in/nama.';
+  if (draft.portfolio.trim() && !toExternalUrl(draft.portfolio)) errors.portfolio = 'Tulis alamat web, misalnya behance.net/nama.';
   return errors;
 }
 
@@ -92,7 +82,7 @@ export function DemoDetailCards({ baseDelay = 0 }: { baseDelay?: number }) {
   };
   const submit = (section: Exclude<Editing, null>, title: string) => (event: FormEvent) => {
     event.preventDefault();
-    const found = validate(section, draft);
+    const found = validate(draft);
     setErrors(found);
     if (Object.keys(found).length > 0) {
       formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
@@ -127,7 +117,7 @@ export function DemoDetailCards({ baseDelay = 0 }: { baseDelay?: number }) {
         className={detailButton}
       >
         <Pencil aria-hidden className="size-3.5" />
-        Ubah<span className="sr-only"> {section === 'publik' ? 'profil publik' : 'kontak'}</span>
+        Ubah<span className="sr-only"> kontak</span>
       </button>
     );
 
@@ -145,47 +135,6 @@ export function DemoDetailCards({ baseDelay = 0 }: { baseDelay?: number }) {
 
   return (
     <>
-      <DetailCard
-        id="profil-publik"
-        icon={<Sparkles className="size-[18px]" />}
-        title="Profil publik"
-        description="Headline, bio, dan kota yang tampil saat tim melihat profilmu."
-        editing={editing === 'publik'}
-        actions={header('publik')}
-        delay={baseDelay}
-      >
-        {editing === 'publik' ? (
-          <form id="form-publik" ref={formRef} onSubmit={submit('publik', 'Profil publik')} noValidate className={detailFields}>
-            <TextField label="Headline" value={draft.headline} onChange={set('headline')} max={HEADLINE_MAX} error={errors.headline} placeholder="Contoh: Suka riset pengguna dan merapikan antarmuka." wide />
-            <TextField label="Bio" value={draft.bio} onChange={set('bio')} max={BIO_MAX} error={errors.bio} placeholder="Ceritakan singkat pengalaman dan yang sedang kamu cari." area wide />
-            <div className="flex flex-col gap-[7px]">
-              <span id="kota-label" className="text-[13.5px] font-semibold">
-                Kota domisili
-              </span>
-              <Picker
-                id="kota-picker"
-                labelledBy="kota-label"
-                title="Kota domisili"
-                placeholder="Pilih kota"
-                searchPlaceholder="Cari kota atau provinsi"
-                icon={<MapPin aria-hidden className="size-4" />}
-                value={draft.city}
-                options={CITY_OPTIONS}
-                onChange={(value, kind) => kind !== 'group' && set('city')(value)}
-              />
-            </div>
-          </form>
-        ) : (
-          <DetailRows
-            rows={[
-              { label: 'Headline', value: extras.headline || 'Belum diisi', empty: !extras.headline, wide: true },
-              { label: 'Bio', value: extras.bio || 'Belum diisi', empty: !extras.bio, wide: true },
-              { label: 'Kota domisili', value: extras.city || 'Belum diisi', empty: !extras.city },
-            ]}
-          />
-        )}
-      </DetailCard>
-
       <DetailCard
         id="kontak"
         icon={<Phone className="size-[18px]" />}

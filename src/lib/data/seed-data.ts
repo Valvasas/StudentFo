@@ -589,6 +589,16 @@ export const SEED_STUDY_PROFILES: readonly (readonly [string, { institutionId: s
   ['seed-user-13', { institutionId: '001002', institutionName: 'Universitas Indonesia', domicileCode: '32.76', studyFields: ['manajemen-bisnis', 'ui-ux'] }],
 ];
 
+/** Username & bio contoh (ADR-077). seed-user-14 = profil "hanya koneksi" — dipakai tes sebagai orang yang tersembunyi. */
+export const SEED_IDENTITIES: readonly (readonly [string, { username: string | null; bio: string | null; visibility: 'MEMBERS' | 'NETWORK' }])[] = [
+  ['seed-user-1', { username: 'rani.prameswari', bio: 'Suka membangun antarmuka yang ramah pembaca layar. Cari teman hackathon yang betah ngoding sampai subuh.', visibility: 'MEMBERS' }],
+  ['seed-user-2', { username: 'dimasarya', bio: 'Backend Go & data pipeline. Terbuka diajak lomba data science.', visibility: 'MEMBERS' }],
+  ['seed-user-3', { username: 'bagas.nugroho', bio: null, visibility: 'MEMBERS' }],
+  ['seed-user-4', { username: 'salsabila.putri', bio: 'Riset pengguna, desain layanan, dan sedikit ilustrasi.', visibility: 'MEMBERS' }],
+  ['seed-user-9', { username: 'arif.setiawan', bio: 'Flutter developer. Juara 2 lomba aplikasi tingkat provinsi.', visibility: 'MEMBERS' }],
+  ['seed-user-14', { username: 'putri.ayu', bio: null, visibility: 'NETWORK' }],
+];
+
 export interface SeedSeeker {
   readonly userId: string;
   readonly city: string;

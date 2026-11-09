@@ -10,6 +10,7 @@ import { type AuthErrorCode } from '@/lib/auth-messages';
 import { getEventRepository } from '@/lib/data';
 import { PROFILE_LIMITS, profileSchema } from '@/lib/auth-schema';
 import { cleanStudyFields, withParentCategories } from '@/lib/study-fields';
+import { parseProfileIdentity } from '@/lib/profile-identity';
 import { parseStudyPlace } from '@/lib/study-profile';
 import { endDemoSession, updateDemoProfile } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
@@ -103,6 +104,27 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
 
   revalidatePath('/', 'layout');
   redirect(`${returnTo}?notice=profile_saved`);
+}
+
+/**
+ * Username, bio, keterlihatan profil (ADR-077). Kartu sendiri: kolomnya baru
+ * (urutan deploy) dan keunikan username hanya bisa dipastikan database.
+ */
+export async function updateProfileIdentityAction(formData: FormData): Promise<void> {
+  const returnTo = '/profile/details';
+  const user = await requireUser(returnTo);
+  const parsed = parseProfileIdentity(formData);
+  if (!parsed.ok) redirect(withQuery(returnTo, { ubah: 'publik', error: 'invalid_profile_identity' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).saveProfileIdentity(user.id, parsed.value);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { ubah: 'publik', error: failure }));
+  revalidatePath('/profile', 'layout');
+  redirect(`${withQuery(returnTo, { notice: 'profile_identity_saved' })}#publik`);
 }
 
 /**

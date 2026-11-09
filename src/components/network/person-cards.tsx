@@ -99,7 +99,7 @@ export function SuggestionCard({
   viewerInterests: readonly string[];
   categoryName: (slug: string) => string;
   returnTo: string;
-  /** Tempat studi & kab/kota (ADR-076) — hanya bila `public_study_profiles` mengizinkan pembaca ini. */
+  /** Tempat studi & kab/kota (ADR-076) — hanya bila `public_profile_details` mengizinkan pembaca ini. */
   study?: StudyPlaceView | null;
   /** Pratinjau "yang dilihat orang lain" di Pengaturan: tanpa form (tidak boleh bersarang di form pengaturan). */
   preview?: boolean;

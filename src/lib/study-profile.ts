@@ -6,7 +6,7 @@ import { cleanText } from '@/lib/registration-form';
 import { studyFieldLabels } from '@/lib/study-fields';
 import { ABROAD_CODE, isRegionCode, regionLabel } from '@/lib/wilayah';
 import { isDistrictCode } from '@/lib/wilayah-districts';
-import type { PublicStudyProfile, StudyPlaceInput } from '@/types/domain';
+import type { PublicProfileDetails, StudyPlaceInput } from '@/types/domain';
 
 /** Cermin CHECK `users_institution_name_length` (migration 20261109100001). */
 export const STUDY_PLACE_LIMITS = { institutionMin: 2, institutionMax: 120 } as const;
@@ -47,7 +47,7 @@ export interface StudyPlaceView {
   readonly fields: readonly string[];
 }
 
-export function presentStudyProfile(profile: Pick<PublicStudyProfile, 'institutionId' | 'institutionName' | 'studyFields'> & { regionCode: string | null }): StudyPlaceView {
+export function presentStudyProfile(profile: Pick<PublicProfileDetails, 'institutionId' | 'institutionName' | 'studyFields'> & { regionCode: string | null }): StudyPlaceView {
   const hit = profile.institutionId ? institutionById(profile.institutionId) : null;
   return {
     institution: hit ? institutionDisplayName(hit.name, hit.short) : profile.institutionName,

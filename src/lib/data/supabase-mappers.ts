@@ -26,7 +26,7 @@ import type {
   OrganizerType,
   EducationLevel,
   OutboundSurveyConfig,
-  PublicStudyProfile,
+  PublicProfileDetails,
   OutboundSurveyRecord,
   LobbyIntent,
   LobbyMember,
@@ -82,7 +82,7 @@ import type {
   ContentReportRow,
   LobbyRosterRow,
   OutboundSurveyConfigRow,
-  PublicStudyProfileRow,
+  PublicProfileDetailsRow,
   OutboundSurveyRow,
 } from '@/types/database';
 
@@ -492,13 +492,15 @@ export function toOutboundSurveyConfig(row: OutboundSurveyConfigRow): OutboundSu
   });
 }
 
-export function toPublicStudyProfile(row: PublicStudyProfileRow): PublicStudyProfile {
+export function toPublicProfileDetails(row: PublicProfileDetailsRow): PublicProfileDetails {
   return {
     institutionId: row.institution_id,
     institutionName: row.institution_name,
     // Pertahanan kedua: apa pun yang dikembalikan RPC, kecamatan tidak sampai ke tampilan.
     regionCode: row.region_code ? row.region_code.slice(0, 5) : null,
     studyFields: row.study_fields ?? [],
+    username: row.username,
+    bio: row.bio,
   };
 }
 

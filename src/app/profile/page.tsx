@@ -16,8 +16,6 @@ import { PortfolioList, type PortfolioRow } from '@/components/profile/portfolio
 import {
   DemoAboutCard,
   DemoAchievements,
-  DemoCity,
-  DemoHeadline,
   DemoPhone,
   DemoStatusPicker,
   DemoTeamCard,
@@ -74,7 +72,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const user = await requireUser('/profile');
   const repository = await getEventRepository();
   const isPublic = params.tampilan === 'publik';
-  const [categories, savedEvents, trackerItems, badgeFacts, badgeVisibility, studyProfile] = await Promise.all([
+  const [categories, savedEvents, trackerItems, badgeFacts, badgeVisibility, studyProfile, identity] = await Promise.all([
     repository.listCategories(),
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
@@ -82,8 +80,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
     loadAccountRole(user).then((context) => loadBadgeFacts(user, context.organizer)),
     withFallback('pilihan lencana', () => repository.getBadgeVisibility(user.id), { show: false, adjustable: false }),
     withFallback('tempat studi', () => repository.getStudyProfile(user.id), null),
+    withFallback('profil publik', () => repository.getProfileIdentity(user.id), null),
   ]);
-  // Pratinjau publik memotong domisili ke kab/kota, sama dengan public_study_profiles().
+  // Pratinjau publik memotong domisili ke kab/kota, sama dengan public_profile_details().
   const studyView = studyProfile ? presentStudyProfile({ ...studyProfile, regionCode: studyProfile.domicileCode }) : null;
 
   const tabs = TABS.filter((item) => (!isPublic || !item.private) && (demoFeaturesEnabled || !item.demoOnly));
@@ -170,7 +169,22 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             <h1 id="nama-profil" className="text-[clamp(30px,4vw,38px)] leading-[1.05] tracking-[-0.04em]">
               {user.fullName}
             </h1>
-            {demoFeaturesEnabled && <DemoHeadline />}
+            {identity?.username && (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14.5px] text-ink-muted">
+                <span className="font-medium">@{identity.username}</span>
+                {!isPublic && (
+                  <Link href={`/u/${identity.username}`} className="text-[13px] font-medium text-ink underline underline-offset-[3px]">
+                    Buka profil publikmu
+                  </Link>
+                )}
+              </p>
+            )}
+            {identity?.bio && <p className="max-w-[62ch] whitespace-pre-line break-words text-[15px] leading-relaxed text-ink-soft">{identity.bio}</p>}
+            {identity?.available && !identity.username && !isPublic && (
+              <Link href="/profile/details?ubah=publik#publik" className="w-fit text-[13.5px] font-medium text-ink underline underline-offset-[3px]">
+                Pasang username & bio supaya profilmu mudah dibagikan
+              </Link>
+            )}
           </div>
           <ul className="flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[13.5px] text-ink-muted">
             <li className="flex items-center gap-1.5">
@@ -180,7 +194,6 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   'Program studi & jenjang belum diisi'}
               </span>
             </li>
-            {demoFeaturesEnabled && !studyView?.region && <DemoCity />}
           </ul>
           {studyView && <StudyPlaceLine view={studyView} withFields />}
           {demoFeaturesEnabled && <DemoStatusPicker editable={!isPublic} />}

@@ -258,7 +258,7 @@ diabaikan, bukan galat):
 | `getStudyProfile(userId)` | Tempat studi, domisili (sampai kecamatan), bidang spesifik milik sendiri (ADR-075/076); kolom belum ada → `available: false` |
 | `saveStudyPlace(userId, input)` | Klien anon + hak kolom; `study_profile_unavailable` / `invalid_study_place` (CHECK) |
 | `saveStudyFields(userId, fields)` | `false` bila kolom belum ada (kategori minat tetap tersimpan) |
-| `listPublicStudyProfiles(viewerId, userIds)` | Peta userId → `PublicStudyProfile` (kab/kota saja); aturan `public_study_profiles()`. Tampilkan lewat `presentStudyProfile` |
+| `listPublicProfileDetails(viewerId, userIds)` | Peta userId → `PublicProfileDetails` (kab/kota saja); aturan `public_profile_details()`. Tampilkan lewat `presentStudyProfile` |
 
 `requestConnection` kini juga menerima target yang SATU LOBI dengan pelaku
 walau tidak "bisa ditemukan" (cermin policy `connections_insert_requester`).

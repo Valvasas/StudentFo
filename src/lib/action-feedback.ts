@@ -104,6 +104,9 @@ export const ACTION_ERROR_CODES = [
   'invalid_outbound_config',
   'outbound_unavailable',
   'study_profile_unavailable',
+  'username_taken',
+  'invalid_profile_identity',
+  'profile_identity_unavailable',
   'invalid_study_place',
   'badges_unavailable',
   'unknown',
@@ -213,6 +216,9 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   badges_unavailable: 'Pilihan menampilkan lencana belum aktif di server ini. Lencanamu tetap privat.',
   invalid_outbound_survey: 'Ada jawaban yang belum sesuai — lengkapi yang bertanda wajib, atau tekan Lewati.',
   invalid_outbound_config: 'Pertanyaan belum bisa disimpan: maksimal 8 pertanyaan tambahan, tiap pertanyaan berjudul, dan pilihan ganda minimal 2 pilihan.',
+  username_taken: 'Username itu sudah dipakai orang lain. Coba variasi lain, mis. tambahkan angka atau titik.',
+  invalid_profile_identity: 'Username 3–30 karakter: huruf kecil, angka, titik, atau garis bawah — diawali & diakhiri huruf/angka. Bio maksimal 280 karakter.',
+  profile_identity_unavailable: 'Username & bio belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
   study_profile_unavailable: 'Tempat studi & domisili belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
   invalid_study_place: 'Tempat studi maksimal 120 karakter (minimal 2), dan domisili harus dipilih dari daftar wilayah.',
   outbound_unavailable: 'Pengaturan pertanyaan pendataan belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
@@ -285,6 +291,7 @@ export const ACTION_NOTICE_CODES = [
   'badges_hidden',
   'outbound_config_saved',
   'study_place_saved',
+  'profile_identity_saved',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -320,6 +327,7 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   badges_shown: 'Lencana yang sudah kamu raih kini tampil di profil publik dan lobi lomba.',
   badges_hidden: 'Lencanamu kembali privat — hanya kamu yang melihatnya.',
   outbound_config_saved: 'Pertanyaan pendataan tersimpan. Pengunjung berikutnya langsung melihat versi ini.',
+  profile_identity_saved: 'Profil publikmu tersimpan. Bagikan tautannya supaya orang lebih mudah menemukanmu.',
   study_place_saved: 'Tempat studi & domisili tersimpan. Orang yang bisa melihat profilmu kini tahu kamu dari mana.',
   reminders_on: 'Pengingat tenggat menyala. Kegiatan yang kamu simpan atau lacak diingatkan H-3 dan H-1.',
   reminders_off: 'Pengingat tenggat dimatikan. Pengingat yang sudah ada di lonceng tidak dihapus.',

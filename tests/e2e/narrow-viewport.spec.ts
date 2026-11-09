@@ -65,6 +65,8 @@ const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/profile'],
   ['Mahasiswa', '/profile/details'],
   ['Mahasiswa', '/profile/details?ubah=asal'],
+  ['Mahasiswa', '/profile/details?ubah=publik'],
+  ['Mahasiswa', '/u/rani.prameswari'],
   ['Mahasiswa', '/profile/interests'],
   ['Mahasiswa', '/profile/settings'],
   ['Mahasiswa', '/profile/settings/keamanan'],

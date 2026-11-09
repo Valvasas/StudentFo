@@ -1,12 +1,14 @@
 -- Tempat studi, domisili & bidang spesifik (ADR-075/076): kategori baru ada,
 -- pemilik bisa menulis kolomnya sendiri saja, bentuk nilai dijaga CHECK, dan
--- public_study_profiles() memakai aturan siapa-boleh-melihat yang sama dengan
+-- public_profile_details() memakai aturan siapa-boleh-melihat yang sama dengan
 -- lencana — kecamatan tidak pernah keluar.
 BEGIN;
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-0000000f4a01', 'pemilik@studi', '{"full_name":"Pemilik Studi"}'),
   ('00000000-0000-4000-8000-0000000f4a02', 'pembaca@studi', '{"full_name":"Pembaca Studi"}'),
   ('00000000-0000-4000-8000-0000000f4a03', 'asing@studi', '{"full_name":"Orang Asing"}');
+-- Tes ini menguji aturan keterlihatan NETWORK (ADR-040); bawaan MEMBERS diuji 114_profile_identity.
+UPDATE public.users SET profile_visibility = 'NETWORK';
 
 DO $$
 BEGIN
@@ -60,7 +62,7 @@ SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-0000000f4a02';
 UPDATE public.users SET institution_name = 'Dibajak' WHERE id = '00000000-0000-4000-8000-0000000f4a01';
 DO $$
 BEGIN
-  IF (SELECT institution_name FROM public.public_study_profiles(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[])) IS NOT NULL THEN
+  IF (SELECT institution_name FROM public.public_profile_details(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[])) IS NOT NULL THEN
     RAISE EXCEPTION 'profil tersembunyi: pembaca tanpa hubungan tidak menerima tempat studi';
   END IF;
 END$$;
@@ -80,7 +82,7 @@ SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-0000000f4a02';
 DO $$
 DECLARE v RECORD;
 BEGIN
-  SELECT * INTO v FROM public.public_study_profiles(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[]);
+  SELECT * INTO v FROM public.public_profile_details(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[]);
   IF v.institution_id IS DISTINCT FROM '001002' OR v.region_code IS DISTINCT FROM '32.76' THEN
     RAISE EXCEPTION 'pembaca yang boleh melihat menerima tempat studi & kab/kota (bukan kecamatan), dapat %', row_to_json(v);
   END IF;
@@ -96,7 +98,7 @@ SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-0000000f4a02';
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM public.public_study_profiles(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[])) THEN
+  IF EXISTS (SELECT 1 FROM public.public_profile_details(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[])) THEN
     RAISE EXCEPTION 'yang diblokir tidak menerima tempat studi';
   END IF;
 END$$;
@@ -107,7 +109,7 @@ SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-0000000f4a03';
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM public.public_study_profiles(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[])) THEN
+  IF EXISTS (SELECT 1 FROM public.public_profile_details(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[])) THEN
     RAISE EXCEPTION 'akun ditangguhkan tidak tampil';
   END IF;
 END$$;
@@ -118,8 +120,8 @@ SET LOCAL ROLE anon;
 DO $$
 BEGIN
   BEGIN
-    PERFORM public.public_study_profiles(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[]);
-    RAISE EXCEPTION 'anon tidak boleh memanggil public_study_profiles';
+    PERFORM public.public_profile_details(ARRAY['00000000-0000-4000-8000-0000000f4a01']::uuid[]);
+    RAISE EXCEPTION 'anon tidak boleh memanggil public_profile_details';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 END$$;

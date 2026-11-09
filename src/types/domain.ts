@@ -795,14 +795,37 @@ export interface StudyProfile {
   readonly available: boolean;
 }
 
+/**
+ * Keterlihatan profil (ADR-077). MEMBERS = semua anggota yang MASUK boleh
+ * membuka profil & mengajak terhubung (bawaan); NETWORK = hanya koneksi,
+ * yang bisa menemukan di Koneksi, atau sesama lobi (aturan ADR-040).
+ * Tamu & mesin pencari tidak pernah.
+ */
+export const PROFILE_VISIBILITIES = ['MEMBERS', 'NETWORK'] as const;
+export type ProfileVisibility = (typeof PROFILE_VISIBILITIES)[number];
+export const PROFILE_VISIBILITY_LABEL: Record<ProfileVisibility, string> = {
+  MEMBERS: 'Semua anggota StudentFo yang masuk',
+  NETWORK: 'Hanya koneksi & yang menemukanku di Koneksi',
+};
+
+/** Username, bio, keterlihatan milik sendiri. `available` = false: kolom belum ada (urutan deploy). */
+export interface ProfileIdentity {
+  readonly username: string | null;
+  readonly bio: string | null;
+  readonly visibility: ProfileVisibility;
+  readonly available: boolean;
+}
+
 export type StudyPlaceInput = Pick<StudyProfile, 'institutionId' | 'institutionName' | 'domicileCode'>;
 
-/** Yang boleh dilihat orang lain (`public_study_profiles`): domisili terpotong ke kab/kota. */
-export interface PublicStudyProfile {
+/** Yang boleh dilihat orang lain (`public_profile_details`): domisili terpotong ke kab/kota. */
+export interface PublicProfileDetails {
   readonly institutionId: string | null;
   readonly institutionName: string | null;
   readonly regionCode: string | null;
   readonly studyFields: readonly string[];
+  readonly username: string | null;
+  readonly bio: string | null;
 }
 
 export interface Connection {

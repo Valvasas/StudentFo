@@ -8,6 +8,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-0000000b0a02', 'b@blok', '{"full_name":"Budi Blok"}'),
   ('00000000-0000-4000-8000-0000000b0a03', 'c@blok', '{"full_name":"Cici Blok"}'),
   ('00000000-0000-4000-8000-0000000b0a04', 'd@blok', '{"full_name":"Dodi Tersembunyi"}');
+-- Tes ini menguji aturan keterlihatan NETWORK (ADR-040); bawaan MEMBERS diuji 114_profile_identity.
+UPDATE public.users SET profile_visibility = 'NETWORK';
 
 -- Ana, Budi, Cici bisa ditemukan; Dodi tidak.
 INSERT INTO public.network_profiles (user_id, is_discoverable) VALUES

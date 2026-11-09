@@ -281,10 +281,10 @@ $$;
 REVOKE ALL ON FUNCTION public.shares_lobby_with(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.shares_lobby_with(UUID) TO authenticated;
 
--- Isi identik dengan 20260928100001, ditambah klausa lobi.
-DROP POLICY connections_insert_requester ON public.connections;
-CREATE POLICY connections_insert_requester ON public.connections
-  FOR INSERT TO authenticated
+-- Isi identik dengan 20260928100001, ditambah klausa lobi. ALTER (bukan
+-- hapus-lalu-buat): perintah, peran, dan nama policy tetap; hanya syaratnya
+-- yang bertambah — dan tidak ada jeda tanpa policy di antaranya.
+ALTER POLICY connections_insert_requester ON public.connections
   WITH CHECK (
     requester_id = (select auth.uid())
     AND status = 'PENDING'

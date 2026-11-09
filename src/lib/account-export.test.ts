@@ -32,6 +32,7 @@ const base: AccountExportInput = {
     { event: { id: 'e2', slug: 'lomba-y', title: 'Lomba Y', organizer: 'Panitia', status: 'APPROVED', primaryDeadlineAt: null }, membership: null, memberCount: 9 },
   ],
   showBadges: true,
+  identity: { username: 'ana.uji', bio: 'Halo', visibility: 'MEMBERS', available: true },
   studyProfile: { institutionId: '001002', institutionName: 'Universitas Indonesia', domicileCode: '32.76.03', studyFields: ['ui-ux'], available: true },
   eventQuestions: [{ eventTitle: 'Lomba X', eventSlug: 'lomba-x', body: 'Boleh lintas kampus?', createdAt: '2026-10-30T02:00:00.000Z', answer: null, hidden: true }],
 };
@@ -73,5 +74,6 @@ describe('buildAccountExport', () => {
     const result = buildAccountExport({ ...base, submissions: null });
     expect(result.submissions).toEqual({ unavailable: expect.stringContaining('tidak bisa dimuat') });
     expect(result.studyPlace).toMatchObject({ institutionId: '001002', domicileCode: '32.76.03' });
+    expect(result.publicProfile).toEqual({ username: 'ana.uji', bio: 'Halo', visibleTo: 'MEMBERS' });
   });
 });

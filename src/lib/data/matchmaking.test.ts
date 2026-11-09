@@ -124,6 +124,9 @@ describe('MemoryEventRepository — pencocokan tim', () => {
   });
 
   it('kartu terbuka bisa diajak walau tidak ada di direktori Koneksi; kartu tertutup tidak (cermin is_discoverable)', async () => {
+    // Profil "hanya koneksi" (ADR-077): satu-satunya jalan terlihat = kartu pemain terbuka.
+    await repository.saveProfileIdentity('budi', { username: null, bio: null, visibility: 'NETWORK' });
+    await repository.saveProfileIdentity('cici', { username: null, bio: null, visibility: 'NETWORK' });
     await repository.saveSeekerProfile(budi, card());
     expect((await repository.getNetworkProfile('budi')).discoverable).toBe(false);
     expect(await repository.requestConnection(ana, 'budi', null)).toBe('requested');
@@ -135,6 +138,7 @@ describe('MemoryEventRepository — pencocokan tim', () => {
   });
 
   it('profil publik pemilik kartu terbuka terbaca; setelah ditutup tidak lagi', async () => {
+    await repository.saveProfileIdentity('budi', { username: null, bio: null, visibility: 'NETWORK' });
     await repository.saveSeekerProfile(budi, card());
     expect((await repository.getPublicProfile('ana', 'budi'))?.person.fullName).toBe('Budi');
     await repository.saveSeekerProfile(budi, card({ open: false }));

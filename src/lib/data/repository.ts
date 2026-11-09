@@ -29,7 +29,8 @@ import type {
   LobbyView,
   ManagedEvent,
   OutboundSurveyConfig,
-  PublicStudyProfile,
+  ProfileIdentity,
+  PublicProfileDetails,
   StudyPlaceInput,
   StudyProfile,
   OutboundSurveyRecord,
@@ -68,6 +69,7 @@ import type { RegistrationFormInput, ReviewDecision } from '@/lib/registration-f
 import type { AchievementFacts } from '@/lib/achievements';
 import type { LobbyMemberInput } from '@/lib/lobby';
 import type { OutboundConfigInput, OutboundSurveyAnswers } from '@/lib/outbound-survey';
+import type { ProfileIdentityInput } from '@/lib/profile-identity';
 
 /**
  * Kontrak akses data. Seluruh UI berbicara HANYA lewat antarmuka ini —
@@ -131,8 +133,14 @@ export interface StudyProfileRepository {
   saveStudyPlace(userId: string, input: StudyPlaceInput): Promise<void>;
   /** Kolom belum ada = tidak menyimpan dan mengembalikan false — kategori minat tetap tersimpan. */
   saveStudyFields(userId: string, fields: readonly string[]): Promise<boolean>;
-  /** Maks. 100 orang. Tidak ada di peta = pembaca tidak boleh melihatnya (aturan `public_study_profiles`). */
-  listPublicStudyProfiles(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicStudyProfile>>;
+  /** Maks. 100 orang. Tidak ada di peta = pembaca tidak boleh melihatnya (aturan `public_profile_details`). */
+  listPublicProfileDetails(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicProfileDetails>>;
+  /** Username, bio, keterlihatan (ADR-077); kolom belum ada → `available: false`. */
+  getProfileIdentity(userId: string): Promise<ProfileIdentity>;
+  /** `username_taken` (unik), `invalid_profile_identity` (CHECK), `profile_identity_unavailable` (kolom belum ada). */
+  saveProfileIdentity(userId: string, input: ProfileIdentityInput): Promise<void>;
+  /** /u/[username] → id, HANYA bila pembaca boleh melihat profilnya; selain itu null (404 yang sama). */
+  resolveUsername(viewerId: string, username: string): Promise<string | null>;
 }
 
 /** Pendataan kinerja sebelum keluar ke tautan pendaftaran (ADR-070/073). Tanpa identitas pengisi. */

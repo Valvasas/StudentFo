@@ -5,6 +5,8 @@ INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-8000-0000000f5a02', 'terlapor@x'),
   ('00000000-0000-4000-8000-0000000f5a03', 'admin@x'),
   ('00000000-0000-4000-8000-0000000f5a04', 'pamit@x');
+-- Tes ini menguji aturan keterlihatan NETWORK (ADR-040); bawaan MEMBERS diuji 114_profile_identity.
+UPDATE public.users SET profile_visibility = 'NETWORK';
 UPDATE public.users SET role = 'ADMIN' WHERE id = '00000000-0000-4000-8000-0000000f5a03';
 
 INSERT INTO public.events (id, title, organizer, event_type, registration_link, source_url, status, reviewed_at, education_levels) VALUES

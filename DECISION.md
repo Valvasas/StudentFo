@@ -51,7 +51,7 @@ plus "data dan singkatan semua SMA, SMK, MA, PTN dan PTS di Indonesia".
    pesantren tanpa NPSN, kampus luar negeri). Id menang atas teks: nama
    diambil dari direktori.
 6. **Disimpan di `users`** (`institution_id/_name`, `domicile_code`) dan
-   ditampilkan lewat RPC `public_study_profiles(uuid[])` — aturan siapa
+   ditampilkan lewat RPC `public_profile_details(uuid[])` — aturan siapa
    boleh melihat SAMA dengan lencana publik (ADR-072): diri sendiri,
    `can_view_profile`, atau sesama anggota lobi tanpa blokir. Kecamatan
    dipotong di SQL (dan sekali lagi di mapper). `network_directory` tidak

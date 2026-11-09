@@ -486,13 +486,22 @@ export interface StudyProfileRow {
   study_fields: string[] | null;
 }
 
-/** RPC `public_study_profiles(p_users)` — domisili sudah terpotong ke kab/kota. */
-export interface PublicStudyProfileRow {
+/** RPC `public_profile_details(p_users)` — domisili sudah terpotong ke kab/kota. */
+export interface PublicProfileDetailsRow {
   user_id: string;
   institution_id: string | null;
   institution_name: string | null;
   region_code: string | null;
   study_fields: string[] | null;
+  username: string | null;
+  bio: string | null;
+}
+
+/** Kolom identitas profil milik sendiri di `users` (ADR-077). */
+export interface ProfileIdentityRow {
+  username: string | null;
+  bio: string | null;
+  profile_visibility: string;
 }
 
 /** `outbound_survey_config` (ADR-073) — satu baris, dibaca server. */

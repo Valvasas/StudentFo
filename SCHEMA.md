@@ -54,7 +54,7 @@ Urutan migration (harus dijalankan berurutan):
 44. `20261108100002_outbound_surveys.sql` — `outbound_survey_config` (satu baris, tertutup untuk klien: mode 3 pertanyaan bawaan + `questions` JSONB FormField, maks. 8) + `outbound_surveys` (tanpa user_id; `skipped`, `region_code` sampai kab/kota, `institution_id/institution`, `answers` JSONB; CHECK lewati = tanpa jawaban; tulis service_role, baca admin) + `purge_old_outbound_surveys()` 365 hari di pg_cron (ADR-070, bentuk ADR-073)
 45. `20261108100003_event_lobby.sql` — `lobby_members`, `lobby_invites`; `can_use_lobby`, `lobby_is_open`, RPC `join_lobby`, `lobby_roster`, `lobby_member_counts`, `invite_to_lobby`; `shares_lobby_with` + policy `connections_insert_requester` diperluas (ADR-071)
 46. `20261108100004_public_badges.sql` — `users.show_badges` (bawaan FALSE) + `public_badge_facts(uuid[])` (ADR-072)
-47. `20261109100001_study_profile_and_fields.sql` — 7 kategori baru; `users.study_fields` (maks. 15 slug), `institution_id` (NPSN/kode PT), `institution_name`, `domicile_code` (kode Kemendagri sampai kecamatan) + CHECK bentuk, GRANT UPDATE per kolom; RPC `public_study_profiles(uuid[])` (aturan lencana publik, kecamatan dipotong) (ADR-075/076)
+47. `20261109100001_profile_details.sql` — 7 kategori baru; `users.study_fields` (maks. 15 slug), `institution_id` (NPSN/kode PT), `institution_name`, `domicile_code` (kode Kemendagri sampai kecamatan) + CHECK bentuk, GRANT UPDATE per kolom; RPC `public_profile_details(uuid[])` (aturan lencana publik, kecamatan dipotong) (ADR-075/076)
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–42 per 2026-11-08). #43–46 belum.
 
@@ -472,7 +472,7 @@ fakta lencana tanpa id/judul acara untuk pemilik atau pembaca yang lolos
 (NPSN/kode PT, wajib berpasangan dengan `institution_name`), `institution_name`
 (2–120), `domicile_code` (kode Kemendagri `32`, `32.73`, atau `32.73.01`).
 GRANT UPDATE per kolom ke authenticated (baris sendiri lewat `users_update_own`).
-Orang lain hanya lewat `public_study_profiles(uuid[])`: pemilik, `can_view_profile()`,
+Orang lain hanya lewat `public_profile_details(uuid[])`: pemilik, `can_view_profile()`,
 atau `shares_lobby_with()` tanpa blokir; akun ditangguhkan tidak; domisili
 dipotong ke kab/kota. Uji: `supabase/tests/113_study_profile.test.sql`.
 

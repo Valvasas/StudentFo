@@ -111,7 +111,8 @@ import type {
   LobbySummary,
   LobbyView,
   OutboundSurveyConfig,
-  PublicStudyProfile,
+  ProfileIdentity,
+  PublicProfileDetails,
   StudyPlaceInput,
   StudyProfile,
   OutboundSurveyRecord,
@@ -119,6 +120,7 @@ import type {
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
+import { normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
 import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
 import { demoReceiptPng } from './demo-media';
 import type {
@@ -156,6 +158,7 @@ import {
   type SeedPortfolioEntry,
   SEED_PERSON_CONNECTIONS,
   SEED_TEAMS,
+  SEED_IDENTITIES,
   SEED_STUDY_PROFILES,
   type SeedEvent,
 } from './seed-data';
@@ -466,6 +469,8 @@ export class MemoryEventRepository implements EventRepository {
   private outboundConfig: OutboundSurveyConfig = DEFAULT_OUTBOUND_CONFIG;
   /** Tempat studi & bidang spesifik (ADR-075/076) — kolom `users` di produksi. */
   private readonly studyProfiles = new Map<string, Omit<StudyProfile, 'available'>>(SEED_STUDY_PROFILES);
+  /** Username, bio, keterlihatan (ADR-077) — kolom `users` di produksi. */
+  private readonly identities = new Map<string, Omit<ProfileIdentity, 'available'>>(SEED_IDENTITIES);
   /** Cermin `users.show_badges` (ADR-072): bawaan privat. */
   private readonly badgeVisible = new Set<string>();
   /** Lobi lomba (ADR-071): eventId → userId → kartu. */
@@ -1350,9 +1355,11 @@ export class MemoryEventRepository implements EventRepository {
     return Boolean(this.isReachable(userId) || this.findPair(viewerId, userId));
   }
 
-  /** Cermin `is_discoverable()` (20261020100001): terbuka di direktori ATAU kartu pemainnya terbuka. */
+  /** Cermin `is_discoverable()` (20261109100001): terbuka di direktori, kartu pemain terbuka, ATAU profil terbuka untuk anggota. */
   private isReachable(userId: string): boolean {
-    return Boolean(this.people.get(userId)?.discoverable || this.seekers.get(userId)?.open);
+    // `people.has`: cermin EXISTS di SQL — id yang tidak terdaftar tidak pernah "terbuka".
+    const membersProfile = this.people.has(userId) && (this.identities.get(userId)?.visibility ?? 'MEMBERS') === 'MEMBERS' && !this.suspensions.has(userId);
+    return Boolean(this.people.get(userId)?.discoverable || this.seekers.get(userId)?.open || membersProfile);
   }
 
   async getPublicProfile(viewerId: string, userId: string): Promise<PublicProfile | null> {
@@ -3140,19 +3147,41 @@ export class MemoryEventRepository implements EventRepository {
     return true;
   }
 
-  /** Cermin `public_study_profiles()`: diri sendiri, boleh melihat profil, atau satu lobi tanpa blokir; kecamatan dipotong. */
-  async listPublicStudyProfiles(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicStudyProfile>> {
-    const result = new Map<string, PublicStudyProfile>();
+  async getProfileIdentity(userId: string): Promise<ProfileIdentity> {
+    return { username: null, bio: null, visibility: 'MEMBERS', ...this.identities.get(userId), available: true };
+  }
+
+  async saveProfileIdentity(userId: string, input: ProfileIdentityInput): Promise<void> {
+    // Cermin indeks unik `users_username_key`.
+    const taken = input.username && [...this.identities.entries()].some(([id, identity]) => id !== userId && identity.username === input.username);
+    if (taken) throw actionError('username_taken');
+    this.identities.set(userId, { ...input });
+  }
+
+  /** Cermin `user_id_by_username()`: tidak ada & tidak boleh dilihat sama-sama null. */
+  async resolveUsername(viewerId: string, username: string): Promise<string | null> {
+    const wanted = normalizeUsername(username);
+    const entry = [...this.identities.entries()].find(([, identity]) => identity.username === wanted);
+    if (!entry || this.suspensions.has(entry[0]) || !this.canViewProfile(viewerId, entry[0])) return null;
+    return entry[0];
+  }
+
+  /** Cermin `public_profile_details()`: diri sendiri, boleh melihat profil, atau satu lobi tanpa blokir; kecamatan dipotong. */
+  async listPublicProfileDetails(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicProfileDetails>> {
+    const result = new Map<string, PublicProfileDetails>();
     for (const userId of [...new Set(userIds)].slice(0, 100)) {
       if (this.suspensions.has(userId)) continue;
       const allowed = userId === viewerId || this.canViewProfile(viewerId, userId) || (this.sharesLobby(viewerId, userId) && !this.isBlocked(viewerId, userId));
       const stored = this.studyProfiles.get(userId);
-      if (!allowed || !stored) continue;
+      const identity = this.identities.get(userId);
+      if (!allowed || (!stored && !identity)) continue;
       result.set(userId, {
-        institutionId: stored.institutionId,
-        institutionName: stored.institutionName,
-        regionCode: stored.domicileCode?.slice(0, 5) ?? null,
-        studyFields: stored.studyFields,
+        institutionId: stored?.institutionId ?? null,
+        institutionName: stored?.institutionName ?? null,
+        regionCode: stored?.domicileCode?.slice(0, 5) ?? null,
+        studyFields: stored?.studyFields ?? [],
+        username: identity?.username ?? null,
+        bio: identity?.bio ?? null,
       });
     }
     return result;

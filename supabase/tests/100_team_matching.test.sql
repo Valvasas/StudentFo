@@ -12,6 +12,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-0000000d0a05', 'e@tim', '{"full_name":"Eka Pemblokir"}'),
   ('00000000-0000-4000-8000-0000000d0a06', 'f@tim', '{"full_name":"Feri Baru"}'),
   ('00000000-0000-4000-8000-0000000d0a07', 'g@tim', '{"full_name":"Gita Tanpa Kartu"}');
+-- Tes ini menguji aturan keterlihatan NETWORK (ADR-040); bawaan MEMBERS diuji 114_profile_identity.
+UPDATE public.users SET profile_visibility = 'NETWORK';
 
 -- Portofolio Budi: dua entri publik (juara 1 sudah selesai + ikut serta tanpa
 -- hasil), satu beasiswa (privat bawaan), satu hanya disimpan, satu ditolak,

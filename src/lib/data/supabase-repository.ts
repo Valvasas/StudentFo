@@ -2,6 +2,7 @@ import 'server-only';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { actionError } from '@/lib/action-feedback';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
+import { isProfileVisibility, isValidUsername, normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
 import { type AppError, upstreamFailure } from '@/lib/errors';
 import {
@@ -92,7 +93,8 @@ import type {
   LobbySummary,
   LobbyView,
   OutboundSurveyConfig,
-  PublicStudyProfile,
+  ProfileIdentity,
+  PublicProfileDetails,
   StudyPlaceInput,
   StudyProfile,
   OutboundSurveyRecord,
@@ -139,7 +141,8 @@ import type {
   LobbyMemberRow,
   LobbyRosterRow,
   OutboundSurveyConfigRow,
-  PublicStudyProfileRow,
+  ProfileIdentityRow,
+  PublicProfileDetailsRow,
   StudyProfileRow,
   OutboundSurveyRow,
 } from '@/types/database';
@@ -226,7 +229,7 @@ import {
   OUTBOUND_SURVEY_COLUMNS,
   toLobbyMemberRow,
   toOutboundSurveyConfig,
-  toPublicStudyProfile,
+  toPublicProfileDetails,
   toOutboundSurveyRecord,
   toPublicBadgeFacts,
 } from './supabase-mappers';
@@ -2792,14 +2795,51 @@ export class SupabaseEventRepository implements EventRepository {
     return true;
   }
 
-  async listPublicStudyProfiles(_viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicStudyProfile>> {
+  async getProfileIdentity(userId: string): Promise<ProfileIdentity> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from('users').select('username, bio, profile_visibility').eq('id', userId).maybeSingle<ProfileIdentityRow>();
+    // Kode tayang sebelum migration 20261109100001: kartu dikunci, bukan halaman galat.
+    if (error && isMissingColumnError(error)) return { username: null, bio: null, visibility: 'MEMBERS', available: false };
+    if (error) throw upstreamFailure('Gagal memuat profil publik.', error);
+    return {
+      username: data?.username ?? null,
+      bio: data?.bio ?? null,
+      visibility: data && isProfileVisibility(data.profile_visibility) ? data.profile_visibility : 'MEMBERS',
+      available: true,
+    };
+  }
+
+  async saveProfileIdentity(userId: string, input: ProfileIdentityInput): Promise<void> {
+    // Klien anon + hak UPDATE per kolom (pola updateProfileAction).
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+      .from('users')
+      .update({ username: input.username, bio: input.bio, profile_visibility: input.visibility })
+      .eq('id', userId);
+    if (error && isMissingColumnError(error)) throw actionError('profile_identity_unavailable');
+    if (error && sqlState(error) === '23505') throw actionError('username_taken');
+    if (error && sqlState(error) === '23514') throw actionError('invalid_profile_identity');
+    if (error) throw upstreamFailure('Gagal menyimpan profil publik.', error, 500);
+  }
+
+  async resolveUsername(_viewerId: string, username: string): Promise<string | null> {
+    const wanted = normalizeUsername(username);
+    if (!isValidUsername(wanted)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('user_id_by_username', { p_username: wanted });
+    if (error && isMissingRelationError(error)) return null;
+    if (error) throw upstreamFailure('Gagal membuka profil.', error);
+    return typeof data === 'string' && isUuid(data) ? data : null;
+  }
+
+  async listPublicProfileDetails(_viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicProfileDetails>> {
     const ids = [...new Set(userIds)].filter(isUuid).slice(0, 100);
     if (ids.length === 0) return new Map();
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.rpc('public_study_profiles', { p_users: ids });
+    const { data, error } = await supabase.rpc('public_profile_details', { p_users: ids });
     if (error && isMissingRelationError(error)) return new Map();
     if (error) throw upstreamFailure('Gagal memuat tempat studi.', error);
-    return new Map(rpcRows<PublicStudyProfileRow>(data).map((row) => [row.user_id, toPublicStudyProfile(row)]));
+    return new Map(rpcRows<PublicProfileDetailsRow>(data).map((row) => [row.user_id, toPublicProfileDetails(row)]));
   }
 
   async inviteToLobby(actor: NetworkViewer, eventId: string, inviteeId: string): Promise<'invited' | 'already'> {
