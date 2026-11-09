@@ -23,6 +23,9 @@ test('mahasiswa mengajukan verifikasi → admin memverifikasi → studio terbuka
   await expect(student.getByRole('heading', { name: 'Ajukan verifikasi' })).toBeVisible();
   const orgName = `Himpunan Uji ${Date.now()}`;
   await student.getByLabel('Nama lembaga / organisasi').fill(orgName);
+  // Jenis lembaga & jabatan wajib sejak ADR-069 (sama dengan form daftar penyelenggara).
+  await student.getByLabel('Jenis lembaga').selectOption('ORMAWA');
+  await student.getByLabel('Jabatanmu di lembaga').fill('Ketua Himpunan');
   await student.getByLabel('Bukti peranmu').fill('Saya ketua himpunan, lihat https://himpunan.example/pengurus');
   await student.getByRole('button', { name: 'Kirim pengajuan' }).click();
   await expect(student).toHaveURL(/notice=organizer_applied/);

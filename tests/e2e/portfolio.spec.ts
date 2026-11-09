@@ -45,7 +45,9 @@ test('isi hasil di tracker → tampil di profil publik; tautan non-https ditolak
 test('profil publik orang lain: portofolio tampil, beasiswa privatnya tidak; id tak dikenal = 404', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/connections?tab=koneksi');
   await page.locator('section[aria-labelledby="koneksimu"]').getByRole('link', { name: /Rani Prameswari/ }).click();
-  await expect(page).toHaveURL(/\/orang\/seed-user-1$/);
+  // Kartu Koneksi menautkan /orang/<id>; yang punya username berakhir di alamat kanoniknya (ADR-077).
+  // Jangan menunggu URL perantara — pengalihannya bisa terlalu cepat untuk terlihat.
+  await expect(page).toHaveURL(/\/u\/rani\.prameswari$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Rani Prameswari' })).toBeVisible();
   await expect(page.locator('section[aria-labelledby="nama-orang"]').getByText('Terhubung denganmu')).toBeVisible();
   await expect(page.getByText('Juara 2')).toBeVisible();

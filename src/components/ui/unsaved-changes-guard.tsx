@@ -12,6 +12,18 @@ function snapshot(form: HTMLFormElement): string {
     .join('&');
 }
 
+/**
+ * Isi form seperti yang DIRENDER SERVER: salinan yang di-`reset()` kembali ke
+ * atribut bawaannya. Bukan isi saat hidrasi — di ponsel lambat orang sudah
+ * mengetik (atau peramban mengisi otomatis/memulihkan isian) sebelum skrip
+ * jalan, dan isian itu harus tetap dianggap berubah.
+ */
+function serverSnapshot(form: HTMLFormElement): string {
+  const copy = form.cloneNode(true) as HTMLFormElement;
+  copy.reset();
+  return snapshot(copy);
+}
+
 const COPY: ConfirmCopy = {
   title: 'Tinggalkan tanpa menyimpan?',
   description: 'Isian yang sudah kamu ubah di halaman ini belum tersimpan dan akan hilang.',
@@ -49,8 +61,8 @@ export function UnsavedChangesGuard({ changeEvent }: { changeEvent?: string }) {
   useEffect(() => {
     const form = anchorRef.current?.closest('form');
     if (!form) return;
-    const initial = snapshot(form);
-    let dirty = false;
+    const initial = serverSnapshot(form);
+    let dirty = snapshot(form) !== initial;
     const check = () => {
       dirty = snapshot(form) !== initial;
     };

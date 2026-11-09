@@ -397,6 +397,53 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Perbaikan pra-merge: bug live, ponsel, "Lainnya", profil publik, email 2026-11-09 (@claude) — ADR-077/078
+
+- [x] Bug live dari log Vercel: `/submit` (kirim kegiatan), beranda admin, `/admin/*`, ekspor data crash tanpa `SUPABASE_SERVICE_ROLE_KEY` → turun anggun + petunjuk untuk admin
+- [x] Pemilih melayang (lokasi, kab/kota, prodi) dijepit ke viewport ponsel — `picker-viewport.spec.ts` gagal 3/4 di versi lama
+- [x] "Lainnya": prodi (isian bebas), kampus (pakai teks), domisili luar negeri (LN), lokasi kegiatan (datalist 503 kab/kota), filter lokasi magang seluruh kab/kota
+- [x] Username, bio, `/u/[username]`, keterlihatan profil MEMBERS/NETWORK (ADR-077); kebijakan privasi, Privasi & data, ekspor diselaraskan
+- [x] Template email Supabase Auth ala StudentFo + `docs/email-templates.md` (ADR-078)
+- [x] Lookup direktori per id 316 → 15 ms cold start
+- [x] Penjaga isian belum disimpan: patokan = isi render server, bukan isi saat hidrasi — ketikan sebelum skrip dimuat (ponsel lambat, isi otomatis peramban) dulu lolos tanpa peringatan
+- [x] 5 migration (`20261108100001`–`04`, `20261109100001`) diterapkan ke staging & produksi; sidik skema lokal = staging = produksi
+- [x] CI merah sejak PR #26 dibereskan: tes mode Supabase memakai form daftar lama (ulangi sandi, isian lembaga); tombol "Coba dengan akun demo penyelenggara" meluber di 320px (label `nowrap` → boleh dua baris, tinggi tetap); detektor `narrow-viewport` kini menyebut teks yang meluber
+- [ ] **BUTUH PEMILIK.** Vercel → Environment Variables: `SUPABASE_SERVICE_ROLE_KEY` (kunci service_role project yang dipakai situs = staging saat ini), tandai Sensitive, redeploy — tanpa ini panel admin, pendataan kinerja, & ekspor kiriman tidak berjalan
+- [ ] **BUTUH PEMILIK.** Tempel 8 template email di Supabase (staging & produksi) sesuai `docs/email-templates.md`
+- [ ] Tinjau bawaan `profile_visibility = MEMBERS` untuk pengguna < 18 tahun bersama DPIA (ADR-077 risiko)
+- [ ] Foto profil (Storage + moderasi gambar); masa tenggang sebelum username yang dilepas bisa diklaim orang lain
+
+## Pertanyaan pendataan diatur admin, wilayah lengkap, bidang spesifik, tempat studi 2026-11-09 (@claude) — ADR-073–076
+
+- [x] Pendataan kinerja: `/admin/kinerja/pertanyaan` (3 bawaan bermode + FormBuilder terbatas, maks. 8), tombol Lewati (dicatat), dasbor per pertanyaan; migration `20261108100002` diubah di tempat (ADR-073)
+- [x] Wilayah Kepmendagri lengkap (`src/data/wilayah/`, `lib/wilayah*.ts`, `/api/wilayah/[kode]`, `RegionPicker`) + atribusi ODbL di `/sumber-data` (ADR-074)
+- [x] 7 kategori baru + 150 bidang spesifik (`users.study_fields`, induk otomatis), `MAJORS` ±260 prodi/jurusan (ADR-075)
+- [x] Direktori tempat studi dari Data Referensi Kemendikdasmen (`src/data/institutions.ts`, `/api/institusi`, `InstitutionPicker`), singkatan PT terkurasi; kartu "Tempat studi & domisili" di Data diri; tampil di profil publik, pratinjau, lobi, saran Koneksi lewat `public_profile_details()`; migration `20261109100001` (ADR-076)
+- [x] Kebijakan privasi (tempat studi, domisili, Lewati), ekspor data memuat tempat studi
+- [ ] Verifikasi email kampus untuk tanda "terverifikasi" (butuh daftar domain resmi per PT) (ADR-076 sengaja-tidak)
+- [ ] Saran Koneksi: alasan "satu kampus/sekolah" & saringan per kampus (perubahan `suggestPeople` di kedua repository)
+- [ ] Bidang spesifik di skor saran Koneksi / kecocokan tim (ADR-075 sengaja-tidak)
+- [ ] Filter lokasi acara ke 514 kab/kota: butuh normalisasi `events.location` + titik-tengah kab/kota (ADR-074 #3)
+- [ ] Perbarui data referensi berkala (crawler + `scripts/import-*.mjs`), tinjau diff
+
+## Daftar penyelenggara, pendataan kinerja, lobi, lencana publik, anti-regresi 2026-11-08 (@claude) — ADR-069–072
+
+- [x] Gabung `ccr-c5c96a43-8eijqc` (versi produksi, 8 migration) ke cabang kerja; Pengaturan tetap hub ADR-067 (pengingat email → Notifikasi, hapus akun → Privasi & data); uji gabungan diperbaiki (dialog konfirmasi ADR-067 di `trust-safety.spec.ts`)
+- [x] Form daftar penyelenggara terpisah berisi data lembaga + penanggung jawab + wewenang; migration `20261108100001` (`org_type`, `contact_role`); draf → form studio; antrean admin menampilkannya (ADR-069)
+- [x] Ulangi kata sandi di 4 form (daftar ×2, setel ulang, ganti) + kode `password_mismatch`/`same_password`/`weak_password`
+- [x] Email ganda saat daftar → `email_taken` + tautan Masuk/Lupa sandi; masuk & lupa sandi tetap seragam (AGENTS #12 diperbarui)
+- [x] Pendataan kinerja `/events/[slug]/sebelum-daftar` + `/admin/kinerja`; migration `20261108100002` (tanpa identitas, retensi 365 hari) (ADR-070)
+- [x] Lobi lomba `/lobi`, `/lobi/[slug]`; migration `20261108100003` (RLS timbal-balik, ajak koneksi, policy koneksi + `shares_lobby_with`) (ADR-071)
+- [x] Lencana opt-in di profil publik, pratinjau publik, & lobi; migration `20261108100004` (`show_badges`, `public_badge_facts`) (ADR-072)
+- [x] Kebijakan privasi & cookie memuat data/cookie baru; ekspor data memuat lobi, pilihan lencana, draf lembaga, jenis & jabatan
+- [x] Anti-regresi: `CHANGELOG.md`, `supabase/APPLIED_MIGRATIONS.txt` (dicocokkan ke produksi: 42), `migrations-manifest.test.ts`, `npm run check:sync`, Langkah 0 di AGENTS/CLAUDE
+- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan 4 migration `20261108100001..04` ke staging → uji alur dua akun (daftar penyelenggara email & Google, email ganda, lobi + ajak, lencana publik, pendataan) → produksi; tambahkan barisnya ke `supabase/APPLIED_MIGRATIONS.txt` di commit yang sama
+- [ ] **BUTUH PEMILIK.** Template email "Confirm signup" Supabase: pastikan tautan memakai `{{ .ConfirmationURL }}`/`token_hash` ke `/auth/callback` (draf lembaga ikut lewat metadata, tidak perlu ubah)
+- [ ] Putuskan cabang usang `ccr-a2058300-u92ao5` (verifikasi hasil oleh penyelenggara — kandidat lencana "Juara terverifikasi") & `ccr-4d61ed42-skxs6m` (digantikan ADR-056): port ulang atau hapus. Jangan merge mentah
+- [x] ~~Pantau klik keluar … tambah "Lewati"~~ — Lewati sudah ada sejak ADR-073; pantau porsi "Melewati" di `/admin/kinerja`
+- [ ] Lencana: notifikasi "tingkat baru" butuh catatan terakhir dilihat (tabel kecil) — ditunda (ADR-072)
+- [ ] Pertimbangkan SessionStart hook yang menjalankan `npm run check:sync` otomatis di awal setiap sesi agen
+
 ## Audit UX pra-domain: kembali, konfirmasi, Pengaturan, lencana 2026-11-05 (@claude) — ADR-067/068
 
 - [x] `BackLink` (hierarkis, ingat asal lewat `lib/nav-history.ts`, `via` untuk induk ganda) di semua anak Pengaturan, Data diri, Peminatan; menggantikan tautan kembali tulisan tangan di detail tim, papan lamaran, profil orang, pembayaran
@@ -478,24 +525,24 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Alasan penolakan kiriman → notifikasi & "Kirimanmu"
 - [x] `instrumentation.ts` + `ERROR_ALERT_WEBHOOK_URL`; `LegalUpdateBanner`; `GEMINI_MODEL` wajib
 - [x] Uji: unit 763, integrasi 95, e2e seed 754 (+ alur lapor→tangguhkan→cabut, hapus akun), e2e Supabase 11, pipeline test_models 15/15
-- [ ] **BUTUH KONFIRMASI.** Apply `20261030100001` dan `20261031100001` ke staging lalu produksi, `npm run db:verify`. Urutan rilis: migration DULU — `getSessionUser` membaca `users.suspended_at`; tanpa kolom itu query profil gagal, semua pengguna jatuh ke nama metadata & peran USER (admin kehilangan `/admin`) sampai migration diterapkan.
+- [x] **BUTUH KONFIRMASI.** Apply `20261030100001` dan `20261031100001` ke staging lalu produksi, `npm run db:verify`. Urutan rilis: migration DULU — `getSessionUser` membaca `users.suspended_at`; tanpa kolom itu query profil gagal, semua pengguna jatuh ke nama metadata & peran USER (admin kehilangan `/admin`) sampai migration diterapkan. — ✅ diterapkan (tercatat di `supabase/APPLIED_MIGRATIONS.txt`, dicocokkan ke produksi 2026-11-09)
 - [x] GoTrue & Storage sungguhan (Docker): `npm run test:integration:services` + job CI `integration`. Menemukan bug produksi: `banned_until = 'infinity'` membuat GoTrue menjawab 500 di setiap login akun tertangguh → kini `now() + 100 tahun` (ADR-061 #2).
 - [ ] Uji manual ulang di staging (versi GoTrue project bisa lebih baru dari v2.170): tangguhkan akun uji → masuk ditolak & sesi lain putus; hapus akun uji dengan bukti bayar → berkas hilang dari `payment-proofs`.
 - [ ] **BUTUH PEMILIK.** Isi `ERROR_ALERT_WEBHOOK_URL` (kanal Slack/Discord tim) dan `GEMINI_MODEL`.
 - [x] Pemberitahuan ke pelapor saat laporannya diputuskan — `REPORT_RESOLVED`/`REPORT_DISMISSED`; "ditindak" menutup semua laporan atas subjek yang sama (ADR-062 #1).
 - [x] Alarm job pg_cron gagal/telat — panel "Job terjadwal" di beranda admin + `ops-watchdog.yml` harian (ADR-062 #2).
-- [ ] **BUTUH KONFIRMASI.** Apply `20261101100001` dan `20261101100002` ke staging lalu produksi. Urutan bebas (beranda admin menampilkan "tidak bisa dibaca" sampai `cron_job_health()` ada).
+- [x] **BUTUH KONFIRMASI.** Apply `20261101100001` dan `20261101100002` ke staging lalu produksi. Urutan bebas (beranda admin menampilkan "tidak bisa dibaca" sampai `cron_job_health()` ada). — ✅ diterapkan (tercatat di `supabase/APPLIED_MIGRATIONS.txt`, dicocokkan ke produksi 2026-11-09)
 - [ ] **BUTUH PEMILIK.** Isi secret GitHub `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ERROR_ALERT_WEBHOOK_URL` supaya `ops-watchdog.yml` berjalan.
 - [x] MFA TOTP wajib untuk ADMIN — `is_admin()` aal2 + `checkAdminAccess()` + `/admin/mfa`; diuji dengan GoTrue sungguhan (integrasi & e2e UI) (ADR-062 #4).
-- [ ] **BUTUH KONFIRMASI.** Apply `20261101100003` ke staging lalu produksi. Umumkan dulu ke admin: semua sesi admin turun ke aal1 sampai autentikator dipasang. Cek Supabase Dashboard → Authentication → MFA: TOTP aktif.
+- [x] **BUTUH KONFIRMASI.** Apply `20261101100003` ke staging lalu produksi. Umumkan dulu ke admin: semua sesi admin turun ke aal1 sampai autentikator dipasang. Cek Supabase Dashboard → Authentication → MFA: TOTP aktif. TOTP di Dashboard tetap dicek pemilik (lihat butir Authentication di bawah). — ✅ diterapkan (tercatat di `supabase/APPLIED_MIGRATIONS.txt`, dicocokkan ke produksi 2026-11-09)
 - [x] Pengingat tenggat lewat email, opt-in: persetujuan + antrean tersaring + pengirim Resend + berhenti satu klik (ADR-062 #6).
-- [ ] **BUTUH KONFIRMASI.** Apply `20261101100005` ke staging lalu produksi SEBELUM kode (kode membaca `deadline_email_opt_in_at`; kartu Pengaturan jatuh ke "mati" bila kolomnya belum ada).
+- [x] **BUTUH KONFIRMASI.** Apply `20261101100005` ke staging lalu produksi SEBELUM kode (kode membaca `deadline_email_opt_in_at`; kartu Pengaturan jatuh ke "mati" bila kolomnya belum ada). — ✅ diterapkan (tercatat di `supabase/APPLIED_MIGRATIONS.txt`, dicocokkan ke produksi 2026-11-09)
 - [ ] **BUTUH PEMILIK.** Akun Resend + verifikasi domain pengirim (SPF/DKIM/DMARC), isi `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_LINK_SECRET` di hosting, dan secret GitHub `SITE_URL` + `CRON_SECRET` untuk `send-deadline-emails.yml`. Lalu uji kirim ke akun sendiri.
 - [x] Diskusi versi aman untuk MVP: Tanya jawab publik per kegiatan (tab "Tanya jawab", ADR-062 #7).
-- [ ] **BUTUH KONFIRMASI.** Apply `20261101100006` ke staging lalu produksi SEBELUM kode (tab Tanya jawab menampilkan daftar kosong & gagal mengirim bila RPC-nya belum ada).
+- [x] **BUTUH KONFIRMASI.** Apply `20261101100006` ke staging lalu produksi SEBELUM kode (tab Tanya jawab menampilkan daftar kosong & gagal mengirim bila RPC-nya belum ada). — ✅ diterapkan (tercatat di `supabase/APPLIED_MIGRATIONS.txt`, dicocokkan ke produksi 2026-11-09)
 - [ ] Pesan langsung & Ruang diskusi grup (masih mode demo; 404 di produksi) — SENGAJA ditunda: pengguna 13+ (PP 17/2025) butuh desain moderasi, blokir, & retensi khusus saluran privat. Bukan penghalang MVP.
 - [x] Buat acara dari studio: tetap lewat `/submit` + moderator (ADR-042, sengaja); tahapan jadwal (pengumpulan karya/pengumuman/final) kini bisa dikirim (ADR-062 #5).
-- [ ] **BUTUH KONFIRMASI.** Apply `20261101100004` ke staging lalu produksi SEBELUM kode: kiriman bertahapan yang disetujui dengan `approve_submission` lama kehilangan tahapannya (tidak gagal).
+- [x] **BUTUH KONFIRMASI.** Apply `20261101100004` ke staging lalu produksi SEBELUM kode: kiriman bertahapan yang disetujui dengan `approve_submission` lama kehilangan tahapannya (tidak gagal). — ✅ diterapkan (tercatat di `supabase/APPLIED_MIGRATIONS.txt`, dicocokkan ke produksi 2026-11-09)
 
 ## Staging Supabase 2026-10-31 (@claude) — ADR-062 #8
 
@@ -655,7 +702,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] CTA beranda tanpa teks latar berjalan.
 - [x] `docker build` belum dijalankan (tanpa daemon di lingkungan ini) — terbukti build & jalan 2026-10-25 (ADR-059); job CI `docker build` masih belum ada.
 - [x] Simpan alasan penolakan kiriman (kolom + form admin) supaya "Kirimanmu" bisa menyebut alasan spesifik. (ADR-061)
-- [ ] Terapkan migration 20260930100001–03 ke project Supabase — butuh persetujuan eksplisit pemilik.
+- [x] Terapkan migration 20260930100001–03 ke project Supabase — butuh persetujuan eksplisit pemilik. — ✅ diterapkan (tercatat di `supabase/APPLIED_MIGRATIONS.txt`, dicocokkan ke produksi 2026-11-09)
 
 ## Skalabilitas UI & ruang napas 2026-09-30 (@claude) — ADR-048
 
@@ -678,7 +725,7 @@ audit skala terukur 10k pengguna / 100k event, desain Fase 1–6). Menunggu pers
 - [ ] Hotspot terukur: listing tenggat + count ≈600 ms (Q1), `event_analytics` ≈420 ms (Q5), produsen notifikasi 823 ms + sort di disk (Q6) — Fase 6.
 - [ ] `reviewed_by` terbaca pemilik profil/klaim/revisi penyelenggara (hak SELECT se-tabel) — Fase 3.
 - [ ] Sitemap hanya 4.800 URL. (Retensi `notifications` & email kiriman selesai — ADR-060; `recommendation_signals` sengaja tanpa purge, keputusan pemilik 2026-09-30.)
-- [ ] Konfirmasi status migration produksi (brief vs catatan di atas tidak konsisten).
+- [x] Konfirmasi status migration produksi (brief vs catatan di atas tidak konsisten). — ✅ diterapkan (tercatat di `supabase/APPLIED_MIGRATIONS.txt`, dicocokkan ke produksi 2026-11-09)
 
 ## Redesain "buku sketsa" 2026-10-04 (@claude) — ADR-052
 

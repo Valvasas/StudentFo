@@ -100,6 +100,11 @@ export function seedDemoPortfolio(userId: string): void {
   memoryRepository().seedDemoPortfolio(userId);
 }
 
+export function seedDemoLobby(userId: string): void {
+  if (dataMode !== 'seed') throw new Error('seedDemoLobby hanya berlaku di mode seed.');
+  memoryRepository().seedDemoLobby(userId);
+}
+
 export function seedDemoParticipation(user: { id: string; fullName: string; email: string }): void {
   if (dataMode !== 'seed') throw new Error('seedDemoParticipation hanya berlaku di mode seed.');
   memoryRepository().seedDemoParticipation(user);

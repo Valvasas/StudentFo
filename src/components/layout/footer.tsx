@@ -13,6 +13,7 @@ const LEGAL_LINKS = [
   { href: '/terms', label: 'Syarat & Ketentuan' },
   { href: '/privacy-policy', label: 'Kebijakan privasi' },
   { href: '/cookie-policy', label: 'Kebijakan cookie' },
+  { href: '/sumber-data', label: 'Sumber data' },
 ] as const;
 
 const linkClass = 'inline-flex min-h-11 items-center text-ink-muted transition-colors duration-150 ease-snap hover:text-ink';

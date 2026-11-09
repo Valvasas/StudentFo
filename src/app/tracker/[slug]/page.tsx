@@ -18,6 +18,7 @@ import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatDateId, formatDateTimeId, getDeadlineState } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { withFallback } from '@/lib/fallback';
+import { hasRegistered } from '@/lib/lobby';
 import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
@@ -187,12 +188,21 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
     });
   }
   if (event.eventType === 'LOMBA' && !myTeam && item.status !== 'ACCEPTED' && item.status !== 'REJECTED') {
+    // Sudah mendaftar → lobi lomba (ADR-071): di sana tim terbuka, sesama peserta yang mencari tim, dan ajak teman.
+    const inLobby = hasRegistered(item.status, mine?.status ?? null);
     todos.push({
       title: 'Belum punya tim',
-      text: openTeams > 0 ? `${openTeams} tim untuk lomba ini masih mencari anggota.` : 'Belum ada tim yang mencari anggota. Kamu bisa membuat tim sendiri.',
+      text: inLobby
+        ? `Cari tim atau partner di antara sesama peserta di lobi lomba ini${openTeams > 0 ? ` — ${openTeams} tim masih mencari anggota` : ''}.`
+        : openTeams > 0
+          ? `${openTeams} tim untuk lomba ini masih mencari anggota.`
+          : 'Belum ada tim yang mencari anggota. Kamu bisa membuat tim sendiri.',
       action: (
-        <Link href={`/teams?kegiatan=${event.slug}`} className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 px-3.5 text-sm font-semibold hover:bg-panel-nested">
-          Cari tim <ArrowRight aria-hidden className="size-4" />
+        <Link
+          href={inLobby ? `/lobi/${event.slug}` : `/teams?kegiatan=${event.slug}`}
+          className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 px-3.5 text-sm font-semibold hover:bg-panel-nested"
+        >
+          {inLobby ? 'Masuk lobi' : 'Cari tim'} <ArrowRight aria-hidden className="size-4" />
         </Link>
       ),
     });

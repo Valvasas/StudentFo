@@ -11,9 +11,11 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
   data/error: `API_SPEC.md`. Gaya kode: `CONVENTIONS.md`. Alasan di balik
   keputusan yang tidak jelas dari kode: `DECISION.md` dan
   `supabase/DEVIATIONS.md`. Pekerjaan yang belum selesai: `TASKS.md`.
-- Repo ini **bukan** git repository saat ditulis (cek `git status` dulu
-  kalau kamu berencana melakukan operasi git — mungkin perlu `git init`
-  atas persetujuan user).
+- **Langkah 0:** `git fetch origin && npm run check:sync -- --fetch`, lalu
+  baca `CHANGELOG.md`. Banyak permintaan pemilik adalah pengulangan fitur yang
+  SUDAH dibuat di cabang yang tak tergabung — cek dulu sebelum membangun ulang.
+- Supabase MCP tersedia? Cocokkan `list_migrations` produksi
+  (`urmmihzjkkbxcwfzvuao`) dengan `supabase/APPLIED_MIGRATIONS.txt` (baca saja).
 
 ## Alur kerja yang disarankan
 
@@ -29,9 +31,13 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
 4. Kalau perubahan menyentuh migration Supabase: **jangan** jalankan
    `supabase db push` atau apply ke project remote tanpa konfirmasi
    eksplisit — itu operasi yang menyentuh state bersama.
-5. Perbarui `TASKS.md` (checklist) dan, kalau kamu membuat keputusan
-   arsitektural baru atau menyimpang dari sesuatu yang terdokumentasi,
+5. Perbarui `TASKS.md` (checklist), `CHANGELOG.md` (baris peta "versi yang
+   berlaku" bila perilaku pengguna berubah), dan — kalau kamu membuat keputusan
+   arsitektural baru atau menyimpang dari sesuatu yang terdokumentasi —
    tambahkan entri ke `DECISION.md`.
+6. Sebelum sesi berakhir: commit & push, dan sampaikan ke pemilik bila cabang
+   belum digabung ke `main`. Cabang yang menggantung adalah sumber "versi lama
+   dipakai lagi".
 
 ## Hal spesifik yang sering salah kalau tidak dicek dulu
 
@@ -56,6 +62,30 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
   Jangan pernah menaruh teks pesan di URL (ADR-019).
 - Migration yang membuat tabel/view/fungsi baru: `REVOKE … FROM anon,
   authenticated` eksplisit — `FROM PUBLIC` saja tidak cukup di Supabase (ADR-020).
+- Pengaturan akun = hub + halaman per konteks (ADR-067). Pengingat email
+  tinggal di `/profile/settings/notifikasi`, Hapus akun di `/profile/privacy`.
+  Jangan menyatukannya kembali ke satu halaman.
+- Server Action yang menuju tautan LUAR: `redirect(urlLuar)` langsung. Redirect
+  ke path internal yang lalu 303 ke luar membuat Next merender & mengikuti
+  tujuan itu di server (ADR-070).
+- Wilayah: `lib/wilayah.ts` (514 kab/kota, 7.285 kecamatan, ADR-074) untuk
+  "dari mana orangnya"; `lib/regions.ts` (`REGIONS`) TETAP untuk filter lokasi
+  acara & jarak tim karena butuh titik-tengah. Jangan menyatukan keduanya.
+- Data referensi besar (`src/data/institutions.ts`) = string TSV hasil
+  `scripts/import-institutions.mjs`, JANGAN diedit tangan dan jangan diubah ke
+  JSON (impor JSON multi-MB memperlambat `tsc` ±10 detik). Singkatan PT hanya
+  dari `src/data/institution-aliases.json` — jangan menebak singkatan.
+- Pertanyaan pendataan kinerja diatur admin (ADR-073): jangan menambah
+  pertanyaan di kode/CHECK SQL; ubah `DEFAULT_OUTBOUND_CONFIG` hanya bersama
+  baris bawaan migration (dikunci tes).
+- Keterlihatan profil (ADR-077) diatur `is_discoverable()`/`can_view_profile()`
+  + `users.profile_visibility`; jangan menambah jalur baca profil sendiri di
+  halaman. Tes yang menguji "orang tersembunyi" harus memasang NETWORK eksplisit.
+- Template email Auth: ubah `src/lib/email/auth-email-templates.ts` lalu
+  `npm run email:templates` — jangan edit `supabase/templates/*.html` langsung.
+- Migration yang akan diterapkan lewat Supabase MCP: hindari perintah hapus
+  (DROP …) bila ada padanan ALTER/CREATE OR REPLACE — MCP meminta konfirmasi
+  pemilik untuk perintah destruktif dan bisa habis waktu.
 - Proyek hanya punya SATU root (folder ini). Salinan lama yang dulu bertumpuk
   sudah dipindah keluar repo — jangan buat salinan proyek di dalam repo.
 

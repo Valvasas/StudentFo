@@ -1,6 +1,7 @@
 import { buildAccountExport } from '@/lib/account-export';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { jakartaDateKey } from '@/lib/deadline';
 import { CONNECTION_PAGE } from '@/lib/network';
 
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(): Promise<Response> {
   const user = await requireUser('/profile/privacy');
   const repository = await getEventRepository();
-  const [saved, tracker, registrations, teams, network, connections, blocked, seeker, submissions, organizer, notifications, notificationPreferences, deadlineEmailOptIn, eventQuestions] = await Promise.all([
+  const [saved, tracker, registrations, teams, network, connections, blocked, seeker, submissions, organizer, notifications, notificationPreferences, deadlineEmailOptIn, eventQuestions, lobbies, badgeVisibility, studyProfile, identity] = await Promise.all([
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
     repository.listMyRegistrations(user.id),
@@ -23,12 +24,16 @@ export async function GET(): Promise<Response> {
     repository.listConnections(user.id, { limit: CONNECTION_PAGE.maxLimit, cursor: null }),
     repository.listBlockedPeople(user.id),
     repository.getSeekerProfile(user.id),
-    repository.listMySubmissions(user.id, 200),
+    withFallback('kiriman (ekspor)', () => repository.listMySubmissions(user.id, 200), null),
     repository.getOrganizerProfile(user.id),
     repository.listNotifications(user.id, 200),
     repository.getNotificationPreferences(user.id),
     repository.getDeadlineEmailOptIn(user.id),
     repository.listMyEventQuestions(user.id),
+    repository.listMyLobbies(user.id),
+    repository.getBadgeVisibility(user.id),
+    repository.getStudyProfile(user.id),
+    repository.getProfileIdentity(user.id),
   ]);
 
   const body = buildAccountExport({
@@ -48,6 +53,10 @@ export async function GET(): Promise<Response> {
     notificationPreferences,
     deadlineEmailOptIn,
     eventQuestions,
+    lobbies,
+    showBadges: badgeVisibility.show,
+    studyProfile,
+    identity,
   });
 
   return new Response(JSON.stringify(body, null, 2), {

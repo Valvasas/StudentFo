@@ -56,10 +56,13 @@ export function RegistrationFieldInput({
   field,
   invalid = false,
   disabled = false,
+  radioMax = RADIO_MAX,
 }: {
   field: FormField;
   invalid?: boolean;
   disabled?: boolean;
+  /** Pendataan kinerja (ADR-073) menaikkan ini: satu ketukan lebih cepat daripada membuka daftar turun. */
+  radioMax?: number;
 }) {
   const id = fieldInputId(field);
   const name = answerInputName(field);
@@ -104,7 +107,7 @@ export function RegistrationFieldInput({
     );
   }
 
-  if (field.type === 'multi_select' || (field.type === 'select' && field.options.length <= RADIO_MAX)) {
+  if (field.type === 'multi_select' || (field.type === 'select' && field.options.length <= radioMax)) {
     const single = field.type === 'select';
     return (
       <fieldset

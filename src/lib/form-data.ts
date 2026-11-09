@@ -19,3 +19,10 @@ export function formTrimmed(formData: FormData, name: string): string {
 export function formList(formData: FormData, name: string): string[] {
   return formData.getAll(name).filter((value): value is string => typeof value === 'string');
 }
+
+/**
+ * Awalan kunci sessionStorage penahan isian form akun (`FieldMemory`).
+ * Di sini, bukan di komponennya: modul `'use client'` yang diimpor Server
+ * Component (Kebijakan cookie) memberi referensi klien, bukan nilai string.
+ */
+export const FIELD_MEMORY_PREFIX = 'sf_form:';

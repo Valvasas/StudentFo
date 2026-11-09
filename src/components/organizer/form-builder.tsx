@@ -108,7 +108,18 @@ const noop = () => () => {};
  * Validasi di sini hanya untuk pesan yang cepat; `parseRegistrationFormInput`
  * di server tetap gerbangnya.
  */
-export function FormBuilder({ initialFields }: { initialFields: readonly FormField[] }) {
+export function FormBuilder({
+  initialFields,
+  types = FORM_FIELD_TYPES,
+  maxFields = LIMITS.maxFields,
+  emptyText = 'Belum ada pertanyaan tambahan. Pendaftar cukup mengirim nama & email akunnya.',
+}: {
+  initialFields: readonly FormField[];
+  /** Jenis yang boleh dipilih — pendataan kinerja (ADR-073) membatasinya ke jenis yang bisa dihitung & anonim. */
+  types?: readonly FormFieldType[];
+  maxFields?: number;
+  emptyText?: string;
+}) {
   const [fields, setFields] = useState<DraftField[]>(() => initialFields.map(toDraft));
   const [openId, setOpenId] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
@@ -209,7 +220,7 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
     announce(`“${titleOf(removed.field)}” dikembalikan.`);
   };
 
-  const full = fields.length >= LIMITS.maxFields;
+  const full = fields.length >= maxFields;
 
   return (
     <div ref={rootRef} className="flex flex-col gap-3">
@@ -222,7 +233,7 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
 
       {fields.length === 0 ? (
         <p className="rounded-card border border-dashed border-line px-4 py-6 text-center text-sm text-ink-muted">
-          Belum ada pertanyaan tambahan. Pendaftar cukup mengirim nama & email akunnya.
+          {emptyText}
         </p>
       ) : (
         <ol className="flex flex-col gap-2.5">
@@ -235,6 +246,7 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
               open={openId === field.id}
               interactive={hydrated}
               showProblem={attempted}
+              types={types}
               onToggle={() => setOpenId((current) => (current === field.id ? null : field.id))}
               onDone={() => {
                 setOpenId(null);
@@ -290,7 +302,7 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
             </button>
           </div>
           <ul aria-labelledby="pilih-jenis" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-            {FORM_FIELD_TYPES.map((type, typeIndex) => {
+            {types.map((type, typeIndex) => {
               const Icon = TYPE_ICON[type];
               return (
                 <li key={type}>
@@ -323,7 +335,7 @@ export function FormBuilder({ initialFields }: { initialFields: readonly FormFie
             <Plus aria-hidden /> Tambah pertanyaan
           </button>
           <span className="text-[12.5px] text-ink-muted">
-            {full ? `Batas ${LIMITS.maxFields} pertanyaan tercapai.` : `${fields.length} dari ${LIMITS.maxFields} pertanyaan`}
+            {full ? `Batas ${maxFields} pertanyaan tercapai.` : `${fields.length} dari ${maxFields} pertanyaan`}
           </span>
         </div>
       )}
@@ -342,6 +354,7 @@ function QuestionCard({
   open,
   interactive,
   showProblem,
+  types,
   onToggle,
   onDone,
   onChange,
@@ -354,6 +367,7 @@ function QuestionCard({
   open: boolean;
   interactive: boolean;
   showProblem: boolean;
+  types: readonly FormFieldType[];
   onToggle: () => void;
   /** "Selesai" menutup editor tempat tombolnya berada — fokus harus dipindah ke kepala kartu, bukan jatuh ke <body>. */
   onDone: () => void;
@@ -443,7 +457,7 @@ function QuestionCard({
                   onChange({ type, options });
                 }}
               >
-                {FORM_FIELD_TYPES.map((type) => (
+                {types.map((type) => (
                   <option key={type} value={type}>
                     {FORM_FIELD_TYPE_LABEL[type]}
                   </option>

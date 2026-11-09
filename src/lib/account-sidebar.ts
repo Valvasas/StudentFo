@@ -1,4 +1,5 @@
 import {
+  DoorOpen,
   BadgeCheck,
   Bookmark,
   Hash,
@@ -56,6 +57,7 @@ export type AccountSection =
   | 'diskusi'
   | 'daftar'
   | 'pembayaran'
+  | 'lobi'
   | 'koneksi'
   | 'cocok'
   | 'tersimpan'
@@ -118,6 +120,8 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
     items: [
       { key: 'daftar', label: 'Papan lamaran', href: '/tracker', icon: ListChecks },
       { key: 'pembayaran', label: 'Pendaftaran & pembayaran', href: '/pembayaran', icon: ReceiptText, badge: 'payment' },
+      // Lobi = langkah sesudah mendaftar lomba (ADR-071), jadi tepat di bawah pendaftaran.
+      { key: 'lobi', label: 'Lobi lomba', href: '/lobi', icon: DoorOpen },
       { key: 'tersimpan', label: 'Tersimpan', href: '/profile?tab=tersimpan', icon: Bookmark, badge: 'saved' },
       ...(options.demoFeatures
         ? [

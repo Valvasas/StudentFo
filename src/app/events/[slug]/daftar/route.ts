@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { registrationEventClosed } from '@/components/registration/registration-view';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { siteUrl } from '@/lib/env';
-import { withFallback } from '@/lib/fallback';
+import { isSurveyEmpty } from '@/lib/outbound-survey';
+import { hasAnsweredOutboundSurvey } from '@/lib/outbound-survey-cookie';
 import { recordSignal } from '@/lib/recommendation-signals';
-import { sanitizeExternalUrl } from '@/lib/utils';
+import { registrationDestination } from '@/lib/registration-destination';
 
 /**
  * Keluar ke tautan pendaftaran lewat server, supaya klik "Daftar" — sinyal
@@ -19,8 +19,27 @@ import { sanitizeExternalUrl } from '@/lib/utils';
  * Acara yang menerima pendaftaran lewat formulir StudentFo (ADR-056) diarahkan
  * ke formulir itu, bukan tautan luar — sama dengan `registrationCta` di
  * halaman acara — supaya pendaftar tidak lolos dari alur bayar & verifikasi.
- * Kliknya tetap dicatat: niatnya sama, hanya tujuannya yang berbeda.
+ *
+ * Tujuan LUAR melewati pendataan kinerja dulu (ADR-070): sekali per acara per
+ * peramban, dijawab atau dilewati (ADR-073). Aksi pendataan lalu mengantar langsung ke tujuan & mencatat klik
+ * sendiri (tujuan dari `registrationDestination()` yang sama); di sini klik
+ * hanya dicatat saat benar-benar keluar, jadi tidak terhitung dua kali.
  */
+/**
+ * Admin mematikan semua pertanyaan (ADR-073) = tidak ada layar pendataan.
+ * Konfigurasi yang gagal dimuat juga = langsung ke pendaftaran: statistik
+ * tidak pernah boleh menahan orang di depan pintu pendaftaran.
+ */
+async function shouldAskSurvey(eventId: string, repository: Awaited<ReturnType<typeof getEventRepository>>): Promise<boolean> {
+  if (await hasAnsweredOutboundSurvey(eventId)) return false;
+  try {
+    return !isSurveyEmpty(await repository.getOutboundSurveyConfig());
+  } catch (error) {
+    console.error('[pendataan-kinerja] konfigurasi gagal dimuat:', error);
+    return false;
+  }
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
@@ -30,15 +49,14 @@ export async function GET(
   const event = await repository.getEventBySlug(slug);
   if (!event) return NextResponse.redirect(new URL('/events', siteUrl), 303);
 
-  // Gagal dibaca = perilaku lama (tautan luar), seperti halaman acara yang memperlakukannya sebagai "tanpa formulir".
-  const form = await withFallback('formulir pendaftaran', () => repository.getRegistrationForm(event.id), null);
-  const internal = form?.isOpen && !registrationEventClosed(event) ? new URL(`/events/${event.slug}/formulir`, siteUrl) : null;
-  const destination = internal ?? sanitizeExternalUrl(event.registrationLink);
-
+  const destination = await registrationDestination(event, repository);
   if (!destination) {
     return NextResponse.redirect(new URL(`/events/${event.slug}`, siteUrl), 303);
   }
+  if (destination.kind === 'external' && (await shouldAskSurvey(event.id, repository))) {
+    return NextResponse.redirect(new URL(`/events/${event.slug}/sebelum-daftar`, siteUrl), 303);
+  }
 
   await recordSignal('register_click', event.id, await getSessionUser());
-  return NextResponse.redirect(destination, 303);
+  return NextResponse.redirect(destination.url, 303);
 }

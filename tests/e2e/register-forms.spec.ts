@@ -57,7 +57,7 @@ test('daftar penyelenggara: galat server tidak menghapus isian panjang (sandi ti
 
   await page.getByRole('button', { name: 'Daftarkan lembaga' }).click();
   await expect(page).toHaveURL(/\/penyelenggara\/daftar\?error=unavailable/);
-  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: /belum aktif/ })).toBeVisible();
 
   await expect(page.getByLabel('Nama lembaga / organisasi')).toHaveValue('Himpunan Mahasiswa Uji');
   await expect(page.getByLabel('Jenis lembaga')).toHaveValue('ORMAWA');
@@ -70,12 +70,13 @@ test('daftar penyelenggara: galat server tidak menghapus isian panjang (sandi ti
 
 test('email sudah terdaftar: pesan terang + jalan keluar ke pintu masuk yang benar', async ({ page }) => {
   await page.goto('/penyelenggara/daftar?error=email_taken&email=siti%40himpunan.ac.id');
-  const alert = page.getByRole('alert');
+  // Pengumum rute Next juga ber-role alert — saring menurut isi.
+  const alert = page.getByRole('alert').filter({ hasText: 'Email ini sudah terdaftar' });
   await expect(alert).toContainText('Email ini sudah terdaftar');
   await expect(alert.getByRole('link', { name: 'Masuk' })).toHaveAttribute('href', '/penyelenggara/masuk?email=siti%40himpunan.ac.id');
   await expect(alert.getByRole('link', { name: 'Lupa kata sandi' })).toHaveAttribute('href', '/forgot-password?email=siti%40himpunan.ac.id');
 
   // `?email=` bisa diisi siapa saja: yang bukan email tidak diteruskan ke tautan.
   await page.goto('/register?error=email_taken&email=hubungi%20wa.me%2F123');
-  await expect(page.getByRole('alert').getByRole('link', { name: 'Masuk' })).toHaveAttribute('href', '/login');
+  await expect(page.getByRole('alert').filter({ hasText: 'Email ini sudah terdaftar' }).getByRole('link', { name: 'Masuk' })).toHaveAttribute('href', '/login');
 });

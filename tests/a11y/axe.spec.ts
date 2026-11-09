@@ -34,11 +34,15 @@ const STATIC_ROUTES = [
   '/privacy-policy',
   '/cookie-policy',
   '/terms',
+  '/sumber-data',
   '/berhenti-email?token=tidak-valid',
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya',
   '/about',
   '/connections',
   '/halaman-yang-tidak-ada',
+  // Pendataan kinerja sebelum tautan resmi (ADR-070): tanpa & dengan pertanyaan rencana (lomba).
+  '/events/program-relawan-literasi-desa-angkatan-7/sebelum-daftar',
+  '/events/olimpiade-matematika-pelajar-tingkat-nasional/sebelum-daftar',
 ];
 
 async function expectNoViolations(page: Page) {
@@ -63,6 +67,15 @@ async function expectNoViolations(page: Page) {
 for (const route of STATIC_ROUTES) {
   test(`tanpa pelanggaran WCAG: ${route}`, async ({ page }) => {
     await page.goto(route);
+    await expectNoViolations(page);
+  });
+}
+
+// Form daftar SUNGGUHAN (ADR-069): di host demo keduanya diganti tombol persona,
+// jadi diaudit lewat host yang bukan host demo.
+for (const route of ['/register', '/penyelenggara/daftar', '/penyelenggara/daftar?error=email_taken&email=a%40b.id']) {
+  test(`tanpa pelanggaran WCAG (form sungguhan): ${route}`, async ({ page, baseURL }) => {
+    await page.goto(`${new URL(baseURL!).origin.replace('localhost', '127.0.0.1')}${route}`);
     await expectNoViolations(page);
   });
 }
@@ -108,6 +121,8 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],
   ['Admin moderator', '/admin/riwayat'],
   ['Admin moderator', '/admin/kalibrasi'],
+  ['Admin moderator', '/admin/kinerja'],
+  ['Admin moderator', '/admin/kinerja/pertanyaan'],
   ['Admin moderator', '/admin/promosi'],
   ['Admin moderator', '/admin/laporan'],
   ['Admin moderator', '/admin/pengguna'],
@@ -135,12 +150,19 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   // masuk dengan next=/ sengaja diarahkan ke studionya.
   ['Siswa baru', '/'],
   ['Mahasiswa', '/tracker'],
+  // Lobi lomba (ADR-071): daftar, lobi berisi (belum bergabung), lomba yang belum didaftar.
+  ['Mahasiswa', '/lobi'],
+  ['Mahasiswa', '/lobi/kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
+  ['Mahasiswa', '/lobi/olimpiade-matematika-pelajar-tingkat-nasional'],
   ['Mahasiswa', '/profile'],
   ['Mahasiswa', '/teams'],
   ['Mahasiswa', '/teams/baru'],
   ['Mahasiswa', '/teams/baru?error=invalid_team_form'],
   ['Mahasiswa', '/profile/details'],
   ['Mahasiswa', '/profile/details?ubah=pendidikan'],
+  ['Mahasiswa', '/profile/details?ubah=asal'],
+  ['Mahasiswa', '/profile/details?ubah=publik'],
+  ['Mahasiswa', '/u/rani.prameswari'],
   ['Mahasiswa', '/profile/interests'],
   ['Mahasiswa', '/profile/settings'],
   ['Mahasiswa', '/profile/settings/keamanan'],
@@ -166,7 +188,7 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/profile?tab=portofolio'],
   ['Mahasiswa', '/profile?tampilan=publik&tab=portofolio'],
   ['Mahasiswa', '/tracker/lomba-desain-ui-ux-nasional-edisi-lalu'],
-  ['Mahasiswa', '/orang/seed-user-1'],
+  ['Mahasiswa', '/orang/seed-user-5'],
 ];
 
 test('tanpa pelanggaran WCAG: status pendaftaran & persiapan', async ({ page }) => {

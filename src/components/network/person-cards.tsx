@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 import type { BlockedPerson, Connection, NetworkPerson } from '@/types/domain';
 import { BLOCK_CONSEQUENCE, BlockPersonDetails, BlockPersonForm } from './block-person';
 import { ConnectionMessageField } from './connection-message-field';
+import { StudyPlaceLine } from '@/components/profile/study-place';
+import type { StudyPlaceView } from '@/lib/study-profile';
 
 /**
  * Daftar orang di halaman Koneksi — Server Component, semua aksinya
@@ -90,12 +92,15 @@ export function SuggestionCard({
   categoryName,
   returnTo,
   preview = false,
+  study = null,
 }: {
   person: NetworkPerson;
   reasons: readonly SuggestionReason[];
   viewerInterests: readonly string[];
   categoryName: (slug: string) => string;
   returnTo: string;
+  /** Tempat studi & kab/kota (ADR-076) — hanya bila `public_profile_details` mengizinkan pembaca ini. */
+  study?: StudyPlaceView | null;
   /** Pratinjau "yang dilihat orang lain" di Pengaturan: tanpa form (tidak boleh bersarang di form pengaturan). */
   preview?: boolean;
 }) {
@@ -108,6 +113,7 @@ export function SuggestionCard({
       <div className="flex flex-1 flex-col gap-3.5 px-5 pb-5">
         <Avatar name={person.fullName} seed={person.userId} size="lg" ring className="-mt-8" />
         <PersonHeading person={person} link={!preview} />
+        {study && <StudyPlaceLine view={study} className="-mt-1.5" />}
         {person.headline && <p className="-mt-1 line-clamp-2 text-[14px] leading-relaxed text-ink-soft">{person.headline}</p>}
         {/* Alasan sudah menyebut minat yang sama; chip minat di sampingnya
             mengulang fakta yang sama. Chip hanya tampil saat tidak ada alasan

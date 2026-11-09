@@ -21,6 +21,8 @@ test('lapor pengguna → admin menangguhkan → sesi terlapor putus → dicabut 
   await b.getByRole('switch', { name: /Tampilkan aku di Cari Koneksi/ }).check();
   await b.getByLabel('Headline').fill(token);
   await b.getByRole('button', { name: 'Simpan pengaturan' }).click();
+  // Membuat diri terlihat dikonfirmasi lewat dialog (ADR-067 §5) — tes ini ditulis sebelum dialognya ada.
+  await b.getByRole('alertdialog').getByRole('button', { name: 'Ya, tampilkan' }).click();
   await expect(b).toHaveURL(/notice=network_profile_saved/);
 
   // A menemukan B lalu melaporkannya.

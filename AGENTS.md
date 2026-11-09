@@ -19,6 +19,21 @@ apa pun (`npm install && npm run dev`). Tanpa env Supabase, `dataMode` jatuh
 ke `'seed'` dan seluruh UI dilayani `MemoryEventRepository`. Jangan pernah
 membuat perubahan yang mensyaratkan Supabase untuk `npm run dev` berhasil.
 
+## Langkah 0 — SEBELUM menulis kode apa pun
+
+```bash
+git fetch origin && npm run check:sync -- --fetch
+```
+
+Lalu baca **`CHANGELOG.md`** (peta "versi yang berlaku sekarang" vs versi
+lama yang sudah diganti). Gagal di sini = kamu sedang membangun di atas versi
+lama — gabungkan dulu, jangan lanjut. Ini bukan formalitas: fitur yang sudah
+ada (pintu daftar penyelenggara, Pengaturan per konteks) pernah dibangun ulang
+dari nol karena sesi mulai dari `main` yang tertinggal dari cabang yang
+migration-nya sudah di produksi (ADR-066, ADR-069). Menerapkan migration ke
+produksi = tambahkan barisnya ke `supabase/APPLIED_MIGRATIONS.txt` di commit
+yang sama, dan pastikan commit itu masuk `main`.
+
 ## Perintah wajib sebelum menganggap tugas selesai
 
 ```bash
@@ -86,9 +101,12 @@ python pipeline/run.py --config pipeline/config/sources.yaml --dry-run
     `supabase.auth.getUser()`), tidak pernah `getSession()`.** `getSession()`
     hanya membaca cookie dan mempercayainya; hanya `getUser()` yang
     memverifikasi token ke server auth.
-12. **Alur akun tidak boleh membocorkan apakah sebuah email terdaftar.**
-    Login, daftar, dan lupa-sandi memakai pesan yang sama untuk "salah
-    sandi" dan "email tidak ada". Lihat `src/lib/auth-messages.ts`.
+12. **Masuk & lupa-sandi tidak boleh membocorkan apakah sebuah email terdaftar.**
+    Keduanya memakai pesan yang sama untuk "salah sandi" dan "email tidak
+    ada". DAFTAR adalah pengecualian sadar (ADR-069, keputusan pemilik):
+    `email_taken` dijawab terang, tetapi HANYA setelah batas laju per IP &
+    CAPTCHA lolos. Jangan perluas pengecualian ini ke masuk/lupa sandi.
+    Lihat `src/lib/auth-messages.ts`.
 13. **Tujuan redirect dari URL selalu lewat `safeNextPath()`**
     (`src/lib/safe-redirect.ts`). `?next=` mentah = open redirect.
 14. **Tabel baru dengan kolom sensitif: atur hak per KOLOM, bukan hanya

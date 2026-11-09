@@ -24,6 +24,18 @@ async function overflowOf(page: Page): Promise<{ page: number; offenders: string
       .filter((node) => !node.closest('[aria-hidden="true"]') && !node.closest('.skip-link'))
       .map((node) => `${node.tagName.toLowerCase()}.${String(node.getAttribute('class') ?? '').split(' ').slice(0, 3).join('.')} → ${Math.round(node.getBoundingClientRect().right - width)}px`)
       .slice(0, 5);
+    // Teks yang meluber dari kotaknya sendiri (mis. label tombol `whitespace-nowrap`) tidak membuat kotak
+    // mana pun melewati tepi — tanpa ini pesan gagalnya `[]` dan pelakunya harus dicari manual.
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode() && offenders.length < 8) {
+      const text = walker.currentNode;
+      const parent = text.parentElement;
+      if (!parent || !text.textContent?.trim() || parent.closest('[aria-hidden="true"], .skip-link')) continue;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      const right = Math.max(0, ...[...range.getClientRects()].map((rect) => rect.right));
+      if (right > width + 1) offenders.push(`teks "${(text.textContent ?? '').trim().slice(0, 40)}" di <${parent.tagName.toLowerCase()}> → ${Math.round(right - width)}px`);
+    }
     return { page: document.documentElement.scrollWidth - width, offenders };
   });
 }
@@ -48,16 +60,26 @@ const GUEST_ROUTES = [
   '/privacy-policy',
   '/cookie-policy',
   '/terms',
+  '/sumber-data',
   '/berhenti-email?token=tidak-valid',
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya',
+  '/events/olimpiade-matematika-pelajar-tingkat-nasional/sebelum-daftar',
 ];
 const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],
   ['Admin moderator', '/admin/riwayat'],
   ['Admin moderator', '/admin/kalibrasi'],
+  ['Admin moderator', '/admin/kinerja'],
+  ['Admin moderator', '/admin/kinerja/pertanyaan'],
   ['Mahasiswa', '/tracker'],
+  ['Mahasiswa', '/lobi'],
+  ['Mahasiswa', '/lobi/kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
   ['Mahasiswa', '/profile'],
   ['Mahasiswa', '/profile/details'],
+  ['Mahasiswa', '/profile/details?ubah=asal'],
+  ['Mahasiswa', '/profile/details?ubah=publik'],
+  ['Mahasiswa', '/u/rani.prameswari'],
+  ['Mahasiswa', '/profile/interests'],
   ['Mahasiswa', '/profile/settings'],
   ['Mahasiswa', '/profile/settings/keamanan'],
   ['Mahasiswa', '/profile/settings/notifikasi'],
@@ -72,7 +94,7 @@ const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/discussions'],
   ['Mahasiswa', '/profile?tab=portofolio'],
   ['Mahasiswa', '/tracker/lomba-desain-ui-ux-nasional-edisi-lalu'],
-  ['Mahasiswa', '/orang/seed-user-1'],
+  ['Mahasiswa', '/orang/seed-user-5'],
   ['Penyelenggara', '/penyelenggara'],
   ['Penyelenggara', '/'],
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/formulir'],

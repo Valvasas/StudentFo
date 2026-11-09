@@ -3,8 +3,11 @@ import { ContactNote, InlineLink, LegalDocument, privacyStatus, type LegalSectio
 import { ACCOUNT_SIDEBAR_COOKIE } from '@/lib/account-sidebar';
 import { MOTION_STORAGE_KEY, THEME_STORAGE_KEY } from '@/lib/appearance';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { FIELD_MEMORY_PREFIX } from '@/lib/form-data';
 import { DEMO_SESSION_COOKIE } from '@/lib/demo/session';
 import type { LegalDocumentStatus } from '@/lib/legal';
+import { ORGANIZER_DRAFT_COOKIE } from '@/lib/organizer-draft-cookie';
+import { OUTBOUND_SURVEY_COOKIE } from '@/lib/outbound-survey-cookie';
 
 export const metadata: Metadata = {
   title: 'Kebijakan cookie',
@@ -38,6 +41,20 @@ const COOKIES: readonly StorageItem[] = [
     names: ['sb-…-auth-token-code-verifier'],
     purpose: 'Mengamankan proses masuk dengan Google (PKCE) supaya sesi tidak bisa dibajak di tengah jalan.',
     lifetime: 'Hanya selama proses masuk',
+    category: 'Wajib',
+  },
+  {
+    names: [ORGANIZER_DRAFT_COOKIE],
+    purpose:
+      'Membawa data lembaga dari form daftar penyelenggara melewati proses masuk dengan Google, lalu langsung dihapus. Hanya dikirim ke halaman masuk (HttpOnly).',
+    lifetime: '30 menit, atau sampai proses masuk selesai',
+    category: 'Wajib',
+  },
+  {
+    names: [OUTBOUND_SURVEY_COOKIE],
+    purpose:
+      'Mengingat acara mana yang pendataan singkatnya sudah kamu jawab atau lewati, supaya tidak ditanya ulang saat menekan Daftar. Hanya berisi id acara, tanpa jawabanmu (HttpOnly).',
+    lifetime: '180 hari',
     category: 'Wajib',
   },
   {
@@ -75,6 +92,13 @@ const BROWSER_STORAGE: readonly StorageItem[] = [
     purpose:
       'Kartu yang kamu lewati (hanya penanda orangnya), draf kartu pemainmu supaya tidak hilang bila penyimpanan gagal, dan tanda petunjuk geser sudah tampil (sessionStorage).',
     lifetime: 'Hilang saat tab ditutup; draf juga dihapus begitu kartumu tersimpan',
+    category: 'Wajib',
+  },
+  {
+    names: [`${FIELD_MEMORY_PREFIX}…`],
+    purpose:
+      'Salinan isian form daftar (tanpa kata sandi) supaya tidak perlu diketik ulang bila server menolak kiriman, mis. verifikasi anti-bot kedaluwarsa (sessionStorage).',
+    lifetime: 'Hilang saat tab ditutup; dibuang saat form dibuka tanpa galat',
     category: 'Wajib',
   },
 ];

@@ -41,8 +41,12 @@ export function DeleteAccountCard({ delay }: { delay: number }) {
             </SubmitButton>
           </form>
         </details>
-        <p className="text-[12.5px] text-ink-muted">
-          Ingin berhenti sementara saja? <Link href="/profile/settings/keamanan" className="font-medium underline underline-offset-[3px]">Keluar dari semua perangkat</Link> tanpa menghapus data.
+        <p className="flex flex-wrap items-center gap-x-1 text-[12.5px] text-ink-muted">
+          Ingin berhenti sementara saja?
+          <Link href="/profile/settings/keamanan" className="inline-flex min-h-11 items-center font-medium underline underline-offset-[3px]">
+            Keluar dari semua perangkat
+          </Link>
+          tanpa menghapus data.
         </p>
       </div>
     </DetailCard>

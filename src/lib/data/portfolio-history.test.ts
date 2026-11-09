@@ -79,6 +79,7 @@ describe('MemoryEventRepository — portofolio', () => {
   });
 
   it('aturan kelihatan = jaringan: tersembunyi tertutup, ajakan membuka, blokir menutup', async () => {
+    await repository.saveProfileIdentity('budi', { username: null, bio: null, visibility: 'NETWORK' });
     await repository.upsertTrackerItem('budi', OPEN_LOMBA, 'APPLIED');
     expect(await repository.getPublicProfile('ana', 'budi')).toBeNull();
 

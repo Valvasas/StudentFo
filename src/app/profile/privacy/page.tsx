@@ -10,6 +10,7 @@ import { DemoPrivacyControls } from '@/components/profile/privacy-controls';
 import { BackLink } from '@/components/ui/back-link';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -36,15 +37,21 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
   const params = await searchParams;
   const user = await requireUser('/profile/privacy');
   const repository = await getEventRepository();
-  const [saved, tracker, registrations, network, seeker] = await Promise.all([
+  const [saved, tracker, registrations, network, seeker, identity] = await Promise.all([
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
     repository.listMyRegistrations(user.id),
     repository.getNetworkProfile(user.id),
     repository.getSeekerProfile(user.id),
+    withFallback('profil publik', () => repository.getProfileIdentity(user.id), null),
   ]);
 
-  const visibleBecause = [network.discoverable && 'profilmu terlihat di Koneksi', seeker?.open && 'kartu pemainmu terbuka'].filter(Boolean);
+  // Cermin can_view_profile() (ADR-077): profil terbuka untuk anggota adalah bawaan.
+  const visibleBecause = [
+    identity?.available && identity.visibility === 'MEMBERS' && 'kamu memilih profil terbuka untuk semua anggota',
+    network.discoverable && 'profilmu terlihat di Koneksi',
+    seeker?.open && 'kartu pemainmu terbuka',
+  ].filter(Boolean);
   const activeRegistrations = registrations.filter((registration) => registration.status !== 'CANCELLED');
 
   return (
@@ -86,9 +93,12 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
                   visibleBecause.length > 0 ? (
                     <>
                       <span className="block">
-                        Profil publikmu tanpa email (nama, headline, jurusan, jenjang, minat, portofolio publik), karena {visibleBecause.join(' dan ')}.
+                        Profil publikmu tanpa email & kecamatan (nama, username, bio, headline, jurusan, jenjang, kampus/sekolah, kab/kota, minat, portofolio publik), karena {visibleBecause.join(', ')}.
                       </span>
                       <span className="flex flex-wrap gap-x-5">
+                        <Link href="/profile/details?ubah=publik#publik" className={actionLink}>
+                          Atur siapa yang boleh membuka profil
+                        </Link>
                         <Link href="/connections?tab=pengaturan" className={actionLink}>
                           Atur visibilitas Koneksi
                         </Link>
@@ -98,7 +108,7 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
                       </span>
                     </>
                   ) : (
-                    'Tidak ada — profilmu tersembunyi dan kartu pemainmu tertutup'
+                    'Hanya koneksimu & sesama peserta lobi lomba — profilmu "hanya koneksi", tidak muncul di Koneksi, dan kartu pemainmu tertutup'
                   ),
                 wide: true,
               },

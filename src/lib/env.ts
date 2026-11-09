@@ -199,3 +199,11 @@ export const dataMode: DataMode = resolveDataMode({
 });
 
 export const siteUrl = env.NEXT_PUBLIC_SITE_URL;
+
+/**
+ * Panel moderasi & data lintas pengguna butuh `SUPABASE_SERVICE_ROLE_KEY`.
+ * Tanpa kunci itu halaman admin dulu crash dengan galat mentah (tercatat di
+ * log Vercel 8–9 Nov) — kini menampilkan petunjuk pengisiannya. Mode seed
+ * tidak butuh kunci apa pun.
+ */
+export const adminDataAvailable: boolean = dataMode === 'seed' || Boolean(env.SUPABASE_SERVICE_ROLE_KEY);

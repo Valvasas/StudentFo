@@ -490,6 +490,14 @@ export const SEED_CATEGORIES = [
   { id: 'c10', name: 'Sosial & Lingkungan', slug: 'sosial' },
   { id: 'c11', name: 'Pendidikan & Keguruan', slug: 'pendidikan' },
   { id: 'c12', name: 'Hukum & Politik', slug: 'hukum' },
+  // Migration 20261109100001 (ADR-075).
+  { id: 'c13', name: 'Teknik & Rekayasa', slug: 'teknik' },
+  { id: 'c14', name: 'Ekonomi, Keuangan & Akuntansi', slug: 'ekonomi' },
+  { id: 'c15', name: 'Pertanian, Peternakan & Kelautan', slug: 'pertanian' },
+  { id: 'c16', name: 'Bahasa & Sastra', slug: 'bahasa' },
+  { id: 'c17', name: 'Komunikasi & Media', slug: 'media' },
+  { id: 'c18', name: 'Keagamaan', slug: 'agama' },
+  { id: 'c19', name: 'Pariwisata & Kuliner', slug: 'pariwisata' },
 ] as const;
 
 export interface SeedTeam {
@@ -559,6 +567,36 @@ export const SEED_PEOPLE: readonly SeedPerson[] = [
   { userId: 'seed-user-12', fullName: 'Maya Anggraini', headline: 'Calon guru, penggiat literasi.', educationLevel: 'D4_S1', major: 'Pendidikan Bahasa Indonesia', interests: ['pendidikan', 'karya-tulis'], discoverable: true },
   { userId: 'seed-user-13', fullName: 'Rizky Hidayat', headline: 'Product manager magang, suka hackathon.', educationLevel: 'D4_S1', major: 'Sistem Informasi', interests: ['teknologi', 'bisnis', 'desain'], discoverable: true },
   { userId: 'seed-user-14', fullName: 'Putri Ayu', headline: null, educationLevel: 'D4_S1', major: 'Rekayasa Perangkat Lunak', interests: ['teknologi'], discoverable: false },
+];
+
+/**
+ * Tempat studi contoh (ADR-076) — id direktori sungguhan (kode PT / NPSN),
+ * domisili kode Kemendagri. seed-user-14 sengaja tanpa data.
+ */
+export const SEED_STUDY_PROFILES: readonly (readonly [string, { institutionId: string | null; institutionName: string | null; domicileCode: string | null; studyFields: readonly string[] }])[] = [
+  ['seed-user-1', { institutionId: '001002', institutionName: 'Universitas Indonesia', domicileCode: '32.76.03', studyFields: ['pengembangan-web', 'ui-ux'] }],
+  ['seed-user-2', { institutionId: '002001', institutionName: 'Institut Teknologi Bandung', domicileCode: '32.73', studyFields: ['sains-data', 'jaringan-cloud'] }],
+  ['seed-user-3', { institutionId: '001027', institutionName: 'Universitas Sebelas Maret', domicileCode: '33.72', studyFields: ['energi-terbarukan', 'karya-tulis-ilmiah'] }],
+  ['seed-user-4', { institutionId: '041057', institutionName: 'Universitas Telkom', domicileCode: '32.04', studyFields: ['ui-ux', 'dkv'] }],
+  ['seed-user-5', { institutionId: '031038', institutionName: 'Universitas Bina Nusantara', domicileCode: '31.73', studyFields: ['kewirausahaan', 'business-case'] }],
+  ['seed-user-6', { institutionId: '002003', institutionName: 'Institut Pertanian Bogor', domicileCode: '32.71', studyFields: ['statistika', 'sains-data'] }],
+  ['seed-user-7', { institutionId: '20102568', institutionName: 'SMAN 8 Jakarta', domicileCode: '31.74', studyFields: ['bola-basket', 'musik'] }],
+  ['seed-user-8', { institutionId: '001001', institutionName: 'Universitas Gadjah Mada', domicileCode: '34.04', studyFields: ['debat-inggris', 'model-un', 'hubungan-internasional'] }],
+  ['seed-user-9', { institutionId: null, institutionName: 'Politeknik Negeri Jakarta', domicileCode: '32.76', studyFields: ['aplikasi-mobile'] }],
+  ['seed-user-10', { institutionId: '001034', institutionName: 'Universitas Pendidikan Indonesia', domicileCode: '32.73', studyFields: ['ilustrasi', 'animasi'] }],
+  ['seed-user-11', { institutionId: '001008', institutionName: 'Universitas Diponegoro', domicileCode: '33.74', studyFields: ['kesehatan-masyarakat', 'pengabdian-masyarakat'] }],
+  ['seed-user-12', { institutionId: '001037', institutionName: 'Universitas Negeri Jakarta', domicileCode: '31.75', studyFields: ['pendidikan-bahasa', 'literasi'] }],
+  ['seed-user-13', { institutionId: '001002', institutionName: 'Universitas Indonesia', domicileCode: '32.76', studyFields: ['manajemen-bisnis', 'ui-ux'] }],
+];
+
+/** Username & bio contoh (ADR-077). seed-user-14 = profil "hanya koneksi" — dipakai tes sebagai orang yang tersembunyi. */
+export const SEED_IDENTITIES: readonly (readonly [string, { username: string | null; bio: string | null; visibility: 'MEMBERS' | 'NETWORK' }])[] = [
+  ['seed-user-1', { username: 'rani.prameswari', bio: 'Suka membangun antarmuka yang ramah pembaca layar. Cari teman hackathon yang betah ngoding sampai subuh.', visibility: 'MEMBERS' }],
+  ['seed-user-2', { username: 'dimasarya', bio: 'Backend Go & data pipeline. Terbuka diajak lomba data science.', visibility: 'MEMBERS' }],
+  ['seed-user-3', { username: 'bagas.nugroho', bio: null, visibility: 'MEMBERS' }],
+  ['seed-user-4', { username: 'salsabila.putri', bio: 'Riset pengguna, desain layanan, dan sedikit ilustrasi.', visibility: 'MEMBERS' }],
+  ['seed-user-9', { username: 'arif.setiawan', bio: 'Flutter developer. Juara 2 lomba aplikasi tingkat provinsi.', visibility: 'MEMBERS' }],
+  ['seed-user-14', { username: 'putri.ayu', bio: null, visibility: 'NETWORK' }],
 ];
 
 export interface SeedSeeker {
@@ -683,3 +721,27 @@ export const DEMO_STARTER_REGISTRATIONS: readonly { readonly eventSlug: string; 
   { eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'CONFIRMED' },
   { eventSlug: 'beasiswa-talenta-digital-gelombang-1', status: 'REJECTED', note: 'Kuota penerima gelombang ini sudah penuh.' },
 ];
+
+/**
+ * Lobi lomba contoh (ADR-071): anggota tetap di satu lomba tim, supaya lobi
+ * persona Mahasiswa tidak kosong. Seed-user-1 adalah koneksi persona itu
+ * (`DEMO_STARTER_NETWORK.accepted`) — status "Terhubung" ikut terlihat.
+ */
+export const SEED_LOBBY = {
+  eventSlug: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026',
+  members: [
+    { userId: 'seed-user-2', intent: 'CARI_TIM', note: 'Backend Go & basis data. Cari frontend dan desainer.', joinedDaysAgo: 1 },
+    { userId: 'seed-user-9', intent: 'CARI_ANGGOTA', note: 'Tim 2 orang (mobile + backend), butuh UI/UX.', joinedDaysAgo: 2 },
+    { userId: 'seed-user-10', intent: 'CARI_TIM', note: 'Ilustrator & motion — siap pegang desain dan video pitch.', joinedDaysAgo: 3 },
+    { userId: 'seed-user-1', intent: 'SIAP', note: 'Tim sudah lengkap, senang berbagi pengalaman hackathon.', joinedDaysAgo: 5 },
+  ],
+  /**
+   * Anggota yang menyalakan "tampilkan lencanaku" (ADR-072), dengan pendaftaran
+   * TERKONFIRMASI di acara yang sudah ditutup — lencananya dihitung aturan
+   * biasa, tidak diberikan langsung. Acara selesai saja, pola ADR-068 #7.
+   */
+  badgeHolders: [
+    { userId: 'seed-user-9', eventSlugs: ['lomba-desain-ui-ux-nasional-edisi-lalu', 'workshop-riset-pengguna-angkatan-3'] },
+    { userId: 'seed-user-2', eventSlugs: ['lomba-desain-ui-ux-nasional-edisi-lalu'] },
+  ],
+} as const;

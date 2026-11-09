@@ -7,6 +7,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-0000000c0a02', 'b@net', '{"full_name":"Budi"}'),
   ('00000000-0000-4000-8000-0000000c0a03', 'c@net', '{"full_name":"Cici"}'),
   ('00000000-0000-4000-8000-0000000c0a04', 'd@net', '{"full_name":"Dodi"}');
+-- Tes ini menguji aturan keterlihatan NETWORK (ADR-040); bawaan MEMBERS diuji 114_profile_identity.
+UPDATE public.users SET profile_visibility = 'NETWORK';
 
 -- Budi & Dodi memilih bisa ditemukan; Cici tidak punya profil jaringan.
 SET LOCAL ROLE authenticated;

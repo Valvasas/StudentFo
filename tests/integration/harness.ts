@@ -72,10 +72,20 @@ export function sql(statement: string): string {
   }).trim();
 }
 
-export function createUser({ role = 'USER', fullName = 'Pengguna Uji' }: { role?: 'USER' | 'ADMIN'; fullName?: string } = {}): string {
+/**
+ * Bawaan `NETWORK`: sebagian besar uji koneksi/portofolio menguji aturan
+ * "tersembunyi kecuali bisa ditemukan/berkoneksi" (ADR-040). Profil terbuka
+ * untuk anggota (bawaan produksi sejak ADR-077) diuji eksplisit lewat `visibility: 'MEMBERS'`.
+ */
+export function createUser({
+  role = 'USER',
+  fullName = 'Pengguna Uji',
+  visibility = 'NETWORK',
+}: { role?: 'USER' | 'ADMIN'; fullName?: string; visibility?: 'MEMBERS' | 'NETWORK' } = {}): string {
   const id = randomUUID();
   sql(`INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES ('${id}', '${id}@uji.example', '{"full_name":"${fullName}"}')`);
   if (role === 'ADMIN') sql(`UPDATE public.users SET role = 'ADMIN' WHERE id = '${id}'`);
+  sql(`UPDATE public.users SET profile_visibility = '${visibility}' WHERE id = '${id}'`);
   return id;
 }
 

@@ -37,7 +37,8 @@ di `/admin` yang mengubah status jadi `APPROVED`/`REJECTED`.
 ```
 .github/workflows/              CI (verify + build + a11y + tes pipeline) dan job terjadwal:
                                 scraper 02:00, expiry 00:05, notifikasi 07:00 WIB
-scripts/                        check-contrast.mjs, verify-database.ts, crawl-links.mjs (penelusur tautan
+scripts/                        check-sync.mjs (`npm run check:sync` — Langkah 0 setiap sesi: cabang memuat main? produksi ⊆ repo? cabang lain bermigration?),
+                                check-contrast.mjs, verify-database.ts, crawl-links.mjs (penelusur tautan
                                 per persona demo: HTTP ≥400, error konsol, exception — ADR-052)
 tests/a11y/                     Audit axe-core (Playwright) — `npm run test:a11y`, konfigurasi di playwright.config.ts
 supabase/
@@ -54,6 +55,8 @@ src/
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
 │   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056)
+│   │                           [slug]/daftar (rute keluar) → [slug]/sebelum-daftar (pendataan kinerja + actions.ts, ADR-070)
+│   ├── lobi/                   Lobi lomba (ADR-071): page.tsx (lobi saya), [slug]/page.tsx (kartu lobi, anggota, tim, ajak teman), actions.ts
 │   ├── (auth)/                 Route group — login & register peserta (form biasa; pintu penyelenggara di penyelenggara/(akun), ADR-063), demo/ (akun demo, tidak ditautkan dari mana pun — ADR-057), forgot/reset password
 │   ├── auth/                   actions.ts (akun) + callback/route.ts (OAuth & tautan email)
 │   ├── profile/                Akun: profil (+ tab Lencana, ADR-068), data diri, minat, personalisasi (tema & gerak per perangkat, ADR-055), privasi (+ ekspor/ JSON, ADR-060);
@@ -77,7 +80,7 @@ src/
 │   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
 │   ├── api/health/             GET untuk monitor uptime: 200 bila database terjangkau (tanpa Data Cache), 503 bila tidak (ADR-059)
 │   ├── icon.tsx / apple-icon.tsx / manifest.ts   Ikon 32/192/512 + 180 dari geometri LogoMark (og/brand-icon.tsx); /favicon.ico = rewrite ke /icon/32 (ADR-059)
-│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); laporan/ & pengguna/ (ADR-061);
+│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); laporan/ & pengguna/ (ADR-061); kinerja/ (pendataan kinerja, ADR-070);
 │                               actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055).
 │                               Semua halaman memakai requireAdmin() = 404 bagi non-admin dan generateMetadata (ADR-057)
 │
@@ -118,12 +121,14 @@ src/
 │   │                           deck/ (MatchDeck, DeckBar, InviteSheet <dialog>, use-card-drag, DeckProvider/controls — klien, mode rail→stack/grid)
 │   ├── network/                NetworkGraphView (kanvas, klien), GraphDetail, kartu orang, NetworkSettings + NetworkSettingsForm (pratinjau hidup), blokir (BlockPersonDetails)
 │   ├── tracker/                TrackerCard, PortfolioPanel (form hasil & visibilitas)
-│   ├── profile/                PortfolioList (profil sendiri & /orang/[id]); SettingsGroup/Row/Header (daftar Pengaturan, ADR-067);
+│   ├── profile/                PortfolioList (profil sendiri & /orang/[id]); SettingsGroup/Row/Header (daftar Pengaturan, ADR-067); DeleteAccountCard (di Privasi & data);
+│   │                           PublicBadges + BadgeVisibilityToggle (lencana opt-in di profil publik & lobi, ADR-072);
 │   │                           BadgeMedal (medali SVG bertingkat), BadgeBoard/BadgeStrip, badge-facts.ts (bahan lencana dari repository, ADR-068)
 │   ├── legal/                  LegalDocument (kerangka 3 dokumen hukum, daftar isi terlipat di ponsel), TocSpy, OperatorRef, ContactNote (ADR-060),
 │   │                           LegalUpdateBanner (dokumen yang akan berlaku, ADR-061)
 │   ├── admin/                  SubmissionReviewCard, AdminNav
-│   ├── auth/                   GoogleButton, AuthFeedback, SignOutForm (satu tombol Keluar + konfirmasi untuk tiga pintu, ADR-067)
+│   ├── auth/                   GoogleButton, AuthFeedback (+ jalan keluar `email_taken`), SignOutForm (satu tombol Keluar + konfirmasi untuk tiga pintu, ADR-067),
+│   │                           RegisterForm (peserta) + OrganizerRegisterForm (data lembaga, ADR-069), ConfirmPasswordInput, FieldMemory (penahan isian)
 │   └── layout/                 Navbar, NavLinks, AccountMenu, NotificationMenu, Footer,
 │                               ThemeToggle, ThemeScript, DemoBanner, AccountShell (menu akun
 │                               bisa dilipat jadi rel ikon — cookie `sf_sidebar`, ADR-052),
@@ -174,6 +179,15 @@ src/
 │   ├── destination-label.ts    Nama halaman tujuan untuk "Masuk untuk membuka …" di /login (daftar tertutup per awalan path) [teruji]
 │   ├── auth-schema.ts          Validasi form akun (Zod) [teruji]
 │   ├── auth-messages.ts        Kode & pesan auth, pemetaan error Supabase [teruji]
+│   ├── auth-failure.ts         Galat validasi form akun → SATU kode tertutup, urut prioritas (ADR-069) [teruji]
+│   ├── organizer-draft-cookie.ts  Titipan draf lembaga lewat Google OAuth (cookie httpOnly khusus /auth/callback, ADR-069)
+│   ├── outbound-survey.ts      Pendataan kinerja: konfigurasi admin, validasi jawaban, Lewati, ringkasan k-anonim (ADR-070/073) [teruji, murni]
+│   ├── wilayah.ts · wilayah-districts.ts   Wilayah Kepmendagri lengkap: prov/kab-kota (aman klien) & kecamatan (server) (ADR-074) [teruji]
+│   ├── institutions.ts · institution-kinds.ts   Direktori tempat studi (server) + jenis/tampilan (klien) (ADR-076) [teruji]
+│   ├── study-fields.ts · study-profile.ts   Bidang peminatan spesifik (ADR-075); simpan & tampil tempat studi (ADR-076) [teruji]
+│   ├── outbound-survey-cookie.ts · registration-destination.ts   Cookie `sf_out`; tujuan "Daftar" satu sumber untuk rute & aksi (ADR-070)
+│   ├── lobby.ts                Lobi: kelayakan, buka/tutup, urutan anggota, validasi kartu — cermin SQL (ADR-071) [teruji, murni]
+│   ├── migrations-manifest.test.ts  Penjaga: migration di produksi (supabase/APPLIED_MIGRATIONS.txt) wajib ada berkasnya
 │   ├── team-schema.ts          Validasi form tim (Zod) [teruji]
 │   ├── submission-schema.ts    Validasi kiriman komunitas + bentuk payload JSONB [teruji]
 │   ├── notifications.ts        Ambang H-3/H-1 (duplikat sadar dari SQL, ADR-017) [teruji]
@@ -185,7 +199,7 @@ src/
 │   ├── tint.ts                 tintOf()/coverTintOf() — tint identitas deterministik (ADR-054) [teruji]
 │   ├── route-scene.ts          Rute tujuan → adegan pemuat navigasi, cocok per segmen (ADR-055) [teruji]
 │   ├── celebration.ts          Daftar tertutup notice yang dirayakan (ADR-055) [teruji]
-│   ├── achievements.ts         Lencana DIHITUNG dari catatan pihak ketiga: aturan "jadi", tingkat, tanggal diraih (ADR-068) [teruji, murni]
+│   ├── achievements.ts         Lencana DIHITUNG dari catatan pihak ketiga: aturan "jadi", tingkat, tanggal diraih (ADR-068); juga untuk fakta publik (ADR-072) [teruji, murni]
 │   ├── nav-history.ts          Satu langkah riwayat tab untuk BackLink (`returnsTo`, `visitLog`, ADR-067) [teruji]
 │   ├── appearance.ts           Preferensi tema & gerak per perangkat, kunci localStorage (ADR-055) [teruji]
 │   ├── initials.ts             initialsOf() (orang), monogramOf() (grup/kegiatan) [teruji]

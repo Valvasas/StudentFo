@@ -463,3 +463,76 @@ export interface AdminUserRow {
   suspended_at: string | null;
   suspension_reason: string | null;
 }
+
+/** `outbound_surveys` + judul acara (ADR-070/073) — hanya dibaca klien admin. */
+export interface OutboundSurveyRow {
+  event_id: string;
+  signed_in: boolean;
+  skipped: boolean;
+  education_level: string | null;
+  region_code: string | null;
+  institution_id: string | null;
+  institution: string | null;
+  answers: unknown;
+  created_at: string;
+  event: { title: string; slug: string } | null;
+}
+
+/** Kolom tempat studi milik sendiri di `users` (ADR-075/076). */
+export interface StudyProfileRow {
+  institution_id: string | null;
+  institution_name: string | null;
+  domicile_code: string | null;
+  study_fields: string[] | null;
+}
+
+/** RPC `public_profile_details(p_users)` — domisili sudah terpotong ke kab/kota. */
+export interface PublicProfileDetailsRow {
+  user_id: string;
+  institution_id: string | null;
+  institution_name: string | null;
+  region_code: string | null;
+  study_fields: string[] | null;
+  username: string | null;
+  bio: string | null;
+}
+
+/** Kolom identitas profil milik sendiri di `users` (ADR-077). */
+export interface ProfileIdentityRow {
+  username: string | null;
+  bio: string | null;
+  profile_visibility: string;
+}
+
+/** `outbound_survey_config` (ADR-073) — satu baris, dibaca server. */
+export interface OutboundSurveyConfigRow {
+  ask_education: string;
+  ask_region: string;
+  ask_institution: string;
+  questions: unknown;
+  updated_at: string | null;
+}
+
+/** RPC `lobby_roster(p_event)` (ADR-071). */
+export interface LobbyRosterRow {
+  user_id: string;
+  full_name: string;
+  intent: string;
+  note: string | null;
+  joined_at: string;
+  relation: string;
+}
+
+/** Baris sendiri di `lobby_members`. */
+export interface LobbyMemberRow {
+  event_id: string;
+  intent: string;
+  note: string | null;
+  created_at: string;
+}
+
+/** RPC `lobby_member_counts(p_events)`. */
+export interface LobbyCountRow {
+  event_id: string;
+  member_count: number;
+}

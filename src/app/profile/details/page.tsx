@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Award, FileText, GraduationCap, IdCard, Pencil, Phone, Sparkles } from 'lucide-react';
-import { updateProfileAction } from '@/app/profile/actions';
+import { AtSign, Award, FileText, GraduationCap, IdCard, MapPin, Pencil, Phone } from 'lucide-react';
+import { updateProfileAction, updateProfileIdentityAction, updateStudyPlaceAction } from '@/app/profile/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DemoDetailCards } from '@/components/profile/demo-detail-cards';
@@ -15,13 +15,20 @@ import {
   detailPrimaryButton,
 } from '@/components/profile/detail-card';
 import { MajorField } from '@/components/profile/major-field';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { InstitutionPicker } from '@/components/ui/institution-picker';
+import { RegionPicker } from '@/components/ui/region-picker';
 import { BackLink } from '@/components/ui/back-link';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { PROFILE_EDIT_ORIGINS } from '@/lib/account-sidebar';
 import { requireUser } from '@/lib/auth';
+import { getEventRepository } from '@/lib/data';
+import { BIO_MAX, suggestUsername, USERNAME_LIMITS } from '@/lib/profile-identity';
+import { presentStudyProfile, STUDY_PLACE_LIMITS } from '@/lib/study-profile';
+import { districtName } from '@/lib/wilayah-districts';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
-import { EDUCATION_LEVELS, EDUCATION_LEVEL_LABEL } from '@/types/domain';
+import { EDUCATION_LEVELS, EDUCATION_LEVEL_LABEL, PROFILE_VISIBILITIES, PROFILE_VISIBILITY_LABEL } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +37,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const EDITABLE = ['identitas', 'pendidikan'] as const;
+const EDITABLE = ['identitas', 'publik', 'pendidikan', 'asal'] as const;
+/** Kode milik kartu Profil publik & Tempat studi — kode bersama (`unknown`) sudah ditangani AuthFeedback. */
+const STUDY_ERRORS = new Set(['invalid_study_place', 'study_profile_unavailable', 'username_taken', 'invalid_profile_identity', 'profile_identity_unavailable']);
+const STUDY_NOTICES = new Set(['study_place_saved', 'profile_identity_saved']);
 type Editable = (typeof EDITABLE)[number];
 
 /**
@@ -47,6 +57,16 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
   const user = await requireUser('/profile/details');
   const requested = firstParam(params.ubah);
   const editing: Editable | null = EDITABLE.find((key) => key === requested) ?? null;
+  const repository = await getEventRepository();
+  const [studyProfile, identity] = await Promise.all([repository.getStudyProfile(user.id), repository.getProfileIdentity(user.id)]);
+  const suggestedUsername = suggestUsername(user.fullName);
+  const studyView = presentStudyProfile({ ...studyProfile, regionCode: studyProfile.domicileCode });
+  const district = studyProfile.domicileCode?.length === 8 ? districtName(studyProfile.domicileCode) : null;
+  const studyError = firstParam(params.error);
+  const studyFeedback = {
+    error: STUDY_ERRORS.has(studyError ?? '') ? studyError : undefined,
+    notice: STUDY_NOTICES.has(firstParam(params.notice) ?? '') ? firstParam(params.notice) : undefined,
+  };
 
   const hidden = (omit: 'fullName' | 'education') => (
     <>
@@ -88,10 +108,11 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
 
   const jumps = [
     { href: '#identitas', label: 'Identitas', icon: IdCard },
+    ...(identity.available ? [{ href: '#publik', label: 'Profil publik', icon: AtSign }] : []),
     { href: '#pendidikan', label: 'Pendidikan', icon: GraduationCap },
+    ...(studyProfile.available ? [{ href: '#asal', label: 'Tempat studi', icon: MapPin }] : []),
     ...(demoFeaturesEnabled
       ? [
-          { href: '#profil-publik', label: 'Profil publik', icon: Sparkles },
           { href: '#kontak', label: 'Kontak', icon: Phone },
           { href: '#pencapaian', label: 'Pencapaian', icon: Award },
           { href: '#dokumen', label: 'Dokumen', icon: FileText },
@@ -123,6 +144,8 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
         </div>
 
         <AuthFeedback params={params} />
+        {/* Hanya kode kartu tempat studi — kode bersama (mis. `unknown`) sudah ditangani AuthFeedback, jangan tampil dua kali. */}
+        <ActionFeedback params={studyFeedback} />
 
         <DetailCard
           id="identitas"
@@ -159,6 +182,103 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
           )}
         </DetailCard>
 
+        {identity.available && (
+          <DetailCard
+            id="publik"
+            icon={<AtSign className="size-[18px]" />}
+            title="Profil publik"
+            description="Username, bio, dan siapa yang boleh membuka profilmu. Tamu & mesin pencari tidak pernah bisa."
+            editing={editing === 'publik'}
+            actions={actions('publik')}
+            delay={90}
+          >
+            {editing === 'publik' ? (
+              <form id="form-publik" action={updateProfileIdentityAction} className={detailFields}>
+                <UnsavedChangesGuard />
+                <div className="flex flex-col gap-[7px]">
+                  <label htmlFor="username" className="text-[13.5px] font-semibold">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted">
+                      @
+                    </span>
+                    <input
+                      id="username"
+                      name="username"
+                      defaultValue={identity.username ?? suggestedUsername}
+                      minLength={USERNAME_LIMITS.min}
+                      maxLength={USERNAME_LIMITS.max}
+                      pattern="[A-Za-z0-9@][A-Za-z0-9._]{1,29}"
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      aria-describedby="username-hint"
+                      className={`${detailInput} pl-8`}
+                    />
+                  </div>
+                  <span id="username-hint" className="text-[12.5px] text-ink-muted">
+                    3–30 karakter: huruf kecil, angka, titik, garis bawah. Profilmu ada di studentfo/u/username.
+                    {!identity.username && ' Kami isi saran dari namamu — boleh diganti.'}
+                  </span>
+                </div>
+                <div className="col-span-full flex flex-col gap-[7px]">
+                  <label htmlFor="bio" className="text-[13.5px] font-semibold">
+                    Bio <span className="font-normal text-ink-muted">(opsional)</span>
+                  </label>
+                  <textarea
+                    id="bio"
+                    name="bio"
+                    rows={3}
+                    maxLength={BIO_MAX}
+                    defaultValue={identity.bio ?? ''}
+                    placeholder="Mis. Mahasiswa Informatika, suka UI/UX & lomba hackathon. Cari tim untuk Gemastik."
+                    aria-describedby="bio-hint"
+                    className={`${detailInput} h-auto py-2.5`}
+                  />
+                  <span id="bio-hint" className="text-[12.5px] text-ink-muted">
+                    Maks. {BIO_MAX} karakter. Jangan tulis nomor HP atau alamat — siapa pun yang membuka profilmu bisa membacanya.
+                  </span>
+                </div>
+                <fieldset className="col-span-full flex flex-col gap-2">
+                  <legend className="mb-1 text-[13.5px] font-semibold">Siapa yang boleh membuka profilmu</legend>
+                  {PROFILE_VISIBILITIES.map((visibility) => (
+                    <label key={visibility} className="choice items-start">
+                      <input type="radio" name="profileVisibility" value={visibility} defaultChecked={identity.visibility === visibility} className="check mt-0.5" />
+                      <span className="flex flex-col">
+                        <span>{PROFILE_VISIBILITY_LABEL[visibility]}</span>
+                        <span className="text-[12.5px] font-normal text-ink-muted">
+                          {visibility === 'MEMBERS'
+                            ? 'Nama, username, bio, kampus/sekolah, kota, minat, dan portofolio publikmu. Mereka juga bisa mengajakmu terhubung.'
+                            : 'Orang lain hanya bisa membuka profilmu bila sudah terhubung, satu lobi lomba, atau kamu memilih bisa ditemukan di Koneksi.'}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+              </form>
+            ) : (
+              <DetailRows
+                rows={[
+                  {
+                    label: 'Username',
+                    value: identity.username ? (
+                      <Link href={`/u/${identity.username}`} className="font-medium underline underline-offset-[3px]">
+                        @{identity.username}
+                      </Link>
+                    ) : (
+                      'Belum dipasang'
+                    ),
+                    empty: !identity.username,
+                  },
+                  { label: 'Bio', value: identity.bio ?? 'Belum diisi', empty: !identity.bio, wide: true },
+                  { label: 'Profil terlihat oleh', value: PROFILE_VISIBILITY_LABEL[identity.visibility], wide: true },
+                ]}
+              />
+            )}
+          </DetailCard>
+        )}
+
         <DetailCard
           id="pendidikan"
           icon={<GraduationCap className="size-[18px]" />}
@@ -191,7 +311,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
                   Program studi / jurusan
                 </span>
                 <MajorField defaultValue={user.major ?? ''} labelledBy="prodi-label" />
-                <span className="text-[12.5px] text-ink-muted">Tidak ada di daftar? Ketik lalu pilih “Pakai”.</span>
+                <span className="text-[12.5px] text-ink-muted">Tidak ada di daftar? Pilih “Lainnya — tulis sendiri”.</span>
               </div>
             </form>
           ) : (
@@ -207,6 +327,59 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
             />
           )}
         </DetailCard>
+
+        {studyProfile.available && (
+          <DetailCard
+            id="asal"
+            icon={<MapPin className="size-[18px]" />}
+            title="Tempat studi & domisili"
+            description="Tampil di profil publik, lobi lomba, dan kartu koneksi — supaya orang tahu kamu dari mana. Kecamatan hanya untukmu."
+            editing={editing === 'asal'}
+            actions={actions('asal')}
+            delay={150}
+          >
+            {editing === 'asal' ? (
+              <form id="form-asal" action={updateStudyPlaceAction} className={detailFields}>
+                <UnsavedChangesGuard />
+                <div className="col-span-full flex flex-col gap-[7px]">
+                  <label htmlFor="institution" className="text-[13.5px] font-semibold">
+                    Sekolah / kampus
+                  </label>
+                  <InstitutionPicker
+                    id="institution"
+                    defaultId={studyProfile.institutionId}
+                    defaultName={studyView.institution}
+                    minLength={STUDY_PLACE_LIMITS.institutionMin}
+                    maxLength={STUDY_PLACE_LIMITS.institutionMax}
+                    describedBy="institution-hint"
+                  />
+                  <span id="institution-hint" className="text-[12.5px] text-ink-muted">
+                    Ketik nama atau singkatannya (mis. UI, ITB, SMAN 3 Bandung). Data SMA/SMK/MA & perguruan tinggi dari Data
+                    Referensi Kemendikdasmen. Kosongkan untuk menghapus.
+                  </span>
+                </div>
+                <div className="col-span-full flex flex-col gap-[7px]">
+                  <span id="domicile-label" className="text-[13.5px] font-semibold">
+                    Domisili
+                  </span>
+                  <RegionPicker name="domicile" defaultValue={studyProfile.domicileCode} labelledBy="domicile-label" withDistrict allowAbroad districtLabelId="district-label" />
+                </div>
+              </form>
+            ) : (
+              <DetailRows
+                rows={[
+                  { label: 'Sekolah / kampus', value: studyView.institution ?? 'Belum diisi', empty: !studyView.institution, wide: true },
+                  {
+                    label: 'Domisili',
+                    value: studyView.region ? (district ? `Kec. ${district}, ${studyView.region}` : studyView.region) : 'Belum diisi',
+                    empty: !studyView.region,
+                    wide: true,
+                  },
+                ]}
+              />
+            )}
+          </DetailCard>
+        )}
 
         {demoFeaturesEnabled && <DemoDetailCards baseDelay={180} />}
       </div>

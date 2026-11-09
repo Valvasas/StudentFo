@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Check, Save } from 'lucide-react';
+import { Check, ChevronDown, Save } from 'lucide-react';
 import { updateProfileAction } from '@/app/profile/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
@@ -15,6 +15,7 @@ import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import type { RawSearchParams } from '@/lib/search-params';
+import { STUDY_FIELD_LIMIT, studyFieldsOf } from '@/lib/study-fields';
 import { EDUCATION_LEVELS, EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, EVENT_TYPES } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
@@ -38,10 +39,11 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
   const user = await requireUser('/profile/interests');
   const repository = await getEventRepository();
   const profile = { educationLevel: user.educationLevel, interests: user.interests };
-  const [categories, ranked, all] = await Promise.all([
+  const [categories, ranked, all, studyProfile] = await Promise.all([
     repository.listCategories(),
     repository.listEvents({ sort: 'relevance', pageSize: 48, profile }),
     repository.listEvents({ pageSize: 1, sort: 'newest' }),
+    repository.getStudyProfile(user.id),
   ]);
   const matches = ranked.items.filter(
     (event) =>
@@ -96,6 +98,54 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
               ))}
             </div>
           </fieldset>
+
+          {studyProfile.available && (
+            <fieldset className="enter flex flex-col gap-3 [animation-delay:110ms] [animation-duration:800ms]">
+              <input type="hidden" name="studyFieldsPresent" value="1" />
+              <div className="flex flex-col gap-1">
+                <legend className="text-lg font-semibold tracking-[-0.015em]">Bidang spesifik</legend>
+                <p className="max-w-[60ch] text-[13.5px] leading-relaxed text-ink-muted">
+                  Perhalus bidangmu — mis. Teknik Sipil, Kecerdasan Buatan, Akuntansi — supaya orang dengan minat yang sama
+                  lebih mudah menemukanmu. Memilih bidang spesifik ikut memilih bidang induknya. Maksimal {STUDY_FIELD_LIMIT}.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {categories.map((category) => {
+                  const fields = studyFieldsOf(category.slug);
+                  if (fields.length === 0) return null;
+                  const chosen = fields.filter((field) => studyProfile.studyFields.includes(field.slug)).length;
+                  return (
+                    <details
+                      key={category.slug}
+                      open={chosen > 0 || user.interests.includes(category.slug)}
+                      className="group rounded-card border border-line bg-panel [&_summary::-webkit-details-marker]:hidden"
+                    >
+                      <summary className="flex min-h-12 cursor-pointer items-center gap-2.5 rounded-card px-3.5 text-[14.5px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+                        <CategoryIcon slug={category.slug} className="size-4 text-ink-muted" />
+                        <span className="min-w-0 flex-1">{category.name}</span>
+                        {chosen > 0 && <span className="text-[12.5px] font-medium text-ink-muted">{chosen} dipilih</span>}
+                        <ChevronDown aria-hidden className="size-4 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180" />
+                      </summary>
+                      <div className="flex flex-wrap gap-2 border-t border-line p-3">
+                        {fields.map((field) => (
+                          <label key={field.slug} className="choice">
+                            <input
+                              type="checkbox"
+                              name="studyFields"
+                              value={field.slug}
+                              defaultChecked={studyProfile.studyFields.includes(field.slug)}
+                              className="check"
+                            />
+                            {field.label}
+                          </label>
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
 
           <div className="enter flex flex-col gap-3.5 [animation-delay:140ms] [animation-duration:800ms]">
             <label htmlFor="educationLevel" className="text-lg font-semibold tracking-[-0.015em]">

@@ -173,6 +173,8 @@ test.describe('daftar: pernyataan usia dan persetujuan', () => {
       await page.getByLabel('Nama lengkap').fill('Uji Persetujuan');
       await page.getByLabel('Email').fill(`persetujuan-${randomUUID()}@uji.example`);
       await page.locator('#password').fill('rahasia12345');
+      // Ulangan sandi yang kosong/beda ditahan peramban (setCustomValidity) — kirimannya tidak pernah sampai server.
+      await page.locator('#confirmPassword').fill('rahasia12345');
       for (const name of ['ageConfirm', 'privacyConsent']) {
         const box = page.locator(`input[name="${name}"]`);
         if (name === field) await box.evaluate((el) => el.removeAttribute('required'));
@@ -218,12 +220,19 @@ test.describe('pintu akun penyelenggara', () => {
     await page.goto('/penyelenggara/daftar');
     await expect(page.locator('input[name="accountType"]')).toHaveValue('organizer');
     await expect(page.getByRole('radio')).toHaveCount(0);
-    await page.getByLabel('Nama lengkap penanggung jawab').fill('Uji Panitia');
-    await page.getByLabel('Email').fill(`panitia-${randomUUID()}@uji.example`);
+    // Form lembaga lengkap (ADR-069) — semua isian wajib terisi benar, hanya persetujuan yang sengaja dilewati.
+    await page.locator('#orgName').fill('BEM Fakultas Uji');
+    await page.locator('#orgType').selectOption('KAMPUS');
+    await page.locator('#evidence').fill('Ketua panitia, tercantum di https://uji.example/pengurus');
+    await page.locator('#fullName').fill('Uji Panitia');
+    await page.locator('#contactRole').fill('Ketua Panitia');
+    await page.locator('#email').fill(`panitia-${randomUUID()}@uji.example`);
     await page.locator('#password').fill('rahasia12345');
+    await page.locator('#confirmPassword').fill('rahasia12345');
+    await page.locator('input[name="authority"]').check();
     await page.locator('input[name="ageConfirm"]').check();
     await page.locator('input[name="privacyConsent"]').evaluate((el) => el.removeAttribute('required'));
-    await page.getByRole('button', { name: 'Buat akun' }).click();
+    await page.getByRole('button', { name: 'Daftarkan lembaga' }).click();
     await expect(page).toHaveURL(/\/penyelenggara\/daftar\?error=consent_required/);
   });
 });

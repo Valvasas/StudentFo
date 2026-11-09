@@ -239,6 +239,33 @@ diabaikan, bukan galat):
 | `gaya` | `juara` \| `belajar` | `seimbang` |
 | `tampil` | `6` \| `12` \| `18` \| `24` | `6` |
 
+### Pendataan kinerja, lobi, lencana publik, tempat studi (ADR-070–076)
+
+| Method | Kontrak |
+|---|---|
+| `getOutboundSurveyConfig()` | Pertanyaan yang berlaku (ADR-073); tabel belum ada = `DEFAULT_OUTBOUND_CONFIG` |
+| `saveOutboundSurveyConfig(input, actorId)` | Admin (diperiksa aksi); service_role; `outbound_unavailable` bila tabel belum ada |
+| `recordOutboundSurvey(input)` | Server-only; TANPA identitas (`signedIn` saja); `skipped: true` = jawaban dikosongkan. Pemanggil menelan galat — tidak pernah menahan pengunjung |
+| `listOutboundSurveys(since)` | Admin; terbaru dulu, maks. `OUTBOUND_READ_LIMIT` (5000, per halaman `range()`); tabel belum ada = `[]` |
+| `listMyLobbies(userId)` | Lomba yang sudah didaftar (`lobbyEventsOf`) + kartu sendiri + jumlah anggota (tanpa nama) |
+| `getLobby(viewer, eventId)` | `null` = tidak berhak. Anggota lain hanya bila pembaca sudah bergabung; `invitable` = koneksi diterima yang belum di roster & belum diajak |
+| `joinLobby(actor, eventId, input)` | Upsert kartu; `lobby_forbidden` / `lobby_closed` / `lobby_unavailable` |
+| `leaveLobby(actorId, eventId)` | Hapus kartu sendiri |
+| `inviteToLobby(actor, eventId, inviteeId)` | `'invited'` / `'already'`; `lobby_invite_invalid` (bukan koneksi/diblokir), `lobby_rate_limited` (20/hari) |
+| `getBadgeVisibility(userId)` | `{ show, adjustable }`; kolom belum ada → `adjustable: false` |
+| `setBadgeVisibility(userId, show)` | `badges_unavailable` bila kolom belum ada |
+| `listPublicBadgeFacts(viewerId, userIds)` | Peta userId → `AchievementFacts` (id acara buatan); hanya pemilik / opt-in yang boleh dilihat. Hitung dengan `evaluateBadges` |
+| `getStudyProfile(userId)` | Tempat studi, domisili (sampai kecamatan), bidang spesifik milik sendiri (ADR-075/076); kolom belum ada → `available: false` |
+| `saveStudyPlace(userId, input)` | Klien anon + hak kolom; `study_profile_unavailable` / `invalid_study_place` (CHECK) |
+| `saveStudyFields(userId, fields)` | `false` bila kolom belum ada (kategori minat tetap tersimpan) |
+| `listPublicProfileDetails(viewerId, userIds)` | Peta userId → `PublicProfileDetails` (kab/kota saja, + username & bio); aturan `public_profile_details()`. Tampilkan lewat `presentStudyProfile` |
+| `getProfileIdentity(userId)` | Username, bio, keterlihatan milik sendiri (ADR-077); kolom belum ada → `available: false` |
+| `saveProfileIdentity(userId, input)` | `username_taken` (unik), `invalid_profile_identity` (CHECK), `profile_identity_unavailable` |
+| `resolveUsername(viewerId, username)` | id bila pembaca boleh melihat; tidak ada / tidak boleh = `null` (404 yang sama) |
+
+`requestConnection` kini juga menerima target yang SATU LOBI dengan pelaku
+walau tidak "bisa ditemukan" (cermin policy `connections_insert_requester`).
+
 ### `ReviewEventInput`
 
 ```ts
@@ -365,10 +392,56 @@ Aturan yang mengikat seluruh tabel di atas:
 - **`changePasswordAction` memverifikasi kata sandi lama** dengan
   `signInWithPassword` sebelum mengganti.
 
+### Aksi daftar — `src/app/auth/actions.ts` (ADR-069)
+- `signUpAction` (peserta) & `organizerSignUpAction` (penyelenggara) berbagi
+  `signUpWithEmail()`: batas laju → CAPTCHA → `signUp`. `identities: []` /
+  `user_already_exists` → `?error=email_taken`. Validasi → kode dari
+  `signUpValidationFailure()` (`lib/auth-failure.ts`).
+- `organizerSignUpAction` membawa draf lembaga di `options.data.organizer_application`;
+  `signInWithGoogleAction` dari form penyelenggara memvalidasi data lembaga lalu
+  menitipkan draf di cookie `sf_org_draft`, dipindah ke metadata oleh `/auth/callback`.
+
+### Aksi lobi — `src/app/lobi/actions.ts` (ADR-071)
+`joinLobbyAction`, `leaveLobbyAction`, `inviteToLobbyAction` — semuanya membaca
+`slug` (divalidasi), `requireUser()` sendiri, kembali ke `/lobi/<slug>`
+dengan notice `lobby_joined|lobby_updated|lobby_left|lobby_invited|lobby_already_invited`.
+
+### `submitOutboundSurveyAction` — `src/app/events/[slug]/sebelum-daftar/actions.ts` (ADR-070/073)
+`intent=skip` → tanpa validasi, dicatat sebagai `skipped`. Selain itu
+`parseOutboundAnswers(formData, config, institutionById)`; gagal →
+`?error=invalid_outbound_survey&kolom=educationLevel|region|institution|field:<id>`.
+Lalu catat (tidak pernah melempar) → cookie `sf_out` → `register_click` →
+`redirect(urlResmi)` LANGSUNG.
+
+### `saveOutboundConfigAction` — `src/app/admin/kinerja/actions.ts` (ADR-073)
+`checkAdminAccess()` di dalam aksi. Field: `askEducation|askRegion|askInstitution`
+(`OFF|OPTIONAL|REQUIRED`), `fields` (JSON dari `FormBuilder`). Gagal →
+`invalid_outbound_config`; sukses → `notice=outbound_config_saved`.
+
+### `updateProfileIdentityAction` — `src/app/profile/actions.ts` (ADR-077)
+Field: `username` (boleh diawali @, huruf besar dinormalisasi), `bio` (≤280),
+`profileVisibility` (`MEMBERS|NETWORK`). → `/profile/details`
+`notice=profile_identity_saved` atau `?ubah=publik&error=username_taken|invalid_profile_identity|profile_identity_unavailable`.
+
+### Halaman profil — `/u/[username]` & `/orang/[id]` (ADR-077)
+Wajib masuk (tamu → `/login?next=`). `/orang/[id]` → 307 ke `/u/<username>`
+(query ikut) bila username ada. Profil sendiri → `/profile?tampilan=publik`.
+Tidak ada / tidak boleh dilihat = 404 yang sama.
+
+### `updateStudyPlaceAction` — `src/app/profile/actions.ts` (ADR-076)
+Field: `institutionId` (opsional, harus ada di direktori), `institution`
+(teks, 2–120), `domicile` (kode wilayah yang ADA, atau `LN` = luar negeri). → `/profile/details`
+`notice=study_place_saved` atau `?ubah=asal&error=invalid_study_place|study_profile_unavailable`.
+
+### `setBadgeVisibilityAction` — `src/app/profile/actions.ts` (ADR-072)
+`show=on|off` eksplisit → `/profile?tab=lencana&notice=badges_shown|badges_hidden`.
+
 ### `updateProfileAction(formData)` — `src/app/profile/actions.ts`
 
 Field: `fullName`, `educationLevel`, `major`, `interests` (checkbox berulang,
-berisi slug kategori). Menulis lewat klien anon + RLS `users_update_own`,
+berisi slug kategori). Halaman Peminatan juga mengirim `studyFieldsPresent=1`
++ `studyFields` (slug `lib/study-fields.ts`): induk tiap bidang ikut masuk
+`interests` (`withParentCategories`), lalu `saveStudyFields`. Menulis lewat klien anon + RLS `users_update_own`,
 bukan service_role. Sukses → `/profile?notice=profile_saved`.
 
 ### Kode umpan balik aksi — `src/lib/action-feedback.ts`
@@ -583,6 +656,14 @@ tanggal WIB, pengingat 09.00 H-3 & H-1 untuk pendaftaran/pengumpulan.
 `200 text/calendar; charset=utf-8` + `Content-Disposition: attachment`;
 `404 { error, code: 'NOT_FOUND' }` bila kegiatan tidak ada/tidak tayang atau
 belum punya jadwal. Publik, `Cache-Control: public, max-age=300`.
+
+### `GET /api/wilayah/[kab-kota]` (ADR-074)
+`{ regency, districts: { code, name }[] }`; kode tak dikenal = 404. Data statis:
+`Cache-Control: public, max-age=86400, s-maxage=604800`.
+
+### `GET /api/institusi?q=…&jenis=semua|kampus|sekolah` (ADR-076)
+`{ results: InstitutionHit[] }` (id, name, short, kind, negeri, region), maks. 12;
+kueri < 2 karakter = `[]`. Tanpa sesi, cache CDN 1 hari.
 
 ### `GET /api/health` (ADR-059)
 

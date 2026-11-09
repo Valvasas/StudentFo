@@ -64,7 +64,8 @@ export function HiddenProfileBanner() {
         <EyeOff className="size-5" />
       </span>
       <p className="min-w-[220px] flex-1 text-[14px] leading-relaxed">
-        <span className="font-semibold">Profilmu belum bisa ditemukan.</span> Kamu tetap bisa mengajak orang, tapi orang lain belum bisa mengajakmu lebih dulu.
+        <span className="font-semibold">Profilmu belum muncul di saran & pencarian Koneksi.</span> Orang yang membuka profilmu tetap bisa
+        mengajakmu (kecuali kamu memilih &ldquo;hanya koneksi&rdquo;); supaya ditemukan orang yang belum kenal, nyalakan di sini.
       </p>
       <Link href="/connections?tab=pengaturan#pengaturan-jaringan" className="flex min-h-11 items-center rounded-pill bg-brand px-5 text-[13.5px] font-semibold text-on-brand hover:bg-brand-hover">
         Atur sekarang

@@ -141,6 +141,9 @@ export const changePasswordSchema = z
     message: 'Kata sandi baru harus berbeda dari yang sekarang.',
   });
 
+/** Batas pilihan Peminatan — dipakai skema & `withParentCategories` (ADR-075). */
+export const PROFILE_LIMITS = { interests: 12 } as const;
+
 export const profileSchema = z.object({
   fullName: fullNameSchema,
   educationLevel: z.enum(EDUCATION_LEVELS).nullable(),
@@ -148,7 +151,7 @@ export const profileSchema = z.object({
   // Minat disimpan sebagai slug kategori supaya `categoryMatch()` di
   // recommendation.ts membandingkan nilai yang identik dengan
   // `EventSummary.categorySlugs` — bukan label bebas yang tidak pernah cocok.
-  interests: z.array(z.string().regex(/^[a-z0-9-]{1,50}$/)).max(12),
+  interests: z.array(z.string().regex(/^[a-z0-9-]{1,50}$/)).max(PROFILE_LIMITS.interests),
 });
 
 /** Pesan pertama untuk sebuah field, atau undefined kalau field itu lolos. */

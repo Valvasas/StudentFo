@@ -41,7 +41,10 @@ export const RATE_LIMITS = {
   /** Sinyal rekomendasi: di atas ini, klik dianggap penggelembungan dan tidak dicatat (tetap dialihkan). */
   signalPerIp: { name: 'signal-ip', limit: 60, windowSeconds: 60 * 60 },
   /** Kunjungan halaman acara: di atas ini dianggap penggelembungan analitik, tidak dicatat (halaman tetap tampil). */
-  eventViewPerIp: { name: 'view-ip', limit: 300, windowSeconds: 60 * 60 },} as const satisfies Record<string, RateLimitRule>;
+  eventViewPerIp: { name: 'view-ip', limit: 300, windowSeconds: 60 * 60 },
+  /** Pendataan kinerja (ADR-070): di atas ini jawaban dianggap penggelembungan — tidak dicatat, pengunjung tetap diantar. */
+  outboundSurveyPerIp: { name: 'survey-ip', limit: 30, windowSeconds: 60 * 60 },
+} as const satisfies Record<string, RateLimitRule>;
 
 export interface ClientIpOptions {
   /**

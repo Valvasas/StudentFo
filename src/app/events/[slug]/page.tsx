@@ -10,6 +10,7 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Bookmark,
+  DoorOpen,
   ExternalLink,
   Flag,
   FileText,
@@ -45,6 +46,7 @@ import { getEventRepository } from '@/lib/data';
 import { isPromoted } from '@/lib/data/listing';
 import { formatRupiah, priceLabel, type PriceLabel } from '@/lib/currency';
 import { recordEventView } from '@/lib/event-views';
+import { hasRegistered } from '@/lib/lobby';
 import { ORGANIZER_LIMITS } from '@/lib/organizer';
 import {
   daysLeftLabel,
@@ -312,6 +314,15 @@ export default async function EventDetailPage({
                 <span className="flex h-[26px] items-center rounded-[6px] bg-panel-nested px-2.5 text-[12.5px] font-semibold">
                   Di pendaftaranmu: {TRACKER_STATUS_LABEL[tracked.status]}
                 </span>
+              )}
+              {event.eventType === 'LOMBA' && hasRegistered(tracked?.status ?? null, myRegistration?.status ?? null) && (
+                // Tinggi 26px seperti chip lain; area sentuh diperluas ::after ke 44px (CONVENTIONS § target sentuh).
+                <Link
+                  href={`/lobi/${event.slug}`}
+                  className="relative flex h-[26px] items-center gap-1.5 rounded-[6px] border border-line-strong px-2.5 text-[12.5px] font-semibold after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-[''] hover:bg-panel-nested"
+                >
+                  <DoorOpen aria-hidden className="size-3.5" /> Lobi lomba ini
+                </Link>
               )}
               {isClosed && (
                 <span className="flex h-[26px] items-center rounded-[6px] bg-panel-nested px-2.5 text-[12.5px] font-semibold text-ink-muted">

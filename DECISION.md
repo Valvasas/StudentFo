@@ -12,6 +12,364 @@ terdokumentasi.
 
 ---
 
+## ADR-078 — Template email Supabase Auth ala StudentFo, tautan token_hash
+
+**Konteks:** Email konfirmasi, lupa sandi, dsb. masih template bawaan Supabase
+(bahasa Inggris, tanpa identitas). Pemilik meminta desain "ala StudentFo".
+
+**Keputusan:**
+1. Satu layout di `src/lib/email/auth-email-templates.ts` (kertas krem,
+   tinta, sorotan stabilo; tabel & gaya inline; tombol anti-peluru + tautan
+   cadangan; peringatan anti-penipuan) → `supabase/templates/*.html` lewat
+   `npm run email:templates`. Tes menjaga berkas = sumber.
+2. Tautan `{{ .SiteURL }}/auth/callback?token_hash=…&type=…&next=…`, BUKAN
+   `{{ .ConfirmationURL }}` (PKCE): PKCE butuh cookie di peramban tempat
+   mendaftar → gagal saat email dibuka di ponsel. `type` dikunci tes agar
+   selalu diterima `/auth/callback`.
+3. `{{ .SiteURL }}`, bukan `{{ .RedirectTo }}`: RedirectTo jatuh ke Site URL
+   (tanpa `?`) bila tidak cocok daftar izin, dan tautan jadi rusak.
+   Konsekuensi: setelah konfirmasi selalu ke `/` (tujuan asal tidak dibawa).
+4. Kode OTP tidak di subjek (tampil di notifikasi layar kunci).
+5. Dipasang PEMILIK di dasbor (tidak ada token Management API di sesi agen):
+   `docs/email-templates.md`.
+
+---
+
+## ADR-077 — Username, bio, dan profil terbuka untuk anggota yang masuk
+
+**Konteks:** Pemilik meminta halaman profil, bio, dan username per pengguna
+"agar makin interaktif", dan menyatakan kota & kampus "tak apa ditampilkan
+di publik". Sampai ADR-076 profil hanya terbaca bila pemiliknya bisa
+ditemukan di Koneksi / membuka kartu pemain / sudah berkoneksi (ADR-040).
+
+**Keputusan:**
+1. `users.username` (3–30, huruf kecil/angka/titik/garis bawah, unik, daftar
+   terlarang: admin, studentfo, …), `users.bio` (≤ 280), halaman
+   `/u/[username]`; `/orang/[id]` dialihkan ke sana bila username ada.
+   Saran username dari nama; keunikan dijaga indeks unik (kode `username_taken`).
+2. `users.profile_visibility`: **MEMBERS (bawaan)** = semua anggota yang
+   MASUK boleh membuka profil, mengajak terhubung, dan memblokir;
+   **NETWORK** = aturan lama ADR-040. Diwujudkan dengan memperluas
+   `is_discoverable()` & `can_view_profile()` (CREATE OR REPLACE) — semua
+   jalur yang sudah memakainya (public_profile, portofolio, lencana, detail
+   profil, policy ajakan & blokir) ikut konsisten tanpa disentuh satu per satu.
+3. **Yang TIDAK berubah:** tamu & mesin pencari tidak pernah (semua fungsi
+   butuh `auth.uid()`, halaman `noindex`); muncul di saran & pencarian
+   Koneksi (`network_directory`) tetap opt-in; email & kecamatan tidak pernah
+   tampil; blokir & penangguhan menutup.
+4. `user_id_by_username()` mengembalikan null untuk "tidak ada" DAN "tidak
+   boleh dilihat" — URL bukan alat menebak siapa yang terdaftar.
+5. Tes lama yang menguji aturan "tersembunyi" kini memasang NETWORK secara
+   eksplisit (SQL & harness integrasi); MEMBERS diuji `114_profile_identity`.
+
+**Risiko yang diterima (perlu ditinjau bersama DPIA, `docs/dpia-draf.md`):**
+pengguna 13–17 tahun ikut bawaan MEMBERS — nama, sekolah, dan kab/kota
+terlihat oleh anggota lain yang masuk. Mitigasi: tanpa tamu/mesin pencari,
+tanpa kontak/kecamatan, blokir & laporkan di setiap profil, satu klik ke
+"hanya koneksi". Bila tinjauan hukum meminta, ubah DEFAULT kolom ke NETWORK
+untuk akun baru — kodenya tidak perlu berubah.
+
+**Sengaja TIDAK:** foto profil (butuh Storage + moderasi gambar), username
+bisa diklaim ulang setelah dilepas tanpa masa tenggang (ditunda).
+
+---
+
+## ADR-076 — Direktori tempat studi: data resmi dibekukan di repo, dicari di server, diisi sendiri (bukan diverifikasi)
+
+**Konteks:** Pemilik meminta informasi "tempat studi" seperti "Universitas
+Indonesia (UI)" supaya orang tahu sesamanya dari mana dan mudah terkoneksi,
+plus "data dan singkatan semua SMA, SMK, MA, PTN dan PTS di Indonesia".
+
+**Keputusan:**
+1. **Sumber:** daftar satuan pendidikan per kecamatan di Data Referensi
+   Kemendikdasmen (`referensi.data.kemendikdasmen.go.id`, publik, tanpa
+   login; robots.txt kosong) — SMA/SMK/MA/SLB + satuan keagamaan setara SMA
+   (SPM/PDF Ulya, SMTK, SM Agama) dan seluruh perguruan tinggi (kode PT
+   PDDikti). Diunduh oleh crawler sopan (jeda per permintaan, maks. 2
+   koneksi, berhenti di kecamatan bernilai 0) yang dijalankan TERPISAH dari
+   build. PDDikti sendiri memasang verifikasi peramban anti-bot — itu tanda
+   tidak boleh diunduh otomatis, jadi TIDAK dipakai atau diakali.
+2. **Dibekukan di repo** oleh `scripts/import-institutions.mjs` →
+   `src/data/institutions.ts` (satu string TSV: id, nama, jenis, negeri,
+   kode kab/kota, singkatan). Bukan JSON: impor JSON 3+ MB membuat `tsc`
+   menginferensi tipe tiap baris (+10 detik per pemeriksaan). Bukan tabel
+   Supabase: data publik yang sama untuk semua orang, berubah lewat diff yang
+   bisa ditinjau, dan mode seed mendapat data yang sama persis.
+3. **Pembersihan saat impor:** PT luar negeri (kode 9xxxxx) dibuang; lokasi
+   PT di "Kep. Seribu" (dipakai sumber sebagai "belum diisi") tidak
+   dipercaya; nama wilayah dipetakan ke kode Kemendagri (ADR-074); nama
+   ALL-CAPS dirapikan; IAIN/STAIN yang sudah menjadi UIN disembunyikan HANYA
+   bila ada UIN di provinsi yang sama yang memuat semua kata intinya.
+4. **Singkatan dikurasi tangan** (`src/data/institution-aliases.json`, kunci =
+   nama persis di sumber): sumber resmi tidak punya kolom singkatan. Importer
+   melaporkan kunci yang tidak cocok. Singkatan HANYA bila dipakai kampusnya
+   sendiri — tidak ada singkatan tebakan untuk ±5.400 PTS; pencarian tetap
+   menemukan inisial ("ubn") tanpa menampilkannya sebagai singkatan resmi.
+   Nama sekolah resmi sudah berbentuk singkat (SMAN/SMKN/MAN) dan pencarian
+   mengenali bentuk panjangnya ("SMA Negeri 8 Jakarta").
+5. **Dicari di server** (`lib/institutions.ts`, `/api/institusi`, maks. 12
+   hasil, cache CDN) — peramban tidak pernah menerima seluruh daftar.
+   `InstitutionPicker` = combobox: id direktori ATAU teks bebas (kursus,
+   pesantren tanpa NPSN, kampus luar negeri). Id menang atas teks: nama
+   diambil dari direktori.
+6. **Disimpan di `users`** (`institution_id/_name`, `domicile_code`) dan
+   ditampilkan lewat RPC `public_profile_details(uuid[])` — aturan siapa
+   boleh melihat SAMA dengan lencana publik (ADR-072): diri sendiri,
+   `can_view_profile`, atau sesama anggota lobi tanpa blokir. Kecamatan
+   dipotong di SQL (dan sekali lagi di mapper). `network_directory` tidak
+   ditambah kolom (ADR-040/041). Tampil di profil publik, pratinjau publik,
+   kartu lobi, dan kartu saran Koneksi.
+7. **Diisi sendiri, tidak diverifikasi** — tidak ada tanda centang
+   "terverifikasi" di tampilan; disebut terang di kebijakan privasi.
+
+**Sengaja TIDAK:** verifikasi email kampus (butuh daftar domain resmi per PT —
+kandidat berikutnya), menyaring saran Koneksi per kampus (butuh perubahan
+`suggestPeople` di dua repository), sinkron otomatis berkala (diperbarui
+manual dengan menjalankan crawler + importer, lihat `scripts/`).
+
+---
+
+## ADR-075 — Bidang peminatan spesifik di bawah kategori; tujuh kategori baru
+
+**Konteks:** "Bidang peminatan luaskan dan spesifikan agar menjangkau banyak
+prodi dan jurusan." 12 kategori awal tidak menampung Teknik Sipil, Akuntansi,
+Pertanian, Bahasa, Media, Keagamaan, Pariwisata.
+
+**Keputusan:**
+1. **Tujuh kategori baru** di tabel `categories` (teknik, ekonomi, pertanian,
+   bahasa, media, agama, pariwisata). Pipeline AI membaca daftar kategori
+   dari tabel, jadi klasifikasi acara ikut meluas tanpa kode pipeline baru.
+   `shortCategoryName` memotong di " & " DAN ", ".
+2. **Bidang spesifik** (150, `lib/study-fields.ts`) masing-masing punya
+   satu kategori induk; disimpan di `users.study_fields` (maks. 15). Memilih
+   bidang = ikut memilih induknya (`withParentCategories`), sehingga skor
+   rekomendasi — yang membaca kategori — tidak pernah kehilangan sinyal.
+   Slug STABIL (tersimpan); label boleh diganti.
+3. **Daftar prodi/jurusan** (`MAJORS`) diperluas ke ±260 nama: rumpun PT
+   akademik & vokasi, peminatan SMA/MA, program keahlian SMK (Spektrum
+   Keahlian terbaru + nama Kurikulum 2013 yang masih dipakai). Tetap bukan
+   daftar tertutup. `CAMPUSES` (50 kampus contoh, tidak dipakai) dihapus —
+   digantikan direktori ADR-076.
+
+**Sengaja TIDAK:** memakai bidang spesifik di skor rekomendasi acara (acara
+hanya berlabel kategori) atau saran Koneksi — kandidat berikutnya.
+
+---
+
+## ADR-074 — Wilayah administratif lengkap (Kepmendagri) terpisah dari daftar kota bertitik-tengah
+
+**Konteks:** "Data provinsi, kabupaten, kecamatan masih kurang lengkap dan
+beberapa tidak ada." `REGIONS` memang hanya ±200 kota contoh — sengaja,
+karena filter lokasi acara & jarak pencarian tim butuh titik-tengah (`geo.ts`).
+
+**Keputusan:**
+1. **Data:** `idn-area-data@4.0.1` (ODbL 1.0, bersumber Kepmendagri terbaru)
+   → `scripts/import-wilayah.mjs` → `src/data/wilayah/` (38 provinsi, 514
+   kab/kota, 7.285 kecamatan). Bukan dependensi npm: dibekukan, pembaruan
+   terlihat sebagai diff. Atribusi ODbL di `/sumber-data` (tautan footer).
+2. **Dua modul:** `lib/wilayah.ts` (provinsi + kab/kota, ±17 KB, aman untuk
+   peramban) dan `lib/wilayah-districts.ts` (server saja); kecamatan diminta
+   per kab/kota lewat `/api/wilayah/[kode]` (cache CDN).
+3. **`REGIONS` TIDAK diganti** — tetap sumber filter lokasi acara & kota
+   kartu pemain yang butuh koordinat. Wilayah lengkap dipakai untuk "dari
+   mana orangnya": domisili profil (sampai kecamatan, hanya pemiliknya yang
+   melihat kecamatan) dan pendataan kinerja (sampai kab/kota).
+4. `RegionPicker`: satu pemilih melayang 514 kab/kota berkelompok provinsi
+   (memilih kelompok = provinsinya saja) + daftar kecamatan opsional. Nilai =
+   satu kode terdalam; server memeriksa kodenya ada, bukan sekadar berbentuk benar.
+
+---
+
+## ADR-073 — Pertanyaan pendataan kinerja diatur admin, selalu bisa dilewati
+
+**Konteks:** Pemilik: "tambahkan fitur lewati, dan admin/moderator bisa
+menambah, mengubah, atau mengurangi pertanyaan". ADR-070 mengunci pertanyaan
+di kode dan CHECK SQL.
+
+**Keputusan:**
+1. Migration `20261108100002` **diubah di tempat** — belum pernah diterapkan
+   ke database mana pun. `outbound_survey_config` (satu baris, tertutup untuk
+   klien; dibaca/ditulis server dengan service_role setelah
+   `checkAdminAccess()`): tiga pertanyaan bawaan bermode Tidak ditanyakan/
+   Opsional/Wajib (jenjang, domisili kab/kota, asal sekolah/kampus) +
+   `questions` JSONB berbentuk `FormField` (ADR-056). `outbound_surveys`:
+   `skipped`, `region_code`, `institution_id`, `answers` JSONB; CHECK
+   melarang "lewati" yang membawa jawaban.
+2. **Editor** `/admin/kinerja/pertanyaan` memakai `FormBuilder` yang sama
+   dengan formulir pendaftaran, dibatasi ke jenis yang bisa dihitung & tidak
+   mengundang identitas (pilihan, kotak centang, jawaban singkat, angka —
+   tanpa email/telepon/tautan/paragraf), maks. 8. Validasi jawaban =
+   `readAnswers()` yang sama. Tidak ada peran "moderator" terpisah di skema:
+   moderator = `role = 'ADMIN'`.
+3. **Lewati** = tombol `formNoValidate`; dicatat sebagai kunjungan
+   `skipped` (tanpa jawaban), mengingat cookie, mencatat klik, lalu
+   mengantar ke tautan resmi — sama seperti menjawab. Semua pertanyaan
+   dimatikan = layar pendataan tidak muncul; konfigurasi gagal dimuat =
+   langsung ke pendaftaran (ADR-070: statistik tidak boleh menahan orang).
+4. **Dasbor** menghitung terhadap pertanyaan SAAT INI: kunjungan, menjawab
+   vs melewati per postingan, distribusi tiap pertanyaan (angka: rata-rata/
+   median/rentang; teks bebas & wilayah & institusi: k-anonim ≥ 5).
+   Jawaban pertanyaan yang dihapus tetap tersimpan sampai retensi, tidak tampil.
+
+---
+
+## ADR-072 — Lencana boleh tampil di profil publik & lobi: opt-in, fakta tanpa identitas acara, dihitung aturan yang sama
+
+**Konteks:** Pemilik meminta fitur lencana "dimatangkan". ADR-068 sendiri
+mencatat celahnya: lencana hanya terlihat oleh pemiliknya, jadi tidak punya
+fungsi sosial apa pun — padahal lobi lomba (ADR-071) justru butuh sinyal
+kredibilitas saat memilih rekan tim.
+
+**Keputusan:**
+1. **Opt-in, bawaan mati** (`users.show_badges`, hak UPDATE per kolom). Tab
+   Lencana pernah dijanjikan privat; mengubahnya diam-diam melanggar janji itu.
+2. **SQL menyerahkan FAKTA, bukan lencana.** `public_badge_facts(p_users[])`
+   (SECURITY DEFINER, maks. 100 orang) mengembalikan bahan `evaluateBadges` —
+   jenis/status/tenggat acara + waktu konfirmasi, jumlah kiriman disetujui,
+   status penyelenggara, waktu tutup acara kelolaan — TANPA id, judul, atau
+   jawaban formulir, dan sudah membuang acara yang dikelola sendiri. Aturan
+   anti-curang tetap SATU salinan di `lib/achievements.ts`; menghitung di SQL
+   berarti dua salinan yang suatu hari berbeda.
+3. **Siapa yang menerima:** pemilik sendiri, atau pembaca yang lolos
+   `can_view_profile()` / sesama anggota lobi (`shares_lobby_with`) tanpa
+   blokir. Akun ditangguhkan tidak pernah.
+4. Tampil sebagai `PublicBadges` (hanya yang SUDAH diraih, tanpa progres) di
+   `/orang/[id]`, pratinjau "Lihat sebagai publik", dan kartu anggota lobi
+   (maks. 2). Saklar di tab Lencana. Ikut ekspor data.
+5. Kode aman urutan deploy: kolom belum ada → saklar terkunci, lencana privat.
+
+**Sengaja TIDAK:** lencana dari aktivitas lobi/ajakan (bisa diternakkan dengan
+akun palsu — alasan yang sama dengan ADR-068), notifikasi "lencana baru" (tidak
+ada catatan kapan terakhir dilihat; perlu tabel, ditunda). Kandidat berikutnya
+yang layak: lencana "Juara terverifikasi" dari konfirmasi hasil oleh
+penyelenggara — sudah pernah dirancang di cabang usang `ccr-a2058300-u92ao5`
+(lihat CHANGELOG.md), harus di-port ulang, bukan di-merge.
+
+---
+
+## ADR-071 — Lobi lomba: ruang per lomba untuk yang sudah mendaftar, timbal-balik, ajak hanya koneksi
+
+**Konteks:** Pemilik meminta "lobby di akun setelah mendaftar sebuah lomba"
+untuk mencari partner/tim dan mengajak teman sebelum lomba. Permintaan serupa
+sebelumnya (konteks ADR-065) ditafsirkan sebagai `/teams` — "tidak ada fitur
+bernama lobi" — sehingga kebutuhannya tidak pernah terpenuhi.
+
+**Keputusan:**
+1. **Pintu:** `/lobi` (menu akun, tepat di bawah Pendaftaran) dan
+   `/lobi/[slug]`; tautan dari halaman acara & status lamaran begitu terdaftar.
+2. **Siapa:** lomba (LOMBA) yang tayang/kedaluwarsa, dan pembaca sudah
+   mendaftar = Papan lamaran APPLIED/INTERVIEW/ACCEPTED ATAU pendaftaran
+   formulir yang masih hidup. Tahap Papan lamaran dilaporkan sendiri (ADR-046)
+   — diterima: lobi ruang sapa, bukan sumber hak/lencana. Tanpa itu pengguna
+   tautan resmi (mayoritas acara) tidak pernah bisa masuk.
+3. **Privasi timbal-balik** (pola kartu pemain ADR-057): bergabung = pilihan
+   sendiri; daftar anggota hanya untuk sesama anggota (`lobby_roster()`);
+   sebelum bergabung hanya JUMLAH. Blokir menyembunyikan dua arah; akun
+   ditangguhkan tidak tampil.
+4. **Bergabung = boleh disapa sesama anggota lobi itu.** Policy
+   `connections_insert_requester` diperluas: target `is_discoverable` ATAU
+   `shares_lobby_with()`. Tanpa ini anggota yang tidak membuka profil di
+   Koneksi tidak bisa diajak terhubung — lobi tak berguna. Blokir tetap menang.
+5. **Ajak teman:** hanya koneksi yang sudah diterima (`invite_to_lobby`, 20/hari),
+   sekali per pasangan per lomba; notifikasi `LOBBY_INVITE` ke halaman lomba.
+   `idx_notifications_dedupe` membuat diajak tiga teman = SATU kabar — fitur
+   anti-spam, bukan bug. Teman di luar StudentFo: tombol bagikan tautan lomba.
+6. **Tim:** lobi menampilkan tim `/teams` untuk lomba itu + pintu "Buka tim" —
+   lobi tidak membuat konsep tim kedua.
+7. Tulis lewat RPC (`join_lobby`); upsert PostgREST butuh hak UPDATE kolom kunci.
+   Ditutup (tenggat lewat / EXPIRED) = arsip baca. Mode demo: lobi contoh
+   `SEED_LOBBY` + persona Mahasiswa sudah terdaftar di lombanya.
+
+**Konsekuensi:** kode aman urutan deploy (tabel/RPC belum ada → lobi kosong,
+bergabung `lobby_unavailable`). Diuji: `111_event_lobby.test.sql`,
+`lib/lobby.test.ts`, `lib/data/lobby.test.ts`, `e2e/lobby.spec.ts`.
+
+---
+
+## ADR-070 — Pendataan kinerja postingan sebelum keluar ke tautan resmi: tanpa identitas, tidak pernah menahan
+
+**Konteks:** Pemilik ingin mendata kinerja tiap postingan lomba/acara: sebelum
+pengunjung pergi ke halaman lomba di situs penyelenggara, ia mengisi form di
+StudentFo — untuk kebutuhan pemilik sendiri, bukan fitur publik.
+
+**Keputusan:**
+1. **Gerbang di satu pintu:** `/events/[slug]/daftar` (rute keluar yang sudah
+   ada, ADR-032) mengalihkan tujuan LUAR ke `/events/[slug]/sebelum-daftar`
+   bila peramban belum menjawab untuk acara itu (cookie `sf_out`, id acara
+   saja). Acara berformulir StudentFo tidak lewat gerbang — datanya sudah ada.
+   Tujuan dipilih `registrationDestination()` — SATU sumber untuk rute & aksi.
+2. **Isi:** jenjang (terisi dari profil), sumber info, rencana (LOMBA saja),
+   provinsi & asal sekolah/kampus (opsional). Wajib 2–3 pertanyaan; tujuan
+   pendataan ditulis terang di atas form.
+3. **Tanpa identitas:** tabel `outbound_surveys` tanpa user_id/email (hanya
+   `signed_in`), tulis server-only (service_role) setelah saringan bot, batas
+   30/jam per IP & honeypot; baca admin. Karena tidak terhubung ke akun, tidak
+   ikut ekspor/hapus akun — dicantumkan begitu di Kebijakan privasi. Retensi
+   365 hari (`purge_old_outbound_surveys`, pg_cron).
+4. **Tidak pernah menahan:** gagal mencatat (bot, banjir, DB, migration belum
+   ada) = jawaban tidak dicatat, pengunjung tetap diantar.
+5. **Aksi mengalihkan LANGSUNG ke URL resmi.** Redirect Server Action ke path
+   internal membuat Next merender tujuan itu di server — dan mengikuti 303
+   `/daftar` sampai ke situs penyelenggara (terbukti di log e2e: fetch
+   `example.org` dari server). Klik `register_click` dicatat di aksi.
+6. **Dasbor `/admin/kinerja`** (rentang 7/30/90): per postingan (jawaban, % akun
+   masuk, sumber teratas, pencari tim) + distribusi; provinsi & institusi di
+   bawah 5 jawaban digabung (k-anonim, pola ADR-043).
+
+**Konsekuensi (jujur):** gerbang wajib menambah satu langkah sebelum
+pendaftaran resmi dan pasti menurunkan sebagian klik keluar — keputusan pemilik.
+Bila angka klik turun tajam, ubah jadi bisa dilewati (satu tombol "Lewati").
+
+---
+
+## ADR-069 — Pintu daftar penyelenggara berisi data lembaga; ulangi kata sandi; email ganda ditolak saat DAFTAR
+
+**Konteks:** Pemilik: form daftar penyelenggara harus terpisah dengan
+ketentuan berbeda supaya profesional; perlu kolom ulangi kata sandi; daftar
+ulang dengan email yang sama "masih bisa" — kurang profesional. Investigasi:
+pintu terpisah SUDAH dibuat (ADR-063) di cabang `ccr-c5c96a43-8eijqc` yang
+migration-nya sudah di produksi tetapi kodenya tidak pernah masuk `main`;
+isinya pun masih form peserta berlabel lain. Email ganda tidak pernah membuat
+akun kedua (GoTrue menjawab pengguna samaran `identities: []`), tetapi UI
+sengaja menampilkan "cek email" yang sama (ADR-011) — bagi pemilik itu terbaca
+sebagai "terdaftar lagi".
+
+**Keputusan:**
+1. **Gabungkan dulu** `ccr-c5c96a43-8eijqc` (commit `1d4b3a4`). Pengaturan tetap
+   hub ADR-067; pengingat email → `/profile/settings/notifikasi`, hapus akun →
+   `/profile/privacy`. Lalu penjaga anti-regresi: `CHANGELOG.md`,
+   `supabase/APPLIED_MIGRATIONS.txt` (42 baris, dicocokkan ke produksi),
+   `migrations-manifest.test.ts` di `verify`, `npm run check:sync`.
+2. **Form penyelenggara** (`OrganizerRegisterForm`): data lembaga (nama, JENIS,
+   situs, bukti) + penanggung jawab (nama, JABATAN, email kerja) + pernyataan
+   wewenang. Skemanya = skema pengajuan studio, jadi yang lolos daftar pasti
+   lolos diajukan. Draf dibawa di user metadata (email) atau cookie httpOnly
+   30 menit khusus `/auth/callback` (Google), lalu MENGISI form studio —
+   pengajuan tetap tindakan eksplisit pemilik akun, bukan efek samping callback.
+   Kolom baru `org_type`, `contact_role` dihitung identitas oleh trigger (ganti
+   = verifikasi ulang) dan tampil di antrean admin.
+3. **Ulangi kata sandi** di keempat form sandi baru, dicek saat mengetik di
+   kedua kolom (`setCustomValidity`); server memetakan ke `password_mismatch`,
+   `same_password`, `weak_password` (`lib/auth-failure.ts`). Zod v3 tetap
+   menjalankan refine pada objek "kotor", jadi urutan kode itulah yang diuji.
+4. **Email ganda saat DAFTAR → `email_taken`** dengan tautan Masuk/Lupa sandi ke
+   pintu yang benar. Ini MELONGGARKAN ADR-011 khusus daftar, atas permintaan
+   pemilik, dengan alasan: pemeriksaan hanya terjadi setelah batas laju
+   5/jam/IP dan CAPTCHA lolos (tiap alamat yang dicek = satu CAPTCHA), dan
+   produk ini tidak menyimpan data yang membuat keanggotaannya sensitif.
+   Masuk & lupa sandi TETAP seragam (AGENTS.md #12 diperbarui). Konfirmasi email
+   mati di project → `user_already_exists` → kode yang sama (dulu jatuh ke
+   "terjadi kesalahan di sisi kami").
+5. Penahan isian (`FieldMemory`, sessionStorage, tanpa sandi) karena galat
+   server di form tanpa JS menghapus isian panjang.
+
+**Konsekuensi:** alamat yang terdaftar BISA diketahui lewat halaman daftar
+dengan biaya satu CAPTCHA per alamat — trade-off sadar. Membaliknya = hapus
+cabang `identities` di `signUpWithEmail` dan petakan `user_already_exists`
+kembali ke jawaban seragam.
+
+---
+
 ## ADR-068 — Lencana pencapaian DIHITUNG dari catatan pihak ketiga, tidak pernah diberikan atau diklaim
 
 > **Penomoran:** ADR-063–066 sudah dipakai garis kerja paralel

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
  * API tersedia (konteks aman) — tanpa itu kodenya tetap bisa diseleksi
  * dengan satu ketukan (`select-all` di pemanggil).
  */
-export function CopyCodeButton({ code, className }: { code: string; className?: string }) {
+export function CopyCodeButton({ code, className, label = 'kode pendaftaran' }: { code: string; className?: string; label?: string }) {
   const [supported, setSupported] = useState(false);
   const [copied, setCopied] = useState(false);
   useEffect(() => setSupported(typeof navigator !== 'undefined' && Boolean(navigator.clipboard)), []);
@@ -37,7 +37,7 @@ export function CopyCodeButton({ code, className }: { code: string; className?: 
       {copied ? <Check aria-hidden className="size-4 text-success" /> : <Copy aria-hidden className="size-4" />}
       <span aria-live="polite">
         {copied ? 'Disalin' : 'Salin'}
-        <span className="sr-only"> kode pendaftaran</span>
+        <span className="sr-only"> {label}</span>
       </span>
     </button>
   );

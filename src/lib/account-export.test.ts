@@ -27,6 +27,13 @@ const base: AccountExportInput = {
   notifications: [],
   notificationPreferences: { deadlineReminders: false, adjustable: true },
   deadlineEmailOptIn: '2026-10-30T01:00:00.000Z',
+  lobbies: [
+    { event: { id: 'e1', slug: 'lomba-x', title: 'Lomba X', organizer: 'Panitia', status: 'APPROVED', primaryDeadlineAt: null }, membership: { intent: 'CARI_TIM', note: 'Cari backend', joinedAt: '2026-11-01T00:00:00.000Z' }, memberCount: 3 },
+    { event: { id: 'e2', slug: 'lomba-y', title: 'Lomba Y', organizer: 'Panitia', status: 'APPROVED', primaryDeadlineAt: null }, membership: null, memberCount: 9 },
+  ],
+  showBadges: true,
+  identity: { username: 'ana.uji', bio: 'Halo', visibility: 'MEMBERS', available: true },
+  studyProfile: { institutionId: '001002', institutionName: 'Universitas Indonesia', domicileCode: '32.76.03', studyFields: ['ui-ux'], available: true },
   eventQuestions: [{ eventTitle: 'Lomba X', eventSlug: 'lomba-x', body: 'Boleh lintas kampus?', createdAt: '2026-10-30T02:00:00.000Z', answer: null, hidden: true }],
 };
 
@@ -61,5 +68,12 @@ describe('buildAccountExport', () => {
     expect(JSON.stringify(result)).not.toMatch(/"u2"|"u3"/);
     expect(result.network.connections[0]).toMatchObject({ name: 'Bima', status: 'ACCEPTED', message: 'Halo' });
     expect(result.network.blocked).toEqual([{ name: 'Spam', since: '2026-10-02T00:00:00Z' }]);
+  });
+
+  it('kiriman gagal dimuat: ekspor tetap jadi dan mengatakannya, bukan galat 500 atau daftar kosong yang menyesatkan', () => {
+    const result = buildAccountExport({ ...base, submissions: null });
+    expect(result.submissions).toEqual({ unavailable: expect.stringContaining('tidak bisa dimuat') });
+    expect(result.studyPlace).toMatchObject({ institutionId: '001002', domicileCode: '32.76.03' });
+    expect(result.publicProfile).toEqual({ username: 'ana.uji', bio: 'Halo', visibleTo: 'MEMBERS' });
   });
 });

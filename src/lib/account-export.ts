@@ -2,10 +2,13 @@ import type { AuthUser } from '@/lib/auth';
 import type { MyEventQuestion } from '@/lib/data/repository';
 import type {
   AppNotification,
+  ProfileIdentity,
+  StudyProfile,
   BlockedPerson,
   Connection,
   EventRegistration,
   EventSummary,
+  LobbySummary,
   NetworkProfile,
   NotificationPreferences,
   OrganizerProfile,
@@ -26,13 +29,22 @@ export interface AccountExportInput {
   readonly connectionsTruncated: boolean;
   readonly blocked: readonly BlockedPerson[];
   readonly seeker: TeamSeekerProfile | null;
-  readonly submissions: readonly Submission[];
+  /** null = gagal dimuat (mis. kunci server belum diisi) — ekspor tetap jalan dan mengatakannya terang. */
+  readonly submissions: readonly Submission[] | null;
   readonly organizer: OrganizerProfile | null;
   readonly notifications: readonly AppNotification[];
   readonly notificationPreferences: NotificationPreferences;
   /** Waktu persetujuan pengingat email (ADR-062 #6), null = mati. */
   readonly deadlineEmailOptIn: string | null;
   readonly eventQuestions: readonly MyEventQuestion[];
+  /** Lobi lomba (ADR-071): hanya yang kartunya pernah kamu pasang. */
+  readonly lobbies: readonly LobbySummary[];
+  /** Pilihan "tampilkan lencanaku" (ADR-072). */
+  readonly showBadges: boolean;
+  /** Tempat studi, domisili (sampai kecamatan — ini datamu sendiri) & bidang spesifik (ADR-075/076). */
+  readonly studyProfile: StudyProfile;
+  /** Username, bio, siapa yang boleh membuka profil (ADR-077). */
+  readonly identity: ProfileIdentity;
 }
 
 /**
@@ -107,15 +119,36 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       blocked: input.blocked.map((person) => ({ name: person.fullName, since: person.blockedAt })),
     },
     playerCard: input.seeker,
-    submissions: input.submissions.map((submission) => ({
-      title: submission.payload?.title ?? null,
-      status: submission.status,
-      email: submission.submittedByEmail,
-      createdAt: submission.createdAt,
-    })),
+    submissions:
+      input.submissions?.map((submission) => ({
+        title: submission.payload?.title ?? null,
+        status: submission.status,
+        email: submission.submittedByEmail,
+        createdAt: submission.createdAt,
+      })) ?? { unavailable: 'Kiriman kegiatanmu tidak bisa dimuat saat ekspor ini dibuat. Coba unduh lagi nanti.' },
     organizer: input.organizer
-      ? { organization: input.organizer.orgName, website: input.organizer.website, evidence: input.organizer.evidence, status: input.organizer.status }
+      ? {
+          organization: input.organizer.orgName,
+          organizationType: input.organizer.orgType,
+          role: input.organizer.contactRole,
+          website: input.organizer.website,
+          evidence: input.organizer.evidence,
+          status: input.organizer.status,
+        }
       : null,
+    lobbies: input.lobbies.flatMap((lobby) =>
+      lobby.membership
+        ? [{ event: lobby.event.title, url: `/lobi/${lobby.event.slug}`, status: lobby.membership.intent, note: lobby.membership.note, joinedAt: lobby.membership.joinedAt }]
+        : [],
+    ),
+    badges: { shownToOthers: input.showBadges },
+    publicProfile: { username: input.identity.username, bio: input.identity.bio, visibleTo: input.identity.visibility },
+    studyPlace: {
+      institutionId: input.studyProfile.institutionId,
+      institutionName: input.studyProfile.institutionName,
+      domicileCode: input.studyProfile.domicileCode,
+      studyFields: input.studyProfile.studyFields,
+    },
     notifications: input.notifications.map((notification) => ({
       type: notification.type,
       message: notification.message,

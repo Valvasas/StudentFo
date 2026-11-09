@@ -8,7 +8,10 @@ import { type ActionErrorCode, toActionErrorCode, withQuery } from '@/lib/action
 import { getSessionUser, requireUser } from '@/lib/auth';
 import { type AuthErrorCode } from '@/lib/auth-messages';
 import { getEventRepository } from '@/lib/data';
-import { profileSchema } from '@/lib/auth-schema';
+import { PROFILE_LIMITS, profileSchema } from '@/lib/auth-schema';
+import { cleanStudyFields, withParentCategories } from '@/lib/study-fields';
+import { parseProfileIdentity } from '@/lib/profile-identity';
+import { parseStudyPlace } from '@/lib/study-profile';
 import { endDemoSession, updateDemoProfile } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
 import { formList, formTrimmed as text } from '@/lib/form-data';
@@ -31,6 +34,10 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
 
   const level = text(formData, 'educationLevel');
   const major = text(formData, 'major');
+  // Hanya halaman Peminatan yang mengirim bidang spesifik (ADR-075); halaman
+  // lain yang memakai aksi ini tidak boleh mengosongkannya.
+  const studyFields = formData.has('studyFieldsPresent') ? cleanStudyFields(formList(formData, 'studyFields')) : null;
+  const interests = formList(formData, 'interests');
 
   const parsed = profileSchema.safeParse({
     fullName: text(formData, 'fullName'),
@@ -38,7 +45,8 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
       ? (level as EducationLevel)
       : null,
     major: major || null,
-    interests: formList(formData, 'interests'),
+    // Bidang spesifik selalu membawa induknya: rekomendasi membaca kategori, bukan bidang.
+    interests: studyFields ? withParentCategories(interests, studyFields, PROFILE_LIMITS.interests) : interests,
   });
 
   if (dataMode === 'seed') {
@@ -80,12 +88,64 @@ export async function updateProfileAction(formData: FormData): Promise<void> {
     }
   }
 
+  if (!failure && studyFields) {
+    try {
+      const user = await getSessionUser();
+      if (user) await (await getEventRepository()).saveStudyFields(user.id, studyFields);
+    } catch (error) {
+      console.error('[profil] bidang spesifik gagal disimpan:', error);
+      failure = 'unknown';
+    }
+  }
+
   if (failure) {
     redirect(`${returnTo}?error=${failure}`);
   }
 
   revalidatePath('/', 'layout');
   redirect(`${returnTo}?notice=profile_saved`);
+}
+
+/**
+ * Username, bio, keterlihatan profil (ADR-077). Kartu sendiri: kolomnya baru
+ * (urutan deploy) dan keunikan username hanya bisa dipastikan database.
+ */
+export async function updateProfileIdentityAction(formData: FormData): Promise<void> {
+  const returnTo = '/profile/details';
+  const user = await requireUser(returnTo);
+  const parsed = parseProfileIdentity(formData);
+  if (!parsed.ok) redirect(withQuery(returnTo, { ubah: 'publik', error: 'invalid_profile_identity' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).saveProfileIdentity(user.id, parsed.value);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { ubah: 'publik', error: failure }));
+  revalidatePath('/profile', 'layout');
+  redirect(`${withQuery(returnTo, { notice: 'profile_identity_saved' })}#publik`);
+}
+
+/**
+ * Tempat studi & domisili (ADR-076). Kartu sendiri, bukan `updateProfileAction`:
+ * kolomnya baru (urutan deploy) dan validasinya butuh direktori server.
+ */
+export async function updateStudyPlaceAction(formData: FormData): Promise<void> {
+  const returnTo = '/profile/details';
+  const user = await requireUser(returnTo);
+  const parsed = parseStudyPlace(formData);
+  if (!parsed.ok) redirect(withQuery(returnTo, { ubah: 'asal', error: 'invalid_study_place' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).saveStudyPlace(user.id, parsed.value);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { ubah: 'asal', error: failure }));
+  revalidatePath('/profile', 'layout');
+  redirect(`${withQuery(returnTo, { notice: 'study_place_saved' })}#asal`);
 }
 
 /**
@@ -184,4 +244,21 @@ export async function setDeadlineEmailRemindersAction(formData: FormData): Promi
   if (failure) redirect(`${withQuery(NOTIFICATION_SETTINGS_PAGE, { error: failure })}#pengingat-email`);
   revalidatePath(NOTIFICATION_SETTINGS_PAGE);
   redirect(`${withQuery(NOTIFICATION_SETTINGS_PAGE, { notice: enabled ? 'email_reminders_on' : 'email_reminders_off' })}#pengingat-email`);
+}
+
+/** Saklar "tampilkan lencanaku" (ADR-072). Nilai eksplisit dari form, bukan "balik keadaan" — dua tab tidak saling membatalkan. */
+export async function setBadgeVisibilityAction(formData: FormData): Promise<void> {
+  const returnTo = '/profile?tab=lencana';
+  const user = await requireUser(returnTo);
+  const show = text(formData, 'show') === 'on';
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).setBadgeVisibility(user.id, show);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { error: failure }));
+  revalidatePath('/profile');
+  redirect(withQuery(returnTo, { notice: show ? 'badges_shown' : 'badges_hidden' }));
 }

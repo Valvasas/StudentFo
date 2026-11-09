@@ -45,6 +45,50 @@ export const EDUCATION_LEVEL_LABEL: Record<EducationLevel, string> = {
   UMUM: 'Umum',
 };
 
+/**
+ * Pendataan kinerja postingan (ADR-070, diubah ADR-073): jawaban singkat
+ * sebelum keluar ke tautan pendaftaran resmi. Pertanyaannya DIATUR ADMIN di
+ * /admin/kinerja/pertanyaan: tiga pertanyaan bawaan yang bisa dimatikan/
+ * diwajibkan (jenjang, domisili, asal sekolah/kampus) + pertanyaan sendiri
+ * berbentuk `FormField`. Pengunjung boleh melewatinya; lewati juga dicatat.
+ */
+export const SURVEY_ASK_MODES = ['OFF', 'OPTIONAL', 'REQUIRED'] as const;
+export type SurveyAskMode = (typeof SURVEY_ASK_MODES)[number];
+export const SURVEY_ASK_MODE_LABEL: Record<SurveyAskMode, string> = {
+  OFF: 'Tidak ditanyakan',
+  OPTIONAL: 'Opsional',
+  REQUIRED: 'Wajib',
+};
+
+export interface OutboundSurveyConfig {
+  readonly askEducation: SurveyAskMode;
+  readonly askRegion: SurveyAskMode;
+  readonly askInstitution: SurveyAskMode;
+  /** Pertanyaan tambahan admin — jenisnya dibatasi `OUTBOUND_QUESTION_TYPES` (tanpa email/telepon: jawaban tetap anonim). */
+  readonly questions: readonly FormField[];
+  /** null = belum pernah diubah (bawaan migration / mode memori). */
+  readonly updatedAt: string | null;
+}
+
+/** Satu kunjungan ke layar pendataan, untuk dasbor admin. TIDAK ada identitas pengisi — hanya tanda masuk/tamu. */
+export interface OutboundSurveyRecord {
+  readonly eventId: string;
+  readonly eventTitle: string | null;
+  readonly eventSlug: string | null;
+  readonly signedIn: boolean;
+  /** Menekan "Lewati": semua kolom jawaban kosong (CHECK di tabel). */
+  readonly skipped: boolean;
+  readonly educationLevel: EducationLevel | null;
+  /** Kode provinsi (`32`) atau kab/kota (`32.73`) — lihat `lib/wilayah.ts`. */
+  readonly regionCode: string | null;
+  /** NPSN / kode PT dari direktori (ADR-076); null = diketik bebas atau tidak diisi. */
+  readonly institutionId: string | null;
+  readonly institution: string | null;
+  /** Jawaban pertanyaan tambahan, kunci = `FormField.id`. */
+  readonly answers: Readonly<Record<string, AnswerValue>>;
+  readonly createdAt: string;
+}
+
 export const EVENT_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
@@ -227,6 +271,8 @@ export const NOTIFICATION_TYPES = [
   /** Tanya-jawab kegiatan (migration 20261101100006, ADR-062 #7). */
   'QUESTION_ASKED',
   'QUESTION_ANSWERED',
+  /** Teman mengajak ikut lomba dari lobinya (RPC invite_to_lobby, ADR-071). Satu per orang per lomba. */
+  'LOBBY_INVITE',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -735,6 +781,53 @@ export interface NetworkPerson {
   readonly interests: readonly string[];
 }
 
+/**
+ * Tempat studi, domisili & bidang spesifik milik sendiri (ADR-075/076).
+ * `available` = false: kolomnya belum ada di database (migration
+ * 20261109100001 belum diterapkan) — form dikunci, bukan gagal diam-diam.
+ */
+export interface StudyProfile {
+  readonly institutionId: string | null;
+  readonly institutionName: string | null;
+  /** Kode Kemendagri sampai kecamatan — hanya pemiliknya yang melihat kecamatan. */
+  readonly domicileCode: string | null;
+  readonly studyFields: readonly string[];
+  readonly available: boolean;
+}
+
+/**
+ * Keterlihatan profil (ADR-077). MEMBERS = semua anggota yang MASUK boleh
+ * membuka profil & mengajak terhubung (bawaan); NETWORK = hanya koneksi,
+ * yang bisa menemukan di Koneksi, atau sesama lobi (aturan ADR-040).
+ * Tamu & mesin pencari tidak pernah.
+ */
+export const PROFILE_VISIBILITIES = ['MEMBERS', 'NETWORK'] as const;
+export type ProfileVisibility = (typeof PROFILE_VISIBILITIES)[number];
+export const PROFILE_VISIBILITY_LABEL: Record<ProfileVisibility, string> = {
+  MEMBERS: 'Semua anggota StudentFo yang masuk',
+  NETWORK: 'Hanya koneksi & yang menemukanku di Koneksi',
+};
+
+/** Username, bio, keterlihatan milik sendiri. `available` = false: kolom belum ada (urutan deploy). */
+export interface ProfileIdentity {
+  readonly username: string | null;
+  readonly bio: string | null;
+  readonly visibility: ProfileVisibility;
+  readonly available: boolean;
+}
+
+export type StudyPlaceInput = Pick<StudyProfile, 'institutionId' | 'institutionName' | 'domicileCode'>;
+
+/** Yang boleh dilihat orang lain (`public_profile_details`): domisili terpotong ke kab/kota. */
+export interface PublicProfileDetails {
+  readonly institutionId: string | null;
+  readonly institutionName: string | null;
+  readonly regionCode: string | null;
+  readonly studyFields: readonly string[];
+  readonly username: string | null;
+  readonly bio: string | null;
+}
+
 export interface Connection {
   readonly id: string;
   /** Pihak lawan dari sudut pandang pembaca. */
@@ -1015,4 +1108,61 @@ export interface EventPhoto {
 export interface StoredFile {
   readonly bytes: Uint8Array;
   readonly contentType: string;
+}
+
+/**
+ * Lobi lomba (ADR-071): ruang per lomba untuk yang SUDAH mendaftar — mencari
+ * tim/partner dan mengajak teman sebelum lomba. Daftar HARUS sama dengan
+ * CHECK `lobby_members.intent` (migration 20261108100003; dikunci
+ * `lib/lobby.test.ts`).
+ */
+export const LOBBY_INTENTS = ['CARI_TIM', 'CARI_ANGGOTA', 'SIAP'] as const;
+export type LobbyIntent = (typeof LOBBY_INTENTS)[number];
+export const LOBBY_INTENT_LABEL: Record<LobbyIntent, string> = {
+  CARI_TIM: 'Mencari tim',
+  CARI_ANGGOTA: 'Timku butuh anggota',
+  SIAP: 'Tim sudah lengkap',
+};
+
+/** Hubungan pembaca dengan anggota lobi — menentukan tombol yang ditawarkan. */
+export type LobbyRelation = 'self' | 'connected' | 'pending' | 'none';
+
+export interface LobbyMember {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly intent: LobbyIntent;
+  readonly note: string | null;
+  readonly joinedAt: string;
+  readonly relation: LobbyRelation;
+}
+
+export interface LobbyEventRef {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly organizer: string;
+  readonly status: EventStatus;
+  readonly primaryDeadlineAt: string | null;
+}
+
+/** Satu baris di "Lobi lomba saya". `memberCount` = jumlah saja, tanpa nama, sebelum bergabung. */
+export interface LobbySummary {
+  readonly event: LobbyEventRef;
+  /** Kartu lobi milik sendiri; null = belum bergabung. */
+  readonly membership: Pick<LobbyMember, 'intent' | 'note' | 'joinedAt'> | null;
+  readonly memberCount: number;
+}
+
+export interface LobbyView {
+  readonly event: LobbyEventRef;
+  /** false = pendaftaran lomba sudah ditutup: lobi hanya bisa dibaca. */
+  readonly open: boolean;
+  /** null = belum bergabung; daftar anggota baru terlihat setelah bergabung (timbal-balik, pola kartu pemain ADR-057). */
+  readonly me: LobbyMember | null;
+  readonly members: readonly LobbyMember[];
+  readonly memberCount: number;
+  /** Koneksi yang bisa diajak ikut lomba ini (belum di lobi, belum diajak pembaca). */
+  readonly invitable: readonly { readonly userId: string; readonly fullName: string }[];
+  /** Koneksi yang sudah diajak pembaca untuk lomba ini. */
+  readonly invited: readonly { readonly userId: string; readonly fullName: string }[];
 }

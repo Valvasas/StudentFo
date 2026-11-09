@@ -10,17 +10,19 @@ import { CategoryIcon } from '@/components/listing/category-icon';
 import { AccountShell } from '@/components/layout/account-shell';
 import { BadgeBoard, BadgeStrip } from '@/components/profile/badge-board';
 import { loadBadgeFacts } from '@/components/profile/badge-facts';
+import { BadgeVisibilityToggle, PublicBadges } from '@/components/profile/public-badges';
+import { StudyPlaceLine } from '@/components/profile/study-place';
 import { PortfolioList, type PortfolioRow } from '@/components/profile/portfolio-list';
 import {
   DemoAboutCard,
   DemoAchievements,
-  DemoCity,
-  DemoHeadline,
   DemoPhone,
   DemoStatusPicker,
   DemoTeamCard,
 } from '@/components/profile/demo-profile-parts';
 import { evaluateBadges } from '@/lib/achievements';
+import { presentStudyProfile } from '@/lib/study-profile';
+import { withFallback } from '@/lib/fallback';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
@@ -70,12 +72,18 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const user = await requireUser('/profile');
   const repository = await getEventRepository();
   const isPublic = params.tampilan === 'publik';
-  const [categories, savedEvents, trackerItems, badgeFacts] = await Promise.all([
+  const [categories, savedEvents, trackerItems, badgeFacts, badgeVisibility, studyProfile, identity] = await Promise.all([
     repository.listCategories(),
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
-    isPublic ? Promise.resolve(null) : loadAccountRole(user).then((context) => loadBadgeFacts(user, context.organizer)),
+    // Juga di tampilan publik: pratinjau harus menunjukkan lencana bila pemiliknya memilih menampilkannya (ADR-072).
+    loadAccountRole(user).then((context) => loadBadgeFacts(user, context.organizer)),
+    withFallback('pilihan lencana', () => repository.getBadgeVisibility(user.id), { show: false, adjustable: false }),
+    withFallback('tempat studi', () => repository.getStudyProfile(user.id), null),
+    withFallback('profil publik', () => repository.getProfileIdentity(user.id), null),
   ]);
+  // Pratinjau publik memotong domisili ke kab/kota, sama dengan public_profile_details().
+  const studyView = studyProfile ? presentStudyProfile({ ...studyProfile, regionCode: studyProfile.domicileCode }) : null;
 
   const tabs = TABS.filter((item) => (!isPublic || !item.private) && (demoFeaturesEnabled || !item.demoOnly));
   const rawTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
@@ -161,7 +169,22 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             <h1 id="nama-profil" className="text-[clamp(30px,4vw,38px)] leading-[1.05] tracking-[-0.04em]">
               {user.fullName}
             </h1>
-            {demoFeaturesEnabled && <DemoHeadline />}
+            {identity?.username && (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14.5px] text-ink-muted">
+                <span className="font-medium">@{identity.username}</span>
+                {!isPublic && (
+                  <Link href={`/u/${identity.username}`} className="inline-flex min-h-11 items-center text-[13px] font-medium text-ink underline underline-offset-[3px]">
+                    Buka profil publikmu
+                  </Link>
+                )}
+              </p>
+            )}
+            {identity?.bio && <p className="max-w-[62ch] whitespace-pre-line break-words text-[15px] leading-relaxed text-ink-soft">{identity.bio}</p>}
+            {identity?.available && !identity.username && !isPublic && (
+              <Link href="/profile/details?ubah=publik#publik" className="inline-flex min-h-11 w-fit items-center text-[13.5px] font-medium text-ink underline underline-offset-[3px]">
+                Pasang username & bio supaya profilmu mudah dibagikan
+              </Link>
+            )}
           </div>
           <ul className="flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[13.5px] text-ink-muted">
             <li className="flex items-center gap-1.5">
@@ -171,10 +194,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   'Program studi & jenjang belum diisi'}
               </span>
             </li>
-            {demoFeaturesEnabled && <DemoCity />}
           </ul>
+          {studyView && <StudyPlaceLine view={studyView} withFields />}
           {demoFeaturesEnabled && <DemoStatusPicker editable={!isPublic} />}
-          {badges && <BadgeStrip progress={badges} href={tabHref('lencana')} />}
+          {badges && !isPublic && <BadgeStrip progress={badges} href={tabHref('lencana')} />}
+          {badges && isPublic && badgeVisibility.show && <PublicBadges progress={badges} />}
         </section>
 
         {/* Setelah 100% kartu ini hanya berisi daftar yang dicoret semua —
@@ -354,7 +378,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
           </>
         )}
 
-        {tab === 'lencana' && <BadgeBoard progress={badges} now={now} />}
+        {tab === 'lencana' && (
+          <>
+            <BadgeVisibilityToggle show={badgeVisibility.show} adjustable={badgeVisibility.adjustable} />
+            <BadgeBoard progress={badges} now={now} />
+          </>
+        )}
 
         {tab === 'pendaftaran' && (
           <section aria-labelledby="pendaftaran-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">

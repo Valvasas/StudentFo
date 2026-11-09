@@ -20,6 +20,8 @@ import { ORGANIZER_RATE_LIMITS, sameOrganizerIdentity, type OrganizerApplication
 import { ANALYTICS_MIN_GROUP, kAnonymize } from '@/lib/organizer-analytics';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
 import { clampCandidateWindow } from '@/lib/matchmaking';
+import type { AchievementFacts } from '@/lib/achievements';
+import { hasRegistered, isLobbyEvent, isLobbyOpen, LOBBY_LIMITS, lobbyEventsOf, rankLobbyMembers, toLobbyEventRef, type LobbyMemberInput } from '@/lib/lobby';
 import { isPortfolioStatus, isPubliclyListed, portfolioDigestOf, toPortfolioEntry, type DigestRow, type PortfolioInput } from '@/lib/portfolio';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
 import { IMAGE_EXTENSION, type UploadedImage } from '@/lib/image-file';
@@ -103,10 +105,23 @@ import type {
   ReportReason,
   ReportStatus,
   ReportSubject,
+  LobbyIntent,
+  LobbyMember,
+  LobbyRelation,
+  LobbySummary,
+  LobbyView,
+  OutboundSurveyConfig,
+  ProfileIdentity,
+  PublicProfileDetails,
+  StudyPlaceInput,
+  StudyProfile,
+  OutboundSurveyRecord,
 } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS } from './repository';
+import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
+import { normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
 import { demoReceiptPng } from './demo-media';
 import type {
   DeleteAccountInput,
@@ -119,6 +134,7 @@ import type {
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
+  OutboundSurveyInput,
   EventActor,
   EventRepository,
   OrganizerActor,
@@ -130,6 +146,7 @@ import type {
   ReviewTrustInput,
 } from './repository';
 import {
+  SEED_LOBBY,
   DEMO_STARTER_NETWORK,
   DEMO_STARTER_PORTFOLIO,
   DEMO_STARTER_REGISTRATIONS,
@@ -141,6 +158,8 @@ import {
   type SeedPortfolioEntry,
   SEED_PERSON_CONNECTIONS,
   SEED_TEAMS,
+  SEED_IDENTITIES,
+  SEED_STUDY_PROFILES,
   type SeedEvent,
 } from './seed-data';
 
@@ -254,6 +273,14 @@ interface TrackerEntry extends PortfolioFields {
 }
 
 const EMPTY_PORTFOLIO: PortfolioFields = { achievement: null, achievementNote: null, proofUrl: null, portfolioVisible: null };
+
+interface LobbyEntry {
+  userId: string;
+  fullName: string;
+  intent: LobbyIntent;
+  note: string | null;
+  joinedAt: string;
+}
 
 interface NetworkMember {
   person: NetworkPerson;
@@ -437,6 +464,19 @@ export class MemoryEventRepository implements EventRepository {
   private questionSeq = 0;
   /** Cermin `users.suspended_at` / `suspension_reason`. */
   private readonly suspensions = new Map<string, { at: string; reason: string }>();
+  /** Pendataan kinerja (ADR-070/073) — tanpa identitas pengisi, sama dengan tabel `outbound_surveys`. */
+  private readonly outboundSurveys: (OutboundSurveyInput & { createdAt: string })[] = [];
+  private outboundConfig: OutboundSurveyConfig = DEFAULT_OUTBOUND_CONFIG;
+  /** Tempat studi & bidang spesifik (ADR-075/076) — kolom `users` di produksi. */
+  private readonly studyProfiles = new Map<string, Omit<StudyProfile, 'available'>>(SEED_STUDY_PROFILES);
+  /** Username, bio, keterlihatan (ADR-077) — kolom `users` di produksi. */
+  private readonly identities = new Map<string, Omit<ProfileIdentity, 'available'>>(SEED_IDENTITIES);
+  /** Cermin `users.show_badges` (ADR-072): bawaan privat. */
+  private readonly badgeVisible = new Set<string>();
+  /** Lobi lomba (ADR-071): eventId → userId → kartu. */
+  private readonly lobbyMembers = new Map<string, Map<string, LobbyEntry>>();
+  /** `${eventId}:${inviterId}` → yang sudah diajak; cermin PK `lobby_invites`. */
+  private readonly lobbyInvites = new Map<string, Set<string>>();
   private readonly demoSeededUsers = new Set<string>();
   private readonly demoSeedLimit: number;
   private readonly isolateSeekers: boolean;
@@ -457,6 +497,7 @@ export class MemoryEventRepository implements EventRepository {
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
     this.seedTeams(base);
     this.seedPeople(base);
+    this.seedLobby(base);
     // Formulir & pendaftar contoh ada sejak data demo dibangun, bukan baru
     // saat persona Penyelenggara masuk: setelah reset/restart, acara berbayar
     // contoh harus langsung menunjukkan alur formulir & pembayaran (ADR-056).
@@ -467,6 +508,66 @@ export class MemoryEventRepository implements EventRepository {
   /** UUID, bukan penghitung: skema form (mis. `createTeamSchema`) memvalidasi id sebagai UUID, sama seperti produksi. */
   private nextId(): string {
     return crypto.randomUUID();
+  }
+
+  private seedLobby(base: Date): void {
+    const event = this.events.find((candidate) => candidate.slug === SEED_LOBBY.eventSlug);
+    if (!event) return;
+    const members = getOrCreate(this.lobbyMembers, event.id, () => new Map<string, LobbyEntry>());
+    for (const member of SEED_LOBBY.members) {
+      const person = this.people.get(member.userId);
+      if (!person) continue;
+      members.set(member.userId, {
+        userId: member.userId,
+        fullName: person.person.fullName,
+        intent: member.intent,
+        note: member.note,
+        joinedAt: isoOffsetDays(-member.joinedDaysAgo, base),
+      });
+    }
+    for (const holder of SEED_LOBBY.badgeHolders) {
+      const person = this.people.get(holder.userId);
+      if (!person) continue;
+      this.badgeVisible.add(holder.userId);
+      for (const slug of holder.eventSlugs) {
+        const past = this.events.find((candidate) => candidate.slug === slug);
+        if (!past?.primaryDeadlineAt) continue;
+        const at = (days: number) => new Date(Date.parse(past.primaryDeadlineAt!) + days * MS_PER_DAY).toISOString();
+        const id = `seed-reg-${holder.userId}-${past.id}`;
+        this.registrations.set(id, {
+          id,
+          code: newRegistrationCode(),
+          eventId: past.id,
+          userId: holder.userId,
+          fullName: person.person.fullName,
+          email: `${holder.userId}@contoh.studentfo.invalid`,
+          answers: {},
+          status: 'CONFIRMED',
+          feeAmount: null,
+          proofKey: null,
+          proofUploadedAt: null,
+          reviewNote: null,
+          reviewedAt: null,
+          createdAt: at(-14),
+          updatedAt: at(-14),
+        });
+      }
+    }
+  }
+
+  /** Persona Mahasiswa sudah mendaftar lomba berlobi contoh — "Lobi lomba" tidak kosong saat dinilai. */
+  seedDemoLobby(userId: string): void {
+    const event = this.events.find((candidate) => candidate.slug === SEED_LOBBY.eventSlug);
+    if (!event || this.trackerEntries.get(userId)?.has(event.id)) return;
+    const now = new Date().toISOString();
+    getOrCreate(this.trackerEntries, userId, () => new Map()).set(event.id, {
+      id: this.nextId(),
+      status: 'APPLIED',
+      notes: null,
+      createdAt: now,
+      updatedAt: now,
+      ...EMPTY_PORTFOLIO,
+    });
   }
 
   private seedTeams(base: Date): void {
@@ -1114,6 +1215,12 @@ export class MemoryEventRepository implements EventRepository {
     this.emailOptIns.delete(userId);
     for (const [id, question] of this.questions) if (question.authorId === userId) this.questions.delete(id);
     this.organizers.delete(userId);
+    for (const members of this.lobbyMembers.values()) members.delete(userId);
+    this.badgeVisible.delete(userId);
+    for (const [key, invitees] of this.lobbyInvites) {
+      if (key.endsWith(`:${userId}`)) this.lobbyInvites.delete(key);
+      else invitees.delete(userId);
+    }
     this.blocks.delete(userId);
     for (const blocked of this.blocks.values()) blocked.delete(userId);
     for (const [id, connection] of this.connections) {
@@ -1248,9 +1355,11 @@ export class MemoryEventRepository implements EventRepository {
     return Boolean(this.isReachable(userId) || this.findPair(viewerId, userId));
   }
 
-  /** Cermin `is_discoverable()` (20261020100001): terbuka di direktori ATAU kartu pemainnya terbuka. */
+  /** Cermin `is_discoverable()` (20261109100001): terbuka di direktori, kartu pemain terbuka, ATAU profil terbuka untuk anggota. */
   private isReachable(userId: string): boolean {
-    return Boolean(this.people.get(userId)?.discoverable || this.seekers.get(userId)?.open);
+    // `people.has`: cermin EXISTS di SQL — id yang tidak terdaftar tidak pernah "terbuka".
+    const membersProfile = this.people.has(userId) && (this.identities.get(userId)?.visibility ?? 'MEMBERS') === 'MEMBERS' && !this.suspensions.has(userId);
+    return Boolean(this.people.get(userId)?.discoverable || this.seekers.get(userId)?.open || membersProfile);
   }
 
   async getPublicProfile(viewerId: string, userId: string): Promise<PublicProfile | null> {
@@ -1868,7 +1977,10 @@ export class MemoryEventRepository implements EventRepository {
       }
       throw actionError('connection_exists');
     }
-    if (!this.people.has(targetId) || !this.isReachable(targetId)) throw actionError('person_unavailable');
+    // Cermin policy connections_insert_requester (20261108100003): bisa ditemukan, ATAU sesama anggota lobi.
+    if (!this.people.has(targetId) || !(this.isReachable(targetId) || this.sharesLobby(actor.id, targetId))) {
+      throw actionError('person_unavailable');
+    }
     if (!this.rateLimiter.consume(`connection:${actor.id}`, CONNECTION_RATE_LIMIT.perDay, 86_400)) {
       throw actionError('connection_rate_limited');
     }
@@ -2890,5 +3002,271 @@ export class MemoryEventRepository implements EventRepository {
         .map(({ eventId, createdAt, interests, educationLevel }) => ({ eventId, createdAt, interests, educationLevel })),
       events: this.events.filter(isPubliclyVisible),
     };
+  }
+
+  async getOutboundSurveyConfig(): Promise<OutboundSurveyConfig> {
+    return this.outboundConfig;
+  }
+
+  async saveOutboundSurveyConfig(input: OutboundConfigInput, _actorId: string): Promise<void> {
+    this.outboundConfig = { ...input, questions: input.questions.map((field) => ({ ...field, options: [...field.options] })), updatedAt: new Date().toISOString() };
+  }
+
+  async recordOutboundSurvey(input: OutboundSurveyInput): Promise<void> {
+    if (!this.findEvent(input.eventId)) return;
+    // Cermin CHECK `outbound_surveys_skip_is_empty`: lewati = tanpa jawaban apa pun.
+    const row = input.skipped ? { ...input, ...SKIPPED_ANSWERS } : input;
+    this.outboundSurveys.push({ ...row, createdAt: new Date().toISOString() });
+  }
+
+  async listOutboundSurveys(since: Date): Promise<readonly OutboundSurveyRecord[]> {
+    return this.outboundSurveys
+      .filter((row) => Date.parse(row.createdAt) >= since.getTime())
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, OUTBOUND_READ_LIMIT)
+      .map((row) => {
+        const event = this.findEvent(row.eventId);
+        return { ...row, eventTitle: event?.title ?? null, eventSlug: event?.slug ?? null };
+      });
+  }
+
+  /** Cermin `can_use_lobby()`: lomba tayang + pembaca sudah mendaftar (Papan lamaran atau formulir). */
+  private lobbyEventFor(userId: string, eventId: string): EventDetail | null {
+    const event = this.findEvent(eventId);
+    if (!event || !isLobbyEvent(event)) return null;
+    const tracker = this.trackerEntries.get(userId)?.get(eventId)?.status ?? null;
+    let registration: RegistrationStatus | null = null;
+    for (const entry of this.registrations.values()) {
+      if (entry.userId === userId && entry.eventId === eventId && entry.status !== 'CANCELLED') registration = entry.status;
+    }
+    return hasRegistered(tracker, registration) ? event : null;
+  }
+
+  /** Cermin `shares_lobby_with()`: keduanya anggota lobi lomba yang sama. */
+  private sharesLobby(a: string, b: string): boolean {
+    for (const members of this.lobbyMembers.values()) if (members.has(a) && members.has(b)) return true;
+    return false;
+  }
+
+  /** Anggota yang terhitung — akun ditangguhkan tidak (cermin `u.suspended_at IS NULL`). */
+  private lobbyEntriesOf(eventId: string): LobbyEntry[] {
+    return [...(this.lobbyMembers.get(eventId)?.values() ?? [])].filter((entry) => !this.suspensions.has(entry.userId));
+  }
+
+  private toLobbyMember(entry: LobbyEntry, relation: LobbyRelation): LobbyMember {
+    return { userId: entry.userId, fullName: entry.fullName, intent: entry.intent, note: entry.note, joinedAt: entry.joinedAt, relation };
+  }
+
+  async listMyLobbies(userId: string): Promise<readonly LobbySummary[]> {
+    const events = lobbyEventsOf(await this.listTrackerItems(userId), await this.listMyRegistrations(userId));
+    return events.map((event) => {
+      const mine = this.lobbyMembers.get(event.id)?.get(userId);
+      return {
+        event,
+        membership: mine ? { intent: mine.intent, note: mine.note, joinedAt: mine.joinedAt } : null,
+        memberCount: this.lobbyEntriesOf(event.id).length,
+      };
+    });
+  }
+
+  async getLobby(viewer: NetworkViewer, eventId: string): Promise<LobbyView | null> {
+    const event = this.lobbyEventFor(viewer.id, eventId);
+    if (!event) return null;
+    const entries = this.lobbyEntriesOf(eventId);
+    const mine = entries.find((entry) => entry.userId === viewer.id);
+    // Timbal-balik: roster hanya untuk anggota (cermin `lobby_roster()`).
+    const others = mine
+      ? entries
+          .filter((entry) => entry.userId !== viewer.id && !this.isBlocked(viewer.id, entry.userId))
+          .map((entry) => {
+            const pair = this.findPair(viewer.id, entry.userId);
+            return this.toLobbyMember(entry, pair?.status === 'ACCEPTED' ? 'connected' : pair ? 'pending' : 'none');
+          })
+      : [];
+    const invitedIds = this.lobbyInvites.get(`${eventId}:${viewer.id}`) ?? new Set<string>();
+    const rosterIds = new Set(others.map((member) => member.userId));
+    const nameOf = (userId: string) => this.people.get(userId)?.person.fullName ?? 'Pengguna StudentFo';
+    const peers = [...this.acceptedPeers(viewer.id)].filter((userId) => !this.isBlocked(viewer.id, userId));
+    return {
+      event: toLobbyEventRef(event),
+      open: isLobbyOpen(event),
+      me: mine ? this.toLobbyMember(mine, 'self') : null,
+      members: rankLobbyMembers(others, mine?.intent ?? null).slice(0, 200),
+      memberCount: entries.length,
+      invitable: peers
+        .filter((userId) => !rosterIds.has(userId) && !invitedIds.has(userId))
+        .slice(0, LOBBY_LIMITS.inviteCandidates)
+        .map((userId) => ({ userId, fullName: nameOf(userId) })),
+      invited: [...invitedIds].map((userId) => ({ userId, fullName: nameOf(userId) })),
+    };
+  }
+
+  async joinLobby(actor: NetworkViewer, eventId: string, input: LobbyMemberInput): Promise<void> {
+    const event = this.lobbyEventFor(actor.id, eventId);
+    if (!event) throw actionError('lobby_forbidden');
+    if (!isLobbyOpen(event)) throw actionError('lobby_closed');
+    this.rememberActor(actor);
+    const entries = getOrCreate(this.lobbyMembers, eventId, () => new Map<string, LobbyEntry>());
+    const existing = entries.get(actor.id);
+    entries.set(actor.id, {
+      userId: actor.id,
+      fullName: actor.fullName,
+      intent: input.intent,
+      note: input.note,
+      joinedAt: existing?.joinedAt ?? new Date().toISOString(),
+    });
+  }
+
+  async leaveLobby(actorId: string, eventId: string): Promise<void> {
+    this.lobbyMembers.get(eventId)?.delete(actorId);
+  }
+
+  async getBadgeVisibility(userId: string): Promise<{ readonly show: boolean; readonly adjustable: boolean }> {
+    return { show: this.badgeVisible.has(userId), adjustable: true };
+  }
+
+  async setBadgeVisibility(userId: string, show: boolean): Promise<void> {
+    if (show) this.badgeVisible.add(userId);
+    else this.badgeVisible.delete(userId);
+  }
+
+  /** Cermin `public_badge_facts()`: pemilik, atau opt-in + (boleh lihat profil ATAU satu lobi tanpa blokir). */
+  async getStudyProfile(userId: string): Promise<StudyProfile> {
+    const stored = this.studyProfiles.get(userId);
+    return { institutionId: null, institutionName: null, domicileCode: null, studyFields: [], ...stored, available: true };
+  }
+
+  async saveStudyPlace(userId: string, input: StudyPlaceInput): Promise<void> {
+    const current = this.studyProfiles.get(userId);
+    this.studyProfiles.set(userId, { studyFields: current?.studyFields ?? [], ...input });
+  }
+
+  async saveStudyFields(userId: string, fields: readonly string[]): Promise<boolean> {
+    const current = this.studyProfiles.get(userId) ?? { institutionId: null, institutionName: null, domicileCode: null };
+    this.studyProfiles.set(userId, { ...current, studyFields: [...fields] });
+    return true;
+  }
+
+  async getProfileIdentity(userId: string): Promise<ProfileIdentity> {
+    return { username: null, bio: null, visibility: 'MEMBERS', ...this.identities.get(userId), available: true };
+  }
+
+  async saveProfileIdentity(userId: string, input: ProfileIdentityInput): Promise<void> {
+    // Cermin indeks unik `users_username_key`.
+    const taken = input.username && [...this.identities.entries()].some(([id, identity]) => id !== userId && identity.username === input.username);
+    if (taken) throw actionError('username_taken');
+    this.identities.set(userId, { ...input });
+  }
+
+  /** Cermin `user_id_by_username()`: tidak ada & tidak boleh dilihat sama-sama null. */
+  async resolveUsername(viewerId: string, username: string): Promise<string | null> {
+    const wanted = normalizeUsername(username);
+    const entry = [...this.identities.entries()].find(([, identity]) => identity.username === wanted);
+    if (!entry || this.suspensions.has(entry[0]) || !this.canViewProfile(viewerId, entry[0])) return null;
+    return entry[0];
+  }
+
+  /** Cermin `public_profile_details()`: diri sendiri, boleh melihat profil, atau satu lobi tanpa blokir; kecamatan dipotong. */
+  async listPublicProfileDetails(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, PublicProfileDetails>> {
+    const result = new Map<string, PublicProfileDetails>();
+    for (const userId of [...new Set(userIds)].slice(0, 100)) {
+      if (this.suspensions.has(userId)) continue;
+      const allowed = userId === viewerId || this.canViewProfile(viewerId, userId) || (this.sharesLobby(viewerId, userId) && !this.isBlocked(viewerId, userId));
+      const stored = this.studyProfiles.get(userId);
+      const identity = this.identities.get(userId);
+      if (!allowed || (!stored && !identity)) continue;
+      result.set(userId, {
+        institutionId: stored?.institutionId ?? null,
+        institutionName: stored?.institutionName ?? null,
+        regionCode: stored?.domicileCode?.slice(0, 5) ?? null,
+        studyFields: stored?.studyFields ?? [],
+        username: identity?.username ?? null,
+        bio: identity?.bio ?? null,
+      });
+    }
+    return result;
+  }
+
+  async listPublicBadgeFacts(viewerId: string, userIds: readonly string[], now: Date = new Date()): Promise<ReadonlyMap<string, AchievementFacts>> {
+    const result = new Map<string, AchievementFacts>();
+    for (const userId of [...new Set(userIds)].slice(0, 100)) {
+      if (this.suspensions.has(userId)) continue;
+      const allowed =
+        userId === viewerId ||
+        (this.badgeVisible.has(userId) && (this.canViewProfile(viewerId, userId) || (this.sharesLobby(viewerId, userId) && !this.isBlocked(viewerId, userId))));
+      if (allowed) result.set(userId, this.badgeFactsOf(userId, now));
+    }
+    return result;
+  }
+
+  private badgeFactsOf(userId: string, now: Date): AchievementFacts {
+    const managed = (eventId: string) => this.eventManagers.get(eventId)?.has(userId) ?? false;
+    const registrations = new Map<string, AchievementFacts['registrations'][number]>();
+    let index = 0;
+    for (const entry of this.registrations.values()) {
+      const event = this.findEvent(entry.eventId);
+      if (entry.userId !== userId || entry.status !== 'CONFIRMED' || !event || managed(event.id)) continue;
+      if (event.status !== 'APPROVED' && event.status !== 'EXPIRED') continue;
+      if (registrations.has(event.id)) continue;
+      // Id buatan, cermin SQL yang sengaja tidak menyerahkan id acara orang lain.
+      registrations.set(event.id, {
+        eventId: `publik-${(index += 1)}`,
+        eventType: event.eventType,
+        eventStatus: event.status,
+        deadlineAt: event.primaryDeadlineAt,
+        status: 'CONFIRMED',
+        confirmedAt: entry.reviewedAt ?? entry.createdAt,
+      });
+    }
+    let approvedSubmissions = 0;
+    for (const [submissionId, owner] of this.submissionOwners) {
+      if (owner === userId && this.submissions.get(submissionId)?.status === 'APPROVED') approvedSubmissions += 1;
+    }
+    const organizer = this.organizers.get(userId) ?? null;
+    const hostedEventClosedAt: (string | null)[] = [];
+    if (organizer?.status === 'VERIFIED') {
+      for (const [eventId, managers] of this.eventManagers) {
+        const event = this.findEvent(eventId);
+        if (!managers.has(userId) || !event) continue;
+        const closed = event.status === 'EXPIRED' || (event.status === 'APPROVED' && event.primaryDeadlineAt !== null && new Date(event.primaryDeadlineAt) < now);
+        if (closed) hostedEventClosedAt.push(event.primaryDeadlineAt);
+      }
+    }
+    return {
+      registrations: [...registrations.values()],
+      managedEventIds: [],
+      approvedSubmissions,
+      organizerStatus: organizer?.status ?? null,
+      organizerReviewedAt: organizer?.reviewedAt ?? null,
+      hostedEventClosedAt,
+    };
+  }
+
+  async inviteToLobby(actor: NetworkViewer, eventId: string, inviteeId: string): Promise<'invited' | 'already'> {
+    const event = this.lobbyEventFor(actor.id, eventId);
+    if (!event) throw actionError('lobby_forbidden');
+    if (!isLobbyOpen(event)) throw actionError('lobby_closed');
+    if (inviteeId === actor.id || this.findPair(actor.id, inviteeId)?.status !== 'ACCEPTED' || this.isBlocked(actor.id, inviteeId)) {
+      throw actionError('lobby_invite_invalid');
+    }
+    const sent = getOrCreate(this.lobbyInvites, `${eventId}:${actor.id}`, () => new Set<string>());
+    if (sent.has(inviteeId)) return 'already';
+    if (!this.rateLimiter.consume(`lobby-invite:${actor.id}`, LOBBY_LIMITS.invitesPerDay, 86_400)) throw actionError('lobby_rate_limited');
+    sent.add(inviteeId);
+
+    // Cermin idx_notifications_dedupe: diajak beberapa teman = satu kabar per lomba (yang pertama).
+    const list = getOrCreate(this.storedNotifications, inviteeId, () => []);
+    const id = `notif-LOBBY_INVITE-${inviteeId}-${eventId}`;
+    if (!list.some((notification) => notification.id === id)) {
+      list.push({
+        id,
+        type: 'LOBBY_INVITE',
+        message: `${actor.fullName} mengajakmu ikut ${event.title}. Daftar, lalu masuk lobinya untuk mencari tim bersama.`,
+        isRead: false,
+        sentAt: new Date().toISOString(),
+        event: { id: event.id, slug: event.slug, title: event.title },
+      });
+    }
+    return 'invited';
   }
 }

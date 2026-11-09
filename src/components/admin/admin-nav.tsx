@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { BadgeCheck, Flag, History, Megaphone, Scale, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, BarChart3, Flag, History, Megaphone, Scale, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react';
 import { ScrollRail } from '@/components/ui/scroll-rail';
 import { cn } from '@/lib/utils';
 
-export type AdminSection = 'antrean' | 'laporan' | 'penyelenggara' | 'pengguna' | 'riwayat' | 'kalibrasi' | 'promosi';
+export type AdminSection = 'antrean' | 'laporan' | 'penyelenggara' | 'pengguna' | 'riwayat' | 'kinerja' | 'kalibrasi' | 'promosi';
 
 const ITEMS: readonly { key: AdminSection; label: string; href: string; icon: LucideIcon }[] = [
   { key: 'antrean', label: 'Antrean moderasi', href: '/admin', icon: ShieldCheck },
@@ -11,6 +11,7 @@ const ITEMS: readonly { key: AdminSection; label: string; href: string; icon: Lu
   { key: 'penyelenggara', label: 'Penyelenggara', href: '/admin/penyelenggara', icon: BadgeCheck },
   { key: 'pengguna', label: 'Pengguna', href: '/admin/pengguna', icon: UsersRound },
   { key: 'riwayat', label: 'Riwayat moderasi', href: '/admin/riwayat', icon: History },
+  { key: 'kinerja', label: 'Kinerja postingan', href: '/admin/kinerja', icon: BarChart3 },
   { key: 'kalibrasi', label: 'Kalibrasi rekomendasi', href: '/admin/kalibrasi', icon: Scale },
   { key: 'promosi', label: 'Lencana & promosi', href: '/admin/promosi', icon: Megaphone },
 ];

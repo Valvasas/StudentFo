@@ -125,7 +125,7 @@ test('pencocokan tim (form, hasil, saringan terbuka): setiap target ≥ 44px', a
 
 test('studio penyelenggara (beranda, dasbor, ringkasan & rentang analitik): setiap target ≥ 44px', async ({ page }) => {
   await signInAsDemo(page, 'Penyelenggara', '/penyelenggara');
-  for (const route of ['/penyelenggara', '/', `/penyelenggara/acara/${PAID_DEMO_EVENT.id}`]) {
+  for (const route of ['/penyelenggara', '/', `/penyelenggara/acara/${PAID_DEMO_EVENT.id}`, '/lobi', '/lobi/kompetisi-inovasi-perangkat-lunak-nusantara-2026']) {
     await page.goto(route);
     await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000, message: route }).toEqual([]);
   }
@@ -165,7 +165,7 @@ test.describe('tablet sentuh', () => {
 
       test('profil, data diri, pengaturan, personalisasi, privasi, peta koneksi, profil orang: setiap target ≥ 44px', async ({ page }) => {
         await signInAsDemo(page, 'Mahasiswa', '/profile/details');
-        for (const route of ['/profile/details', '/profile/settings', '/profile/settings/keamanan', '/profile/settings/notifikasi', '/profile?tab=lencana', '/profile/personalization', '/profile/privacy', '/connections?tab=peta', '/orang/seed-user-1']) {
+        for (const route of ['/profile/details', '/profile/settings', '/profile/settings/keamanan', '/profile/settings/notifikasi', '/profile?tab=lencana', '/profile/personalization', '/profile/privacy', '/connections?tab=peta', '/orang/seed-user-5', '/u/rani.prameswari']) {
           await page.goto(route);
           await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000, message: route }).toEqual([]);
         }

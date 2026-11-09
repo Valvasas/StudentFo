@@ -11,6 +11,7 @@ import { isDemoAvailable } from '@/lib/demo/gate';
 import { dataMode } from '@/lib/env';
 import { ORGANIZER_HOME_PATH, ORGANIZER_LOGIN_PATH } from '@/lib/safe-redirect';
 import type { RawSearchParams } from '@/lib/search-params';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,11 +46,12 @@ export default async function OrganizerRegisterPage({ searchParams }: { searchPa
     return (
       <>
         {heading}
-        <AuthFeedback params={params} />
+        <AuthFeedback params={params} loginPath={ORGANIZER_LOGIN_PATH} />
         <form action={demoSignInAction} className="flex flex-col gap-4">
           <input type="hidden" name="next" value={ORGANIZER_HOME_PATH} />
           <input type="hidden" name="persona" value="penyelenggara" />
-          <SubmitButton pendingLabel="Menyiapkan…" className={buttonVariants({ size: 'lg', className: 'w-full' })}>
+          {/* Label terpanjang di antara tombol penuh: boleh dua baris (tinggi h-12 tetap) daripada meluber di 320px / teks diperbesar. */}
+          <SubmitButton pendingLabel="Menyiapkan…" className={cn(buttonVariants({ size: 'lg' }), 'w-full whitespace-normal text-center leading-tight')}>
             Coba dengan akun demo penyelenggara
           </SubmitButton>
         </form>

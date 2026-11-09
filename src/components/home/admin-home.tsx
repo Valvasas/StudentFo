@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Building2, CircleCheck, Flag, Inbox, KeyRound, type LucideIcon, Megaphone, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { AdminSetupNotice } from '@/components/admin/admin-setup-notice';
 import { CronHealthPanel } from '@/components/admin/cron-health-panel';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { PersonalHome } from '@/components/home/personal-home';
@@ -8,6 +9,7 @@ import { buttonVariants } from '@/components/ui/button';
 import type { AdminMfaStep } from '@/lib/admin-mfa';
 import { ADMIN_MFA_PATH, checkAdminAccess, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { adminDataAvailable } from '@/lib/env';
 import { formatDateTimeId } from '@/lib/deadline';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -61,6 +63,7 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
   const gate = await checkAdminAccess();
   if (!gate.allowed && gate.reason === 'mfa-required') return <AdminMfaPrompt user={user} step={gate.step} />;
   if (!gate.allowed) return <PersonalHome user={user} params={params} />;
+  if (!adminDataAvailable) return <AdminSetupNotice />;
 
   const repository = await getEventRepository();
   const [events, submissions, organizers, claims, revisions, reports, log] = await Promise.all([

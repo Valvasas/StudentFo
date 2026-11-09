@@ -10,6 +10,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('00000000-0000-4000-8000-0000000f0a02', 'teman@porto', '{"full_name":"Teman Porto"}'),
   ('00000000-0000-4000-8000-0000000f0a03', 'asing@porto', '{"full_name":"Orang Asing"}'),
   ('00000000-0000-4000-8000-0000000f0a04', 'org@porto', '{"full_name":"Panitia Porto"}');
+-- Tes ini menguji aturan keterlihatan NETWORK (ADR-040); bawaan MEMBERS diuji 114_profile_identity.
+UPDATE public.users SET profile_visibility = 'NETWORK';
 
 INSERT INTO public.events (id, title, organizer, event_type, registration_link, source_url, status, reviewed_at) VALUES
   ('00000000-0000-4000-8000-0000000f0e01', 'Lomba Porto Selesai', 'Himpunan Porto', 'LOMBA', 'https://d.example/1', 'https://s.example/1', 'EXPIRED', now()),

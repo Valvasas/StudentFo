@@ -19,7 +19,7 @@ import {
 import { writeOrganizerDraftCookie } from '@/lib/organizer-draft-cookie';
 import { newPasswordFailure, signUpValidationFailure } from '@/lib/auth-failure';
 import { ORGANIZER_DRAFT_FIELDS, organizerApplicationSchema, organizerSignUpSchema, toOrganizerDraft } from '@/lib/organizer';
-import { seedDemoNetwork, seedDemoOrganizer, seedDemoParticipation, seedDemoPortfolio } from '@/lib/data';
+import { seedDemoLobby, seedDemoNetwork, seedDemoOrganizer, seedDemoParticipation, seedDemoPortfolio } from '@/lib/data';
 import { DEMO_PERSONAS, demoEmailOf, isDemoPersonaId } from '@/lib/demo/personas';
 import { isDemoAdminPersonaAllowed, isDemoAvailable } from '@/lib/demo/gate';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
@@ -353,6 +353,7 @@ export async function demoSignInAction(formData: FormData): Promise<void> {
   if (persona === 'mahasiswa') {
     seedDemoNetwork(uid);
     seedDemoPortfolio(uid);
+    seedDemoLobby(uid);
     seedDemoParticipation({ id: uid, fullName: DEMO_PERSONAS.mahasiswa.fullName, email: demoEmailOf(persona) });
   }
   if (persona === 'penyelenggara') {

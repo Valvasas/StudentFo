@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 const SUMMARY = [
   'Kami tidak menjual datamu dan tidak memasang iklan atau pelacak pihak ketiga.',
-  'Profilmu tersembunyi sampai kamu sendiri memilih terlihat — di Koneksi atau lewat kartu pemain.',
+  'Profilmu hanya bisa dibuka anggota StudentFo yang sudah masuk — tidak pernah tamu atau mesin pencari — dan bisa kamu batasi ke koneksimu saja. Email & kecamatanmu tidak pernah tampil.',
   'Data dirimu sampai ke penyelenggara hanya bila kamu mendaftar lewat formulir StudentFo mereka.',
   'Kamu bisa mengakses, memperbaiki, mengunduh, dan meminta penghapusan datamu; kami menindaklanjuti paling lambat 3 × 24 jam.',
 ];
@@ -67,11 +67,36 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               (termasuk lokasi GPS) sebelum disimpan.
             </li>
             <li>
-              <strong>Penyelenggara terverifikasi:</strong> nama lembaga, situs web, keterangan dan bukti yang kamu kirim untuk verifikasi, acara
-              yang kamu kelola, dan foto galeri yang kamu unggah.
+              <strong>Penyelenggara:</strong> nama lembaga, jenis lembaga, jabatanmu di lembaga, situs web, keterangan dan bukti yang kamu kirim
+              untuk verifikasi, acara yang kamu kelola, dan foto galeri yang kamu unggah. Data lembaga yang kamu isi di form daftar penyelenggara
+              disimpan di akunmu sebagai draf sampai pengajuannya kamu kirim dari studio.
             </li>
             <li>
               <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
+            </li>
+            <li>
+              <strong>Username, bio & pilihan siapa yang boleh membuka profilmu:</strong> bawaannya semua anggota yang sudah masuk boleh
+              membuka profilmu dan mengajakmu terhubung; kamu bisa mengubahnya menjadi &ldquo;hanya koneksi&rdquo; kapan saja. Muncul di saran &
+              pencarian Koneksi tetap pilihan terpisah yang bawaannya mati. Pengguna yang kamu blokir tidak pernah bisa membuka profilmu.
+            </li>
+            <li>
+              <strong>Tempat studi, domisili & bidang peminatan (bila kamu mengisinya):</strong> nama sekolah/kampus (dipilih dari direktori
+              resmi atau diketik sendiri), domisili sampai kecamatan, dan bidang peminatan spesifik. Orang yang boleh membuka profilmu (lihat butir di atas) dan
+              sesama peserta lobi lomba melihat tempat studi, bidang peminatan, dan kabupaten/kota domisilimu. <em>Kecamatan tidak pernah ditampilkan ke siapa pun selain kamu.</em> Tempat studi diisi
+              sendiri dan tidak kami verifikasi.
+            </li>
+            <li>
+              <strong>Lobi lomba (bila kamu bergabung):</strong> status mencari tim/anggota dan catatan singkat di lobi lomba yang kamu ikuti,
+              serta koneksi mana yang kamu ajak ikut lomba itu.
+            </li>
+            <li>
+              <strong>Pendataan kinerja postingan:</strong> sebelum kamu diarahkan ke situs pendaftaran resmi penyelenggara, kami menampilkan
+              beberapa pertanyaan singkat yang disusun pengelola StudentFo — bawaannya jenjang pendidikan, dari mana kamu tahu info itu, rencana
+              ikut, dan bila kamu mau kabupaten/kota domisili serta asal sekolah/kampus. Kamu boleh menekan <em>Lewati</em>; yang kami catat
+              saat itu hanya bahwa ada kunjungan yang melewati. Jawaban ini <em>tidak</em> memuat nama, email, atau id akunmu (hanya tanda
+              apakah kamu sedang masuk), tidak dikirim ke penyelenggara, dan hanya dipakai pengelola StudentFo untuk menilai postingan mana yang
+              benar-benar dipakai. Pertanyaan tidak pernah meminta email atau nomor telepon. Wilayah, asal sekolah/kampus, dan jawaban teks
+              hanya ditampilkan sebagai angka bila ada sedikitnya lima jawaban yang sama.
             </li>
             <li>
               <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu. Bila kamu menyalakan
@@ -124,7 +149,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             </li>
             <li>
               <strong>Kepentingan yang sah:</strong> keamanan dan pencegahan penyalahgunaan (pembatas laju, CAPTCHA, moderasi kiriman, verifikasi
-              penyelenggara), statistik kunjungan agregat untuk penyelenggara, dan penyetelan urutan rekomendasi.
+              penyelenggara), statistik kunjungan agregat untuk penyelenggara, penyetelan urutan rekomendasi, dan pendataan kinerja postingan
+              (tanpa identitas) untuk menilai kegiatan mana yang layak ditayangkan.
             </li>
             <li>
               <strong>Kewajiban hukum:</strong> menanggapi permintaan resmi aparat yang berwenang sesuai peraturan perundang-undangan.
@@ -168,7 +194,13 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               blokir tidak bisa melihat atau menghubungimu.
             </li>
             <li>
-              <strong>Koneksi dan orang yang kamu ajak:</strong> nama, headline, dan pesan ajakanmu.
+              <strong>Koneksi dan orang yang kamu ajak:</strong> nama, headline, dan pesan ajakanmu. Koneksi yang kamu ajak dari lobi lomba
+              menerima notifikasi berisi namamu dan nama lombanya.
+            </li>
+            <li>
+              <strong>Sesama anggota lobi lomba:</strong> bila kamu bergabung ke lobi sebuah lomba, peserta lain yang JUGA sudah bergabung ke lobi
+              itu melihat namamu, statusmu (mencari tim/anggota/sudah lengkap), dan catatanmu. Sebelum bergabung, yang terlihat hanya jumlah
+              anggotanya. Orang yang kamu blokir tidak melihatmu di lobi.
             </li>
             <li>
               <strong>Penyelenggara terverifikasi acara yang kamu daftari lewat formulir StudentFo:</strong> nama, email, jawaban formulir, status,
@@ -252,6 +284,10 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             <li>
               <strong>Email pengirim kiriman kegiatan:</strong> dihapus otomatis 90 hari setelah moderator memutuskan kirimannya. Informasi
               kegiatannya tetap tersimpan sebagai arsip moderasi.
+            </li>
+            <li>
+              <strong>Jawaban pendataan kinerja postingan:</strong> dihapus otomatis setelah 365 hari. Karena tidak terhubung ke akun, jawaban ini
+              tidak bisa ditelusuri ke dirimu dan tidak ikut terhapus saat akun dihapus.
             </li>
             <li>
               <strong>Kode IP pembatas laju:</strong> dibuang setelah satu hari. <strong>Kode pengunjung harian:</strong> dibuang keesokan harinya;
