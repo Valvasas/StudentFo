@@ -44,7 +44,8 @@ ALTER TABLE public.users
   ADD CONSTRAINT users_institution_name_length CHECK (institution_name IS NULL OR char_length(btrim(institution_name)) BETWEEN 2 AND 120),
   -- Id tanpa nama tidak bisa ditampilkan bila direktori suatu saat tidak memuatnya lagi.
   ADD CONSTRAINT users_institution_named CHECK (institution_id IS NULL OR institution_name IS NOT NULL),
-  ADD CONSTRAINT users_domicile_code_shape CHECK (domicile_code IS NULL OR domicile_code ~ '^[0-9]{2}(\.[0-9]{2}(\.[0-9]{2})?)?$');
+  -- 'LN' = luar negeri (ABROAD_CODE di src/lib/wilayah.ts).
+  ADD CONSTRAINT users_domicile_code_shape CHECK (domicile_code IS NULL OR domicile_code = 'LN' OR domicile_code ~ '^[0-9]{2}(\.[0-9]{2}(\.[0-9]{2})?)?$');
 
 COMMENT ON COLUMN public.users.study_fields IS 'Bidang peminatan spesifik (slug src/lib/study-fields.ts), induknya di interests (ADR-075).';
 COMMENT ON COLUMN public.users.institution_id IS 'NPSN / kode PT dari direktori tempat studi (ADR-076); diisi sendiri, tidak terverifikasi.';

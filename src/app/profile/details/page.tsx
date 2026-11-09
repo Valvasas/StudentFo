@@ -208,7 +208,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
                   Program studi / jurusan
                 </span>
                 <MajorField defaultValue={user.major ?? ''} labelledBy="prodi-label" />
-                <span className="text-[12.5px] text-ink-muted">Tidak ada di daftar? Ketik lalu pilih “Pakai”.</span>
+                <span className="text-[12.5px] text-ink-muted">Tidak ada di daftar? Pilih “Lainnya — tulis sendiri”.</span>
               </div>
             </form>
           ) : (
@@ -259,7 +259,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
                   <span id="domicile-label" className="text-[13.5px] font-semibold">
                     Domisili
                   </span>
-                  <RegionPicker name="domicile" defaultValue={studyProfile.domicileCode} labelledBy="domicile-label" withDistrict districtLabelId="district-label" />
+                  <RegionPicker name="domicile" defaultValue={studyProfile.domicileCode} labelledBy="domicile-label" withDistrict allowAbroad districtLabelId="district-label" />
                 </div>
               </form>
             ) : (

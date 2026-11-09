@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { SelectInput } from '@/components/ui/field';
 import { Picker, type PickKind } from '@/components/ui/picker';
-import { PROVINCE_OPTIONS, REGENCY_PICKER_OPTIONS, regencyName, type WilayahOption } from '@/lib/wilayah';
+import { ABROAD_CODE, PROVINCE_OPTIONS, REGENCY_PICKER_OPTIONS, regencyName, type WilayahOption } from '@/lib/wilayah';
 
 const NONE = 'Tidak ingin menyebut';
+const ABROAD = 'Luar negeri';
 
 /**
  * Pemilih wilayah bertingkat (ADR-074): satu pemilih melayang berisi 514
@@ -24,6 +25,7 @@ export function RegionPicker({
   labelledBy,
   withDistrict = false,
   optional = true,
+  allowAbroad = false,
   districtLabelId,
 }: {
   name: string;
@@ -31,11 +33,13 @@ export function RegionPicker({
   labelledBy: string;
   withDistrict?: boolean;
   optional?: boolean;
+  /** Tampilkan "Luar negeri" (kode `LN`) — untuk domisili profil; pendataan berhenti di wilayah Indonesia. */
+  allowAbroad?: boolean;
   /** Id label untuk daftar kecamatan (wajib bila `withDistrict`). */
   districtLabelId?: string;
 }) {
   const [code, setCode] = useState(defaultValue ?? '');
-  const regency = code.length >= 5 ? code.slice(0, 5) : null;
+  const regency = code.length >= 5 && code !== ABROAD_CODE ? code.slice(0, 5) : null;
   const [districts, setDistricts] = useState<{ regency: string; items: readonly WilayahOption[] } | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -64,11 +68,13 @@ export function RegionPicker({
   }, [withDistrict, regency, districts?.regency]);
 
   const provinceLabel = PROVINCE_OPTIONS.find((province) => province.code === code.slice(0, 2))?.name ?? '';
-  const value = !code ? '' : code.length === 2 ? provinceLabel : (regencyName(code) ?? '');
-  const display = !code ? '' : code.length === 2 ? `${provinceLabel} · kab/kota tidak disebut` : `${value}, ${provinceLabel}`;
+  const abroad = code === ABROAD_CODE;
+  const value = !code ? '' : abroad ? ABROAD : code.length === 2 ? provinceLabel : (regencyName(code) ?? '');
+  const display = !code ? '' : abroad ? ABROAD : code.length === 2 ? `${provinceLabel} · kab/kota tidak disebut` : `${value}, ${provinceLabel}`;
 
   const onChange = (next: string, kind: PickKind) => {
     if (next === NONE) return setCode('');
+    if (next === ABROAD) return setCode(ABROAD_CODE);
     const picked = byLabel.get(next);
     if (!picked) return;
     // Memilih kelompok = provinsi saja; memilih kab/kota yang sama tidak menghapus kecamatan.
@@ -89,7 +95,7 @@ export function RegionPicker({
         value={value}
         displayValue={display}
         groupSelectable
-        pinned={optional ? [{ label: NONE }] : []}
+        pinned={[...(optional ? [{ label: NONE }] : []), ...(allowAbroad ? [{ label: ABROAD, sub: 'Tinggal di luar Indonesia' }] : [])]}
         options={REGENCY_PICKER_OPTIONS}
         onChange={onChange}
       />

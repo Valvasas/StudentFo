@@ -8,6 +8,7 @@ import { MySubmissions } from '@/components/submit/my-submissions';
 import { TurnstileWidget } from '@/components/submit/turnstile-widget';
 import { buttonVariants } from '@/components/ui/button';
 import { DateInput } from '@/components/ui/date-input';
+import { CityDatalist } from '@/components/ui/city-datalist';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
 import { ChoiceGroup, FormStep } from '@/components/ui/form-step';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -194,8 +195,9 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             <Field id="deadlineDate" label="Tenggat pendaftaran" hint="Dianggap berakhir pukul 23.59 WIB.">
               <DateInput id="deadlineDate" name="deadlineDate" required min={today} />
             </Field>
-            <Field id="location" label="Lokasi (opsional)" hint="Kota atau kampus. Kosongkan kalau sepenuhnya daring.">
-              <TextInput id="location" name="location" maxLength={120} placeholder="Mis. Bandung" />
+            <Field id="location" label="Lokasi (opsional)" hint="Pilih kota dari saran, atau tulis sendiri (kampus, gedung, luar negeri). Kosongkan kalau sepenuhnya daring.">
+              <TextInput id="location" name="location" maxLength={120} placeholder="Ketik kota, mis. Bandung" list="daftar-kota" autoComplete="off" />
+              <CityDatalist id="daftar-kota" />
             </Field>
           </div>
 

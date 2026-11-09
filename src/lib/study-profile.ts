@@ -4,7 +4,7 @@ import { institutionDisplayName, type InstitutionKind } from '@/lib/institution-
 import { institutionById } from '@/lib/institutions';
 import { cleanText } from '@/lib/registration-form';
 import { studyFieldLabels } from '@/lib/study-fields';
-import { isRegionCode, regionLabel } from '@/lib/wilayah';
+import { ABROAD_CODE, isRegionCode, regionLabel } from '@/lib/wilayah';
 import { isDistrictCode } from '@/lib/wilayah-districts';
 import type { PublicStudyProfile, StudyPlaceInput } from '@/types/domain';
 
@@ -34,7 +34,7 @@ export function parseStudyPlace(formData: FormData): { ok: true; value: StudyPla
     institutionName = text;
   }
 
-  if (domicile && !isRegionCode(domicile) && !isDistrictCode(domicile)) return { ok: false };
+  if (domicile && domicile !== ABROAD_CODE && !isRegionCode(domicile) && !isDistrictCode(domicile)) return { ok: false };
   return { ok: true, value: { institutionId, institutionName, domicileCode: domicile || null } };
 }
 

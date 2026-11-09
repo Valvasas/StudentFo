@@ -37,12 +37,38 @@ test('Data diri: pilih kampus dari direktori + domisili sampai kecamatan; orang 
   await expect(page.getByText(/Coblong/)).toHaveCount(0);
 });
 
-test('teks bebas di luar direktori tetap tersimpan apa adanya', async ({ page }) => {
+test('"Lainnya" di kampus & domisili: teks bebas + luar negeri tersimpan apa adanya', async ({ page }) => {
   await signInAsDemo(page, 'Mahasiswa', '/profile/details?ubah=asal');
-  await page.getByRole('combobox', { name: 'Sekolah / kampus' }).fill('Pesantren Kilat Uji Coba');
+  const campus = page.getByRole('combobox', { name: 'Sekolah / kampus' });
+  await campus.fill('Universitas Uji');
+  await page.getByRole('option', { name: /Lainnya: pakai “Universitas Uji” apa adanya/ }).click();
+  await campus.fill('Pesantren Kilat Uji Coba');
+  await page.getByRole('button', { name: 'Domisili' }).click();
+  await page.getByRole('option', { name: /^Luar negeri/ }).click();
   await page.getByRole('button', { name: 'Simpan' }).click();
   await expect(page).toHaveURL(/notice=study_place_saved/);
   await expect(page.locator('#asal')).toContainText('Pesantren Kilat Uji Coba');
+  await expect(page.locator('#asal')).toContainText('Luar negeri');
+});
+
+test('prodi "Lainnya — tulis sendiri" membuka isian bebas dan tersimpan', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/profile/details?ubah=pendidikan');
+  await page.getByRole('button', { name: /Program studi/ }).click();
+  await page.getByRole('option', { name: /Lainnya — tulis sendiri/ }).click();
+  const custom = page.getByPlaceholder('Tulis nama prodi/jurusanmu');
+  await expect(custom).toBeFocused();
+  await custom.fill('Teknologi Rekayasa Pangan Halal');
+  await page.getByRole('button', { name: 'Simpan' }).click();
+  await expect(page).toHaveURL(/notice=profile_saved/);
+  await expect(page.locator('#pendidikan')).toContainText('Teknologi Rekayasa Pangan Halal');
+});
+
+test('lokasi kirim kegiatan menyarankan kab/kota tapi menerima isian sendiri', async ({ page }) => {
+  await page.goto('/submit');
+  const location = page.getByLabel(/^Lokasi/);
+  await expect(location).toHaveAttribute('list', 'daftar-kota');
+  expect(await page.locator('#daftar-kota option').count()).toBeGreaterThan(450);
+  await expect(page.locator('#daftar-kota option[value="Pangandaran"]')).toHaveCount(1);
 });
 
 test('Peminatan: bidang spesifik ikut memilih bidang induknya', async ({ page }) => {

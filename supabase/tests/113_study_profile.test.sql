@@ -27,6 +27,13 @@ BEGIN
   IF (SELECT institution_id FROM public.users WHERE id = '00000000-0000-4000-8000-0000000f4a01') IS DISTINCT FROM '001002' THEN
     RAISE EXCEPTION 'pemilik harus bisa menyimpan tempat studinya';
   END IF;
+  UPDATE public.users SET domicile_code = 'LN' WHERE id = '00000000-0000-4000-8000-0000000f4a01';
+  UPDATE public.users SET domicile_code = '32.76.03' WHERE id = '00000000-0000-4000-8000-0000000f4a01';
+  BEGIN
+    UPDATE public.users SET domicile_code = 'XX' WHERE id = '00000000-0000-4000-8000-0000000f4a01';
+    RAISE EXCEPTION 'kode selain wilayah & LN harus ditolak';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
   BEGIN
     UPDATE public.users SET domicile_code = '32.76.03.1001' WHERE id = '00000000-0000-4000-8000-0000000f4a01';
     RAISE EXCEPTION 'kode desa/kelurahan tidak disimpan — paling dalam kecamatan';

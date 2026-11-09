@@ -1,4 +1,5 @@
 import data from '@/data/wilayah/regions.json';
+import { REGIONS } from '@/lib/regions';
 
 /**
  * Wilayah administratif lengkap (ADR-074): 38 provinsi & 514 kabupaten/kota
@@ -28,8 +29,13 @@ const PROVINCE_SHORT: Readonly<Record<string, string>> = {
 };
 
 export const PROVINCE_CODE = /^\d{2}$/;
+/** Domisili di luar Indonesia — satu-satunya kode non-Kemendagri yang diterima (CHECK `users_domicile_code_shape`). */
+export const ABROAD_CODE = 'LN';
 export const REGENCY_CODE = /^\d{2}\.\d{2}$/;
 export const DISTRICT_CODE = /^\d{2}\.\d{2}\.\d{2}$/;
+
+/** Nama provinsi versi `REGIONS` yang berbeda dari kependekan di atas. */
+const LEGACY_PROVINCE_NAME: Readonly<Record<string, string>> = { 'Kep. Bangka Belitung': 'Bangka Belitung' };
 
 const PROVINCE_NAME = new Map(PROVINCE_ROWS.map(([code, name]) => [code, PROVINCE_SHORT[code] ?? name]));
 const REGENCY_NAME = new Map(REGENCY_ROWS);
@@ -72,6 +78,7 @@ export function isRegionCode(value: string): boolean {
  */
 export function regionLabel(code: string | null | undefined): string | null {
   if (!code) return null;
+  if (code === ABROAD_CODE) return 'Luar negeri';
   const province = provinceName(code);
   if (!province) return null;
   if (code.length === 2) return province;
@@ -83,3 +90,30 @@ export function regionLabel(code: string | null | undefined): string | null {
 export const REGENCY_PICKER_OPTIONS: readonly { readonly label: string; readonly group: string; readonly code: string }[] = REGENCY_ROWS.map(
   ([code, name]) => ({ label: name, group: PROVINCE_NAME.get(code.slice(0, 2)) ?? '', code }),
 );
+
+/**
+ * "Kota Administrasi Jakarta Selatan" → "Jakarta Selatan", "Kabupaten
+ * Sleman" → "Sleman" — bentuk yang dipakai kolom `events.location` dan
+ * `REGIONS` (filter lokasi mencocokkan teksnya persis). Kota & kabupaten
+ * senama (Bandung, Bogor, …) sengaja menyatu: untuk "acara di mana", itu kota yang sama.
+ */
+export function shortCityName(regency: string): string {
+  return regency.replace(/^(Kabupaten|Kota)( Administrasi)? /, '');
+}
+
+/**
+ * Kota per provinsi untuk pilihan lokasi acara: seluruh kab/kota Kemendagri
+ * + nama tempat di `REGIONS` yang bukan kab/kota tetapi sudah dipakai acara
+ * lama (mis. "Purwokerto", "Labuan Bajo") — supaya acara itu tetap bisa disaring.
+ */
+export const CITY_GROUPS: readonly (readonly [province: string, cities: readonly string[]])[] = PROVINCE_OPTIONS.map(({ code, name }) => {
+  const official = REGENCY_ROWS.filter(([regency]) => regency.startsWith(`${code}.`)).map(([, regencyLabel]) => shortCityName(regencyLabel));
+  const legacy = REGIONS.find(([province]) => province === name || province === LEGACY_PROVINCE_NAME[name])?.[1] ?? [];
+  return [name, [...new Set([...official, ...legacy])].sort((a, b) => a.localeCompare(b, 'id'))] as const;
+});
+
+export const ALL_CITY_NAMES: readonly string[] = [...new Set(CITY_GROUPS.flatMap(([, cities]) => cities))].sort((a, b) => a.localeCompare(b, 'id'));
+
+export function citiesOfProvince(province: string): readonly string[] {
+  return CITY_GROUPS.find(([name]) => name === province)?.[1] ?? [];
+}

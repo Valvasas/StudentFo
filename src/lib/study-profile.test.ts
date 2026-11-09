@@ -23,6 +23,11 @@ describe('parseStudyPlace (ADR-076)', () => {
     expect(parseStudyPlace(form({}))).toEqual({ ok: true, value: { institutionId: null, institutionName: null, domicileCode: null } });
   });
 
+  it('domisili luar negeri (LN) diterima & ditampilkan', () => {
+    expect(parseStudyPlace(form({ domicile: 'LN' }))).toEqual({ ok: true, value: { institutionId: null, institutionName: null, domicileCode: 'LN' } });
+    expect(presentStudyProfile({ institutionId: null, institutionName: null, regionCode: 'LN', studyFields: [] }).region).toBe('Luar negeri');
+  });
+
   it('id asing, teks terlalu pendek/panjang, dan kode wilayah yang tidak ada ditolak', () => {
     expect(parseStudyPlace(form({ institutionId: '999999' })).ok).toBe(false);
     expect(parseStudyPlace(form({ institution: 'x' })).ok).toBe(false);

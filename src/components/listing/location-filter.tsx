@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Globe, MapPin, Monitor } from 'lucide-react';
 import { Picker, type PickKind } from '@/components/ui/picker';
-import { citiesOf, REGIONS } from '@/lib/regions';
+import { CITY_GROUPS, citiesOfProvince } from '@/lib/wilayah';
 import { buildEventHref, type ParsedEventQuery } from '@/lib/search-params';
 
 const ALL = 'Semua lokasi';
@@ -16,7 +16,7 @@ const ONLINE = 'Daring';
  */
 export function LocationFilter({ query, counts }: { query: ParsedEventQuery; counts: Readonly<Record<string, number>> }) {
   const router = useRouter();
-  const province = REGIONS.find(
+  const province = CITY_GROUPS.find(
     ([, cities]) => query.locations.length > 1 && cities.length === query.locations.length && cities.every((city) => query.locations.includes(city)),
   )?.[0];
   const value = query.mode === 'online' ? ONLINE : province ?? query.locations[0] ?? '';
@@ -31,12 +31,13 @@ export function LocationFilter({ query, counts }: { query: ParsedEventQuery; cou
         : next === ONLINE
           ? buildEventHref(base, { locations: [], mode: 'online' })
           : kind === 'group'
-            ? buildEventHref(base, { locations: citiesOf(next), mode: undefined })
+            ? buildEventHref(base, { locations: citiesOfProvince(next), mode: undefined })
             : buildEventHref(base, { locations: [next], mode: undefined });
     router.push(href, { scroll: false });
   };
 
-  const options = REGIONS.flatMap(([group, cities]) => cities.map((label) => ({ label, group, count: counts[label] })))
+  // Seluruh kab/kota (ADR-074) + nama lama `REGIONS`, supaya acara di kota mana pun bisa disaring.
+  const options = CITY_GROUPS.flatMap(([group, cities]) => cities.map((label) => ({ label, group, count: counts[label] })))
     // Kota yang punya lowongan tampil lebih dulu, seperti kanvas.
     .sort((left, right) => Number(Boolean(right.count)) - Number(Boolean(left.count)));
 

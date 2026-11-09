@@ -22,6 +22,7 @@ import { registrationEventClosed } from '@/components/registration/registration-
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { DateInput } from '@/components/ui/date-input';
+import { CityDatalist } from '@/components/ui/city-datalist';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { toActionErrorCode } from '@/lib/action-feedback';
@@ -402,8 +403,9 @@ function RevisionSection({ event, revisions, returnTo }: { event: EventDetail; r
             <TextArea id="rev-description" name="description" rows={6} maxLength={ORGANIZER_LIMITS.descriptionMax} defaultValue={event.description ?? ''} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-            <Field id="rev-location" label="Lokasi">
-              <TextInput id="rev-location" name="location" maxLength={ORGANIZER_LIMITS.locationMax} defaultValue={event.location ?? ''} />
+            <Field id="rev-location" label="Lokasi" hint="Pilih kota dari saran supaya acara muncul di filter lokasi, atau tulis sendiri.">
+              <TextInput id="rev-location" name="location" maxLength={ORGANIZER_LIMITS.locationMax} defaultValue={event.location ?? ''} list="daftar-kota" autoComplete="off" />
+              <CityDatalist id="daftar-kota" />
             </Field>
             <label className="choice">
               <input type="checkbox" name="isOnline" defaultChecked={event.isOnline} className="check" />

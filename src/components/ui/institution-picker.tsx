@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { Check, GraduationCap, School } from 'lucide-react';
+import { Check, GraduationCap, PenLine, School } from 'lucide-react';
 import { controlClass } from '@/components/ui/field';
 import { INSTITUTION_KIND_LABEL, institutionDisplayName, isCampusKind, type InstitutionHit } from '@/lib/institution-kinds';
 import { cn } from '@/lib/utils';
@@ -92,35 +92,45 @@ export function InstitutionPicker({
     setOpen(false);
   };
 
+  const typed = text.trim().length >= 2;
+  // Tampil juga saat hasilnya nol: justru saat itulah "Lainnya" paling dibutuhkan.
+  const showList = open && !selected && typed && (results.length > 0 || status !== 'loading');
+
+  const keepTyped = () => {
+    setSelected(null);
+    setOpen(false);
+  };
+  // Baris terakhir "Lainnya" = pakai teks yang diketik apa adanya (kursus, pesantren tanpa NPSN, luar negeri).
+  const rowCount = results.length + 1;
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!open || results.length === 0) {
-      if (event.key === 'ArrowDown' && results.length > 0) setOpen(true);
+    if (!showList) {
+      if (event.key === 'ArrowDown' && typed) setOpen(true);
       return;
     }
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setActive((index) => (index + 1) % results.length);
+      setActive((index) => (index + 1) % rowCount);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActive((index) => (index - 1 + results.length) % results.length);
+      setActive((index) => (index - 1 + rowCount) % rowCount);
     } else if (event.key === 'Enter') {
+      event.preventDefault();
       const hit = results[active];
-      if (hit) {
-        event.preventDefault();
-        choose(hit);
-      }
+      if (hit) choose(hit);
+      else keepTyped();
     } else if (event.key === 'Escape') {
       setOpen(false);
     }
   };
 
-  const showList = open && !selected && results.length > 0;
+
   const hint = selected
     ? 'Terpilih dari direktori resmi.'
     : status === 'error'
       ? 'Saran gagal dimuat — nama yang kamu ketik tetap tersimpan.'
       : text.trim().length >= 2 && status === 'idle' && results.length === 0
-        ? 'Tidak ada di direktori. Nama yang kamu ketik tetap tersimpan apa adanya.'
+        ? 'Tidak ada di direktori — tidak apa-apa, nama yang kamu ketik tersimpan apa adanya.'
         : '';
 
   return (
@@ -185,6 +195,23 @@ export function InstitutionPicker({
                 </li>
               );
             })}
+            <li
+              id={`${listId}-${results.length}`}
+              role="option"
+              aria-selected={active === results.length}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={keepTyped}
+              onPointerEnter={() => setActive(results.length)}
+              className={cn(
+                'mt-1 flex min-h-11 cursor-pointer items-center gap-2.5 rounded-sm border-t border-line px-2.5 py-2 text-sm',
+                active === results.length && 'bg-panel-nested',
+              )}
+            >
+              <PenLine aria-hidden className="size-4 shrink-0 text-ink-muted" />
+              <span className="min-w-0 break-words">
+                Lainnya: pakai “<span className="font-medium">{text.trim()}</span>” apa adanya
+              </span>
+            </li>
           </ul>
         )}
       </div>

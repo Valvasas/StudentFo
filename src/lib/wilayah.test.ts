@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import districts from '@/data/wilayah/districts.json';
 import regions from '@/data/wilayah/regions.json';
-import { isRegionCode, PROVINCE_OPTIONS, REGENCY_PICKER_OPTIONS, regenciesOf, regionLabel, shortRegencyName } from './wilayah';
+import { REGIONS } from './regions';
+import { ALL_CITY_NAMES, CITY_GROUPS, citiesOfProvince, isRegionCode, PROVINCE_OPTIONS, REGENCY_PICKER_OPTIONS, regenciesOf, regionLabel, shortCityName, shortRegencyName } from './wilayah';
 import { districtName, districtsOf, isDistrictCode } from './wilayah-districts';
 
 describe('data wilayah (ADR-074)', () => {
@@ -59,5 +60,19 @@ describe('label & validasi kode', () => {
     expect(shortRegencyName('Kabupaten Bandung')).toBe('Kab. Bandung');
     expect(shortRegencyName('Kabupaten Administrasi Kepulauan Seribu')).toBe('Kab. Adm. Kepulauan Seribu');
     expect(shortRegencyName('Kota Depok')).toBe('Kota Depok');
+  });
+});
+
+describe('kota untuk lokasi acara', () => {
+  it('memilih satu provinsi tidak melewati batas 40 lokasi di URL (search-params)', () => {
+    for (const [province, cities] of CITY_GROUPS) expect(cities.length, province).toBeLessThanOrEqual(40);
+  });
+
+  it('nama lama REGIONS tetap ada supaya acara lama bisa disaring; nama ringkas tanpa awalan', () => {
+    const all = new Set(ALL_CITY_NAMES);
+    for (const city of REGIONS.flatMap(([, cities]) => cities)) expect(all.has(city), city).toBe(true);
+    expect(shortCityName('Kota Administrasi Jakarta Selatan')).toBe('Jakarta Selatan');
+    expect(shortCityName('Kabupaten Sleman')).toBe('Sleman');
+    expect(citiesOfProvince('Jawa Barat')).toContain('Pangandaran');
   });
 });
