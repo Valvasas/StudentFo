@@ -33,3 +33,30 @@ test('form yang diubah menahan tautan internal sampai dipastikan', async ({ page
   await expect(page).toHaveURL(/\/profile$/);
   await expect(page.getByRole('heading', { level: 1, name: original })).toBeVisible();
 });
+
+test('isian yang diketik SEBELUM skrip selesai dimuat tetap dijaga', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/profile');
+  // Ponsel lambat: HTML sudah tampil dan bisa diketik, skrip halaman belum datang.
+  let release!: () => void;
+  const scriptsHeld = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/_next/static/chunks/**', async (route) => {
+    await scriptsHeld;
+    await route.continue();
+  });
+  await page.goto('/profile/details?ubah=identitas', { waitUntil: 'domcontentloaded' });
+  const name = page.getByLabel('Nama lengkap');
+  const original = await name.inputValue();
+  await name.fill(`${original} Sebelum Skrip`);
+
+  release();
+  await page.waitForFunction(() => {
+    const field = document.getElementById('fullName');
+    return Boolean(field && Object.keys(field).some((key) => key.startsWith('__reactFiber')));
+  });
+  // Efek penjaga berjalan sesudah hidrasi di-commit — satu bingkai kemudian.
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0))));
+
+  await page.getByRole('link', { name: 'Kembali ke Profil' }).click();
+  await expect(page.getByRole('alertdialog', { name: 'Tinggalkan tanpa menyimpan?' })).toBeVisible();
+  await expect(name).toHaveValue(`${original} Sebelum Skrip`);
+});

@@ -56,7 +56,7 @@ Urutan migration (harus dijalankan berurutan):
 46. `20261108100004_public_badges.sql` — `users.show_badges` (bawaan FALSE) + `public_badge_facts(uuid[])` (ADR-072)
 47. `20261109100001_profile_details.sql` — 7 kategori baru; `users.study_fields`, `institution_id/_name`, `domicile_code` (Kemendagri sampai kecamatan, atau `LN`), `username` (unik, huruf kecil, daftar terlarang), `bio` (≤280), `profile_visibility` (MEMBERS bawaan | NETWORK) + CHECK & GRANT per kolom; `is_discoverable()`/`can_view_profile()` diperluas untuk profil MEMBERS; RPC `user_id_by_username(text)` & `public_profile_details(uuid[])` (ADR-075/076/077)
 
-> Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–42 per 2026-11-08). #43–46 belum.
+> Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–47 per 2026-11-09, semua migration di repo).
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di

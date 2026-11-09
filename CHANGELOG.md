@@ -56,10 +56,11 @@ yang tidak memuat migration yang sudah ada di produksi
 
 ## Migration
 
-- Produksi: **42** migration, dicocokkan langsung 2026-11-08 → `supabase/APPLIED_MIGRATIONS.txt`.
-- Belum diterapkan (urut): `20261108100001_organizer_signup_fields`,
-  `20261108100002_outbound_surveys` (bentuk ADR-073 — diubah di tempat karena belum pernah diterapkan),
-  `20261108100003_event_lobby`, `20261108100004_public_badges`, `20261109100001_profile_details` (username/bio/keterlihatan ikut di sini).
+- Produksi: **47** migration, dicocokkan langsung 2026-11-09 → `supabase/APPLIED_MIGRATIONS.txt`.
+- 2026-11-09: `20261108100001`–`04` dan `20261109100001_profile_details` diterapkan ke staging lalu produksi,
+  persis isi berkas (tanpa DROP). Versi di `schema_migrations` disamakan dengan nama berkas; sidik skema
+  (policy, constraint, hak kolom, kategori, 14 definisi fungsi) identik lokal = staging = produksi.
+- Belum diterapkan: —
   Kode aman urutan deploy: tanpa migration ini fitur terkait turun anggun
   (kolom lama, lobi kosong + `lobby_unavailable`, survei tidak dicatat tapi
   pengunjung tetap diantar dengan pertanyaan bawaan, lencana tetap privat,
@@ -81,7 +82,10 @@ yang tidak memuat migration yang sudah ada di produksi
 - Bug live: `/submit`, beranda admin, `/admin`, ekspor data crash tanpa `SUPABASE_SERVICE_ROLE_KEY` (log Vercel) → kini turun anggun; kunci itu tetap harus diisi pemilik.
 - Pemilih melayang tidak meluber di ponsel; opsi "Lainnya" di prodi/kampus/domisili/lokasi.
 - Username, bio, `/u/[username]`, profil terbuka untuk anggota (ADR-077); template email Auth (ADR-078).
-- Migration `20261109100001` diganti nama `profile_details` (belum pernah diterapkan); migration lobi memakai ALTER POLICY.
+- Migration `20261109100001` diganti nama `profile_details` (sebelum diterapkan); migration lobi memakai ALTER POLICY.
+  Kelima migration cabang ini lalu diterapkan ke staging & produksi (47).
+- Penjaga isian belum disimpan (ADR-067): ketikan/isi otomatis SEBELUM skrip dimuat kini ikut dijaga
+  (patokan = isi render server) — `unsaved-guard.spec.ts` menahan skrip untuk membuktikannya.
 
 ### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 3)
 - Pendataan kinerja: pertanyaan diatur admin + Lewati (ADR-073).

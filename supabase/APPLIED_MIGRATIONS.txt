@@ -10,7 +10,7 @@
 # tambahkan barisnya di sini DALAM COMMIT YANG SAMA dan pastikan commit itu masuk
 # main. Jangan pernah menghapus baris. Format: <versi> <nama>.
 #
-# Terakhir dicocokkan langsung ke produksi: 2026-11-08 (list_migrations, 42 baris).
+# Terakhir dicocokkan langsung ke produksi: 2026-11-09 (list_migrations, 47 baris).
 20260912100001 init_types_and_tables
 20260912100002 functions_and_triggers
 20260912100003 row_level_security
@@ -53,3 +53,8 @@
 20261101100006 event_questions
 20261101100007 function_hardening
 20261105100001 deadline_reminder_preference
+20261108100001 organizer_signup_fields
+20261108100002 outbound_surveys
+20261108100003 event_lobby
+20261108100004 public_badges
+20261109100001 profile_details
