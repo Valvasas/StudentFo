@@ -9,6 +9,7 @@ import { Navbar } from '@/components/layout/navbar';
 import { NavigationProgress } from '@/components/layout/navigation-progress';
 import { SiteBackdrop } from '@/components/layout/site-backdrop';
 import { ThemeScript } from '@/components/layout/theme-script';
+import { LogoSprite } from '@/components/ui/logo';
 import { SearchShortcut } from '@/components/ui/search-shortcut';
 import { siteUrl } from '@/lib/env';
 import { NONCE_HEADER } from '@/lib/security-headers';
@@ -87,6 +88,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <a href="#konten" className="skip-link rounded-card bg-brand px-4 py-2 text-on-brand">
           Lompat ke konten utama
         </a>
+        <LogoSprite />
         {/* Suspense: `useSearchParams` di dalamnya; tanpa batas ini seluruh
             layout ikut ditunda sampai parameter tersedia di klien. */}
         <Suspense fallback={null}>

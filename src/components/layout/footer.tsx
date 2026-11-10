@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LogoMark } from '@/components/ui/illustrations';
+import { LogoMark } from '@/components/ui/logo';
 
 const FOOTER_LINKS = [
   { href: '/about', label: 'Tentang' },
@@ -23,7 +23,7 @@ export function Footer() {
     <footer className="container-page mt-24 pb-10">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-t border-line pt-8">
         <Link href="/" className="inline-flex min-h-11 items-center gap-2 font-display text-base font-bold tracking-[-0.03em]">
-          <LogoMark className="size-[22px] -rotate-3" />
+          <LogoMark className="size-[26px]" />
           StudentFo
         </Link>
         {/* min-h-11: tautan footer berdiri sendiri, bukan tautan di dalam paragraf,

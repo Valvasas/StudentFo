@@ -8,7 +8,7 @@ import { AccountMenu } from '@/components/layout/account-menu';
 import { NavLinkList, NavLinks } from '@/components/layout/nav-links';
 import { NotificationMenu } from '@/components/layout/notification-menu';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
-import { LogoMark } from '@/components/ui/illustrations';
+import { LogoMark } from '@/components/ui/logo';
 import { getSessionUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { withFallback } from '@/lib/fallback';
@@ -58,7 +58,7 @@ export async function Navbar() {
           href="/"
           className="order-1 flex h-14 shrink-0 items-center gap-2 font-display text-[19px] font-bold tracking-[-0.035em] md:h-auto"
         >
-          <LogoMark className="size-[26px] -rotate-3" />
+          <LogoMark className="size-8" />
           <span>
             Student<span className="marker">Fo</span>
           </span>
