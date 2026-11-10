@@ -23,7 +23,8 @@ import {
 import { claimEventAction } from '@/app/penyelenggara/actions';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
-import { EventGallery } from '@/components/event/event-gallery';
+import { EventMedia } from '@/components/event/event-media';
+import { photoSrc } from '@/components/event/event-photo';
 import { EventQuestions } from '@/components/event/event-questions';
 import { GuidebookViewer } from '@/components/event/guidebook-viewer';
 import { PromotedBadge } from '@/components/event/price-badge';
@@ -100,11 +101,18 @@ export async function generateMetadata({
 
   const description = event.description?.slice(0, 155) ?? `${EVENT_TYPE_LABEL[event.eventType]} oleh ${event.organizer}.`;
 
+  // Poster = gambar pratinjau saat tautan dibagikan (WhatsApp, IG, X) — ADR-079.
+  // Rute /media/foto publik hanya melayani foto acara tayang, sama dengan halaman ini.
+  const images = event.poster
+    ? [{ url: photoSrc(event.poster.id), width: event.poster.width, height: event.poster.height, alt: `Poster ${event.title}` }]
+    : undefined;
+
   return {
     title,
     description,
     alternates: { canonical: `/events/${event.slug}` },
-    openGraph: { title: event.title, description, type: 'article' },
+    openGraph: { title: event.title, description, type: 'article', images },
+    twitter: images ? { card: 'summary_large_image', images } : undefined,
   };
 }
 
@@ -139,8 +147,9 @@ async function optional<T>(load: () => Promise<T>, fallback: T, label: string): 
  * Tab memakai `?tab=` dan tautan biasa, bukan state klien: tautan yang
  * dibagikan membuka bagian yang sama, tombol back bekerja, dan halaman
  * tetap utuh tanpa JavaScript. Bagian kanvas yang butuh data yang belum
- * ada di skema (poster, hadiah, daftar berkas per jenis — ADR-039) diganti
- * dengan data yang ada atau arahan ke pengumuman resmi, bukan diisi rekaan.
+ * ada di skema (hadiah, daftar berkas per jenis — ADR-039) diganti dengan
+ * data yang ada atau arahan ke pengumuman resmi, bukan diisi rekaan. Poster
+ * kini ada (ADR-079): diunggah panitia/admin, tampil di slide tab Ringkasan.
  *
  * Kanvas juga memuat panel poster-tanggal, deretan lima fakta, daftar
  * "Sebelum mendaftar" yang menautkan ke tab, dan tombol "Selanjutnya" —
@@ -174,7 +183,7 @@ export default async function EventDetailPage({
     // Hanya di tab Penyelenggara, tempat ajakan klaim tampil.
     user && tab === 'penyelenggara' ? repository.getOrganizerProfile(user.id) : Promise.resolve(null),
     optional<RegistrationForm | null>(() => repository.getRegistrationForm(event.id), null, 'formulir pendaftaran'),
-    // Galeri hanya tampil di tab Ringkasan.
+    // Poster, foto & video hanya tampil di tab Ringkasan (ADR-079).
     tab === 'ringkasan' ? optional<readonly EventPhoto[]>(() => repository.listEventPhotos(event.id), [], 'galeri') : Promise.resolve([]),
     user
       ? optional<EventRegistration | null>(() => repository.getMyRegistration(user.id, event.id), null, 'pendaftaran sendiri')
@@ -412,6 +421,8 @@ export default async function EventDetailPage({
           <section aria-label={TABS[tabIndex]?.label} className="enter flex flex-col gap-10 pt-8 [animation-duration:300ms]">
             {tab === 'ringkasan' && (
               <>
+                <EventMedia photos={photos} videoUrl={event.videoUrl} eventTitle={event.title} />
+
                 <div className="flex flex-col gap-3">
                   <h2 className={headingClass}>Tentang kegiatan</h2>
                   {event.description ? (
@@ -423,7 +434,6 @@ export default async function EventDetailPage({
                   )}
                 </div>
 
-                <EventGallery photos={photos} eventTitle={event.title} />
 
                 {isTeamEvent && !isClosed && (
                   <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] bg-panel-nested p-[18px]">

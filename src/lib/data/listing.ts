@@ -136,3 +136,8 @@ export type ListingCountMode = 'exact' | 'planned';
 export function chooseCountMode(totalActive: number, threshold = EXACT_COUNT_MAX_ACTIVE): ListingCountMode {
   return totalActive > threshold ? 'planned' : 'exact';
 }
+
+/** Poster lebih dulu, lalu terbaru — urutan galeri & slide di kedua repository (ADR-079). */
+export function sortPhotosPosterFirst<T extends { readonly isPoster: boolean; readonly createdAt: string }>(photos: readonly T[]): T[] {
+  return [...photos].sort((a, b) => Number(b.isPoster) - Number(a.isPoster) || b.createdAt.localeCompare(a.createdAt));
+}

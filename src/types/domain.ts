@@ -387,10 +387,24 @@ export interface EventSummary {
   /** Akhir masa promosi berbayar; `null` = tidak berpromosi. Lihat `isPromoted()`. */
   readonly featuredUntil: string | null;
   readonly verificationBadge: VerificationBadge | null;
+  /**
+   * Poster acara (ADR-079) — satu foto galeri yang ditandai panitia/admin.
+   * Tidak ada / `null` = tanpa poster; kartu & slide tidak menebak gambar lain.
+   */
+  readonly poster?: EventPoster | null;
+}
+
+/** Cukup untuk menggambar poster tanpa menggeser tata letak (`/media/foto/[id]`). */
+export interface EventPoster {
+  readonly id: string;
+  readonly width: number;
+  readonly height: number;
 }
 
 /** Bentuk lengkap untuk halaman detail. */
 export interface EventDetail extends EventSummary {
+  /** Video YouTube/Vimeo dalam bentuk kanonis (`src/lib/video.ts`); tidak ada = tanpa video. */
+  readonly videoUrl?: string | null;
   readonly description: string | null;
   readonly registrationLink: string;
   readonly sourceUrl: string;
@@ -439,6 +453,8 @@ export interface SubmissionPayload {
   readonly isFree: boolean | null;
   readonly priceAmount: number | null;
   readonly guidebookUrl: string | null;
+  /** Video YouTube/Vimeo kanonis (ADR-079) → `events.video_url` saat disetujui. Tidak ada = tanpa video. */
+  readonly videoUrl?: string | null;
   /**
    * Bahan verifikasi untuk moderator — TIDAK pernah disalin ke `events`
    * dan tidak pernah tampil publik (bisa berupa nomor WhatsApp pribadi).
@@ -1102,6 +1118,8 @@ export interface EventPhoto {
   readonly height: number;
   readonly caption: string | null;
   readonly createdAt: string;
+  /** Poster acara (maks. satu per acara, ADR-079); diurutkan pertama di galeri & slide. */
+  readonly isPoster: boolean;
 }
 
 /** Isi berkas yang disajikan rute `/media/*`. */

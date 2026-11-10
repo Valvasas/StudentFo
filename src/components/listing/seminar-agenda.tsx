@@ -1,5 +1,6 @@
 import { PriceBadge } from '@/components/event/price-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
+import { PosterThumb } from '@/components/event/poster-thumb';
 import Link from 'next/link';
 import { MapPin, Monitor } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
@@ -109,15 +110,18 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                         <span className="text-[12.5px] text-ink-muted">tutup, WIB</span>
                       </div>
                       <div className="flex min-w-0 flex-col gap-3">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[12.5px] font-medium text-ink-muted">
-                            {category ? shortCategoryName(category.name) : 'Umum'}
-                          </span>
-                          <h2 className="text-lg font-semibold leading-snug tracking-[-0.02em]">
-                            <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[12px] after:content-['']">
-                              {event.title}
-                            </Link>
-                          </h2>
+                        <div className="flex items-start gap-3.5">
+                          <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className="text-[12.5px] font-medium text-ink-muted">
+                              {category ? shortCategoryName(category.name) : 'Umum'}
+                            </span>
+                            <h2 className="text-lg font-semibold leading-snug tracking-[-0.02em]">
+                              <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[12px] after:content-['']">
+                                {event.title}
+                              </Link>
+                            </h2>
+                          </div>
+                          <PosterThumb poster={event.poster} />
                         </div>
                         <span className="flex min-w-0 items-center gap-1 text-sm text-ink-soft">
                           {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}

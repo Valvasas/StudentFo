@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { Megaphone, Search } from 'lucide-react';
+import { ImageIcon, Megaphone, Search } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { DateInput } from '@/components/ui/date-input';
@@ -12,6 +12,7 @@ import { getEventRepository } from '@/lib/data';
 import { isPromoted } from '@/lib/data/listing';
 import { daysUntil, formatDateId, jakartaDateKey } from '@/lib/deadline';
 import { MAX_PROMOTION_DAYS } from '@/lib/event-presentation';
+import { adminMediaPath } from '@/lib/media-paths';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import {
   VERIFICATION_BADGE_DESCRIPTION,
@@ -137,6 +138,15 @@ export default async function PresentationPage({ searchParams }: { searchParams:
                       {event.title}
                     </Link>
                     <span className="text-sm text-ink-muted">{event.organizer}</span>
+                    {/* Tautan biasa ke halaman media acara ini — tidak ikut terkirim bersama lencana/promosi. */}
+                    <Link
+                      href={adminMediaPath(event.slug)}
+                      className="inline-flex min-h-11 w-fit items-center gap-1.5 text-[13px] font-medium text-ink-soft underline-offset-[3px] hover:text-ink hover:underline"
+                    >
+                      <ImageIcon aria-hidden className="size-3.5" />
+                      {event.poster ? 'Poster & video' : 'Pasang poster & video'}
+                      <span className="sr-only"> untuk {event.title}</span>
+                    </Link>
                   </div>
                   <div className="flex flex-col gap-1">
                     <label htmlFor={badgeId} className="text-xs font-medium text-ink-soft">

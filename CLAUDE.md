@@ -86,6 +86,10 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
 - Migration yang akan diterapkan lewat Supabase MCP: hindari perintah hapus
   (DROP …) bila ada padanan ALTER/CREATE OR REPLACE — MCP meminta konfirmasi
   pemilik untuk perintah destruktif dan bisa habis waktu.
+- Poster acara = foto galeri bertanda `is_poster` (ADR-079); jangan membuat
+  tabel/bucket media kedua. Video = tautan YouTube/Vimeo KANONIS saja (regex
+  `src/lib/video.ts` = CHECK SQL, dikunci tes) — jangan menampung berkas video,
+  dan jangan memuat iframe pemutar sebelum pengunjung menekan Putar.
 - Proyek hanya punya SATU root (folder ini). Salinan lama yang dulu bertumpuk
   sudah dipindah keluar repo — jangan buat salinan proyek di dalam repo.
 

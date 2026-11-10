@@ -185,7 +185,9 @@ fullName, email, isAdmin }` dari `toEventActor(user)` (`src/lib/auth.ts`);
 | `reviewRegistration(actor, id, 'confirm'\|'reject_payment'\|'reject', note)` | pengelola / admin | `registration_not_found`, `review_note_required`, `registration_invalid_transition` |
 | `cancelRegistration(actor, id)` | pemilik | `registration_not_found`, `registration_invalid_transition` |
 | `listEventPhotos(eventId)` / `getEventPhotoFile(photoId)` | publik (acara tayang) | `[]` / `null` |
-| `addEventPhotos(actor, eventId, images, caption)` / `deleteEventPhoto(actor, photoId)` | pengelola / admin | `not_event_manager`, `gallery_full` (30/acara), `photo_not_found` |
+| `addEventPhotos(actor, eventId, images, caption, { asPoster? })` / `deleteEventPhoto(actor, photoId)` | pengelola / admin | `not_event_manager`, `gallery_full` (30/acara), `photo_not_found` · `asPoster` = gambar pertama jadi poster |
+| `setEventPoster(actor, photoId, isPoster)` | pengelola / admin (ADR-079) | `photo_not_found` (juga untuk tidak berhak), `media_unavailable` (migration belum ada) |
+| `setEventVideo(actor, eventId, url \| null)` | pengelola / admin; `url` SUDAH lewat `normalizeVideoUrl()` | `not_event_manager`, `invalid_video_url`, `video_rate_limited` (30/hari), `media_unavailable` |
 
 Transisi status (satu definisi: `registrationTransition()` di
 `src/lib/registration-form.ts`, kembar SQL di migration `20261014100001`):

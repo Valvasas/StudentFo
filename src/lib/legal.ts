@@ -7,7 +7,7 @@ import { z } from 'zod';
  * yang benar-benar dibaca pengguna. Berbeda dari tanggal berlaku, yang
  * diisi pemilik lewat env setelah meninjau.
  */
-export const LEGAL_REVISION = '2026-11-01';
+export const LEGAL_REVISION = '2026-11-09';
 
 /** Nama pengelola selama pemilik belum mengisi `LEGAL_OPERATOR_NAME`. */
 export const DEFAULT_OPERATOR_NAME = 'Pengelola StudentFo';

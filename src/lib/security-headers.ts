@@ -1,3 +1,6 @@
+// Relatif, bukan '@/…': next.config.ts memuat berkas ini sebelum alias path tersedia.
+import { VIDEO_FRAME_ORIGINS } from './video';
+
 /**
  * Content-Security-Policy per request.
  *
@@ -80,7 +83,9 @@ export function buildContentSecurityPolicy({ nonce, isDev, supabaseUrl, allowDoc
     'img-src': ["'self'", 'data:', 'blob:'],
     'font-src': ["'self'"],
     'connect-src': ["'self'", TURNSTILE_ORIGIN, ...(isDev ? ['ws:'] : [])],
-    'frame-src': [TURNSTILE_ORIGIN, ...(allowDocumentFrames ? ['https:'] : [])],
+    // Pemutar video acara (ADR-079) — hanya domain tanpa-pelacak, dimuat setelah diklik;
+    // ikut di semua halaman karena studio & admin menampilkan pratinjau slide yang sama.
+    'frame-src': [TURNSTILE_ORIGIN, ...VIDEO_FRAME_ORIGINS, ...(allowDocumentFrames ? ['https:'] : [])],
     // Chrome menerapkan form-action juga pada REDIRECT hasil kirim form. Masuk
     // dengan Google tanpa JavaScript = POST → Supabase → Google, jadi kedua
     // origin itu harus ada di sini atau tombolnya diam-diam tidak berbuat apa-apa.

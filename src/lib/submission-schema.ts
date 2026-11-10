@@ -1,3 +1,4 @@
+import { CANONICAL_VIDEO_PATTERN, normalizeVideoUrl } from '@/lib/video';
 import { z } from 'zod';
 import { emailSchema } from '@/lib/auth-schema';
 import { formList as list, formText as text } from '@/lib/form-data';
@@ -141,6 +142,17 @@ export function createSubmissionSchema(now: Date = new Date()) {
     costType: z.enum(COST_TYPES, { message: 'Pilih status biaya pendaftaran.' }),
     priceAmount: z.union([z.number(), z.null(), z.literal('invalid')]),
     guidebookUrl: optionalUrl(httpsUrlSchema),
+    // Ditempel dalam bentuk apa pun (youtu.be, Shorts, …), disimpan kanonis (ADR-079).
+    videoUrl: z
+      .string()
+      .max(500, 'Tautan video terlalu panjang.')
+      .transform((value, ctx) => {
+        if (!value.trim()) return null;
+        const canonical = normalizeVideoUrl(value);
+        if (canonical) return canonical;
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Tautan video harus dari YouTube atau Vimeo.' });
+        return z.NEVER;
+      }),
     organizerContact: optionalText(120, 'Kontak penyelenggara maksimal 120 karakter.'),
     proofLink: optionalUrl(httpUrlSchema),
   })
@@ -233,6 +245,7 @@ export function parseSubmissionForm(formData: FormData, now: Date = new Date()) 
     costType: text(formData, 'costType'),
     priceAmount: parsePriceInput(text(formData, 'priceAmount')),
     guidebookUrl: text(formData, 'guidebookUrl'),
+    videoUrl: text(formData, 'videoUrl'),
     organizerContact: text(formData, 'organizerContact'),
     proofLink: text(formData, 'proofLink'),
   });
@@ -265,6 +278,8 @@ const storedPayloadSchema = z.object({
   is_free: z.boolean().nullable().optional(),
   price_amount: z.number().positive().max(MAX_PRICE_AMOUNT).nullable().optional(),
   guidebook_url: z.string().regex(/^https:\/\//i).max(2000).nullable().optional(),
+  // Nilai rusak/disuntik = tanpa video, bukan seluruh kiriman yang tak terbaca di antrean.
+  video_url: z.string().regex(CANONICAL_VIDEO_PATTERN).nullable().optional().catch(null),
   organizer_contact: z.string().max(120).nullable().optional(),
   proof_link: z.string().regex(/^https?:\/\//i).max(2000).nullable().optional(),
 });
@@ -288,6 +303,7 @@ export function toStoredPayload(payload: SubmissionPayload): StoredSubmissionPay
     is_free: payload.isFree,
     price_amount: payload.priceAmount,
     guidebook_url: payload.guidebookUrl,
+    video_url: payload.videoUrl ?? null,
     organizer_contact: payload.organizerContact,
     proof_link: payload.proofLink,
   };
@@ -313,6 +329,7 @@ export function fromStoredPayload(raw: unknown): SubmissionPayload | null {
     isFree: value.is_free ?? null,
     priceAmount: value.is_free === false ? (value.price_amount ?? null) : null,
     guidebookUrl: value.guidebook_url ?? null,
+    videoUrl: value.video_url ?? null,
     organizerContact: value.organizer_contact ?? null,
     proofLink: value.proof_link ?? null,
   };

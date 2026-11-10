@@ -54,6 +54,8 @@ export function SubmissionReviewCard({
   const registrationUrl = payload ? sanitizeExternalUrl(payload.registrationLink) : null;
   const sourceUrl = payload?.sourceUrl ? sanitizeExternalUrl(payload.sourceUrl) : null;
   const guidebookUrl = payload?.guidebookUrl ? sanitizeExternalUrl(payload.guidebookUrl) : null;
+  // Kanonis (YouTube/Vimeo) sejak dibaca dari payload — periksa isinya sebelum menyetujui: ia tayang publik.
+  const videoUrl = payload?.videoUrl ? sanitizeExternalUrl(payload.videoUrl) : null;
   const proofUrl = payload?.proofLink ? sanitizeExternalUrl(payload.proofLink) : null;
   const price = payload ? priceLabel(payload) : null;
   const orgMismatch =
@@ -122,6 +124,7 @@ export function SubmissionReviewCard({
               { label: 'Tautan pendaftaran', url: registrationUrl },
               { label: 'Sumber', url: sourceUrl },
               { label: 'Buku panduan', url: guidebookUrl },
+              { label: 'Video', url: videoUrl },
               { label: 'Bukti kepanitiaan', url: proofUrl },
             ].map(({ label, url }) =>
               url ? (

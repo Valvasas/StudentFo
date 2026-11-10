@@ -12,6 +12,67 @@ terdokumentasi.
 
 ---
 
+## ADR-079 — Poster, slide & video kegiatan: poster = foto galeri bertanda, video = tautan kanonis, pemutar fasad
+
+**Konteks:** Pemilik meminta poster/foto tampil di UI lomba dan sebagai slide
+"supaya peserta tahu gambarannya", plus video per postingan. Galeri foto
+sudah ada (ADR-056) tapi hanya grid di tab Ringkasan, tanpa poster, tanpa
+video, tanpa gambar pratinjau tautan; dan kartu sengaja tanpa gambar.
+
+**Keputusan:**
+1. **Poster = satu foto galeri bertanda** (`event_photos.is_poster`, indeks
+   unik parsial per acara), bukan tabel/bucket baru. Semua jaminan galeri
+   ikut: bucket privat, byte diperiksa + EXIF dibuang, batas 30, hapus =
+   hilang, disajikan `/media/foto/[id]`. Ditandai lewat RPC DEFINER
+   `set_event_poster` (kunci advisory yang sama dengan unggah) atau kotak
+   "Jadikan gambar pertama sebagai poster" saat mengunggah.
+2. **Video = tautan YouTube/Vimeo saja**, dinormalisasi `normalizeVideoUrl()`
+   ke satu bentuk kanonis (`youtube.com/watch?v=…` / `vimeo.com/<id>`);
+   CHECK SQL memakai regex yang SAMA (dikunci tes). `set_event_video` DEFINER
+   + batas laju 30/hari. Kiriman `/submit` boleh membawa video; `approve_submission`
+   hanya menyalinnya bila kanonis (payload tidak dipercaya).
+3. **Slide = pola carousel APG** (`MediaSlider`): `region` + slide `group`
+   "i dari n", scroll-snap jalan tanpa JS, tombol sebelum/berikutnya
+   **berputar** (tidak pernah `disabled` — fokus tidak jatuh ke body), titik
+   ≤ 8 slide, ada di ponsel juga (WCAG 2.5.7: geser bukan satu-satunya cara).
+   Slide aktif dihitung dari posisi gulir, bukan `scrollsnapchanging`
+   (belum ada di Firefox/Safari). Urutan: poster/foto pertama → video → sisa.
+4. **Pemutar fasad**: sebelum Putar, slide video hanya gambar statis +
+   tautan ke YouTube/Vimeo — nol permintaan ke pihak ketiga (dikunci
+   `event-media.spec.ts`). Setelah Putar: `youtube-nocookie.com` / Vimeo
+   `dnt=1`; iframe dilepas saat slide berganti. CSP `frame-src` menambah dua
+   origin itu saja. Kebijakan privasi & cookie menyebutkannya
+   (`LEGAL_REVISION` 2026-11-09).
+5. **Kartu kini boleh memuat poster** — membalik sebagian keputusan "kartu
+   tanpa gambar" (komentar `event-card.tsx`): HANYA thumbnail kecil 4:5 di
+   samping judul, HANYA bila manusia (panitia/admin) memilih poster, alt
+   kosong (judul sudah tautannya). Alasan aslinya — thumbnail scraping yang
+   kualitasnya acak — tetap berlaku: hasil scraping tidak pernah dapat poster.
+6. **Poster ditempel di lapisan aplikasi**, bukan di `events_listing` /
+   `list_personalized_events`: mengubah `RETURNS TABLE` butuh DROP (lihat
+   CLAUDE.md soal MCP). `fetchPosters()` (klien publik, cache tag
+   `EVENTS_CACHE_TAG`) dipanggil sekali per halaman kartu.
+7. **og:image / `summary_large_image`** dari poster; acara tanpa poster tidak
+   diberi gambar pengganti generik.
+8. **Admin** bisa memasang poster & video untuk acara tanpa pengelola
+   (`/admin/media/[slug]`, dari Lencana & promosi) — komponen `MediaManager`
+   yang sama dengan studio; tujuan kembali dihitung dari konteks tertutup,
+   bukan path dari form.
+
+**Konsekuensi:** Migration `20261109100002_event_media` (hanya ADD/CREATE OR
+REPLACE). Kode aman urutan deploy: kolom belum ada → poster kosong & foto
+dibaca dengan kolom lama; RPC belum ada → `media_unavailable`. Data demo
+memuat poster PNG yang digambar kode + satu video CC-BY (Big Buck Bunny).
+
+**Ditolak:** unggah berkas video (biaya simpan/transcoding/moderasi tak
+sebanding untuk katalog info lomba); tabel `event_media` terpisah (dua jalur
+penyimpanan & moderasi untuk hal yang sama); embed iframe langsung saat
+halaman dimuat (YouTube memasang pelacak ke setiap pengunjung); carousel
+autoplay (WCAG 2.2.2, dan menggeser konten yang sedang dibaca); tombol
+`disabled` di ujung slide.
+
+---
+
 ## ADR-078 — Template email Supabase Auth ala StudentFo, tautan token_hash
 
 **Konteks:** Email konfirmasi, lupa sandi, dsb. masih template bawaan Supabase

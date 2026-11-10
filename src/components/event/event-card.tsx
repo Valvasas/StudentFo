@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Building2, Globe, MapPin } from 'lucide-react';
 import { DeadlineRing } from '@/components/event/deadline-ring';
 import { DeadlineTag } from '@/components/event/deadline-tag';
+import { PosterThumb } from '@/components/event/poster-thumb';
 import { PriceBadge, PromotedBadge } from '@/components/event/price-badge';
 import { SaveButton } from '@/components/event/save-button';
 import { VerifiedBadge } from '@/components/event/verified-badge';
@@ -17,9 +18,11 @@ import { EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
  *   Judul (semibold, text-base) > Tenggat (medium, sm, berwarna) > Penyelenggara (muted, sm)
  *
  * Beberapa keputusan yang disengaja:
- * - TIDAK ada gambar/poster. Kartu di produk ini dibaca secara memindai,
- *   dan thumbnail dari sumber pihak ketiga kualitasnya tidak seragam —
- *   hasilnya justru menaikkan beban kognitif, bukan menurunkannya.
+ * - Poster HANYA sebagai thumbnail kecil berproporsi tetap di samping judul,
+ *   dan hanya bila panitia/admin memilih poster (ADR-079). Kartu dibaca
+ *   secara memindai: gambar besar atau thumbnail hasil scraping yang
+ *   kualitasnya tidak seragam menaikkan beban kognitif. Poster di sini
+ *   dipilih manusia, dan ukurannya tidak menggeser hierarki judul → tenggat.
  * - TIDAK ada baris tag bidang. Jenis + judul + penyelenggara + tempat/
  *   jenjang sudah cukup untuk memutuskan "buka atau lewati"; lapis kelima
  *   hanya menambah kepadatan, dan bidang bisa disaring di FilterBar.
@@ -74,31 +77,37 @@ export function EventCard({
         </div>
       </div>
 
-      <h3 className="mt-3 font-display text-[19px] font-semibold leading-[1.25] tracking-[-0.02em]">
-        <Link
-          href={`/events/${event.slug}`}
-          className="after:absolute after:inset-0 after:rounded-panel after:content-[''] hover:underline hover:decoration-2 hover:underline-offset-4"
-        >
-          <span className="line-clamp-3">{event.title}</span>
-        </Link>
-      </h3>
+      <div className="mt-3 flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-display text-[19px] font-semibold leading-[1.25] tracking-[-0.02em]">
+            <Link
+              href={`/events/${event.slug}`}
+              className="after:absolute after:inset-0 after:rounded-panel after:content-[''] hover:underline hover:decoration-2 hover:underline-offset-4"
+            >
+              <span className="line-clamp-3">{event.title}</span>
+            </Link>
+          </h3>
 
-      <p className="mt-2.5 flex min-w-0 items-center gap-1.5 text-sm text-ink-soft">
-        {event.verificationBadge ? (
-          <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />
-        ) : (
-          <Building2 aria-hidden className="size-3.5 shrink-0 text-ink-muted" />
-        )}
-        <span className="line-clamp-1">{event.organizer}</span>
-      </p>
+          <p className="mt-2.5 flex min-w-0 items-center gap-1.5 text-sm text-ink-soft">
+            {event.verificationBadge ? (
+              <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />
+            ) : (
+              <Building2 aria-hidden className="size-3.5 shrink-0 text-ink-muted" />
+            )}
+            <span className="line-clamp-1">{event.organizer}</span>
+          </p>
 
-      <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-ink-muted">
-        {event.isOnline ? <Globe aria-hidden className="size-3.5 shrink-0" /> : <MapPin aria-hidden className="size-3.5 shrink-0" />}
-        <span className="line-clamp-1">
-          {place} · <span aria-hidden>{levels.short}</span>
-          <span className="sr-only">{levels.full}</span>
-        </span>
-      </p>
+          <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-ink-muted">
+            {event.isOnline ? <Globe aria-hidden className="size-3.5 shrink-0" /> : <MapPin aria-hidden className="size-3.5 shrink-0" />}
+            <span className="line-clamp-1">
+              {place} · <span aria-hidden>{levels.short}</span>
+              <span className="sr-only">{levels.full}</span>
+            </span>
+          </p>
+        </div>
+
+        <PosterThumb poster={event.poster} />
+      </div>
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-6">
         <DeadlineTag deadlineAt={event.primaryDeadlineAt} />

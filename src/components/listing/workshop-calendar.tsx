@@ -1,5 +1,6 @@
 import { PriceBadge } from '@/components/event/price-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
+import { PosterThumb } from '@/components/event/poster-thumb';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Pagination } from '@/components/event/pagination';
@@ -184,6 +185,8 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
                     </span>
                     <PriceBadge event={event} className="self-start" />
                   </div>
+                  {/* Kotak tanggal sudah 72px di kiri: di ponsel poster akan menjepit judul. */}
+                  <PosterThumb poster={event.poster} className="hidden self-start sm:block" />
                   <p className="text-[12.5px] text-ink-soft">
                     Untuk {event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(', ') || 'semua jenjang'}
                   </p>

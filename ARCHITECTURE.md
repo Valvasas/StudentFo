@@ -80,7 +80,7 @@ src/
 │   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
 │   ├── api/health/             GET untuk monitor uptime: 200 bila database terjangkau (tanpa Data Cache), 503 bila tidak (ADR-059)
 │   ├── icon.tsx / apple-icon.tsx / manifest.ts   Ikon 32/192/512 + 180 dari geometri LogoMark (og/brand-icon.tsx); /favicon.ico = rewrite ke /icon/32 (ADR-059)
-│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); laporan/ & pengguna/ (ADR-061); kinerja/ (pendataan kinerja, ADR-070);
+│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); media/[slug] (poster & video acara tanpa pengelola, ADR-079); laporan/ & pengguna/ (ADR-061); kinerja/ (pendataan kinerja, ADR-070);
 │                               actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055).
 │                               Semua halaman memakai requireAdmin() = 404 bagi non-admin dan generateMetadata (ADR-057)
 │
@@ -113,7 +113,8 @@ src/
 │   │                           EmptyState, SaveButton + BookmarkSubmit (penanda terisi seketika, ADR-064), PriceBadge/PromotedBadge, VerifiedBadge (tooltip CSS),
 │   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS),
 │   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055),
-│   │                           EventGallery + GalleryViewer (galeri foto acara, dialog lightbox, ADR-056), event-photo.ts (src/alt foto)
+│   │                           EventMedia + MediaSlider (slide poster → video → foto, carousel APG, pemutar fasad) + PhotoLightbox (<dialog>),
+│   │                           PosterThumb (thumbnail kartu), MediaManager (kelola poster/foto/video, studio & admin) (ADR-056, 079), event-photo.ts (src/alt foto)
 │   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
 │   ├── match/                  Pencocokan (ADR-057, 058): MatchRadar + ScanStage + ScanSession (pemindaian), MatchRing & ScoreHex (skor),
 │   │                           MatchCard (kartu koleksi, Server Component), MatchEndCard, MatchEmpty, ActiveFilterChips, MatchFilters (<form method="get">),
@@ -207,6 +208,8 @@ src/
 │   ├── image-file.ts           Unggahan gambar: jenis dari byte, batas piksel, buang EXIF/GPS (ADR-056) [teruji]
 │   ├── account-sidebar.ts      Peran tampilan (accountRoleOf) + satu daftar menu akun untuk dropdown & menu samping [teruji]
 │   ├── security-headers.ts     CSP halaman + CSP ketat untuk /media/* (isMediaPath) [teruji]
+│   ├── video.ts                normalizeVideoUrl/parseVideo: YouTube/Vimeo → bentuk kanonis (= CHECK SQL), origin pemutar untuk CSP (ADR-079) [teruji]
+│   ├── media-paths.ts          adminMediaPath + konteks studio/admin untuk aksi galeri
 │   └── supabase/
 │       ├── server.ts           Klien Server Component & admin (service_role)
 │       ├── middleware.ts       Klien khusus middleware (tanpa `server-only`)

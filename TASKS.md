@@ -397,6 +397,18 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Poster, slide & video kegiatan 2026-11-09 (@claude) — ADR-079
+
+- [x] Poster = foto galeri bertanda (`event_photos.is_poster`, satu per acara); slide poster → video → foto di tab Ringkasan (pola carousel APG, tanpa JS tetap bisa digeser, tombol berputar, layar penuh)
+- [x] Video YouTube/Vimeo per kegiatan (`events.video_url`, bentuk kanonis dikunci SQL = TS); pemutar fasad — nol permintaan ke YouTube sebelum Putar, lalu `youtube-nocookie`/Vimeo `dnt=1`; CSP `frame-src` diperluas dua origin
+- [x] Thumbnail poster di kartu & semua papan (lomba, beasiswa, magang, seminar, workshop); og:image + `summary_large_image` dari poster
+- [x] Studio penyelenggara "Poster, galeri & video" + halaman admin `/admin/media/[slug]` (acara tanpa pengelola) dengan komponen yang sama; isian video di `/submit` (disalin saat disetujui bila kanonis)
+- [x] Kebijakan privasi & cookie menyebut YouTube/Vimeo (hanya setelah Putar); `LEGAL_REVISION` → 2026-11-09
+- [x] Tes: `video.test.ts`, `event-media.test.ts`, `115_event_media.test.sql`, `event-media.spec.ts`, axe + `narrow-viewport` untuk halaman baru
+- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan `20261109100002_event_media` ke staging lalu produksi (hanya ADD/CREATE OR REPLACE). Sebelum itu poster & video sekadar tidak tampil di situs langsung
+- [ ] Pemotong poster (crop 4:5) di peramban sebelum unggah — kini poster non-4:5 tampil utuh dengan latar kabur
+- [ ] Urutkan ulang foto galeri (seret/tombol naik-turun) — kini urut poster dulu lalu waktu unggah
+
 ## Perbaikan pra-merge: bug live, ponsel, "Lainnya", profil publik, email 2026-11-09 (@claude) — ADR-077/078
 
 - [x] Bug live dari log Vercel: `/submit` (kirim kegiatan), beranda admin, `/admin/*`, ekspor data crash tanpa `SUPABASE_SERVICE_ROLE_KEY` → turun anggun + petunjuk untuk admin
@@ -408,7 +420,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Penjaga isian belum disimpan: patokan = isi render server, bukan isi saat hidrasi — ketikan sebelum skrip dimuat (ponsel lambat, isi otomatis peramban) dulu lolos tanpa peringatan
 - [x] 5 migration (`20261108100001`–`04`, `20261109100001`) diterapkan ke staging & produksi; sidik skema lokal = staging = produksi
 - [x] CI merah sejak PR #26 dibereskan: tes mode Supabase memakai form daftar lama (ulangi sandi, isian lembaga); tombol "Coba dengan akun demo penyelenggara" meluber di 320px (label `nowrap` → boleh dua baris, tinggi tetap); detektor `narrow-viewport` kini menyebut teks yang meluber
-- [ ] **BUTUH PEMILIK.** Vercel → Environment Variables: `SUPABASE_SERVICE_ROLE_KEY` (kunci service_role project yang dipakai situs = staging saat ini), tandai Sensitive, redeploy — tanpa ini panel admin, pendataan kinerja, & ekspor kiriman tidak berjalan
+- [x] Vercel `SUPABASE_SERVICE_ROLE_KEY` diisi pemilik (kunci `sb_secret_` baru, Sensitive, Production) + redeploy produksi 2026-11-09
 - [ ] **BUTUH PEMILIK.** Tempel 8 template email di Supabase (staging & produksi) sesuai `docs/email-templates.md`
 - [ ] Tinjau bawaan `profile_visibility = MEMBERS` untuk pengguna < 18 tahun bersama DPIA (ADR-077 risiko)
 - [ ] Foto profil (Storage + moderasi gambar); masa tenggang sebelum username yang dilepas bisa diklaim orang lain
