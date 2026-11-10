@@ -80,6 +80,7 @@ yang tidak memuat migration yang sudah ada di produksi
 ## Riwayat (terbaru di atas)
 
 ### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 5, setelah PR #27)
+- **Serah-terima sesi & langkah konfigurasi pemilik yang sedang berjalan: `docs/progres-sekarang.md`.**
 - Poster, slide & video kegiatan (ADR-079): migration `20261109100002_event_media` BELUM diterapkan;
   kode aman urutan deploy (tanpa kolom → poster/video tidak tampil, aksi → `media_unavailable`).
 - Kartu & papan kini boleh memuat thumbnail poster (pilihan manusia saja) — membalik sebagian "kartu tanpa gambar".
