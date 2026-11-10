@@ -483,6 +483,8 @@ export class MemoryEventRepository implements EventRepository {
   private readonly demoSeededUsers = new Set<string>();
   private readonly demoSeedLimit: number;
   private readonly isolateSeekers: boolean;
+  /** Saat data contoh dibangun — dipakai sebagai "tanggal bergabung" orang contoh (lencana Angkatan Perintis). */
+  private readonly seededAt: string;
 
   /**
    * `isolateSeekers` (store demo aplikasi): pencocokan hanya mencalonkan orang
@@ -497,6 +499,7 @@ export class MemoryEventRepository implements EventRepository {
   ) {
     this.demoSeedLimit = demoSeedLimit;
     this.isolateSeekers = isolateSeekers;
+    this.seededAt = base.toISOString();
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
     this.seedTeams(base);
     this.seedPeople(base);
@@ -3318,6 +3321,8 @@ export class MemoryEventRepository implements EventRepository {
       organizerStatus: organizer?.status ?? null,
       organizerReviewedAt: organizer?.reviewedAt ?? null,
       hostedEventClosedAt,
+      // Mode seed tidak punya tabel `users`: orang contoh dianggap bergabung saat data demo dibangun.
+      memberSince: this.seededAt,
     };
   }
 

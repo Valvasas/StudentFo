@@ -31,6 +31,8 @@ export interface AuthUser {
    * izin apa pun; null bila tidak ada atau tidak lolos skema pengajuan.
    */
   readonly organizerDraft: OrganizerApplicationInput | null;
+  /** Kapan akun dibuat (ISO, dicatat server) — bahan lencana "Angkatan Perintis"; null bila tak diketahui. */
+  readonly createdAt: string | null;
 }
 
 /**
@@ -83,6 +85,7 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
     interests: profile?.interests ?? [],
     providers: user.app_metadata?.providers ?? (user.app_metadata?.provider ? [user.app_metadata.provider] : []),
     organizerDraft: parseOrganizerDraft(user.user_metadata?.organizer_application),
+    createdAt: user.created_at ?? null,
   };
 });
 
@@ -117,6 +120,7 @@ async function getDemoUser(): Promise<AuthUser | null> {
     interests: session.interests,
     providers: ['demo'],
     organizerDraft: null,
+    createdAt: new Date(session.iat * 1000).toISOString(),
   };
 }
 

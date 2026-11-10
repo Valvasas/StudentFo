@@ -414,6 +414,8 @@ const publicBadgeFactsSchema = z.object({
   organizer_status: z.enum(ORGANIZER_STATUSES).nullable(),
   organizer_reviewed_at: z.string().nullable(),
   hosted_closed_at: z.array(z.string().nullable()),
+  // Sejak migration 20261110100001; fungsi versi lama tidak mengirimnya.
+  member_since: z.string().nullable().optional(),
 });
 
 /**
@@ -439,6 +441,7 @@ export function toPublicBadgeFacts(raw: unknown): AchievementFacts | null {
     organizerStatus: facts.organizer_status,
     organizerReviewedAt: facts.organizer_reviewed_at,
     hostedEventClosedAt: facts.hosted_closed_at,
+    memberSince: facts.member_since ?? null,
   };
 }
 

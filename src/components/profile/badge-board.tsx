@@ -5,9 +5,10 @@ import { BadgeMedal } from '@/components/profile/badge-medal';
 import { isFreshBadge, nearestBadgeGoal, summarizeBadges, type BadgeKey, type BadgeProgress, type BadgeTier } from '@/lib/achievements';
 import { formatDateId } from '@/lib/deadline';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
+import { buildEventHref } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 
-const navHref = (key: 'LOMBA' | 'WORKSHOP') => {
+const navHref = (key: 'LOMBA' | 'WORKSHOP' | 'BEASISWA' | 'MAGANG') => {
   const item = EVENT_TYPE_NAV.find((entry) => entry.key === key);
   return item ? eventTypeHref(item) : '/events';
 };
@@ -15,8 +16,14 @@ const navHref = (key: 'LOMBA' | 'WORKSHOP') => {
 const NEXT_STEP: Record<BadgeKey, { readonly href: string; readonly label: string }> = {
   kompetitor: { href: navHref('LOMBA'), label: 'Cari lomba' },
   pembelajar: { href: navHref('WORKSHOP'), label: 'Cari workshop' },
+  'pemburu-beasiswa': { href: navHref('BEASISWA'), label: 'Cari beasiswa' },
+  'perintis-karier': { href: navHref('MAGANG'), label: 'Cari magang' },
+  relawan: { href: buildEventHref({ types: ['VOLUNTEER'] }), label: 'Cari kegiatan volunteer' },
   penjelajah: { href: '/events', label: 'Jelajahi jenis lain' },
+  'gerak-cepat': { href: buildEventHref({ sort: 'newest' }), label: 'Lihat yang baru dibuka' },
+  konsisten: { href: buildEventHref({ sort: 'deadline' }), label: 'Cari kegiatan bulan ini' },
   kontributor: { href: '/submit', label: 'Kirim kegiatan' },
+  perintis: { href: '/events', label: 'Jelajahi kegiatan' },
   terverifikasi: { href: '/penyelenggara', label: 'Lihat pengajuan' },
   'tuan-rumah': { href: '/penyelenggara', label: 'Buka studio' },
 };
@@ -44,11 +51,17 @@ function BadgeCard({ item, now, index }: { item: BadgeProgress; now: Date; index
   return (
     <article
       aria-labelledby={titleId}
-      className={cn('rise flex min-w-0 flex-col gap-4 rounded-[20px] border bg-panel p-5', item.tier > 0 ? 'border-line' : 'border-dashed border-line-strong/70')}
+      className={cn('group rise flex min-w-0 flex-col gap-4 rounded-[20px] border bg-panel p-5', item.tier > 0 ? 'border-line' : 'border-dashed border-line-strong/70')}
       style={{ '--i': index } as CSSProperties}
     >
       <div className="flex items-start gap-4">
-        <BadgeMedal badge={definition.key} tier={item.tier} className="w-[76px] shrink-0 sm:w-[84px]" />
+        <span className="relative w-[76px] shrink-0 sm:w-[84px]">
+          {/* Sorot dua denyut di belakang medali yang baru diraih — hiasan, artinya dibawa label "Baru". */}
+          {fresh && <span aria-hidden className="medal-halo absolute inset-x-1 top-1 aspect-square rounded-pill bg-highlight opacity-0" />}
+          <span className="relative block group-hover:medal-wiggle">
+            <BadgeMedal badge={definition.key} tier={item.tier} animated className="w-full" />
+          </span>
+        </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h3 id={titleId} className="text-[16.5px] font-semibold leading-snug tracking-[-0.01em]">
@@ -73,7 +86,7 @@ function BadgeCard({ item, now, index }: { item: BadgeProgress; now: Date; index
             aria-valuenow={Math.min(item.count, target?.threshold ?? 1)}
             className="h-2 flex-1 overflow-hidden rounded-pill bg-panel-nested"
           >
-            <span className="block h-full rounded-pill bg-brand transition-[width] duration-700 ease-enter" style={{ width: `${Math.round(ratio * 100)}%` }} />
+            <span className="grow-x block h-full rounded-pill bg-brand" style={{ width: `${Math.round(ratio * 100)}%`, animationDelay: `${index * 70 + 260}ms` }} />
           </div>
           {/* Medali yang sedang dikejar — pratinjau bentuk tingkat berikutnya. */}
           {next && <BadgeMedal badge={definition.key} tier={(item.tier + 1) as BadgeTier} className="w-8 shrink-0 opacity-50 grayscale" />}
@@ -147,9 +160,9 @@ function BadgeCard({ item, now, index }: { item: BadgeProgress; now: Date; index
 }
 
 /**
- * Tab Lencana di profil sendiri. Belum tampil di profil publik: menampilkan
- * lencana orang lain butuh fungsi SQL agregat baru (pendaftaran orang lain
- * tertutup RLS, memang seharusnya) + pilihan privasi — lihat ADR-068.
+ * Tab Lencana di profil sendiri (ADR-068). Orang lain hanya melihat lencana
+ * yang SUDAH diraih, dan hanya bila pemiliknya memilih menampilkannya
+ * (`PublicBadges`, ADR-072).
  */
 export function BadgeBoard({ progress, now }: { progress: readonly BadgeProgress[] | null; now: Date }) {
   if (!progress) {
@@ -162,7 +175,9 @@ export function BadgeBoard({ progress, now }: { progress: readonly BadgeProgress
 
   const summary = summarizeBadges(progress);
   const goal = nearestBadgeGoal(progress);
-  const ordered = [...progress].sort((left, right) => right.tier - left.tier);
+  // Diraih (tingkat tertinggi dulu) → sedang dikejar → belum dimulai; seri mengikuti urutan `BADGES`.
+  const started = (item: BadgeProgress) => (item.tier > 0 ? 2 : item.count > 0 || item.pending > 0 ? 1 : 0);
+  const ordered = [...progress].sort((left, right) => right.tier - left.tier || started(right) - started(left));
 
   return (
     <div className="flex flex-col gap-5">
