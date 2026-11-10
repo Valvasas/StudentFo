@@ -1,79 +1,54 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Bell, Bookmark, Check, Clock, Pause, Play, Search, ShieldCheck, ExternalLink, UserPlus } from 'lucide-react';
 import { isMotionReduced } from '@/lib/motion-pref';
 import { cn } from '@/lib/utils';
 
 /**
- * Tur beranda (ADR-065, menggantikan penghapusan tur di ADR-056 atas
- * permintaan pemilik — sebagai bagian identitas merek).
+ * Cuplikan beranda (ADR-065, dirampingkan ADR-081): SATU panggung yang
+ * berputar sendiri seperti video. Versi sebelumnya membawa judul "Cara kerja
+ * StudentFo", daftar lima langkah bernomor, dan keterangan di tiap langkah —
+ * pemilik menilainya terbaca seperti panduan buatan AI. Sekarang yang
+ * terlihat hanya cuplikannya dan bilah kendali ala pemutar video.
  *
- * Yang berbeda dari tur lama, dan alasannya:
- * - Panggungnya kertas berlabel "Contoh tampilan", BUKAN mockup peramban
- *   palsu: tur adalah penjelasan, bukan tangkapan layar yang mengaku asli.
+ * Yang TIDAK berubah dari ADR-065:
  * - Hanya fitur yang ada di produksi (cari & saring, sumber & moderasi,
- *   simpan + pengingat H-3/H-1, papan lamaran, pencocokan tim). Pesan,
- *   ruang diskusi, dan persiapan berkas hanya ada di mode demo → tidak
- *   dijanjikan di sini.
- * - Dibangun dari token & kosakata komponen produk (label tenggat bergradien,
- *   chip bercentang, bilah tahap), jadi ikut tema gelap dan tidak basi
- *   sendirian ketika gaya produk berubah.
+ *   simpan + pengingat H-3/H-1, papan lamaran, pencocokan tim). Pesan dan
+ *   ruang diskusi hanya ada di mode demo → tidak diperagakan.
+ * - Dibangun dari token & kosakata komponen produk, jadi ikut tema gelap.
+ * - Bukan mockup peramban palsu; nama di dalamnya tertulis "Contoh …".
  *
- * Aksesibilitas: daftar langkah = pola tab (panah/Home/End), panggung
- * `aria-hidden` dengan keterangan langkah yang dibacakan. Berjalan sendiri
- * hanya saat terlihat, tab peramban aktif, dan gerak tidak dikurangi; ada
- * tombol jeda (WCAG 2.2.2). Memilih langkah sendiri = jeda (pengguna yang
- * memegang kendali). Tanpa JavaScript: langkah pertama tampil utuh dan
- * deskripsi semua langkah tetap terbaca.
+ * Aksesibilitas: panggung `aria-hidden` dengan SATU deskripsi statis untuk
+ * pembaca layar (bukan `aria-live` — pengumuman tiap 5 detik lebih
+ * mengganggu daripada membantu). Berjalan sendiri hanya saat terlihat, tab
+ * peramban aktif, dan gerak tidak dikurangi; tombol jeda memenuhi WCAG
+ * 2.2.2, ruas bilah = lompat ke adegan (memilih sendiri = jeda). Kendali
+ * baru dirender setelah hidrasi — tanpa JavaScript adegan pertama tampil
+ * utuh tanpa tombol mati.
  */
 
-interface Step {
-  readonly title: string;
-  readonly detail: string;
-  readonly caption: string;
-}
+const SCENES = [
+  'mencari lomba lalu menyaring jenjang dan biaya',
+  'halaman kegiatan dengan tanda ditinjau moderator dan tautan pengumuman resmi',
+  'menyimpan kegiatan lalu menerima pengingat tiga hari dan sehari sebelum tutup',
+  'papan lamaran yang maju dari Disimpan sampai Diterima',
+  'pencocokan tim menemukan rekan dengan keahlian yang dicari',
+] as const;
 
-const STEPS: readonly Step[] = [
-  {
-    title: 'Cari & saring',
-    detail: 'Ketik kata kunci, persempit dengan jenjang dan biaya.',
-    caption: 'Mencari "lomba desain", lalu menyaring jenjang SMA/SMK dan yang gratis. Hasil urut dengan sisa waktunya.',
-  },
-  {
-    title: 'Cek sumbernya',
-    detail: 'Setiap kegiatan ditinjau moderator dan menautkan pengumuman resmi.',
-    caption: 'Halaman kegiatan menampilkan tanda ditinjau moderator, tautan ke pengumuman resmi, dan sisa hari pendaftaran.',
-  },
-  {
-    title: 'Simpan & diingatkan',
-    detail: 'Simpan sekali ketuk; pengingat datang H-3 dan H-1.',
-    caption: 'Kegiatan disimpan, lalu notifikasi pengingat muncul tiga hari dan satu hari sebelum tutup.',
-  },
-  {
-    title: 'Pantau lamaranmu',
-    detail: 'Satu papan dari Disimpan sampai Diterima.',
-    caption: 'Bilah tahap maju dari Disimpan, Sudah daftar, Seleksi, sampai Diterima.',
-  },
-  {
-    title: 'Temukan tim',
-    detail: 'Isi kartu pemain; pencocokan mencarikan rekan yang melengkapi.',
-    caption: 'Radar pencocokan menemukan rekan dengan keahlian yang kamu cari, lengkap dengan persentase kecocokan.',
-  },
-];
-
-const STEP_MS = 5600;
+const SCENE_MS = 5600;
 const t = (ms: number, extra?: Record<string, string | number>) => ({ '--t': `${ms}ms`, ...extra }) as CSSProperties;
 
 export function LandingTour() {
-  const [step, setStep] = useState(0);
+  const [scene, setScene] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [inView, setInView] = useState(false);
   const [visible, setVisible] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
   const rootRef = useRef<HTMLElement>(null);
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
+    setHydrated(true);
     if (isMotionReduced()) setPlaying(false);
     const node = rootRef.current;
     if (!node || !('IntersectionObserver' in window)) return;
@@ -89,131 +64,78 @@ export function LandingTour() {
 
   const running = playing && inView && visible;
 
-  const select = (index: number, focus = false) => {
-    setStep(index);
+  const select = (index: number) => {
+    setScene(index);
     setPlaying(false);
-    if (focus) tabRefs.current[index]?.focus();
-  };
-
-  const onTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const last = STEPS.length - 1;
-    const next =
-      event.key === 'ArrowDown' || event.key === 'ArrowRight'
-        ? (index + 1) % STEPS.length
-        : event.key === 'ArrowUp' || event.key === 'ArrowLeft'
-          ? (index - 1 + STEPS.length) % STEPS.length
-          : event.key === 'Home'
-            ? 0
-            : event.key === 'End'
-              ? last
-              : null;
-    if (next === null) return;
-    event.preventDefault();
-    select(next, true);
   };
 
   const togglePlay = () => {
     if (!playing && isMotionReduced()) {
-      // Gerak dikurangi: tur tidak berjalan sendiri, tombolnya maju satu langkah.
-      setStep((current) => (current + 1) % STEPS.length);
+      // Gerak dikurangi: cuplikan tidak berjalan sendiri, tombolnya maju satu adegan.
+      setScene((current) => (current + 1) % SCENES.length);
       return;
     }
     setPlaying((value) => !value);
   };
 
-  const current = STEPS[step]!;
-
   return (
-    <section ref={rootRef} id="cara-kerja" aria-labelledby="tur-title" className="container-page max-w-[1120px] scroll-mt-20 pt-[clamp(72px,9vw,112px)]">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h2 id="tur-title" className="text-[clamp(28px,4.4vw,40px)] font-bold leading-[1.1] tracking-[-0.03em]">
-            Cara kerja StudentFo
-          </h2>
-          <p className="max-w-[48ch] text-[16px] leading-relaxed text-ink-muted">Lima langkah, dari mencari sampai punya tim.</p>
+    <section
+      ref={rootRef}
+      id="cara-kerja"
+      aria-label="Cuplikan cara kerja StudentFo"
+      className="container-page max-w-[1120px] scroll-mt-20 pt-[clamp(56px,7vw,88px)]"
+    >
+      <div data-reveal="" className="dot-grid mx-auto max-w-[760px] overflow-hidden rounded-[24px] border border-line bg-panel-nested shadow-card">
+        <p className="sr-only">Cuplikan beranimasi tanpa suara, lima adegan: {SCENES.join('; ')}.</p>
+        <div aria-hidden key={scene} className="flex min-h-[348px] flex-col justify-center px-4 py-6 sm:min-h-[372px] sm:px-10 sm:py-8">
+          {scene === 0 && <SearchStage />}
+          {scene === 1 && <SourceStage />}
+          {scene === 2 && <RemindStage />}
+          {scene === 3 && <TrackStage />}
+          {scene === 4 && <TeamStage />}
         </div>
-        <button
-          type="button"
-          onClick={togglePlay}
-          className="press inline-flex min-h-11 items-center gap-2 rounded-pill border border-line-strong/70 bg-panel px-4 text-sm font-semibold transition-colors duration-150 ease-snap hover:bg-panel-nested"
-        >
-          {playing ? <Pause aria-hidden className="size-4" /> : <Play aria-hidden className="size-4" />}
-          {playing ? 'Jeda tur' : 'Putar tur'}
-        </button>
-      </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10">
-        <div
-          role="tablist"
-          aria-label="Langkah tur"
-          className="relative -mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 lg:flex-col lg:overflow-visible"
-        >
-          {STEPS.map((item, index) => {
-            const active = index === step;
-            return (
+        {/* Tinggi dipesan sebelum hidrasi supaya bilah kendali tidak menggeser halaman saat muncul. */}
+        <div className="flex h-11 items-center border-t border-line bg-panel/80">
+          {hydrated && (
+            <>
               <button
-                key={item.title}
-                ref={(node) => {
-                  tabRefs.current[index] = node;
-                }}
                 type="button"
-                role="tab"
-                id={`tur-tab-${index}`}
-                aria-selected={active}
-                aria-controls="tur-panel"
-                tabIndex={active ? 0 : -1}
-                onClick={() => select(index)}
-                onKeyDown={(event) => onTabKey(event, index)}
-                className={cn(
-                  'relative flex min-h-11 shrink-0 flex-col items-start gap-1 overflow-hidden rounded-card border px-4 py-3 text-left transition-colors duration-150 ease-snap lg:shrink',
-                  active ? 'border-brand bg-panel shadow-card' : 'border-line bg-panel/60 hover:border-line-strong hover:bg-panel',
-                )}
+                onClick={togglePlay}
+                aria-label={playing ? 'Jeda cuplikan' : 'Putar cuplikan'}
+                className="flex size-11 shrink-0 items-center justify-center rounded-bl-[23px] text-ink-soft transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
               >
-                <span className="flex items-center gap-2.5 text-[15px] font-semibold">
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'flex size-6 shrink-0 items-center justify-center rounded-pill text-xs font-bold tabular-nums transition-colors duration-150',
-                      active ? 'bg-brand text-on-brand' : 'bg-panel-nested text-ink-muted',
-                    )}
-                  >
-                    {index + 1}
-                  </span>
-                  {item.title}
-                </span>
-                <span className="hidden pl-[34px] text-[13.5px] leading-snug text-ink-muted lg:block">{item.detail}</span>
-                {active && (
-                  <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-line">
-                    <span
-                      key={`${step}-${playing}`}
-                      className={cn('block h-full bg-brand', playing ? 'tour-progress' : 'w-full')}
-                      style={{ '--dur': `${STEP_MS}ms`, animationPlayState: running ? 'running' : 'paused' } as CSSProperties}
-                      onAnimationEnd={() => {
-                        if (running) setStep((value) => (value + 1) % STEPS.length);
-                      }}
-                    />
-                  </span>
-                )}
+                {playing ? <Pause aria-hidden className="size-4" /> : <Play aria-hidden className="size-4" />}
               </button>
-            );
-          })}
-        </div>
-
-        <div role="tabpanel" id="tur-panel" aria-labelledby={`tur-tab-${step}`} className="min-w-0">
-          <p className="sr-only" aria-live="polite">
-            Langkah {step + 1} dari {STEPS.length}: {current.title}. {current.caption}
-          </p>
-          <div aria-hidden className="dot-grid relative overflow-hidden rounded-[24px] border border-line bg-panel-nested p-4 sm:p-6">
-            <span className="absolute right-4 top-3 text-[11.5px] font-medium text-ink-muted">Contoh tampilan</span>
-            <div key={step} className="flex min-h-[318px] flex-col justify-center pt-4 sm:min-h-[340px]">
-              {step === 0 && <SearchStage />}
-              {step === 1 && <SourceStage />}
-              {step === 2 && <RemindStage />}
-              {step === 3 && <TrackStage />}
-              {step === 4 && <TeamStage />}
-            </div>
-          </div>
-          <p className="mt-3 text-[14px] leading-relaxed text-ink-muted lg:hidden">{current.detail}</p>
+              <div role="group" aria-label="Adegan cuplikan" className="flex min-w-0 flex-1 items-center">
+                {SCENES.map((label, index) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => select(index)}
+                    aria-label={`Adegan ${index + 1} dari ${SCENES.length}: ${label}`}
+                    aria-current={index === scene ? 'true' : undefined}
+                    // Tanpa celah antartombol (jarak visual dari padding): di 320px tiap ruas tetap ≥ 44px.
+                    className="group flex h-11 min-w-0 flex-1 items-center px-[3px] last:pr-3.5"
+                  >
+                    <span className="block h-1.5 w-full overflow-hidden rounded-pill bg-line transition-colors duration-150 ease-snap group-hover:bg-line-strong">
+                      {index < scene && <span className="block h-full bg-brand" />}
+                      {index === scene && (
+                        <span
+                          key={`${scene}-${playing}`}
+                          className={cn('block h-full bg-brand', playing && 'tour-progress')}
+                          style={{ '--dur': `${SCENE_MS}ms`, animationPlayState: running ? 'running' : 'paused' } as CSSProperties}
+                          onAnimationEnd={() => {
+                            if (running) setScene((value) => (value + 1) % SCENES.length);
+                          }}
+                        />
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </section>
