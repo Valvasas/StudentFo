@@ -1,10 +1,11 @@
 import { deflateSync } from 'node:zlib';
 
 /**
- * Gambar contoh untuk mode demo (ADR-056): "bukti transfer" bergaris
- * sederhana supaya alur verifikasi pembayaran di studio bisa dicoba tanpa
- * mengunggah apa pun. Dibangun dari kotak berwarna, bukan foto — jelas
- * terbaca sebagai contoh, dan tidak ada aset biner di repo.
+ * Gambar contoh untuk mode demo: "bukti transfer" bergaris (ADR-056) dan
+ * poster/foto suasana acara (ADR-079), supaya alur verifikasi pembayaran dan
+ * slide media bisa dicoba tanpa mengunggah apa pun. Dibangun dari kotak
+ * berwarna, bukan foto — jelas terbaca sebagai contoh, dan tidak ada aset
+ * biner di repo.
  */
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
@@ -89,4 +90,56 @@ export function demoReceiptPng(): Uint8Array {
     { x: 40, y: 356, w: 140, h: 18, color: INK },
   ]);
   return receipt;
+}
+
+/** Warna dasar & aksen per poster contoh — berbeda supaya slide & kartu terlihat bergeser. */
+const POSTER_PALETTES: readonly (readonly [Rgb, Rgb, Rgb])[] = [
+  [[27, 46, 94], [242, 183, 5], [250, 248, 244]],
+  [[22, 101, 74], [250, 248, 244], [180, 228, 196]],
+  [[124, 31, 46], [250, 214, 165], [250, 248, 244]],
+  [[34, 34, 40], [238, 92, 66], [222, 222, 230]],
+];
+
+const posters = new Map<number, Uint8Array>();
+const scenes = new Map<number, Uint8Array>();
+
+export const DEMO_POSTER_SIZE = { width: 480, height: 600 } as const;
+export const DEMO_SCENE_SIZE = { width: 720, height: 480 } as const;
+
+/** Poster contoh 4:5 (bentuk umum poster lomba di media sosial): judul, bidang gambar, baris info, tombol. */
+export function demoPosterPng(variant: number): Uint8Array {
+  const index = ((variant % POSTER_PALETTES.length) + POSTER_PALETTES.length) % POSTER_PALETTES.length;
+  const cached = posters.get(index);
+  if (cached) return cached;
+  const [base, accent, soft] = POSTER_PALETTES[index] ?? POSTER_PALETTES[0]!;
+  const { width, height } = DEMO_POSTER_SIZE;
+  const png = renderPng(width, height, base, [
+    { x: 40, y: 48, w: 180, h: 18, color: accent },
+    { x: 40, y: 92, w: 400, h: 40, color: soft },
+    { x: 40, y: 144, w: 300, h: 40, color: soft },
+    { x: 40, y: 220, w: 400, h: 220, color: accent },
+    { x: 96, y: 268, w: 120, h: 120, color: base },
+    { x: 264, y: 300, w: 120, h: 88, color: soft },
+    ...[468, 494].map((y) => ({ x: 40, y, w: 300, h: 12, color: soft })),
+    { x: 40, y: 532, w: 170, h: 36, color: accent },
+  ]);
+  posters.set(index, png);
+  return png;
+}
+
+/** "Foto suasana" contoh 3:2: panggung, layar, dan deretan penonton. */
+export function demoScenePng(variant: number): Uint8Array {
+  const index = ((variant % POSTER_PALETTES.length) + POSTER_PALETTES.length) % POSTER_PALETTES.length;
+  const cached = scenes.get(index);
+  if (cached) return cached;
+  const [base, accent, soft] = POSTER_PALETTES[index] ?? POSTER_PALETTES[0]!;
+  const { width, height } = DEMO_SCENE_SIZE;
+  const png = renderPng(width, height, soft, [
+    { x: 0, y: 300, w: width, h: 180, color: base },
+    { x: 180, y: 70, w: 360, h: 190, color: base },
+    { x: 200, y: 90, w: 320, h: 150, color: accent },
+    ...[60, 170, 280, 390, 500, 610].map((x) => ({ x, y: 360, w: 56, h: 72, color: soft })),
+  ]);
+  scenes.set(index, png);
+  return png;
 }

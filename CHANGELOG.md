@@ -52,7 +52,8 @@ yang tidak memuat migration yang sudah ada di produksi
 | Email Auth | `supabase/templates/*.html` dari `auth-email-templates.ts`, tautan `token_hash` (ADR-078), dipasang pemilik (`docs/email-templates.md`) | Template bawaan Supabase / `{{ .ConfirmationURL }}` PKCE | `auth-email-templates.test.ts` |
 | Pilihan "Lainnya" | Prodi (isian bebas), kampus ("pakai teks ini"), domisili ("Luar negeri" = LN), lokasi kegiatan (datalist 503 kab/kota) | Prodi custom tersembunyi di "Pakai …" | `study-place.spec.ts`, `wilayah.test.ts` |
 | Pemilih melayang di ponsel | Posisi dijepit ke viewport saat dibuka (`Picker`) | Popover 340px ditambatkan ke tombol → meluber | `picker-viewport.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–078 | Nomor ganda 061/062 | — |
+| Poster, slide & video | Poster = foto galeri bertanda `is_poster` (satu/acara) → slide `MediaSlider` di Ringkasan, thumbnail kartu & papan, og:image; video = tautan YouTube/Vimeo kanonis `events.video_url`, pemutar fasad (nocookie, dimuat setelah Putar); kelola di studio & `/admin/media/[slug]` (ADR-079) | Grid galeri `EventGallery`/`GalleryViewer` (dihapus); kartu tanpa gambar sama sekali | `event-media.spec.ts`, `video.test.ts`, `event-media.test.ts`, `115_event_media.test.sql` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–079 | Nomor ganda 061/062 | — |
 
 ## Migration
 
@@ -60,7 +61,7 @@ yang tidak memuat migration yang sudah ada di produksi
 - 2026-11-09: `20261108100001`–`04` dan `20261109100001_profile_details` diterapkan ke staging lalu produksi,
   persis isi berkas (tanpa DROP). Versi di `schema_migrations` disamakan dengan nama berkas; sidik skema
   (policy, constraint, hak kolom, kategori, 14 definisi fungsi) identik lokal = staging = produksi.
-- Belum diterapkan: —
+- Belum diterapkan: `20261109100002_event_media` (poster & video, ADR-079) — menunggu persetujuan pemilik.
   Kode aman urutan deploy: tanpa migration ini fitur terkait turun anggun
   (kolom lama, lobi kosong + `lobby_unavailable`, survei tidak dicatat tapi
   pengunjung tetap diantar dengan pertanyaan bawaan, lencana tetap privat,
@@ -77,6 +78,13 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 5, setelah PR #27)
+- **Serah-terima sesi & langkah konfigurasi pemilik yang sedang berjalan: `docs/progres-sekarang.md`.**
+- Poster, slide & video kegiatan (ADR-079): migration `20261109100002_event_media` BELUM diterapkan;
+  kode aman urutan deploy (tanpa kolom → poster/video tidak tampil, aksi → `media_unavailable`).
+- Kartu & papan kini boleh memuat thumbnail poster (pilihan manusia saja) — membalik sebagian "kartu tanpa gambar".
+- Kebijakan privasi & cookie: YouTube/Vimeo hanya setelah Putar; `LEGAL_REVISION` 2026-11-09.
 
 ### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 4, sebelum merge)
 - Bug live: `/submit`, beranda admin, `/admin`, ekspor data crash tanpa `SUPABASE_SERVICE_ROLE_KEY` (log Vercel) → kini turun anggun; kunci itu tetap harus diisi pemilik.

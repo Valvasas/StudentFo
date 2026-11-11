@@ -648,6 +648,8 @@ export const REGISTRATION_FORM_COLUMNS = 'event_id, is_open, intro, fields, capa
 export const REGISTRATION_COLUMNS =
   'id, code, event_id, user_id, full_name, email, answers, status, fee_amount, proof_path, proof_uploaded_at, review_note, reviewed_at, created_at, updated_at';
 export const PHOTO_COLUMNS = 'id, event_id, storage_path, content_type, width, height, caption, created_at';
+/** Dengan tanda poster (migration 20261109100002); `PHOTO_COLUMNS` tetap untuk basis data lama. */
+export const PHOTO_COLUMNS_WITH_POSTER = `${PHOTO_COLUMNS}, is_poster`;
 
 export function toRegistrationForm(row: RegistrationFormRow, activeCount: number): RegistrationForm {
   return {
@@ -725,6 +727,7 @@ export function toEventPhoto(row: EventPhotoRow): EventPhoto {
     height: row.height,
     caption: row.caption,
     createdAt: row.created_at,
+    isPoster: row.is_poster === true,
   };
 }
 
@@ -810,4 +813,17 @@ export function toAdminUserSummary(row: AdminUserRow): AdminUserSummary {
     suspendedAt: row.suspended_at,
     suspensionReason: row.suspension_reason,
   };
+}
+
+/** Penolakan RPC media (ADR-079) → kode aksi; `null` = galat tak dikenal (500). */
+export function mediaErrorCode(error: unknown): Exclude<ActionErrorCode, 'unknown'> | null {
+  if (isMissingRelationError(error)) return 'media_unavailable';
+  const state = sqlState(error);
+  if (state === '23514') return 'invalid_video_url';
+  if (state === '42501') return 'not_event_manager';
+  const message = typeof error === 'object' && error !== null ? String((error as { message?: unknown }).message ?? '') : '';
+  for (const code of ['photo_not_found', 'not_event_manager', 'event_unavailable', 'video_rate_limited'] as const) {
+    if (message.includes(code)) return code;
+  }
+  return null;
 }

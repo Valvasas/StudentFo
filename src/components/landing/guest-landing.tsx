@@ -14,9 +14,9 @@ import { RevealObserver } from './reveal-observer';
 
 /**
  * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. "Segera ditutup"
- * memakai kegiatan sungguhan dari repository; tur `#cara-kerja`
- * (`LandingTour`) adalah ilustrasi berlabel yang hanya memperagakan perilaku
- * yang ada di produksi (ADR-065).
+ * memakai kegiatan sungguhan dari repository; cuplikan `#cara-kerja`
+ * (`LandingTour`) hanya memperagakan perilaku yang ada di produksi
+ * (ADR-065) dan tampil sebagai video saja, tanpa teks panduan (ADR-081).
  * Setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem — klaim
  * pemasaran yang tidak bisa dipertanggungjawabkan adalah kerugian nyata bagi
  * yang mempercayainya (ADR-039 #4).

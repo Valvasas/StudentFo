@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppError } from '@/lib/errors';
 import { noCache } from '@/lib/data/cache';
@@ -186,5 +187,66 @@ describe('SupabaseEventRepository — galeri', () => {
       expect.objectContaining({ eventId, width: 1200, height: 800, caption: 'Final 2025' }),
     ]);
     expect(Object.keys(photos[0] ?? {})).not.toContain('uploadedBy');
+  });
+});
+
+describe('SupabaseEventRepository — poster & video (ADR-079)', () => {
+  function insertPhoto(eventId: string, width: number, height: number): string {
+    const id = randomUUID();
+    sql(`INSERT INTO public.event_photos (id, event_id, storage_path, content_type, width, height)
+         VALUES ('${id}', '${eventId}', '${eventId}/${id}.png', 'image/png', ${width}, ${height})`);
+    return id;
+  }
+
+  it('satu poster per acara lewat RPC; tamu melihatnya di detail & urutan galeri; orang lain tidak bisa memilih', async () => {
+    const { organizer, eventId, slug } = await managedEvent();
+    const scene = insertPhoto(eventId, 720, 480);
+    const poster = insertPhoto(eventId, 480, 600);
+
+    actAs(null);
+    expect((await repo.getEventBySlug(slug))?.poster).toBeNull();
+
+    const stranger = createUser();
+    actAs(stranger);
+    expect(await reason(repo.setEventPoster(actor(stranger), poster, true))).toBe('photo_not_found');
+
+    actAs(organizer);
+    await repo.setEventPoster(actor(organizer), scene, true);
+    await repo.setEventPoster(actor(organizer), poster, true);
+
+    actAs(null);
+    const photos = await repo.listEventPhotos(eventId);
+    expect(photos.map((photo) => [photo.id, photo.isPoster])).toEqual([
+      [poster, true],
+      [scene, false],
+    ]);
+    expect((await repo.getEventBySlug(slug))?.poster).toEqual({ id: poster, width: 480, height: 600 });
+
+    actAs(organizer);
+    await repo.setEventPoster(actor(organizer), poster, false);
+    actAs(null);
+    expect((await repo.getEventBySlug(slug))?.poster).toBeNull();
+  });
+
+  it('video: hanya bentuk kanonis yang diterima database, hanya pengelola yang memasang, null melepas', async () => {
+    const { organizer, eventId, slug } = await managedEvent();
+    const canonical = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
+
+    const stranger = createUser();
+    actAs(stranger);
+    expect(await reason(repo.setEventVideo(actor(stranger), eventId, canonical))).toBe('not_event_manager');
+
+    actAs(organizer);
+    await repo.setEventVideo(actor(organizer), eventId, canonical);
+    // Aplikasi menormalkan dulu; yang lolos tanpa normalisasi tetap dihentikan CHECK.
+    expect(await reason(repo.setEventVideo(actor(organizer), eventId, 'https://youtu.be/aqz-KE-bpKQ'))).toBe('invalid_video_url');
+
+    actAs(null);
+    expect((await repo.getEventBySlug(slug))?.videoUrl).toBe(canonical);
+
+    actAs(organizer);
+    await repo.setEventVideo(actor(organizer), eventId, null);
+    actAs(null);
+    expect((await repo.getEventBySlug(slug))?.videoUrl).toBeNull();
   });
 });

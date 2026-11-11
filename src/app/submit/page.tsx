@@ -55,13 +55,14 @@ const FIELD_LABEL: Record<string, string> = {
   costType: 'Biaya pendaftaran',
   priceAmount: 'Nominal biaya',
   guidebookUrl: 'Buku panduan',
+  videoUrl: 'Video',
   organizerContact: 'Kontak panitia',
   proofLink: 'Bukti kepanitiaan',
   stages: 'Tahapan jadwal',
 };
 
 const OPTIONAL_DETAIL_LABELS = new Set(
-  ['stages', 'guidebookUrl', 'description', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]),
+  ['stages', 'guidebookUrl', 'videoUrl', 'description', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]),
 );
 
 function invalidFieldLabels(raw: RawSearchParams['fields']): string[] {
@@ -306,6 +307,22 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
               hint="Tautan https ke PDF/halaman syarat & ketentuan. PDF bisa dipratinjau langsung oleh peserta."
             >
               <TextInput id="guidebookUrl" name="guidebookUrl" inputMode="url" maxLength={2000} placeholder="https://" />
+            </Field>
+
+            <Field
+              id="videoUrl"
+              label="Video (opsional)"
+              hint="Tautan YouTube atau Vimeo — teaser, rekap edisi lalu, atau penjelasan teknis. Tampil sebagai slide di halaman kegiatan."
+            >
+              <TextInput
+                id="videoUrl"
+                name="videoUrl"
+                inputMode="url"
+                maxLength={500}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="https://youtu.be/…"
+              />
             </Field>
 
             <Field id="description" label="Deskripsi (opsional)" hint="Syarat, hadiah, dan hal penting lain. Maksimal 5000 karakter.">

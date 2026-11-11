@@ -1,3 +1,5 @@
+import { LOGO_BOLD, LOGO_SIZE } from '@/components/ui/logo-paths';
+
 /**
  * Kartu pratinjau tautan (Open Graph) — digambar Satori lewat `next/og`, jadi
  * hanya subset CSS flexbox yang didukung dan warna harus nilai mentah (tidak
@@ -11,6 +13,17 @@ const INK = '#ededeb';
 const MUTED = '#a3a29c';
 const CANVAS = '#111110';
 const LINE = '#2e2e2c';
+const PAPER = '#1c1c1a';
+const HIGHLIGHT = '#ffd95a';
+
+/** Logo (ADR-080) sebagai data URL: Satori menggambar <img> SVG, bukan <use>/token CSS. */
+const LOGO_SRC = `data:image/svg+xml;base64,${Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_SIZE} ${LOGO_SIZE}" fill="none">` +
+    `<path d="${LOGO_BOLD.paper}" fill="${PAPER}"/>` +
+    `<path d="${LOGO_BOLD.highlight}" fill="${HIGHLIGHT}"/>` +
+    `<path d="${LOGO_BOLD.ink}" fill="${INK}" fill-rule="evenodd"/>` +
+    '</svg>',
+).toString('base64')}`;
 
 /** Satori tidak memotong teks dengan elipsis; dipotong di sini supaya judul panjang tidak meluber. */
 export function clampText(value: string, max: number): string {
@@ -44,7 +57,11 @@ export function OgCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-        <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em' }}>StudentFo</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- dirender satori menjadi PNG, bukan elemen DOM */}
+          <img src={LOGO_SRC} width={60} height={60} alt="" />
+          <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em' }}>StudentFo</div>
+        </div>
         <div
           style={{
             display: 'flex',

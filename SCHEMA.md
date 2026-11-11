@@ -55,6 +55,7 @@ Urutan migration (harus dijalankan berurutan):
 45. `20261108100003_event_lobby.sql` — `lobby_members`, `lobby_invites`; `can_use_lobby`, `lobby_is_open`, RPC `join_lobby`, `lobby_roster`, `lobby_member_counts`, `invite_to_lobby`; `shares_lobby_with` + policy `connections_insert_requester` diperluas (ADR-071)
 46. `20261108100004_public_badges.sql` — `users.show_badges` (bawaan FALSE) + `public_badge_facts(uuid[])` (ADR-072)
 47. `20261109100001_profile_details.sql` — 7 kategori baru; `users.study_fields`, `institution_id/_name`, `domicile_code` (Kemendagri sampai kecamatan, atau `LN`), `username` (unik, huruf kecil, daftar terlarang), `bio` (≤280), `profile_visibility` (MEMBERS bawaan | NETWORK) + CHECK & GRANT per kolom; `is_discoverable()`/`can_view_profile()` diperluas untuk profil MEMBERS; RPC `user_id_by_username(text)` & `public_profile_details(uuid[])` (ADR-075/076/077)
+48. `20261109100002_event_media.sql` — `event_photos.is_poster` (maks. satu per acara, indeks unik parsial `idx_event_photos_one_poster`, GRANT SELECT kolom), `events.video_url` (CHECK `events_video_url_shape` = bentuk kanonis YouTube/Vimeo); RPC `set_event_poster(uuid, bool)` & `set_event_video(uuid, text)` (DEFINER, `manages_event()` / admin, video 30/hari); `approve_submission` menyalin video kanonis dari kiriman (ADR-079)
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–47 per 2026-11-09, semua migration di repo).
 
@@ -157,6 +158,7 @@ olahraga, kesehatan, sosial, pendidikan, hukum).
 | is_featured / featured_until | BOOLEAN / TIMESTAMPTZ? | promosi berbayar; `CHECK events_featured_has_end` (wajib ada akhir). Aktif = `events_listing.is_promoted` |
 | verification_badge | VARCHAR(20)? | `OFFICIAL_GOV`/`CAMPUS_VERIFIED`/`COMMUNITY` (CHECK, paritas `VERIFICATION_BADGES`); diatur admin |
 | guidebook_url | TEXT? | `CHECK ~* '^https://'`, ≤ 2000 |
+| video_url | VARCHAR(200)? | HANYA bentuk kanonis `https://www.youtube.com/watch?v=<11>` / `https://vimeo.com/<id>` (`CHECK events_video_url_shape`, regex = `CANONICAL_VIDEO_PATTERN` di `src/lib/video.ts`, dikunci tes). Ditulis lewat `set_event_video()` saja (ADR-079) |
 
 Index: `status`, `event_type`, GIN `search_vector`, GIN `education_levels`,
 partial `(created_at DESC) WHERE status='APPROVED'`, partial
@@ -387,6 +389,10 @@ hanya acara kelolaan). `reviewed_by` tidak diberi hak SELECT.
 `uploaded_by` diisi trigger & tidak terbaca, `storage_path`
 `<event_id>/<uuid>.<ext>`, ukuran piksel untuk tata letak tanpa CLS. SELECT
 publik untuk acara tayang; INSERT/DELETE `manages_event()`/admin.
+`is_poster` (ADR-079): maks. satu per acara (indeks unik parsial); diubah
+hanya lewat `set_event_poster()` — klien tidak punya hak UPDATE. Poster
+ditempel ke kartu di lapisan aplikasi, BUKAN lewat `events_listing` /
+`list_personalized_events` (mengubah `RETURNS TABLE` butuh DROP).
 
 Storage: bucket **privat** `event-photos` & `payment-proofs` (5 MB,
 JPEG/PNG/WebP) tanpa policy `storage.objects` — hanya service_role (server)
@@ -505,6 +511,7 @@ Kategori (tabel `categories`) sejak migration 47: 19 — tambahan `teknik`,
 | `public.approve_submission(uuid, uuid)` | Salin kiriman ke `events` (APPROVED) + tenggat + kategori + tandai kiriman, SATU transaksi. **Hanya `service_role`** (0008). Sejak `20261003100001` ikut menyalin `is_free`/`price_amount`/`guidebook_url`; kontak & bukti kepanitiaan TIDAK |
 | `public.list_personalized_events(...)` | INVOKER, `SET jit = off`. Listing urut relevansi; rumus = `rankEvents()` (personal & cold start), filter = `queryListingPage()`, `p_limit` dijepit 1..48, kolom `total_count`. anon/authenticated boleh (RLS tetap berlaku) |
 | `public.register_for_event(uuid, jsonb)` / `submit_payment_proof(uuid, text)` / `review_event_registration(uuid, text, text)` / `cancel_event_registration(uuid)` | DEFINER, `authenticated`. Satu-satunya jalur tulis `event_registrations`; transisi kembar `registrationTransition()` (ADR-056) |
+| `public.set_event_poster(uuid, bool)` / `set_event_video(uuid, text)` | DEFINER, `authenticated`; hak = `manages_event()` atau admin. Poster: kunci advisory `photos:<event>` yang sama dengan unggah, lepas poster lama dulu; tidak berhak = `photo_not_found` (sama dengan tidak ada). Video: batas laju 30/hari, string kosong = hapus, bentuk dijaga CHECK (ADR-079) |
 | `public.event_registration_count(uuid)` / `registration_stats(uuid[])` | Sisa kuota (publik) / ringkasan studio (INVOKER, hanya acara kelolaan) |
 | `public.team_skill_slugs()` | IMMUTABLE; satu-satunya sumber daftar slug keahlian di SQL (dipakai CHECK `team_seekers`). `authenticated` WAJIB punya EXECUTE — CHECK dievaluasi dengan hak pemanggil INSERT (ADR-057) |
 | `public.list_team_candidates(int)` | DEFINER, `authenticated`. Kartu terbuka orang lain tanpa email, tanpa pemblokir/diblokir, plus ringkasan portofolio PUBLIK (aturan = `public_portfolio()`); kosong bila kartu pemanggil sendiri tidak terbuka (timbal-balik); `p_limit` dijepit 1..400 (ADR-057) |

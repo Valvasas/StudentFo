@@ -152,6 +152,7 @@ import {
   type ListingCountMode,
   PUBLIC_STATUSES,
   resolvePaging,
+  sortPhotosPosterFirst,
   totalPagesFor,
 } from './listing';
 import { type CacheLayer, nextDataCache } from './cache';
@@ -188,6 +189,8 @@ import {
   ORGANIZER_COLUMNS,
   organizerErrorCode,
   PHOTO_COLUMNS,
+  PHOTO_COLUMNS_WITH_POSTER,
+  mediaErrorCode,
   REGISTRATION_COLUMNS,
   REGISTRATION_FORM_COLUMNS,
   registrationErrorCode,
@@ -370,6 +373,8 @@ export class SupabaseEventRepository implements EventRepository {
   private readonly fetchCategories: () => Promise<Category[]>;
   private readonly fetchStats: () => Promise<RepositoryStats>;
   private readonly fetchDeadlineWeek: () => Promise<DeadlineDay[]>;
+  private readonly fetchPosters: (eventIds: readonly string[]) => Promise<PosterRow[]>;
+  private readonly fetchVideo: (eventId: string) => Promise<string | null>;
 
   constructor(
     cacheLayer: CacheLayer = nextDataCache,
@@ -382,6 +387,26 @@ export class SupabaseEventRepository implements EventRepository {
     this.fetchCategories = cacheLayer(queryCategories, ['categories-v1']);
     this.fetchStats = cacheLayer(queryStats, ['events-stats-v1']);
     this.fetchDeadlineWeek = cacheLayer(queryDeadlineWeek, ['events-deadline-week-v1']);
+    this.fetchPosters = cacheLayer(queryPosters, ['event-posters-v1']);
+    this.fetchVideo = cacheLayer(queryEventVideo, ['event-video-v1']);
+  }
+
+  /**
+   * Poster per kartu (ADR-079): satu query tambahan per daftar, di-cache dengan
+   * tag yang sama dengan daftarnya. Sengaja di luar view `events_listing` dan
+   * RPC `list_personalized_events` — mengubah tipe kembalian RPC menuntut DROP.
+   * Gagal = kartu tanpa poster, bukan daftar yang jatuh.
+   */
+  private async withPosters<T extends EventSummary>(items: readonly T[]): Promise<T[]> {
+    if (items.length === 0) return [];
+    try {
+      const rows = await this.fetchPosters([...new Set(items.map((item) => item.id))].sort());
+      const byEvent = new Map(rows.map((row) => [row.event_id, { id: row.id, width: row.width, height: row.height }]));
+      return items.map((item) => ({ ...item, poster: byEvent.get(item.id) ?? null }));
+    } catch (error) {
+      console.error('[poster] gagal dimuat:', error);
+      return items.map((item) => ({ ...item, poster: null }));
+    }
   }
 
   async listEvents(query: EventQuery): Promise<Paginated<EventSummary>> {
@@ -417,7 +442,7 @@ export class SupabaseEventRepository implements EventRepository {
         page = { rows: [], count: (await this.fetchRelevancePage({ ...request, offset: 0, limit: 1 })).count };
       }
       return {
-        items: page.rows.map(toSummary),
+        items: await this.withPosters(page.rows.map(toSummary)),
         total: page.count ?? 0,
         page: paging.page,
         pageSize: paging.pageSize,
@@ -438,7 +463,7 @@ export class SupabaseEventRepository implements EventRepository {
 
     const total = count ?? rows.length;
     return {
-      items: rows.map(toSummary),
+      items: await this.withPosters(rows.map(toSummary)),
       total,
       page: paging.page,
       pageSize: paging.pageSize,
@@ -447,11 +472,20 @@ export class SupabaseEventRepository implements EventRepository {
   }
 
   async getEventBySlug(slug: string): Promise<EventDetail | null> {
-    return this.fetchDetailBySlug(slug);
+    const detail = await this.fetchDetailBySlug(slug);
+    if (!detail) return null;
+    const [[withPoster], videoUrl] = await Promise.all([
+      this.withPosters([detail]),
+      this.fetchVideo(detail.id).catch((error: unknown) => {
+        console.error('[video] gagal dimuat:', error);
+        return null;
+      }),
+    ]);
+    return { ...(withPoster ?? detail), videoUrl };
   }
 
   async listClosingSoon(limit: number): Promise<readonly EventSummary[]> {
-    return this.fetchClosingSoon(limit);
+    return this.withPosters(await this.fetchClosingSoon(limit));
   }
 
   async listCategories(): Promise<readonly Category[]> {
@@ -511,7 +545,7 @@ export class SupabaseEventRepository implements EventRepository {
       .returns<EventListingRow[]>();
 
     if (error) throw upstreamFailure('Gagal memuat daftar promosi.', error);
-    return data.map(toSummary);
+    return this.withPosters(data.map(toSummary));
   }
 
   // ------------------------------------------------------------------
@@ -1009,7 +1043,8 @@ export class SupabaseEventRepository implements EventRepository {
       .returns<EventListingRow[]>();
 
     if (error) throw upstreamFailure('Gagal memuat data kegiatan.', error);
-    return new Map(data.map((row) => [row.id, toSummary(row)]));
+    const summaries = await this.withPosters(data.map(toSummary));
+    return new Map(summaries.map((summary) => [summary.id, summary]));
   }
 
   async isEventSaved(userId: string, eventId: string): Promise<boolean> {
@@ -2489,18 +2524,28 @@ export class SupabaseEventRepository implements EventRepository {
   async listEventPhotos(eventId: string): Promise<readonly EventPhoto[]> {
     if (!isUuid(eventId)) return [];
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from('event_photos')
-      .select(PHOTO_COLUMNS)
-      .eq('event_id', eventId)
-      .order('created_at', { ascending: false })
-      .limit(GALLERY_LIMITS.perEvent)
-      .returns<EventPhotoRow[]>();
-    if (error) throw upstreamFailure('Gagal memuat galeri.', error);
-    return data.map(toEventPhoto);
+    const select = (columns: string) =>
+      supabase
+        .from('event_photos')
+        .select(columns)
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false })
+        .limit(GALLERY_LIMITS.perEvent)
+        .returns<EventPhotoRow[]>();
+    let result = await select(PHOTO_COLUMNS_WITH_POSTER);
+    // Sebelum migration 20261109100002: galeri tetap tampil, hanya tanpa poster.
+    if (result.error && isMissingColumnError(result.error)) result = await select(PHOTO_COLUMNS);
+    if (result.error) throw upstreamFailure('Gagal memuat galeri.', result.error);
+    return sortPhotosPosterFirst(result.data.map(toEventPhoto));
   }
 
-  async addEventPhotos(_actor: EventActor, eventId: string, images: readonly UploadedImage[], caption: string | null): Promise<number> {
+  async addEventPhotos(
+    _actor: EventActor,
+    eventId: string,
+    images: readonly UploadedImage[],
+    caption: string | null,
+    options?: { readonly asPoster?: boolean },
+  ): Promise<number> {
     if (!isUuid(eventId) || !(await this.callerManages(eventId))) throw actionError('not_event_manager');
     const storage = createSupabaseAdminClient().storage.from(PHOTO_BUCKET);
     const rows = images.map((image) => {
@@ -2541,6 +2586,15 @@ export class SupabaseEventRepository implements EventRepository {
       }
       throw error;
     }
+    const first = rows[0]?.row.id;
+    if (options?.asPoster && first) {
+      // Foto sudah tersimpan: poster yang gagal dipasang dicatat, bukan membatalkan unggahan.
+      try {
+        await this.setEventPoster(_actor, first, true);
+      } catch (error) {
+        console.error('[poster] gagal dipasang saat unggah:', error);
+      }
+    }
     return rows.length;
   }
 
@@ -2558,6 +2612,28 @@ export class SupabaseEventRepository implements EventRepository {
     if (!path) throw actionError('photo_not_found');
     const removed = await createSupabaseAdminClient().storage.from(PHOTO_BUCKET).remove([path]);
     if (removed.error) console.error('[galeri] berkas foto gagal dihapus:', removed.error);
+  }
+
+  async setEventPoster(_actor: EventActor, photoId: string, isPoster: boolean): Promise<void> {
+    if (!isUuid(photoId)) throw actionError('photo_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('set_event_poster', { p_photo: photoId, p_poster: isPoster });
+    if (error) {
+      const code = mediaErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal memilih poster.', error, 500);
+    }
+  }
+
+  async setEventVideo(_actor: EventActor, eventId: string, videoUrl: string | null): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('set_event_video', { p_event: eventId, p_url: videoUrl });
+    if (error) {
+      const code = mediaErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menyimpan video.', error, 500);
+    }
   }
 
   async getEventPhotoFile(photoId: string): Promise<StoredFile | null> {
@@ -2935,6 +3011,49 @@ async function queryRelevancePage(request: RelevanceFetch): Promise<ListingPage>
   if (error) throw upstreamFailure('Gagal memuat daftar event.', error);
   const rows = rpcRows<PersonalizedEventRow>(data);
   return { rows: [...rows], count: rows[0]?.total_count ?? 0 };
+}
+
+/** Baris poster yang di-cache (bentuk polos — `unstable_cache` tidak menyimpan Map). */
+interface PosterRow {
+  readonly id: string;
+  readonly event_id: string;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Klien anon tanpa cookie (aman di dalam cache): RLS hanya membuka foto acara tayang. */
+async function queryPosters(eventIds: readonly string[]): Promise<PosterRow[]> {
+  const supabase = createSupabasePublicClient();
+  const rows: PosterRow[] = [];
+  for (const part of chunks(eventIds.filter(isUuid), IN_CHUNK)) {
+    const { data, error } = await supabase
+      .from('event_photos')
+      .select('id, event_id, width, height')
+      .eq('is_poster', true)
+      .in('event_id', part)
+      .returns<PosterRow[]>();
+    if (error) {
+      // Sebelum migration 20261109100002: belum ada poster, bukan galat.
+      if (isMissingColumnError(error)) return [];
+      throw upstreamFailure('Gagal memuat poster.', error);
+    }
+    rows.push(...data);
+  }
+  return rows;
+}
+
+async function queryEventVideo(eventId: string): Promise<string | null> {
+  if (!isUuid(eventId)) return null;
+  const { data, error } = await createSupabasePublicClient()
+    .from('events')
+    .select('video_url')
+    .eq('id', eventId)
+    .maybeSingle<{ video_url: string | null }>();
+  if (error) {
+    if (isMissingColumnError(error)) return null;
+    throw upstreamFailure('Gagal memuat video.', error);
+  }
+  return data?.video_url ?? null;
 }
 
 async function queryDetailBySlug(slug: string): Promise<EventDetail | null> {

@@ -385,6 +385,8 @@ export interface EventPhotoRow {
   height: number;
   caption: string | null;
   created_at: string;
+  /** Tidak ada sebelum migration 20261109100002 (kode aman urutan deploy). */
+  is_poster?: boolean;
 }
 
 /** `team_seekers` — kartu pemain milik sendiri (ADR-057). */

@@ -250,6 +250,12 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             <li>
               <strong>Google</strong> — hanya bila kamu memilih masuk dengan Google.
             </li>
+            <li>
+              <strong>YouTube atau Vimeo</strong> — hanya bila kamu menekan Putar pada video sebuah kegiatan. Sebelum itu halaman tidak
+              menghubungi keduanya sama sekali. Setelah kamu menekan Putar, pemutar dimuat dari youtube-nocookie.com (mode privasi YouTube) atau
+              player.vimeo.com (dengan permintaan jangan-lacak), dan penyedia itu menerima alamat IP serta informasi perangkatmu menurut kebijakan
+              privasinya sendiri.
+            </li>
           </ul>
           <p>
             Server penyedia tersebut dapat berada di luar wilayah Indonesia, misalnya di Singapura. Sesuai Pasal 56 UU PDP, kami hanya memakai

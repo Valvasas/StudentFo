@@ -1,5 +1,6 @@
 import { PriceBadge } from '@/components/event/price-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
+import { PosterThumb } from '@/components/event/poster-thumb';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { DeadlineTag } from '@/components/event/deadline-tag';
@@ -172,19 +173,22 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                   style={{ animationDelay: `${index * 60}ms` }}
                 >
                   <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-2.5">
-                    <div className="flex flex-col gap-1">
-                      <h2 className="text-[17px] font-semibold tracking-[-0.015em]">
-                        <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[14px] after:content-['']">
-                          {event.title}
-                        </Link>
-                      </h2>
-                      <span className="flex items-center gap-1 text-[13.5px] text-ink-muted">
-                        {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
-                        <span>
-                          {event.organizer} · {event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul')}
+                    <div className="flex items-start gap-3.5">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <h2 className="text-[17px] font-semibold tracking-[-0.015em]">
+                          <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[14px] after:content-['']">
+                            {event.title}
+                          </Link>
+                        </h2>
+                        <span className="flex items-center gap-1 text-[13.5px] text-ink-muted">
+                          {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
+                          <span>
+                            {event.organizer} · {event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul')}
+                          </span>
                         </span>
-                      </span>
-                      <PriceBadge event={event} className="self-start" />
+                        <PriceBadge event={event} className="self-start" />
+                      </div>
+                      <PosterThumb poster={event.poster} />
                     </div>
                     <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">
                       <li className="flex h-6 items-center rounded-[6px] bg-panel-nested px-[9px] text-[12.5px] font-medium text-ink-soft">

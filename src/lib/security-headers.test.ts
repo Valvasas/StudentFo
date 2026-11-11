@@ -53,9 +53,10 @@ describe('buildContentSecurityPolicy', () => {
   });
 
   it('iframe ke host https lain hanya di halaman detail kegiatan (pratinjau buku panduan)', () => {
-    expect(prod.get('frame-src')).toEqual(['https://challenges.cloudflare.com']);
+    const players = ['https://www.youtube-nocookie.com', 'https://player.vimeo.com'];
+    expect(prod.get('frame-src')).toEqual(['https://challenges.cloudflare.com', ...players]);
     const detail = directives(buildContentSecurityPolicy({ nonce: 'n', isDev: false, allowDocumentFrames: true }));
-    expect(detail.get('frame-src')).toEqual(['https://challenges.cloudflare.com', 'https:']);
+    expect(detail.get('frame-src')).toEqual(['https://challenges.cloudflare.com', ...players, 'https:']);
     expect(detail.get('frame-ancestors')).toEqual(["'none'"]);
     expect(allowsDocumentFrames('/events/lomba-esai')).toBe(true);
     expect(allowsDocumentFrames('/events/lomba-esai/')).toBe(true);

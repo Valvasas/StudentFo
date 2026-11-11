@@ -568,10 +568,24 @@ export interface RegistrationRepository {
 
 /** Galeri foto acara (ADR-056). Baca publik untuk acara tayang; tulis = pengelola/admin. */
 export interface GalleryRepository {
+  /** Poster lebih dulu (ADR-079), lalu terbaru. */
   listEventPhotos(eventId: string): Promise<readonly EventPhoto[]>;
-  /** Mengembalikan jumlah yang tersimpan; melebihi batas → `gallery_full`. */
-  addEventPhotos(actor: EventActor, eventId: string, images: readonly UploadedImage[], caption: string | null): Promise<number>;
+  /**
+   * Mengembalikan jumlah yang tersimpan; melebihi batas → `gallery_full`.
+   * `asPoster` = foto PERTAMA unggahan ini langsung jadi poster (mengganti poster lama).
+   */
+  addEventPhotos(
+    actor: EventActor,
+    eventId: string,
+    images: readonly UploadedImage[],
+    caption: string | null,
+    options?: { readonly asPoster?: boolean },
+  ): Promise<number>;
   deleteEventPhoto(actor: EventActor, photoId: string): Promise<void>;
+  /** Tandai/lepas poster (ADR-079) — maks. satu per acara; foto asing/tanpa hak → `photo_not_found`. */
+  setEventPoster(actor: EventActor, photoId: string, isPoster: boolean): Promise<void>;
+  /** Video YouTube/Vimeo kanonis (`normalizeVideoUrl`), `null` = lepas. Tanpa hak → `not_event_manager`. */
+  setEventVideo(actor: EventActor, eventId: string, videoUrl: string | null): Promise<void>;
   /** Berkas untuk rute publik `/media/foto/[id]` — hanya foto acara yang tayang. */
   getEventPhotoFile(photoId: string): Promise<StoredFile | null>;
 }

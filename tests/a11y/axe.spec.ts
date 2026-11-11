@@ -16,6 +16,9 @@ const STATIC_ROUTES = [
   '/events',
   '/events?type=LOMBA&sort=deadline',
   '/events?biaya=berbayar',
+  // Slide poster + foto, dan slide video bergaya fasad (ADR-079).
+  '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026',
+  '/events/festival-film-pendek-pelajar-nusantara',
   // Lencana otoritas + biaya + buku panduan + tombol kalender (ADR-049/050).
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=syarat',
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan',
@@ -124,6 +127,8 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin/kinerja'],
   ['Admin moderator', '/admin/kinerja/pertanyaan'],
   ['Admin moderator', '/admin/promosi'],
+  // Poster & video untuk acara tanpa pengelola (ADR-079): form unggah + slide pratinjau.
+  ['Admin moderator', '/admin/media/kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
   ['Admin moderator', '/admin/laporan'],
   ['Admin moderator', '/admin/pengguna'],
   ['Admin moderator', '/admin/pengguna?q=Rani'],

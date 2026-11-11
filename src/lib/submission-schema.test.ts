@@ -160,6 +160,16 @@ describe('parseSubmissionForm — biaya, panduan, verifikasi', () => {
     });
   });
 
+  it('video (ADR-079): bentuk apa pun dari YouTube/Vimeo disimpan kanonis; kosong = tanpa video; lainnya ditolak', () => {
+    const shorts = parseSubmissionForm(validForm({ videoUrl: 'https://youtube.com/shorts/aqz-KE-bpKQ?feature=share' }), NOW);
+    expect(shorts.success && shorts.data.videoUrl).toBe('https://www.youtube.com/watch?v=aqz-KE-bpKQ');
+    const empty = parseSubmissionForm(validForm({ videoUrl: '   ' }), NOW);
+    expect(empty.success && empty.data.videoUrl).toBeNull();
+    const instagram = parseSubmissionForm(validForm({ videoUrl: 'https://www.instagram.com/reel/abc' }), NOW);
+    expect(instagram.success).toBe(false);
+    expect(instagram.success ? [] : instagram.error.issues.map((issue) => issue.path[0])).toEqual(['videoUrl']);
+  });
+
   it('markup di judul/penyelenggara/kontak dibuang SEBELUM batas panjang dicek', () => {
     const result = parseSubmissionForm(
       validForm({ title: '<b>Lomba</b> <i>Esai</i> Nasional', organizerContact: '<a href="x">0812</a>' }),
@@ -206,6 +216,17 @@ describe('payload tersimpan', () => {
       category_slugs: [], location: null, is_online: true, deadline_at: '2026-02-01T16:59:00.000Z',
     };
     expect(fromStoredPayload(legacy)).toMatchObject({ isFree: null, priceAmount: null, guidebookUrl: null, organizerContact: null, stages: [] });
+  });
+
+  it('video tersimpan yang rusak/disuntik lewat PostgREST = tanpa video, kiriman tetap terbaca', () => {
+    const base = {
+      title: 'Lomba Video', organizer: 'Panitia', description: null, event_type: 'LOMBA',
+      registration_link: 'https://v.example', source_url: null, education_levels: ['D4_S1'],
+      category_slugs: [], location: null, is_online: true, deadline_at: '2026-02-01T16:59:00.000Z',
+    };
+    expect(fromStoredPayload({ ...base, video_url: 'https://evil.example/x' })).toMatchObject({ title: 'Lomba Video', videoUrl: null });
+    expect(fromStoredPayload({ ...base, video_url: 'https://vimeo.com/76979871' })?.videoUrl).toBe('https://vimeo.com/76979871');
+    expect(fromStoredPayload(base)?.videoUrl).toBeNull();
   });
 
   it('bolak-balik toStoredPayload → fromStoredPayload tanpa kehilangan data', () => {

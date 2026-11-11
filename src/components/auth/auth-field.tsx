@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import type { InputHTMLAttributes, ReactNode } from 'react';
 import { controlClass } from '@/components/ui/field';
-import { LogoMark } from '@/components/ui/illustrations';
+import { LogoEmblem } from '@/components/ui/logo';
 import { cn } from '@/lib/utils';
 
 /** Isian form akun: label 13.5px di atas, isian 44px. */
@@ -42,7 +42,7 @@ export function AuthDivider({ label = 'atau dengan email' }: { label?: string })
 export function AuthHeading({ title, subtitle }: { title: string; subtitle: ReactNode }) {
   return (
     <header className="flex flex-col items-center gap-4 text-center">
-      <LogoMark className="size-10 -rotate-3 text-ink" />
+      <LogoEmblem sparkles className="size-[76px] text-ink" />
       <div className="flex flex-col gap-1.5">
         <h1 className="text-[26px] leading-[1.15] tracking-[-0.03em]">{title}</h1>
         <p className="text-[15px] leading-relaxed text-ink-muted">{subtitle}</p>

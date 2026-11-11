@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 const SUMMARY = [
   'StudentFo hanya memakai cookie yang dibutuhkan agar kamu tetap masuk, situs tetap aman, dan pilihan tampilanmu diingat.',
-  'Tidak ada cookie iklan, analitik pihak ketiga, atau pelacak lintas situs.',
+  'StudentFo tidak memasang cookie iklan, analitik pihak ketiga, atau pelacak lintas situs. Video kegiatan dari YouTube/Vimeo baru dimuat setelah kamu menekan Putar.',
   'Karena itu kami tidak menampilkan spanduk persetujuan cookie — tidak ada yang perlu kamu tolak.',
 ];
 
@@ -196,6 +196,11 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
           </li>
           <li>
             <strong>Google</strong> — bila kamu memilih masuk dengan Google, kamu sejenak berada di situs Google, yang memakai cookie-nya sendiri.
+          </li>
+          <li>
+            <strong>YouTube dan Vimeo</strong> — video kegiatan baru dimuat saat kamu menekan Putar. Sejak itu pemutarnya berjalan di bingkai
+            milik penyedia (youtube-nocookie.com atau player.vimeo.com) dan dapat menyimpan data di peramban menurut kebijakannya sendiri. Kalau
+            tidak menekan Putar, tidak ada yang dimuat dari keduanya.
           </li>
           <li>
             <strong>Situs penyelenggara</strong> — tombol daftar dan buku panduan membuka situs penyelenggara. Pratinjau buku panduan di halaman

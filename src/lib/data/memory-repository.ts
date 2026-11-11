@@ -1,4 +1,5 @@
 import { actionError } from '@/lib/action-feedback';
+import { CANONICAL_VIDEO_PATTERN } from '@/lib/video';
 import { AppError, ERROR_CODES } from '@/lib/errors';
 import {
   BLOCK_LIST_LIMIT,
@@ -117,12 +118,12 @@ import type {
   StudyProfile,
   OutboundSurveyRecord,
 } from '@/types/domain';
-import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortSummaries } from './listing';
+import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortPhotosPosterFirst, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
 import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
-import { demoReceiptPng } from './demo-media';
+import { DEMO_POSTER_SIZE, DEMO_SCENE_SIZE, demoPosterPng, demoReceiptPng, demoScenePng } from './demo-media';
 import type {
   DeleteAccountInput,
   EventQuestionContext,
@@ -353,6 +354,8 @@ interface QuestionEntry {
 
 /** Cermin `ask_event_question()`: 5 pertanyaan per penanya per hari. */
 const QUESTION_RATE_LIMIT_PER_DAY = 5;
+/** Sama dengan consume_rate_limit('event-video:…', 30, 86400) di set_event_video(). */
+const VIDEO_CHANGES_PER_DAY = 30;
 
 /** Cermin batas `report_content()`: 10 laporan per pelapor per hari. */
 const REPORT_RATE_LIMIT_PER_DAY = 10;
@@ -503,6 +506,37 @@ export class MemoryEventRepository implements EventRepository {
     // contoh harus langsung menunjukkan alur formulir & pembayaran (ADR-056).
     const open = this.events.filter((event) => event.status === 'APPROVED');
     this.seedDemoRegistrations({ free: open[0]?.id, paid: open.slice(3).find((event) => event.isFree === false)?.id }, base);
+    this.seedDemoMedia(base);
+  }
+
+  /**
+   * Poster, foto suasana, dan satu video contoh (ADR-079) — slide halaman
+   * acara, thumbnail kartu, dan studio galeri langsung bisa dicoba. Video =
+   * "Big Buck Bunny" (Blender Foundation, CC-BY): netral dan stabil sejak 2014,
+   * dan baru dimuat dari YouTube setelah pengunjung menekan Putar.
+   */
+  private seedDemoMedia(base: Date): void {
+    const plan: readonly { slug: string; palette: number; scenes: number; videoUrl?: string }[] = [
+      { slug: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026', palette: 0, scenes: 2 },
+      { slug: 'lomba-karya-tulis-ilmiah-energi-terbarukan', palette: 1, scenes: 0 },
+      { slug: 'kompetisi-debat-bahasa-indonesia-antar-sma', palette: 2, scenes: 0 },
+      { slug: 'festival-film-pendek-pelajar-nusantara', palette: 3, scenes: 1, videoUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ' },
+    ];
+    plan.forEach(({ slug, palette, scenes, videoUrl }, order) => {
+      const event = this.events.find((candidate) => candidate.slug === slug);
+      if (!event) return;
+      const add = (bytes: Uint8Array, size: { width: number; height: number }, caption: string, isPoster: boolean, minutesAgo: number) => {
+        const id = this.nextId();
+        const key = `photo/${event.id}/${id}.png`;
+        this.storeMedia(key, { bytes, contentType: 'image/png' });
+        const createdAt = new Date(base.getTime() - (order * 60 + minutesAgo) * 60_000).toISOString();
+        this.photos.set(id, { id, key, eventId: event.id, ...size, caption, createdAt, isPoster });
+      };
+      add(demoPosterPng(palette), DEMO_POSTER_SIZE, 'Poster contoh (data demo)', true, 30);
+      for (let scene = 0; scene < scenes; scene += 1) add(demoScenePng(palette + scene), DEMO_SCENE_SIZE, 'Suasana edisi sebelumnya (data demo)', false, scene);
+      this.syncPoster(event.id);
+      if (videoUrl) this.updateEvent(event.id, (current) => ({ ...current, videoUrl }));
+    });
   }
 
   /** UUID, bukan penghitung: skema form (mis. `createTeamSchema`) memvalidasi id sebagai UUID, sama seperti produksi. */
@@ -875,6 +909,8 @@ export class MemoryEventRepository implements EventRepository {
         isFree: payload.isFree,
         priceAmount: payload.isFree === false ? payload.priceAmount : null,
         guidebookUrl: payload.guidebookUrl,
+        // Cermin approve_submission(): hanya bentuk kanonis yang disalin.
+        videoUrl: payload.videoUrl && CANONICAL_VIDEO_PATTERN.test(payload.videoUrl) ? payload.videoUrl : null,
         featuredUntil: null,
         verificationBadge: null,
       });
@@ -2852,25 +2888,32 @@ export class MemoryEventRepository implements EventRepository {
   }
 
   async listEventPhotos(eventId: string): Promise<readonly EventPhoto[]> {
-    return [...this.photos.values()]
-      .filter((photo) => photo.eventId === eventId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .map(({ key: _key, ...photo }) => photo);
+    return sortPhotosPosterFirst([...this.photos.values()].filter((photo) => photo.eventId === eventId)).map(
+      ({ key: _key, ...photo }) => photo,
+    );
   }
 
-  async addEventPhotos(actor: EventActor, eventId: string, images: readonly UploadedImage[], caption: string | null): Promise<number> {
+  async addEventPhotos(
+    actor: EventActor,
+    eventId: string,
+    images: readonly UploadedImage[],
+    caption: string | null,
+    options?: { readonly asPoster?: boolean },
+  ): Promise<number> {
     if (!this.findEvent(eventId) || !this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
     const existing = [...this.photos.values()].filter((photo) => photo.eventId === eventId).length;
     if (existing + images.length > GALLERY_LIMITS.perEvent) throw actionError('gallery_full');
     if (!this.hasMediaRoom(images.reduce((sum, image) => sum + image.bytes.length, 0))) throw actionError('gallery_full');
-    images.forEach((image, index) => {
+    const ids = images.map((image, index) => {
       const id = this.nextId();
       const key = `photo/${eventId}/${id}.${IMAGE_EXTENSION[image.type]}`;
       this.storeMedia(key, { bytes: image.bytes, contentType: image.type });
       // Selisih milidetik menjaga urutan unggah dalam satu kiriman.
       const createdAt = new Date(Date.now() + index).toISOString();
-      this.photos.set(id, { id, key, eventId, width: image.width, height: image.height, caption, createdAt });
+      this.photos.set(id, { id, key, eventId, width: image.width, height: image.height, caption, createdAt, isPoster: false });
+      return id;
     });
+    if (options?.asPoster && ids[0]) this.markPoster(eventId, ids[0], true);
     return images.length;
   }
 
@@ -2879,6 +2922,42 @@ export class MemoryEventRepository implements EventRepository {
     if (!photo || !this.canManageEvent(actor, photo.eventId)) throw actionError('photo_not_found');
     this.photos.delete(photoId);
     this.dropMedia(photo.key);
+    if (photo.isPoster) this.syncPoster(photo.eventId);
+  }
+
+  async setEventPoster(actor: EventActor, photoId: string, isPoster: boolean): Promise<void> {
+    const photo = this.photos.get(photoId);
+    // Cermin set_event_poster(): tidak ada & tidak berhak = jawaban sama.
+    if (!photo || !this.canManageEvent(actor, photo.eventId)) throw actionError('photo_not_found');
+    this.markPoster(photo.eventId, photoId, isPoster);
+  }
+
+  async setEventVideo(actor: EventActor, eventId: string, videoUrl: string | null): Promise<void> {
+    if (!this.findEvent(eventId) || !this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
+    if (!this.rateLimiter.consume(`event-video:${actor.id}`, VIDEO_CHANGES_PER_DAY, 86_400)) throw actionError('video_rate_limited');
+    const next = videoUrl?.trim() || null;
+    // Cermin CHECK events_video_url_shape: hanya bentuk kanonis yang disimpan.
+    if (next !== null && !CANONICAL_VIDEO_PATTERN.test(next)) throw actionError('invalid_video_url');
+    this.updateEvent(eventId, (event) => ({ ...event, videoUrl: next }));
+  }
+
+  /** Maks. satu poster per acara (indeks unik idx_event_photos_one_poster). */
+  private markPoster(eventId: string, photoId: string, isPoster: boolean): void {
+    for (const photo of this.photos.values()) {
+      if (photo.eventId !== eventId) continue;
+      const next = photo.id === photoId ? isPoster : isPoster ? false : photo.isPoster;
+      if (next !== photo.isPoster) this.photos.set(photo.id, { ...photo, isPoster: next });
+    }
+    this.syncPoster(eventId);
+  }
+
+  /** Poster ikut tersimpan di objek acara, jadi semua daftar (kartu, tersimpan, promosi) membawanya. */
+  private syncPoster(eventId: string): void {
+    const poster = [...this.photos.values()].find((photo) => photo.eventId === eventId && photo.isPoster);
+    this.updateEvent(eventId, (event) => ({
+      ...event,
+      poster: poster ? { id: poster.id, width: poster.width, height: poster.height } : null,
+    }));
   }
 
   async getEventPhotoFile(photoId: string): Promise<StoredFile | null> {

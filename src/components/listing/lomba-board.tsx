@@ -1,5 +1,6 @@
 import { PriceBadge } from '@/components/event/price-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
+import { PosterThumb } from '@/components/event/poster-thumb';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { DeadlineTag } from '@/components/event/deadline-tag';
@@ -185,16 +186,19 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                       </span>
                       {event.primaryDeadlineAt && <DeadlineTag deadlineAt={event.primaryDeadlineAt} now={now} className="mb-1 shrink-0" />}
                     </div>
-                    <div className="flex flex-col gap-1.5">
-                      <h3 className="text-[16.5px] font-semibold leading-snug tracking-[-0.015em]">
-                        <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[14px] after:content-['']">
-                          {event.title}
-                        </Link>
-                      </h3>
-                      <span className="flex items-center gap-1 text-[13px] text-ink-muted">
-                        {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
-                        {event.organizer}
-                      </span>
+                    <div className="flex items-start gap-3.5">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <h3 className="text-[16.5px] font-semibold leading-snug tracking-[-0.015em]">
+                          <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[14px] after:content-['']">
+                            {event.title}
+                          </Link>
+                        </h3>
+                        <span className="flex items-center gap-1 text-[13px] text-ink-muted">
+                          {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
+                          {event.organizer}
+                        </span>
+                      </div>
+                      <PosterThumb poster={event.poster} />
                     </div>
                     <PriceBadge event={event} className="self-start" />
                     <ul aria-label="Ringkasan" className="mt-auto flex flex-wrap gap-1.5">
