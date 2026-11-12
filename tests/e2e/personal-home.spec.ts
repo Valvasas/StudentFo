@@ -31,9 +31,47 @@ test('pengguna masuk melihat ringkasan pribadi tanpa ajakan mendaftar', async ({
   await expect(page).toHaveURL(/\/events\?q=beasiswa/);
 });
 
-test('profil belum lengkap: diarahkan memilih minat & jenjang', async ({ page }) => {
+test('langkah awal: dihitung dari akun, saran pertama juga di lonceng, bisa disembunyikan dari keduanya', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'terang', 'alur, bukan tampilan; cukup satu proyek');
   await signInAsDemo(page, 'Siswa baru');
-  await expect(page.locator('main').getByRole('link', { name: /Pilih minat & jenjangmu/ })).toHaveAttribute('href', '/profile/interests');
+  const steps = page.getByRole('region', { name: 'Langkah awalmu' });
+  await expect(steps).toBeVisible();
+  // Profil belum lengkap → langkah pertama = minat & jenjang, ditandai "berikutnya".
+  const next = steps.getByRole('link', { name: /Pilih minat & jenjang — langkah berikutnya/ });
+  await expect(next).toHaveAttribute('href', '/profile/interests');
+  await expect(steps.getByRole('link', { name: /Simpan kegiatan pertama/ })).toHaveAttribute('href', '/events');
+  await expect(steps.getByRole('progressbar', { name: 'Kemajuan langkah awal' })).toHaveAttribute('aria-valuenow', /\d/);
+
+  // Lonceng: titik saran (bukan angka), baris "Langkah berikutnya" yang sama.
+  const bell = page.locator('summary[aria-label^="Notifikasi"]').first();
+  await expect(bell).toHaveAttribute('aria-label', /saran langkah berikutnya|belum dibaca/);
+  await bell.click();
+  const menu = bell.locator('xpath=..');
+  await expect(menu.getByRole('link', { name: /Langkah berikutnya.*Pilih minat & jenjang/ })).toHaveAttribute('href', '/profile/interests');
+
+  // Menyelesaikan langkah = langkahnya selesai dengan sendirinya (tanpa menandai apa pun).
+  await page.goto('/events');
+  await page.locator('main').getByRole('button', { name: 'Simpan kegiatan' }).first().click();
+  await expect(page.locator('main').getByRole('button', { name: 'Hapus dari simpanan' }).first()).toBeVisible();
+  await page.goto('/');
+  await expect(steps.getByText(/Simpan kegiatan pertama/)).toContainText('selesai');
+
+  // Sembunyikan → hilang dari beranda DAN lonceng, tetap di beranda.
+  await steps.getByRole('button', { name: 'Sembunyikan' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('region', { name: 'Langkah awalmu' })).toHaveCount(0);
+  await page.locator('summary[aria-label^="Notifikasi"]').first().click();
+  await expect(page.getByRole('link', { name: /Langkah berikutnya/ })).toHaveCount(0);
+});
+
+test('lonceng: "Jangan tampilkan lagi" kembali ke halaman yang sama', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'terang', 'alur, bukan tampilan; cukup satu proyek');
+  await signInAsDemo(page, 'Siswa baru', '/events?type=BEASISWA');
+  const bell = page.locator('summary[aria-label^="Notifikasi"]').first();
+  await bell.click();
+  await bell.locator('xpath=..').getByRole('button', { name: 'Jangan tampilkan lagi' }).click();
+  await expect(page).toHaveURL(/\/events\?type=BEASISWA$/);
+  await expect(page.locator('summary[aria-label^="Notifikasi"]').first()).not.toHaveAttribute('aria-label', /saran/);
 });
 
 test('admin: beranda = jumlah antrean + keputusan terakhir', async ({ page }) => {

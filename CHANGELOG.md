@@ -57,8 +57,9 @@ yang tidak memuat migration yang sudah ada di produksi
 | Tur beranda | Satu cuplikan tanpa judul/daftar langkah; kendali putar/jeda + 5 ruas (ADR-081) | Panggung + 5 tab langkah berteks + label "Contoh tampilan" (ADR-065) | `landing-tour.spec.ts` |
 | Foto profil & banner | Kolom `users.avatar_*`/`banner_*`/`banner_preset`, bucket privat `profile-media`, `/media/profil/[id]`; kartu "Foto & banner" di Data diri; cabut di `/admin/pengguna` (ADR-083) | Hanya inisial + sampul bertitik | `profile-media.test.ts` ×2, `116_profile_media.test.sql`, `profile-media.spec.ts` |
 | Poster di kiriman | Langkah "Media kegiatan" di `/submit` (poster: pengirim yang masuk), kolom `ugc_submissions.poster_*`, `/media/kiriman/[id]` (ADR-084) | Poster hanya setelah tayang (studio/admin); video di lipatan "detail tambahan" | `submissions.test.ts`, `117_submission_poster.test.sql`, `submission-poster.spec.ts` |
+| Ajakan bertindak | "Langkah awalmu" di beranda peserta + satu saran di lonceng, dihitung dari akun (`lib/next-steps.ts`), cookie `sf_langkah` untuk menyembunyikan (ADR-086) | Satu tautan "Pilih minat & jenjangmu" | `next-steps.test.ts`, `personal-home.spec.ts` |
 | Detail kegiatan untuk tamu | Etalase + cuplikan ≤ 200 karakter + `MemberGate`; tab lain, tautan pendaftaran, kalender khusus anggota (ADR-085) | Semua isi & "Daftar sekarang" terbuka untuk tamu | `event-gate.spec.ts`, `event-access.test.ts`, `register-redirect.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–085 | Nomor ganda 061/062 | — |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–086 | Nomor ganda 061/062 | — |
 
 ## Migration
 
@@ -89,7 +90,7 @@ yang tidak memuat migration yang sudah ada di produksi
 ### 2026-11-12 — cabang `claude/brave-cray-xsqigf` (dari `…registration-form-competition-features-sptvfz`)
 - Logo baru (ADR-080), tur beranda hanya cuplikan (ADR-081), 12 ragam lencana + animasi (ADR-082).
 - Foto profil & banner (ADR-083), poster dilampirkan saat kirim kegiatan (ADR-084),
-  gerbang anggota di halaman kegiatan (ADR-085). `LEGAL_REVISION` 2026-11-12.
+  gerbang anggota di halaman kegiatan (ADR-085), "Langkah awal" (ADR-086). `LEGAL_REVISION` 2026-11-12.
 - Tiga migration BELUM diterapkan (lihat bagian Migration). Cabang ini **belum di `main`**.
 
 ### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 5, setelah PR #27)

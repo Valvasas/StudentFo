@@ -1,11 +1,13 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formText, formTrimmed } from '@/lib/form-data';
-import { safeNextPath } from '@/lib/safe-redirect';
+import { NEXT_STEPS_COOKIE, NEXT_STEPS_MAX_AGE } from '@/lib/next-steps';
+import { refererPath, safeNextPath } from '@/lib/safe-redirect';
 
 /**
  * Menandai notifikasi sudah dibaca.
@@ -43,5 +45,25 @@ export async function markAllNotificationsReadAction(formData: FormData): Promis
   await repository.markAllNotificationsAsRead(user.id);
 
   revalidatePath(returnTo);
+  redirect(returnTo);
+}
+
+/**
+ * Sembunyikan "Langkah awal" (beranda & lonceng, ADR-086). Hanya preferensi
+ * tampilan — tanpa sesi pun tidak merugikan siapa-siapa, sama dengan sakelar
+ * sidebar. Lonceng tidak tahu halaman tempatnya dirender, jadi tanpa
+ * `returnTo` kembali ke halaman asal lewat Referer (host yang sama saja).
+ */
+export async function hideNextStepsAction(formData: FormData): Promise<void> {
+  const requestHeaders = await headers();
+  const requested = formText(formData, 'returnTo');
+  const returnTo = requested ? safeNextPath(requested, '/') : refererPath(requestHeaders.get('referer'), requestHeaders.get('host'));
+  (await cookies()).set(NEXT_STEPS_COOKIE, 'hidden', {
+    path: '/',
+    maxAge: NEXT_STEPS_MAX_AGE,
+    sameSite: 'lax',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+  });
   redirect(returnTo);
 }

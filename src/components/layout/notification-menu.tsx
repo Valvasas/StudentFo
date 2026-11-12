@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import {
   BadgeCheck,
@@ -13,18 +14,21 @@ import {
   Receipt,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   UserPlus,
   Users,
   XCircle,
 } from 'lucide-react';
 import {
+  hideNextStepsAction,
   markAllNotificationsReadAction,
   markNotificationReadAction,
 } from '@/app/notifications/actions';
 import { workspacePath } from '@/components/organizer/event-workspace';
-import { getSessionUser } from '@/lib/auth';
+import { getSessionUser, isProfileComplete } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
+import { isNextStepsHidden, NEXT_STEPS_COOKIE, profileNudge } from '@/lib/next-steps';
 import type { NotificationType } from '@/types/domain';
 
 /**
@@ -86,10 +90,21 @@ export async function NotificationMenu() {
   if (!user) return null;
 
   const repository = await getEventRepository();
-  const [notifications, unreadCount] = await Promise.all([
+  const [notifications, unreadCount, cookieStore] = await Promise.all([
     withFallback('daftar notifikasi', () => repository.listNotifications(user.id, PREVIEW_LIMIT), []),
     withFallback('hitungan notifikasi', () => repository.countUnreadNotifications(user.id), 0),
+    cookies(),
   ]);
+  // Satu saran langkah awal (ADR-086), dari data sesi saja — tanpa query
+  // tambahan di setiap halaman. Tidak menambah angka "belum dibaca": saran
+  // bukan kabar, dan lonceng yang angkanya tak pernah nol berhenti dipercaya.
+  const nudge =
+    user.role === 'USER' && !isNextStepsHidden(cookieStore.get(NEXT_STEPS_COOKIE)?.value)
+      ? profileNudge({
+          profileReady: isProfileComplete(user),
+          hasPhoto: user.profileMedia.available ? user.profileMedia.avatarId !== null : null,
+        })
+      : null;
 
   return (
     <details className="relative">
@@ -98,7 +113,9 @@ export async function NotificationMenu() {
         aria-label={
           unreadCount > 0
             ? `Notifikasi, ${unreadCount} belum dibaca`
-            : 'Notifikasi, tidak ada yang baru'
+            : nudge
+              ? 'Notifikasi, ada saran langkah berikutnya'
+              : 'Notifikasi, tidak ada yang baru'
         }
       >
         <span className="relative inline-flex">
@@ -111,6 +128,9 @@ export async function NotificationMenu() {
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
+          {unreadCount === 0 && nudge && (
+            <span aria-hidden className="absolute -right-0.5 -top-0.5 size-2 rounded-pill bg-brand ring-2 ring-canvas" />
+          )}
         </span>
       </summary>
 
@@ -121,6 +141,24 @@ export async function NotificationMenu() {
             {unreadCount > 0 ? `${unreadCount} belum dibaca` : 'Semua sudah dibaca'}
           </p>
         </div>
+
+        {nudge && (
+          <div className="mt-1 rounded-sm border border-line bg-tint-sun">
+            <Link href={nudge.href} className="flex min-h-11 items-start gap-2.5 rounded-sm px-3 pb-1 pt-2.5 hover:underline">
+              <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs text-ink-soft">Langkah berikutnya</span>
+                <span className="block text-sm font-semibold text-ink">{nudge.title}</span>
+                <span className="mt-0.5 block text-xs leading-snug text-ink-soft">{nudge.body}</span>
+              </span>
+            </Link>
+            <form action={hideNextStepsAction} className="flex justify-end px-1">
+              <button type="submit" className="inline-flex min-h-11 items-center rounded-sm px-2.5 text-xs font-medium text-ink-soft hover:text-ink hover:underline">
+                Jangan tampilkan lagi
+              </button>
+            </form>
+          </div>
+        )}
 
         {notifications.length === 0 ? (
           <p className="px-3 py-6 text-sm text-ink-muted">

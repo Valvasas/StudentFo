@@ -12,6 +12,43 @@ terdokumentasi.
 
 ---
 
+## ADR-086 — Ajakan bertindak = "Langkah awal" yang dihitung, bukan notifikasi yang disimpan
+
+**Konteks:** Pemilik meminta notifikasi ajakan bertindak (lengkapi profil,
+ikut lomba pertama, dst.) supaya situs lebih interaktif. Yang sudah ada hanya
+satu tautan "Pilih minat & jenjangmu" di beranda.
+
+**Keputusan:**
+1. **Dihitung dari keadaan akun di setiap render** (`lib/next-steps.ts`), tidak
+   ditulis ke tabel `notifications`: langkah yang dikerjakan hilang dengan
+   sendirinya, tidak ada pengingat basi ("Lengkapi profilmu" untuk profil
+   yang sudah lengkap), tanpa penjadwal & migration. Fakta yang gagal dimuat
+   = langkahnya tidak ditawarkan, bukan ditebak belum dikerjakan.
+2. **Enam langkah**, urut menurut dampak bagi pendatang baru: minat & jenjang →
+   simpan kegiatan → daftar kegiatan pertama → foto profil → satu koneksi →
+   tim. Semuanya diukur dari catatan nyata (simpanan, papan lamaran,
+   pendaftaran, koneksi diterima, keanggotaan tim), bukan klik "sudah".
+3. **Beranda peserta: kartu "Langkah awalmu"** (progres, langkah berikutnya
+   disorot, selesai dicentang) menggantikan tautan minat yang lama; hilang saat
+   semua selesai. Dua query tambahan (hitungan koneksi, tim) hanya bila kartu
+   tidak disembunyikan.
+4. **Lonceng: satu saran tersemat + titik**, BUKAN angka "belum dibaca" —
+   saran bukan kabar, dan lonceng yang angkanya tak pernah nol berhenti
+   dipercaya. Hanya langkah tingkat profil (minat, foto) yang faktanya sudah
+   ada di sesi: lonceng tampil di setiap halaman, dan query tambahan di sana
+   dibayar di setiap kunjungan. Hanya untuk peran USER.
+5. **Bisa disembunyikan** dari beranda maupun lonceng (cookie preferensi
+   `sf_langkah`, pola `sf_sidebar`, tercantum di Kebijakan cookie). Dari
+   lonceng — yang tidak tahu halamannya — kembali ke halaman asal lewat
+   Referer berhost sama (`refererPath`).
+
+**Ditolak:** notifikasi tersimpan per langkah (butuh penjadwal + menghapus
+yang basi; sumber utama lonceng yang diabaikan); email ajakan (pemasaran
+tanpa persetujuan terpisah = masalah UU PDP); gamifikasi poin/streak (lihat
+ADR-082 #2).
+
+---
+
 ## ADR-085 — Gerbang anggota di halaman kegiatan: etalase untuk tamu, isi lengkap untuk yang masuk
 
 **Konteks:** Pemilik ingin pengguna wajib masuk untuk mengakses informasi lomba
