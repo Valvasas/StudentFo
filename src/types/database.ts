@@ -223,6 +223,8 @@ export interface SubmissionRow {
 export interface NotificationRow {
   id: string;
   event_id: string | null;
+  /** Hanya ada setelah migration 20261112100002 (Komunitas, ADR-087). */
+  community_post_id?: string | null;
   type: string;
   message: string;
   is_read: boolean;

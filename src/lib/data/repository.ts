@@ -61,7 +61,12 @@ import type {
   TeamCandidate,
   TeamSeekerInput,
   TeamSeekerProfile,
+  CommunityPage,
+  CommunityReportQueueItem,
+  CommunityThread,
+  MyCommunityContent,
 } from '@/types/domain';
+import type { CommunityCursor, CommunityPostInput, CommunityTopic } from '@/lib/community';
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
 import type { OrganizerApplicationInput } from '@/lib/organizer';
 import type { PortfolioInput } from '@/lib/portfolio';
@@ -116,7 +121,67 @@ export interface EventRepository
     StudyProfileRepository,
     LobbyRepository,
     BadgeRepository,
-    ProfileMediaRepository {}
+    ProfileMediaRepository,
+    CommunityRepository {}
+
+/**
+ * Komunitas (ADR-087): forum publik khusus anggota yang dimoderasi. Semua
+ * baca/tulis atas nama pembaca (`viewerId` dari sesi server, tidak pernah
+ * dari form) — produksi memutuskan siapa boleh melihat apa lewat RPC DEFINER
+ * berdasarkan sesi di cookie; mode seed mencerminkan aturannya.
+ */
+export interface CommunityRepository {
+  /** Lini masa "aktif terbaru"; tamu tidak pernah memanggil ini (halaman tergerbang). */
+  listCommunityPosts(viewerId: string, query: CommunityQuery): Promise<CommunityPage>;
+  /** null = tidak ada, disembunyikan, atau tidak boleh dibaca (404 yang sama). */
+  getCommunityThread(viewerId: string, postId: string): Promise<CommunityThread | null>;
+  /** Mengembalikan id postingan baru. `viewer.fullName` hanya dipakai mode seed (produksi membaca nama dari `users`). */
+  createCommunityPost(viewer: CommunityViewer, input: CommunityPostInput): Promise<string>;
+  replyToCommunityPost(viewer: CommunityViewer, postId: string, body: string): Promise<void>;
+  /** Keadaan sesudahnya: true = ditandai bermanfaat. */
+  toggleCommunityHelpful(viewerId: string, target: CommunityTarget): Promise<boolean>;
+  deleteCommunityPost(viewerId: string, postId: string): Promise<void>;
+  /** Mengembalikan id postingannya — kembali ke utas yang sama. */
+  deleteCommunityReply(viewerId: string, replyId: string): Promise<string>;
+  reportCommunityContent(viewerId: string, input: CommunityReportInput): Promise<void>;
+  listMyCommunityContent(viewerId: string): Promise<readonly MyCommunityContent[]>;
+  /** Moderasi — hanya dari rute admin SETELAH `checkAdminAccess()`. */
+  listCommunityReports(limit: number): Promise<readonly CommunityReportQueueItem[]>;
+  resolveCommunityReport(input: ResolveCommunityReportInput): Promise<void>;
+}
+
+export interface CommunityViewer {
+  readonly id: string;
+  readonly fullName: string;
+}
+
+export interface CommunityQuery {
+  readonly topic: CommunityTopic | null;
+  readonly eventId: string | null;
+  readonly before: CommunityCursor | null;
+  readonly limit?: number;
+}
+
+export interface CommunityTarget {
+  readonly kind: 'post' | 'reply';
+  readonly id: string;
+}
+
+export interface CommunityReportInput extends CommunityTarget {
+  readonly reason: ReportReason;
+  readonly details: string | null;
+}
+
+export interface ResolveCommunityReportInput {
+  readonly reportId: string;
+  readonly actorId: string;
+  /** Hanya mode seed (log moderasi); produksi membaca nama dari `users`. */
+  readonly actorName?: string;
+  readonly outcome: 'RESOLVED' | 'DISMISSED';
+  /** Hanya untuk RESOLVED: sembunyikan tulisannya (final). */
+  readonly hide: boolean;
+  readonly note: string | null;
+}
 
 /**
  * Foto profil & banner kartu profil (ADR-083). Siapa yang melihat = aturan

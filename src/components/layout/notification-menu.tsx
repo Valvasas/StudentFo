@@ -11,6 +11,7 @@ import {
   Megaphone,
   MessageCircleQuestion,
   MessageCircleReply,
+  MessagesSquare,
   Receipt,
   ShieldAlert,
   ShieldCheck,
@@ -70,6 +71,7 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   QUESTION_ASKED: MessageCircleQuestion,
   QUESTION_ANSWERED: MessageCircleReply,
   LOBBY_INVITE: DoorOpen,
+  COMMUNITY_REPLY: MessagesSquare,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {
@@ -169,7 +171,9 @@ export async function NotificationMenu() {
           <ul className="mt-1 flex flex-col">
             {notifications.map((notification) => {
               const Icon = TYPE_ICON[notification.type];
-              const target = /^(ORGANIZER|CLAIM|REVISION)_/.test(notification.type)
+              const target = notification.communityPostId
+                ? `/komunitas/${notification.communityPostId}`
+                : /^(ORGANIZER|CLAIM|REVISION)_/.test(notification.type)
                 ? '/penyelenggara'
                 : notification.type === 'PAYMENT_SUBMITTED' && notification.event
                   ? `${workspacePath(notification.event.id, 'pendaftar')}?status=diperiksa`

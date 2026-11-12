@@ -82,6 +82,15 @@ export const ACTION_ERROR_CODES = [
   'profile_media_unavailable',
   'profile_media_empty',
   'invalid_banner_preset',
+  'community_unavailable',
+  'invalid_community_post',
+  'invalid_community_reply',
+  'community_contact_blocked',
+  'community_rate_limited',
+  'community_post_not_found',
+  'community_reply_not_found',
+  'community_own_content',
+  'community_event_unavailable',
   'report_unavailable',
   'report_rate_limited',
   'invalid_report',
@@ -239,6 +248,16 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   study_profile_unavailable: 'Tempat studi & domisili belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
   invalid_study_place: 'Tempat studi maksimal 120 karakter (minimal 2), dan domisili harus dipilih dari daftar wilayah.',
   outbound_unavailable: 'Pengaturan pertanyaan pendataan belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
+  community_unavailable: 'Komunitas belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
+  invalid_community_post: 'Pilih topik, tulis judul 6–120 karakter dan isi 10–2.000 karakter.',
+  invalid_community_reply: 'Balasan 2–1.000 karakter.',
+  community_contact_blocked:
+    'Demi keamanan, nomor HP, email, dan tautan WhatsApp/Telegram/LINE tidak bisa ditulis di Komunitas. Ajak orangnya terhubung lewat Koneksi atau gabung tim.',
+  community_rate_limited: 'Kamu sudah banyak menulis hari ini. Coba lagi besok — batas ini menjaga Komunitas dari banjir pesan.',
+  community_post_not_found: 'Postingan itu tidak ada, sudah dihapus, atau disembunyikan moderator.',
+  community_reply_not_found: 'Balasan itu tidak ada atau sudah dihapus.',
+  community_own_content: 'Tulisanmu sendiri tidak bisa ditandai bermanfaat.',
+  community_event_unavailable: 'Kegiatan itu tidak tersedia untuk ditautkan.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
 
@@ -292,6 +311,10 @@ export const ACTION_NOTICE_CODES = [
   'banner_removed',
   'banner_preset_saved',
   'profile_media_cleared',
+  'community_post_created',
+  'community_reply_sent',
+  'community_post_deleted',
+  'community_reply_deleted',
   'reminders_on',
   'reminders_off',
   'undo_done',
@@ -390,6 +413,10 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   banner_removed: 'Banner unggahan dihapus.',
   banner_preset_saved: 'Banner kartu profil diperbarui.',
   profile_media_cleared: 'Foto profil & banner akun itu dicabut dan tercatat di riwayat moderasi.',
+  community_post_created: 'Postinganmu sudah tampil untuk anggota StudentFo.',
+  community_reply_sent: 'Balasan terkirim.',
+  community_post_deleted: 'Postinganmu dihapus beserta balasannya.',
+  community_reply_deleted: 'Balasanmu dihapus.',
   report_sent: 'Laporan terkirim. Moderator meninjaunya — identitasmu tidak diberitahukan ke pihak yang dilaporkan.',
   report_resolved: 'Laporan ditandai sudah ditindak dan tercatat di riwayat.',
   report_dismissed: 'Laporan diabaikan dan tercatat di riwayat.',
@@ -434,7 +461,8 @@ export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError
           code === 'connection_rate_limited' ||
           code === 'organizer_rate_limited' ||
           code === 'registration_rate_limited' ||
-          code === 'profile_media_rate_limited'
+          code === 'profile_media_rate_limited' ||
+          code === 'community_rate_limited'
         ? 429
         : code.endsWith('not_found')
           ? 404

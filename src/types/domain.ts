@@ -1,3 +1,5 @@
+import type { CommunityTopic } from '@/lib/community';
+
 /**
  * Domain types — satu-satunya definisi bentuk data di sisi aplikasi.
  * Setiap konstanta di sini punya pasangan langsung di enum PostgreSQL
@@ -273,6 +275,8 @@ export const NOTIFICATION_TYPES = [
   'QUESTION_ANSWERED',
   /** Teman mengajak ikut lomba dari lobinya (RPC invite_to_lobby, ADR-071). Satu per orang per lomba. */
   'LOBBY_INVITE',
+  /** Balasan di postingan Komunitas milikmu (RPC reply_community_post, ADR-087). Satu per postingan, diperbarui. */
+  'COMMUNITY_REPLY',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -312,6 +316,8 @@ export interface AppNotification {
   readonly sentAt: string;
   /** null kalau notifikasinya bukan tentang satu event tertentu. */
   readonly event: NotificationEventRef | null;
+  /** Postingan Komunitas yang dibalas (ADR-087) — lonceng menautkan ke utasnya. */
+  readonly communityPostId?: string | null;
 }
 
 /**
@@ -1228,4 +1234,93 @@ export interface LobbyView {
   readonly invitable: readonly { readonly userId: string; readonly fullName: string }[];
   /** Koneksi yang sudah diajak pembaca untuk lomba ini. */
   readonly invited: readonly { readonly userId: string; readonly fullName: string }[];
+}
+
+// ----------------------------------------------------------------------
+// Komunitas (ADR-087)
+// ----------------------------------------------------------------------
+
+/**
+ * Penulis seperti yang boleh dilihat pembaca: nama selalu disingkat
+ * ("Dinda P."); username & foto hanya bila pembaca boleh membuka profilnya.
+ * Id akun tidak pernah keluar.
+ */
+export interface CommunityAuthor {
+  readonly name: string;
+  readonly username: string | null;
+  readonly avatarId: string | null;
+}
+
+export interface CommunityPostSummary {
+  readonly id: string;
+  readonly topic: CommunityTopic;
+  readonly title: string;
+  readonly excerpt: string;
+  readonly event: { readonly slug: string; readonly title: string } | null;
+  readonly author: CommunityAuthor;
+  readonly isMine: boolean;
+  readonly replyCount: number;
+  readonly helpfulCount: number;
+  readonly helped: boolean;
+  readonly createdAt: string;
+  readonly lastActivityAt: string;
+}
+
+export interface CommunityPost extends Omit<CommunityPostSummary, 'excerpt' | 'replyCount'> {
+  readonly body: string;
+}
+
+export interface CommunityReply {
+  readonly id: string;
+  readonly body: string;
+  readonly author: CommunityAuthor;
+  readonly isMine: boolean;
+  /** Ditulis penulis postingannya sendiri. */
+  readonly isOp: boolean;
+  readonly helpfulCount: number;
+  readonly helped: boolean;
+  readonly createdAt: string;
+}
+
+export interface CommunityThread {
+  readonly post: CommunityPost;
+  readonly replies: readonly CommunityReply[];
+}
+
+export interface CommunityPage {
+  readonly items: readonly CommunityPostSummary[];
+  readonly nextCursor: { readonly at: string; readonly id: string } | null;
+  /** false = tabelnya belum ada di database ini (migration belum diterapkan). */
+  readonly available: boolean;
+}
+
+/** Satu TULISAN dengan laporan terbuka (bukan satu baris per laporan). */
+export interface CommunityReportQueueItem {
+  readonly reportId: string;
+  readonly subjectType: 'post' | 'reply';
+  readonly subjectId: string;
+  readonly postId: string | null;
+  readonly postTitle: string | null;
+  /** Hanya untuk moderator: nama lengkap & id, untuk tindak lanjut di /admin/pengguna. */
+  readonly authorId: string | null;
+  readonly authorName: string | null;
+  readonly snapshot: string;
+  readonly reasons: readonly ReportReason[];
+  readonly details: string | null;
+  readonly reportCount: number;
+  readonly hidden: boolean;
+  readonly hiddenAuto: boolean;
+  readonly stillExists: boolean;
+  readonly firstAt: string;
+}
+
+/** Tulisan Komunitas milik sendiri — untuk ekspor data akun. */
+export interface MyCommunityContent {
+  readonly kind: 'post' | 'reply';
+  readonly id: string;
+  readonly postId: string;
+  readonly title: string;
+  readonly body: string;
+  readonly hidden: boolean;
+  readonly createdAt: string;
 }
