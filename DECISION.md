@@ -12,6 +12,57 @@ terdokumentasi.
 
 ---
 
+## ADR-085 — Gerbang anggota di halaman kegiatan: etalase untuk tamu, isi lengkap untuk yang masuk
+
+**Konteks:** Pemilik ingin pengguna wajib masuk untuk mengakses informasi lomba
+supaya komunitasnya aktif. Sebelumnya semua isi halaman kegiatan — deskripsi,
+syarat, jadwal, tanya jawab, tautan pendaftaran — terbuka untuk tamu.
+
+**Keputusan:**
+1. **Etalase, bukan tembok penuh.** Tamu tetap melihat yang juga tampil di
+   kartu daftar: judul, penyelenggara, jenis & bidang, jenjang, tempat, biaya,
+   tenggat, poster & video, kegiatan serupa — plus cuplikan deskripsi
+   ≤ 200 karakter (`teaserOf`, dipotong di batas kata). Di balik gerbang:
+   deskripsi lengkap, tab Syarat & berkas (buku panduan), Tahapan, Tanya jawab,
+   Penyelenggara (sumber resmi), tautan pendaftaran, dan kalender.
+   Tembok penuh ditolak karena tiga hal: Google tidak bisa mengindeks halaman
+   di balik login (pencarian organik = cara pelajar menemukan lomba); pratinjau
+   tautan WhatsApp/IG yang mendarat di halaman masuk kosong nyaris tidak pernah
+   dikonversi; dan orang mendaftar akun setelah melihat acaranya relevan, bukan
+   sebelumnya.
+2. **Halaman yang sama untuk tamu dan mesin pencari** — tanpa membaca
+   user-agent (cloaking melanggar pedoman Google). Karena isi tergerbang juga
+   tidak diberikan ke Google, tidak perlu markah paywall.
+3. **Gerbang produk, bukan batas keamanan.** Info kegiatan memang diumumkan
+   publik oleh penyelenggaranya; RLS `events` dan kueri publik ber-cache TIDAK
+   diubah. Isi tergerbang cukup tidak dirender — dan tidak ikut terserialisasi
+   ke payload RSC (dikunci `event-gate.spec.ts`: HTML tamu tidak memuat tautan
+   pendaftaran, sumber, panduan, maupun akhir deskripsi).
+4. **Ditegakkan di setiap pintu, di server:** render halaman (`gated = user ===
+   null`; tanya jawab bahkan tidak dimuat), `/events/[slug]/daftar` (303 ke
+   masuk), `/sebelum-daftar` beserta Server Action-nya, dan `/api/events/[slug]/calendar`
+   (401, `Cache-Control: private`).
+5. **Setelah masuk kembali ke bagian yang sama** — `next` dibawa tombol Masuk,
+   Daftar gratis, dan tautan akun demo. Dari `/daftar` tujuannya halaman
+   acara, bukan langsung keluar: syarat & biaya terbaca dulu.
+6. **Tetap terbuka:** `/events`, beranda, `/teams`, `/submit` (kiriman tamu
+   tetap diterima, ADR-084).
+
+**Konsekuensi:** Porsi "dari akun yang masuk" di `/admin/kinerja` selalu 100%
+sejak gerbang ini (pendataan hanya untuk anggota) — tile & kolomnya dihapus;
+kolom `signed_in` di database dibiarkan (tanpa migration). `EventQuestions`
+cabang "Masuk untuk bertanya" kini tidak terjangkau dari halaman acara.
+Uji tamu yang dulu membaca isi tab dipindah ke sesi masuk; audit axe/ponsel
+mencakup gerbang (tamu) dan isi penuh (anggota).
+
+**Ditolak:** menyembunyikan kolom lewat RLS/hak kolom anon (merusak cache
+publik & tidak menambah keamanan untuk info yang memang publik); modal blur di
+atas isi (isinya tetap terkirim ke HTML, dan menjebak fokus pembaca layar);
+kuota "3 acara gratis per bulan" (butuh pelacakan per peramban yang tidak
+sejalan dengan kebijakan privasi).
+
+---
+
 ## ADR-084 — Poster dilampirkan saat mengirim kegiatan: kolom di kiriman yang hanya ditulis server, berkas yang sama jadi poster acara
 
 **Konteks:** Pemilik meminta menu untuk menambah gambar/video poster ketika

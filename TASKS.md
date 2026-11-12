@@ -397,6 +397,19 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Logo, cuplikan beranda, lencana, foto profil, poster kiriman, gerbang anggota 2026-11-12 (@claude) — ADR-080–085
+
+- [x] Logo baru dijiplak ke SVG tiga lapis (kertas/stabilo/tinta) yang ikut tema; favicon, ikon aplikasi, kartu OG dari path yang sama (ADR-080)
+- [x] Tur beranda jadi satu cuplikan ala video — tanpa judul/daftar langkah/label; kendali putar/jeda + ruas adegan (ADR-081)
+- [x] Enam lencana baru (beasiswa, magang, relawan, gerak cepat, konsisten, perintis) + animasi medali CSS (ADR-082)
+- [x] Foto profil & banner kartu profil: unggah (EXIF dibuang), 8 banner bawaan dari token, tampil di menu akun, Koneksi, tim, lobi, pencocokan; moderator bisa mencabut; ekspor & kebijakan privasi (ADR-083)
+- [x] Poster dilampirkan saat mengirim kegiatan (pengirim yang masuk); pratinjau di antrean admin; disetujui = poster acara, ditolak = dihapus; isian `/submit` dipulihkan bila ditolak server (ADR-084)
+- [x] Gerbang anggota di halaman kegiatan: etalase + cuplikan untuk tamu, isi lengkap/tautan pendaftaran/kalender untuk yang masuk; `/daftar`, `/sebelum-daftar`, `.ics` ikut dijaga (ADR-085)
+- [x] Tes: `profile-media.test.ts` ×2, `116_profile_media.test.sql`, `117_submission_poster.test.sql`, `event-access.test.ts`, `profile-media.spec.ts`, `submission-poster.spec.ts`, `event-gate.spec.ts`; penjaga "migration baru tanpa DROP/TRUNCATE"
+- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan `20261109100002_event_media`, `20261110100001_profile_media`, `20261112100001_submission_poster` ke staging lalu produksi (semuanya hanya ADD/CREATE OR REPLACE). Kode aman urutan deploy
+- [ ] Pemotong foto profil (crop bulat) di peramban — kini `object-cover` + anjuran rasio
+- [ ] Tinjau ulang metrik konversi tamu → akun setelah gerbang aktif (butuh analitik halaman; belum ada)
+
 ## Poster, slide & video kegiatan 2026-11-09 (@claude) — ADR-079
 
 - [x] Poster = foto galeri bertanda (`event_photos.is_poster`, satu per acara); slide poster → video → foto di tab Ringkasan (pola carousel APG, tanpa JS tetap bisa digeser, tombol berputar, layar penuh)

@@ -16,6 +16,7 @@ import { isSurveyEmpty, OUTBOUND_LIMITS, surveyQuestionCount } from '@/lib/outbo
 import { hasAnsweredOutboundSurvey } from '@/lib/outbound-survey-cookie';
 import { sectionTitle } from '@/lib/page-title';
 import { registrationDestination } from '@/lib/registration-destination';
+import { loginHref } from '@/lib/safe-redirect';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { HONEYPOT_FIELD } from '@/lib/submission-schema';
 import { safeHostname } from '@/lib/utils';
@@ -64,6 +65,9 @@ export default async function BeforeRegisterPage({
   if (!event) notFound();
 
   const eventPath = `/events/${event.slug}`;
+  // Jalan ke tautan pendaftaran = khusus anggota, sama dengan /daftar (ADR-085).
+  const user = await getSessionUser();
+  if (!user) redirect(loginHref(eventPath));
   const destination = await registrationDestination(event, repository);
   if (!destination) redirect(eventPath);
   if (destination.kind === 'internal' || (await hasAnsweredOutboundSurvey(event.id))) redirect(`${eventPath}/daftar`);
@@ -73,7 +77,6 @@ export default async function BeforeRegisterPage({
   if (!config) redirect(destination.url);
   if (isSurveyEmpty(config)) redirect(`${eventPath}/daftar`);
 
-  const user = await getSessionUser();
   const host = safeHostname(destination.url);
   const count = surveyQuestionCount(config);
   const problem = firstParam(query.error) === 'invalid_outbound_survey' ? firstParam(query.kolom) : undefined;

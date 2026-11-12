@@ -77,15 +77,24 @@ test('halaman detail kegiatan: setiap target di <main> ≥ 44px', async ({ page 
 test('lencana, kalender, buku panduan, dan /admin/promosi: setiap target ≥ 44px', async ({ page }) => {
   // Hanya baris penyelenggara (tombol lencana): chip filter /events (36px) dan
   // judul stretched-link adalah utang lama yang tercatat terpisah di TASKS.md.
-  await page.goto('/events');
+  // Kalender & buku panduan khusus anggota (ADR-085); admin juga membuka /admin/promosi.
+  await signInAsDemo(page, 'Admin moderator', '/events');
   await expect.poll(() => smallTargets(page, 'main article p'), { timeout: 3000 }).toEqual([]);
   await page.goto('/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan');
   await page.locator('main section summary').filter({ hasText: 'Tambah ke kalender' }).click();
   await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
   await page.goto('/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=syarat');
   await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
-  await signInAsDemo(page, 'Admin moderator', '/admin/promosi');
+  await page.goto('/admin/promosi');
   await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
+});
+
+test('gerbang anggota di detail kegiatan (tamu): setiap target ≥ 44px', async ({ page }) => {
+  for (const tab of ['', '?tab=syarat']) {
+    await page.goto(`/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026${tab}`);
+    await expect(page.getByRole('region', { name: /khusus anggota|setelah masuk/ })).toBeVisible();
+    await expect.poll(() => smallTargets(page, 'main'), { timeout: 3000 }).toEqual([]);
+  }
 });
 
 test('kartu tracker (ubah tahap, hapus): setiap target ≥ 44px', async ({ page }) => {

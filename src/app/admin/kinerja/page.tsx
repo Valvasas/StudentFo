@@ -161,7 +161,7 @@ export default async function OutboundPerformancePage({ searchParams }: { search
           { label: 'Menuju pendaftaran', value: summary.visits.toLocaleString('id-ID') },
           { label: 'Menjawab', value: `${summary.answered.toLocaleString('id-ID')} · ${percent(summary.answered, summary.visits)}%` },
           { label: 'Melewati', value: `${summary.skipped.toLocaleString('id-ID')} · ${percent(summary.skipped, summary.visits)}%` },
-          { label: 'Dari akun yang masuk', value: `${percent(summary.signedIn, summary.visits)}%` },
+          // Tanpa porsi "akun yang masuk": sejak ADR-085 hanya anggota yang sampai ke pendataan (selalu 100%).
         ].map((tile) => (
           <div key={tile.label} className="rounded-card border border-line bg-panel p-4 shadow-card">
             <dt className="text-[13px] text-ink-muted">{tile.label}</dt>
@@ -178,14 +178,13 @@ export default async function OutboundPerformancePage({ searchParams }: { search
           <p className="mt-2 text-sm text-ink-muted">Belum ada jawaban dalam {range} hari terakhir.</p>
         ) : (
           <div className="mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Tabel kinerja per postingan">
-            <table className="w-full min-w-[560px] text-left text-sm">
-              <caption className="sr-only">Jumlah yang menuju pendaftaran, porsi yang melewati, dan porsi akun masuk per postingan</caption>
+            <table className="w-full min-w-[440px] text-left text-sm">
+              <caption className="sr-only">Jumlah yang menuju pendaftaran dan porsi yang melewati per postingan</caption>
               <thead className="text-ink-muted">
                 <tr>
                   <th scope="col" className="py-2 pr-4 font-medium">Postingan</th>
                   <th scope="col" className="py-2 pr-4 font-medium">Menuju pendaftaran</th>
-                  <th scope="col" className="py-2 pr-4 font-medium">Melewati</th>
-                  <th scope="col" className="py-2 font-medium">Akun masuk</th>
+                  <th scope="col" className="py-2 font-medium">Melewati</th>
                 </tr>
               </thead>
               <tbody>
@@ -201,8 +200,7 @@ export default async function OutboundPerformancePage({ searchParams }: { search
                       )}
                     </th>
                     <td className="py-2.5 pr-4 tabular-nums">{event.visits.toLocaleString('id-ID')}</td>
-                    <td className="py-2.5 pr-4 tabular-nums">{percent(event.skipped, event.visits)}%</td>
-                    <td className="py-2.5 tabular-nums">{percent(event.signedIn, event.visits)}%</td>
+                    <td className="py-2.5 tabular-nums">{percent(event.skipped, event.visits)}%</td>
                   </tr>
                 ))}
               </tbody>

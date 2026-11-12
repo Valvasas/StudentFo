@@ -12,10 +12,14 @@ test.beforeEach(({}, testInfo) => {
   test.skip(testInfo.project.name !== 'terang', 'alur, bukan tampilan; cukup satu proyek');
 });
 
-test('tamu membaca tab Tanya jawab dan diminta masuk untuk bertanya', async ({ page }) => {
+test('tamu melihat gerbang anggota di tab Tanya jawab, dan masuk membawanya kembali ke tab itu', async ({ page }) => {
   await page.goto(`${EVENT}?tab=tanya`);
-  await expect(page.getByRole('heading', { level: 2, name: 'Tanya jawab' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Masuk untuk bertanya' })).toHaveAttribute('href', /\/login\?next=/);
+  const gate = page.getByRole('region', { name: 'Tanya jawab khusus anggota' });
+  await expect(gate).toBeVisible();
+  await expect(gate.getByRole('link', { name: 'Masuk', exact: true })).toHaveAttribute('href', `/login?next=${encodeURIComponent(`${EVENT}?tab=tanya`)}`);
+  // Isi tanya jawab tidak dirender untuk tamu (ADR-085).
+  await expect(page.getByRole('heading', { level: 2, name: 'Tanya jawab', exact: true })).toHaveCount(0);
+  await expect(page.locator('#tanya')).toHaveCount(0);
 });
 
 test('tanya → dijawab penyelenggara → dilaporkan → disembunyikan admin', async ({ browser }) => {
