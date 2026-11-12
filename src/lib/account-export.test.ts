@@ -78,4 +78,11 @@ describe('buildAccountExport', () => {
     expect(result.studyPlace).toMatchObject({ institutionId: '001002', domicileCode: '32.76.03' });
     expect(result.publicProfile).toEqual({ username: 'ana.uji', bio: 'Halo', visibleTo: 'MEMBERS' });
   });
+
+  it('foto profil & banner: tautan berkas milik sendiri dan pilihan banner bawaan (ADR-083)', () => {
+    expect(buildAccountExport(base).profileLook).toEqual({ photoUrl: null, bannerUrl: null, bannerPreset: null });
+    const avatarId = '3f2b8c1e-4a5d-4e6f-8a9b-0c1d2e3f4a5b';
+    const result = buildAccountExport({ ...base, user: { ...base.user, profileMedia: { avatarId, bannerId: null, bannerPreset: 'ombak', available: true } } });
+    expect(result.profileLook).toEqual({ photoUrl: `/media/profil/${avatarId}`, bannerUrl: null, bannerPreset: 'ombak' });
+  });
 });

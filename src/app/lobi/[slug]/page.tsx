@@ -10,6 +10,7 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { PublicBadges } from '@/components/profile/public-badges';
 import { StudyPlaceLine } from '@/components/profile/study-place';
+import { avatarIdsOf, loadProfileMedia } from '@/components/profile/profile-media-loader';
 import { TeamCard } from '@/components/team/team-card';
 import { Avatar } from '@/components/ui/avatar';
 import { BackLink } from '@/components/ui/back-link';
@@ -98,17 +99,19 @@ function MemberRow({
   eventTitle,
   badges,
   study,
+  photo,
 }: {
   member: LobbyMember;
   slug: string;
   eventTitle: string;
   badges: readonly BadgeProgress[] | null;
   study: StudyPlaceView | null;
+  photo: string | undefined;
 }) {
   return (
     <li className="flex flex-col gap-3 rounded-[14px] border border-line p-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 gap-3">
-        <Avatar name={member.fullName} seed={member.userId} />
+        <Avatar name={member.fullName} seed={member.userId} photo={photo} />
         <div className="flex min-w-0 flex-col gap-1">
           <span className="break-words font-semibold">{member.fullName}</span>
           <Badge variant={member.intent === 'SIAP' ? 'neutral' : 'brand'} className="self-start">
@@ -177,6 +180,14 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
     const profile = studyProfiles.get(userId);
     return profile ? presentStudyProfile(profile) : null;
   };
+  // Foto profil (ADR-083): anggota lobi, kursi tim yang digambar, dan koneksi yang bisa diajak.
+  const photos = avatarIdsOf(
+    await loadProfileMedia(user.id, [
+      ...memberIds,
+      ...teams.flatMap((team) => team.members.slice(0, 6).map((member) => member.userId)),
+      ...(lobby?.invitable.map((peer) => peer.userId) ?? []),
+    ]),
+  );
   const badgesOf = (userId: string) => {
     const facts = badgeFacts.get(userId);
     return facts ? evaluateBadges(facts, now) : null;
@@ -283,7 +294,15 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
               ) : (
                 <ul className="flex flex-col gap-3">
                   {lobby.members.map((member) => (
-                    <MemberRow key={member.userId} member={member} slug={event.slug} eventTitle={event.title} badges={badgesOf(member.userId)} study={studyOf(member.userId)} />
+                    <MemberRow
+                      key={member.userId}
+                      member={member}
+                      slug={event.slug}
+                      eventTitle={event.title}
+                      badges={badgesOf(member.userId)}
+                      study={studyOf(member.userId)}
+                      photo={photos[member.userId]}
+                    />
                   ))}
                 </ul>
               )}
@@ -296,7 +315,7 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
                 <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr))]">
                   {teams.map((team) => (
                     <li key={team.id}>
-                      <TeamCard team={team} currentUserId={user.id} returnTo={self} showEvent={false} />
+                      <TeamCard team={team} currentUserId={user.id} returnTo={self} showEvent={false} photos={photos} />
                     </li>
                   ))}
                 </ul>
@@ -324,7 +343,7 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
                   {lobby.invitable.map((peer) => (
                     <li key={peer.userId} className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-line px-3.5 py-2.5">
                       <span className="flex min-w-0 items-center gap-2.5">
-                        <Avatar name={peer.fullName} seed={peer.userId} size="sm" />
+                        <Avatar name={peer.fullName} seed={peer.userId} photo={photos[peer.userId]} size="sm" />
                         <span className="break-words text-[14.5px] font-medium">{peer.fullName}</span>
                       </span>
                       <form action={inviteToLobbyAction}>

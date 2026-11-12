@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { Ban, RotateCcw, Search, Trash2, UsersRound } from 'lucide-react';
-import { deleteUserAction, setUserSuspensionAction } from '@/app/admin/actions';
+import { Ban, ImageOff, RotateCcw, Search, Trash2, UsersRound } from 'lucide-react';
+import { clearProfileMediaAction, deleteUserAction, setUserSuspensionAction } from '@/app/admin/actions';
 import { AdminNav } from '@/components/admin/admin-nav';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { TextArea, TextInput } from '@/components/ui/field';
@@ -10,6 +11,7 @@ import { SubmitButton } from '@/components/ui/submit-button';
 import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateId, formatDateTimeId } from '@/lib/deadline';
+import { profileMediaSrc } from '@/lib/profile-media';
 import type { RawSearchParams } from '@/lib/search-params';
 import { ACCOUNT_DELETE_PHRASE, MODERATION_NOTE_MAX, normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
 import { cn } from '@/lib/utils';
@@ -55,6 +57,26 @@ function UserActions({ user, query }: { user: AdminUserSummary; query: string })
           </form>
         </details>
       )}
+      {(user.avatarId || user.bannerId) && (
+        <details className="group min-w-0 open:basis-full">
+          <summary className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'cursor-pointer list-none [&::-webkit-details-marker]:hidden')}>
+            <ImageOff aria-hidden /> Cabut foto & banner…
+          </summary>
+          <form action={clearProfileMediaAction} className="mt-3 flex max-w-lg flex-col gap-2">
+            <input type="hidden" name="userId" value={user.id} />
+            <input type="hidden" name="q" value={query} />
+            <p className="text-[13px] leading-relaxed text-ink-soft">
+              Untuk gambar tidak pantas, foto orang lain, atau gambar yang memuat data pribadi. Foto profil dan banner unggahannya dihapus permanen;
+              akunnya tetap aktif dan pemiliknya bisa mengunggah gambar baru.
+            </p>
+            <label htmlFor={`clear-media-${user.id}`} className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Alasan (wajib, tercatat di riwayat)</span>
+              <TextArea id={`clear-media-${user.id}`} name="reason" rows={2} minLength={SUSPENSION_REASON_MIN} maxLength={MODERATION_NOTE_MAX} required />
+            </label>
+            <SubmitButton className={buttonVariants({ variant: 'danger', size: 'sm', className: 'self-start' })}>Konfirmasi: cabut gambar</SubmitButton>
+          </form>
+        </details>
+      )}
       <details className="group min-w-0 open:basis-full">
         <summary className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'cursor-pointer list-none text-danger [&::-webkit-details-marker]:hidden')}>
           <Trash2 aria-hidden /> Hapus akun…
@@ -84,6 +106,32 @@ function UserActions({ user, query }: { user: AdminUserSummary; query: string })
 }
 
 /**
+ * Gambar profil unggahan, cukup besar untuk dinilai (ADR-083). Tautan ke berkas
+ * aslinya: keputusan mencabut tidak boleh diambil dari keping 44 px.
+ */
+function UploadedLook({ user }: { user: AdminUserSummary }) {
+  if (!user.avatarId && !user.bannerId) return null;
+  const thumb = 'block overflow-hidden rounded-card border border-line bg-panel-nested transition-colors duration-150 ease-snap hover:border-line-strong';
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-[13px] text-ink-muted">Gambar unggahan:</span>
+      {user.avatarId && (
+        <a href={profileMediaSrc(user.avatarId)} target="_blank" rel="noopener noreferrer" className={thumb}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- rute bersesi (/media/profil) tidak bisa lewat pengoptimal gambar */}
+          <img src={profileMediaSrc(user.avatarId)} alt={`Foto profil ${user.fullName} — buka ukuran penuh di tab baru`} loading="lazy" decoding="async" className="size-16 object-cover" />
+        </a>
+      )}
+      {user.bannerId && (
+        <a href={profileMediaSrc(user.bannerId)} target="_blank" rel="noopener noreferrer" className={thumb}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- rute bersesi (/media/profil) tidak bisa lewat pengoptimal gambar */}
+          <img src={profileMediaSrc(user.bannerId)} alt={`Banner ${user.fullName} — buka ukuran penuh di tab baru`} loading="lazy" decoding="async" className="h-16 w-48 max-w-full object-cover" />
+        </a>
+      )}
+    </div>
+  );
+}
+
+/**
  * Manajemen pengguna (ADR-061): cari, tangguhkan, hapus atas permintaan.
  * Peran ADMIN sengaja TIDAK bisa diubah dari sini — hanya lewat service_role
  * (SCHEMA.md), supaya satu sesi admin yang dibajak tidak bisa mengangkat admin
@@ -105,7 +153,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
           Pengguna
         </h1>
         <p className="mt-2 max-w-2xl text-ink-soft">
-          Cari lewat nama, email, atau id akun. Setiap penangguhan dan penghapusan tercatat di Riwayat moderasi beserta namamu.
+          Cari lewat nama, email, atau id akun. Setiap penangguhan, pencabutan gambar, dan penghapusan tercatat di Riwayat moderasi beserta namamu.
         </p>
       </header>
 
@@ -134,7 +182,10 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
             return (
               <li key={user.id} className="flex flex-col gap-2 rounded-card border border-line bg-panel p-5 shadow-card">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-base font-semibold">{user.fullName}</h3>
+                  <h3 className="flex min-w-0 items-center gap-2.5 text-base font-semibold">
+                    <Avatar name={user.fullName} seed={user.id} photo={user.avatarId} size="sm" />
+                    <span className="min-w-0 break-words">{user.fullName}</span>
+                  </h3>
                   <span className="flex flex-wrap gap-2">
                     {user.role === 'ADMIN' && <Badge variant="brand">Admin</Badge>}
                     {user.suspendedAt ? <Badge variant="danger">Ditangguhkan</Badge> : <Badge variant="success">Aktif</Badge>}
@@ -151,6 +202,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                     {user.suspensionReason ? ` — ${user.suspensionReason}` : ''}
                   </p>
                 )}
+                <UploadedLook user={user} />
                 {protectedUser ? (
                   <p className="border-t border-line/70 pt-3 text-[13px] text-ink-muted">
                     {user.id === gate.userId ? 'Ini akunmu.' : 'Akun admin hanya bisa diubah lewat service_role, bukan dari aplikasi.'}

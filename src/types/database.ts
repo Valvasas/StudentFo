@@ -468,6 +468,9 @@ export interface AdminUserRow {
   created_at: string;
   suspended_at: string | null;
   suspension_reason: string | null;
+  /** Hanya ada setelah migration 20261110100001 (ADR-083). */
+  avatar_id?: string | null;
+  banner_id?: string | null;
 }
 
 /** `outbound_surveys` + judul acara (ADR-070/073) — hanya dibaca klien admin. */

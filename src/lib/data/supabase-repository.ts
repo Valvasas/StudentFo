@@ -184,6 +184,7 @@ import type {
   RestoreRejectedInput,
   ReviewTrustInput,
   ClearProfileMediaInput,
+  ProfileMediaViewer,
 } from './repository';
 import {
   CLAIM_COLUMNS,
@@ -898,18 +899,19 @@ export class SupabaseEventRepository implements EventRepository {
 
   async searchUsers(query: string, limit: number): Promise<readonly AdminUserSummary[]> {
     const q = normalizeUserSearch(query);
-    let request = createSupabaseAdminClient()
-      .from('users')
-      .select('id, email, full_name, role, created_at, suspended_at, suspension_reason')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (q && isUuid(q)) request = request.eq('id', q);
-    // `q` sudah lewat normalizeUserSearch(): tanpa koma/kurung/wildcard,
-    // jadi tidak bisa mengubah bentuk filter `or`.
-    else if (q) request = request.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`);
-    const { data, error } = await request.returns<AdminUserRow[]>();
-    if (error) throw upstreamFailure('Gagal mencari pengguna.', error);
-    return data.map(toAdminUserSummary);
+    const search = (columns: string) => {
+      let request = createSupabaseAdminClient().from('users').select(columns).order('created_at', { ascending: false }).limit(limit);
+      if (q && isUuid(q)) request = request.eq('id', q);
+      // `q` sudah lewat normalizeUserSearch(): tanpa koma/kurung/wildcard,
+      // jadi tidak bisa mengubah bentuk filter `or`.
+      else if (q) request = request.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`);
+      return request.returns<AdminUserRow[]>();
+    };
+    let result = await search(`${ADMIN_USER_COLUMNS}, avatar_id, banner_id`);
+    // Sebelum migration 20261110100001: daftar tetap tampil, hanya tanpa foto.
+    if (result.error && isMissingColumnError(result.error)) result = await search(ADMIN_USER_COLUMNS);
+    if (result.error) throw upstreamFailure('Gagal mencari pengguna.', result.error);
+    return result.data.map(toAdminUserSummary);
   }
 
   async setUserSuspension({ userId, actorId, suspend, reason }: UserSuspensionInput): Promise<void> {
@@ -3003,7 +3005,7 @@ export class SupabaseEventRepository implements EventRepository {
     if (error) throw upstreamFailure('Gagal menyimpan banner.', error, 500);
   }
 
-  async getProfileMediaFile(_viewerId: string | null, fileId: string): Promise<StoredFile | null> {
+  async getProfileMediaFile(_viewer: ProfileMediaViewer | null, fileId: string): Promise<StoredFile | null> {
     if (!isProfileMediaId(fileId)) return null;
     // Pembaca = sesi di cookie, diverifikasi PostgREST; tamu → auth.uid() NULL → tanpa baris.
     const supabase = await createSupabaseServerClient();
@@ -3033,6 +3035,7 @@ export class SupabaseEventRepository implements EventRepository {
   }
 }
 
+const ADMIN_USER_COLUMNS = 'id, email, full_name, role, created_at, suspended_at, suspension_reason';
 const PROFILE_BUCKET = 'profile-media';
 const PROFILE_MEDIA_COLUMNS = 'avatar_id, banner_id, banner_preset';
 

@@ -140,12 +140,18 @@ export interface ProfileMediaRepository {
   setBannerPreset(userId: string, preset: BannerPreset | null): Promise<void>;
   /**
    * Berkas untuk `/media/profil/[id]`; null = tidak ada, tamu, atau tidak
-   * boleh dilihat (404 yang sama). `viewerId` hanya dipakai mode seed (tanpa
-   * RLS); produksi memutuskan dari sesi di cookie lewat `profile_media_file()`.
+   * boleh dilihat (404 yang sama). Admin boleh membuka berkas siapa pun
+   * (moderasi). `viewer` hanya dipakai mode seed (tanpa RLS); produksi
+   * memutuskan dari sesi di cookie lewat `profile_media_file()`.
    */
-  getProfileMediaFile(viewerId: string | null, fileId: string): Promise<StoredFile | null>;
+  getProfileMediaFile(viewer: ProfileMediaViewer | null, fileId: string): Promise<StoredFile | null>;
   /** Admin setelah `checkAdminAccess()`: cabut foto & banner unggahan (bukan preset); tercatat di riwayat. `profile_media_empty`. */
   clearProfileMediaAsAdmin(input: ClearProfileMediaInput): Promise<void>;
+}
+
+export interface ProfileMediaViewer {
+  readonly id: string;
+  readonly isAdmin: boolean;
 }
 
 export interface ClearProfileMediaInput {

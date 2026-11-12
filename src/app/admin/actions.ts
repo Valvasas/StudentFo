@@ -10,7 +10,7 @@ import { dataMode } from '@/lib/env';
 import { toApiError } from '@/lib/errors';
 import { parsePresentationForm } from '@/lib/event-presentation';
 import { formText, formTrimmed } from '@/lib/form-data';
-import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch } from '@/lib/trust-safety';
+import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
 
 /**
  * Aksi moderasi.
@@ -351,6 +351,34 @@ export async function setUserSuspensionAction(formData: FormData): Promise<void>
   if (failure) redirect(usersPage(formData, { error: failure }));
   revalidatePath(USERS_PAGE);
   redirect(usersPage(formData, { notice: mode === 'suspend' ? 'user_suspended' : 'user_unsuspended' }));
+}
+
+/**
+ * Cabut foto profil & banner unggahan (ADR-083): untuk gambar tidak pantas
+ * atau foto orang lain. Akunnya sendiri tidak disentuh — penangguhan adalah
+ * keputusan terpisah — dan pemiliknya bisa mengunggah gambar baru.
+ */
+export async function clearProfileMediaAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const userId = formTrimmed(formData, 'userId');
+  const reason = formText(formData, 'reason').trim().slice(0, MODERATION_NOTE_MAX);
+  if (!userId) redirect(usersPage(formData, { error: 'invalid_request' }));
+  if (reason.length < SUSPENSION_REASON_MIN) redirect(usersPage(formData, { error: 'suspension_reason_required' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    await repository.clearProfileMediaAsAdmin({ userId, actorId: gate.userId, actorName: gate.userName, reason });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(usersPage(formData, { error: failure }));
+  // Foto itu tampil di menu akun, Koneksi, tim, dan lobi — bukan hanya di halaman ini.
+  revalidatePath('/', 'layout');
+  redirect(usersPage(formData, { notice: 'profile_media_cleared' }));
 }
 
 /**

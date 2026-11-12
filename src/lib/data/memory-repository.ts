@@ -150,6 +150,7 @@ import type {
   RestoreRejectedInput,
   ReviewTrustInput,
   ClearProfileMediaInput,
+  ProfileMediaViewer,
 } from './repository';
 import {
   SEED_LOBBY,
@@ -1202,6 +1203,8 @@ export class MemoryEventRepository implements EventRepository {
           createdAt: null,
           suspendedAt: suspension?.at ?? null,
           suspensionReason: suspension?.reason ?? null,
+          avatarId: this.profileMedia.get(member.person.userId)?.avatarId ?? null,
+          bannerId: this.profileMedia.get(member.person.userId)?.bannerId ?? null,
         };
       });
   }
@@ -3344,26 +3347,32 @@ export class MemoryEventRepository implements EventRepository {
     this.profileMedia.set(userId, { ...this.profileMediaOf(userId), bannerPreset: preset });
   }
 
-  async getProfileMediaFile(viewerId: string | null, fileId: string): Promise<StoredFile | null> {
-    if (!viewerId || !isProfileMediaId(fileId)) return null;
+  async getProfileMediaFile(viewer: ProfileMediaViewer | null, fileId: string): Promise<StoredFile | null> {
+    if (!viewer || !isProfileMediaId(fileId)) return null;
     const owner = this.profileMediaOwners.get(fileId);
-    if (!owner || !this.canSeeProfileMedia(viewerId, owner)) return null;
+    // Admin membuka berkas siapa pun untuk moderasi (cermin `is_admin()` di `profile_media_file`).
+    if (!owner || !(viewer.isAdmin || this.canSeeProfileMedia(viewer.id, owner))) return null;
     return this.media.get(`profil:${fileId}`) ?? null;
   }
 
   async clearProfileMediaAsAdmin({ userId, actorId, actorName, reason }: ClearProfileMediaInput): Promise<void> {
+    const member = this.people.get(userId);
+    if (!member) throw actionError('user_not_found');
     const current = this.profileMedia.get(userId);
     if (!current?.avatarId && !current?.bannerId) throw actionError('profile_media_empty');
+    const trimmed = reason.trim();
+    if (trimmed.length < SUSPENSION_REASON_MIN) throw actionError('suspension_reason_required');
     this.dropProfileFiles(userId);
     this.profileMedia.set(userId, { ...current, avatarId: null, bannerId: null });
     this.logModeration({
       subjectType: 'user',
       subjectId: userId,
-      title: 'Foto profil & banner dicabut',
-      fromStatus: 'ACTIVE',
-      toStatus: 'ACTIVE',
+      title: `Foto & banner dicabut — ${member.person.fullName}`,
+      // Status akun tidak berubah: Riwayat membaca entri terbaru per subjek sebagai statusnya kini.
+      fromStatus: null,
+      toStatus: this.suspensions.has(userId) ? 'SUSPENDED' : 'ACTIVE',
       actor: { reviewerId: actorId, reviewerName: actorName },
-      reason: reason.trim(),
+      reason: trimmed,
     });
   }
 

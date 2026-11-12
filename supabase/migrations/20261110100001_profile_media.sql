@@ -90,6 +90,14 @@ BEGIN
   IF p_kind NOT IN ('avatar', 'banner') OR p_id IS NULL OR p_type NOT IN ('image/jpeg', 'image/png', 'image/webp') THEN
     RAISE EXCEPTION 'invalid_profile_media' USING ERRCODE = '23514';
   END IF;
+  -- Id berkas dibuat server (UUID acak) dan tidak pernah dipakai ulang. Tanpa
+  -- ini, pemanggil RPC langsung bisa menaruh id foto ORANG LAIN di kolomnya:
+  -- berkasnya tetap tidak terbaca (path memuat id pemilik), tetapi
+  -- profile_media_file() bisa memilih baris yang salah dan foto korban hilang.
+  -- Indeks unik per kolom tidak menangkap silang foto ↔ banner.
+  IF EXISTS (SELECT 1 FROM public.users u WHERE u.avatar_id = p_id OR u.banner_id = p_id) THEN
+    RAISE EXCEPTION 'invalid_profile_media' USING ERRCODE = '23514';
+  END IF;
   -- Foto tampil ke anggota lain: akun yang dibajak tidak boleh memutar-mutar gambar tanpa batas.
   IF NOT public.consume_rate_limit('profile-media:' || uid::text, 20, 86400) THEN
     RAISE EXCEPTION 'profile_media_rate_limited' USING ERRCODE = 'P0001';
@@ -166,6 +174,8 @@ $$;
 -- Berkas di balik /media/profil/<id>: path & jenisnya, HANYA bila pembaca
 -- boleh melihat pemiliknya. Dipanggil dengan sesi pembaca — PostgREST yang
 -- memverifikasi tokennya, jadi rute berkas tidak perlu bolak-balik ke server auth.
+-- Admin ber-MFA (is_admin = aal2) boleh membuka berkas siapa pun: foto yang
+-- dilaporkan harus bisa dilihat sebelum diputuskan dicabut atau tidak.
 CREATE OR REPLACE FUNCTION public.profile_media_file(p_id UUID)
 RETURNS TABLE (path TEXT, content_type TEXT)
 LANGUAGE sql
@@ -178,11 +188,16 @@ AS $$
     (CASE WHEN u.avatar_id = p_id THEN u.avatar_type ELSE u.banner_type END)::text
   FROM public.users u
   WHERE (u.avatar_id = p_id OR u.banner_id = p_id)
-    AND u.suspended_at IS NULL
     AND (
-      u.id = (select auth.uid())
-      OR public.can_view_profile(u.id)
-      OR (public.shares_lobby_with(u.id) AND NOT public.is_blocked((select auth.uid()), u.id))
+      (select public.is_admin())
+      OR (
+        u.suspended_at IS NULL
+        AND (
+          u.id = (select auth.uid())
+          OR public.can_view_profile(u.id)
+          OR (public.shares_lobby_with(u.id) AND NOT public.is_blocked((select auth.uid()), u.id))
+        )
+      )
     )
   LIMIT 1;
 $$;
@@ -216,8 +231,12 @@ BEGIN
   SET avatar_id = NULL, avatar_type = NULL, banner_id = NULL, banner_type = NULL
   WHERE id = p_user;
 
+  -- Statusnya tidak berubah: `from_status` kosong, `to_status` = status akun
+  -- saat ini — Riwayat membaca entri terbaru per subjek sebagai statusnya kini.
   INSERT INTO public.moderation_log (subject_type, subject_id, title, from_status, to_status, actor_id, reason)
-  VALUES ('user', p_user, 'Foto profil & banner dicabut', 'ACTIVE', 'ACTIVE', p_actor, left(btrim(p_reason), 500));
+  VALUES ('user', p_user, left('Foto & banner dicabut — ' || target.full_name, 300), NULL,
+          CASE WHEN target.suspended_at IS NULL THEN 'ACTIVE' ELSE 'SUSPENDED' END,
+          p_actor, left(btrim(p_reason), 500));
 
   IF target.avatar_id IS NOT NULL THEN
     path := public.profile_media_path(target.id, target.avatar_id, target.avatar_type);

@@ -10,7 +10,8 @@ const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 /**
  * Foto profil & banner (ADR-083). Hanya untuk anggota yang MASUK dan boleh
  * melihat pemiliknya (aturan detail profil, ADR-077) — tamu, akun yang
- * diblokir, dan id yang tidak ada sama-sama 404.
+ * diblokir, dan id yang tidak ada sama-sama 404. Admin boleh membuka berkas
+ * siapa pun: foto yang dilaporkan harus bisa dilihat sebelum dicabut.
  *
  * Di produksi pembaca TIDAK dikenali lewat `getSessionUser()`: itu dua
  * panggilan ke server auth untuk setiap avatar di layar. RPC
@@ -27,8 +28,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   let file;
   try {
-    const viewerId = dataMode === 'seed' ? ((await getSessionUser())?.id ?? null) : null;
-    file = await (await getEventRepository()).getProfileMediaFile(viewerId, id);
+    const user = dataMode === 'seed' ? await getSessionUser() : null;
+    file = await (await getEventRepository()).getProfileMediaFile(user ? { id: user.id, isAdmin: user.role === 'ADMIN' } : null, id);
   } catch (error) {
     console.error('[media] gambar profil gagal dimuat:', error);
     return new Response(null, { status: 503, headers: { ...UNCACHED, 'Retry-After': '30' } });

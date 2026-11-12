@@ -546,6 +546,9 @@ export interface AdminUserSummary {
   readonly createdAt: string | null;
   readonly suspendedAt: string | null;
   readonly suspensionReason: string | null;
+  /** Foto profil & banner unggahan (ADR-083) — supaya moderator bisa melihatnya sebelum mencabut. */
+  readonly avatarId: string | null;
+  readonly bannerId: string | null;
 }
 
 /** Satu baris log moderasi append-only (tabel `moderation_log`). */

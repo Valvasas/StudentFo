@@ -210,7 +210,7 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   report_not_found: 'Laporan itu sudah diputuskan admin lain.',
   user_not_found: 'Akun itu sudah tidak ada.',
   user_protected: 'Akun admin dan akunmu sendiri tidak bisa diubah dari sini.',
-  suspension_reason_required: 'Tulis alasan penangguhan (minimal 5 karakter) — alasan ini tercatat di riwayat.',
+  suspension_reason_required: 'Tulis alasannya (minimal 5 karakter) — alasan ini tercatat di riwayat moderasi.',
   account_delete_confirm: 'Ketik HAPUS AKUN persis untuk mengonfirmasi.',
   account_delete_failed: 'Akun belum terhapus karena berkas unggahanmu gagal dihapus. Coba lagi sebentar lagi.',
   mfa_invalid_code: 'Kode tidak cocok atau sudah kedaluwarsa. Masukkan kode TERBARU dari aplikasi autentikator, dan pastikan jam ponselmu otomatis.',

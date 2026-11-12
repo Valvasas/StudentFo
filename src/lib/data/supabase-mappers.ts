@@ -827,6 +827,8 @@ export function toAdminUserSummary(row: AdminUserRow): AdminUserSummary {
     createdAt: row.created_at,
     suspendedAt: row.suspended_at,
     suspensionReason: row.suspension_reason,
+    avatarId: isProfileMediaId(row.avatar_id) ? row.avatar_id : null,
+    bannerId: isProfileMediaId(row.banner_id) ? row.banner_id : null,
   };
 }
 
