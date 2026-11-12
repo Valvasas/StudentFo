@@ -12,6 +12,160 @@ terdokumentasi.
 
 ---
 
+## ADR-083 — Foto profil & banner kartu profil: berkas privat ber-RPC, banner bawaan dari token, bisa dicabut moderator
+
+**Konteks:** Pemilik meminta kustomisasi profil — foto profil dan banner
+kartu profil yang terlihat dari menu akun, Koneksi, dan Cari tim. Sebelumnya
+setiap orang = inisial di atas tint (ADR-054) dan sampul kertas bertitik.
+
+**Keputusan:**
+1. **Lima kolom di `users`** (`avatar_id/_type`, `banner_id/_type`,
+   `banner_preset`), bukan tabel baru: satu orang paling banyak satu foto &
+   satu banner, dan setiap pembaca profil sudah membaca baris itu. Berkas di
+   bucket privat `profile-media` (2 MB), path `<uid>/<id>.<ext>`.
+2. **Id berkas hanya ditulis RPC DEFINER** `set_profile_media` /
+   `clear_profile_media` (klien tidak diberi hak UPDATE kolomnya); RPC
+   mengembalikan path berkas LAMA supaya server menghapusnya — tidak ada
+   berkas yatim. `set_profile_media` menolak id yang sudah dipakai akun mana
+   pun: indeks unik per kolom tidak menangkap silang foto ↔ banner, dan tanpa
+   itu pemanggil RPC langsung bisa membuat foto orang lain gagal dimuat.
+   Batas laju 20/hari. `banner_preset` boleh ditulis klien (GRANT per kolom +
+   CHECK daftar tertutup).
+3. **Siapa-melihat = aturan detail profil (ADR-077)**: diri sendiri,
+   `can_view_profile()`, atau satu lobi tanpa blokir; akun ditangguhkan
+   tertutup. Tamu & mesin pencari tidak pernah. Daftar dibaca lewat
+   `public_profile_media(uuid[])` (maks. 100), berkas lewat
+   `profile_media_file(id)` yang dipanggil dengan SESI pembaca — rute
+   `/media/profil/[id]` tidak perlu bolak-balik ke server auth, dan aturan
+   tinggal di satu tempat (SQL). Tidak boleh / tidak ada = 404 yang sama.
+4. **Foto menimpa inisial, bukan menggantikannya** (`Avatar photo`, `alt=""`):
+   berkas yang gagal dimuat (dicabut, pembaca baru diblokir) memperlihatkan
+   inisial di bawahnya tanpa JavaScript dan tanpa ikon gambar rusak. Banner
+   unggahan menimpa banner bawaan dengan cara yang sama.
+5. **Delapan banner bawaan digambar dari token** (tint, stabilo, garis tinta),
+   bukan berkas: ikut tema gelap, nol permintaan jaringan, tidak butuh
+   moderasi. Daftarnya = CHECK SQL (dikunci `profile-media.test.ts`).
+6. **Batas lebih ketat dari galeri acara** (foto 1 MB/1024 px, banner
+   2 MB/2400 px): rutenya bersesi sehingga tidak bisa lewat pengoptimal
+   gambar — setiap pembaca mengunduh berkas aslinya. Peramban memperkecil dulu
+   (`ImageUploadField maxEdge`); tanpa JavaScript berkas besar ditolak dengan
+   pesan jelas. Byte diperiksa & EXIF dibuang (`readImageUpload`).
+7. **Moderasi**: `/admin/pengguna` menampilkan gambar unggahan (admin ber-MFA
+   boleh membuka berkas siapa pun lewat `is_admin()` di `profile_media_file`)
+   dan aksi "Cabut foto & banner" beralasan wajib → `admin_clear_profile_media`
+   (service_role). Tercatat di riwayat dengan `from_status` kosong dan
+   `to_status` = status akun saat itu: Riwayat membaca entri terbaru per subjek
+   sebagai statusnya kini, jadi pencabutan tidak boleh mengaku mengubah status.
+   Tanpa DROP CONSTRAINT: memakai subjek `user` yang sudah ada.
+8. **Hapus akun** ikut menghapus berkasnya (`account_storage_paths`); ekspor
+   data memuat tautannya (`profileLook`); kebijakan privasi mencakupnya
+   (`LEGAL_REVISION` 2026-11-12).
+
+**Konsekuensi:** Migration `20261110100001_profile_media` (hanya ADD/CREATE
+OR REPLACE). Aman urutan deploy: kolom belum ada → `getSessionUser()` membaca
+ulang tanpa kolom media (peran tidak ikut jatuh ke USER), kartu "Foto &
+banner" mengatakan fiturnya belum aktif, semua orang tampil dengan inisial.
+Halaman yang memuat banyak orang memanggil `loadProfileMedia()` SEKALI per
+halaman (potongan 100) — jangan memanggilnya per kartu.
+
+**Ditolak:** bucket publik + URL tetap (foto wajah anak sekolah terindeks
+mesin pencari dan tetap terbuka setelah diblokir); menyimpan tautan foto
+Google (kebijakan privasi berjanji hanya memakai nama & email, dan tautannya
+bisa berubah/dilacak); tabel `profile_media` terpisah (join tambahan di setiap
+kartu orang untuk relasi 1:1); pemotong gambar interaktif (butuh JS berat —
+`object-cover` + anjuran rasio cukup untuk versi pertama); avatar animasi/GIF
+(membuka pintu konten bergerak tak termoderasi di setiap daftar).
+
+---
+
+## ADR-082 — Dua belas ragam lencana + animasi medali; tetap dihitung, tidak pernah diberikan
+
+**Konteks:** Pemilik meminta variasi lencana yang lebih beragam berikut
+animasinya. Enam lencana lama (ADR-068/072) hanya mengukur jumlah keikutsertaan
+per jenis kegiatan.
+
+**Keputusan:**
+1. **Enam lencana baru**, semuanya dari catatan yang ditulis pihak ketiga
+   (pendaftaran terkonfirmasi, tanggal bergabung) — aturan ADR-068 tidak
+   berubah: `pemburu-beasiswa`, `perintis-karier` (magang), `relawan`
+   (volunteer), `gerak-cepat` (mendaftar ≥ `EARLY_BIRD_DAYS` = 7 hari sebelum
+   tutup), `konsisten` (bulan berturut-turut, `monthlyStreak()`), `perintis`
+   (bergabung sebelum `FOUNDING_MEMBER_UNTIL`).
+2. **Tidak ada lencana dari klaim sendiri** (profil lengkap, streak masuk
+   harian): yang bisa dipalsukan pemiliknya tidak bernilai bagi pembaca, dan
+   streak harian adalah pola adiktif yang tidak cocok untuk pelajar.
+3. **Animasi murni CSS, keadaan akhir = gambar diam**: `medal-in` (masuk),
+   `ribbon-sway`, `medal-glint` (kilau sekali), `medal-wiggle` (hover),
+   `medal-halo` (baru diraih). Aturan global reduced-motion mematikan
+   semuanya tanpa kode tambahan; tidak ada animasi yang berulang tanpa henti.
+4. **Papan lencana diurutkan** diraih → sedang dikejar → belum disentuh, dan
+   `nearestBadgeGoal` memilih rasio kemajuan tertinggi saat seri.
+
+**Konsekuensi:** `AchievementFacts.memberSince` opsional — `public_badge_facts`
+produksi belum mengirimnya, jadi `perintis` baru tampil untuk pemiliknya
+sendiri sampai fungsi itu diperbarui (dijadwalkan bersama migration
+Komunitas, sekali CREATE OR REPLACE). Ringkasan lencana kini /27 tingkat.
+
+**Ditolak:** lencana berbayar/hadiah; papan peringkat antar pengguna
+(mengubah pencarian peluang jadi perlombaan angka); konfeti berulang.
+
+---
+
+## ADR-081 — Tur beranda hanya cuplikan: tanpa judul, daftar langkah, atau keterangan
+
+**Konteks:** Tur "Cara kerja" (ADR-065) berupa panggung beranimasi DI SAMPING
+judul, lima tab langkah berteks, dan label "Contoh tampilan". Pemilik: cukup
+videonya — teks pendampingnya terasa seperti panduan buatan AI.
+
+**Keputusan:** Satu panggung selebar kontainer. Yang tersisa di sekitarnya
+hanya kendali pemutar: tombol putar/jeda dan bilah lima ruas (ruas = tombol
+lompat ke adegan, `aria-current`). Deskripsi lima adegan pindah ke teks
+`sr-only` — pembaca layar tetap mendapat isinya, mata tidak. Tanpa JavaScript:
+adegan pertama tampil sebagai gambar diam dan TIDAK ada tombol (kendali baru
+dirender setelah hidrasi — tidak ada tombol mati). Gerak dikurangi: tidak
+berjalan sendiri; tombol putar memajukan satu adegan.
+
+**Konsekuensi:** `landing-tour.spec.ts` ditulis ulang dan mengunci ketiadaan
+judul/tab/label. Jangkar `#cara-kerja` dipertahankan (tautan lama tetap hidup).
+
+**Ditolak:** berkas video sungguhan (MP4 ±MB, tidak ikut tema gelap, basi
+setiap UI berubah, butuh takarir); menghapus kendali sama sekali (WCAG 2.2.2:
+konten bergerak > 5 detik wajib bisa dijeda).
+
+---
+
+## ADR-080 — Logo baru hasil jiplak vektor: satu simbol, tiga lapis, ikut tema
+
+**Konteks:** Pemilik mengirim logo baru (gambar tangan toga + map + piala,
+JPG berlatar putih) dan meminta latarnya dibuang serta logonya ikut warna
+tema. Logo lama = monogram SVG tulisan tangan di `illustrations.tsx`.
+
+**Keputusan:**
+1. **Dijiplak ke path SVG** dengan potrace (`scripts/trace-logo.py`, sumber di
+   `docs/brand/logo-sumber.jpg`) → `src/components/ui/logo-paths.ts`. Bukan
+   PNG transparan: PNG tidak bisa berganti warna di tema gelap dan pecah di
+   layar rapat piksel.
+2. **Tiga lapis**: kertas (`--color-surface`, mengisi bagian dalam bentuk
+   supaya logo tidak "bolong" di atas latar berwarna), stabilo
+   (`--color-highlight`), tinta (`currentColor`, evenodd). Warna logo = warna
+   teks di sekitarnya, otomatis benar di kedua tema.
+3. **Dua tingkat detail dari sumber yang sama**: `LOGO_BOLD` (garis ditebalkan,
+   untuk ≤ 40 px: navbar, favicon, ikon aplikasi, kartu OG) dan `LOGO_DETAIL`
+   (garis asli + kilau, untuk ≥ 64 px: halaman masuk). Satu ukuran untuk semua
+   = garis tipis hilang di 16 px.
+4. **Satu `<symbol id="sf-logo">` di root layout** (`LogoSprite`), dipakai
+   lewat `<use>` (`LogoMark`): path beberapa KB tidak diulang di navbar, footer, dan
+   menu ponsel. Ikon/OG (`next/og`, tidak mendukung `<use>` atau variabel CSS)
+   menggambar path yang sama dengan warna literal.
+
+**Konsekuensi:** Mengganti logo = ganti berkas sumber + jalankan ulang skrip;
+jangan menyunting `logo-paths.ts` dengan tangan.
+
+**Ditolak:** `<img src="logo.png">` (tidak ikut tema); `filter: invert()` di
+tema gelap (stabilo ikut terbalik jadi ungu); font ikon.
+
+---
+
 ## ADR-079 — Poster, slide & video kegiatan: poster = foto galeri bertanda, video = tautan kanonis, pemutar fasad
 
 **Konteks:** Pemilik meminta poster/foto tampil di UI lomba dan sebagai slide
