@@ -30,6 +30,9 @@ import type {
   ManagedEvent,
   OutboundSurveyConfig,
   ProfileIdentity,
+  ProfileMedia,
+  OwnProfileMedia,
+  BannerPreset,
   PublicProfileDetails,
   StudyPlaceInput,
   StudyProfile,
@@ -70,6 +73,7 @@ import type { AchievementFacts } from '@/lib/achievements';
 import type { LobbyMemberInput } from '@/lib/lobby';
 import type { OutboundConfigInput, OutboundSurveyAnswers } from '@/lib/outbound-survey';
 import type { ProfileIdentityInput } from '@/lib/profile-identity';
+import type { ProfileMediaKind } from '@/lib/profile-media';
 
 /**
  * Kontrak akses data. Seluruh UI berbicara HANYA lewat antarmuka ini —
@@ -111,7 +115,46 @@ export interface EventRepository
     OutboundSurveyRepository,
     StudyProfileRepository,
     LobbyRepository,
-    BadgeRepository {}
+    BadgeRepository,
+    ProfileMediaRepository {}
+
+/**
+ * Foto profil & banner kartu profil (ADR-083). Siapa yang melihat = aturan
+ * detail profil (`public_profile_details`): pemilik, pembaca yang boleh
+ * membuka profilnya, atau sesama lobi tanpa blokir. Menulis hanya untuk akun
+ * sendiri (`userId` dari sesi server), kecuali pencabutan oleh moderator.
+ */
+export interface ProfileMediaRepository {
+  /** Milik sendiri; kolom belum ada (urutan deploy) → `available: false`. */
+  getOwnProfileMedia(userId: string): Promise<OwnProfileMedia>;
+  /** Maks. 100 orang. Tidak ada di peta = tidak boleh dilihat ATAU belum memasang apa pun. */
+  listProfileMedia(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, ProfileMedia>>;
+  /**
+   * Pasang/ganti foto atau banner unggahan. Gambar SUDAH diperiksa pemanggil
+   * (`readImageUpload` + `exceedsProfileLimit`). Berkas lama dihapus.
+   * `profile_media_rate_limited`, `profile_media_unavailable`.
+   */
+  setProfileImage(userId: string, kind: ProfileMediaKind, image: UploadedImage): Promise<void>;
+  removeProfileImage(userId: string, kind: ProfileMediaKind): Promise<void>;
+  /** `null` = kembali ke sampul bawaan. Tidak menyentuh banner unggahan. */
+  setBannerPreset(userId: string, preset: BannerPreset | null): Promise<void>;
+  /**
+   * Berkas untuk `/media/profil/[id]`; null = tidak ada, tamu, atau tidak
+   * boleh dilihat (404 yang sama). `viewerId` hanya dipakai mode seed (tanpa
+   * RLS); produksi memutuskan dari sesi di cookie lewat `profile_media_file()`.
+   */
+  getProfileMediaFile(viewerId: string | null, fileId: string): Promise<StoredFile | null>;
+  /** Admin setelah `checkAdminAccess()`: cabut foto & banner unggahan (bukan preset); tercatat di riwayat. `profile_media_empty`. */
+  clearProfileMediaAsAdmin(input: ClearProfileMediaInput): Promise<void>;
+}
+
+export interface ClearProfileMediaInput {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly reason: string;
+  /** Hanya mode seed (log moderasi). */
+  readonly actorName?: string;
+}
 
 /**
  * Lencana di profil publik & lobi (ADR-072). Lencana tetap DIHITUNG

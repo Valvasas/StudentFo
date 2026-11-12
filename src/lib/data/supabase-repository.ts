@@ -1,6 +1,7 @@
 import 'server-only';
 import type { PostgrestError } from '@supabase/supabase-js';
-import { actionError } from '@/lib/action-feedback';
+import { actionError, type ActionErrorCode } from '@/lib/action-feedback';
+import { isProfileMediaId, NO_PROFILE_MEDIA, UNAVAILABLE_PROFILE_MEDIA, type ProfileMediaKind } from '@/lib/profile-media';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { isProfileVisibility, isValidUsername, normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
@@ -98,6 +99,9 @@ import type {
   StudyPlaceInput,
   StudyProfile,
   OutboundSurveyRecord,
+  BannerPreset,
+  OwnProfileMedia,
+  ProfileMedia,
 } from '@/types/domain';
 import { LOBBY_INTENTS, toNotificationType } from '@/types/domain';
 import type {
@@ -142,6 +146,7 @@ import type {
   LobbyRosterRow,
   OutboundSurveyConfigRow,
   ProfileIdentityRow,
+  ProfileMediaRow,
   PublicProfileDetailsRow,
   StudyProfileRow,
   OutboundSurveyRow,
@@ -178,6 +183,7 @@ import type {
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
+  ClearProfileMediaInput,
 } from './repository';
 import {
   CLAIM_COLUMNS,
@@ -235,6 +241,7 @@ import {
   toPublicProfileDetails,
   toOutboundSurveyRecord,
   toPublicBadgeFacts,
+  toProfileMedia,
 } from './supabase-mappers';
 
 export { sanitizeSearchQuery } from './supabase-mappers';
@@ -2925,6 +2932,123 @@ export class SupabaseEventRepository implements EventRepository {
     if (error) throw lobbyFailure(error, 'Gagal mengirim ajakan lobi.');
     return data === true ? 'invited' : 'already';
   }
+
+  // ------------------------------------------------------------------
+  // Foto profil & banner (ADR-083, migration 20261110100001). Berkas di
+  // bucket privat lewat service_role; siapa-melihat diputuskan RPC DEFINER
+  // dengan sesi pembaca, jadi tidak ada aturan kedua di sini.
+  // ------------------------------------------------------------------
+
+  async getOwnProfileMedia(userId: string): Promise<OwnProfileMedia> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from('users').select(PROFILE_MEDIA_COLUMNS).eq('id', userId).maybeSingle<ProfileMediaRow>();
+    if (error && isMissingColumnError(error)) return UNAVAILABLE_PROFILE_MEDIA;
+    if (error) throw upstreamFailure('Gagal memuat foto profil.', error);
+    return { ...(data ? toProfileMedia(data) : NO_PROFILE_MEDIA), available: true };
+  }
+
+  async listProfileMedia(_viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, ProfileMedia>> {
+    const ids = [...new Set(userIds)].filter(isUuid).slice(0, 100);
+    if (ids.length === 0) return new Map();
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('public_profile_media', { p_users: ids });
+    // Sebelum migration: semua orang tampil dengan inisial & sampul bawaan.
+    if (error && isMissingRelationError(error)) return new Map();
+    if (error) throw upstreamFailure('Gagal memuat foto profil.', error);
+    return new Map(rpcRows<ProfileMediaRow & { user_id: string }>(data).map((row) => [row.user_id, toProfileMedia(row)]));
+  }
+
+  async setProfileImage(userId: string, kind: ProfileMediaKind, image: UploadedImage): Promise<void> {
+    if (!isUuid(userId)) throw actionError('profile_media_unavailable');
+    const id = crypto.randomUUID();
+    const path = `${userId}/${id}.${IMAGE_EXTENSION[image.type]}`;
+    const storage = createSupabaseAdminClient().storage.from(PROFILE_BUCKET);
+    const upload = await storage.upload(path, image.bytes, { contentType: image.type, upsert: false });
+    if (upload.error) {
+      // Bucket dibuat migration yang sama dengan kolomnya.
+      if (/bucket not found/i.test(upload.error.message)) throw actionError('profile_media_unavailable');
+      throw upstreamFailure('Gagal mengunggah gambar profil.', upload.error, 500);
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('set_profile_media', { p_kind: kind, p_id: id, p_type: image.type });
+    if (error) {
+      // Baris tidak berubah: berkas barusan yatim, buang sebelum melapor.
+      const removed = await storage.remove([path]);
+      if (removed.error) console.error('[profil] berkas yatim gagal dihapus:', path, removed.error);
+      const code = profileMediaErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menyimpan gambar profil.', error, 500);
+    }
+    await removeProfileFile(data);
+  }
+
+  async removeProfileImage(_userId: string, kind: ProfileMediaKind): Promise<void> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('clear_profile_media', { p_kind: kind });
+    if (error) {
+      const code = profileMediaErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menghapus gambar profil.', error, 500);
+    }
+    await removeProfileFile(data);
+  }
+
+  async setBannerPreset(userId: string, preset: BannerPreset | null): Promise<void> {
+    // Klien bersesi + hak UPDATE per kolom (pola saveProfileIdentity).
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('users').update({ banner_preset: preset }).eq('id', userId);
+    if (error && isMissingColumnError(error)) throw actionError('profile_media_unavailable');
+    if (error && sqlState(error) === '23514') throw actionError('invalid_banner_preset');
+    if (error) throw upstreamFailure('Gagal menyimpan banner.', error, 500);
+  }
+
+  async getProfileMediaFile(_viewerId: string | null, fileId: string): Promise<StoredFile | null> {
+    if (!isProfileMediaId(fileId)) return null;
+    // Pembaca = sesi di cookie, diverifikasi PostgREST; tamu → auth.uid() NULL → tanpa baris.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('profile_media_file', { p_id: fileId });
+    if (error && isMissingRelationError(error)) return null;
+    if (error) throw upstreamFailure('Gagal memuat gambar profil.', error);
+    const row = rpcRows<{ path: string; content_type: string }>(data)[0];
+    return row ? downloadPrivateFile(PROFILE_BUCKET, row.path) : null;
+  }
+
+  async clearProfileMediaAsAdmin({ userId, actorId, reason }: ClearProfileMediaInput): Promise<void> {
+    if (!isUuid(userId)) throw actionError('user_not_found');
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.rpc('admin_clear_profile_media', { p_user: userId, p_actor: actorId, p_reason: reason });
+    if (error) {
+      const message = error.message ?? '';
+      if (message.includes('user_not_found')) throw actionError('user_not_found');
+      if (message.includes('profile_media_empty')) throw actionError('profile_media_empty');
+      if (message.includes('invalid_moderation_reason')) throw actionError('suspension_reason_required');
+      if (isMissingRelationError(error)) throw actionError('profile_media_unavailable');
+      throw upstreamFailure('Gagal mencabut gambar profil.', error, 500);
+    }
+    const paths = rpcRows<{ path: string }>(data).map((row) => row.path);
+    if (paths.length === 0) return;
+    const removed = await admin.storage.from(PROFILE_BUCKET).remove(paths);
+    if (removed.error) console.error('[profil] berkas yang dicabut gagal dihapus:', paths, removed.error);
+  }
+}
+
+const PROFILE_BUCKET = 'profile-media';
+const PROFILE_MEDIA_COLUMNS = 'avatar_id, banner_id, banner_preset';
+
+/** Berkas lama (path dari `set_profile_media`/`clear_profile_media`) dibuang; gagal = dicatat, tidak menggagalkan aksi yang sudah tersimpan. */
+async function removeProfileFile(path: unknown): Promise<void> {
+  if (typeof path !== 'string' || path.length === 0) return;
+  const removed = await createSupabaseAdminClient().storage.from(PROFILE_BUCKET).remove([path]);
+  if (removed.error) console.error('[profil] berkas lama gagal dihapus:', path, removed.error);
+}
+
+function profileMediaErrorCode(error: { code?: string; message?: string } | null): Exclude<ActionErrorCode, 'unknown'> | null {
+  if (isMissingRelationError(error)) return 'profile_media_unavailable';
+  const message = error?.message ?? '';
+  if (message.includes('profile_media_rate_limited')) return 'profile_media_rate_limited';
+  if (message.includes('invalid_profile_media')) return 'image_invalid';
+  return null;
 }
 
 const PHOTO_BUCKET = 'event-photos';

@@ -42,6 +42,7 @@ import type {
   TeamMember,
   AdminUserSummary,
   ContentReport,
+  ProfileMedia,
 } from '@/types/domain';
 import {
   ACHIEVEMENTS,
@@ -84,7 +85,9 @@ import type {
   OutboundSurveyConfigRow,
   PublicProfileDetailsRow,
   OutboundSurveyRow,
+  ProfileMediaRow,
 } from '@/types/database';
+import { isProfileMediaId, toBannerPreset } from '@/lib/profile-media';
 
 /**
  * Pemetaan baris PostgREST → bentuk domain, dipisah dari
@@ -442,6 +445,15 @@ export function toPublicBadgeFacts(raw: unknown): AchievementFacts | null {
     organizerReviewedAt: facts.organizer_reviewed_at,
     hostedEventClosedAt: facts.hosted_closed_at,
     memberSince: facts.member_since ?? null,
+  };
+}
+
+/** Baris `users` / `public_profile_media()` → bentuk domain. Nilai asing (id bukan UUID, preset tak dikenal) = tidak dipasang. */
+export function toProfileMedia(row: ProfileMediaRow): ProfileMedia {
+  return {
+    avatarId: isProfileMediaId(row.avatar_id) ? row.avatar_id : null,
+    bannerId: isProfileMediaId(row.banner_id) ? row.banner_id : null,
+    bannerPreset: toBannerPreset(row.banner_preset),
   };
 }
 

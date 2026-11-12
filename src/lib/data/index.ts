@@ -1,4 +1,6 @@
 import { dataMode } from '@/lib/env';
+import { UNAVAILABLE_PROFILE_MEDIA } from '@/lib/profile-media';
+import type { OwnProfileMedia } from '@/types/domain';
 import { MemoryEventRepository } from './memory-repository';
 import type { EventRepository } from './repository';
 
@@ -93,6 +95,12 @@ export function seedDemoNetwork(userId: string): void {
 /** Penangguhan akun di mode seed (ADR-061); di produksi dibaca dari `users.suspended_at`. */
 export function isDemoUserSuspended(userId: string): boolean {
   return dataMode === 'seed' && memoryRepository().isSuspended(userId);
+}
+
+/** Foto & banner pengguna demo (ADR-083); di produksi dibaca `getSessionUser()` dari baris `users`-nya. */
+export function demoProfileMedia(userId: string): OwnProfileMedia {
+  if (dataMode !== 'seed') return UNAVAILABLE_PROFILE_MEDIA;
+  return { ...memoryRepository().profileMediaOf(userId), available: true };
 }
 
 export function seedDemoPortfolio(userId: string): void {

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, Armchair, CalendarClock, Clock, Plus, Radar, UserRoundSearch, UsersRound } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { DemoTeamRoles } from '@/components/profile/demo-profile-parts';
+import { avatarIdsOf, loadProfileMedia } from '@/components/profile/profile-media-loader';
 import { MyTeamLink, TeamCard } from '@/components/team/team-card';
 import { Avatar } from '@/components/ui/avatar';
 import { FeatureHero, IllustrationStage, StatTile } from '@/components/ui/feature-hero';
@@ -36,6 +37,9 @@ export const metadata: Metadata = {
   description: 'Temukan rekan satu tim untuk lomba, hackathon, dan karya tulis — atau buka timmu sendiri dan tunggu yang tertarik bergabung.',
 };
 
+/** Batas id foto per halaman: 3 panggilan `public_profile_media` (100 id per panggilan). Kartu di luar jendela tampil berinisial. */
+const TEAM_PHOTO_WINDOW = 300;
+
 const primaryAction =
   'inline-flex h-12 items-center gap-2 rounded-pill bg-brand px-6 text-[15px] font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover';
 const secondaryAction =
@@ -53,6 +57,15 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
   const mine = user ? inScope.filter((team) => team.members.some((member) => member.userId === user.id)) : [];
   // Tim sendiri sudah punya pintasan di atas; mengulangnya di daftar = satu fakta di dua tempat (ADR-044).
   const teams = inScope.filter((team) => !mine.includes(team));
+  // Foto profil (ADR-083) hanya untuk kursi yang benar-benar digambar (maks. 6 per kartu).
+  const photos = user
+    ? avatarIdsOf(
+        await loadProfileMedia(
+          user.id,
+          [...mine, ...teams].flatMap((team) => team.members.slice(0, 6).map((member) => member.userId)).slice(0, TEAM_PHOTO_WINDOW),
+        ),
+      )
+    : {};
 
   // Pilihan saringan: hanya kegiatan yang punya tim, supaya tidak ada pilihan yang berujung kosong.
   const eventChips = [...new Map(allTeams.filter((team) => team.event).map((team) => [team.eventId, team.event!])).values()];
@@ -123,7 +136,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
         {user && (
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[22px] border border-line bg-panel p-3 pr-5">
             <span className="flex min-w-0 flex-1 basis-60 items-center gap-3">
-              <Avatar name={user.fullName} seed={user.id} size="md" />
+              <Avatar name={user.fullName} seed={user.id} photo={user.profileMedia.avatarId} size="md" />
               <span className="flex min-w-0 flex-col">
                 <span className="text-[12px] text-ink-muted">Kamu tampil sebagai</span>
                 <span className="truncate text-[14.5px] font-semibold">
@@ -215,7 +228,7 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
           <ul className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr))]">
             {teams.map((team, index) => (
               <li key={team.id} className="rise" style={{ '--i': index } as CSSProperties}>
-                <TeamCard team={team} currentUserId={user?.id ?? null} returnTo={returnTo} showEvent={!scoped} />
+                <TeamCard team={team} currentUserId={user?.id ?? null} returnTo={returnTo} showEvent={!scoped} photos={photos} />
               </li>
             ))}
           </ul>

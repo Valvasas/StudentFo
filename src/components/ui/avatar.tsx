@@ -1,4 +1,5 @@
 import { initialsOf } from '@/lib/initials';
+import { isProfileMediaId, profileMediaSrc } from '@/lib/profile-media';
 import { tintOf, type Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 
@@ -28,11 +29,19 @@ export type AvatarSize = keyof typeof SIZE;
  *
  * Selalu `aria-hidden`: nama orangnya sudah tertulis di sebelah avatar.
  * Inisial yang ikut dibacakan ("R P, Rani Prameswari") hanya menambah gema.
+ *
+ * `photo` = id berkas foto profil (ADR-083) yang BOLEH dilihat pembaca ini —
+ * pemanggil mendapatkannya dari `listProfileMedia()`/sesi, tidak pernah
+ * menebaknya. Fotonya menimpa inisial, bukan menggantikannya: kalau berkas
+ * gagal dimuat (dicabut moderator, pemiliknya baru saja memblokir pembaca),
+ * `alt=""` membuat peramban tidak menggambar apa pun dan inisial di
+ * bawahnya yang terlihat — tanpa JavaScript, tanpa ikon gambar rusak.
  */
 export function Avatar({
   name,
   seed,
   label,
+  photo,
   size = 'md',
   shape = 'circle',
   ring = false,
@@ -42,25 +51,48 @@ export function Avatar({
   seed?: string;
   /** Huruf yang tampil bila bukan inisial nama orang (mis. `monogramOf` untuk grup). */
   label?: string;
+  photo?: string | null;
   size?: AvatarSize;
   shape?: 'circle' | 'square';
   /** Cincin selebar kertas: untuk avatar yang ditumpuk atau menimpa sampul. */
   ring?: boolean;
   className?: string;
 }) {
+  const rounded = shape === 'circle' ? 'rounded-pill' : 'rounded-[30%]';
   return (
     <span
       aria-hidden
       className={cn(
-        'flex shrink-0 select-none items-center justify-center font-display font-semibold tracking-[-0.02em] text-ink',
+        'relative flex shrink-0 select-none items-center justify-center font-display font-semibold tracking-[-0.02em] text-ink',
         SIZE[size],
         TINT_BG[tintOf(seed ?? name)],
-        shape === 'circle' ? 'rounded-pill' : 'rounded-[30%]',
+        rounded,
         ring && 'ring-[3px] ring-panel',
         className,
       )}
     >
       {label ?? initialsOf(name)}
+      {isProfileMediaId(photo) && (
+        // eslint-disable-next-line @next/next/no-img-element -- rute bersesi (/media/profil) tidak bisa lewat pengoptimal gambar
+        <img src={profileMediaSrc(photo)} alt="" loading="lazy" decoding="async" className={cn('absolute inset-0 size-full object-cover', rounded)} />
+      )}
+    </span>
+  );
+}
+
+/**
+ * Avatar akun SENDIRI (navbar, menu akun, kepala profil): tinta pekat, bukan
+ * tint — "ini kamu" terbaca sama di semua tempat, dan tidak tertukar dengan
+ * avatar orang lain di layar yang sama. Ukuran & hurufnya dari pemanggil.
+ */
+export function SelfAvatar({ name, photo, className }: { name: string; photo?: string | null; className?: string }) {
+  return (
+    <span aria-hidden className={cn('relative flex shrink-0 select-none items-center justify-center rounded-pill bg-brand font-semibold text-on-brand', className)}>
+      {initialsOf(name)}
+      {isProfileMediaId(photo) && (
+        // eslint-disable-next-line @next/next/no-img-element -- rute bersesi (/media/profil) tidak bisa lewat pengoptimal gambar
+        <img src={profileMediaSrc(photo)} alt="" decoding="async" className="absolute inset-0 size-full rounded-pill object-cover" />
+      )}
     </span>
   );
 }
@@ -72,7 +104,7 @@ export function AvatarStack({
   size = 'sm',
   className,
 }: {
-  people: readonly { readonly name: string; readonly seed?: string }[];
+  people: readonly { readonly name: string; readonly seed?: string; readonly photo?: string | null }[];
   max?: number;
   size?: AvatarSize;
   className?: string;
@@ -82,7 +114,15 @@ export function AvatarStack({
   return (
     <span aria-hidden className={cn('flex items-center', className)}>
       {shown.map((person, index) => (
-        <Avatar key={`${person.seed ?? person.name}-${index}`} name={person.name} seed={person.seed} size={size} ring className={index > 0 ? '-ml-2' : undefined} />
+        <Avatar
+          key={`${person.seed ?? person.name}-${index}`}
+          name={person.name}
+          seed={person.seed}
+          photo={person.photo}
+          size={size}
+          ring
+          className={index > 0 ? '-ml-2' : undefined}
+        />
       ))}
       {rest > 0 && (
         <span className={cn('-ml-2 flex items-center justify-center rounded-pill bg-panel-nested font-mono font-medium text-ink-soft ring-[3px] ring-panel', SIZE[size])}>

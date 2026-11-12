@@ -10,7 +10,9 @@ import { type AuthErrorCode } from '@/lib/auth-messages';
 import { getEventRepository } from '@/lib/data';
 import { PROFILE_LIMITS, profileSchema } from '@/lib/auth-schema';
 import { cleanStudyFields, withParentCategories } from '@/lib/study-fields';
+import { readImageUpload } from '@/lib/image-file';
 import { parseProfileIdentity } from '@/lib/profile-identity';
+import { exceedsProfileLimit, toBannerPreset, toProfileMediaKind } from '@/lib/profile-media';
 import { parseStudyPlace } from '@/lib/study-profile';
 import { endDemoSession, updateDemoProfile } from '@/lib/demo/session';
 import { dataMode } from '@/lib/env';
@@ -125,6 +127,70 @@ export async function updateProfileIdentityAction(formData: FormData): Promise<v
   if (failure) redirect(withQuery(returnTo, { ubah: 'publik', error: failure }));
   revalidatePath('/profile', 'layout');
   redirect(`${withQuery(returnTo, { notice: 'profile_identity_saved' })}#publik`);
+}
+
+const PROFILE_MEDIA_RETURN = '/profile/details';
+const profileMediaReturn = (params: Record<string, string>) => `${withQuery(PROFILE_MEDIA_RETURN, params)}#tampilan`;
+
+/**
+ * Unggah foto profil atau banner (ADR-083). Jenis berkas dibaca dari BYTE-nya
+ * dan metadatanya dibuang (`readImageUpload`); batas khusus gambar profil
+ * diperiksa di sini karena gambarnya disajikan apa adanya ke setiap pembaca.
+ * Pemilik = sesi server, tidak pernah dari form.
+ */
+export async function uploadProfileImageAction(formData: FormData): Promise<void> {
+  const user = await requireUser(PROFILE_MEDIA_RETURN);
+  const kind = toProfileMediaKind(text(formData, 'kind'));
+  if (!kind) redirect(profileMediaReturn({ error: 'image_invalid' }));
+
+  const upload = await readImageUpload(formData.get('image'));
+  if (!upload.ok) redirect(profileMediaReturn({ error: upload.error === 'image_too_large' ? 'profile_image_too_large' : upload.error }));
+  if (exceedsProfileLimit(kind, upload.image)) redirect(profileMediaReturn({ error: 'profile_image_too_large' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).setProfileImage(user.id, kind, upload.image);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(profileMediaReturn({ error: failure }));
+  // Foto tampil di navbar setiap halaman.
+  revalidatePath('/', 'layout');
+  redirect(profileMediaReturn({ notice: kind === 'avatar' ? 'avatar_saved' : 'banner_saved' }));
+}
+
+export async function removeProfileImageAction(formData: FormData): Promise<void> {
+  const user = await requireUser(PROFILE_MEDIA_RETURN);
+  const kind = toProfileMediaKind(text(formData, 'kind'));
+  if (!kind) redirect(profileMediaReturn({ error: 'image_invalid' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).removeProfileImage(user.id, kind);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(profileMediaReturn({ error: failure }));
+  revalidatePath('/', 'layout');
+  redirect(profileMediaReturn({ notice: kind === 'avatar' ? 'avatar_removed' : 'banner_removed' }));
+}
+
+/** Banner bawaan; nilai kosong = kembali ke kertas bertitik. Nilai di luar daftar ditolak, bukan disimpan. */
+export async function setBannerPresetAction(formData: FormData): Promise<void> {
+  const user = await requireUser(PROFILE_MEDIA_RETURN);
+  const raw = text(formData, 'preset');
+  const preset = toBannerPreset(raw);
+  if (raw && !preset) redirect(profileMediaReturn({ error: 'invalid_banner_preset' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).setBannerPreset(user.id, preset);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(profileMediaReturn({ error: failure }));
+  revalidatePath('/', 'layout');
+  redirect(profileMediaReturn({ notice: 'banner_preset_saved' }));
 }
 
 /**

@@ -117,11 +117,15 @@ import type {
   StudyPlaceInput,
   StudyProfile,
   OutboundSurveyRecord,
+  BannerPreset,
+  OwnProfileMedia,
+  ProfileMedia,
 } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortPhotosPosterFirst, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
+import { isProfileMediaId, NO_PROFILE_MEDIA, PROFILE_MEDIA_RATE_LIMIT, type ProfileMediaKind } from '@/lib/profile-media';
 import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
 import { DEMO_POSTER_SIZE, DEMO_SCENE_SIZE, demoPosterPng, demoReceiptPng, demoScenePng } from './demo-media';
 import type {
@@ -145,6 +149,7 @@ import type {
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
+  ClearProfileMediaInput,
 } from './repository';
 import {
   SEED_LOBBY,
@@ -160,6 +165,7 @@ import {
   SEED_PERSON_CONNECTIONS,
   SEED_TEAMS,
   SEED_IDENTITIES,
+  SEED_PROFILE_MEDIA,
   SEED_STUDY_PROFILES,
   type SeedEvent,
 } from './seed-data';
@@ -476,6 +482,10 @@ export class MemoryEventRepository implements EventRepository {
   private readonly identities = new Map<string, Omit<ProfileIdentity, 'available'>>(SEED_IDENTITIES);
   /** Cermin `users.show_badges` (ADR-072): bawaan privat. */
   private readonly badgeVisible = new Set<string>();
+  /** Foto profil & banner (ADR-083) — kolom `users.avatar_id/banner_id/banner_preset` di produksi. */
+  private readonly profileMedia = new Map<string, ProfileMedia>(SEED_PROFILE_MEDIA);
+  /** Id berkas → pemilik & jenis; isi berkasnya di `media` (kunci `profil:<id>`). */
+  private readonly profileMediaOwners = new Map<string, string>();
   /** Lobi lomba (ADR-071): eventId → userId → kartu. */
   private readonly lobbyMembers = new Map<string, Map<string, LobbyEntry>>();
   /** `${eventId}:${inviterId}` → yang sudah diajak; cermin PK `lobby_invites`. */
@@ -1256,6 +1266,8 @@ export class MemoryEventRepository implements EventRepository {
     this.organizers.delete(userId);
     for (const members of this.lobbyMembers.values()) members.delete(userId);
     this.badgeVisible.delete(userId);
+    this.dropProfileFiles(userId);
+    this.profileMedia.delete(userId);
     for (const [key, invitees] of this.lobbyInvites) {
       if (key.endsWith(`:${userId}`)) this.lobbyInvites.delete(key);
       else invitees.delete(userId);
@@ -3267,6 +3279,92 @@ export class MemoryEventRepository implements EventRepository {
       });
     }
     return result;
+  }
+
+  // ------------------------------------------------------------------
+  // Foto profil & banner (ADR-083). Cermin migration 20261110100001:
+  // siapa-melihat = aturan detail profil; menulis hanya milik sendiri.
+  // ------------------------------------------------------------------
+
+  /** Cermin klausa WHERE `public_profile_media()` / `profile_media_file()`. */
+  private canSeeProfileMedia(viewerId: string, userId: string): boolean {
+    if (this.suspensions.has(userId)) return false;
+    return userId === viewerId || this.canViewProfile(viewerId, userId) || (this.sharesLobby(viewerId, userId) && !this.isBlocked(viewerId, userId));
+  }
+
+  private dropProfileFiles(userId: string, kind?: ProfileMediaKind): void {
+    const current = this.profileMedia.get(userId);
+    for (const id of [kind !== 'banner' ? current?.avatarId : null, kind !== 'avatar' ? current?.bannerId : null]) {
+      if (!id) continue;
+      this.dropMedia(`profil:${id}`);
+      this.profileMediaOwners.delete(id);
+    }
+  }
+
+  /** Mode seed saja: `getSessionUser()` membacanya sinkron untuk navbar (lihat `demoProfileMedia`). */
+  profileMediaOf(userId: string): ProfileMedia {
+    return this.profileMedia.get(userId) ?? NO_PROFILE_MEDIA;
+  }
+
+  async getOwnProfileMedia(userId: string): Promise<OwnProfileMedia> {
+    return { ...this.profileMediaOf(userId), available: true };
+  }
+
+  async listProfileMedia(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, ProfileMedia>> {
+    const result = new Map<string, ProfileMedia>();
+    for (const userId of [...new Set(userIds)].slice(0, 100)) {
+      const media = this.profileMedia.get(userId);
+      if (!media || (!media.avatarId && !media.bannerId && !media.bannerPreset)) continue;
+      if (this.canSeeProfileMedia(viewerId, userId)) result.set(userId, media);
+    }
+    return result;
+  }
+
+  async setProfileImage(userId: string, kind: ProfileMediaKind, image: UploadedImage): Promise<void> {
+    if (this.suspensions.has(userId)) throw actionError('profile_media_unavailable');
+    if (!this.rateLimiter.consume(`profile-media:${userId}`, PROFILE_MEDIA_RATE_LIMIT.limit, PROFILE_MEDIA_RATE_LIMIT.windowSeconds)) {
+      throw actionError('profile_media_rate_limited');
+    }
+    if (!this.hasMediaRoom(image.bytes.length)) throw actionError('image_too_large');
+    const id = crypto.randomUUID();
+    this.dropProfileFiles(userId, kind);
+    this.storeMedia(`profil:${id}`, { bytes: image.bytes, contentType: image.type });
+    this.profileMediaOwners.set(id, userId);
+    const current = this.profileMediaOf(userId);
+    this.profileMedia.set(userId, kind === 'avatar' ? { ...current, avatarId: id } : { ...current, bannerId: id });
+  }
+
+  async removeProfileImage(userId: string, kind: ProfileMediaKind): Promise<void> {
+    this.dropProfileFiles(userId, kind);
+    const current = this.profileMediaOf(userId);
+    this.profileMedia.set(userId, kind === 'avatar' ? { ...current, avatarId: null } : { ...current, bannerId: null });
+  }
+
+  async setBannerPreset(userId: string, preset: BannerPreset | null): Promise<void> {
+    this.profileMedia.set(userId, { ...this.profileMediaOf(userId), bannerPreset: preset });
+  }
+
+  async getProfileMediaFile(viewerId: string | null, fileId: string): Promise<StoredFile | null> {
+    if (!viewerId || !isProfileMediaId(fileId)) return null;
+    const owner = this.profileMediaOwners.get(fileId);
+    if (!owner || !this.canSeeProfileMedia(viewerId, owner)) return null;
+    return this.media.get(`profil:${fileId}`) ?? null;
+  }
+
+  async clearProfileMediaAsAdmin({ userId, actorId, actorName, reason }: ClearProfileMediaInput): Promise<void> {
+    const current = this.profileMedia.get(userId);
+    if (!current?.avatarId && !current?.bannerId) throw actionError('profile_media_empty');
+    this.dropProfileFiles(userId);
+    this.profileMedia.set(userId, { ...current, avatarId: null, bannerId: null });
+    this.logModeration({
+      subjectType: 'user',
+      subjectId: userId,
+      title: 'Foto profil & banner dicabut',
+      fromStatus: 'ACTIVE',
+      toStatus: 'ACTIVE',
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: reason.trim(),
+    });
   }
 
   async listPublicBadgeFacts(viewerId: string, userIds: readonly string[], now: Date = new Date()): Promise<ReadonlyMap<string, AchievementFacts>> {

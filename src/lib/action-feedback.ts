@@ -77,6 +77,11 @@ export const ACTION_ERROR_CODES = [
   'invalid_video_url',
   'video_rate_limited',
   'media_unavailable',
+  'profile_image_too_large',
+  'profile_media_rate_limited',
+  'profile_media_unavailable',
+  'profile_media_empty',
+  'invalid_banner_preset',
   'report_unavailable',
   'report_rate_limited',
   'invalid_report',
@@ -193,6 +198,12 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   invalid_video_url: 'Tautan video harus dari YouTube atau Vimeo, mis. https://youtu.be/… atau https://vimeo.com/….',
   video_rate_limited: 'Video acara sudah terlalu sering diganti hari ini. Coba lagi besok.',
   media_unavailable: 'Poster & video belum bisa diatur — pembaruan database belum diterapkan. Coba lagi nanti.',
+  profile_image_too_large:
+    'Gambar terlalu besar untuk profil. Foto profil maksimal 1 MB (sisi terpanjang 1024 px), banner maksimal 2 MB (2400 px). Perkecil dulu, atau unggah dari peramban dengan JavaScript aktif supaya diperkecil otomatis.',
+  profile_media_rate_limited: 'Foto & banner sudah terlalu sering diganti hari ini. Coba lagi besok.',
+  profile_media_unavailable: 'Foto profil & banner belum bisa diatur — pembaruan database belum diterapkan. Coba lagi nanti.',
+  profile_media_empty: 'Akun itu tidak punya foto profil atau banner unggahan.',
+  invalid_banner_preset: 'Pilihan banner tidak dikenal. Pilih salah satu dari daftar.',
   report_unavailable: 'Yang kamu laporkan sudah tidak tersedia.',
   report_rate_limited: 'Kamu sudah mengirim banyak laporan hari ini. Coba lagi besok, atau hubungi kami lewat email.',
   invalid_report: 'Pilih alasan laporan, lalu kirim ulang. Keterangan maksimal 1.000 karakter.',
@@ -274,6 +285,12 @@ export const ACTION_NOTICE_CODES = [
   'poster_unset',
   'video_saved',
   'video_removed',
+  'avatar_saved',
+  'avatar_removed',
+  'banner_saved',
+  'banner_removed',
+  'banner_preset_saved',
+  'profile_media_cleared',
   'reminders_on',
   'reminders_off',
   'undo_done',
@@ -364,6 +381,12 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   poster_unset: 'Foto itu tidak lagi jadi poster.',
   video_saved: 'Video dipasang di halaman acara.',
   video_removed: 'Video dilepas dari halaman acara.',
+  avatar_saved: 'Foto profil terpasang. Orang yang boleh membuka profilmu melihatnya di Koneksi, tim, lobi, dan Komunitas.',
+  avatar_removed: 'Foto profil dihapus. Inisial namamu tampil lagi.',
+  banner_saved: 'Banner terpasang di kartu profilmu.',
+  banner_removed: 'Banner unggahan dihapus.',
+  banner_preset_saved: 'Banner kartu profil diperbarui.',
+  profile_media_cleared: 'Foto profil & banner akun itu dicabut dan tercatat di riwayat moderasi.',
   report_sent: 'Laporan terkirim. Moderator meninjaunya — identitasmu tidak diberitahukan ke pihak yang dilaporkan.',
   report_resolved: 'Laporan ditandai sudah ditindak dan tercatat di riwayat.',
   report_dismissed: 'Laporan diabaikan dan tercatat di riwayat.',
@@ -407,7 +430,8 @@ export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError
       : code === 'submission_rate_limited' ||
           code === 'connection_rate_limited' ||
           code === 'organizer_rate_limited' ||
-          code === 'registration_rate_limited'
+          code === 'registration_rate_limited' ||
+          code === 'profile_media_rate_limited'
         ? 429
         : code.endsWith('not_found')
           ? 404

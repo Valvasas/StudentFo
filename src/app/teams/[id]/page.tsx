@@ -8,6 +8,7 @@ import { DeadlineTag } from '@/components/event/deadline-tag';
 import { EventTypeIcon } from '@/components/event/event-type-icon';
 import { ShareButton } from '@/components/event/share-button';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { avatarIdsOf, loadProfileMedia } from '@/components/profile/profile-media-loader';
 import { SeatMeter, TeamSeats, TeamSlotsBadge } from '@/components/team/team-card';
 import { Avatar } from '@/components/ui/avatar';
 import { BackLink } from '@/components/ui/back-link';
@@ -49,6 +50,7 @@ const secondary =
 export default async function TeamDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<RawSearchParams> }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const [user, team] = await Promise.all([getSessionUser(), loadTeam(id)]);
+  const photos = user && team ? avatarIdsOf(await loadProfileMedia(user.id, team.members.map((member) => member.userId))) : {};
   if (!team) notFound();
 
   const isLeader = user !== null && team.createdBy === user.id;
@@ -115,7 +117,7 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
             </div>
             <div className="flex flex-col gap-5 px-6 pb-7 sm:px-9">
               <div className="relative z-10 -mt-7 flex flex-wrap items-end gap-x-6 gap-y-3">
-                <TeamSeats team={team} size="lg" />
+                <TeamSeats team={team} size="lg" photos={photos} />
                 <SeatMeter team={team} className="min-w-[220px] flex-1 pb-1" />
               </div>
               {team.description ? (
@@ -145,7 +147,7 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
                 return (
                   <li key={member.userId} className="rise flex flex-col gap-3 rounded-[20px] border border-line bg-panel p-4" style={{ '--i': index } as CSSProperties}>
                     <div className="flex items-center gap-3">
-                      <Avatar name={member.fullName} seed={member.userId} size="lg" />
+                      <Avatar name={member.fullName} seed={member.userId} photo={photos[member.userId]} size="lg" />
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate text-[15.5px] font-semibold">{member.fullName}</span>
                         <span className="flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-ink-muted">

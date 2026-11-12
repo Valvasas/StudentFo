@@ -13,6 +13,7 @@ const base: AccountExportInput = {
     providers: ['email'],
     organizerDraft: null,
     createdAt: '2026-10-01T03:00:00.000Z',
+    profileMedia: { avatarId: null, bannerId: null, bannerPreset: null, available: true },
   },
   saved: [],
   tracker: [],

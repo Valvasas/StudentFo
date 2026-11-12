@@ -100,6 +100,10 @@ export interface UserProfileRow {
   major: string | null;
   interests: string[] | null;
   suspended_at?: string | null;
+  /** Hanya ada setelah migration 20261110100001 (ADR-083). */
+  avatar_id?: string | null;
+  banner_id?: string | null;
+  banner_preset?: string | null;
 }
 
 export interface SavedEventRow {
@@ -504,6 +508,13 @@ export interface ProfileIdentityRow {
   username: string | null;
   bio: string | null;
   profile_visibility: string;
+}
+
+/** Foto profil & banner (ADR-083): kolom `users` milik sendiri, atau baris `public_profile_media()`. */
+export interface ProfileMediaRow {
+  avatar_id: string | null;
+  banner_id: string | null;
+  banner_preset: string | null;
 }
 
 /** `outbound_survey_config` (ADR-073) — satu baris, dibaca server. */

@@ -834,6 +834,42 @@ export interface ProfileIdentity {
 
 export type StudyPlaceInput = Pick<StudyProfile, 'institutionId' | 'institutionName' | 'domicileCode'>;
 
+/**
+ * Banner bawaan kartu profil (ADR-083) — gambar bergaya buku sketsa milik
+ * StudentFo, tanpa berkas & tanpa moderasi. Daftar HARUS sama dengan CHECK
+ * `users.banner_preset` (migration 20261110100001; dikunci
+ * `lib/profile-media.test.ts`).
+ */
+export const BANNER_PRESETS = ['kertas', 'matahari', 'ombak', 'daun', 'senja', 'bintang', 'kotak', 'stabilo'] as const;
+export type BannerPreset = (typeof BANNER_PRESETS)[number];
+
+export const BANNER_PRESET_LABEL: Record<BannerPreset, string> = {
+  kertas: 'Kertas bertitik',
+  matahari: 'Matahari pagi',
+  ombak: 'Ombak',
+  daun: 'Dedaunan',
+  senja: 'Senja',
+  bintang: 'Bintang',
+  kotak: 'Kertas kotak',
+  stabilo: 'Coretan stabilo',
+};
+
+/**
+ * Foto profil & banner seseorang seperti yang boleh dilihat pembaca. Id =
+ * id berkas acak untuk `/media/profil/<id>`; null = tidak dipasang ATAU
+ * pembaca tidak boleh melihatnya (tampil inisial & sampul bawaan).
+ */
+export interface ProfileMedia {
+  readonly avatarId: string | null;
+  readonly bannerId: string | null;
+  readonly bannerPreset: BannerPreset | null;
+}
+
+/** Milik sendiri. `available` = false: kolomnya belum ada (migration 20261110100001 belum diterapkan) — form dikunci. */
+export interface OwnProfileMedia extends ProfileMedia {
+  readonly available: boolean;
+}
+
 /** Yang boleh dilihat orang lain (`public_profile_details`): domisili terpotong ke kab/kota. */
 export interface PublicProfileDetails {
   readonly institutionId: string | null;

@@ -10,7 +10,7 @@ import { ACCOUNT_SIDEBAR_COOKIE, accountMenuGroups, isSidebarCollapsed, type Acc
 import { REQUEST_PATH_HEADER } from '@/lib/security-headers';
 import type { AuthUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
-import { initialsOf } from '@/lib/initials';
+import { SelfAvatar } from '@/components/ui/avatar';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import { cn } from '@/lib/utils';
 
@@ -62,9 +62,7 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
           )}
         >
           <span className="flex items-center gap-2.5">
-            <span aria-hidden className="flex size-[38px] shrink-0 items-center justify-center rounded-pill bg-brand text-[13px] font-semibold text-on-brand">
-              {initialsOf(user.fullName)}
-            </span>
+            <SelfAvatar name={user.fullName} photo={user.profileMedia.avatarId} className="size-[38px] text-[13px]" />
             {!collapsed && (
               <span className="flex min-w-0 flex-col gap-px">
                 <span className="truncate text-sm font-semibold">{user.fullName}</span>

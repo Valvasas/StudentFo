@@ -5,8 +5,9 @@ import { DemoUnreadCount } from '@/components/demo/unread-count';
 import type { AccountBadgeCounts, AccountRoleContext } from '@/components/home/account-role';
 import { accountMenuGroups, type AccountBadge } from '@/lib/account-sidebar';
 import type { AuthUser } from '@/lib/auth';
+import { ProfileBanner } from '@/components/profile/profile-banner';
+import { SelfAvatar } from '@/components/ui/avatar';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
-import { initialsOf } from '@/lib/initials';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import { cn } from '@/lib/utils';
 
@@ -35,12 +36,7 @@ export function AccountMenu({ user, context, counts }: { user: AuthUser; context
         className="relative flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-pill pl-1 pr-1.5 transition-colors duration-150 ease-snap hover:bg-panel-nested group-open:bg-panel-nested [&::-webkit-details-marker]:hidden"
         aria-label={`Menu akun untuk ${user.fullName}`}
       >
-        <span
-          aria-hidden
-          className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-brand text-xs font-semibold text-on-brand"
-        >
-          {initialsOf(user.fullName)}
-        </span>
+        <SelfAvatar name={user.fullName} photo={user.profileMedia.avatarId} className="size-8 text-xs" />
         {/* Penanda saja; jumlah & artinya tertulis di item "Pembayaran" di dalam menu. */}
         {counts.paymentDue > 0 && (
           <span aria-hidden className="absolute left-7 top-1.5 size-2.5 rounded-pill border-2 border-canvas bg-highlight" />
@@ -53,16 +49,15 @@ export function AccountMenu({ user, context, counts }: { user: AuthUser; context
           belakangnya jadi sisa beberapa piksel (axe target-size), dan tingginya
           berubah tiap kali isi menu berubah. */}
       <div className="pop absolute right-0 top-[calc(100%+10px)] z-50 flex max-h-[calc(100dvh-80px)] w-72 max-w-[calc(100vw-32px)] flex-col overflow-y-auto overscroll-contain rounded-modal border border-line bg-panel shadow-overlay max-sm:min-h-[calc(100dvh-80px)]">
-        <Link href="/profile" className="flex items-center gap-3 p-4 transition-colors duration-150 ease-snap hover:bg-panel-nested">
-          <span
-            aria-hidden
-            className="flex size-10 shrink-0 items-center justify-center rounded-pill bg-brand text-[13px] font-semibold text-on-brand"
-          >
-            {initialsOf(user.fullName)}
-          </span>
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-[14.5px] font-semibold">{user.fullName}</span>
-            <span className="truncate text-[12.5px] text-ink-muted">{accountSubtitle(user, context)}</span>
+        {/* Kartu profil mini (ADR-083): banner + foto, sama dengan yang dilihat orang lain di Koneksi & tim. */}
+        <Link href="/profile" className="group/kartu flex shrink-0 flex-col transition-colors duration-150 ease-snap hover:bg-panel-nested">
+          <ProfileBanner media={user.profileMedia} className="h-14 rounded-t-[calc(var(--radius-modal)-1px)]" />
+          <span className="flex items-end gap-3 px-4 pb-3.5">
+            <SelfAvatar name={user.fullName} photo={user.profileMedia.avatarId} className="-mt-5 size-12 text-[14px] ring-[3px] ring-panel group-hover/kartu:ring-panel-nested" />
+            <span className="flex min-w-0 flex-col gap-0.5 pt-2">
+              <span className="truncate text-[14.5px] font-semibold">{user.fullName}</span>
+              <span className="truncate text-[12.5px] text-ink-muted">{accountSubtitle(user, context)}</span>
+            </span>
           </span>
         </Link>
 

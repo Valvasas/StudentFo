@@ -5,6 +5,9 @@ import { requestConnectionAction } from '@/app/connections/actions';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
 import { PortfolioList } from '@/components/profile/portfolio-list';
+import { ProfileBanner } from '@/components/profile/profile-banner';
+import { loadProfileMedia } from '@/components/profile/profile-media-loader';
+import { Avatar } from '@/components/ui/avatar';
 import { PublicBadges } from '@/components/profile/public-badges';
 import { StudyPlaceLine } from '@/components/profile/study-place';
 import { CopyCodeButton } from '@/components/registration/copy-code-button';
@@ -15,7 +18,6 @@ import type { AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { siteUrl } from '@/lib/env';
 import { withFallback } from '@/lib/fallback';
-import { initialsOf } from '@/lib/initials';
 import type { RawSearchParams } from '@/lib/search-params';
 import { presentStudyProfile } from '@/lib/study-profile';
 import { EDUCATION_LEVEL_LABEL, type ProfileRelation, type PublicProfile, type PublicProfileDetails } from '@/types/domain';
@@ -49,10 +51,12 @@ export async function PublicProfileView({
   if (!profile) notFound();
   const repository = await getEventRepository();
   const { person, relation, portfolio } = profile;
-  const [categories, badgeFacts] = await Promise.all([
+  const [categories, badgeFacts, media] = await Promise.all([
     repository.listCategories(),
     withFallback('lencana publik', () => repository.listPublicBadgeFacts(viewer.id, [person.userId]), new Map()),
+    loadProfileMedia(viewer.id, [person.userId]),
   ]);
+  const look = media.get(person.userId) ?? null;
   const interests = person.interests
     .map((slug) => categories.find((category) => category.slug === slug))
     .filter((category): category is NonNullable<typeof category> => Boolean(category));
@@ -69,13 +73,12 @@ export async function PublicProfileView({
 
       <ActionFeedback params={query} />
 
-      <section aria-labelledby="nama-orang" className="enter flex flex-col gap-4 rounded-[20px] border border-line p-5 sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <span aria-hidden className="flex size-16 items-center justify-center rounded-pill bg-brand text-xl font-semibold text-on-brand">
-            {initialsOf(person.fullName)}
-          </span>
+      <section aria-labelledby="nama-orang" className="enter flex flex-col gap-4 overflow-hidden rounded-[20px] border border-line px-5 pb-5 sm:px-7 sm:pb-7">
+        <ProfileBanner media={look} className="-mx-5 h-[92px] sm:-mx-7 sm:h-[116px]" />
+        <div className="-mt-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <Avatar name={person.fullName} seed={person.userId} photo={look?.avatarId} size="xl" className="-mt-[46px] ring-4 ring-canvas" />
           {relation && relation !== 'self' ? (
-            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-sm bg-panel-nested px-3 text-[13px] font-medium">
+            <span className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-sm bg-panel-nested px-3 text-[13px] font-medium">
               {relation === 'connected' && <Check aria-hidden className="size-4" />}
               {RELATION_TEXT[relation]}
               {relation === 'incoming' && (
@@ -85,7 +88,7 @@ export async function PublicProfileView({
               )}
             </span>
           ) : (
-            <form action={requestConnectionAction}>
+            <form action={requestConnectionAction} className="mt-3">
               <input type="hidden" name="targetId" value={person.userId} />
               <input type="hidden" name="returnTo" value={selfPath} />
               <SubmitButton className="flex h-11 items-center gap-1.5 rounded-card bg-brand px-4 text-sm font-semibold text-on-brand hover:bg-brand-hover">
