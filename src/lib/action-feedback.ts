@@ -244,6 +244,7 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
 
 export const ACTION_NOTICE_CODES = [
   'submission_received',
+  'submission_received_poster_skipped',
   'submission_approved',
   'submission_rejected',
   'demo_reset',
@@ -326,6 +327,8 @@ export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
 export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   submission_received:
     'Terima kasih! Kiriman kamu masuk antrean verifikasi. Kegiatan baru tayang setelah dicek manual ke sumbernya.',
+  submission_received_poster_skipped:
+    'Kiriman kamu masuk antrean verifikasi, tetapi posternya belum bisa disimpan. Setelah kegiatannya tayang, poster bisa ditambahkan dari studio penyelenggara atau oleh moderator.',
   submission_approved: 'Kiriman disetujui dan kini tayang di katalog.',
   submission_rejected: 'Kiriman ditolak.',
   demo_reset: 'Data demo diatur ulang ke kondisi awal, dengan tenggat dihitung ulang dari hari ini.',

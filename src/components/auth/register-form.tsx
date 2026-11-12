@@ -4,7 +4,7 @@ import { signUpAction } from '@/app/auth/actions';
 import { AuthCaptcha } from '@/components/auth/auth-captcha';
 import { AuthDivider, AuthField, AuthInput } from '@/components/auth/auth-field';
 import { ConfirmPasswordInput } from '@/components/auth/confirm-password-input';
-import { FieldMemory } from '@/components/auth/field-memory';
+import { FieldMemory } from '@/components/ui/field-memory';
 import { GoogleButton } from '@/components/auth/google-button';
 import { IntentSubmitButton } from '@/components/auth/intent-submit';
 import { NewPasswordInput } from '@/components/auth/new-password-input';

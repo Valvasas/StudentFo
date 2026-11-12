@@ -6,7 +6,8 @@ import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
-import { isLikelyBot, parseSubmissionForm } from '@/lib/submission-schema';
+import { readImageUpload, type UploadedImage } from '@/lib/image-file';
+import { isLikelyBot, parseSubmissionForm, SUBMISSION_POSTER_FIELD } from '@/lib/submission-schema';
 
 /**
  * Kirim kegiatan dari komunitas (Phase 3).
@@ -14,7 +15,9 @@ import { isLikelyBot, parseSubmissionForm } from '@/lib/submission-schema';
  * Boleh dipanggil tamu — policy `ugc_public_insert` memang mengizinkannya,
  * dan penyelenggara yang ingin mendaftarkan acaranya belum tentu punya akun.
  * Yang menjaga kualitas bukan gerbang login, tapi antrean moderasi: kiriman
- * TIDAK PERNAH tayang sebelum admin menyetujuinya di /admin.
+ * TIDAK PERNAH tayang sebelum admin menyetujuinya di /admin. Yang butuh akun
+ * hanya lampiran poster (ADR-084): berkas dari pengirim tanpa identitas tidak
+ * diterima.
  */
 export async function submitEventAction(formData: FormData): Promise<void> {
   // Bot diperlakukan seolah berhasil. Memberi tahu bahwa ia tertangkap hanya
@@ -41,17 +44,32 @@ export async function submitEventAction(formData: FormData): Promise<void> {
   }
   if (!(await passesCaptcha(formData, ip))) redirect('/submit?error=captcha_failed');
 
+  // Pengirim yang sedang masuk dikabari saat kirimannya ditinjau (ADR-037).
+  const user = await getSessionUser();
+
+  // Poster (ADR-084) hanya untuk pengirim yang masuk; form tidak menawarkan
+  // kolomnya ke tamu, jadi berkas dari tamu diabaikan, bukan galat. Dibaca
+  // SETELAH batas laju & CAPTCHA: mengurai gambar 5 MB adalah kerja termahal
+  // di aksi ini.
+  let poster: UploadedImage | null = null;
+  const posterFile = formData.get(SUBMISSION_POSTER_FIELD);
+  if (user && posterFile && typeof posterFile !== 'string' && posterFile.size > 0) {
+    const upload = await readImageUpload(posterFile);
+    if (!upload.ok) redirect(`/submit?error=${upload.error}&fields=poster`);
+    poster = upload.image;
+  }
+
   const { submittedByEmail, ...payload } = parsed.data;
   let failure: ActionErrorCode | null = null;
+  let posterSkipped = false;
   try {
     const repository = await getEventRepository();
-    // Pengirim yang sedang masuk dikabari saat kirimannya ditinjau (ADR-037).
-    const user = await getSessionUser();
-    await repository.createSubmission({ submittedByEmail, submittedBy: user?.id ?? null, payload });
+    const result = await repository.createSubmission({ submittedByEmail, submittedBy: user?.id ?? null, payload, poster });
+    posterSkipped = poster !== null && !result.posterAttached;
   } catch (error) {
     failure = toActionErrorCode(error);
   }
 
   if (failure) redirect(`/submit?error=${failure}`);
-  redirect('/submit?notice=submission_received');
+  redirect(`/submit?notice=${posterSkipped ? 'submission_received_poster_skipped' : 'submission_received'}`);
 }

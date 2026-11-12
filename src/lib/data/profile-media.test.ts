@@ -4,7 +4,7 @@ import type { UploadedImage } from '@/lib/image-file';
 import type { NetworkViewer } from '@/lib/network';
 import { PROFILE_MEDIA_RATE_LIMIT } from '@/lib/profile-media';
 import { MemoryEventRepository } from './memory-repository';
-import type { ProfileMediaViewer } from './repository';
+import type { MediaViewer } from './repository';
 
 /**
  * Foto profil & banner (ADR-083) di mode seed — skenario yang sama dengan
@@ -25,7 +25,7 @@ async function reason(promise: Promise<unknown>): Promise<string | undefined> {
 const person = (id: string): NetworkViewer => ({ id, fullName: `Nama ${id}`, educationLevel: 'D4_S1', major: null, interests: [] });
 const ana = person('ana');
 const budi = person('budi');
-const viewer = (id: string, isAdmin = false): ProfileMediaViewer => ({ id, isAdmin });
+const viewer = (id: string, isAdmin = false): MediaViewer => ({ id, isAdmin });
 const image = (fill = 1): UploadedImage => ({ type: 'image/png', width: 400, height: 400, bytes: new Uint8Array(256).fill(fill) });
 
 describe('MemoryEventRepository — foto profil & banner', () => {

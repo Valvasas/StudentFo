@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { BadgeCheck, ChevronDown, Lock, Plus, Send, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, ChevronDown, ImagePlus, Lock, Plus, Send, ShieldCheck } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { MySubmissions } from '@/components/submit/my-submissions';
 import { TurnstileWidget } from '@/components/submit/turnstile-widget';
@@ -10,9 +10,12 @@ import { buttonVariants } from '@/components/ui/button';
 import { DateInput } from '@/components/ui/date-input';
 import { CityDatalist } from '@/components/ui/city-datalist';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field';
+import { FieldMemory } from '@/components/ui/field-memory';
 import { ChoiceGroup, FormStep } from '@/components/ui/form-step';
+import { ImageUploadField } from '@/components/ui/image-upload-field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
+import { parseActionErrorCode } from '@/lib/action-feedback';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
@@ -20,7 +23,7 @@ import { jakartaDateKey } from '@/lib/deadline';
 import { env } from '@/lib/env';
 import type { RawSearchParams } from '@/lib/search-params';
 import { NONCE_HEADER } from '@/lib/security-headers';
-import { HONEYPOT_FIELD } from '@/lib/submission-schema';
+import { HONEYPOT_FIELD, SUBMISSION_POSTER_FIELD } from '@/lib/submission-schema';
 import {
   DEADLINE_LABEL_TEXT,
   EDUCATION_LEVEL_LABEL,
@@ -56,14 +59,40 @@ const FIELD_LABEL: Record<string, string> = {
   priceAmount: 'Nominal biaya',
   guidebookUrl: 'Buku panduan',
   videoUrl: 'Video',
+  poster: 'Poster',
   organizerContact: 'Kontak panitia',
   proofLink: 'Bukti kepanitiaan',
   stages: 'Tahapan jadwal',
 };
 
 const OPTIONAL_DETAIL_LABELS = new Set(
-  ['stages', 'guidebookUrl', 'videoUrl', 'description', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]),
+  ['stages', 'guidebookUrl', 'description', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]),
 );
+
+/**
+ * Isian yang dipulihkan bila server menolak kiriman (`FieldMemory`): form ini
+ * ±20 kolom, dan kegagalan apa pun (poster ditolak, CAPTCHA kedaluwarsa, batas
+ * laju) tidak boleh berarti mengetik ulang semuanya. Berkas poster tidak bisa
+ * ikut — peramban melarang mengisinya lewat skrip.
+ */
+const REMEMBERED_FIELDS = [
+  'title',
+  'organizer',
+  'eventType',
+  'registrationLink',
+  'sourceUrl',
+  'deadlineDate',
+  'location',
+  'priceAmount',
+  ...SUBMISSION_STAGE_LABELS.map((label) => `stage_${label}`),
+  'guidebookUrl',
+  'videoUrl',
+  'description',
+  'organizerContact',
+  'proofLink',
+  'email',
+] as const;
+const REMEMBERED_CHOICES = ['isOnline', 'educationLevels', 'categorySlugs', 'costType'] as const;
 
 function invalidFieldLabels(raw: RawSearchParams['fields']): string[] {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -92,6 +121,8 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   const invalidFields = invalidFieldLabels(params.fields);
   const optionalInvalid = invalidFields.some((label) => OPTIONAL_DETAIL_LABELS.has(label));
   const today = jakartaDateKey(new Date());
+  // Isian dipulihkan hanya bila server baru saja menolak kiriman (FieldMemory).
+  const restore = parseActionErrorCode(params.error) !== null;
 
   return (
     <div className="container-page max-w-3xl py-10">
@@ -120,15 +151,25 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             </span>
           </p>
         ) : (
-          user && (
-            <p className="mt-3 text-sm text-ink-muted">
-              Penyelenggara acara ini?{' '}
-              <Link href="/penyelenggara" className="font-medium text-ink underline underline-offset-[3px]">
-                Verifikasi lembagamu
-              </Link>{' '}
-              supaya kirimanmu mendapat lencana terverifikasi dan analitik peserta.
-            </p>
-          )
+          <p className="mt-3 text-sm text-ink-muted">
+            {user ? (
+              <>
+                Penyelenggara acara ini?{' '}
+                <Link href="/penyelenggara" className="font-medium text-ink underline underline-offset-[3px]">
+                  Verifikasi lembagamu
+                </Link>{' '}
+                supaya kirimanmu mendapat lencana terverifikasi dan analitik peserta.
+              </>
+            ) : (
+              <>
+                Punya poster kegiatannya?{' '}
+                <Link href="/login?next=%2Fsubmit" className="font-medium text-ink underline underline-offset-[3px]">
+                  Masuk dulu
+                </Link>{' '}
+                supaya bisa melampirkannya. Tanpa akun kirimanmu tetap diterima, hanya tanpa poster.
+              </>
+            )}
+          </p>
         )}
       </header>
 
@@ -145,6 +186,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
 
       <form action={submitEventAction} className="mt-8 flex flex-col gap-4">
         <UnsavedChangesGuard />
+        <FieldMemory storageKey="kirim-kegiatan" fields={REMEMBERED_FIELDS} choices={REMEMBERED_CHOICES} restore={restore} />
         {/* Honeypot — tersembunyi dari manusia dan pembaca layar, lihat submission-schema.ts. */}
         <div aria-hidden className="absolute -left-[9999px] size-px overflow-hidden">
           <label htmlFor={HONEYPOT_FIELD}>Jangan diisi</label>
@@ -267,13 +309,54 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           </div>
         </FormStep>
 
+        {/* Poster & video di langkah sendiri, bukan di lipatan "detail tambahan":
+            keduanya yang paling cepat membuat peserta paham acaranya (ADR-084).
+            Kolom berkas hanya untuk yang masuk — tamu tidak menitipkan berkas. */}
+        <FormStep number={4} title="Media kegiatan" hint="Opsional, tapi kegiatan bergambar jauh lebih cepat dipahami peserta.">
+          {user ? (
+            <ImageUploadField
+              id="poster"
+              name={SUBMISSION_POSTER_FIELD}
+              label="Poster (opsional)"
+              hint="Satu gambar, tegak (sekitar 4:5) paling pas. Maks. 5 MB — diperkecil otomatis sebelum dikirim. Setelah disetujui tampil sebagai slide pertama di halaman kegiatan dan gambar kecil di kartunya."
+            />
+          ) : (
+            <div className="flex items-start gap-3 rounded-card border border-dashed border-line-strong/70 bg-panel-nested px-4 py-3.5 text-sm">
+              <ImagePlus aria-hidden className="mt-0.5 size-5 shrink-0 text-ink-muted" />
+              <p className="text-ink-soft">
+                <span className="font-semibold text-ink">Poster</span> hanya bisa dilampirkan dari akun.{' '}
+                <Link href="/login?next=%2Fsubmit" className="font-medium text-ink underline underline-offset-[3px]">
+                  Masuk
+                </Link>{' '}
+                untuk melampirkannya, atau kirim dulu tanpa poster — bisa ditambahkan setelah kegiatannya tayang.
+              </p>
+            </div>
+          )}
+
+          <Field
+            id="videoUrl"
+            label="Video (opsional)"
+            hint="Tautan YouTube atau Vimeo — teaser, rekap edisi lalu, atau penjelasan teknis. Tampil sebagai slide di halaman kegiatan."
+          >
+            <TextInput
+              id="videoUrl"
+              name="videoUrl"
+              inputMode="url"
+              maxLength={500}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="https://youtu.be/…"
+            />
+          </Field>
+        </FormStep>
+
         {/* Kolom opsional yang jarang diisi dilipat supaya form inti muat
             ±1,5 layar ponsel. Terbuka otomatis bila server menolak salah satu
             isinya — kolom bermasalah tidak boleh tersembunyi. Kolom tautan di
             dalamnya sengaja bukan `type="url"`: validasi bawaan browser pada
             kontrol di <details> tertutup memblokir kirim TANPA pesan apa pun
             ("not focusable"). Formatnya divalidasi server (Zod). */}
-        <details open={optionalInvalid} className="group/opsional rise rounded-[24px] border border-dashed border-line-strong bg-panel/60 open:border-solid open:border-line open:bg-panel" style={{ '--i': 4 } as CSSProperties}>
+        <details open={optionalInvalid} className="group/opsional rise rounded-[24px] border border-dashed border-line-strong bg-panel/60 open:border-solid open:border-line open:bg-panel" style={{ '--i': 5 } as CSSProperties}>
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-[24px] px-5 py-4 transition-colors duration-150 ease-snap hover:bg-panel-nested sm:px-7 [&::-webkit-details-marker]:hidden">
             <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-pill border-2 border-dashed border-line-strong text-ink-muted">
               <Plus className="size-4 transition-transform duration-200 ease-snap group-open/opsional:rotate-45" />
@@ -309,22 +392,6 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
               <TextInput id="guidebookUrl" name="guidebookUrl" inputMode="url" maxLength={2000} placeholder="https://" />
             </Field>
 
-            <Field
-              id="videoUrl"
-              label="Video (opsional)"
-              hint="Tautan YouTube atau Vimeo — teaser, rekap edisi lalu, atau penjelasan teknis. Tampil sebagai slide di halaman kegiatan."
-            >
-              <TextInput
-                id="videoUrl"
-                name="videoUrl"
-                inputMode="url"
-                maxLength={500}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="https://youtu.be/…"
-              />
-            </Field>
-
             <Field id="description" label="Deskripsi (opsional)" hint="Syarat, hadiah, dan hal penting lain. Maksimal 5000 karakter.">
               <TextArea id="description" name="description" rows={6} maxLength={5000} />
             </Field>
@@ -348,7 +415,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           </div>
         </details>
 
-        <FormStep number={4} title="Kirim untuk dicek" hint="Moderator mengecek ke sumber aslinya sebelum kegiatan tayang.">
+        <FormStep number={5} title="Kirim untuk dicek" hint="Moderator mengecek ke sumber aslinya sebelum kegiatan tayang.">
           <Field
             id="email"
             label="Email kamu"

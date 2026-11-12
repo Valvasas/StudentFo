@@ -136,6 +136,7 @@ import type {
   ResolveReportInput,
   UserSuspensionInput,
   CreateSubmissionInput,
+  CreateSubmissionResult,
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
@@ -150,7 +151,7 @@ import type {
   RestoreRejectedInput,
   ReviewTrustInput,
   ClearProfileMediaInput,
-  ProfileMediaViewer,
+  MediaViewer,
 } from './repository';
 import {
   SEED_LOBBY,
@@ -484,6 +485,8 @@ export class MemoryEventRepository implements EventRepository {
   /** Cermin `users.show_badges` (ADR-072): bawaan privat. */
   private readonly badgeVisible = new Set<string>();
   /** Foto profil & banner (ADR-083) — kolom `users.avatar_id/banner_id/banner_preset` di produksi. */
+  /** Poster lampiran kiriman yang belum diputuskan (ADR-084); kunci = id kiriman. */
+  private readonly submissionPosters = new Map<string, { readonly key: string; readonly width: number; readonly height: number }>();
   private readonly profileMedia = new Map<string, ProfileMedia>(SEED_PROFILE_MEDIA);
   /** Id berkas → pemilik & jenis; isi berkasnya di `media` (kunci `profil:<id>`). */
   private readonly profileMediaOwners = new Map<string, string>();
@@ -841,12 +844,20 @@ export class MemoryEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, submittedBy, payload }: CreateSubmissionInput): Promise<void> {
+  async createSubmission({ submittedByEmail, submittedBy, payload, poster }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
     if (isSubmissionRateLimited([...this.submissions.values()], submittedByEmail)) {
       throw actionError('submission_rate_limited');
     }
     const id = this.nextId();
     if (submittedBy) this.submissionOwners.set(id, submittedBy);
+    // Cermin kolom poster_* (migration 20261112100001): hanya pengirim yang
+    // masuk. Ruang media demo habis = "penyimpanan belum siap": kiriman tetap masuk.
+    const attached = poster && submittedBy && this.hasMediaRoom(poster.bytes.length) ? poster : null;
+    if (attached) {
+      const key = `kiriman/${id}/${this.nextId()}.${IMAGE_EXTENSION[attached.type]}`;
+      this.storeMedia(key, { bytes: attached.bytes, contentType: attached.type });
+      this.submissionPosters.set(id, { key, width: attached.width, height: attached.height });
+    }
     this.submissions.set(id, {
       id,
       submittedByEmail,
@@ -855,7 +866,18 @@ export class MemoryEventRepository implements EventRepository {
       createdAt: new Date().toISOString(),
       payload,
       rejectionReason: null,
+      poster: attached ? { width: attached.width, height: attached.height } : null,
     });
+    return { posterAttached: attached !== null };
+  }
+
+  /** Cermin `submission_poster_file()`: moderator atau pengirimnya sendiri. */
+  async getSubmissionPosterFile(viewer: MediaViewer | null, submissionId: string): Promise<StoredFile | null> {
+    const submission = this.submissions.get(submissionId);
+    const poster = this.submissionPosters.get(submissionId);
+    if (!viewer || !submission || !poster) return null;
+    if (!viewer.isAdmin && submission.submittedBy !== viewer.id) return null;
+    return this.media.get(poster.key) ?? null;
   }
 
   async listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]> {
@@ -943,10 +965,22 @@ export class MemoryEventRepository implements EventRepository {
       if (owner && this.isVerifiedOrganizer(owner)) {
         getOrCreate(this.eventManagers, id, () => new Map()).set(owner, { source: 'SUBMISSION', since: new Date().toISOString() });
       }
+      // Cermin approve_submission() (20261112100001): poster lampiran jadi
+      // poster acara — berkas yang sama, bukan salinan.
+      const poster = this.submissionPosters.get(submissionId);
+      if (poster) {
+        const photoId = this.nextId();
+        this.photos.set(photoId, { id: photoId, key: poster.key, eventId: id, width: poster.width, height: poster.height, caption: null, createdAt: new Date().toISOString(), isPoster: true });
+        this.syncPoster(id);
+      }
+    } else {
+      // Cermin take_submission_poster(): kiriman yang ditolak tidak menyimpan berkasnya.
+      this.dropMedia(this.submissionPosters.get(submissionId)?.key ?? null);
     }
+    this.submissionPosters.delete(submissionId);
 
     const rejectionReason = decision === 'REJECTED' ? reason?.trim() || null : null;
-    this.submissions.set(submissionId, { ...submission, status: decision, rejectionReason });
+    this.submissions.set(submissionId, { ...submission, status: decision, rejectionReason, poster: null });
     this.notifySubmitter(submissionId, submission.payload?.title ?? 'kegiatan', decision, rejectionReason);
     this.logModeration({
       subjectType: 'submission',
@@ -3347,7 +3381,7 @@ export class MemoryEventRepository implements EventRepository {
     this.profileMedia.set(userId, { ...this.profileMediaOf(userId), bannerPreset: preset });
   }
 
-  async getProfileMediaFile(viewer: ProfileMediaViewer | null, fileId: string): Promise<StoredFile | null> {
+  async getProfileMediaFile(viewer: MediaViewer | null, fileId: string): Promise<StoredFile | null> {
     if (!viewer || !isProfileMediaId(fileId)) return null;
     const owner = this.profileMediaOwners.get(fileId);
     // Admin membuka berkas siapa pun untuk moderasi (cermin `is_admin()` di `profile_media_file`).

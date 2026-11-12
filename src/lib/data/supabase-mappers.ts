@@ -187,6 +187,7 @@ export function toSubmission(row: SubmissionRow): Submission {
     createdAt: row.created_at,
     payload: fromStoredPayload(row.payload),
     rejectionReason: row.rejection_reason ?? null,
+    poster: row.poster_id && row.poster_width && row.poster_height ? { width: row.poster_width, height: row.poster_height } : null,
   };
 }
 

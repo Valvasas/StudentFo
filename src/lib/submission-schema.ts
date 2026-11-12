@@ -195,6 +195,9 @@ export type ParsedSubmission = SubmissionPayload & { readonly submittedByEmail: 
  */
 export const HONEYPOT_FIELD = 'website';
 
+/** Nama kolom berkas poster di form /submit (ADR-084) — dibaca terpisah dari skema: berkas bukan bagian payload. */
+export const SUBMISSION_POSTER_FIELD = 'poster';
+
 export function isLikelyBot(formData: FormData): boolean {
   return text(formData, HONEYPOT_FIELD).trim().length > 0;
 }

@@ -144,12 +144,13 @@ export interface ProfileMediaRepository {
    * (moderasi). `viewer` hanya dipakai mode seed (tanpa RLS); produksi
    * memutuskan dari sesi di cookie lewat `profile_media_file()`.
    */
-  getProfileMediaFile(viewer: ProfileMediaViewer | null, fileId: string): Promise<StoredFile | null>;
+  getProfileMediaFile(viewer: MediaViewer | null, fileId: string): Promise<StoredFile | null>;
   /** Admin setelah `checkAdminAccess()`: cabut foto & banner unggahan (bukan preset); tercatat di riwayat. `profile_media_empty`. */
   clearProfileMediaAsAdmin(input: ClearProfileMediaInput): Promise<void>;
 }
 
-export interface ProfileMediaViewer {
+/** Pembaca berkas bersesi (`/media/profil`, `/media/kiriman`) — hanya dipakai mode seed, yang tidak punya RLS. */
+export interface MediaViewer {
   readonly id: string;
   readonly isAdmin: boolean;
 }
@@ -366,7 +367,14 @@ export interface SubmissionRepository {
    * RLS `ugc_public_insert` memang mengizinkannya. Dua method lainnya hanya
    * dipanggil dari rute admin SETELAH `checkAdminAccess()` lolos.
    */
-  createSubmission(input: CreateSubmissionInput): Promise<void>;
+  createSubmission(input: CreateSubmissionInput): Promise<CreateSubmissionResult>;
+  /**
+   * Poster kiriman yang BELUM tayang, untuk `/media/kiriman/[id]`: hanya
+   * moderator dan pengirimnya. null = tidak ada, tanpa poster, atau tidak
+   * berhak (404 yang sama). `viewer` hanya dipakai mode seed; produksi
+   * memutuskan dari sesi di cookie lewat `submission_poster_file()`.
+   */
+  getSubmissionPosterFile(viewer: MediaViewer | null, submissionId: string): Promise<StoredFile | null>;
   listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]>;
   /**
    * Kiriman milik satu akun, terbaru dulu — supaya pengirim tahu nasib
@@ -782,6 +790,16 @@ export interface CreateSubmissionInput {
   /** Akun yang sedang masuk saat mengirim (dikabari saat ditinjau); null = tamu. */
   readonly submittedBy: string | null;
   readonly payload: SubmissionPayload;
+  /**
+   * Poster lampiran (ADR-084), sudah lolos `readImageUpload()`. Hanya dipakai
+   * bila `submittedBy` terisi — tamu tidak boleh menitipkan berkas.
+   */
+  readonly poster?: UploadedImage | null;
+}
+
+export interface CreateSubmissionResult {
+  /** false walau poster dikirim = penyimpanannya belum siap (kode tayang sebelum migration); kirimannya tetap masuk. */
+  readonly posterAttached: boolean;
 }
 
 export interface ReviewSubmissionInput {

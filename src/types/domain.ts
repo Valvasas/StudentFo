@@ -473,6 +473,12 @@ export interface Submission {
   readonly payload: SubmissionPayload | null;
   /** Diisi moderator saat menolak (ADR-061); ditampilkan ke pengirimnya. */
   readonly rejectionReason: string | null;
+  /**
+   * Poster lampiran (ADR-084) selama masih milik kiriman — disajikan
+   * `/media/kiriman/[id]` untuk moderator & pengirimnya. `null` = tanpa
+   * poster, sudah pindah ke acara (disetujui), atau dihapus (ditolak).
+   */
+  readonly poster: { readonly width: number; readonly height: number } | null;
 }
 
 /** Status yang bisa muncul di log moderasi — status acara + status penyelenggara (ADR-042). */

@@ -77,6 +77,7 @@ import type {
   RegistrationStats,
   StoredFile,
   Submission,
+  SubmissionPayload,
   Team,
   TeamCandidate,
   TeamLink,
@@ -170,6 +171,7 @@ import type {
   ResolveReportInput,
   UserSuspensionInput,
   CreateSubmissionInput,
+  CreateSubmissionResult,
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
@@ -184,7 +186,7 @@ import type {
   RestoreRejectedInput,
   ReviewTrustInput,
   ClearProfileMediaInput,
-  ProfileMediaViewer,
+  MediaViewer,
 } from './repository';
 import {
   CLAIM_COLUMNS,
@@ -748,7 +750,10 @@ export class SupabaseEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, submittedBy, payload }: CreateSubmissionInput): Promise<void> {
+  async createSubmission({ submittedByEmail, submittedBy, payload, poster }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
+    if (poster && submittedBy && (await this.createSubmissionWithPoster(submittedByEmail, submittedBy, payload, poster))) {
+      return { posterAttached: true };
+    }
     // Klien pengguna/anon, bukan admin: policy `ugc_public_insert` yang
     // menegakkan status PENDING. Tanpa `.select()` — anon memang tidak boleh
     // membaca tabel ini, dan meminta baris balik akan ditolak RLS.
@@ -762,27 +767,66 @@ export class SupabaseEventRepository implements EventRepository {
         ...(submittedBy ? { submitted_by: submittedBy } : {}),
       });
 
-    if (error) {
-      // Trigger enforce_submission_rate_limit() (migration 0009).
-      if (sqlState(error) === 'P0001' && error.message.includes('submission_rate_limited')) {
-        throw actionError('submission_rate_limited');
-      }
-      throw upstreamFailure('Gagal mengirim kegiatan.', error, 500);
-    }
+    if (error) throw submissionInsertFailure(error);
+    return { posterAttached: false };
+  }
+
+  /**
+   * Kiriman berposter (ADR-084). Klien admin karena kolom `poster_*` sengaja
+   * TIDAK bisa ditulis pengguna (tidak ada hak INSERT kolomnya) dan id baris
+   * harus diketahui sebelum berkas diunggah. `submittedBy` datang dari sesi
+   * server, status memakai bawaan PENDING, dan pemicu batas laju tetap
+   * berjalan — yang dilewati hanya RLS yang isinya sudah dipenuhi di sini.
+   *
+   * Berkas diunggah DULU: baris kiriman tidak pernah menunjuk berkas yang
+   * tidak ada. `false` = kolomnya belum ada (kode tayang sebelum migration)
+   * → pemanggil menyimpan kirimannya tanpa poster.
+   */
+  private async createSubmissionWithPoster(submittedByEmail: string, submittedBy: string, payload: SubmissionPayload, poster: UploadedImage): Promise<boolean> {
+    const admin = createSupabaseAdminClient();
+    const storage = admin.storage.from(PHOTO_BUCKET);
+    const submissionId = crypto.randomUUID();
+    const posterId = crypto.randomUUID();
+    const path = `${submissionId}/${posterId}.${IMAGE_EXTENSION[poster.type]}`;
+
+    const uploaded = await storage.upload(path, poster.bytes, { contentType: poster.type, upsert: false });
+    if (uploaded.error) throw upstreamFailure('Gagal mengunggah poster kiriman.', uploaded.error, 500);
+
+    const { error } = await admin.from('ugc_submissions').insert({
+      id: submissionId,
+      submitted_by_email: submittedByEmail,
+      submitted_by: submittedBy,
+      payload: toStoredPayload(payload),
+      poster_id: posterId,
+      poster_type: poster.type,
+      poster_width: poster.width,
+      poster_height: poster.height,
+    });
+    if (!error) return true;
+
+    const removed = await storage.remove([path]);
+    if (removed.error) console.error('[kiriman] poster yatim gagal dihapus:', path, removed.error);
+    if (isMissingColumnError(error)) return false;
+    throw submissionInsertFailure(error);
+  }
+
+  async getSubmissionPosterFile(_viewer: MediaViewer | null, submissionId: string): Promise<StoredFile | null> {
+    if (!isUuid(submissionId)) return null;
+    // Pembaca = sesi di cookie, diverifikasi PostgREST; tamu → tanpa baris.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('submission_poster_file', { p_submission: submissionId });
+    if (error && isMissingRelationError(error)) return null;
+    if (error) throw upstreamFailure('Gagal memuat poster kiriman.', error);
+    const row = rpcRows<{ path: string; content_type: string }>(data)[0];
+    return row ? downloadPrivateFile(PHOTO_BUCKET, row.path) : null;
   }
 
   async listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]> {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from('ugc_submissions')
-      .select('id, submitted_by_email, submitted_by, payload, status, created_at, rejection_reason')
-      .eq('status', status)
-      .order('created_at', { ascending: true })
-      .limit(limit)
-      .returns<SubmissionRow[]>();
-
+    const { data, error } = await selectSubmissions((columns) =>
+      createSupabaseAdminClient().from('ugc_submissions').select(columns).eq('status', status).order('created_at', { ascending: true }).limit(limit).returns<SubmissionRow[]>(),
+    );
     if (error) throw upstreamFailure('Gagal memuat kiriman komunitas.', error);
-    return data.map(toSubmission);
+    return (data ?? []).map(toSubmission);
   }
 
   // ------------------------------------------------------------------
@@ -957,17 +1001,11 @@ export class SupabaseEventRepository implements EventRepository {
     // (`ugc_admin_read`) — tabel itu juga memuat `reviewed_by`, identitas
     // moderator yang tidak perlu dibuka ke pengirim lewat policy baru.
     // Penyaringnya `userId` dari sesi server, dan kolomnya dipilih eksplisit.
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from('ugc_submissions')
-      .select('id, submitted_by_email, submitted_by, payload, status, created_at, rejection_reason')
-      .eq('submitted_by', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-      .returns<SubmissionRow[]>();
-
+    const { data, error } = await selectSubmissions((columns) =>
+      createSupabaseAdminClient().from('ugc_submissions').select(columns).eq('submitted_by', userId).order('created_at', { ascending: false }).limit(limit).returns<SubmissionRow[]>(),
+    );
     if (error) throw upstreamFailure('Gagal memuat kirimanmu.', error);
-    return data.map(toSubmission);
+    return (data ?? []).map(toSubmission);
   }
 
   async reviewSubmission({ submissionId, decision, reviewerId, reason }: ReviewSubmissionInput): Promise<void> {
@@ -985,6 +1023,7 @@ export class SupabaseEventRepository implements EventRepository {
 
       if (error) throw upstreamFailure('Gagal menolak kiriman.', error, 500);
       if (!data?.length) throw actionError('submission_not_found');
+      await this.discardSubmissionPoster(submissionId);
       return;
     }
 
@@ -1013,6 +1052,23 @@ export class SupabaseEventRepository implements EventRepository {
           throw upstreamFailure('Gagal menyetujui kiriman.', error, 500);
       }
     }
+  }
+
+  /**
+   * Kiriman yang ditolak tidak menyimpan posternya (ADR-084). Keputusannya
+   * sudah tersimpan saat ini dipanggil, jadi kegagalan di sini dicatat —
+   * bukan membatalkan penolakan yang sudah dikabarkan ke pengirim.
+   */
+  private async discardSubmissionPoster(submissionId: string): Promise<void> {
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.rpc('take_submission_poster', { p_submission: submissionId });
+    if (error) {
+      if (!isMissingRelationError(error)) console.error('[kiriman] poster kiriman ditolak gagal dilepas:', submissionId, error);
+      return;
+    }
+    if (typeof data !== 'string' || !data) return;
+    const removed = await admin.storage.from(PHOTO_BUCKET).remove([data]);
+    if (removed.error) console.error('[kiriman] berkas poster kiriman ditolak gagal dihapus:', data, removed.error);
   }
 
   async listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]> {
@@ -3005,7 +3061,7 @@ export class SupabaseEventRepository implements EventRepository {
     if (error) throw upstreamFailure('Gagal menyimpan banner.', error, 500);
   }
 
-  async getProfileMediaFile(_viewer: ProfileMediaViewer | null, fileId: string): Promise<StoredFile | null> {
+  async getProfileMediaFile(_viewer: MediaViewer | null, fileId: string): Promise<StoredFile | null> {
     if (!isProfileMediaId(fileId)) return null;
     // Pembaca = sesi di cookie, diverifikasi PostgREST; tamu → auth.uid() NULL → tanpa baris.
     const supabase = await createSupabaseServerClient();
@@ -3033,6 +3089,20 @@ export class SupabaseEventRepository implements EventRepository {
     const removed = await admin.storage.from(PROFILE_BUCKET).remove(paths);
     if (removed.error) console.error('[profil] berkas yang dicabut gagal dihapus:', paths, removed.error);
   }
+}
+
+const SUBMISSION_COLUMNS = 'id, submitted_by_email, submitted_by, payload, status, created_at, rejection_reason';
+
+/** Baca kiriman berikut kolom posternya; sebelum migration 20261112100001 kolom itu belum ada → baca tanpa poster. */
+async function selectSubmissions<T extends { error: unknown }>(run: (columns: string) => PromiseLike<T>): Promise<T> {
+  const result = await run(`${SUBMISSION_COLUMNS}, poster_id, poster_width, poster_height`);
+  return result.error && isMissingColumnError(result.error) ? run(SUBMISSION_COLUMNS) : result;
+}
+
+/** Trigger enforce_submission_rate_limit() (migration 0009) → kode batas laju; selebihnya galat hulu. */
+function submissionInsertFailure(error: { message: string }): Error {
+  if (sqlState(error) === 'P0001' && error.message.includes('submission_rate_limited')) return actionError('submission_rate_limited');
+  return upstreamFailure('Gagal mengirim kegiatan.', error, 500);
 }
 
 const ADMIN_USER_COLUMNS = 'id, email, full_name, role, created_at, suspended_at, suspension_reason';

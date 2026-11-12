@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { AppError } from '@/lib/errors';
+import type { UploadedImage } from '@/lib/image-file';
 import type { SubmissionPayload } from '@/types/domain';
 import { MemoryEventRepository } from './memory-repository';
+import type { MediaViewer } from './repository';
 
 function payload(overrides: Partial<SubmissionPayload> = {}): SubmissionPayload {
   return {
@@ -173,7 +175,7 @@ describe('MemoryEventRepository — batas laju kiriman', () => {
 
     await expect(
       repo.createSubmission({ submittedByEmail: 'lain@b.co', submittedBy: null, payload: payload() }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ posterAttached: false });
   });
 });
 
@@ -201,5 +203,64 @@ describe('MemoryEventRepository — kabar ke pengirim yang masuk (cermin trigger
 
     await repo.markNotificationAsRead(sender, approved!.id);
     expect(await repo.countUnreadNotifications(sender)).toBe(1);
+  });
+
+  describe('poster lampiran (ADR-084) — cermin supabase/tests/117_submission_poster.test.sql', () => {
+    const poster: UploadedImage = { type: 'image/png', width: 800, height: 1000, bytes: new Uint8Array(512).fill(9) };
+    const viewer = (id: string, isAdmin = false): MediaViewer => ({ id, isAdmin });
+
+    it('hanya pengirim yang masuk yang bisa melampirkan; tamu tetap terkirim tanpa poster', async () => {
+      const repo = new MemoryEventRepository();
+      expect(await repo.createSubmission({ submittedByEmail: 'tamu@b.co', submittedBy: null, payload: payload(), poster })).toEqual({ posterAttached: false });
+      expect(await repo.createSubmission({ submittedByEmail: 'ana@b.co', submittedBy: 'ana', payload: payload({ title: 'Lomba Kedua 2026' }), poster })).toEqual({ posterAttached: true });
+
+      const [guest, member] = await repo.listSubmissions('PENDING', 10);
+      expect(guest?.poster).toBeNull();
+      expect(member?.poster).toEqual({ width: 800, height: 1000 });
+    });
+
+    it('poster yang belum tayang hanya terbuka bagi moderator dan pengirimnya', async () => {
+      const repo = new MemoryEventRepository();
+      await repo.createSubmission({ submittedByEmail: 'ana@b.co', submittedBy: 'ana', payload: payload(), poster });
+      const id = await pendingId(repo);
+
+      expect((await repo.getSubmissionPosterFile(viewer('ana'), id))?.bytes[0]).toBe(9);
+      expect(await repo.getSubmissionPosterFile(viewer('admin', true), id)).not.toBeNull();
+      expect(await repo.getSubmissionPosterFile(viewer('budi'), id)).toBeNull();
+      expect(await repo.getSubmissionPosterFile(null, id)).toBeNull();
+      expect(await repo.getSubmissionPosterFile(viewer('admin', true), 'tidak-ada')).toBeNull();
+    });
+
+    it('disetujui: berkas yang sama menjadi poster acara dan lepas dari kirimannya', async () => {
+      const repo = new MemoryEventRepository();
+      await repo.createSubmission({ submittedByEmail: 'ana@b.co', submittedBy: 'ana', payload: payload(), poster });
+      const id = await pendingId(repo);
+      await repo.reviewSubmission({ submissionId: id, decision: 'APPROVED', reviewerId: 'admin' });
+
+      const listing = await repo.listEvents({ search: 'Poster Hari Lingkungan' });
+      const event = await repo.getEventBySlug(listing.items[0]!.slug);
+      expect(event?.poster).toMatchObject({ width: 800, height: 1000 });
+      expect(listing.items[0]?.poster?.id).toBe(event?.poster?.id);
+      const photos = await repo.listEventPhotos(event!.id);
+      expect(photos).toHaveLength(1);
+      expect(photos[0]).toMatchObject({ isPoster: true, width: 800, height: 1000 });
+      // Publik lewat rute foto acara; rute kiriman tidak lagi menyajikannya.
+      expect((await repo.getEventPhotoFile(photos[0]!.id))?.bytes[0]).toBe(9);
+      expect(await repo.getSubmissionPosterFile(viewer('ana'), id)).toBeNull();
+      expect((await repo.listSubmissions('APPROVED', 10))[0]?.poster).toBeNull();
+    });
+
+    it('ditolak: berkasnya dihapus, dan mengembalikan ke antrean tidak menghidupkannya lagi', async () => {
+      const repo = new MemoryEventRepository();
+      await repo.createSubmission({ submittedByEmail: 'ana@b.co', submittedBy: 'ana', payload: payload(), poster });
+      const id = await pendingId(repo);
+      await repo.reviewSubmission({ submissionId: id, decision: 'REJECTED', reviewerId: 'admin', reason: 'Poster memuat nomor rekening pribadi' });
+
+      expect(await repo.getSubmissionPosterFile(viewer('admin', true), id)).toBeNull();
+      expect((await repo.listSubmissions('REJECTED', 10))[0]?.poster).toBeNull();
+
+      await repo.restoreRejected({ subjectType: 'submission', subjectId: id, reviewerId: 'admin' });
+      expect((await repo.listSubmissions('PENDING', 10))[0]?.poster).toBeNull();
+    });
   });
 });

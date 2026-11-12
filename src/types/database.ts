@@ -208,6 +208,10 @@ export interface SubmissionRow {
   status: EventStatus;
   created_at: string;
   rejection_reason?: string | null;
+  /** Hanya ada setelah migration 20261112100001 (ADR-084). */
+  poster_id?: string | null;
+  poster_width?: number | null;
+  poster_height?: number | null;
 }
 
 /**

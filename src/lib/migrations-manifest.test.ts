@@ -26,4 +26,24 @@ describe('supabase/APPLIED_MIGRATIONS.txt', () => {
     const missing = applied.filter((line) => !files.includes(`${line.replace(' ', '_')}.sql`));
     expect(missing, `Produksi punya migration yang tidak ada di cabang ini: ${missing.join(', ')}`).toEqual([]);
   });
+
+  /**
+   * Migration yang BELUM diterapkan akan dipasang lewat Supabase MCP, yang
+   * meminta konfirmasi pemilik untuk perintah destruktif dan bisa habis waktu
+   * (CLAUDE.md). Pakai ALTER … ADD / CREATE OR REPLACE; kalau DROP memang
+   * tidak terhindarkan, itu keputusan yang harus dibicarakan — bukan lolos diam-diam.
+   */
+  it('migration yang belum diterapkan tidak memuat perintah hapus (DROP/TRUNCATE)', () => {
+    const appliedFiles = new Set(applied.map((line) => `${line.replace(' ', '_')}.sql`));
+    const destructive = files
+      .filter((name) => !appliedFiles.has(name))
+      .filter((name) => {
+        const statements = readFileSync(new URL(`migrations/${name}`, root), 'utf8')
+          .split('\n')
+          .filter((line) => !line.trimStart().startsWith('--'))
+          .join('\n');
+        return /\b(DROP|TRUNCATE)\b/i.test(statements);
+      });
+    expect(destructive, `Migration baru memuat DROP/TRUNCATE: ${destructive.join(', ')}`).toEqual([]);
+  });
 });

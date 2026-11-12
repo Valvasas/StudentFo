@@ -78,14 +78,6 @@ describe('gambar profil — kode dan SQL sepakat (migration 20261110100001)', ()
     expect(PROFILE_MEDIA_LIMITS.avatar.maxBytes).toBeLessThanOrEqual(PROFILE_MEDIA_LIMITS.banner.maxBytes);
   });
 
-  it('tanpa perintah hapus: penerapan lewat Supabase MCP tidak meminta konfirmasi destruktif', () => {
-    const statements = MIGRATION.split('\n')
-      .filter((line) => !line.trimStart().startsWith('--'))
-      .join('\n');
-    expect(statements).not.toMatch(/\b(DROP|TRUNCATE)\b/i);
-    expect(statements).not.toMatch(/\bDELETE\s+FROM\b/i);
-  });
-
   it('fungsi baru tertutup bagi anon; hanya yang perlu dibuka untuk authenticated', () => {
     for (const fn of ['set_profile_media', 'clear_profile_media', 'public_profile_media', 'profile_media_file', 'admin_clear_profile_media', 'profile_media_path']) {
       expect(MIGRATION).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${fn}\\([^)]*\\) FROM PUBLIC, anon, authenticated;`));
