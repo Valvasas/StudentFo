@@ -12,6 +12,62 @@ terdokumentasi.
 
 ---
 
+## ADR-084 — Poster dilampirkan saat mengirim kegiatan: kolom di kiriman yang hanya ditulis server, berkas yang sama jadi poster acara
+
+**Konteks:** Pemilik meminta menu untuk menambah gambar/video poster ketika
+penyelenggara atau admin mengirim kegiatan. Video sudah bisa (tautan
+YouTube/Vimeo di `/submit`, ADR-079) tetapi tersembunyi di lipatan "detail
+tambahan"; poster baru bisa dipasang SETELAH acaranya tayang (studio/admin) —
+acara baru tampil tanpa gambar tepat di hari-hari pertamanya.
+
+**Keputusan:**
+1. **Langkah "Media kegiatan" di `/submit`** (poster + video), di luar lipatan.
+2. **Poster hanya untuk pengirim yang masuk.** Tamu tetap boleh mengirim
+   (kualitas dijaga antrean moderasi, bukan gerbang login) tetapi tidak
+   menitipkan berkas: unggahan anonim = penyimpanan gratis untuk siapa pun dan
+   gambar tanpa penanggung jawab. Penyelenggara & admin — yang diminta pemilik
+   — selalu masuk.
+3. **Empat kolom `poster_*` di `ugc_submissions`, tanpa hak INSERT untuk
+   klien.** Server menulisnya (klien admin) setelah byte berkas diperiksa &
+   EXIF dibuang. Payload JSON sengaja TIDAK dipakai: ia bisa ditulis siapa pun
+   lewat PostgREST, dan referensi berkas di dalamnya tidak boleh dipercaya
+   `approve_submission()`.
+4. **Tidak ada penyalinan berkas.** Berkas disimpan di bucket `event-photos`
+   pada `<id kiriman>/<id poster>.<ext>` — lolos CHECK
+   `event_photos.storage_path` — sehingga persetujuan cukup MENAMBAH baris
+   `event_photos (is_poster)` di transaksi yang sama: tidak ada jendela "acara
+   tayang tapi posternya belum ikut". Kolom kiriman lalu dikosongkan
+   (kolom terisi = berkas masih milik kiriman).
+5. **Ditolak = dihapus** (`take_submission_poster()` mengembalikan path untuk
+   dihapus dari Storage; kiriman PENDING tidak bisa dilepas). Gambar yang
+   ditolak tidak disimpan; "Kembalikan ke antrean" memulihkan kirimannya tanpa
+   poster — poster bisa ditambah lagi dari studio/admin setelah tayang.
+6. **Poster yang belum tayang** disajikan `/media/kiriman/[id]` (`no-store`)
+   hanya untuk moderator ber-MFA dan pengirimnya (`submission_poster_file()`,
+   sesi pembaca). Kartu antrean menampilkannya cukup besar untuk dinilai —
+   gambar ini tayang publik begitu disetujui.
+7. **Isian form tidak hilang saat server menolak**: `FieldMemory` (dulu hanya
+   form daftar, kolom teks) pindah ke `components/ui` dan menerima `choices` —
+   daftar EKSPLISIT kelompok kotak centang/radio yang ikut dipulihkan. Bukan
+   "semua kotak centang": persetujuan di form akun tidak boleh tercentang
+   sendiri. Berkas tidak bisa dipulihkan (larangan peramban).
+
+**Konsekuensi:** Migration `20261112100001_submission_poster` (hanya
+ADD/CREATE OR REPLACE). Aman urutan deploy: kolom belum ada → kiriman
+tersimpan tanpa poster dan pengirim diberi tahu
+(`submission_received_poster_skipped`); daftar kiriman dibaca dengan kolom
+lama. `createSubmission()` kini mengembalikan `{ posterAttached }`.
+`migrations-manifest.test.ts` menolak DROP/TRUNCATE di migration yang belum
+diterapkan.
+
+**Ditolak:** referensi poster di payload (lihat #3); bucket/tabel "media
+kiriman" terpisah (penyalinan berkas saat disetujui + dua jalur moderasi);
+menyimpan poster kiriman yang ditolak sampai retensi (menumpuk gambar yang
+justru sudah dinilai tidak layak); mewajibkan login untuk seluruh `/submit`
+(penyelenggara yang belum punya akun kehilangan jalur termudah memberi info).
+
+---
+
 ## ADR-083 — Foto profil & banner kartu profil: berkas privat ber-RPC, banner bawaan dari token, bisa dicabut moderator
 
 **Konteks:** Pemilik meminta kustomisasi profil — foto profil dan banner
