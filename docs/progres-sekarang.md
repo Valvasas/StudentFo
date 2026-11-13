@@ -13,7 +13,7 @@
 | Hal | Keadaan |
 |---|---|
 | `main` | `b48d0e9` — PR #29 (ADR-079–088) dan #30 (menu melayang ADR-089) di-merge pemilik 13 Nov; deploy produksi READY. CI push `main` hijau setelah satu rerun (unduhan Google Fonts saat build) |
-| Cabang kerja | `claude/brave-cray-xsqigf` = `main` + commit dokumen ini (hanya dokumen) |
+| Cabang kerja | `claude/brave-cray-xsqigf` = `main` + dokumen ini + ADR-090 (klik "Daftar" → Papan lamaran) — PR Valvasas/StudentFo#31 |
 | Tes terakhir (13 Nov) | `verify` 1.085 · `db:test` semua · integrasi PostgREST 113 (+5 butuh GoTrue/Storage sungguhan) · Playwright seed penuh 1.021 lulus / 18 gagal → 3 akar masalah tes diperbaiki, rerun spec terdampak 79/79 + `event-gate` setelah data dimutasi 21/21 |
 
 ## 2. Keadaan database & hosting (dicek langsung 13 Nov)
@@ -21,7 +21,8 @@
 | Hal | Keadaan |
 |---|---|
 | Migration produksi & staging | **51** di keduanya (13 Nov, atas persetujuan pemilik): `event_media`, `profile_media`, `submission_poster`, `community` sudah diterapkan; sidik skema identik lokal = staging = produksi |
-| Supabase produksi `urmmihzjkkbxcwfzvuao` | **1 akun** (pemilik, ADMIN, email terkonfirmasi; MFA belum), **8 acara PENDING** di-stage Claude 13 Nov malam (§5 E), 0 tayang; ekstensi `http` masih ada |
+| Supabase produksi `urmmihzjkkbxcwfzvuao` | **1 akun** (pemilik, ADMIN, email terkonfirmasi, MFA TOTP ✅), 8 acara di-stage Claude 13 Nov malam (§5 E): **1 tayang** (Yenching, disetujui 22.49 WIB), 7 PENDING; ekstensi `http` masih ada |
+| SMTP Auth | Dipasang pemilik 13 Nov dengan Gmail khusus, tetapi **ditolak Gmail**: log Auth 22.47 WIB `535 5.7.8 Username and Password not accepted` (BadCredentials) → belum ada email Auth yang terkirim (§5, butir 2) |
 | Region | Supabase `ap-southeast-1` + fungsi Vercel `sin1` — klaim "Singapura" di kebijakan privasi akurat |
 | Job terjadwal | **pg_cron 7 job aktif, 0 gagal** (kedaluwarsa acara, notifikasi tenggat, pembersihan data). GitHub: *Scraper* gagal tiap hari (secret `PIPELINE_SOURCES_YAML` kosong); *Ops watchdog* & *Send deadline emails* **hijau palsu** — log: "secret belum diisi — dilewati" |
 | Domain | `studentfo.com` **masih tersedia** (US$12,03/thn di Vercel), sudah terpasang di project tapi belum dimiliki → "misconfigured" |
@@ -113,7 +114,7 @@ Yang ditunda adalah *mengumumkan* situs (lihat "Sebelum diumumkan").
 ### Bisa dari HP sekarang (pemilik)
 
 1. **MFA admin** di `/admin/mfa` — di ponsel, tombol "Buka di aplikasi autentikator" langsung membuka aplikasinya. Pakai autentikator yang punya cadangan/sinkron akun: HP hilang tanpa cadangan = akses admin hilang. Tanpa MFA, `/admin` menolak sesi (`checkAdminAccess` → `mfa-required`).
-2. **SMTP Gmail sementara:** sandi aplikasi di `myaccount.google.com/apppasswords` (butuh Verifikasi 2 Langkah) → Supabase → Authentication → Emails → SMTP Settings: `smtp.gmail.com`, port 465, username & sender = alamat Gmail, nama `StudentFo`. Tanpa SMTP sendiri, email bawaan Supabase hanya terkirim ke anggota tim project — orang lain tidak bisa mendaftar.
+2. **SMTP Gmail sementara:** sandi aplikasi di `myaccount.google.com/apppasswords` (butuh Verifikasi 2 Langkah) → Supabase → Authentication → Emails → SMTP Settings: `smtp.gmail.com`, port 465, username & sender = alamat Gmail, nama `StudentFo`. Tanpa SMTP sendiri, email bawaan Supabase hanya terkirim ke anggota tim project — orang lain tidak bisa mendaftar. **Status 13 Nov 22.47: ditolak Gmail (`535 BadCredentials`).** Penyebab yang lazim: sandi akun biasa dipakai alih-alih sandi aplikasi, sandi aplikasi diketik dengan spasi, atau username bukan alamat lengkap. Halaman lupa sandi sengaja seragam (ADR-011), jadi kegagalan ini hanya terlihat di log Auth (`auth_logs`, cari `535`).
 3. **Tinjau & setujui 8 acara PENDING** di `/admin` (daftar di E).
 4. (Opsional) **Beli `studentfo.com`** di Vercel → Domains (sudah terpasang di project, DNS otomatis).
 

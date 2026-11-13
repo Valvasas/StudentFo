@@ -397,6 +397,12 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Klik "Daftar" → Papan lamaran 2026-11-13 (@claude) — ADR-090
+
+- [x] Klik "Daftar" (langsung atau lewat pendataan kinerja) sama dengan "Simpan ke Tracker": masuk simpanan dan Papan lamaran sebagai "Disimpan" bila belum dilacak. Tidak pernah menaikkan ke "Sudah Daftar" dan tidak menurunkan tahap yang sudah maju
+- [x] Gagal menambah tidak menahan pengalihan ke tautan resmi
+- [ ] Opsional, setelah ada data beta: kartu yang berasal dari klik "Daftar" menampilkan ajakan "Sudah selesai daftar? Tandai Sudah Daftar". Butuh kolom asal di `application_tracker`
+
 ## UX ponsel: menu melayang, panel header, gangguan kecil 2026-11-13 (@claude) — ADR-089
 
 - [x] Panel notifikasi di ponsel tidak lagi terpotong: dulu −100px di kiri & 87px di bawah layar pada 320px. Kini menjangkar ke header, selebar layar, tinggi = sisa layar, bisa digulir
