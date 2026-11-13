@@ -397,6 +397,20 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Audit menyeluruh 2026-11-14 (@claude) — `docs/audit-menyeluruh.md`
+
+- [x] KRITIS: `next`/`eslint-config-next` 15.5.29 (RCE Image Optimization GHSA-2464-fhr4-w9xw, DoS Server Actions GHSA-p3m5-59mp-jv5r, cache poisoning) + `sharp` 0.35.5 (librsvg)
+- [x] Toggle tanpa status pending: "Hapus dari tersimpan" & "Ciutkan menu akun" → `SubmitButton` (ketuk ganda membalik aksi). "Simpan profil" & "Ya, tolak" diberi status pending
+- [x] Area ketuk judul `/lobi` ≥ 24px (WCAG 2.5.8); panel lonceng memakai `pop` seperti menu akun
+- [ ] `zod` 4 (GHSA-mrhx-c7xc-m3w5, breaking). Sementara: batasi jumlah elemen `formData.getAll()` sebelum parse (§3 S2)
+- [ ] `source-map-js` (lewat `@tailwindcss/postcss`, hanya saat build) — naik bersama rilis Tailwind berikutnya
+- [ ] `team_member_profiles` tanpa filter: semua nama anggota tim bisa ditarik sekaligus lewat REST (§3 S4)
+- [ ] Indeks FK jalur panas: `application_tracker.event_id`, `notifications.event_id`, `recommendation_signals.user_id`, `outbound_surveys.event_id` (§3 P1) — staging dulu, produksi atas persetujuan
+- [ ] Tombol "Kirim email uji" khusus admin — insiden SMTP `535` 13 Nov tidak terlihat dari aplikasi (§1 F5)
+- [ ] Sisa tombol mentah di form idempoten → `SubmitButton` (§1 F3)
+- [ ] Satukan "Tersimpan" & "Papan lamaran" dalam satu rumah (§2 D3)
+- [ ] Fitur: aksi massal moderasi, peringatan acara baru sesuai filter, langganan kalender pribadi, analitik tanpa cookie (§4)
+
 ## Klik "Daftar" → Papan lamaran 2026-11-13 (@claude) — ADR-090
 
 - [x] Klik "Daftar" (langsung atau lewat pendataan kinerja) sama dengan "Simpan ke Tracker": masuk simpanan dan Papan lamaran sebagai "Disimpan" bila belum dilacak. Tidak pernah menaikkan ke "Sudah Daftar" dan tidak menurunkan tahap yang sudah maju

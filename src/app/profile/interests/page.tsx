@@ -8,6 +8,7 @@ import { CategoryIcon } from '@/components/listing/category-icon';
 import { DemoRolePicker } from '@/components/profile/demo-role-picker';
 import { BackLink } from '@/components/ui/back-link';
 import { SelectInput } from '@/components/ui/field';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { PROFILE_EDIT_ORIGINS } from '@/lib/account-sidebar';
 import { requireUser } from '@/lib/auth';
@@ -174,13 +175,13 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
           )}
 
           <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Menyimpan…"
               className="flex h-12 items-center gap-2 rounded-card bg-brand px-5 text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
             >
               <Save aria-hidden className="size-4" />
               Simpan profil
-            </button>
+            </SubmitButton>
             <span className="text-[13px] text-ink-muted">Rekomendasi di samping ikut berubah setelah disimpan.</span>
           </div>
         </form>

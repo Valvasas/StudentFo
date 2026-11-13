@@ -24,7 +24,10 @@ function LobbyRow({ lobby, now }: { lobby: LobbySummary; now: Date }) {
   return (
     <li className="flex flex-col gap-3 rounded-[18px] border border-line bg-panel p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-col gap-1.5">
-        <Link href={`/lobi/${lobby.event.slug}`} className="text-[16.5px] font-semibold leading-snug underline-offset-[3px] hover:underline">
+        <Link
+          href={`/lobi/${lobby.event.slug}`}
+          className="relative text-[16.5px] font-semibold leading-snug underline-offset-[3px] after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] hover:underline"
+        >
           {lobby.event.title}
         </Link>
         <p className="text-[13.5px] text-ink-muted">{lobby.event.organizer}</p>

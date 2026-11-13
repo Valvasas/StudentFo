@@ -140,7 +140,7 @@ export async function NotificationMenu() {
           layar. Dulu diratakan kanan ke lonceng yang bukan di tepi layar, jadi
           di 320px 100px panelnya terpotong di kiri dan ujung bawahnya di luar
           layar tanpa bisa digulir. `--popover-max` diisi PopoverDismiss. */}
-      <div className="absolute inset-x-3 top-full z-50 mt-2 max-h-[var(--popover-max,calc(100dvh-100%-1.5rem))] overflow-y-auto overscroll-contain rounded-card border border-line bg-panel p-2 shadow-overlay sm:inset-x-auto sm:right-0 sm:w-80">
+      <div className="pop absolute inset-x-3 top-full z-50 mt-2 max-h-[var(--popover-max,calc(100dvh-100%-1.5rem))] overflow-y-auto overscroll-contain rounded-card border border-line bg-panel p-2 shadow-overlay sm:inset-x-auto sm:right-0 sm:w-80">
         <div className="flex items-baseline justify-between gap-2 border-b border-line px-3 pb-2 pt-1">
           <p className="text-sm font-medium">Notifikasi</p>
           <p className="text-xs text-ink-muted">
