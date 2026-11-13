@@ -7,7 +7,7 @@ import { controlClass } from '@/components/ui/field';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { NETWORK_LIMITS, type NetworkViewer } from '@/lib/network';
 import { cn } from '@/lib/utils';
-import type { NetworkProfile } from '@/types/domain';
+import type { NetworkProfile, ProfileMedia } from '@/types/domain';
 import { SuggestionCard } from './person-cards';
 
 /**
@@ -28,11 +28,13 @@ export function NetworkSettingsForm({
   profile,
   categoryNames,
   returnTo,
+  look = null,
 }: {
   viewer: NetworkViewer;
   profile: NetworkProfile;
   categoryNames: Readonly<Record<string, string>>;
   returnTo: string;
+  look?: ProfileMedia | null;
 }) {
   const [discoverable, setDiscoverable] = useState(profile.discoverable);
   const [headline, setHeadline] = useState(profile.headline ?? '');
@@ -141,6 +143,7 @@ export function NetworkSettingsForm({
               viewerInterests={[]}
               categoryName={(slug) => categoryNames[slug] ?? slug}
               returnTo={returnTo}
+              look={look}
               preview
             />
           </div>

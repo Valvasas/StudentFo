@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { BadgeCheck, Bookmark, MessageCircle, ShieldCheck, Users } from 'lucide-react';
+import { BadgeCheck, Bookmark, MessageCircle, MessagesSquare, ShieldCheck, Users } from 'lucide-react';
 import { DemoUnreadCount } from '@/components/demo/unread-count';
 import { loadAccountBadges, loadAccountRole } from '@/components/home/account-role';
 import { AccountMenu } from '@/components/layout/account-menu';
@@ -102,6 +102,14 @@ export async function Navbar() {
                 className="hidden size-11 items-center justify-center rounded-sm text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested aria-[current=page]:bg-panel-nested sm:flex"
               >
                 <Users aria-hidden className="size-[18px]" />
+              </Link>
+              <Link
+                href="/komunitas"
+                aria-label="Komunitas"
+                aria-current={requestUrl.pathname.startsWith('/komunitas') ? 'page' : undefined}
+                className="hidden size-11 items-center justify-center rounded-sm text-ink transition-colors duration-150 ease-snap hover:bg-panel-nested aria-[current=page]:bg-panel-nested sm:flex"
+              >
+                <MessagesSquare aria-hidden className="size-[18px]" />
               </Link>
               <NotificationMenu />
               {workspace ? (

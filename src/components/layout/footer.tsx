@@ -6,6 +6,7 @@ const FOOTER_LINKS = [
   { href: '/#verifikasi', label: 'Cara verifikasi' },
   { href: '/events', label: 'Semua kegiatan' },
   { href: '/connections', label: 'Koneksi' },
+  { href: '/komunitas', label: 'Komunitas' },
   { href: '/penyelenggara', label: 'Untuk penyelenggara' },
 ] as const;
 

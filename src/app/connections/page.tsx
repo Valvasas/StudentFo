@@ -6,6 +6,7 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { NetworkGraphView } from '@/components/network/network-graph';
 import { HiddenProfileBanner, NetworkSettings } from '@/components/network/network-settings';
 import { BlockedRow, ConnectionRow, IncomingRequestCard, OutgoingRow, SuggestionCard } from '@/components/network/person-cards';
+import { loadProfileMedia } from '@/components/profile/profile-media-loader';
 import { ConnectSketch } from '@/components/ui/feature-illustrations';
 import { ScrollRail } from '@/components/ui/scroll-rail';
 import { SelectInput } from '@/components/ui/field';
@@ -216,6 +217,7 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
     return profile ? presentStudyProfile(profile) : null;
   };
   const incoming = incomingPage?.items ?? [];
+  const looks = await loadProfileMedia(user.id, [...shown.map((item) => item.person.userId), ...incoming.map((item) => item.person.userId)]);
   const mine = categories.filter((category) => user.interests.includes(category.slug));
   const others = categories.filter((category) => !user.interests.includes(category.slug));
 
@@ -234,7 +236,14 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
           <ul className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))]">
             {incoming.map((connection, index) => (
               <li key={connection.id} className="rise" style={{ '--i': index } as CSSProperties}>
-                <IncomingRequestCard connection={connection} categoryName={categoryName} viewerInterests={user.interests} returnTo={returnTo} now={now} />
+                <IncomingRequestCard
+                  connection={connection}
+                  categoryName={categoryName}
+                  viewerInterests={user.interests}
+                  returnTo={returnTo}
+                  now={now}
+                  photo={looks.get(connection.person.userId)?.avatarId}
+                />
               </li>
             ))}
           </ul>
@@ -326,6 +335,7 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
                     categoryName={categoryName}
                     returnTo={returnTo}
                     study={studyOf(suggestion.person.userId)}
+                    look={looks.get(suggestion.person.userId)}
                   />
                 </li>
               ))}
@@ -363,6 +373,7 @@ async function ConnectionsTab({ user, repository, params, counts, now }: TabCont
   const returnTo = tabHref('koneksi', { ...base, ...(cursor ? { setelah: cursor } : {}) });
   const page = counts.accepted > 0 ? await repository.listConnections(user.id, { limit: LIST_PAGE_SIZE, cursor, kind: 'accepted', search }) : null;
   const items = page?.items ?? [];
+  const looks = await loadProfileMedia(user.id, items.map((item) => item.person.userId));
 
   return (
     <section aria-labelledby="koneksimu" className="flex max-w-3xl flex-col gap-5">
@@ -406,7 +417,7 @@ async function ConnectionsTab({ user, repository, params, counts, now }: TabCont
           ) : (
             <ul className="flex flex-col divide-y divide-line rounded-[22px] border border-line bg-panel p-2">
               {items.map((connection) => (
-                <ConnectionRow key={connection.id} connection={connection} returnTo={returnTo} now={now} />
+                <ConnectionRow key={connection.id} connection={connection} returnTo={returnTo} now={now} photo={looks.get(connection.person.userId)?.avatarId} />
               ))}
             </ul>
           )}
@@ -431,6 +442,7 @@ async function InvitationsTab({ user, repository, params, categoryName, counts, 
     cursor,
     kind: direction === 'masuk' ? 'incoming' : 'outgoing',
   });
+  const looks = await loadProfileMedia(user.id, page.items.map((item) => item.person.userId));
 
   return (
     <div className="flex flex-col gap-6">
@@ -469,7 +481,14 @@ async function InvitationsTab({ user, repository, params, categoryName, counts, 
               <ul className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))]">
                 {page.items.map((connection, index) => (
                   <li key={connection.id} className="rise" style={{ '--i': index } as CSSProperties}>
-                    <IncomingRequestCard connection={connection} categoryName={categoryName} viewerInterests={user.interests} returnTo={returnTo} now={now} />
+                    <IncomingRequestCard
+                      connection={connection}
+                      categoryName={categoryName}
+                      viewerInterests={user.interests}
+                      returnTo={returnTo}
+                      now={now}
+                      photo={looks.get(connection.person.userId)?.avatarId}
+                    />
                   </li>
                 ))}
               </ul>
@@ -486,7 +505,7 @@ async function InvitationsTab({ user, repository, params, categoryName, counts, 
           ) : (
             <ul className="flex flex-col divide-y divide-line rounded-[22px] border border-line bg-panel p-2">
               {page.items.map((connection) => (
-                <OutgoingRow key={connection.id} connection={connection} returnTo={returnTo} now={now} />
+                <OutgoingRow key={connection.id} connection={connection} returnTo={returnTo} now={now} photo={looks.get(connection.person.userId)?.avatarId} />
               ))}
             </ul>
           )}
@@ -547,7 +566,7 @@ async function SettingsTab({ user, repository, categoryName, now }: TabContext) 
 
   return (
     <div className="flex max-w-3xl flex-col gap-5">
-      <NetworkSettings viewer={user} profile={profile} categoryName={categoryName} returnTo={returnTo} />
+      <NetworkSettings viewer={user} profile={profile} categoryName={categoryName} returnTo={returnTo} look={user.profileMedia} />
 
       <section id="diblokir" aria-labelledby="diblokir-title" className="scroll-mt-28 overflow-hidden rounded-[24px] border border-line bg-panel">
         <div className="flex items-start gap-3.5 p-5 sm:p-6">

@@ -4,6 +4,7 @@ import type {
   EducationLevel,
   EventStatus,
   EventType,
+  ProfileMedia,
   RegistrationStatus,
   TeamSkillSlug,
   TrackerStatus,
@@ -597,6 +598,24 @@ export const SEED_IDENTITIES: readonly (readonly [string, { username: string | n
   ['seed-user-4', { username: 'salsabila.putri', bio: 'Riset pengguna, desain layanan, dan sedikit ilustrasi.', visibility: 'MEMBERS' }],
   ['seed-user-9', { username: 'arif.setiawan', bio: 'Flutter developer. Juara 2 lomba aplikasi tingkat provinsi.', visibility: 'MEMBERS' }],
   ['seed-user-14', { username: 'putri.ayu', bio: null, visibility: 'NETWORK' }],
+];
+
+/**
+ * Banner bawaan orang contoh (ADR-083) supaya kartu Koneksi & pencocokan tim
+ * di mode demo tidak seragam. Foto profil sengaja tidak di-seed: "foto"
+ * buatan kode di samping nama orang fiktif terbaca palsu; inisial bertint
+ * tetap wajah bawaan.
+ */
+export const SEED_PROFILE_MEDIA: readonly (readonly [string, ProfileMedia])[] = [
+  ['seed-user-1', { avatarId: null, bannerId: null, bannerPreset: 'matahari' }],
+  ['seed-user-2', { avatarId: null, bannerId: null, bannerPreset: 'kotak' }],
+  ['seed-user-3', { avatarId: null, bannerId: null, bannerPreset: 'ombak' }],
+  ['seed-user-4', { avatarId: null, bannerId: null, bannerPreset: 'daun' }],
+  ['seed-user-5', { avatarId: null, bannerId: null, bannerPreset: 'senja' }],
+  ['seed-user-7', { avatarId: null, bannerId: null, bannerPreset: 'bintang' }],
+  ['seed-user-9', { avatarId: null, bannerId: null, bannerPreset: 'stabilo' }],
+  // Profil "hanya koneksi": bannernya tidak boleh terlihat orang asing.
+  ['seed-user-14', { avatarId: null, bannerId: null, bannerPreset: 'bintang' }],
 ];
 
 export interface SeedSeeker {

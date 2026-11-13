@@ -369,6 +369,12 @@
     line-height: var(--leading-body);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Judul, nama penyelenggara, dan isi buatan pengguna bisa memuat satu "kata" selebar layar
+       (tagar, URL, singkatan berantai) — tanpa ini seluruh halaman bergeser horizontal di ponsel.
+       `break-word`, bukan `anywhere`: hanya memecah kata yang tidak muat di barisnya sendiri dan
+       tidak mengubah ukuran min-content, jadi chip pendek di baris flex tidak ikut terbelah.
+       Item flex/grid berisi teks pengguna tetap butuh `min-w-0` (tests/e2e/extreme-content.spec.ts). */
+    overflow-wrap: break-word;
   }
 
   h1, h2, h3, h4 {
@@ -1341,4 +1347,70 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 @utility tour-progress {
   transform-origin: left center;
   animation: sf-tour-progress var(--dur, 5200ms) linear both;
+}
+
+/* =====================================================================
+   13. LENCANA (ADR-082)
+   Semua gerak di sini menempel pada medali — hiasan `aria-hidden` di dalam
+   kartu, bukan target klik. Keadaan AKHIR tiap animasi = gambar diam yang
+   utuh, jadi aturan reduced-motion global (§3) cukup untuk mematikannya.
+   ===================================================================== */
+
+/* Medali yang sudah diraih "dicap" ke kartunya; bertahap per kartu (`--i`). */
+@keyframes sf-medal-in {
+  0% { opacity: 0; transform: scale(0.6) rotate(-14deg); }
+  60% { opacity: 1; transform: scale(1.08) rotate(3deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+@utility medal-in {
+  animation: sf-medal-in 560ms var(--easing-spring) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 140ms);
+}
+
+/* Pita berayun pelan dari pangkalnya (y=86 di kotak pandang medali). */
+@keyframes sf-ribbon-sway {
+  from { transform: rotate(-1.6deg); }
+  to { transform: rotate(1.6deg); }
+}
+
+@utility ribbon-sway {
+  transform-box: view-box;
+  transform-origin: 60px 86px;
+  animation: sf-ribbon-sway 3.2s ease-in-out infinite alternate;
+}
+
+/* Kilap enamel berkeliling tepi cakram satu putaran, lalu diam lama di
+   tempat semula (lingkaran ber-pathLength 100, lihat `Glint`). */
+@keyframes sf-medal-glint {
+  0%, 72% { stroke-dashoffset: -56; }
+  100% { stroke-dashoffset: -156; }
+}
+
+@utility medal-glint {
+  animation: sf-medal-glint 6.5s var(--easing) infinite;
+  animation-delay: calc(var(--i, 0) * 420ms + 1.2s);
+}
+
+/* Goyang kecil saat kartunya disorot — dipasang lewat `group-hover:`. */
+@keyframes sf-medal-wiggle {
+  0%, 100% { transform: none; }
+  25% { transform: rotate(-7deg); }
+  60% { transform: rotate(5deg); }
+  82% { transform: rotate(-2deg); }
+}
+
+@utility medal-wiggle {
+  animation: sf-medal-wiggle 620ms var(--easing) both;
+}
+
+/* Cincin sorot di belakang medali yang baru diraih: dua denyut, lalu hilang. */
+@keyframes sf-medal-halo {
+  0% { opacity: 0.55; transform: scale(0.72); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+@utility medal-halo {
+  animation: sf-medal-halo 1.5s var(--easing-enter) 2 both;
+  animation-delay: calc(var(--i, 0) * 70ms + 520ms);
 }

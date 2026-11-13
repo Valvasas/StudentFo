@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BADGES,
+  EARLY_BIRD_DAYS,
+  FOUNDING_MEMBER_UNTIL,
   evaluateBadges,
   isFreshBadge,
+  monthlyStreak,
   nearestBadgeGoal,
   settleRegistrations,
   summarizeBadges,
@@ -184,8 +188,10 @@ describe('Kontributor & lencana penyelenggara', () => {
 describe('ringkasan', () => {
   it('summarizeBadges menjumlah tingkat', () => {
     const progress = evaluateBadges(facts({ registrations: [lomba('a'), lomba('b'), lomba('c')], approvedSubmissions: 1 }), NOW);
-    // Lomba tingkat 2 + Kontributor tingkat 1; tiga lomba tetap satu jenis, jadi Penjelajah belum.
-    expect(summarizeBadges(progress)).toEqual({ earned: 2, tiersEarned: 3, tiersTotal: 12 });
+    // Lomba tingkat 2 + Kontributor tingkat 1 + Gerak Cepat tingkat 1 (ketiganya terkonfirmasi 10 hari
+    // sebelum tutup); tiga lomba tetap satu jenis & satu bulan, jadi Penjelajah dan Konsisten belum.
+    // Sembilan lencana peserta × 3 tingkat; Angkatan Perintis tidak ikut tanpa tanggal bergabung.
+    expect(summarizeBadges(progress)).toEqual({ earned: 3, tiersEarned: 4, tiersTotal: 27 });
   });
 
   it('"Baru" hanya untuk tingkat yang tercapai ≤ 7 hari dan punya tanggal', () => {
@@ -206,5 +212,147 @@ describe('ringkasan', () => {
     // Lomba: 2 → 3 (sisa 1); Penjelajah: 2 jenis → 3 (sisa 1, kalah urutan); Pembelajar: 1 → 5.
     expect(nearestBadgeGoal(progress)?.definition.key).toBe('kompetitor');
     expect(nearestBadgeGoal([])).toBeNull();
+  });
+
+  it('target terdekat mendahulukan lencana yang sudah dimulai daripada yang belum disentuh', () => {
+    // Satu workshop + satu beasiswa: Penjelajah 2 dari 3 (sisa 1) menang atas
+    // lencana lomba 0 dari 1 (sisa 1 juga, tapi belum dimulai).
+    const progress = evaluateBadges(facts({ registrations: [lomba('w', { eventType: 'WORKSHOP' }), lomba('b', { eventType: 'BEASISWA' })] }), NOW);
+    expect(nearestBadgeGoal(progress)?.definition.key).toBe('penjelajah');
+  });
+});
+
+describe('ragam lencana (ADR-082) — sudut pandang baru atas catatan yang sama', () => {
+  it('beasiswa, magang, dan volunteer punya lencananya sendiri dan tidak dihitung sebagai lomba', () => {
+    const input = facts({
+      registrations: [
+        lomba('b1', { eventType: 'BEASISWA' }),
+        lomba('b2', { eventType: 'BEASISWA' }),
+        lomba('b3', { eventType: 'BEASISWA' }),
+        lomba('m1', { eventType: 'MAGANG' }),
+        lomba('v1', { eventType: 'VOLUNTEER' }),
+      ],
+    });
+    expect(badge(input, 'pemburu-beasiswa')).toMatchObject({ count: 3, tier: 2 });
+    expect(badge(input, 'pemburu-beasiswa').current?.title).toBe('Pejuang Beasiswa');
+    expect(badge(input, 'perintis-karier')).toMatchObject({ count: 1, tier: 1 });
+    expect(badge(input, 'relawan')).toMatchObject({ count: 1, tier: 1 });
+    expect(badge(input, 'kompetitor').count).toBe(0);
+    expect(badge(input, 'pembelajar').count).toBe(0);
+  });
+
+  it('lencana per jenis mengikuti aturan "jadi" yang sama: batal, belum ditutup, dan acara sendiri tidak dihitung', () => {
+    const open = { eventStatus: 'APPROVED' as const, deadlineAt: new Date(NOW.getTime() + 2 * 86_400_000).toISOString() };
+    const result = badge(
+      facts({
+        registrations: [
+          lomba('b1', { eventType: 'BEASISWA', status: 'CANCELLED' }),
+          lomba('b2', { eventType: 'BEASISWA', ...open }),
+          lomba('mine', { eventType: 'BEASISWA' }),
+        ],
+        managedEventIds: ['mine'],
+      }),
+      'pemburu-beasiswa',
+    );
+    expect(result).toMatchObject({ count: 0, tier: 0, pending: 1 });
+  });
+
+  it(`Gerak Cepat: terkonfirmasi ≥ ${EARLY_BIRD_DAYS} hari sebelum tutup; kurang sehari, tanpa tenggat, atau dikonfirmasi belakangan = tidak`, () => {
+    const result = badge(
+      facts({
+        registrations: [
+          lomba('tepat', { deadlineAt: daysAgo(10), confirmedAt: daysAgo(10 + EARLY_BIRD_DAYS) }),
+          lomba('kurang', { deadlineAt: daysAgo(10), confirmedAt: daysAgo(10 + EARLY_BIRD_DAYS - 1) }),
+          lomba('tanpa-tenggat', { deadlineAt: null, confirmedAt: daysAgo(60) }),
+          // Berbayar: panitia baru mengonfirmasi setelah pendaftaran ditutup.
+          lomba('telat-dikonfirmasi', { deadlineAt: daysAgo(20), confirmedAt: daysAgo(18) }),
+        ],
+      }),
+      'gerak-cepat',
+    );
+    expect(result).toMatchObject({ count: 1, tier: 1 });
+    expect(result.current?.title).toBe('Tidak Menunda');
+    // "Diraih" = saat pendaftaran kegiatan itu ditutup, bukan saat mendaftar.
+    expect(result.earnedAt).toBe(daysAgo(10));
+  });
+
+  it('Gerak Cepat tidak bisa dipancing dengan daftar-awal lalu batal', () => {
+    const result = badge(facts({ registrations: [lomba('a', { status: 'CANCELLED', confirmedAt: daysAgo(40) })] }), 'gerak-cepat');
+    expect(result.count).toBe(0);
+  });
+
+  it('Konsisten: tiga bulan beruntun = tingkat 2; dua kegiatan di bulan yang sama tetap satu bulan', () => {
+    const closing = (eventId: string, iso: string) => lomba(eventId, { deadlineAt: iso, confirmedAt: '2026-06-01T03:00:00.000Z' });
+    const result = badge(
+      facts({
+        registrations: [
+          closing('agu-1', '2026-08-10T16:59:00.000Z'),
+          closing('agu-2', '2026-08-25T16:59:00.000Z'),
+          closing('sep', '2026-09-12T16:59:00.000Z'),
+          closing('okt', '2026-10-03T16:59:00.000Z'),
+        ],
+      }),
+      'konsisten',
+    );
+    expect(result).toMatchObject({ count: 3, tier: 2 });
+    expect(result.current?.title).toBe('Triwulan Penuh');
+    expect(result.earnedAt).toBe('2026-10-03T16:59:00.000Z');
+  });
+
+  it('Konsisten: jeda sebulan memutus rentetan, tetapi rentetan terpanjang yang lama tidak hilang', () => {
+    const closing = (eventId: string, iso: string) => lomba(eventId, { deadlineAt: iso, confirmedAt: '2026-01-05T03:00:00.000Z' });
+    const result = badge(
+      facts({
+        registrations: [
+          closing('mar', '2026-03-10T16:59:00.000Z'),
+          closing('apr', '2026-04-10T16:59:00.000Z'),
+          // Mei kosong.
+          closing('jun', '2026-06-10T16:59:00.000Z'),
+        ],
+      }),
+      'konsisten',
+    );
+    expect(result).toMatchObject({ count: 2, tier: 1 });
+    expect(result.earnedAt).toBe('2026-04-10T16:59:00.000Z');
+  });
+
+  it('monthlyStreak: bulan dihitung per kalender WIB dan Desember → Januari tetap beruntun', () => {
+    const at = (iso: string) => Date.parse(iso);
+    // 31 Agu 17.30 UTC = 1 Sep 00.30 WIB → September, bukan Agustus.
+    expect(monthlyStreak([at('2026-08-31T17:30:00.000Z'), at('2026-10-05T03:00:00.000Z')]).longest).toBe(2);
+    expect(monthlyStreak([at('2026-08-31T16:30:00.000Z'), at('2026-10-05T03:00:00.000Z')]).longest).toBe(1);
+    const acrossYear = monthlyStreak([at('2026-11-20T03:00:00.000Z'), at('2026-12-20T03:00:00.000Z'), at('2027-01-20T03:00:00.000Z')]);
+    expect(acrossYear.longest).toBe(3);
+    expect(acrossYear.reachedAt.map((value) => new Date(value).toISOString())).toEqual([
+      '2026-11-20T03:00:00.000Z',
+      '2026-12-20T03:00:00.000Z',
+      '2027-01-20T03:00:00.000Z',
+    ]);
+    expect(monthlyStreak([])).toEqual({ longest: 0, reachedAt: [] });
+  });
+
+  it('Angkatan Perintis: hanya akun yang lahir sebelum batasnya; sesudah itu lencananya tidak ditampilkan sama sekali', () => {
+    const joined = daysAgo(30);
+    expect(badge(facts({ memberSince: joined }), 'perintis')).toMatchObject({ tier: 1, earnedAt: joined });
+    const keysOf = (memberSince: string | null | undefined) => evaluateBadges(facts({ memberSince }), NOW).map((item) => item.definition.key);
+    expect(keysOf(FOUNDING_MEMBER_UNTIL)).not.toContain('perintis');
+    expect(keysOf(null)).not.toContain('perintis');
+    expect(keysOf(undefined)).not.toContain('perintis');
+    expect(keysOf('bukan-tanggal')).not.toContain('perintis');
+    // Jam server yang melompat: akun "dibuat besok" tidak diberi lencana.
+    expect(keysOf(new Date(NOW.getTime() + 86_400_000).toISOString())).not.toContain('perintis');
+  });
+
+  it('setiap lencana punya tingkat yang menaik dan nama tingkat yang unik', () => {
+    const titles = new Set<string>();
+    for (const definition of BADGES) {
+      const thresholds = definition.levels.map((level) => level.threshold);
+      expect(thresholds, definition.key).toEqual([...thresholds].sort((a, b) => a - b));
+      expect(new Set(thresholds).size, definition.key).toBe(thresholds.length);
+      for (const level of definition.levels) {
+        expect(titles.has(level.title), level.title).toBe(false);
+        titles.add(level.title);
+      }
+    }
   });
 });

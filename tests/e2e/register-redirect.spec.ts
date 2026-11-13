@@ -13,14 +13,20 @@ const BROWSER_UA =
 test('tombol Daftar menunjuk pengalih internal yang mengarah ke tautan pendaftaran event', async ({ page, request }) => {
   // Acara contoh tanpa formulir StudentFo (ADR-056): yang berformulir menautkan /formulir, bukan /daftar.
   const href = '/events/program-relawan-literasi-desa-angkatan-7';
-  await page.goto(href);
 
+  // Tamu tidak pernah diantar ke tautan pendaftaran — kembali ke halaman acara setelah masuk (ADR-085).
+  const guest = await request.get(`${href}/daftar`, { maxRedirects: 0, headers: { 'user-agent': BROWSER_UA } });
+  expect(guest.status()).toBe(303);
+  const login = new URL(guest.headers()['location']!, 'http://localhost');
+  expect(`${login.pathname}${login.search}`).toBe(`/login?next=${encodeURIComponent(href)}`);
+
+  await signInAsDemo(page, 'Mahasiswa', href);
   const register = page.getByRole('link', { name: /Daftar sekarang/ });
   await expect(register).toHaveAttribute('href', `${href}/daftar`);
   await expect(register).toHaveAttribute('rel', /noopener/);
 
   // Tujuan LUAR melewati pendataan kinerja dulu (ADR-070) — tetap di situs ini.
-  const response = await request.get(`${href}/daftar`, { maxRedirects: 0, headers: { 'user-agent': BROWSER_UA } });
+  const response = await page.request.get(`${href}/daftar`, { maxRedirects: 0, headers: { 'user-agent': BROWSER_UA } });
   expect(response.status()).toBe(303);
   expect(new URL(response.headers()['location']!, page.url()).pathname).toBe(`${href}/sebelum-daftar`);
 });
@@ -33,7 +39,7 @@ test('pendataan kinerja: sekali per acara, lalu keluar ke tautan resmi; kunjunga
     return route.abort();
   });
   const href = '/events/program-relawan-literasi-desa-angkatan-7';
-  await page.goto(`${href}/sebelum-daftar`);
+  await signInAsDemo(page, 'Mahasiswa', `${href}/sebelum-daftar`);
   await expect(page.getByText(/tidak memuat nama atau email/)).toBeVisible();
   await expect(page.getByText(/boleh dilewati/)).toBeVisible();
 
@@ -62,7 +68,7 @@ test('Lewati: tanpa mengisi apa pun langsung ke tautan resmi, tidak ditanya lagi
     return route.abort();
   });
   const href = '/events/program-relawan-literasi-desa-angkatan-7';
-  await page.goto(`${href}/sebelum-daftar`);
+  await signInAsDemo(page, 'Mahasiswa', `${href}/sebelum-daftar`);
   // Pertanyaan wajib dibiarkan kosong — Lewati tidak boleh ditahan validasi peramban.
   await page.getByRole('button', { name: 'Lewati' }).click();
   await expect.poll(() => external).toMatch(/^https?:\/\//);
@@ -74,7 +80,7 @@ test('pendataan lomba menunjuk lobi, asal sekolah dari direktori; admin melihat 
   test.skip(test.info().project.name !== 'terang', 'alur, bukan tampilan');
   await context.route(/^(?!http:\/\/(localhost|127\.0\.0\.1))/, (route) => route.abort());
   const href = '/events/olimpiade-matematika-pelajar-tingkat-nasional';
-  await page.goto(`${href}/sebelum-daftar`);
+  await signInAsDemo(page, 'Mahasiswa', `${href}/sebelum-daftar`);
   await expect(page.getByRole('link', { name: 'Lobi lomba ini' })).toHaveAttribute('href', '/lobi/olimpiade-matematika-pelajar-tingkat-nasional');
   await page.getByRole('radio', { name: 'SMA/SMK' }).check();
   await page.getByRole('radio', { name: 'TikTok' }).check();

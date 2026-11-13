@@ -7,9 +7,10 @@ import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { daysAgoLabel, personMeta, type SuggestionReason, type SuggestionReasonKind } from '@/lib/network';
 import { cn } from '@/lib/utils';
-import type { BlockedPerson, Connection, NetworkPerson } from '@/types/domain';
+import type { BlockedPerson, Connection, NetworkPerson, ProfileMedia } from '@/types/domain';
 import { BLOCK_CONSEQUENCE, BlockPersonDetails, BlockPersonForm } from './block-person';
 import { ConnectionMessageField } from './connection-message-field';
+import { ProfileBanner } from '@/components/profile/profile-banner';
 import { StudyPlaceLine } from '@/components/profile/study-place';
 import type { StudyPlaceView } from '@/lib/study-profile';
 
@@ -93,6 +94,7 @@ export function SuggestionCard({
   returnTo,
   preview = false,
   study = null,
+  look = null,
 }: {
   person: NetworkPerson;
   reasons: readonly SuggestionReason[];
@@ -101,6 +103,8 @@ export function SuggestionCard({
   returnTo: string;
   /** Tempat studi & kab/kota (ADR-076) — hanya bila `public_profile_details` mengizinkan pembaca ini. */
   study?: StudyPlaceView | null;
+  /** Foto & banner (ADR-083) yang boleh dilihat pembaca ini; null = inisial & sampul bawaan. */
+  look?: ProfileMedia | null;
   /** Pratinjau "yang dilihat orang lain" di Pengaturan: tanpa form (tidak boleh bersarang di form pengaturan). */
   preview?: boolean;
 }) {
@@ -109,9 +113,9 @@ export function SuggestionCard({
       id={preview ? undefined : `orang-${person.userId}`}
       className="group relative flex h-full flex-col overflow-hidden rounded-[22px] border border-line bg-panel transition-[border-color,box-shadow] duration-200 ease-snap focus-within:border-brand hover:border-line-strong hover:shadow-raised"
     >
-      <div aria-hidden className="dot-grid h-[68px] bg-panel-nested" />
+      <ProfileBanner media={look} className="h-[68px]" />
       <div className="flex flex-1 flex-col gap-3.5 px-5 pb-5">
-        <Avatar name={person.fullName} seed={person.userId} size="lg" ring className="-mt-8" />
+        <Avatar name={person.fullName} seed={person.userId} photo={look?.avatarId} size="lg" ring className="-mt-8" />
         <PersonHeading person={person} link={!preview} />
         {study && <StudyPlaceLine view={study} className="-mt-1.5" />}
         {person.headline && <p className="-mt-1 line-clamp-2 text-[14px] leading-relaxed text-ink-soft">{person.headline}</p>}
@@ -161,18 +165,20 @@ export function IncomingRequestCard({
   viewerInterests,
   returnTo,
   now,
+  photo = null,
 }: {
   connection: Connection;
   categoryName: (slug: string) => string;
   viewerInterests: readonly string[];
   returnTo: string;
   now: Date;
+  photo?: string | null;
 }) {
   const { person } = connection;
   return (
     <article id={`orang-${person.userId}`} className="flex h-full flex-col gap-4 rounded-[22px] border border-line bg-panel p-5 shadow-card">
       <div className="flex items-center gap-3">
-        <Avatar name={person.fullName} seed={person.userId} size="lg" />
+        <Avatar name={person.fullName} seed={person.userId} photo={photo} size="lg" />
         <PersonHeading person={person} />
         <span className="ml-auto inline-flex h-6 shrink-0 items-center self-start rounded-pill bg-highlight-soft px-2.5 text-[11.5px] font-semibold">
           {daysAgoLabel(connection.createdAt, now)}
@@ -218,14 +224,14 @@ export function IncomingRequestCard({
   );
 }
 
-export function ConnectionRow({ connection, returnTo, now }: { connection: Connection; returnTo: string; now: Date }) {
+export function ConnectionRow({ connection, returnTo, now, photo = null }: { connection: Connection; returnTo: string; now: Date; photo?: string | null }) {
   const { person } = connection;
   return (
     <li
       id={`orang-${person.userId}`}
       className="relative flex scroll-mt-28 flex-wrap items-center gap-x-3.5 px-2 py-3 transition-colors duration-150 first:rounded-t-[16px] last:rounded-b-[16px] hover:bg-panel-nested/60 target:bg-highlight-soft"
     >
-      <Avatar name={person.fullName} seed={person.userId} size="md" />
+      <Avatar name={person.fullName} seed={person.userId} photo={photo} size="md" />
       <Link href={profileHref(person.userId)} className="group flex min-h-11 min-w-0 flex-1 flex-col justify-center pr-12">
         <span className="truncate text-[15px] font-semibold group-hover:underline">{person.fullName}</span>
         <span className="truncate text-[12.5px] text-ink-muted">
@@ -262,11 +268,11 @@ export function ConnectionRow({ connection, returnTo, now }: { connection: Conne
   );
 }
 
-export function OutgoingRow({ connection, returnTo, now }: { connection: Connection; returnTo: string; now: Date }) {
+export function OutgoingRow({ connection, returnTo, now, photo = null }: { connection: Connection; returnTo: string; now: Date; photo?: string | null }) {
   const { person } = connection;
   return (
     <li id={`orang-${person.userId}`} className="flex items-center gap-3.5 px-2 py-3">
-      <Avatar name={person.fullName} seed={person.userId} size="md" />
+      <Avatar name={person.fullName} seed={person.userId} photo={photo} size="md" />
       <Link href={profileHref(person.userId)} className="group flex min-h-11 min-w-0 flex-1 flex-col justify-center">
         <span className="truncate text-[15px] font-semibold group-hover:underline">{person.fullName}</span>
         <span className="flex items-center gap-1.5 truncate text-[12.5px] text-ink-muted">

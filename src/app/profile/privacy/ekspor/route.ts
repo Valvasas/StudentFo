@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(): Promise<Response> {
   const user = await requireUser('/profile/privacy');
   const repository = await getEventRepository();
-  const [saved, tracker, registrations, teams, network, connections, blocked, seeker, submissions, organizer, notifications, notificationPreferences, deadlineEmailOptIn, eventQuestions, lobbies, badgeVisibility, studyProfile, identity] = await Promise.all([
+  const [saved, tracker, registrations, teams, network, connections, blocked, seeker, submissions, organizer, notifications, notificationPreferences, deadlineEmailOptIn, eventQuestions, lobbies, badgeVisibility, studyProfile, identity, community] = await Promise.all([
     repository.listSavedEvents(user.id),
     repository.listTrackerItems(user.id),
     repository.listMyRegistrations(user.id),
@@ -34,6 +34,7 @@ export async function GET(): Promise<Response> {
     repository.getBadgeVisibility(user.id),
     repository.getStudyProfile(user.id),
     repository.getProfileIdentity(user.id),
+    repository.listMyCommunityContent(user.id),
   ]);
 
   const body = buildAccountExport({
@@ -57,6 +58,7 @@ export async function GET(): Promise<Response> {
     showBadges: badgeVisibility.show,
     studyProfile,
     identity,
+    community,
   });
 
   return new Response(JSON.stringify(body, null, 2), {

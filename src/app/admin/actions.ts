@@ -10,7 +10,7 @@ import { dataMode } from '@/lib/env';
 import { toApiError } from '@/lib/errors';
 import { parsePresentationForm } from '@/lib/event-presentation';
 import { formText, formTrimmed } from '@/lib/form-data';
-import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch } from '@/lib/trust-safety';
+import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
 
 /**
  * Aksi moderasi.
@@ -321,6 +321,39 @@ export async function resolveReportAction(formData: FormData): Promise<void> {
   redirect(withQuery(REPORTS_PAGE, { notice: outcome === 'RESOLVED' ? 'report_resolved' : 'report_dismissed' }));
 }
 
+/**
+ * Laporan Komunitas (ADR-087): satu keputusan menutup SEMUA laporan terbuka
+ * atas tulisan itu. "Sembunyikan" hanya bersama "ditindak" — final, bukan
+ * otomatis; "abaikan" memunculkan lagi tulisan yang tersembunyi otomatis.
+ */
+export async function resolveCommunityReportAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const reportId = formTrimmed(formData, 'reportId');
+  const outcome = formText(formData, 'outcome');
+  if (!reportId || (outcome !== 'RESOLVED' && outcome !== 'DISMISSED')) redirect(withQuery(REPORTS_PAGE, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).resolveCommunityReport({
+      reportId,
+      actorId: gate.userId,
+      actorName: gate.userName,
+      outcome,
+      hide: outcome === 'RESOLVED' && formData.get('hide') === 'on',
+      note: formText(formData, 'note').trim().slice(0, MODERATION_NOTE_MAX) || null,
+    });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(withQuery(REPORTS_PAGE, { error: failure }));
+  revalidatePath('/komunitas', 'layout');
+  revalidatePath(REPORTS_PAGE);
+  redirect(withQuery(REPORTS_PAGE, { notice: outcome === 'RESOLVED' ? 'report_resolved' : 'report_dismissed' }));
+}
+
 /** Kembali ke pencarian yang sama — hanya sebagai NILAI `q`, bukan path dari form. */
 function usersPage(formData: FormData, feedback: { error?: ActionErrorCode; notice?: ActionNoticeCode }): string {
   return withQuery(USERS_PAGE, { q: normalizeUserSearch(formText(formData, 'q')) || undefined, ...feedback });
@@ -351,6 +384,34 @@ export async function setUserSuspensionAction(formData: FormData): Promise<void>
   if (failure) redirect(usersPage(formData, { error: failure }));
   revalidatePath(USERS_PAGE);
   redirect(usersPage(formData, { notice: mode === 'suspend' ? 'user_suspended' : 'user_unsuspended' }));
+}
+
+/**
+ * Cabut foto profil & banner unggahan (ADR-083): untuk gambar tidak pantas
+ * atau foto orang lain. Akunnya sendiri tidak disentuh — penangguhan adalah
+ * keputusan terpisah — dan pemiliknya bisa mengunggah gambar baru.
+ */
+export async function clearProfileMediaAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const userId = formTrimmed(formData, 'userId');
+  const reason = formText(formData, 'reason').trim().slice(0, MODERATION_NOTE_MAX);
+  if (!userId) redirect(usersPage(formData, { error: 'invalid_request' }));
+  if (reason.length < SUSPENSION_REASON_MIN) redirect(usersPage(formData, { error: 'suspension_reason_required' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    await repository.clearProfileMediaAsAdmin({ userId, actorId: gate.userId, actorName: gate.userName, reason });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(usersPage(formData, { error: failure }));
+  // Foto itu tampil di menu akun, Koneksi, tim, dan lobi — bukan hanya di halaman ini.
+  revalidatePath('/', 'layout');
+  redirect(usersPage(formData, { notice: 'profile_media_cleared' }));
 }
 
 /**

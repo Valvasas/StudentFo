@@ -90,8 +90,8 @@ export default async function PresentationPage({ searchParams }: { searchParams:
           <ul className="mt-3 flex flex-col divide-y divide-line rounded-card border border-line bg-panel">
             {featured.map((event) => (
               <li key={event.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-                <Link href={`/events/${event.slug}`} className="inline-flex min-h-11 items-center font-medium hover:underline">
-                  {event.title}
+                <Link href={`/events/${event.slug}`} className="inline-flex min-h-11 min-w-0 items-center font-medium hover:underline">
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{event.title}</span>
                 </Link>
                 <span className="text-ink-muted">{promotionStatus(event, now)}</span>
               </li>
@@ -134,8 +134,8 @@ export default async function PresentationPage({ searchParams }: { searchParams:
                   <input type="hidden" name="eventId" value={event.id} />
                   <input type="hidden" name="q" value={search} />
                   <div className="flex min-w-[220px] flex-1 flex-col gap-0.5">
-                    <Link href={`/events/${event.slug}`} className="inline-flex min-h-11 items-center font-semibold hover:underline">
-                      {event.title}
+                    <Link href={`/events/${event.slug}`} className="inline-flex min-h-11 min-w-0 items-center font-semibold hover:underline">
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{event.title}</span>
                     </Link>
                     <span className="text-sm text-ink-muted">{event.organizer}</span>
                     {/* Tautan biasa ke halaman media acara ini — tidak ikut terkirim bersama lencana/promosi. */}

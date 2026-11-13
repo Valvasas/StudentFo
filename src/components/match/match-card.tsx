@@ -104,6 +104,7 @@ export function MatchCard({
   rank,
   total,
   scanning = false,
+  photo = null,
 }: {
   match: Match;
   returnTo: string;
@@ -111,6 +112,8 @@ export function MatchCard({
   rank: number;
   total: number;
   scanning?: boolean;
+  /** Foto profil (ADR-083) bila pembaca boleh melihatnya. Pita sampul tetap tint identitas — stempel di atasnya butuh alas polos. */
+  photo?: string | null;
 }) {
   const { candidate } = match;
   const person = candidate.person;
@@ -148,7 +151,7 @@ export function MatchCard({
 
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 px-4">
               <div className="flex items-start gap-3">
-                <Avatar name={person.fullName} seed={person.userId} size="lg" ring className="relative -mt-7" />
+                <Avatar name={person.fullName} seed={person.userId} photo={photo} size="lg" ring className="relative -mt-7" />
                 {candidate.relation === 'outgoing' && (
                   <span aria-hidden className="stamp mt-1 rounded-[6px] border-2 border-ink px-2 py-0.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink" style={{ '--d': `${baseDelay + 700}ms` } as CSSProperties}>
                     Terkirim
@@ -160,7 +163,7 @@ export function MatchCard({
                 <h3 id={headingId} className="font-display text-[21px] font-bold leading-tight tracking-[-0.025em]">
                   {/* Tanpa margin negatif: nama dua baris tak boleh menimpa subjudul. Tinggi min 44px = target sentuh. */}
                   <Link href={`/orang/${person.userId}`} className="inline-flex min-h-11 min-w-11 max-w-full items-center hover:underline">
-                    {person.fullName}
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{person.fullName}</span>
                   </Link>
                 </h3>
                 {sub && <p className="text-[13px] text-ink-muted">{sub}</p>}

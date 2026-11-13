@@ -15,18 +15,22 @@ import {
   Flag,
   FileText,
   GraduationCap,
+  KeyRound,
   MapPin,
+  MessagesSquare,
   ShieldCheck,
   Ticket,
   Users,
 } from 'lucide-react';
 import { claimEventAction } from '@/app/penyelenggara/actions';
+import { withNext } from '@/components/auth/auth-field';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
 import { EventMedia } from '@/components/event/event-media';
 import { photoSrc } from '@/components/event/event-photo';
 import { EventQuestions } from '@/components/event/event-questions';
 import { GuidebookViewer } from '@/components/event/guidebook-viewer';
+import { MemberGate } from '@/components/event/member-gate';
 import { PromotedBadge } from '@/components/event/price-badge';
 import { RequirementsChecklist } from '@/components/event/requirements-checklist';
 import { SaveButton } from '@/components/event/save-button';
@@ -46,6 +50,7 @@ import { checkAdminAccess, getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { isPromoted } from '@/lib/data/listing';
 import { formatRupiah, priceLabel, type PriceLabel } from '@/lib/currency';
+import { teaserOf } from '@/lib/event-access';
 import { recordEventView } from '@/lib/event-views';
 import { hasRegistered } from '@/lib/lobby';
 import { ORGANIZER_LIMITS } from '@/lib/organizer';
@@ -60,6 +65,7 @@ import {
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { sectionTitle } from '@/lib/page-title';
+import { loginHref } from '@/lib/safe-redirect';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, safeHostname, sanitizeExternalUrl } from '@/lib/utils';
 import {
@@ -127,6 +133,29 @@ type TabKey = (typeof TABS)[number]['key'];
 
 const headingClass = 'text-[22px] font-bold tracking-[-0.025em]';
 
+/** Isi gerbang anggota per tab (ADR-085). Ringkasan punya gerbang sendiri di bawah cuplikan deskripsi. */
+function gateCopy(tab: Exclude<TabKey, 'ringkasan'>, stageCount: number): { heading: string; lead: string } {
+  switch (tab) {
+    case 'syarat':
+      return { heading: 'Syarat & berkas khusus anggota', lead: 'Masuk atau buat akun gratis untuk melihat syarat peserta, daftar berkas, dan buku panduannya.' };
+    case 'tahapan':
+      return {
+        heading: 'Jadwal lengkap khusus anggota',
+        lead:
+          stageCount > 1
+            ? `Kegiatan ini punya ${stageCount} tahap. Masuk atau buat akun gratis untuk melihat jadwalnya dan menyimpannya ke kalender.`
+            : 'Masuk atau buat akun gratis untuk melihat jadwalnya dan menyimpannya ke kalender.',
+      };
+    case 'tanya':
+      return { heading: 'Tanya jawab khusus anggota', lead: 'Masuk atau buat akun gratis untuk membaca jawaban penyelenggara dan bertanya sendiri.' };
+    case 'penyelenggara':
+      return {
+        heading: 'Sumber resmi khusus anggota',
+        lead: 'Masuk atau buat akun gratis untuk melihat penyelenggaranya, pengumuman resmi, dan tips aman mendaftar.',
+      };
+  }
+}
+
 /**
  * Formulir, galeri, dan pendaftaran sendiri adalah pelengkap: gagal dimuat
  * (mis. migration ADR-056 belum diterapkan) = fitur itu hilang, bukan
@@ -151,6 +180,11 @@ async function optional<T>(load: () => Promise<T>, fallback: T, label: string): 
  * data yang ada atau arahan ke pengumuman resmi, bukan diisi rekaan. Poster
  * kini ada (ADR-079): diunggah panitia/admin, tampil di slide tab Ringkasan.
  *
+ * Tamu (ADR-085) melihat yang juga tampil di kartu daftar — judul,
+ * penyelenggara, jenis, tenggat, jenjang, tempat, biaya, poster & video —
+ * plus cuplikan deskripsi. Deskripsi lengkap, empat tab lain, tautan
+ * pendaftaran, dan kalender ada di balik gerbang anggota.
+ *
  * Kanvas juga memuat panel poster-tanggal, deretan lima fakta, daftar
  * "Sebelum mendaftar" yang menautkan ke tab, dan tombol "Selanjutnya" —
  * semuanya mengulang tenggat/jenjang/tab yang sudah tampil di tempat lain
@@ -166,6 +200,8 @@ export default async function EventDetailPage({
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const [event, user, repository] = await Promise.all([loadEvent(slug), getSessionUser(), getEventRepository()]);
   if (!event) notFound();
+  // Tamu melihat cuplikan; sisanya di balik gerbang anggota (ADR-085).
+  const gated = user === null;
 
   const rawTab = Array.isArray(query.tab) ? query.tab[0] : query.tab;
   const tab: TabKey = TABS.some((item) => item.key === rawTab) ? (rawTab as TabKey) : 'ringkasan';
@@ -174,9 +210,9 @@ export default async function EventDetailPage({
   const requestHeaders = await headers();
   after(() => recordEventView(event.id, requestHeaders));
 
-  const [isSaved, trackerItems, categories, similar, verifiedOrganizers, organizerProfile, form, photos, myRegistration] = await Promise.all([
+  const [isSaved, tracked, categories, similar, verifiedOrganizers, organizerProfile, form, photos, myRegistration] = await Promise.all([
     user ? repository.isEventSaved(user.id, event.id) : Promise.resolve(false),
-    user ? repository.listTrackerItems(user.id) : Promise.resolve([]),
+    user ? repository.getTrackerItem(user.id, event.id) : Promise.resolve(null),
     repository.listCategories(),
     repository.listEvents({ types: [event.eventType], sort: 'deadline', pageSize: 4 }),
     repository.listVerifiedOrganizers([event.id]),
@@ -191,18 +227,17 @@ export default async function EventDetailPage({
   ]);
   // Tanya jawab hanya dimuat di tabnya; yang boleh menjawab = pengelola terverifikasi atau admin ber-MFA.
   const [questions, canAnswer] =
-    tab === 'tanya'
+    tab === 'tanya' && !gated
       ? await Promise.all([
           optional<readonly EventQuestion[]>(() => repository.listEventQuestions(event.id, user?.id ?? null, 50), [], 'tanya jawab'),
           user
-            ? Promise.all([checkAdminAccess(), optional(() => repository.listManagedEvents(user.id), [], 'acara kelolaan')]).then(
-                ([gate, managed]) => gate.allowed || managed.some((item) => item.event.id === event.id),
+            ? Promise.all([checkAdminAccess(), optional(() => repository.getManagedEvent(user.id, event.id), null, 'acara kelolaan')]).then(
+                ([gate, managed]) => gate.allowed || managed !== null,
               )
             : Promise.resolve(false),
         ])
       : [[], false];
   const verifiedOrg = verifiedOrganizers.get(event.id) ?? null;
-  const tracked = trackerItems.find((item) => item.eventId === event.id);
   const category = categories.find((item) => item.slug === event.categorySlugs[0]);
 
   const now = new Date();
@@ -229,6 +264,7 @@ export default async function EventDetailPage({
   const tabHref = (key: TabKey) => (key === 'ringkasan' ? detailPath : `${detailPath}?tab=${key}`);
   const upcoming = event.deadlines.find((deadline) => (daysUntil(deadline.deadlineAt, now) ?? -1) >= 0);
   const others = similar.items.filter((item) => item.id !== event.id).slice(0, 3);
+  const teaser = gated ? teaserOf(event.description) : null;
 
   const requirements = [
     levels.length > 0 ? `Pelajar/mahasiswa aktif jenjang ${levels.join(' atau ')}` : 'Terbuka untuk semua jenjang',
@@ -255,7 +291,25 @@ export default async function EventDetailPage({
   ];
 
   const launchContext = { eventId: event.id, returnTo: detailPath, signedIn: user !== null, status: tracked?.status ?? null };
-  const register = cta ? (
+  // Tamu yang bisa mendaftar diarahkan masuk dulu; acara tutup/penuh tetap menampilkan keadaannya.
+  const guestCanRegister = gated && (cta ? cta.kind === 'open' : !isClosed && registrationUrl !== null);
+  const register = guestCanRegister ? (
+    <div className="flex flex-col gap-1">
+      <Link
+        href={loginHref(detailPath)}
+        className="flex h-12 items-center justify-center gap-2 rounded-card bg-brand text-[15px] font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover active:pt-0.5"
+      >
+        <KeyRound aria-hidden className="size-4" />
+        Masuk untuk mendaftar
+      </Link>
+      <Link
+        href={withNext('/register', detailPath)}
+        className="flex min-h-11 items-center justify-center text-[13.5px] font-medium text-ink-muted underline-offset-[3px] hover:text-ink hover:underline"
+      >
+        Belum punya akun? Daftar gratis
+      </Link>
+    </div>
+  ) : cta ? (
     <RegistrationCtaPanel cta={cta} formHref={formHref} />
   ) : isClosed ? (
     // `disabled` tidak berefek pada <a>, jadi kegiatan yang ditutup tidak diberi tautan sama sekali.
@@ -342,13 +396,13 @@ export default async function EventDetailPage({
             </div>
             <h1 className="text-[clamp(30px,4.6vw,42px)] leading-[1.08] tracking-[-0.04em] [text-wrap:balance]">{event.title}</h1>
             <div className="flex items-center gap-2.5">
-              <span className="flex flex-col gap-px">
+              <span className="flex min-w-0 flex-col gap-px">
                 <span className="flex items-center gap-1.5 text-[15px] font-semibold">
-                  {event.organizer}
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
                   {verifiedOrg ? (
-                    <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 text-success" />
+                    <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 shrink-0 text-success" />
                   ) : (
-                    <ShieldCheck aria-hidden className="size-4 text-ink-muted" />
+                    <ShieldCheck aria-hidden className="size-4 shrink-0 text-ink-muted" />
                   )}
                 </span>
                 <span className="text-[12.5px] text-ink-muted">
@@ -425,7 +479,18 @@ export default async function EventDetailPage({
 
                 <div className="flex flex-col gap-3">
                   <h2 className={headingClass}>Tentang kegiatan</h2>
-                  {event.description ? (
+                  {gated ? (
+                    <>
+                      {teaser && <p className="max-w-[64ch] whitespace-pre-line text-base leading-[1.7] text-ink-soft">{teaser.text}</p>}
+                      <MemberGate
+                        returnTo={detailPath}
+                        headingLevel={3}
+                        heading={teaser?.truncated ? 'Lanjut baca setelah masuk' : 'Info lengkapnya khusus anggota'}
+                        lead="Deskripsi lengkap, syarat, jadwal, tanya jawab, dan tautan pendaftaran resminya terbuka untuk anggota StudentFo. Buat akunnya gratis."
+                        className="mt-2"
+                      />
+                    </>
+                  ) : event.description ? (
                     <p className="max-w-[64ch] whitespace-pre-line text-base leading-[1.7] text-ink-soft">{event.description}</p>
                   ) : (
                     <p className="text-[14.5px] text-ink-muted">
@@ -452,9 +517,30 @@ export default async function EventDetailPage({
                     </Link>
                   </div>
                 )}
+
+                {/* Komunitas (ADR-087) khusus anggota, seperti isi halaman ini sendiri. */}
+                {!gated && (
+                  <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-line p-[18px]">
+                    <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-tint-sky text-ink">
+                      <MessagesSquare className="size-4" />
+                    </span>
+                    <p className="min-w-[200px] flex-1 text-sm leading-normal text-ink-soft">
+                      Ada yang membingungkan, atau ingin tahu pengalaman peserta lain? Ngobrol dengan sesama pelajar di Komunitas.
+                    </p>
+                    <Link
+                      href={`/komunitas?kegiatan=${event.slug}`}
+                      className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 bg-panel px-3.5 text-sm font-semibold transition-colors duration-150 ease-snap hover:border-brand"
+                    >
+                      <MessagesSquare aria-hidden className="size-4" />
+                      Diskusikan di Komunitas
+                    </Link>
+                  </div>
+                )}
               </>
             )}
-            {tab === 'syarat' && (
+            {gated && tab !== 'ringkasan' && <MemberGate returnTo={tabHref(tab)} {...gateCopy(tab, event.deadlines.length)} />}
+
+            {tab === 'syarat' && !gated && (
               <>
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
@@ -488,7 +574,7 @@ export default async function EventDetailPage({
               </>
             )}
 
-            {tab === 'tahapan' && (
+            {tab === 'tahapan' && !gated && (
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-1">
                   <h2 className={headingClass}>Tahapan dan jadwal</h2>
@@ -531,7 +617,7 @@ export default async function EventDetailPage({
               </div>
             )}
 
-            {tab === 'tanya' && (
+            {tab === 'tanya' && !gated && (
               <EventQuestions
                 event={event}
                 questions={questions}
@@ -541,17 +627,17 @@ export default async function EventDetailPage({
               />
             )}
 
-            {tab === 'penyelenggara' && (
+            {tab === 'penyelenggara' && !gated && (
               <div className="flex flex-col gap-4">
                 <h2 className={headingClass}>Penyelenggara</h2>
                 <div className="flex flex-wrap items-center gap-[18px] rounded-[14px] border border-line p-[22px]">
                   <div className="flex min-w-[200px] flex-1 flex-col gap-1">
                     <span className="flex items-center gap-1.5 text-base font-semibold">
-                      {event.organizer}
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
                       {verifiedOrg ? (
-                        <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 text-success" />
+                        <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 shrink-0 text-success" />
                       ) : (
-                        <ShieldCheck aria-hidden className="size-4 text-ink-muted" />
+                        <ShieldCheck aria-hidden className="size-4 shrink-0 text-ink-muted" />
                       )}
                     </span>
                     <span className="text-[13.5px] text-ink-muted">
@@ -624,7 +710,7 @@ export default async function EventDetailPage({
                 <SaveButton eventId={event.id} isSaved={isSaved} returnTo={detailPath} variant="full" className="flex-1" />
                 <ShareButton title={event.title} path={detailPath} />
               </div>
-              {!isClosed && <AddToCalendarButton event={event} now={now} />}
+              {!isClosed && !gated && <AddToCalendarButton event={event} now={now} />}
             </div>
           </div>
           {demoFeaturesEnabled && !isClosed && (
@@ -696,7 +782,15 @@ export default async function EventDetailPage({
               <Bookmark aria-hidden className={cn('size-4', isSaved && 'fill-current')} />
             </button>
           </form>
-          {cta ? (
+          {guestCanRegister ? (
+            <Link
+              href={loginHref(detailPath)}
+              aria-label="Masuk untuk mendaftar"
+              className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand active:pt-0.5"
+            >
+              Masuk
+            </Link>
+          ) : cta ? (
             <RegistrationCtaBarAction cta={cta} formHref={formHref} />
           ) : !isClosed && registrationUrl && (
             <RegisterLaunch

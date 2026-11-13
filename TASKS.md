@@ -397,6 +397,36 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Audit skalabilitas, efisiensi alur & konten terpanjang 2026-11-13 (@claude) — ADR-088
+
+- [x] `/teams?kegiatan=` meminta tim per kegiatan langsung (dulu menyaring 60 tim terbaru global → tim lama "hilang"); "Tim kamu" dari keanggotaan sungguhan (`listTeamLinks` → `listTeamsByIds`, satu kueri); angka di jendela terpotong tampil "60+" dengan catatan
+- [x] `TEAM_LIST_LIMIT` & `MANAGED_EVENTS_LIMIT` dibagi kedua repository; mode seed memotong di angka yang sama
+- [x] `getTrackerItem`: halaman detail kegiatan, `/tracker/[slug]`, persiapan, dan dua aksi tracker tidak lagi memuat seluruh tracker demi satu status
+- [x] `getManagedEvent`: studio acara, galeri, dan hak menjawab Tanya memeriksa satu acara (dulu penyelenggara dengan >200 acara ditolak di acara lamanya)
+- [x] Konten 255 karakter dengan kata 72 karakter: antrean moderator (+315px), kartu katalog (+455px), header detail (+180px, tombol "Daftar" terdorong keluar layar), lima papan jenis, kartu tim & tracker, Komunitas → rapi di 320px (`break-word` global + `min-w-0 [overflow-wrap:anywhere]` di teks daun)
+- [x] Tes: `teams.test.ts` (jendela & tim lama), `saved-events.test.ts` & `managed-events.test.ts` (lookup = `list().find()`), paritas Postgres (`parity.test.ts`, `organizers.test.ts`), `extreme-content.spec.ts`
+- [x] Run Playwright penuh (1.021 lulus): tiga kerapuhan tes dibereskan — tombol "Simpan" eksak di Data diri (kartu foto & banner menambah "Simpan banner"), `organizer.spec` MENAMBAH kalimat ke deskripsi acara contoh (dulu mengganti → `event-gate` gagal di proyek gelap/ponsel), pengirim `extreme-content` = persona sendiri (jatah 3 kiriman/jam per email persona)
+- [ ] `/teams`: halaman berikutnya (kursor) untuk kegiatan dengan > 60 tim — kini catatan jujur
+- [ ] `organizer.spec` "periksa bukti bayar" memakai bukti contoh yang habis setelah sekali jalan — gagal bila diulang di server yang sama; siapkan buktinya sendiri (`registerForPaidDemoEvent`)
+- [ ] `connections` (`viewerEventsOf`) & fakta lencana masih memuat seluruh tracker/acara kelolaan lalu memotong — tambahkan parameter batas bila tracker pengguna mulai ratusan
+- [ ] Konten ekstrem untuk papan beasiswa/magang/seminar/workshop: sudah diperbaiki statis, belum diukur e2e (tes hanya membuat LOMBA)
+
+## Logo, cuplikan beranda, lencana, foto profil, poster kiriman, gerbang anggota, langkah awal, Komunitas 2026-11-12 (@claude) — ADR-080–087
+
+- [x] Logo baru dijiplak ke SVG tiga lapis (kertas/stabilo/tinta) yang ikut tema; favicon, ikon aplikasi, kartu OG dari path yang sama (ADR-080)
+- [x] Tur beranda jadi satu cuplikan ala video — tanpa judul/daftar langkah/label; kendali putar/jeda + ruas adegan (ADR-081)
+- [x] Enam lencana baru (beasiswa, magang, relawan, gerak cepat, konsisten, perintis) + animasi medali CSS (ADR-082)
+- [x] Foto profil & banner kartu profil: unggah (EXIF dibuang), 8 banner bawaan dari token, tampil di menu akun, Koneksi, tim, lobi, pencocokan; moderator bisa mencabut; ekspor & kebijakan privasi (ADR-083)
+- [x] Poster dilampirkan saat mengirim kegiatan (pengirim yang masuk); pratinjau di antrean admin; disetujui = poster acara, ditolak = dihapus; isian `/submit` dipulihkan bila ditolak server (ADR-084)
+- [x] Gerbang anggota di halaman kegiatan: etalase + cuplikan untuk tamu, isi lengkap/tautan pendaftaran/kalender untuk yang masuk; `/daftar`, `/sebelum-daftar`, `.ics` ikut dijaga (ADR-085)
+- [x] "Langkah awalmu" di beranda (6 langkah dihitung dari akun) + satu saran tersemat di lonceng; bisa disembunyikan (ADR-086)
+- [x] Komunitas: forum publik khusus anggota — topik, balasan, "Bermanfaat", lapor + sembunyi otomatis 3 pelapor, antrean moderator, notifikasi balasan, tanpa DM & tanpa kontak pribadi (ADR-087)
+- [x] Tes: `profile-media.test.ts` ×2, `116_profile_media.test.sql`, `117_submission_poster.test.sql`, `event-access.test.ts`, `profile-media.spec.ts`, `submission-poster.spec.ts`, `event-gate.spec.ts`; penjaga "migration baru tanpa DROP/TRUNCATE"
+- [x] Terapkan `20261109100002_event_media`, `20261110100001_profile_media`, `20261112100001_submission_poster`, `20261112100002_community` ke staging lalu produksi — 2026-11-13 atas persetujuan pemilik; sidik skema identik lokal = staging = produksi
+- [ ] Komunitas: lencana "Penolong" dari tanda "Bermanfaat" orang lain (perlu `public_badge_facts` diperbarui); sunting tulisan sendiri; halaman balasan > 300
+- [ ] Pemotong foto profil (crop bulat) di peramban — kini `object-cover` + anjuran rasio
+- [ ] Tinjau ulang metrik konversi tamu → akun setelah gerbang aktif (butuh analitik halaman; belum ada)
+
 ## Poster, slide & video kegiatan 2026-11-09 (@claude) — ADR-079
 
 - [x] Poster = foto galeri bertanda (`event_photos.is_poster`, satu per acara); slide poster → video → foto di tab Ringkasan (pola carousel APG, tanpa JS tetap bisa digeser, tombol berputar, layar penuh)
@@ -405,7 +435,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Studio penyelenggara "Poster, galeri & video" + halaman admin `/admin/media/[slug]` (acara tanpa pengelola) dengan komponen yang sama; isian video di `/submit` (disalin saat disetujui bila kanonis)
 - [x] Kebijakan privasi & cookie menyebut YouTube/Vimeo (hanya setelah Putar); `LEGAL_REVISION` → 2026-11-09
 - [x] Tes: `video.test.ts`, `event-media.test.ts`, `115_event_media.test.sql`, `event-media.spec.ts`, axe + `narrow-viewport` untuk halaman baru
-- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan `20261109100002_event_media` ke staging lalu produksi (hanya ADD/CREATE OR REPLACE). Sebelum itu poster & video sekadar tidak tampil di situs langsung
+- [x] Terapkan `20261109100002_event_media` ke staging lalu produksi — 2026-11-13 (bersama tiga migration ADR-083/084/087)
 - [ ] Pemotong poster (crop 4:5) di peramban sebelum unggah — kini poster non-4:5 tampil utuh dengan latar kabur
 - [ ] Urutkan ulang foto galeri (seret/tombol naik-turun) — kini urut poster dulu lalu waktu unggah
 

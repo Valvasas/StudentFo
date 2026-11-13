@@ -30,6 +30,9 @@ import type {
   ManagedEvent,
   OutboundSurveyConfig,
   ProfileIdentity,
+  ProfileMedia,
+  OwnProfileMedia,
+  BannerPreset,
   PublicProfileDetails,
   StudyPlaceInput,
   StudyProfile,
@@ -58,7 +61,12 @@ import type {
   TeamCandidate,
   TeamSeekerInput,
   TeamSeekerProfile,
+  CommunityPage,
+  CommunityReportQueueItem,
+  CommunityThread,
+  MyCommunityContent,
 } from '@/types/domain';
+import type { CommunityCursor, CommunityPostInput, CommunityTopic } from '@/lib/community';
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
 import type { OrganizerApplicationInput } from '@/lib/organizer';
 import type { PortfolioInput } from '@/lib/portfolio';
@@ -70,6 +78,7 @@ import type { AchievementFacts } from '@/lib/achievements';
 import type { LobbyMemberInput } from '@/lib/lobby';
 import type { OutboundConfigInput, OutboundSurveyAnswers } from '@/lib/outbound-survey';
 import type { ProfileIdentityInput } from '@/lib/profile-identity';
+import type { ProfileMediaKind } from '@/lib/profile-media';
 
 /**
  * Kontrak akses data. Seluruh UI berbicara HANYA lewat antarmuka ini —
@@ -111,7 +120,113 @@ export interface EventRepository
     OutboundSurveyRepository,
     StudyProfileRepository,
     LobbyRepository,
-    BadgeRepository {}
+    BadgeRepository,
+    ProfileMediaRepository,
+    CommunityRepository {}
+
+/**
+ * Komunitas (ADR-087): forum publik khusus anggota yang dimoderasi. Semua
+ * baca/tulis atas nama pembaca (`viewerId` dari sesi server, tidak pernah
+ * dari form) — produksi memutuskan siapa boleh melihat apa lewat RPC DEFINER
+ * berdasarkan sesi di cookie; mode seed mencerminkan aturannya.
+ */
+export interface CommunityRepository {
+  /** Lini masa "aktif terbaru"; tamu tidak pernah memanggil ini (halaman tergerbang). */
+  listCommunityPosts(viewerId: string, query: CommunityQuery): Promise<CommunityPage>;
+  /** null = tidak ada, disembunyikan, atau tidak boleh dibaca (404 yang sama). */
+  getCommunityThread(viewerId: string, postId: string): Promise<CommunityThread | null>;
+  /** Mengembalikan id postingan baru. `viewer.fullName` hanya dipakai mode seed (produksi membaca nama dari `users`). */
+  createCommunityPost(viewer: CommunityViewer, input: CommunityPostInput): Promise<string>;
+  replyToCommunityPost(viewer: CommunityViewer, postId: string, body: string): Promise<void>;
+  /** Keadaan sesudahnya: true = ditandai bermanfaat. */
+  toggleCommunityHelpful(viewerId: string, target: CommunityTarget): Promise<boolean>;
+  deleteCommunityPost(viewerId: string, postId: string): Promise<void>;
+  /** Mengembalikan id postingannya — kembali ke utas yang sama. */
+  deleteCommunityReply(viewerId: string, replyId: string): Promise<string>;
+  reportCommunityContent(viewerId: string, input: CommunityReportInput): Promise<void>;
+  listMyCommunityContent(viewerId: string): Promise<readonly MyCommunityContent[]>;
+  /** Moderasi — hanya dari rute admin SETELAH `checkAdminAccess()`. */
+  listCommunityReports(limit: number): Promise<readonly CommunityReportQueueItem[]>;
+  resolveCommunityReport(input: ResolveCommunityReportInput): Promise<void>;
+}
+
+export interface CommunityViewer {
+  readonly id: string;
+  readonly fullName: string;
+}
+
+export interface CommunityQuery {
+  readonly topic: CommunityTopic | null;
+  readonly eventId: string | null;
+  readonly before: CommunityCursor | null;
+  readonly limit?: number;
+}
+
+export interface CommunityTarget {
+  readonly kind: 'post' | 'reply';
+  readonly id: string;
+}
+
+export interface CommunityReportInput extends CommunityTarget {
+  readonly reason: ReportReason;
+  readonly details: string | null;
+}
+
+export interface ResolveCommunityReportInput {
+  readonly reportId: string;
+  readonly actorId: string;
+  /** Hanya mode seed (log moderasi); produksi membaca nama dari `users`. */
+  readonly actorName?: string;
+  readonly outcome: 'RESOLVED' | 'DISMISSED';
+  /** Hanya untuk RESOLVED: sembunyikan tulisannya (final). */
+  readonly hide: boolean;
+  readonly note: string | null;
+}
+
+/**
+ * Foto profil & banner kartu profil (ADR-083). Siapa yang melihat = aturan
+ * detail profil (`public_profile_details`): pemilik, pembaca yang boleh
+ * membuka profilnya, atau sesama lobi tanpa blokir. Menulis hanya untuk akun
+ * sendiri (`userId` dari sesi server), kecuali pencabutan oleh moderator.
+ */
+export interface ProfileMediaRepository {
+  /** Milik sendiri; kolom belum ada (urutan deploy) → `available: false`. */
+  getOwnProfileMedia(userId: string): Promise<OwnProfileMedia>;
+  /** Maks. 100 orang. Tidak ada di peta = tidak boleh dilihat ATAU belum memasang apa pun. */
+  listProfileMedia(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, ProfileMedia>>;
+  /**
+   * Pasang/ganti foto atau banner unggahan. Gambar SUDAH diperiksa pemanggil
+   * (`readImageUpload` + `exceedsProfileLimit`). Berkas lama dihapus.
+   * `profile_media_rate_limited`, `profile_media_unavailable`.
+   */
+  setProfileImage(userId: string, kind: ProfileMediaKind, image: UploadedImage): Promise<void>;
+  removeProfileImage(userId: string, kind: ProfileMediaKind): Promise<void>;
+  /** `null` = kembali ke sampul bawaan. Tidak menyentuh banner unggahan. */
+  setBannerPreset(userId: string, preset: BannerPreset | null): Promise<void>;
+  /**
+   * Berkas untuk `/media/profil/[id]`; null = tidak ada, tamu, atau tidak
+   * boleh dilihat (404 yang sama). Admin boleh membuka berkas siapa pun
+   * (moderasi). `viewer` hanya dipakai mode seed (tanpa RLS); produksi
+   * memutuskan dari sesi di cookie lewat `profile_media_file()`.
+   */
+  getProfileMediaFile(viewer: MediaViewer | null, fileId: string): Promise<StoredFile | null>;
+  /** Admin setelah `checkAdminAccess()`: cabut foto & banner unggahan (bukan preset); tercatat di riwayat. `profile_media_empty`. */
+  clearProfileMediaAsAdmin(input: ClearProfileMediaInput): Promise<void>;
+}
+
+/** Pembaca berkas bersesi (`/media/profil`, `/media/kiriman`) — hanya dipakai mode seed, yang tidak punya RLS. */
+export interface MediaViewer {
+  readonly id: string;
+  readonly isAdmin: boolean;
+}
+
+export interface ClearProfileMediaInput {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly reason: string;
+  /** Hanya mode seed (log moderasi). */
+  readonly actorName?: string;
+}
 
 /**
  * Lencana di profil publik & lobi (ADR-072). Lencana tetap DIHITUNG
@@ -317,7 +432,14 @@ export interface SubmissionRepository {
    * RLS `ugc_public_insert` memang mengizinkannya. Dua method lainnya hanya
    * dipanggil dari rute admin SETELAH `checkAdminAccess()` lolos.
    */
-  createSubmission(input: CreateSubmissionInput): Promise<void>;
+  createSubmission(input: CreateSubmissionInput): Promise<CreateSubmissionResult>;
+  /**
+   * Poster kiriman yang BELUM tayang, untuk `/media/kiriman/[id]`: hanya
+   * moderator dan pengirimnya. null = tidak ada, tanpa poster, atau tidak
+   * berhak (404 yang sama). `viewer` hanya dipakai mode seed; produksi
+   * memutuskan dari sesi di cookie lewat `submission_poster_file()`.
+   */
+  getSubmissionPosterFile(viewer: MediaViewer | null, submissionId: string): Promise<StoredFile | null>;
   listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]>;
   /**
    * Kiriman milik satu akun, terbaru dulu — supaya pengirim tahu nasib
@@ -343,6 +465,13 @@ export interface SavedEventRepository {
 export interface TrackerRepository {
   /** Application tracker — lacak tahapan lamaran (Phase 2) */
   listTrackerItems(userId: string): Promise<readonly TrackerItem[]>;
+  /**
+   * Satu baris tracker untuk kegiatan ini — null bila belum dilacak atau
+   * kegiatannya tak lagi terbaca (sama dengan `listTrackerItems().find()`).
+   * Halaman & aksi per kegiatan memakai ini: memuat seluruh tracker demi
+   * satu status tumbuh bersama jumlah kegiatan yang dilacak.
+   */
+  getTrackerItem(userId: string, eventId: string): Promise<TrackerItem | null>;
   upsertTrackerItem(
     userId: string,
     eventId: string,
@@ -384,6 +513,17 @@ export interface NotificationRepository {
   updateNotificationPreferences(userId: string, preferences: NotificationPreferencesInput): Promise<void>;
 }
 
+/**
+ * Jendela `listTeams`: tim terbaru dulu, maks. sekian baris — SAMA di kedua
+ * repository supaya mode seed tidak menutupi pemotongan yang terjadi di
+ * produksi. Halaman yang butuh tim di luar jendela (tim sendiri, satu
+ * kegiatan) memintanya secara spesifik, bukan menyaring jendela global.
+ */
+export const TEAM_LIST_LIMIT = 60;
+
+/** Jendela `listManagedEvents` (terbaru dulu) — sama di kedua repository. Cek hak kelola satu acara: `getManagedEvent`. */
+export const MANAGED_EVENTS_LIMIT = 200;
+
 /** Tim lomba. */
 export interface TeamRepository {
   /**
@@ -397,6 +537,8 @@ export interface TeamRepository {
    * deploy.
    */
   listTeams(eventId?: string): Promise<readonly Team[]>;
+  /** Tim dengan id ini (maks. `TEAM_LIST_LIMIT` id unik), terbaru dulu; id yang tidak ada dilewati. Satu kueri, bukan `getTeamById` berulang. */
+  listTeamsByIds(teamIds: readonly string[]): Promise<readonly Team[]>;
   getTeamById(teamId: string): Promise<Team | null>;
   createTeam(input: CreateTeamRepositoryInput): Promise<string>;
   joinTeam(actorId: string, actorName: string, teamId: string): Promise<void>;
@@ -499,8 +641,14 @@ export interface OrganizerRepository {
   getOrganizerProfile(userId: string): Promise<OrganizerProfile | null>;
   /** Ajukan / perbarui. Mengubah data setelah terverifikasi = kembali ke antrean. REVOKED ditolak. */
   applyAsOrganizer(actor: OrganizerActor, input: OrganizerApplicationInput): Promise<void>;
-  /** Acara yang dikelola — kosong bila tidak (lagi) terverifikasi. */
+  /** Acara yang dikelola, terbaru dulu (maks. `MANAGED_EVENTS_LIMIT`) — kosong bila tidak (lagi) terverifikasi. */
   listManagedEvents(userId: string): Promise<readonly ManagedEvent[]>;
+  /**
+   * Hak kelola SATU acara (null = tidak mengelola / tidak terverifikasi).
+   * Jangan mencarinya di `listManagedEvents()`: acara di luar jendela 200
+   * terbaru akan tampak "bukan kelolaanmu" bagi penyelenggara besar.
+   */
+  getManagedEvent(userId: string, eventId: string): Promise<ManagedEvent | null>;
   claimEvent(actorId: string, eventId: string, evidence: string): Promise<void>;
   listMyClaims(userId: string): Promise<readonly EventClaim[]>;
   proposeEventRevision(actorId: string, eventId: string, changes: EventRevisionChanges, note: string | null): Promise<void>;
@@ -733,6 +881,16 @@ export interface CreateSubmissionInput {
   /** Akun yang sedang masuk saat mengirim (dikabari saat ditinjau); null = tamu. */
   readonly submittedBy: string | null;
   readonly payload: SubmissionPayload;
+  /**
+   * Poster lampiran (ADR-084), sudah lolos `readImageUpload()`. Hanya dipakai
+   * bila `submittedBy` terisi — tamu tidak boleh menitipkan berkas.
+   */
+  readonly poster?: UploadedImage | null;
+}
+
+export interface CreateSubmissionResult {
+  /** false walau poster dikirim = penyimpanannya belum siap (kode tayang sebelum migration); kirimannya tetap masuk. */
+  readonly posterAttached: boolean;
 }
 
 export interface ReviewSubmissionInput {

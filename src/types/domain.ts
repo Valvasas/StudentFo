@@ -1,3 +1,5 @@
+import type { CommunityTopic } from '@/lib/community';
+
 /**
  * Domain types — satu-satunya definisi bentuk data di sisi aplikasi.
  * Setiap konstanta di sini punya pasangan langsung di enum PostgreSQL
@@ -273,6 +275,8 @@ export const NOTIFICATION_TYPES = [
   'QUESTION_ANSWERED',
   /** Teman mengajak ikut lomba dari lobinya (RPC invite_to_lobby, ADR-071). Satu per orang per lomba. */
   'LOBBY_INVITE',
+  /** Balasan di postingan Komunitas milikmu (RPC reply_community_post, ADR-087). Satu per postingan, diperbarui. */
+  'COMMUNITY_REPLY',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -312,6 +316,8 @@ export interface AppNotification {
   readonly sentAt: string;
   /** null kalau notifikasinya bukan tentang satu event tertentu. */
   readonly event: NotificationEventRef | null;
+  /** Postingan Komunitas yang dibalas (ADR-087) — lonceng menautkan ke utasnya. */
+  readonly communityPostId?: string | null;
 }
 
 /**
@@ -473,6 +479,12 @@ export interface Submission {
   readonly payload: SubmissionPayload | null;
   /** Diisi moderator saat menolak (ADR-061); ditampilkan ke pengirimnya. */
   readonly rejectionReason: string | null;
+  /**
+   * Poster lampiran (ADR-084) selama masih milik kiriman — disajikan
+   * `/media/kiriman/[id]` untuk moderator & pengirimnya. `null` = tanpa
+   * poster, sudah pindah ke acara (disetujui), atau dihapus (ditolak).
+   */
+  readonly poster: { readonly width: number; readonly height: number } | null;
 }
 
 /** Status yang bisa muncul di log moderasi — status acara + status penyelenggara (ADR-042). */
@@ -546,6 +558,9 @@ export interface AdminUserSummary {
   readonly createdAt: string | null;
   readonly suspendedAt: string | null;
   readonly suspensionReason: string | null;
+  /** Foto profil & banner unggahan (ADR-083) — supaya moderator bisa melihatnya sebelum mencabut. */
+  readonly avatarId: string | null;
+  readonly bannerId: string | null;
 }
 
 /** Satu baris log moderasi append-only (tabel `moderation_log`). */
@@ -833,6 +848,42 @@ export interface ProfileIdentity {
 }
 
 export type StudyPlaceInput = Pick<StudyProfile, 'institutionId' | 'institutionName' | 'domicileCode'>;
+
+/**
+ * Banner bawaan kartu profil (ADR-083) — gambar bergaya buku sketsa milik
+ * StudentFo, tanpa berkas & tanpa moderasi. Daftar HARUS sama dengan CHECK
+ * `users.banner_preset` (migration 20261110100001; dikunci
+ * `lib/profile-media.test.ts`).
+ */
+export const BANNER_PRESETS = ['kertas', 'matahari', 'ombak', 'daun', 'senja', 'bintang', 'kotak', 'stabilo'] as const;
+export type BannerPreset = (typeof BANNER_PRESETS)[number];
+
+export const BANNER_PRESET_LABEL: Record<BannerPreset, string> = {
+  kertas: 'Kertas bertitik',
+  matahari: 'Matahari pagi',
+  ombak: 'Ombak',
+  daun: 'Dedaunan',
+  senja: 'Senja',
+  bintang: 'Bintang',
+  kotak: 'Kertas kotak',
+  stabilo: 'Coretan stabilo',
+};
+
+/**
+ * Foto profil & banner seseorang seperti yang boleh dilihat pembaca. Id =
+ * id berkas acak untuk `/media/profil/<id>`; null = tidak dipasang ATAU
+ * pembaca tidak boleh melihatnya (tampil inisial & sampul bawaan).
+ */
+export interface ProfileMedia {
+  readonly avatarId: string | null;
+  readonly bannerId: string | null;
+  readonly bannerPreset: BannerPreset | null;
+}
+
+/** Milik sendiri. `available` = false: kolomnya belum ada (migration 20261110100001 belum diterapkan) — form dikunci. */
+export interface OwnProfileMedia extends ProfileMedia {
+  readonly available: boolean;
+}
 
 /** Yang boleh dilihat orang lain (`public_profile_details`): domisili terpotong ke kab/kota. */
 export interface PublicProfileDetails {
@@ -1183,4 +1234,93 @@ export interface LobbyView {
   readonly invitable: readonly { readonly userId: string; readonly fullName: string }[];
   /** Koneksi yang sudah diajak pembaca untuk lomba ini. */
   readonly invited: readonly { readonly userId: string; readonly fullName: string }[];
+}
+
+// ----------------------------------------------------------------------
+// Komunitas (ADR-087)
+// ----------------------------------------------------------------------
+
+/**
+ * Penulis seperti yang boleh dilihat pembaca: nama selalu disingkat
+ * ("Dinda P."); username & foto hanya bila pembaca boleh membuka profilnya.
+ * Id akun tidak pernah keluar.
+ */
+export interface CommunityAuthor {
+  readonly name: string;
+  readonly username: string | null;
+  readonly avatarId: string | null;
+}
+
+export interface CommunityPostSummary {
+  readonly id: string;
+  readonly topic: CommunityTopic;
+  readonly title: string;
+  readonly excerpt: string;
+  readonly event: { readonly slug: string; readonly title: string } | null;
+  readonly author: CommunityAuthor;
+  readonly isMine: boolean;
+  readonly replyCount: number;
+  readonly helpfulCount: number;
+  readonly helped: boolean;
+  readonly createdAt: string;
+  readonly lastActivityAt: string;
+}
+
+export interface CommunityPost extends Omit<CommunityPostSummary, 'excerpt' | 'replyCount'> {
+  readonly body: string;
+}
+
+export interface CommunityReply {
+  readonly id: string;
+  readonly body: string;
+  readonly author: CommunityAuthor;
+  readonly isMine: boolean;
+  /** Ditulis penulis postingannya sendiri. */
+  readonly isOp: boolean;
+  readonly helpfulCount: number;
+  readonly helped: boolean;
+  readonly createdAt: string;
+}
+
+export interface CommunityThread {
+  readonly post: CommunityPost;
+  readonly replies: readonly CommunityReply[];
+}
+
+export interface CommunityPage {
+  readonly items: readonly CommunityPostSummary[];
+  readonly nextCursor: { readonly at: string; readonly id: string } | null;
+  /** false = tabelnya belum ada di database ini (migration belum diterapkan). */
+  readonly available: boolean;
+}
+
+/** Satu TULISAN dengan laporan terbuka (bukan satu baris per laporan). */
+export interface CommunityReportQueueItem {
+  readonly reportId: string;
+  readonly subjectType: 'post' | 'reply';
+  readonly subjectId: string;
+  readonly postId: string | null;
+  readonly postTitle: string | null;
+  /** Hanya untuk moderator: nama lengkap & id, untuk tindak lanjut di /admin/pengguna. */
+  readonly authorId: string | null;
+  readonly authorName: string | null;
+  readonly snapshot: string;
+  readonly reasons: readonly ReportReason[];
+  readonly details: string | null;
+  readonly reportCount: number;
+  readonly hidden: boolean;
+  readonly hiddenAuto: boolean;
+  readonly stillExists: boolean;
+  readonly firstAt: string;
+}
+
+/** Tulisan Komunitas milik sendiri — untuk ekspor data akun. */
+export interface MyCommunityContent {
+  readonly kind: 'post' | 'reply';
+  readonly id: string;
+  readonly postId: string;
+  readonly title: string;
+  readonly body: string;
+  readonly hidden: boolean;
+  readonly createdAt: string;
 }

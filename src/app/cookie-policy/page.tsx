@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ContactNote, InlineLink, LegalDocument, privacyStatus, type LegalSection } from '@/components/legal/legal-document';
 import { ACCOUNT_SIDEBAR_COOKIE } from '@/lib/account-sidebar';
+import { NEXT_STEPS_COOKIE } from '@/lib/next-steps';
 import { MOTION_STORAGE_KEY, THEME_STORAGE_KEY } from '@/lib/appearance';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { FIELD_MEMORY_PREFIX } from '@/lib/form-data';
@@ -63,6 +64,12 @@ const COOKIES: readonly StorageItem[] = [
     lifetime: '1 tahun',
     category: 'Preferensi',
   },
+  {
+    names: [NEXT_STEPS_COOKIE],
+    purpose: 'Mengingat bahwa kamu menyembunyikan "Langkah awal" di beranda dan lonceng notifikasi. Baru dipasang saat kamu menekan Sembunyikan.',
+    lifetime: '1 tahun',
+    category: 'Preferensi',
+  },
 ];
 
 const DEMO_COOKIES: readonly StorageItem[] = [
@@ -97,7 +104,7 @@ const BROWSER_STORAGE: readonly StorageItem[] = [
   {
     names: [`${FIELD_MEMORY_PREFIX}…`],
     purpose:
-      'Salinan isian form daftar (tanpa kata sandi) supaya tidak perlu diketik ulang bila server menolak kiriman, mis. verifikasi anti-bot kedaluwarsa (sessionStorage).',
+      'Salinan isian form daftar (tanpa kata sandi) dan form kirim kegiatan supaya tidak perlu diketik ulang bila server menolak kiriman, mis. verifikasi anti-bot kedaluwarsa (sessionStorage).',
     lifetime: 'Hilang saat tab ditutup; dibuang saat form dibuka tanpa galat',
     category: 'Wajib',
   },

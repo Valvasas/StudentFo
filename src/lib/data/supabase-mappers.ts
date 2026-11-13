@@ -42,6 +42,7 @@ import type {
   TeamMember,
   AdminUserSummary,
   ContentReport,
+  ProfileMedia,
 } from '@/types/domain';
 import {
   ACHIEVEMENTS,
@@ -84,7 +85,9 @@ import type {
   OutboundSurveyConfigRow,
   PublicProfileDetailsRow,
   OutboundSurveyRow,
+  ProfileMediaRow,
 } from '@/types/database';
+import { isProfileMediaId, toBannerPreset } from '@/lib/profile-media';
 
 /**
  * Pemetaan baris PostgREST → bentuk domain, dipisah dari
@@ -184,6 +187,7 @@ export function toSubmission(row: SubmissionRow): Submission {
     createdAt: row.created_at,
     payload: fromStoredPayload(row.payload),
     rejectionReason: row.rejection_reason ?? null,
+    poster: row.poster_id && row.poster_width && row.poster_height ? { width: row.poster_width, height: row.poster_height } : null,
   };
 }
 
@@ -414,6 +418,8 @@ const publicBadgeFactsSchema = z.object({
   organizer_status: z.enum(ORGANIZER_STATUSES).nullable(),
   organizer_reviewed_at: z.string().nullable(),
   hosted_closed_at: z.array(z.string().nullable()),
+  // Sejak migration 20261110100001; fungsi versi lama tidak mengirimnya.
+  member_since: z.string().nullable().optional(),
 });
 
 /**
@@ -439,6 +445,16 @@ export function toPublicBadgeFacts(raw: unknown): AchievementFacts | null {
     organizerStatus: facts.organizer_status,
     organizerReviewedAt: facts.organizer_reviewed_at,
     hostedEventClosedAt: facts.hosted_closed_at,
+    memberSince: facts.member_since ?? null,
+  };
+}
+
+/** Baris `users` / `public_profile_media()` → bentuk domain. Nilai asing (id bukan UUID, preset tak dikenal) = tidak dipasang. */
+export function toProfileMedia(row: ProfileMediaRow): ProfileMedia {
+  return {
+    avatarId: isProfileMediaId(row.avatar_id) ? row.avatar_id : null,
+    bannerId: isProfileMediaId(row.banner_id) ? row.banner_id : null,
+    bannerPreset: toBannerPreset(row.banner_preset),
   };
 }
 
@@ -812,6 +828,8 @@ export function toAdminUserSummary(row: AdminUserRow): AdminUserSummary {
     createdAt: row.created_at,
     suspendedAt: row.suspended_at,
     suspensionReason: row.suspension_reason,
+    avatarId: isProfileMediaId(row.avatar_id) ? row.avatar_id : null,
+    bannerId: isProfileMediaId(row.banner_id) ? row.banner_id : null,
   };
 }
 

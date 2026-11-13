@@ -75,3 +75,21 @@ export function loginHref(next?: string | string[] | null): string {
   const path = audienceLoginPath(audience);
   return target === audienceHome(audience) ? path : `${path}?next=${encodeURIComponent(target)}`;
 }
+
+/**
+ * Halaman asal dari header Referer — untuk aksi kecil di navbar yang tidak
+ * tahu di halaman mana ia dirender (layout tidak menerima pathname), supaya
+ * pengguna tetap di tempatnya. Hanya Referer dari host yang SAMA dengan
+ * permintaan ini yang dipakai, dan tetap lewat `safeNextPath`; selain itu
+ * `fallback`. Referer bisa dikosongkan peramban — itu bukan galat.
+ */
+export function refererPath(referer: string | null | undefined, host: string | null | undefined, fallback = '/'): string {
+  if (!referer || !host) return fallback;
+  try {
+    const url = new URL(referer);
+    if (url.host !== host) return fallback;
+    return safeNextPath(`${url.pathname}${url.search}`, fallback);
+  } catch {
+    return fallback;
+  }
+}

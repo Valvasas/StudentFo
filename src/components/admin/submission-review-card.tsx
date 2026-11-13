@@ -36,6 +36,37 @@ function ApproveForm({ submissionId, title }: { submissionId: string; title: str
 }
 
 /**
+ * Poster lampiran (ADR-084), cukup besar untuk dinilai dan bertaut ke berkas
+ * aslinya: gambar ini tayang publik begitu kiriman disetujui, jadi moderator
+ * harus benar-benar melihatnya — bukan keping 40 px.
+ */
+function SubmissionPoster({ submissionId, title, poster }: { submissionId: string; title: string; poster: NonNullable<Submission['poster']> }) {
+  const src = `/media/kiriman/${submissionId}`;
+  return (
+    <figure className="flex w-full max-w-[220px] flex-col gap-1.5 sm:w-[168px]">
+      <a
+        href={src}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block overflow-hidden rounded-card border border-line bg-panel-nested transition-colors duration-150 ease-snap hover:border-line-strong"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- rute bersesi (/media/kiriman) tidak bisa lewat pengoptimal gambar */}
+        <img
+          src={src}
+          alt={`Poster lampiran ${title} — buka ukuran penuh di tab baru`}
+          width={poster.width}
+          height={poster.height}
+          loading="lazy"
+          decoding="async"
+          className="max-h-[260px] w-full object-contain"
+        />
+      </a>
+      <figcaption className="text-[12px] leading-snug text-ink-muted">Ikut tayang sebagai poster bila disetujui; dihapus bila ditolak.</figcaption>
+    </figure>
+  );
+}
+
+/**
  * Satu kiriman komunitas di antrean moderasi.
  *
  * Tautan dari kiriman adalah input publik yang belum diverifikasi — ditampilkan
@@ -64,7 +95,7 @@ export function SubmissionReviewCard({
   return (
     <li className="flex flex-col gap-4 rounded-card border border-line bg-panel p-5 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
-        <span>Dikirim {formatDateId(submission.createdAt)} oleh {submission.submittedByEmail}</span>
+        <span className="min-w-0">Dikirim {formatDateId(submission.createdAt)} oleh {submission.submittedByEmail}</span>
         <span className="flex flex-wrap items-center gap-2">
           {verifiedOrg && (
             <Badge variant="success">
@@ -84,61 +115,64 @@ export function SubmissionReviewCard({
       )}
 
       {payload ? (
-        <div className="min-w-0">
-          <h3 className="text-base font-semibold">{payload.title}</h3>
-          <p className="mt-1 text-sm text-ink-muted">{payload.organizer}</p>
-          <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="inline text-ink-muted">Tenggat: </dt>
-              <dd className="inline">{formatDateTimeId(payload.deadlineAt)}</dd>
-            </div>
-            {payload.stages.map((stage) => (
-              <div key={stage.label}>
-                <dt className="inline text-ink-muted">{DEADLINE_LABEL_TEXT[stage.label]}: </dt>
-                <dd className="inline">{formatDateId(stage.deadlineAt)}</dd>
+        <div className={submission.poster ? 'grid min-w-0 gap-4 sm:grid-cols-[auto_minmax(0,1fr)]' : 'min-w-0'}>
+          {submission.poster && <SubmissionPoster submissionId={submission.id} title={payload.title} poster={submission.poster} />}
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold">{payload.title}</h3>
+            <p className="mt-1 text-sm text-ink-muted">{payload.organizer}</p>
+            <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="inline text-ink-muted">Tenggat: </dt>
+                <dd className="inline">{formatDateTimeId(payload.deadlineAt)}</dd>
               </div>
-            ))}
-            <div>
-              <dt className="inline text-ink-muted">Lokasi: </dt>
-              <dd className="inline">{payload.isOnline ? 'Daring' : (payload.location ?? '—')}</dd>
-            </div>
-            <div>
-              <dt className="inline text-ink-muted">Jenjang: </dt>
-              <dd className="inline">{payload.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(', ')}</dd>
-            </div>
-            <div>
-              <dt className="inline text-ink-muted">Biaya: </dt>
-              <dd className="inline">{price && price.kind !== 'unknown' ? price.text : 'Belum diketahui'}</dd>
-            </div>
-            {/* Privat: tidak pernah ikut tayang (approve_submission tidak menyalinnya). */}
-            <div className="sm:col-span-2">
-              <dt className="inline text-ink-muted">Kontak panitia: </dt>
-              <dd className="inline">{payload.organizerContact ?? '—'}</dd>
-            </div>
-          </dl>
-          {payload.description && (
-            <p className="mt-3 line-clamp-4 whitespace-pre-line text-sm text-ink-soft">{payload.description}</p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-4 text-sm">
-            {[
-              { label: 'Tautan pendaftaran', url: registrationUrl },
-              { label: 'Sumber', url: sourceUrl },
-              { label: 'Buku panduan', url: guidebookUrl },
-              { label: 'Video', url: videoUrl },
-              { label: 'Bukti kepanitiaan', url: proofUrl },
-            ].map(({ label, url }) =>
-              url ? (
-                <a
-                  key={label}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="inline-flex min-h-11 items-center gap-1 text-brand-text hover:underline"
-                >
-                  {label} <ExternalLink aria-hidden className="size-3" />
-                </a>
-              ) : null,
+              {payload.stages.map((stage) => (
+                <div key={stage.label}>
+                  <dt className="inline text-ink-muted">{DEADLINE_LABEL_TEXT[stage.label]}: </dt>
+                  <dd className="inline">{formatDateId(stage.deadlineAt)}</dd>
+                </div>
+              ))}
+              <div>
+                <dt className="inline text-ink-muted">Lokasi: </dt>
+                <dd className="inline">{payload.isOnline ? 'Daring' : (payload.location ?? '—')}</dd>
+              </div>
+              <div>
+                <dt className="inline text-ink-muted">Jenjang: </dt>
+                <dd className="inline">{payload.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(', ')}</dd>
+              </div>
+              <div>
+                <dt className="inline text-ink-muted">Biaya: </dt>
+                <dd className="inline">{price && price.kind !== 'unknown' ? price.text : 'Belum diketahui'}</dd>
+              </div>
+              {/* Privat: tidak pernah ikut tayang (approve_submission tidak menyalinnya). */}
+              <div className="sm:col-span-2">
+                <dt className="inline text-ink-muted">Kontak panitia: </dt>
+                <dd className="inline">{payload.organizerContact ?? '—'}</dd>
+              </div>
+            </dl>
+            {payload.description && (
+              <p className="mt-3 line-clamp-4 whitespace-pre-line text-sm text-ink-soft">{payload.description}</p>
             )}
+            <div className="mt-3 flex flex-wrap gap-4 text-sm">
+              {[
+                { label: 'Tautan pendaftaran', url: registrationUrl },
+                { label: 'Sumber', url: sourceUrl },
+                { label: 'Buku panduan', url: guidebookUrl },
+                { label: 'Video', url: videoUrl },
+                { label: 'Bukti kepanitiaan', url: proofUrl },
+              ].map(({ label, url }) =>
+                url ? (
+                  <a
+                    key={label}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="inline-flex min-h-11 items-center gap-1 text-brand-text hover:underline"
+                  >
+                    {label} <ExternalLink aria-hidden className="size-3" />
+                  </a>
+                ) : null,
+              )}
+            </div>
           </div>
         </div>
       ) : (

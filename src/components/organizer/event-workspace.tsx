@@ -38,7 +38,7 @@ export interface ManagedEventContext {
  */
 export const loadManagedEvent = cache(async (user: AuthUser, eventId: string): Promise<ManagedEventContext | null> => {
   const repository = await getEventRepository();
-  const managed = (await repository.listManagedEvents(user.id)).find((entry) => entry.event.id === eventId);
+  const managed = await repository.getManagedEvent(user.id, eventId);
   if (!managed) return null;
   const event = await repository.getEventBySlug(managed.event.slug);
   return event ? { managed, event } : null;

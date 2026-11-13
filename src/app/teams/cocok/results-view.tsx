@@ -8,6 +8,7 @@ import { CardSummary } from '@/components/match/card-summary';
 import type { DeckSlide } from '@/components/match/deck/deck-context';
 import { MatchDeck } from '@/components/match/deck/match-deck';
 import { MatchCard } from '@/components/match/match-card';
+import { loadProfileMedia } from '@/components/profile/profile-media-loader';
 import { MatchEmpty } from '@/components/match/match-empty';
 import { MatchEndCard } from '@/components/match/match-end-card';
 import { MatchFilters } from '@/components/match/match-filters';
@@ -74,6 +75,9 @@ export async function ResultsView({ user, params, profile }: MatchViewProps & { 
   const returnTo = `${PAGE}${serializeMatchQuery({ ...query, go: false })}`;
   const rescanHref = `${PAGE}${serializeMatchQuery({ ...query, go: true })}`;
 
+  // Foto profil hanya untuk kartu yang benar-benar ditampilkan, bukan seluruh jendela kandidat.
+  const looks = await loadProfileMedia(user.id, matches.map((match) => match.candidate.person.userId));
+
   const slides: DeckSlide[] = matches.map((match, index) => {
     const { person, relation } = match.candidate;
     const level = person.educationLevel ? EDUCATION_LEVEL_LABEL[person.educationLevel] : null;
@@ -86,7 +90,17 @@ export async function ResultsView({ user, params, profile }: MatchViewProps & { 
       reason: match.reasons[0] ?? null,
       relation,
       canInvite: relation === null,
-      card: <MatchCard match={match} returnTo={returnTo} categoryName={categoryName} rank={index + 1} total={matches.length} scanning={scanning} />,
+      card: (
+        <MatchCard
+          match={match}
+          returnTo={returnTo}
+          categoryName={categoryName}
+          rank={index + 1}
+          total={matches.length}
+          scanning={scanning}
+          photo={looks.get(person.userId)?.avatarId}
+        />
+      ),
     };
   });
   const outgoingCount = matches.filter((match) => match.candidate.relation === 'outgoing').length;

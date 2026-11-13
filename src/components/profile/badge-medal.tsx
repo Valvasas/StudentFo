@@ -12,8 +12,15 @@ import { cn } from '@/lib/utils';
  * Tingkat dibawa BENTUK, bukan warna saja: 1 = lingkaran polos, 2 = roset
  * bergerigi + pita, 3 = roset emas (sorot) + pita + kilau, ditambah 1–3
  * titik di tepi bawah. Tint = identitas jenis lencana (seperti tint tim),
- * bukan makna; satu tint dipakai dua lencana yang tidak pernah tampil
- * bersama di akun peserta.
+ * bukan makna: lima tint untuk dua belas lencana, jadi yang membedakan
+ * selalu GAMBAR di tengahnya, tidak pernah warnanya.
+ *
+ * Gerak (ADR-082, `animated`): medali yang sudah diraih "dicap" masuk, pita
+ * berayun pelan, dan kilap enamel berkeliling tepi cakram sesekali. Semuanya
+ * animasi CSS pada anak dekoratif — keadaan diamnya = gambar utuh, jadi
+ * reduced-motion dan tanpa-JS menampilkan medali yang sama persis. Medali
+ * kecil di deretan/daftar tidak beranimasi: belasan benda bergerak sekaligus
+ * hanya jadi derau.
  */
 
 const C = { x: 60, y: 58 };
@@ -21,8 +28,14 @@ const C = { x: 60, y: 58 };
 const BADGE_TINT: Record<BadgeKey, Tint> = {
   kompetitor: 'sun',
   pembelajar: 'sky',
+  'pemburu-beasiswa': 'lilac',
+  'perintis-karier': 'sky',
+  relawan: 'mint',
   penjelajah: 'mint',
+  'gerak-cepat': 'sun',
+  konsisten: 'peach',
   kontributor: 'peach',
+  perintis: 'lilac',
   terverifikasi: 'lilac',
   'tuan-rumah': 'sky',
 };
@@ -75,6 +88,61 @@ function Glyph({ badge }: { badge: BadgeKey }) {
           <path d="M49 49c2.6-.3 5 .1 7 1M49 53.5c2.6-.3 5 .1 7 1M64 50c2-.9 4.4-1.3 7-1M64 54.5c2-.9 4.4-1.3 7-1" strokeWidth={1.6} />
         </>
       );
+    case 'pemburu-beasiswa':
+      // Toga: papan, badan topi, dan rumbai.
+      return (
+        <>
+          <path d="M50 53.5v6.5c0 3.4 20 3.4 20 0v-6.5" fill={PAPER} />
+          <path d="M60 43.5l17 6.5-17 6.5-17-6.5z" fill={PAPER} />
+          <path d="M77 50v8.5" strokeWidth={1.8} />
+          <path d="M77 58.5l-1.8 4.6h3.6z" fill="currentColor" strokeWidth={1.2} />
+        </>
+      );
+    case 'perintis-karier':
+      // Tas kerja dengan pengait.
+      return (
+        <>
+          <path d="M54 49v-3.2c0-1.2 1-2.2 2.2-2.2h7.6c1.2 0 2.2 1 2.2 2.2V49" />
+          <path d="M45.4 49h29.2c1.2 0 2.2 1 2.2 2.2v12.6c0 1.2-1 2.2-2.2 2.2H45.4c-1.2 0-2.2-1-2.2-2.2V51.2c0-1.2 1-2.2 2.2-2.2z" fill={PAPER} />
+          <path d="M43.2 56.4h33.6" strokeWidth={1.6} />
+          <path d="M57.8 54.4h4.4v4.2h-4.4z" fill="currentColor" strokeWidth={1.2} />
+        </>
+      );
+    case 'relawan':
+      // Hati yang digenggam dua lengkung tangan.
+      return (
+        <>
+          <path d="M60 62.5c-6.4-4.6-10.4-8.4-10.4-12.6 0-3 2.3-5.2 5.1-5.2 2.2 0 4 1.2 5.3 3.2 1.3-2 3.1-3.2 5.3-3.2 2.8 0 5.1 2.2 5.1 5.2 0 4.2-4 8-10.4 12.6z" fill={PAPER} />
+          <path d="M45 60.5c2.6 4 8 6.6 15 6.6s12.4-2.6 15-6.6" strokeWidth={1.8} />
+          <path d="M53.4 50.2c0-1.6 1.1-2.6 2.3-2.6" strokeWidth={1.6} />
+        </>
+      );
+    case 'gerak-cepat':
+      // Petir dengan garis laju.
+      return (
+        <>
+          <path d="M64 41.5L51.5 56.2h7.6L56.4 67l13-15.2h-7.8z" fill={PAPER} />
+          <path d="M43.5 47h5M42 54h3.6M45 61h4" strokeWidth={1.6} />
+        </>
+      );
+    case 'konsisten':
+      // Api rentetan: lidah luar + inti.
+      return (
+        <>
+          <path d="M60.4 41c.8 5 6.8 7.6 6.8 15 0 5.6-3.2 10-7.2 10s-7.2-4.4-7.2-10c0-2.8 1.2-4.8 2.8-6.4.4 2.4 1.6 3.6 2.8 3.6-.6-4.6.4-8.8 2-12.2z" fill={PAPER} />
+          <path d="M60 66c-2 0-3.4-1.8-3.4-4.2 0-2.2 1.7-3.4 3.4-5.6 1.7 2.2 3.4 3.4 3.4 5.6 0 2.4-1.4 4.2-3.4 4.2z" fill="currentColor" strokeWidth={1.2} />
+        </>
+      );
+    case 'perintis':
+      // Bendera pertama yang ditancapkan.
+      return (
+        <>
+          <path d="M51 44.2h19.6l-4.6 5.9 4.6 5.9H51z" fill={PAPER} />
+          <path d="M51 42v25.5" />
+          <path d="M45.5 67.5h11" />
+          <path d={starPath(59, 50.1, 3.3, 1.45)} fill="currentColor" strokeWidth={1} />
+        </>
+      );
     case 'penjelajah':
       return (
         <>
@@ -110,12 +178,36 @@ function Glyph({ badge }: { badge: BadgeKey }) {
   }
 }
 
-function Ribbons({ fill }: { fill: string }) {
+function Ribbons({ fill, animated }: { fill: string; animated: boolean }) {
   return (
-    <>
+    <g className={animated ? 'ribbon-sway' : undefined}>
       <path d="M44 86l-10 40 10-6 7 9 8-37z" fill={fill} />
       <path d="M76 86l10 40-10-6-7 9-8-37z" fill={fill} />
-    </>
+    </g>
+  );
+}
+
+/**
+ * Kilap enamel di kiri atas cakram. Token teks-inverse: terang di KEDUA tema
+ * (PAPER menjadi goresan gelap di tema gelap). Lingkaran ber-`pathLength`
+ * 100 dengan satu ruas garis: `medal-glint` menggeser ruas itu satu putaran
+ * penuh, jadi posisi diamnya = posisi awalnya.
+ */
+function Glint({ animated }: { animated: boolean }) {
+  return (
+    <circle
+      cx={C.x}
+      cy={C.y}
+      r={23}
+      fill="none"
+      pathLength={100}
+      strokeDasharray="10 90"
+      strokeDashoffset={-56}
+      stroke="var(--color-inverse-text)"
+      strokeWidth={3}
+      opacity={0.75}
+      className={animated ? 'medal-glint' : undefined}
+    />
   );
 }
 
@@ -145,7 +237,18 @@ function Sparkle({ x, y, scale, wait }: { x: number; y: number; scale: number; w
   );
 }
 
-export function BadgeMedal({ badge, tier, className }: { badge: BadgeKey; tier: BadgeTier; className?: string }) {
+export function BadgeMedal({
+  badge,
+  tier,
+  className,
+  animated = false,
+}: {
+  badge: BadgeKey;
+  tier: BadgeTier;
+  className?: string;
+  /** Hanya untuk medali besar (kartu lencana): cap masuk, pita berayun, kilap berkeliling. */
+  animated?: boolean;
+}) {
   const center = tint(BADGE_TINT[badge]);
   let body: ReactNode;
 
@@ -163,13 +266,11 @@ export function BadgeMedal({ badge, tier, className }: { badge: BadgeKey; tier: 
     const gold = tier === 3;
     body = (
       <>
-        {tier >= 2 && <Ribbons fill={gold ? HIGHLIGHT : center} />}
+        {tier >= 2 && <Ribbons fill={gold ? HIGHLIGHT : center} animated={animated} />}
         {tier === 1 ? <circle cx={C.x} cy={C.y} r={40} fill={PAPER} /> : <path d={ROSETTE} fill={gold ? HIGHLIGHT : PAPER} />}
         <circle cx={C.x} cy={C.y} r={tier === 1 ? 35 : 37} fill="none" strokeDasharray="1.5 4" strokeWidth={1.6} />
         <circle cx={C.x} cy={C.y} r={28} fill={center} />
-        {/* Kilap enamel di kiri atas cakram. Token teks-inverse: terang di KEDUA tema
-            (PAPER menjadi goresan gelap di tema gelap). */}
-        <path d="M39.6 47.5a23 23 0 0 1 11-12.4" stroke="var(--color-inverse-text)" strokeWidth={3} opacity={0.75} />
+        <Glint animated={animated} />
         <g transform="translate(0 4)">
           <Glyph badge={badge} />
         </g>
@@ -185,7 +286,7 @@ export function BadgeMedal({ badge, tier, className }: { badge: BadgeKey; tier: 
   }
 
   return (
-    <Svg viewBox="0 0 120 132" className={cn('h-auto', className)}>
+    <Svg viewBox="0 0 120 132" className={cn('h-auto', animated && tier > 0 && 'medal-in', className)}>
       {body}
     </Svg>
   );

@@ -10,6 +10,13 @@ import { tintOf } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 import { EVENT_TYPE_LABEL, remainingSlots, type Team } from '@/types/domain';
 
+/**
+ * Foto profil anggota yang boleh dilihat pembaca (ADR-083): userId → id
+ * berkas. Objek polos, bukan Map/fungsi — `TeamCard` juga dipakai komponen
+ * klien (pratinjau /teams/baru), dan hanya data yang bisa menyeberang ke sana.
+ */
+export type MemberPhotos = Readonly<Record<string, string | undefined>>;
+
 export function TeamSlotsBadge({ team, className }: { team: Team; className?: string }) {
   const left = remainingSlots(team);
   return left === 0 ? (
@@ -25,7 +32,7 @@ export function TeamSlotsBadge({ team, className }: { team: Team; className?: st
  * mereka hanya berupa titik di kertas polos — tanpa tint, karena tint
  * diturunkan dari id orang yang memang tidak boleh mereka ketahui.
  */
-export function TeamSeats({ team, size = 'md' }: { team: Team; size?: 'md' | 'lg' }) {
+export function TeamSeats({ team, size = 'md', photos }: { team: Team; size?: 'md' | 'lg'; photos?: MemberPhotos }) {
   const seats = Math.min(team.slotsNeeded, 6);
   const avatar: AvatarSize = size === 'lg' ? 'md' : 'sm';
   const box = size === 'lg' ? 'size-11 text-sm' : 'size-9 text-xs';
@@ -35,7 +42,7 @@ export function TeamSeats({ team, size = 'md' }: { team: Team; size?: 'md' | 'lg
         const member = team.members[index];
         const overlap = index > 0 ? '-ml-1.5' : undefined;
         if (index < team.memberCount && member) {
-          return <Avatar key={member.userId} name={member.fullName} seed={member.userId} size={avatar} ring className={overlap} />;
+          return <Avatar key={member.userId} name={member.fullName} seed={member.userId} photo={photos?.[member.userId]} size={avatar} ring className={overlap} />;
         }
         return (
           <span
@@ -86,6 +93,7 @@ export function TeamCard({
   returnTo = '/teams',
   showEvent = true,
   missingEventLabel = 'Kegiatan tidak tayang',
+  photos,
 }: {
   team: Team;
   currentUserId: string | null;
@@ -93,6 +101,7 @@ export function TeamCard({
   showEvent?: boolean;
   /** Pratinjau /teams/baru: "belum dipilih", bukan "tidak tayang". */
   missingEventLabel?: string;
+  photos?: MemberPhotos;
 }) {
   const isMember = currentUserId !== null && team.members.some((member) => member.userId === currentUserId);
   const isFull = remainingSlots(team) === 0;
@@ -124,7 +133,7 @@ export function TeamCard({
 
       <div className="flex flex-1 flex-col gap-3.5 px-5 pb-5">
         <div className="-mt-6 flex items-end justify-between gap-3">
-          <TeamSeats team={team} />
+          <TeamSeats team={team} photos={photos} />
           <TeamSlotsBadge team={team} className="mb-0.5" />
         </div>
 
@@ -132,13 +141,13 @@ export function TeamCard({
           <h3 className="font-display text-[18px] font-semibold leading-snug tracking-[-0.02em]">
             <Link
               href={`/teams/${team.id}`}
-              className="inline-flex min-h-11 items-center decoration-2 underline-offset-4 after:absolute after:inset-0 after:rounded-[22px] after:content-[''] group-hover:underline"
+              className="inline-flex min-h-11 min-w-0 items-center decoration-2 underline-offset-4 after:absolute after:inset-0 after:rounded-[22px] after:content-[''] group-hover:underline"
             >
-              {team.title}
+              <span className="min-w-0 [overflow-wrap:anywhere]">{team.title}</span>
             </Link>
           </h3>
           {showEvent && team.event && (
-            <p className="-mt-1 line-clamp-1 text-[13px] text-ink-muted">
+            <p className="-mt-1 line-clamp-1 text-[13px] text-ink-muted [overflow-wrap:anywhere]">
               untuk <span className="font-medium text-ink-soft">{team.event.title}</span>
             </p>
           )}
@@ -151,7 +160,7 @@ export function TeamCard({
         <div className="flex min-h-11 items-center gap-3 border-t border-line pt-4">
           {leader ? (
             <span className="flex min-w-0 items-center gap-2 text-[12.5px] text-ink-muted">
-              <Avatar name={leader.fullName} seed={leader.userId} size="xs" />
+              <Avatar name={leader.fullName} seed={leader.userId} photo={photos?.[leader.userId]} size="xs" />
               <span className="truncate">
                 <span className="font-semibold text-ink">{leader.fullName}</span> · ketua
               </span>

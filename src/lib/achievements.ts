@@ -1,3 +1,4 @@
+import { jakartaDateKey } from '@/lib/deadline';
 import type { EventStatus, EventType, OrganizerStatus, RegistrationStatus } from '@/types/domain';
 
 /**
@@ -15,7 +16,12 @@ import type { EventStatus, EventType, OrganizerStatus, RegistrationStatus } from
  *  - pendaftaran internal berstatus CONFIRMED (dikonfirmasi panitia, atau
  *    otomatis untuk acara gratis) pada acara yang tayang & sudah DITUTUP;
  *  - kiriman kegiatan yang DISETUJUI moderator;
- *  - status penyelenggara VERIFIED & acara kelolaan yang sudah ditutup.
+ *  - status penyelenggara VERIFIED & acara kelolaan yang sudah ditutup;
+ *  - tanggal akun dibuat (ditulis server saat mendaftar, tidak bisa diubah).
+ *
+ * Ragam lencana (ADR-082) menambah SUDUT PANDANG atas catatan yang sama —
+ * jenis kegiatan, seberapa awal terkonfirmasi, bulan beruntun — bukan sumber
+ * baru yang lebih longgar.
  *
  * Sumber yang sengaja TIDAK dipakai, karena pemilik akun bisa menulisnya
  * sendiri tanpa saksi: tahap Papan lamaran ("Sudah daftar", "Diterima"),
@@ -23,7 +29,19 @@ import type { EventStatus, EventType, OrganizerStatus, RegistrationStatus } from
  * (cukup dengan akun-akun palsu).
  */
 
-export type BadgeKey = 'kompetitor' | 'pembelajar' | 'penjelajah' | 'kontributor' | 'tuan-rumah' | 'terverifikasi';
+export type BadgeKey =
+  | 'kompetitor'
+  | 'pembelajar'
+  | 'pemburu-beasiswa'
+  | 'perintis-karier'
+  | 'relawan'
+  | 'penjelajah'
+  | 'gerak-cepat'
+  | 'konsisten'
+  | 'kontributor'
+  | 'perintis'
+  | 'tuan-rumah'
+  | 'terverifikasi';
 /** 0 = belum diraih. Tingkat dibawa bentuk medali + teks, bukan warna saja. */
 export type BadgeTier = 0 | 1 | 2 | 3;
 
@@ -45,6 +63,17 @@ export interface BadgeDefinition {
 }
 
 const SETTLED_RULE = 'Dihitung setelah pendaftarannya ditutup dan kamu masih terdaftar.';
+const SAME_AS_COMPETITION = 'Sama dengan lomba: dikonfirmasi panitia, satu acara dihitung sekali, dan batal berarti tidak dihitung.';
+
+/** "Gerak Cepat": terkonfirmasi minimal sekian hari sebelum pendaftaran ditutup. */
+export const EARLY_BIRD_DAYS = 7;
+
+/**
+ * "Angkatan Perintis": akun yang dibuat sebelum 1 Juli 2027 00.00 WIB — tahun
+ * pertama StudentFo. Sesudah tanggal ini lencananya tidak lagi bisa diraih
+ * dan tidak ditampilkan ke akun baru (bukan "0 dari 1" selamanya).
+ */
+export const FOUNDING_MEMBER_UNTIL = '2027-06-30T17:00:00.000Z';
 
 export const BADGES: readonly BadgeDefinition[] = [
   {
@@ -65,11 +94,50 @@ export const BADGES: readonly BadgeDefinition[] = [
     name: 'Pembelajar',
     unit: 'kelas & seminar',
     rule: `Ikut workshop, pelatihan, atau seminar lewat formulir StudentFo dan terkonfirmasi. ${SETTLED_RULE}`,
-    fairness: 'Sama dengan lomba: dikonfirmasi panitia, satu acara dihitung sekali, dan batal berarti tidak dihitung.',
+    fairness: SAME_AS_COMPETITION,
     levels: [
       { threshold: 1, title: 'Langkah Pertama' },
       { threshold: 5, title: 'Haus Ilmu' },
       { threshold: 15, title: 'Pembelajar Sejati' },
+    ],
+    organizerOnly: false,
+  },
+  {
+    key: 'pemburu-beasiswa',
+    name: 'Pemburu Beasiswa',
+    unit: 'beasiswa',
+    rule: `Melamar beasiswa lewat formulir StudentFo dan lamaranmu dikonfirmasi penyelenggara. ${SETTLED_RULE}`,
+    fairness: SAME_AS_COMPETITION,
+    levels: [
+      { threshold: 1, title: 'Berani Melamar' },
+      { threshold: 3, title: 'Pejuang Beasiswa' },
+      { threshold: 7, title: 'Langganan Seleksi' },
+    ],
+    organizerOnly: false,
+  },
+  {
+    key: 'perintis-karier',
+    name: 'Perintis Karier',
+    unit: 'magang',
+    rule: `Melamar magang lewat formulir StudentFo dan lamaranmu dikonfirmasi penyelenggara. ${SETTLED_RULE}`,
+    fairness: SAME_AS_COMPETITION,
+    levels: [
+      { threshold: 1, title: 'Lamaran Pertama' },
+      { threshold: 3, title: 'Siap Kerja' },
+      { threshold: 6, title: 'Profesional Muda' },
+    ],
+    organizerOnly: false,
+  },
+  {
+    key: 'relawan',
+    name: 'Relawan',
+    unit: 'aksi relawan',
+    rule: `Ikut kegiatan volunteer lewat formulir StudentFo dan terkonfirmasi. ${SETTLED_RULE}`,
+    fairness: SAME_AS_COMPETITION,
+    levels: [
+      { threshold: 1, title: 'Uluran Pertama' },
+      { threshold: 3, title: 'Relawan Aktif' },
+      { threshold: 8, title: 'Penggerak' },
     ],
     organizerOnly: false,
   },
@@ -87,6 +155,32 @@ export const BADGES: readonly BadgeDefinition[] = [
     organizerOnly: false,
   },
   {
+    key: 'gerak-cepat',
+    name: 'Gerak Cepat',
+    unit: 'pendaftaran awal',
+    rule: `Pendaftaranmu terkonfirmasi paling lambat ${EARLY_BIRD_DAYS} hari sebelum pendaftaran kegiatannya ditutup. ${SETTLED_RULE}`,
+    fairness: 'Yang dipakai waktu konfirmasi yang dicatat server (keputusan panitia, atau saat mendaftar untuk acara gratis) — bukan jam yang kamu isi sendiri. Mendaftar di hari-hari terakhir tetap sah, hanya tidak dihitung di sini.',
+    levels: [
+      { threshold: 1, title: 'Tidak Menunda' },
+      { threshold: 5, title: 'Selalu Lebih Awal' },
+      { threshold: 15, title: 'Jagoan Curi Start' },
+    ],
+    organizerOnly: false,
+  },
+  {
+    key: 'konsisten',
+    name: 'Konsisten',
+    unit: 'bulan beruntun',
+    rule: 'Ikut minimal satu kegiatan terkonfirmasi setiap bulan, berturut-turut. Bulannya dihitung dari saat pendaftaran kegiatan itu ditutup (WIB).',
+    fairness: 'Tiap bulan butuh kegiatan sungguhan yang dikonfirmasi panitia dan sudah ditutup. Yang dihitung rentetan terpanjangmu, jadi jeda sebulan tidak menghapus yang sudah diraih.',
+    levels: [
+      { threshold: 2, title: 'Mulai Rutin' },
+      { threshold: 3, title: 'Triwulan Penuh' },
+      { threshold: 6, title: 'Setengah Tahun Tanpa Jeda' },
+    ],
+    organizerOnly: false,
+  },
+  {
     key: 'kontributor',
     name: 'Kontributor',
     unit: 'kiriman tayang',
@@ -97,6 +191,15 @@ export const BADGES: readonly BadgeDefinition[] = [
       { threshold: 5, title: 'Kurator Komunitas' },
       { threshold: 20, title: 'Pilar Komunitas' },
     ],
+    organizerOnly: false,
+  },
+  {
+    key: 'perintis',
+    name: 'Angkatan Perintis',
+    unit: 'keanggotaan',
+    rule: 'Bergabung di tahun pertama StudentFo, sebelum 1 Juli 2027.',
+    fairness: 'Tanggal bergabung dicatat server saat akun dibuat dan tidak bisa diubah siapa pun, termasuk kamu.',
+    levels: [{ threshold: 1, title: 'Angkatan Perintis' }],
     organizerOnly: false,
   },
   {
@@ -146,6 +249,8 @@ export interface AchievementFacts {
   readonly organizerReviewedAt: string | null;
   /** Acara kelolaan yang sudah ditutup (`organizer_event_history()`). */
   readonly hostedEventClosedAt: readonly (string | null)[];
+  /** Kapan akun dibuat (ISO); null/tidak ada = tidak diketahui — "Angkatan Perintis" tidak dihitung. */
+  readonly memberSince?: string | null;
 }
 
 export interface BadgeProgress {
@@ -164,6 +269,8 @@ interface Settled {
   readonly eventId: string;
   readonly eventType: EventType;
   readonly at: number;
+  /** Terkonfirmasi ≥ `EARLY_BIRD_DAYS` sebelum tenggat. Acara tanpa tenggat tidak pernah "awal". */
+  readonly early: boolean;
 }
 
 /** Pendaftaran yang sudah "jadi" (dihitung) dan yang masih menunggu ditutup. */
@@ -188,8 +295,9 @@ export function settleRegistrations(
     // Jadi = saat KEDUA syarat terpenuhi (terkonfirmasi & ditutup), tidak pernah di masa depan.
     const confirmed = Date.parse(fact.confirmedAt);
     const at = Math.min(Number.isFinite(deadline) ? Math.max(deadline, confirmed) : confirmed, now.getTime());
+    const early = Number.isFinite(deadline) && Number.isFinite(confirmed) && deadline - confirmed >= EARLY_BIRD_DAYS * 86_400_000;
     const previous = settled.get(fact.eventId);
-    if (!previous || at < previous.at) settled.set(fact.eventId, { eventId: fact.eventId, eventType: fact.eventType, at });
+    if (!previous || at < previous.at) settled.set(fact.eventId, { eventId: fact.eventId, eventType: fact.eventType, at, early });
   }
 
   for (const eventId of settled.keys()) pending.delete(eventId);
@@ -215,6 +323,31 @@ const isoAt = (times: readonly number[], threshold: number): string | null => {
   return at === undefined ? null : new Date(at).toISOString();
 };
 
+const monthIndex = (key: string): number => Number(key.slice(0, 4)) * 12 + Number(key.slice(5, 7)) - 1;
+
+/**
+ * Rentetan bulan kalender WIB terpanjang yang masing-masing punya ≥ 1
+ * kegiatan "jadi", dan kapan rentetan itu pertama kali mencapai tiap panjang.
+ * `reachedAt[n - 1]` = saat rentetan sepanjang n pertama kali tercapai.
+ */
+export function monthlyStreak(times: readonly number[]): { readonly longest: number; readonly reachedAt: readonly number[] } {
+  const firstInMonth = new Map<number, number>();
+  for (const at of times) {
+    const month = monthIndex(jakartaDateKey(new Date(at)));
+    const known = firstInMonth.get(month);
+    if (known === undefined || at < known) firstInMonth.set(month, at);
+  }
+  const reachedAt: number[] = [];
+  let run = 0;
+  let previous = Number.NaN;
+  for (const month of [...firstInMonth.keys()].sort((a, b) => a - b)) {
+    run = month === previous + 1 ? run + 1 : 1;
+    previous = month;
+    if (run > reachedAt.length) reachedAt.push(firstInMonth.get(month)!);
+  }
+  return { longest: reachedAt.length, reachedAt };
+}
+
 /**
  * Semua lencana yang relevan untuk akun ini, urut seperti `BADGES`.
  * Lencana penyelenggara hanya untuk akun yang pernah mengajukan diri.
@@ -238,20 +371,45 @@ export function evaluateBadges(facts: AchievementFacts, now: Date = new Date()):
   const hostedTimes = hosted.every(Number.isFinite) ? [...hosted].sort((a, b) => a - b) : [];
   const verified = facts.organizerStatus === 'VERIFIED';
 
+  const earlyTimes = settled.filter((item) => item.early).map((item) => item.at);
+  const streak = monthlyStreak(settled.map((item) => item.at));
+  const joined = facts.memberSince ? Date.parse(facts.memberSince) : Number.NaN;
+  const founding = Number.isFinite(joined) && joined < Date.parse(FOUNDING_MEMBER_UNTIL) && joined <= now.getTime();
+
+  const byType = (definition: BadgeDefinition, types: readonly EventType[]): BadgeProgress => {
+    const times = ofTypes(types);
+    return progressOf(definition, times.length, pendingOf(types), (threshold) => isoAt(times, threshold));
+  };
+
   const results: BadgeProgress[] = [];
   for (const definition of BADGES) {
     if (definition.organizerOnly && facts.organizerStatus === null) continue;
     switch (definition.key) {
-      case 'kompetitor': {
-        const times = ofTypes(['LOMBA']);
-        results.push(progressOf(definition, times.length, pendingOf(['LOMBA']), (threshold) => isoAt(times, threshold)));
+      case 'kompetitor':
+        results.push(byType(definition, ['LOMBA']));
         break;
-      }
-      case 'pembelajar': {
-        const times = ofTypes(LEARNING_TYPES);
-        results.push(progressOf(definition, times.length, pendingOf(LEARNING_TYPES), (threshold) => isoAt(times, threshold)));
+      case 'pembelajar':
+        results.push(byType(definition, LEARNING_TYPES));
         break;
-      }
+      case 'pemburu-beasiswa':
+        results.push(byType(definition, ['BEASISWA']));
+        break;
+      case 'perintis-karier':
+        results.push(byType(definition, ['MAGANG']));
+        break;
+      case 'relawan':
+        results.push(byType(definition, ['VOLUNTEER']));
+        break;
+      case 'gerak-cepat':
+        results.push(progressOf(definition, earlyTimes.length, 0, (threshold) => isoAt(earlyTimes, threshold)));
+        break;
+      case 'konsisten':
+        results.push(progressOf(definition, streak.longest, 0, (threshold) => isoAt(streak.reachedAt, threshold)));
+        break;
+      case 'perintis':
+        // Tidak bisa dikejar lagi oleh akun yang lahir sesudah batasnya — tidak ditampilkan.
+        if (founding) results.push(progressOf(definition, 1, 0, () => new Date(joined).toISOString()));
+        break;
       case 'penjelajah':
         results.push(progressOf(definition, typeReachedAt.length, pendingNewTypes, (threshold) => isoAt(typeReachedAt, threshold)));
         break;
@@ -292,14 +450,23 @@ export function isFreshBadge(progress: BadgeProgress, now: Date = new Date(), da
 
 /**
  * Lencana yang paling dekat ke tingkat berikutnya — bahan ajakan "1 lomba
- * lagi". Yang sudah mentok tidak ikut; seri diputus urutan `BADGES`.
+ * lagi". Yang sudah mentok tidak ikut. Seri sisa hitungan diputus oleh
+ * kemajuan (2 dari 3 lebih dekat daripada 0 dari 1 — yang sudah dimulai
+ * didahulukan), lalu urutan `BADGES`.
  */
 export function nearestBadgeGoal(progress: readonly BadgeProgress[]): BadgeProgress | null {
   let best: BadgeProgress | null = null;
+  let bestRemaining = Number.POSITIVE_INFINITY;
+  let bestRatio = -1;
   for (const item of progress) {
     if (!item.next || item.definition.organizerOnly) continue;
     const remaining = item.next.threshold - item.count;
-    if (!best || remaining < (best.next?.threshold ?? 0) - best.count) best = item;
+    const ratio = item.count / item.next.threshold;
+    if (remaining < bestRemaining || (remaining === bestRemaining && ratio > bestRatio)) {
+      best = item;
+      bestRemaining = remaining;
+      bestRatio = ratio;
+    }
   }
   return best;
 }

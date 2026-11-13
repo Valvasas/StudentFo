@@ -1,6 +1,7 @@
 import 'server-only';
 import type { PostgrestError } from '@supabase/supabase-js';
-import { actionError } from '@/lib/action-feedback';
+import { actionError, type ActionErrorCode } from '@/lib/action-feedback';
+import { isProfileMediaId, NO_PROFILE_MEDIA, UNAVAILABLE_PROFILE_MEDIA, type ProfileMediaKind } from '@/lib/profile-media';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { isProfileVisibility, isValidUsername, normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
 import { buildDeadlineWeek, DEADLINE_WEEK_DAYS, jakartaDayWindow } from '@/lib/deadline';
@@ -76,6 +77,7 @@ import type {
   RegistrationStats,
   StoredFile,
   Submission,
+  SubmissionPayload,
   Team,
   TeamCandidate,
   TeamLink,
@@ -98,8 +100,19 @@ import type {
   StudyPlaceInput,
   StudyProfile,
   OutboundSurveyRecord,
+  BannerPreset,
+  OwnProfileMedia,
+  ProfileMedia,
+  CommunityAuthor,
+  CommunityPage,
+  CommunityPost,
+  CommunityReportQueueItem,
+  CommunityThread,
+  MyCommunityContent,
+  ReportReason,
 } from '@/types/domain';
-import { LOBBY_INTENTS, toNotificationType } from '@/types/domain';
+import { LOBBY_INTENTS, REPORT_REASONS, toNotificationType } from '@/types/domain';
+import { COMMUNITY_LIMITS, toCommunityTopic, type CommunityPostInput } from '@/lib/community';
 import type {
   BlockedPersonRow,
   CronJobHealthRow,
@@ -142,6 +155,7 @@ import type {
   LobbyRosterRow,
   OutboundSurveyConfigRow,
   ProfileIdentityRow,
+  ProfileMediaRow,
   PublicProfileDetailsRow,
   StudyProfileRow,
   OutboundSurveyRow,
@@ -156,7 +170,7 @@ import {
   totalPagesFor,
 } from './listing';
 import { type CacheLayer, nextDataCache } from './cache';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, MANAGED_EVENTS_LIMIT, OUTBOUND_READ_LIMIT, TEAM_LIST_LIMIT } from './repository';
 import type {
   EventQuestionContext,
   MyEventQuestion,
@@ -165,6 +179,7 @@ import type {
   ResolveReportInput,
   UserSuspensionInput,
   CreateSubmissionInput,
+  CreateSubmissionResult,
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
@@ -178,6 +193,13 @@ import type {
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
+  ClearProfileMediaInput,
+  MediaViewer,
+  CommunityQuery,
+  CommunityReportInput,
+  CommunityTarget,
+  CommunityViewer,
+  ResolveCommunityReportInput,
 } from './repository';
 import {
   CLAIM_COLUMNS,
@@ -235,6 +257,7 @@ import {
   toPublicProfileDetails,
   toOutboundSurveyRecord,
   toPublicBadgeFacts,
+  toProfileMedia,
 } from './supabase-mappers';
 
 export { sanitizeSearchQuery } from './supabase-mappers';
@@ -248,6 +271,21 @@ const PAGE_SIZE = 1000;
  * jauh di bawah batas panjang URL proxy/CDN di depan PostgREST.
  */
 const IN_CHUNK = 60;
+
+const TRACKER_COLUMNS = 'id, user_id, event_id, status, notes, created_at, updated_at, achievement, achievement_note, proof_url, portfolio_visible';
+
+function toTrackerItem(row: TrackerRow, event: EventSummary): TrackerItem {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    status: row.status,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...toPortfolioFields(row),
+    event,
+  };
+}
 /**
  * Batas baca pasangan koneksi untuk MENGECUALIKAN orang dari saran — bukan
  * untuk menampilkan (itu `listConnections`, berhalaman). Di atas batas ini
@@ -259,7 +297,6 @@ const PEER_COLUMNS =
   'connection_id, status, message, created_at, responded_at, is_outgoing, peer_id, full_name, headline, education_level, major, interests';
 /** Kalibrasi dijalankan manual dan jarang; batas ini hanya pengaman memori. */
 const CALIBRATION_ROW_LIMIT = 50_000;
-const MANAGED_EVENTS_LIMIT = 200;
 /** Riwayat klaim/perubahan milik sendiri — yang lebih lama tetap ada di log admin. */
 const TRUST_LIST_LIMIT = 50;
 
@@ -740,7 +777,10 @@ export class SupabaseEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, submittedBy, payload }: CreateSubmissionInput): Promise<void> {
+  async createSubmission({ submittedByEmail, submittedBy, payload, poster }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
+    if (poster && submittedBy && (await this.createSubmissionWithPoster(submittedByEmail, submittedBy, payload, poster))) {
+      return { posterAttached: true };
+    }
     // Klien pengguna/anon, bukan admin: policy `ugc_public_insert` yang
     // menegakkan status PENDING. Tanpa `.select()` — anon memang tidak boleh
     // membaca tabel ini, dan meminta baris balik akan ditolak RLS.
@@ -754,27 +794,66 @@ export class SupabaseEventRepository implements EventRepository {
         ...(submittedBy ? { submitted_by: submittedBy } : {}),
       });
 
-    if (error) {
-      // Trigger enforce_submission_rate_limit() (migration 0009).
-      if (sqlState(error) === 'P0001' && error.message.includes('submission_rate_limited')) {
-        throw actionError('submission_rate_limited');
-      }
-      throw upstreamFailure('Gagal mengirim kegiatan.', error, 500);
-    }
+    if (error) throw submissionInsertFailure(error);
+    return { posterAttached: false };
+  }
+
+  /**
+   * Kiriman berposter (ADR-084). Klien admin karena kolom `poster_*` sengaja
+   * TIDAK bisa ditulis pengguna (tidak ada hak INSERT kolomnya) dan id baris
+   * harus diketahui sebelum berkas diunggah. `submittedBy` datang dari sesi
+   * server, status memakai bawaan PENDING, dan pemicu batas laju tetap
+   * berjalan — yang dilewati hanya RLS yang isinya sudah dipenuhi di sini.
+   *
+   * Berkas diunggah DULU: baris kiriman tidak pernah menunjuk berkas yang
+   * tidak ada. `false` = kolomnya belum ada (kode tayang sebelum migration)
+   * → pemanggil menyimpan kirimannya tanpa poster.
+   */
+  private async createSubmissionWithPoster(submittedByEmail: string, submittedBy: string, payload: SubmissionPayload, poster: UploadedImage): Promise<boolean> {
+    const admin = createSupabaseAdminClient();
+    const storage = admin.storage.from(PHOTO_BUCKET);
+    const submissionId = crypto.randomUUID();
+    const posterId = crypto.randomUUID();
+    const path = `${submissionId}/${posterId}.${IMAGE_EXTENSION[poster.type]}`;
+
+    const uploaded = await storage.upload(path, poster.bytes, { contentType: poster.type, upsert: false });
+    if (uploaded.error) throw upstreamFailure('Gagal mengunggah poster kiriman.', uploaded.error, 500);
+
+    const { error } = await admin.from('ugc_submissions').insert({
+      id: submissionId,
+      submitted_by_email: submittedByEmail,
+      submitted_by: submittedBy,
+      payload: toStoredPayload(payload),
+      poster_id: posterId,
+      poster_type: poster.type,
+      poster_width: poster.width,
+      poster_height: poster.height,
+    });
+    if (!error) return true;
+
+    const removed = await storage.remove([path]);
+    if (removed.error) console.error('[kiriman] poster yatim gagal dihapus:', path, removed.error);
+    if (isMissingColumnError(error)) return false;
+    throw submissionInsertFailure(error);
+  }
+
+  async getSubmissionPosterFile(_viewer: MediaViewer | null, submissionId: string): Promise<StoredFile | null> {
+    if (!isUuid(submissionId)) return null;
+    // Pembaca = sesi di cookie, diverifikasi PostgREST; tamu → tanpa baris.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('submission_poster_file', { p_submission: submissionId });
+    if (error && isMissingRelationError(error)) return null;
+    if (error) throw upstreamFailure('Gagal memuat poster kiriman.', error);
+    const row = rpcRows<{ path: string; content_type: string }>(data)[0];
+    return row ? downloadPrivateFile(PHOTO_BUCKET, row.path) : null;
   }
 
   async listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]> {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from('ugc_submissions')
-      .select('id, submitted_by_email, submitted_by, payload, status, created_at, rejection_reason')
-      .eq('status', status)
-      .order('created_at', { ascending: true })
-      .limit(limit)
-      .returns<SubmissionRow[]>();
-
+    const { data, error } = await selectSubmissions((columns) =>
+      createSupabaseAdminClient().from('ugc_submissions').select(columns).eq('status', status).order('created_at', { ascending: true }).limit(limit).returns<SubmissionRow[]>(),
+    );
     if (error) throw upstreamFailure('Gagal memuat kiriman komunitas.', error);
-    return data.map(toSubmission);
+    return (data ?? []).map(toSubmission);
   }
 
   // ------------------------------------------------------------------
@@ -867,12 +946,15 @@ export class SupabaseEventRepository implements EventRepository {
   }
 
   async countOpenReports(): Promise<number> {
-    const { count, error } = await createSupabaseAdminClient()
-      .from('content_reports')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'OPEN');
-    if (error) throw upstreamFailure('Gagal menghitung laporan.', error);
-    return count ?? 0;
+    const admin = createSupabaseAdminClient();
+    const [content, community] = await Promise.all([
+      admin.from('content_reports').select('id', { count: 'exact', head: true }).eq('status', 'OPEN'),
+      // Laporan Komunitas (ADR-087) ikut dihitung; tabelnya belum ada = 0.
+      admin.from('community_reports').select('id', { count: 'exact', head: true }).eq('status', 'OPEN'),
+    ]);
+    if (content.error) throw upstreamFailure('Gagal menghitung laporan.', content.error);
+    if (community.error && !isMissingRelationError(community.error)) throw upstreamFailure('Gagal menghitung laporan Komunitas.', community.error);
+    return (content.count ?? 0) + (community.error ? 0 : (community.count ?? 0));
   }
 
   async resolveReport({ reportId, actorId, outcome, note }: ResolveReportInput): Promise<void> {
@@ -891,18 +973,19 @@ export class SupabaseEventRepository implements EventRepository {
 
   async searchUsers(query: string, limit: number): Promise<readonly AdminUserSummary[]> {
     const q = normalizeUserSearch(query);
-    let request = createSupabaseAdminClient()
-      .from('users')
-      .select('id, email, full_name, role, created_at, suspended_at, suspension_reason')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (q && isUuid(q)) request = request.eq('id', q);
-    // `q` sudah lewat normalizeUserSearch(): tanpa koma/kurung/wildcard,
-    // jadi tidak bisa mengubah bentuk filter `or`.
-    else if (q) request = request.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`);
-    const { data, error } = await request.returns<AdminUserRow[]>();
-    if (error) throw upstreamFailure('Gagal mencari pengguna.', error);
-    return data.map(toAdminUserSummary);
+    const search = (columns: string) => {
+      let request = createSupabaseAdminClient().from('users').select(columns).order('created_at', { ascending: false }).limit(limit);
+      if (q && isUuid(q)) request = request.eq('id', q);
+      // `q` sudah lewat normalizeUserSearch(): tanpa koma/kurung/wildcard,
+      // jadi tidak bisa mengubah bentuk filter `or`.
+      else if (q) request = request.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`);
+      return request.returns<AdminUserRow[]>();
+    };
+    let result = await search(`${ADMIN_USER_COLUMNS}, avatar_id, banner_id`);
+    // Sebelum migration 20261110100001: daftar tetap tampil, hanya tanpa foto.
+    if (result.error && isMissingColumnError(result.error)) result = await search(ADMIN_USER_COLUMNS);
+    if (result.error) throw upstreamFailure('Gagal mencari pengguna.', result.error);
+    return result.data.map(toAdminUserSummary);
   }
 
   async setUserSuspension({ userId, actorId, suspend, reason }: UserSuspensionInput): Promise<void> {
@@ -948,17 +1031,11 @@ export class SupabaseEventRepository implements EventRepository {
     // (`ugc_admin_read`) — tabel itu juga memuat `reviewed_by`, identitas
     // moderator yang tidak perlu dibuka ke pengirim lewat policy baru.
     // Penyaringnya `userId` dari sesi server, dan kolomnya dipilih eksplisit.
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from('ugc_submissions')
-      .select('id, submitted_by_email, submitted_by, payload, status, created_at, rejection_reason')
-      .eq('submitted_by', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-      .returns<SubmissionRow[]>();
-
+    const { data, error } = await selectSubmissions((columns) =>
+      createSupabaseAdminClient().from('ugc_submissions').select(columns).eq('submitted_by', userId).order('created_at', { ascending: false }).limit(limit).returns<SubmissionRow[]>(),
+    );
     if (error) throw upstreamFailure('Gagal memuat kirimanmu.', error);
-    return data.map(toSubmission);
+    return (data ?? []).map(toSubmission);
   }
 
   async reviewSubmission({ submissionId, decision, reviewerId, reason }: ReviewSubmissionInput): Promise<void> {
@@ -976,6 +1053,7 @@ export class SupabaseEventRepository implements EventRepository {
 
       if (error) throw upstreamFailure('Gagal menolak kiriman.', error, 500);
       if (!data?.length) throw actionError('submission_not_found');
+      await this.discardSubmissionPoster(submissionId);
       return;
     }
 
@@ -1004,6 +1082,23 @@ export class SupabaseEventRepository implements EventRepository {
           throw upstreamFailure('Gagal menyetujui kiriman.', error, 500);
       }
     }
+  }
+
+  /**
+   * Kiriman yang ditolak tidak menyimpan posternya (ADR-084). Keputusannya
+   * sudah tersimpan saat ini dipanggil, jadi kegagalan di sini dicatat —
+   * bukan membatalkan penolakan yang sudah dikabarkan ke pengirim.
+   */
+  private async discardSubmissionPoster(submissionId: string): Promise<void> {
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.rpc('take_submission_poster', { p_submission: submissionId });
+    if (error) {
+      if (!isMissingRelationError(error)) console.error('[kiriman] poster kiriman ditolak gagal dilepas:', submissionId, error);
+      return;
+    }
+    if (typeof data !== 'string' || !data) return;
+    const removed = await admin.storage.from(PHOTO_BUCKET).remove([data]);
+    if (removed.error) console.error('[kiriman] berkas poster kiriman ditolak gagal dihapus:', data, removed.error);
   }
 
   async listModerationLog(limit: number): Promise<readonly ModerationLogEntry[]> {
@@ -1111,7 +1206,7 @@ export class SupabaseEventRepository implements EventRepository {
     const supabase = await createSupabaseServerClient();
     const { data: rows, error } = await supabase
       .from('application_tracker')
-      .select('id, user_id, event_id, status, notes, created_at, updated_at, achievement, achievement_note, proof_url, portfolio_visible')
+      .select(TRACKER_COLUMNS)
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .returns<TrackerRow[]>();
@@ -1122,21 +1217,24 @@ export class SupabaseEventRepository implements EventRepository {
     const events = await this.fetchSummariesByIds(rows.map((row) => row.event_id));
     return rows.flatMap((row) => {
       const event = events.get(row.event_id);
-      return event
-        ? [
-            {
-              id: row.id,
-              eventId: row.event_id,
-              status: row.status,
-              notes: row.notes,
-              createdAt: row.created_at,
-              updatedAt: row.updated_at,
-              ...toPortfolioFields(row),
-              event,
-            },
-          ]
-        : [];
+      return event ? [toTrackerItem(row, event)] : [];
     });
+  }
+
+  async getTrackerItem(userId: string, eventId: string): Promise<TrackerItem | null> {
+    if (!isUuid(eventId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data: row, error } = await supabase
+      .from('application_tracker')
+      .select(TRACKER_COLUMNS)
+      .eq('user_id', userId)
+      .eq('event_id', eventId)
+      .maybeSingle<TrackerRow>();
+
+    if (error) throw upstreamFailure('Gagal memuat tracker.', error);
+    if (!row) return null;
+    const event = (await this.fetchSummariesByIds([eventId])).get(eventId);
+    return event ? toTrackerItem(row, event) : null;
   }
 
   async upsertTrackerItem(
@@ -1255,13 +1353,12 @@ export class SupabaseEventRepository implements EventRepository {
 
   async listNotifications(userId: string, limit: number): Promise<readonly AppNotification[]> {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('id, event_id, type, message, is_read, sent_at')
-      .eq('user_id', userId)
-      .order('sent_at', { ascending: false })
-      .limit(limit)
-      .returns<NotificationRow[]>();
+    const query = (columns: string) =>
+      supabase.from('notifications').select(columns).eq('user_id', userId).order('sent_at', { ascending: false }).limit(limit).returns<NotificationRow[]>();
+    let result = await query('id, event_id, community_post_id, type, message, is_read, sent_at');
+    // Sebelum migration 20261112100002: kolom Komunitas belum ada.
+    if (result.error && isMissingColumnError(result.error)) result = await query('id, event_id, type, message, is_read, sent_at');
+    const { data, error } = result;
 
     if (error || data.length === 0) return [];
 
@@ -1278,6 +1375,7 @@ export class SupabaseEventRepository implements EventRepository {
         isRead: row.is_read,
         sentAt: row.sent_at,
         event: event ? { id: event.id, slug: event.slug, title: event.title } : null,
+        communityPostId: row.community_post_id ?? null,
       };
     });
   }
@@ -1413,11 +1511,25 @@ export class SupabaseEventRepository implements EventRepository {
   async listTeams(eventId?: string): Promise<readonly Team[]> {
     if (eventId !== undefined && !isUuid(eventId)) return [];
     const supabase = await createSupabaseServerClient();
-    let builder = supabase.from('teams').select(TEAM_COLUMNS).order('created_at', { ascending: false }).limit(60);
+    let builder = supabase.from('teams').select(TEAM_COLUMNS).order('created_at', { ascending: false }).limit(TEAM_LIST_LIMIT);
     if (eventId) builder = builder.eq('event_id', eventId);
 
     const { data, error } = await builder.returns<TeamRow[]>();
     if (error) throw upstreamFailure('Gagal memuat daftar tim.', error);
+    return this.hydrateTeams(data);
+  }
+
+  async listTeamsByIds(teamIds: readonly string[]): Promise<readonly Team[]> {
+    const ids = [...new Set(teamIds)].filter(isUuid).slice(0, TEAM_LIST_LIMIT);
+    if (ids.length === 0) return [];
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('teams')
+      .select(TEAM_COLUMNS)
+      .in('id', ids)
+      .order('created_at', { ascending: false })
+      .returns<TeamRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat tim.', error);
     return this.hydrateTeams(data);
   }
 
@@ -1991,6 +2103,22 @@ export class SupabaseEventRepository implements EventRepository {
       const event = events.get(row.event_id);
       return event ? [{ event, source: row.source, since: row.created_at }] : [];
     });
+  }
+
+  async getManagedEvent(userId: string, eventId: string): Promise<ManagedEvent | null> {
+    if (!isUuid(eventId)) return null;
+    if ((await this.getOrganizerProfile(userId))?.status !== 'VERIFIED') return null;
+    const supabase = await createSupabaseServerClient();
+    const { data: row, error } = await supabase
+      .from('event_managers')
+      .select('event_id, source, created_at')
+      .eq('user_id', userId)
+      .eq('event_id', eventId)
+      .maybeSingle<EventManagerRow>();
+    if (error) throw upstreamFailure('Gagal memuat acara yang dikelola.', error);
+    if (!row) return null;
+    const event = (await this.fetchSummariesByIds([eventId])).get(eventId);
+    return event ? { event, source: row.source, since: row.created_at } : null;
   }
 
   async claimEvent(actorId: string, eventId: string, evidence: string): Promise<void> {
@@ -2925,6 +3053,396 @@ export class SupabaseEventRepository implements EventRepository {
     if (error) throw lobbyFailure(error, 'Gagal mengirim ajakan lobi.');
     return data === true ? 'invited' : 'already';
   }
+
+  // ------------------------------------------------------------------
+  // Foto profil & banner (ADR-083, migration 20261110100001). Berkas di
+  // bucket privat lewat service_role; siapa-melihat diputuskan RPC DEFINER
+  // dengan sesi pembaca, jadi tidak ada aturan kedua di sini.
+  // ------------------------------------------------------------------
+
+  async getOwnProfileMedia(userId: string): Promise<OwnProfileMedia> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from('users').select(PROFILE_MEDIA_COLUMNS).eq('id', userId).maybeSingle<ProfileMediaRow>();
+    if (error && isMissingColumnError(error)) return UNAVAILABLE_PROFILE_MEDIA;
+    if (error) throw upstreamFailure('Gagal memuat foto profil.', error);
+    return { ...(data ? toProfileMedia(data) : NO_PROFILE_MEDIA), available: true };
+  }
+
+  async listProfileMedia(_viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, ProfileMedia>> {
+    const ids = [...new Set(userIds)].filter(isUuid).slice(0, 100);
+    if (ids.length === 0) return new Map();
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('public_profile_media', { p_users: ids });
+    // Sebelum migration: semua orang tampil dengan inisial & sampul bawaan.
+    if (error && isMissingRelationError(error)) return new Map();
+    if (error) throw upstreamFailure('Gagal memuat foto profil.', error);
+    return new Map(rpcRows<ProfileMediaRow & { user_id: string }>(data).map((row) => [row.user_id, toProfileMedia(row)]));
+  }
+
+  async setProfileImage(userId: string, kind: ProfileMediaKind, image: UploadedImage): Promise<void> {
+    if (!isUuid(userId)) throw actionError('profile_media_unavailable');
+    const id = crypto.randomUUID();
+    const path = `${userId}/${id}.${IMAGE_EXTENSION[image.type]}`;
+    const storage = createSupabaseAdminClient().storage.from(PROFILE_BUCKET);
+    const upload = await storage.upload(path, image.bytes, { contentType: image.type, upsert: false });
+    if (upload.error) {
+      // Bucket dibuat migration yang sama dengan kolomnya.
+      if (/bucket not found/i.test(upload.error.message)) throw actionError('profile_media_unavailable');
+      throw upstreamFailure('Gagal mengunggah gambar profil.', upload.error, 500);
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('set_profile_media', { p_kind: kind, p_id: id, p_type: image.type });
+    if (error) {
+      // Baris tidak berubah: berkas barusan yatim, buang sebelum melapor.
+      const removed = await storage.remove([path]);
+      if (removed.error) console.error('[profil] berkas yatim gagal dihapus:', path, removed.error);
+      const code = profileMediaErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menyimpan gambar profil.', error, 500);
+    }
+    await removeProfileFile(data);
+  }
+
+  async removeProfileImage(_userId: string, kind: ProfileMediaKind): Promise<void> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('clear_profile_media', { p_kind: kind });
+    if (error) {
+      const code = profileMediaErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menghapus gambar profil.', error, 500);
+    }
+    await removeProfileFile(data);
+  }
+
+  async setBannerPreset(userId: string, preset: BannerPreset | null): Promise<void> {
+    // Klien bersesi + hak UPDATE per kolom (pola saveProfileIdentity).
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('users').update({ banner_preset: preset }).eq('id', userId);
+    if (error && isMissingColumnError(error)) throw actionError('profile_media_unavailable');
+    if (error && sqlState(error) === '23514') throw actionError('invalid_banner_preset');
+    if (error) throw upstreamFailure('Gagal menyimpan banner.', error, 500);
+  }
+
+  async getProfileMediaFile(_viewer: MediaViewer | null, fileId: string): Promise<StoredFile | null> {
+    if (!isProfileMediaId(fileId)) return null;
+    // Pembaca = sesi di cookie, diverifikasi PostgREST; tamu → auth.uid() NULL → tanpa baris.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('profile_media_file', { p_id: fileId });
+    if (error && isMissingRelationError(error)) return null;
+    if (error) throw upstreamFailure('Gagal memuat gambar profil.', error);
+    const row = rpcRows<{ path: string; content_type: string }>(data)[0];
+    return row ? downloadPrivateFile(PROFILE_BUCKET, row.path) : null;
+  }
+
+  async clearProfileMediaAsAdmin({ userId, actorId, reason }: ClearProfileMediaInput): Promise<void> {
+    if (!isUuid(userId)) throw actionError('user_not_found');
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin.rpc('admin_clear_profile_media', { p_user: userId, p_actor: actorId, p_reason: reason });
+    if (error) {
+      const message = error.message ?? '';
+      if (message.includes('user_not_found')) throw actionError('user_not_found');
+      if (message.includes('profile_media_empty')) throw actionError('profile_media_empty');
+      if (message.includes('invalid_moderation_reason')) throw actionError('suspension_reason_required');
+      if (isMissingRelationError(error)) throw actionError('profile_media_unavailable');
+      throw upstreamFailure('Gagal mencabut gambar profil.', error, 500);
+    }
+    const paths = rpcRows<{ path: string }>(data).map((row) => row.path);
+    if (paths.length === 0) return;
+    const removed = await admin.storage.from(PROFILE_BUCKET).remove(paths);
+    if (removed.error) console.error('[profil] berkas yang dicabut gagal dihapus:', paths, removed.error);
+  }
+
+  // ------------------------------------------------------------------
+  // Komunitas (ADR-087) — semua lewat RPC DEFINER dengan sesi pembaca;
+  // `viewerId` tidak dikirim: database memutuskan dari token di cookie.
+  // ------------------------------------------------------------------
+
+  async listCommunityPosts(_viewerId: string, { topic, eventId, before, limit = COMMUNITY_LIMITS.pageSize }: CommunityQuery): Promise<CommunityPage> {
+    const size = Math.min(Math.max(limit, 1), 49);
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('list_community_posts', {
+      p_topic: topic,
+      p_event: eventId,
+      p_before_at: before?.at ?? null,
+      p_before_id: before?.id ?? null,
+      // Satu baris lebih: ada atau tidaknya halaman berikutnya tanpa query hitung.
+      p_limit: size + 1,
+    });
+    if (error && isMissingRelationError(error)) return { items: [], nextCursor: null, available: false };
+    if (error) throw upstreamFailure('Gagal memuat Komunitas.', error);
+    const rows = rpcRows<CommunityPostRow>(data);
+    const page = rows.slice(0, size);
+    const last = page.at(-1);
+    return {
+      items: page.map((row) => ({ ...toCommunityPostBase(row), excerpt: row.excerpt ?? '', replyCount: row.reply_count ?? 0 })),
+      nextCursor: rows.length > size && last ? { at: last.last_activity_at, id: last.id } : null,
+      available: true,
+    };
+  }
+
+  async getCommunityThread(_viewerId: string, postId: string): Promise<CommunityThread | null> {
+    if (!isUuid(postId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const [post, replies] = await Promise.all([
+      supabase.rpc('get_community_post', { p_post: postId }),
+      supabase.rpc('list_community_replies', { p_post: postId, p_limit: COMMUNITY_LIMITS.repliesShown }),
+    ]);
+    if (post.error && isMissingRelationError(post.error)) return null;
+    if (post.error) throw upstreamFailure('Gagal memuat postingan.', post.error);
+    if (replies.error) throw upstreamFailure('Gagal memuat balasan.', replies.error);
+    const row = rpcRows<CommunityPostRow>(post.data)[0];
+    if (!row) return null;
+    return {
+      post: { ...toCommunityPostBase(row), body: row.body ?? '' },
+      replies: rpcRows<CommunityReplyRow>(replies.data).map((reply) => ({
+        id: reply.id,
+        body: reply.body,
+        author: toCommunityAuthor(reply),
+        isMine: reply.is_mine,
+        isOp: reply.is_op,
+        helpfulCount: reply.helpful_count,
+        helped: reply.helped,
+        createdAt: reply.created_at,
+      })),
+    };
+  }
+
+  async createCommunityPost(_viewer: CommunityViewer, input: CommunityPostInput): Promise<string> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('create_community_post', {
+      p_topic: input.topic,
+      p_title: input.title,
+      p_body: input.body,
+      p_event: input.eventId,
+    });
+    if (error) throw communityFailure(error, 'Gagal membuat postingan.');
+    if (typeof data !== 'string') throw upstreamFailure('Postingan tersimpan tanpa id.', data, 500);
+    return data;
+  }
+
+  async replyToCommunityPost(_viewer: CommunityViewer, postId: string, body: string): Promise<void> {
+    if (!isUuid(postId)) throw actionError('community_post_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('reply_community_post', { p_post: postId, p_body: body });
+    if (error) throw communityFailure(error, 'Gagal mengirim balasan.');
+  }
+
+  async toggleCommunityHelpful(_viewerId: string, { kind, id }: CommunityTarget): Promise<boolean> {
+    if (!isUuid(id)) throw actionError('community_post_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('toggle_community_helpful', {
+      p_post: kind === 'post' ? id : null,
+      p_reply: kind === 'reply' ? id : null,
+    });
+    if (error) throw communityFailure(error, 'Gagal menyimpan tanda bermanfaat.');
+    return data === true;
+  }
+
+  async deleteCommunityPost(_viewerId: string, postId: string): Promise<void> {
+    if (!isUuid(postId)) throw actionError('community_post_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('delete_community_post', { p_post: postId });
+    if (error) throw communityFailure(error, 'Gagal menghapus postingan.');
+  }
+
+  async deleteCommunityReply(_viewerId: string, replyId: string): Promise<string> {
+    if (!isUuid(replyId)) throw actionError('community_reply_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('delete_community_reply', { p_reply: replyId });
+    if (error) throw communityFailure(error, 'Gagal menghapus balasan.');
+    if (typeof data !== 'string') throw actionError('community_reply_not_found');
+    return data;
+  }
+
+  async reportCommunityContent(_viewerId: string, { kind, id, reason, details }: CommunityReportInput): Promise<void> {
+    if (!isUuid(id)) throw actionError('report_unavailable');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('report_community_content', { p_kind: kind, p_id: id, p_reason: reason, p_details: details });
+    if (error) throw communityFailure(error, 'Gagal mengirim laporan.');
+  }
+
+  async listMyCommunityContent(_viewerId: string): Promise<readonly MyCommunityContent[]> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('my_community_content');
+    if (error && isMissingRelationError(error)) return [];
+    if (error) throw upstreamFailure('Gagal memuat tulisan Komunitas-mu.', error);
+    return rpcRows<{ kind: string; id: string; post_id: string; title: string; body: string; hidden: boolean; created_at: string }>(data).map((row) => ({
+      kind: row.kind === 'reply' ? 'reply' : 'post',
+      id: row.id,
+      postId: row.post_id,
+      title: row.title,
+      body: row.body,
+      hidden: row.hidden,
+      createdAt: row.created_at,
+    }));
+  }
+
+  async listCommunityReports(limit: number): Promise<readonly CommunityReportQueueItem[]> {
+    const { data, error } = await createSupabaseAdminClient().rpc('admin_community_report_queue', { p_limit: limit });
+    if (error && isMissingRelationError(error)) return [];
+    if (error) throw upstreamFailure('Gagal memuat laporan Komunitas.', error);
+    return rpcRows<CommunityReportQueueRow>(data).map((row) => ({
+      reportId: row.report_id,
+      subjectType: row.subject_type === 'reply' ? 'reply' : 'post',
+      subjectId: row.subject_id,
+      postId: row.post_id,
+      postTitle: row.post_title,
+      authorId: row.author_id,
+      authorName: row.author_name,
+      snapshot: row.snapshot,
+      reasons: (row.reasons ?? []).filter((reason): reason is ReportReason => (REPORT_REASONS as readonly string[]).includes(reason)),
+      details: row.details,
+      reportCount: row.report_count,
+      hidden: row.hidden,
+      hiddenAuto: row.hidden_auto,
+      stillExists: row.still_exists,
+      firstAt: row.first_at,
+    }));
+  }
+
+  async resolveCommunityReport({ reportId, actorId, outcome, hide, note }: ResolveCommunityReportInput): Promise<void> {
+    if (!isUuid(reportId)) throw actionError('report_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('admin_resolve_community_report', {
+      p_report: reportId,
+      p_actor: actorId,
+      p_outcome: outcome,
+      p_hide: hide,
+      p_note: note,
+    });
+    if (error) throw communityFailure(error, 'Gagal memutuskan laporan Komunitas.');
+  }
+}
+
+const COMMUNITY_ERROR_CODES = [
+  'invalid_community_post',
+  'invalid_community_reply',
+  'community_contact_blocked',
+  'community_rate_limited',
+  'community_post_not_found',
+  'community_reply_not_found',
+  'community_own_content',
+  'community_event_unavailable',
+  'report_unavailable',
+  'report_rate_limited',
+  'invalid_report',
+  'report_not_found',
+] as const satisfies readonly Exclude<ActionErrorCode, 'unknown'>[];
+
+/** Galat RPC Komunitas → kode tertutup; selebihnya galat hulu (detail hanya ke log). */
+function communityFailure(error: { code?: string; message?: string }, fallback: string): Error {
+  if (isMissingRelationError(error)) return actionError('community_unavailable');
+  const message = error.message ?? '';
+  // Sesi kedaluwarsa atau akun ditangguhkan di tengah jalan.
+  if (message.includes('login_required')) return actionError('community_unavailable');
+  const code = COMMUNITY_ERROR_CODES.find((candidate) => message.includes(candidate));
+  return code ? actionError(code) : upstreamFailure(fallback, error, 500);
+}
+
+interface CommunityAuthorRow {
+  author_name: string;
+  author_username: string | null;
+  author_avatar_id: string | null;
+}
+
+interface CommunityPostRow extends CommunityAuthorRow {
+  id: string;
+  topic: string;
+  title: string;
+  excerpt?: string;
+  body?: string;
+  event_slug: string | null;
+  event_title: string | null;
+  is_mine: boolean;
+  reply_count?: number;
+  helpful_count: number;
+  helped: boolean;
+  created_at: string;
+  last_activity_at: string;
+}
+
+interface CommunityReplyRow extends CommunityAuthorRow {
+  id: string;
+  body: string;
+  is_mine: boolean;
+  is_op: boolean;
+  helpful_count: number;
+  helped: boolean;
+  created_at: string;
+}
+
+interface CommunityReportQueueRow {
+  report_id: string;
+  subject_type: string;
+  subject_id: string;
+  post_id: string | null;
+  post_title: string | null;
+  author_id: string | null;
+  author_name: string | null;
+  snapshot: string;
+  reasons: string[] | null;
+  details: string | null;
+  report_count: number;
+  hidden: boolean;
+  hidden_auto: boolean;
+  still_exists: boolean;
+  first_at: string;
+}
+
+function toCommunityAuthor(row: CommunityAuthorRow): CommunityAuthor {
+  return {
+    name: row.author_name,
+    username: row.author_username,
+    avatarId: isProfileMediaId(row.author_avatar_id) ? row.author_avatar_id : null,
+  };
+}
+
+function toCommunityPostBase(row: CommunityPostRow): Omit<CommunityPost, 'body'> {
+  return {
+    id: row.id,
+    topic: toCommunityTopic(row.topic) ?? 'tanya',
+    title: row.title,
+    event: row.event_slug && row.event_title ? { slug: row.event_slug, title: row.event_title } : null,
+    author: toCommunityAuthor(row),
+    isMine: row.is_mine,
+    helpfulCount: row.helpful_count,
+    helped: row.helped,
+    createdAt: row.created_at,
+    lastActivityAt: row.last_activity_at,
+  };
+}
+
+const SUBMISSION_COLUMNS = 'id, submitted_by_email, submitted_by, payload, status, created_at, rejection_reason';
+
+/** Baca kiriman berikut kolom posternya; sebelum migration 20261112100001 kolom itu belum ada → baca tanpa poster. */
+async function selectSubmissions<T extends { error: unknown }>(run: (columns: string) => PromiseLike<T>): Promise<T> {
+  const result = await run(`${SUBMISSION_COLUMNS}, poster_id, poster_width, poster_height`);
+  return result.error && isMissingColumnError(result.error) ? run(SUBMISSION_COLUMNS) : result;
+}
+
+/** Trigger enforce_submission_rate_limit() (migration 0009) → kode batas laju; selebihnya galat hulu. */
+function submissionInsertFailure(error: { message: string }): Error {
+  if (sqlState(error) === 'P0001' && error.message.includes('submission_rate_limited')) return actionError('submission_rate_limited');
+  return upstreamFailure('Gagal mengirim kegiatan.', error, 500);
+}
+
+const ADMIN_USER_COLUMNS = 'id, email, full_name, role, created_at, suspended_at, suspension_reason';
+const PROFILE_BUCKET = 'profile-media';
+const PROFILE_MEDIA_COLUMNS = 'avatar_id, banner_id, banner_preset';
+
+/** Berkas lama (path dari `set_profile_media`/`clear_profile_media`) dibuang; gagal = dicatat, tidak menggagalkan aksi yang sudah tersimpan. */
+async function removeProfileFile(path: unknown): Promise<void> {
+  if (typeof path !== 'string' || path.length === 0) return;
+  const removed = await createSupabaseAdminClient().storage.from(PROFILE_BUCKET).remove([path]);
+  if (removed.error) console.error('[profil] berkas lama gagal dihapus:', path, removed.error);
+}
+
+function profileMediaErrorCode(error: { code?: string; message?: string } | null): Exclude<ActionErrorCode, 'unknown'> | null {
+  if (isMissingRelationError(error)) return 'profile_media_unavailable';
+  const message = error?.message ?? '';
+  if (message.includes('profile_media_rate_limited')) return 'profile_media_rate_limited';
+  if (message.includes('invalid_profile_media')) return 'image_invalid';
+  return null;
 }
 
 const PHOTO_BUCKET = 'event-photos';

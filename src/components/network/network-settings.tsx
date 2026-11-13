@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ChevronDown, Eye, EyeOff } from 'lucide-react';
-import type { NetworkProfile } from '@/types/domain';
+import type { NetworkProfile, ProfileMedia } from '@/types/domain';
 import type { NetworkViewer } from '@/lib/network';
 import { cn } from '@/lib/utils';
 import { NetworkSettingsForm } from './network-settings-form';
@@ -17,11 +17,14 @@ export function NetworkSettings({
   profile,
   categoryName,
   returnTo,
+  look = null,
 }: {
   viewer: NetworkViewer;
   profile: NetworkProfile;
   categoryName: (slug: string) => string;
   returnTo: string;
+  /** Foto & banner milik sendiri (ADR-083) — pratinjau harus sama dengan kartu yang dilihat orang lain. */
+  look?: ProfileMedia | null;
 }) {
   return (
     <section id="pengaturan-jaringan" aria-labelledby="pengaturan-jaringan-title" className="scroll-mt-28 overflow-hidden rounded-[24px] border border-line bg-panel">
@@ -51,6 +54,7 @@ export function NetworkSettings({
           profile={profile}
           categoryNames={Object.fromEntries(viewer.interests.map((slug) => [slug, categoryName(slug)]))}
           returnTo={returnTo}
+          look={look ? { avatarId: look.avatarId, bannerId: look.bannerId, bannerPreset: look.bannerPreset } : null}
         />
       </details>
     </section>

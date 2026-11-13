@@ -81,8 +81,8 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
   const returnTo = `/tracker/${slug}`;
   const user = await requireUser(returnTo);
   const repository = await getEventRepository();
-  const [items, event] = await Promise.all([repository.listTrackerItems(user.id), repository.getEventBySlug(slug)]);
-  const item = items.find((entry) => entry.event.slug === slug);
+  const event = await repository.getEventBySlug(slug);
+  const item = event ? await repository.getTrackerItem(user.id, event.id) : null;
   if (!item || !event) notFound();
 
   const [teams, form, mine] = await Promise.all([
@@ -225,7 +225,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
             <span className="inline-flex h-7 items-center rounded-sm bg-brand px-2.5 text-[13px] font-semibold text-on-brand">{TRACKER_STATUS_LABEL[item.status]}</span>
             <span>Disimpan {formatDateId(item.createdAt)}</span>
             <span aria-hidden>·</span>
-            <span>{event.organizer}</span>
+            <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
             <span aria-hidden>·</span>
             <Link href={`/events/${event.slug}`} className="inline-flex min-h-11 items-center font-medium text-ink underline underline-offset-[3px] sm:min-h-0">
               Detail kegiatan

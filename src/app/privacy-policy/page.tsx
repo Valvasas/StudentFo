@@ -80,6 +80,20 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               pencarian Koneksi tetap pilihan terpisah yang bawaannya mati. Pengguna yang kamu blokir tidak pernah bisa membuka profilmu.
             </li>
             <li>
+              <strong>Foto profil & banner kartu profil (bila kamu memasangnya):</strong> gambar yang kamu unggah dan pilihan banner bawaanmu.
+              Sepenuhnya opsional. Fotomu bisa memperlihatkan wajahmu, jadi kami memperlakukannya hati-hati: metadata gambar (termasuk lokasi
+              GPS) dibuang sebelum disimpan, berkasnya ada di penyimpanan privat, dan hanya terlihat oleh anggota yang sudah masuk dan boleh
+              membuka profilmu atau satu lobi denganmu — tamu dan mesin pencari tidak pernah. Kami tidak memakai foto untuk mengenali wajah atau
+              tujuan lain selain menampilkannya. Moderator dapat melihat dan mencabut gambar yang melanggar aturan.
+            </li>
+            <li>
+              <strong>Komunitas (bila kamu menulis di sana):</strong> postingan, balasan, tanda &ldquo;bermanfaat&rdquo;, dan laporan yang kamu kirim.
+              Tulisanmu terlihat oleh semua anggota yang sudah masuk dengan nama tersingkat (mis. &ldquo;Dinda P.&rdquo;) — tidak oleh tamu atau mesin
+              pencari. Foto & tautan profilmu hanya tampil bagi yang memang boleh membuka profilmu. Tidak ada pesan pribadi. Nomor HP, email, dan tautan
+              WhatsApp/Telegram/LINE ditolak supaya kontak pribadi tidak tersebar di ruang publik. Saat sebuah tulisan dilaporkan, cuplikan isinya
+              disimpan untuk moderator walau tulisannya kemudian dihapus; identitas pelapor tidak diberitahukan ke penulis.
+            </li>
+            <li>
               <strong>Tempat studi, domisili & bidang peminatan (bila kamu mengisinya):</strong> nama sekolah/kampus (dipilih dari direktori
               resmi atau diketik sendiri), domisili sampai kecamatan, dan bidang peminatan spesifik. Orang yang boleh membuka profilmu (lihat butir di atas) dan
               sesama peserta lobi lomba melihat tempat studi, bidang peminatan, dan kabupaten/kota domisilimu. <em>Kecamatan tidak pernah ditampilkan ke siapa pun selain kamu.</em> Tempat studi diisi
@@ -282,7 +296,10 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
           <ul>
             <li>
               <strong>Akun, profil, aktivitas, koneksi, kartu pemain, dan pendaftaran:</strong> selama akunmu aktif. Saat akun dihapus, semuanya ikut
-              terhapus, termasuk berkas bukti pembayaran. Foto galeri yang kamu unggah sebagai penyelenggara tetap menjadi bagian halaman acaranya.
+              terhapus, termasuk berkas bukti pembayaran, foto profil, banner unggahanmu, dan tulisan Komunitas-mu (postingan beserta
+              balasan di dalamnya). Laporan tentang tulisan Komunitas disimpan sebagai arsip moderasi tanpa namamu. Foto profil & banner juga langsung terhapus saat kamu
+              menggantinya atau menghapusnya dari Data diri. Foto galeri yang kamu unggah sebagai penyelenggara tetap menjadi bagian halaman
+              acaranya.
             </li>
             <li>
               <strong>Notifikasi:</strong> yang sudah dibaca dihapus otomatis setelah 180 hari; semua notifikasi dihapus setelah 365 hari.
@@ -357,8 +374,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
         <>
           <p>
             Semua lalu lintas memakai koneksi terenkripsi. Di basis data, setiap akun hanya bisa membaca dan mengubah datanya sendiri (row level
-            security). Bukti pembayaran dan foto disimpan di penyimpanan privat yang hanya dibuka server setelah memeriksa hakmu. Mengganti kata
-            sandi meminta kata sandi lama dan mengeluarkan sesi di perangkat lain.
+            security). Bukti pembayaran, foto profil, dan banner disimpan di penyimpanan privat yang hanya dibuka server setelah memeriksa hakmu.
+            Mengganti kata sandi meminta kata sandi lama dan mengeluarkan sesi di perangkat lain.
           </p>
           <p>
             Tidak ada sistem yang kebal sepenuhnya. Bila terjadi kegagalan pelindungan data pribadi, kami memberi tahu kamu dan lembaga pelindungan

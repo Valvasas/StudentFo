@@ -1,10 +1,12 @@
+import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { ArrowRight, ArrowUpRight, Bookmark, Heart, Hourglass, ListChecks, type LucideIcon, ReceiptText, UsersRound } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bookmark, Hourglass, ListChecks, type LucideIcon, ReceiptText, UsersRound } from 'lucide-react';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { DeadlineWeek } from '@/components/event/deadline-week';
 import { EventGrid } from '@/components/event/event-grid';
 import { loadMyRegistrations } from '@/components/home/account-role';
+import { NextStepsCard } from '@/components/home/next-steps-card';
 import { SearchBox } from '@/components/listing/listing-ui';
 import { registrationHref } from '@/components/registration/registration-cta';
 import { registrationCta, registrationEventClosed, type RegistrationCta } from '@/components/registration/registration-view';
@@ -13,6 +15,7 @@ import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
+import { isNextStepsHidden, NEXT_STEPS_COOKIE, nextSteps, summarizeSteps } from '@/lib/next-steps';
 import { parseEventQuery, type RawSearchParams } from '@/lib/search-params';
 import { needsActionSoon } from '@/lib/tracker-progress';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type EventRegistration, type TrackerStatus } from '@/types/domain';
@@ -41,7 +44,8 @@ interface Shortcut {
 export async function PersonalHome({ user, params }: { user: AuthUser; params: RawSearchParams }) {
   const repository = await getEventRepository();
   const now = new Date();
-  const [tracker, saved, recommended, week, categories, registrations] = await Promise.all([
+  const stepsHidden = isNextStepsHidden((await cookies()).get(NEXT_STEPS_COOKIE)?.value);
+  const [tracker, saved, recommended, week, categories, registrations, connectionCount, teamCount] = await Promise.all([
     repository.listTrackerItems(user.id),
     repository.listSavedEvents(user.id),
     repository.listEvents({
@@ -53,6 +57,9 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     repository.getDeadlineWeek(),
     repository.listCategories(),
     loadMyRegistrations(user.id),
+    // Hanya untuk "Langkah awal" — tidak dimuat bila disembunyikan; gagal = langkahnya tidak ditawarkan.
+    stepsHidden ? null : withFallback<number | null>('hitungan koneksi', async () => (await repository.countConnections(user.id)).accepted, null),
+    stepsHidden ? null : withFallback<number | null>('tim saya', async () => (await repository.listTeamLinks([user.id], 1)).length, null),
   ]);
 
   const trackedIds = new Set(tracker.map((item) => item.eventId));
@@ -94,6 +101,20 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     .filter((name): name is string => Boolean(name))
     .slice(0, 3);
   const profileReady = isProfileComplete(user);
+  const steps = stepsHidden
+    ? null
+    : summarizeSteps(
+        nextSteps({
+          profileReady,
+          hasPhoto: user.profileMedia.available ? user.profileMedia.avatarId !== null : null,
+          savedCount: new Set([...trackedIds, ...savedIds]).size,
+          registeredCount:
+            tracker.filter((item) => item.status !== 'SAVED').length +
+            registrations.filter((registration) => registration.status !== 'CANCELLED').length,
+          connectionCount,
+          teamCount,
+        }),
+      );
 
   const shortcuts: Shortcut[] = [
     { href: '/tracker', label: 'Papan lamaran', icon: ListChecks },
@@ -121,19 +142,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
         </div>
       </header>
 
-      {!profileReady && (
-        <Link
-          href="/profile/interests"
-          className="mt-8 flex items-center gap-4 rounded-card border border-line bg-panel px-5 py-4 transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested"
-        >
-          <Heart aria-hidden className="size-5 shrink-0" />
-          <span className="flex flex-1 flex-col">
-            <span className="font-semibold">Pilih minat & jenjangmu</span>
-            <span className="text-sm text-ink-muted">Rekomendasi dan pengingat menyesuaikan pilihanmu.</span>
-          </span>
-          <ArrowRight aria-hidden className="size-4 shrink-0" />
-        </Link>
-      )}
+      {steps && <NextStepsCard summary={steps} returnTo="/" />}
 
       {/* items-start: tanpa itu kartu "Perlu tindakan" yang kosong ikut meregang
           setinggi "Pantauanmu" dan menyisakan petak kosong besar. */}
@@ -151,7 +160,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
                 <li key={item.event.id} className="flex items-center gap-3 py-3">
                   <DeadlineTag deadlineAt={item.event.primaryDeadlineAt} className="shrink-0" />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <Link href={`/events/${item.event.slug}`} className="line-clamp-2 font-semibold hover:underline">
+                    <Link href={`/events/${item.event.slug}`} className="line-clamp-2 font-semibold hover:underline [overflow-wrap:anywhere]">
                       {item.event.title}
                     </Link>
                     <span className="truncate text-[13px] text-ink-muted">

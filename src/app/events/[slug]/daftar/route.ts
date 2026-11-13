@@ -6,6 +6,7 @@ import { isSurveyEmpty } from '@/lib/outbound-survey';
 import { hasAnsweredOutboundSurvey } from '@/lib/outbound-survey-cookie';
 import { recordSignal } from '@/lib/recommendation-signals';
 import { registrationDestination } from '@/lib/registration-destination';
+import { loginHref } from '@/lib/safe-redirect';
 
 /**
  * Keluar ke tautan pendaftaran lewat server, supaya klik "Daftar" — sinyal
@@ -48,6 +49,10 @@ export async function GET(
   const repository = await getEventRepository();
   const event = await repository.getEventBySlug(slug);
   if (!event) return NextResponse.redirect(new URL('/events', siteUrl), 303);
+  // Tautan pendaftaran khusus anggota (ADR-085). Kembali ke halaman acaranya,
+  // bukan langsung ke luar: setelah masuk, syarat & biayanya terbaca dulu.
+  const user = await getSessionUser();
+  if (!user) return NextResponse.redirect(new URL(loginHref(`/events/${event.slug}`), siteUrl), 303);
 
   const destination = await registrationDestination(event, repository);
   if (!destination) {
@@ -57,6 +62,6 @@ export async function GET(
     return NextResponse.redirect(new URL(`/events/${event.slug}/sebelum-daftar`, siteUrl), 303);
   }
 
-  await recordSignal('register_click', event.id, await getSessionUser());
+  await recordSignal('register_click', event.id, user);
   return NextResponse.redirect(destination.url, 303);
 }

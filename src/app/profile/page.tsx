@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Bookmark, Check, ChevronRight, Clock, Eye, GraduationCap, Lock, Mail, Pencil } from 'lucide-react';
+import { ArrowRight, Bookmark, Camera, Check, ChevronRight, Clock, Eye, GraduationCap, Lock, Mail, Pencil } from 'lucide-react';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -10,7 +10,9 @@ import { CategoryIcon } from '@/components/listing/category-icon';
 import { AccountShell } from '@/components/layout/account-shell';
 import { BadgeBoard, BadgeStrip } from '@/components/profile/badge-board';
 import { loadBadgeFacts } from '@/components/profile/badge-facts';
+import { ProfileBanner } from '@/components/profile/profile-banner';
 import { BadgeVisibilityToggle, PublicBadges } from '@/components/profile/public-badges';
+import { SelfAvatar } from '@/components/ui/avatar';
 import { StudyPlaceLine } from '@/components/profile/study-place';
 import { PortfolioList, type PortfolioRow } from '@/components/profile/portfolio-list';
 import {
@@ -27,7 +29,6 @@ import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { daysLeftLabel, daysUntil, formatShortDateId } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
-import { initialsOf } from '@/lib/initials';
 import { isPubliclyListed, toPortfolioEntry } from '@/lib/portfolio';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import { sectionTitle } from '@/lib/page-title';
@@ -138,14 +139,25 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       )}
 
       <div className="enter flex flex-wrap items-stretch gap-5">
-        <section aria-labelledby="nama-profil" className="flex min-w-0 flex-[2_1_420px] flex-col gap-5 rounded-[20px] border border-line p-5 sm:p-7">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="relative size-20">
-              <span aria-hidden className="flex size-20 items-center justify-center rounded-pill bg-brand text-[26px] font-semibold tracking-[-0.02em] text-on-brand">
-                {initialsOf(user.fullName)}
-              </span>
+        <section aria-labelledby="nama-profil" className="flex min-w-0 flex-[2_1_420px] flex-col gap-5 overflow-hidden rounded-[20px] border border-line pb-5 sm:pb-7">
+          {/* Banner & foto (ADR-083): sama dengan yang tampil di kartu Koneksi, tim, dan menu akun. */}
+          <ProfileBanner media={user.profileMedia} className="h-[104px] sm:h-[132px]" />
+          <div className="-mt-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 sm:px-7">
+            <div className="relative -mt-[52px]">
+              <SelfAvatar name={user.fullName} photo={user.profileMedia.avatarId} className="size-20 text-[26px] tracking-[-0.02em] ring-4 ring-canvas" />
+              {!isPublic && user.profileMedia.available && (
+                <Link
+                  href="/profile/details#tampilan"
+                  aria-label={user.profileMedia.avatarId ? 'Ubah foto & banner' : 'Pasang foto profil & banner'}
+                  className="absolute -bottom-2 -right-3 flex size-11 items-center justify-center rounded-pill"
+                >
+                  <span className="flex size-8 items-center justify-center rounded-pill border border-line-strong/70 bg-panel shadow-card transition-colors duration-150 ease-snap hover:bg-panel-nested">
+                    <Camera aria-hidden className="size-4" />
+                  </span>
+                </Link>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-3">
               <Link
                 href={togglePublicHref}
                 aria-current={isPublic ? 'page' : undefined}
@@ -165,7 +177,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               )}
             </div>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-5 sm:px-7">
             <h1 id="nama-profil" className="text-[clamp(30px,4vw,38px)] leading-[1.05] tracking-[-0.04em]">
               {user.fullName}
             </h1>
@@ -186,19 +198,21 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               </Link>
             )}
           </div>
-          <ul className="flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[13.5px] text-ink-muted">
-            <li className="flex items-center gap-1.5">
-              <GraduationCap aria-hidden className="size-[15px]" />
-              <span>
-                {[user.major, user.educationLevel ? EDUCATION_LEVEL_LABEL[user.educationLevel] : null].filter(Boolean).join(' · ') ||
-                  'Program studi & jenjang belum diisi'}
-              </span>
-            </li>
-          </ul>
-          {studyView && <StudyPlaceLine view={studyView} withFields />}
-          {demoFeaturesEnabled && <DemoStatusPicker editable={!isPublic} />}
-          {badges && !isPublic && <BadgeStrip progress={badges} href={tabHref('lencana')} />}
-          {badges && isPublic && badgeVisibility.show && <PublicBadges progress={badges} />}
+          <div className="flex flex-col gap-5 px-5 sm:px-7">
+            <ul className="flex flex-wrap items-center gap-x-[18px] gap-y-2 text-[13.5px] text-ink-muted">
+              <li className="flex items-center gap-1.5">
+                <GraduationCap aria-hidden className="size-[15px]" />
+                <span>
+                  {[user.major, user.educationLevel ? EDUCATION_LEVEL_LABEL[user.educationLevel] : null].filter(Boolean).join(' · ') ||
+                    'Program studi & jenjang belum diisi'}
+                </span>
+              </li>
+            </ul>
+            {studyView && <StudyPlaceLine view={studyView} withFields />}
+            {demoFeaturesEnabled && <DemoStatusPicker editable={!isPublic} />}
+            {badges && !isPublic && <BadgeStrip progress={badges} href={tabHref('lencana')} />}
+            {badges && isPublic && badgeVisibility.show && <PublicBadges progress={badges} />}
+          </div>
         </section>
 
         {/* Setelah 100% kartu ini hanya berisi daftar yang dicoret semua —

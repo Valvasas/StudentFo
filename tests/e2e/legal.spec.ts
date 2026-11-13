@@ -84,7 +84,7 @@ test('Privasi & data mengikuti pilihan visibilitas yang sebenarnya, bukan kalima
   // Pilih "hanya koneksi" → kalimatnya ikut berubah.
   await page.goto('/profile/details?ubah=publik');
   await page.getByRole('radio', { name: /Hanya koneksi/ }).check();
-  await page.getByRole('button', { name: 'Simpan' }).click();
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click();
   await expect(page).toHaveURL(/notice=profile_identity_saved/);
   await page.goto('/profile/privacy');
   await expect(main.getByText(/Hanya koneksimu & sesama peserta lobi lomba/)).toBeVisible();

@@ -43,7 +43,7 @@ test('cuplikan beranda tanpa JavaScript: adegan pertama tampil, tanpa tombol mat
   const page = await context.newPage();
   await page.goto('/');
   const clip = page.locator('#cara-kerja');
-  await expect(clip.getByText('lomba desain')).toBeAttached();
+  await expect(clip.getByText('lomba desain', { exact: true })).toBeAttached();
   await expect(clip.getByRole('button')).toHaveCount(0);
   await context.close();
 });

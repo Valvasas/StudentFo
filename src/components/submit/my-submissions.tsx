@@ -43,6 +43,14 @@ export function MySubmissions({ submissions, title = 'Kirimanmu' }: { submission
                 <span className="truncate font-medium">{payload?.title ?? 'Kiriman tanpa judul'}</span>
                 <span className="text-xs text-ink-muted">
                   {payload ? `${EVENT_TYPE_LABEL[payload.eventType]} · ` : ''}dikirim {formatDateId(submission.createdAt)}
+                  {submission.poster && (
+                    <>
+                      {' · '}
+                      <a href={`/media/kiriman/${submission.id}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                        poster terlampir
+                      </a>
+                    </>
+                  )}
                 </span>
               </span>
               <span className="flex items-center gap-3 text-sm">

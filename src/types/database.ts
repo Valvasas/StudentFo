@@ -100,6 +100,10 @@ export interface UserProfileRow {
   major: string | null;
   interests: string[] | null;
   suspended_at?: string | null;
+  /** Hanya ada setelah migration 20261110100001 (ADR-083). */
+  avatar_id?: string | null;
+  banner_id?: string | null;
+  banner_preset?: string | null;
 }
 
 export interface SavedEventRow {
@@ -204,6 +208,10 @@ export interface SubmissionRow {
   status: EventStatus;
   created_at: string;
   rejection_reason?: string | null;
+  /** Hanya ada setelah migration 20261112100001 (ADR-084). */
+  poster_id?: string | null;
+  poster_width?: number | null;
+  poster_height?: number | null;
 }
 
 /**
@@ -215,6 +223,8 @@ export interface SubmissionRow {
 export interface NotificationRow {
   id: string;
   event_id: string | null;
+  /** Hanya ada setelah migration 20261112100002 (Komunitas, ADR-087). */
+  community_post_id?: string | null;
   type: string;
   message: string;
   is_read: boolean;
@@ -464,6 +474,9 @@ export interface AdminUserRow {
   created_at: string;
   suspended_at: string | null;
   suspension_reason: string | null;
+  /** Hanya ada setelah migration 20261110100001 (ADR-083). */
+  avatar_id?: string | null;
+  banner_id?: string | null;
 }
 
 /** `outbound_surveys` + judul acara (ADR-070/073) — hanya dibaca klien admin. */
@@ -504,6 +517,13 @@ export interface ProfileIdentityRow {
   username: string | null;
   bio: string | null;
   profile_visibility: string;
+}
+
+/** Foto profil & banner (ADR-083): kolom `users` milik sendiri, atau baris `public_profile_media()`. */
+export interface ProfileMediaRow {
+  avatar_id: string | null;
+  banner_id: string | null;
+  banner_preset: string | null;
 }
 
 /** `outbound_survey_config` (ADR-073) — satu baris, dibaca server. */

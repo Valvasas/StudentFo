@@ -84,7 +84,7 @@ export function EventCard({
               href={`/events/${event.slug}`}
               className="after:absolute after:inset-0 after:rounded-panel after:content-[''] hover:underline hover:decoration-2 hover:underline-offset-4"
             >
-              <span className="line-clamp-3">{event.title}</span>
+              <span className="line-clamp-3 [overflow-wrap:anywhere]">{event.title}</span>
             </Link>
           </h3>
 
@@ -94,7 +94,7 @@ export function EventCard({
             ) : (
               <Building2 aria-hidden className="size-3.5 shrink-0 text-ink-muted" />
             )}
-            <span className="line-clamp-1">{event.organizer}</span>
+            <span className="line-clamp-1 [overflow-wrap:anywhere]">{event.organizer}</span>
           </p>
 
           <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-ink-muted">

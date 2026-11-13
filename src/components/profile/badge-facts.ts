@@ -44,6 +44,7 @@ export async function loadBadgeFacts(user: AuthUser, organizer: OrganizerProfile
         organizerStatus: organizer?.status ?? null,
         organizerReviewedAt: organizer?.reviewedAt ?? null,
         hostedEventClosedAt: history.filter((entry) => entry.status === 'APPROVED' || entry.status === 'EXPIRED').map((entry) => entry.closedAt),
+        memberSince: user.createdAt,
       } satisfies AchievementFacts;
     },
     null,

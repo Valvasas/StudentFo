@@ -41,7 +41,7 @@ yang tidak memuat migration yang sudah ada di produksi
 | Email ganda saat daftar | Ditolak terang: `email_taken` + tautan Masuk/Lupa sandi (ADR-069). Masuk & lupa sandi TETAP seragam | Halaman "cek email" seragam untuk email terdaftar (ADR-011 untuk daftar) | `auth-messages.test.ts` |
 | Ulangi kata sandi | `ConfirmPasswordInput` di daftar ×2, setel ulang, ganti sandi; kode `password_mismatch`/`same_password`/`weak_password` | Mismatch → "Ada isian yang belum benar" | `auth-failure.test.ts` |
 | Pengaturan | Hub `/profile/settings` + `keamanan/` + `notifikasi/` (ADR-067). Pengingat email di **Notifikasi**, Hapus akun di **Privasi & data** | Satu halaman Pengaturan berisi semuanya (cabang `ccr-c5c96a43`) | `settings.spec.ts`, `email-reminders.spec.ts`, `trust-safety.spec.ts` |
-| Tur beranda | `landing-tour.tsx` (ADR-065); tur penyelenggara `organizer-tour.tsx` + `product-tour.tsx` (ADR-063/066) | `student-tour.tsx` (dihapus, menjanjikan alur 404) | `landing-tour.spec.ts` |
+| Tur penyelenggara | `organizer-tour.tsx` + `product-tour.tsx` (ADR-063/066) | `student-tour.tsx` (dihapus, menjanjikan alur 404) | — |
 | Keluar ke tautan resmi | `/events/[slug]/daftar` → **pendataan kinerja** `/sebelum-daftar` sekali per acara → tautan resmi (ADR-070). Pertanyaan **diatur admin** di `/admin/kinerja/pertanyaan` + tombol **Lewati** (ADR-073) | Langsung ke tautan resmi; pertanyaan dikunci di kode/CHECK SQL (`source`/`plan`, ADR-070 awal) | `register-redirect.spec.ts`, `outbound-survey.test.ts`, `110_outbound_surveys.test.sql` |
 | Wilayah | `lib/wilayah.ts` + `wilayah-districts.ts`: 38 prov / 514 kab-kota / 7.285 kecamatan (Kepmendagri, ADR-074), `RegionPicker`. `REGIONS` TETAP untuk filter lokasi acara & jarak (butuh titik) | — (jangan "melengkapi" `REGIONS` tanpa koordinat; jangan ganti filter acara ke wilayah lengkap tanpa normalisasi `location`) | `wilayah.test.ts`, `geo.test.ts` |
 | Tempat studi | Direktori resmi `src/data/institutions.ts` (±49 rb SMA/SMK/MA/SLB/keagamaan + 5.800 PT) + `/api/institusi` + `InstitutionPicker`; kolom `users.institution_*`, `domicile_code`; tampil lewat `public_profile_details()` (ADR-076) | `CAMPUSES` (50 kampus contoh, dihapus) | `institutions.test.ts`, `study-profile.test.ts`, `study-place.spec.ts`, `113_study_profile.test.sql` |
@@ -53,19 +53,30 @@ yang tidak memuat migration yang sudah ada di produksi
 | Pilihan "Lainnya" | Prodi (isian bebas), kampus ("pakai teks ini"), domisili ("Luar negeri" = LN), lokasi kegiatan (datalist 503 kab/kota) | Prodi custom tersembunyi di "Pakai …" | `study-place.spec.ts`, `wilayah.test.ts` |
 | Pemilih melayang di ponsel | Posisi dijepit ke viewport saat dibuka (`Picker`) | Popover 340px ditambatkan ke tombol → meluber | `picker-viewport.spec.ts` |
 | Poster, slide & video | Poster = foto galeri bertanda `is_poster` (satu/acara) → slide `MediaSlider` di Ringkasan, thumbnail kartu & papan, og:image; video = tautan YouTube/Vimeo kanonis `events.video_url`, pemutar fasad (nocookie, dimuat setelah Putar); kelola di studio & `/admin/media/[slug]` (ADR-079) | Grid galeri `EventGallery`/`GalleryViewer` (dihapus); kartu tanpa gambar sama sekali | `event-media.spec.ts`, `video.test.ts`, `event-media.test.ts`, `115_event_media.test.sql` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–079 | Nomor ganda 061/062 | — |
+| Logo | `LogoSprite` + `LogoMark`/`LogoEmblem` dari `logo-paths.ts` (hasil `scripts/trace-logo.py`, ADR-080); ikon & OG dari `LOGO_BOLD` | Monogram `LOGO_MARK` di `illustrations.tsx` (dihapus) | `landing-tour.spec.ts` (render), axe |
+| Tur beranda | Satu cuplikan tanpa judul/daftar langkah; kendali putar/jeda + 5 ruas (ADR-081) | Panggung + 5 tab langkah berteks + label "Contoh tampilan" (ADR-065) | `landing-tour.spec.ts` |
+| Foto profil & banner | Kolom `users.avatar_*`/`banner_*`/`banner_preset`, bucket privat `profile-media`, `/media/profil/[id]`; kartu "Foto & banner" di Data diri; cabut di `/admin/pengguna` (ADR-083) | Hanya inisial + sampul bertitik | `profile-media.test.ts` ×2, `116_profile_media.test.sql`, `profile-media.spec.ts` |
+| Poster di kiriman | Langkah "Media kegiatan" di `/submit` (poster: pengirim yang masuk), kolom `ugc_submissions.poster_*`, `/media/kiriman/[id]` (ADR-084) | Poster hanya setelah tayang (studio/admin); video di lipatan "detail tambahan" | `submissions.test.ts`, `117_submission_poster.test.sql`, `submission-poster.spec.ts` |
+| Komunitas | `/komunitas` (+ `baru`, `[id]`): forum publik khusus anggota, nama tersingkat, tanpa DM & tanpa kontak pribadi, lapor + sembunyi otomatis 3 pelapor, antrean di `/admin/laporan` (ADR-087) | `/discussions` "Ruang diskusi" (pratinjau demo, localStorage — tetap demo saja) | `community.test.ts` ×2, `118_community.test.sql`, `community.spec.ts` |
+| Ajakan bertindak | "Langkah awalmu" di beranda peserta + satu saran di lonceng, dihitung dari akun (`lib/next-steps.ts`), cookie `sf_langkah` untuk menyembunyikan (ADR-086) | Satu tautan "Pilih minat & jenjangmu" | `next-steps.test.ts`, `personal-home.spec.ts` |
+| Detail kegiatan untuk tamu | Etalase + cuplikan ≤ 200 karakter + `MemberGate`; tab lain, tautan pendaftaran, kalender khusus anggota (ADR-085) | Semua isi & "Daftar sekarang" terbuka untuk tamu | `event-gate.spec.ts`, `event-access.test.ts`, `register-redirect.spec.ts` |
+| Jendela daftar & lookup | Batas `TEAM_LIST_LIMIT`/`MANAGED_EVENTS_LIMIT` di `repository.ts`, sama di kedua repository; satu item = `getTrackerItem`/`getManagedEvent`/`listTeams(eventId)`/`listTeamsByIds` (ADR-088) | `list…().find()` di halaman per kegiatan; `.limit(60)`/`200` hanya di Supabase | `teams.test.ts`, `managed-events.test.ts`, `parity.test.ts`, `organizers.test.ts` |
+| Teks pengguna panjang | `body { overflow-wrap: break-word }` + `min-w-0 [overflow-wrap:anywhere]` di teks daun item flex/grid (ADR-088) | Tanpa pengaman; `anywhere` global (jangan — chip terbelah) | `extreme-content.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–088 | Nomor ganda 061/062 | — |
 
 ## Migration
 
-- Produksi: **47** migration, dicocokkan langsung 2026-11-09 → `supabase/APPLIED_MIGRATIONS.txt`.
+- Produksi: **51** migration, dicocokkan langsung 2026-11-13 → `supabase/APPLIED_MIGRATIONS.txt`.
+- 2026-11-13 (persetujuan pemilik di chat): `20261109100002_event_media`, `20261110100001_profile_media`,
+  `20261112100001_submission_poster`, `20261112100002_community` diterapkan ke staging, diuji, lalu produksi.
+  Postgres mengunduh tiap berkas dari commit `657c998` dan menolak bila SHA-256 tidak cocok (pola ADR-062 #8);
+  tiap berkas atomik, versi = nama berkas. Sidik skema publik 12 komponen (fungsi, policy, constraint, kolom,
+  indeks, trigger, view, RLS, hak anon/authenticated, kategori) identik lokal = staging = produksi — selisih satu-satunya
+  hak `MAINTAIN` Postgres 17 bawaan Supabase pada tabel lama. Uji asap staging (di-rollback): tulis → balas →
+  penulis dikabari, tamu ditolak, media profil & poster kiriman terbaca sesuai hak.
 - 2026-11-09: `20261108100001`–`04` dan `20261109100001_profile_details` diterapkan ke staging lalu produksi,
   persis isi berkas (tanpa DROP). Versi di `schema_migrations` disamakan dengan nama berkas; sidik skema
   (policy, constraint, hak kolom, kategori, 14 definisi fungsi) identik lokal = staging = produksi.
-- Belum diterapkan: `20261109100002_event_media` (poster & video, ADR-079) — menunggu persetujuan pemilik.
-  Kode aman urutan deploy: tanpa migration ini fitur terkait turun anggun
-  (kolom lama, lobi kosong + `lobby_unavailable`, survei tidak dicatat tapi
-  pengunjung tetap diantar dengan pertanyaan bawaan, lencana tetap privat,
-  kartu tempat studi & bidang spesifik disembunyikan).
 
 ## Cabang usang (ada migration, TIDAK di produksi, JANGAN digabung tanpa tinjauan)
 
@@ -78,6 +89,17 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-13 — cabang `claude/brave-cray-xsqigf` (lanjutan)
+- Audit skalabilitas (ADR-088): jendela daftar sama di kedua repository, lookup satu baris untuk tracker/hak kelola/tim,
+  `/teams` per kegiatan tidak lagi menyaring jendela global; konten 255 karakter rapi di 320px (`extreme-content.spec.ts`).
+- Tanpa migration baru. Empat migration 2026-11-12 **diterapkan ke staging & produksi** (lihat bagian Migration).
+
+### 2026-11-12 — cabang `claude/brave-cray-xsqigf` (dari `…registration-form-competition-features-sptvfz`)
+- Logo baru (ADR-080), tur beranda hanya cuplikan (ADR-081), 12 ragam lencana + animasi (ADR-082).
+- Foto profil & banner (ADR-083), poster dilampirkan saat kirim kegiatan (ADR-084),
+  gerbang anggota di halaman kegiatan (ADR-085), "Langkah awal" (ADR-086), Komunitas (ADR-087). `LEGAL_REVISION` 2026-11-12.
+- Empat migration BELUM diterapkan (lihat bagian Migration). Cabang ini **belum di `main`**.
 
 ### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 5, setelah PR #27)
 - **Serah-terima sesi & langkah konfigurasi pemilik yang sedang berjalan: `docs/progres-sekarang.md`.**

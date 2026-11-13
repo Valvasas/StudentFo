@@ -175,14 +175,14 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                   <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-2.5">
                     <div className="flex items-start gap-3.5">
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <h2 className="text-[17px] font-semibold tracking-[-0.015em]">
+                        <h2 className="text-[17px] font-semibold tracking-[-0.015em] [overflow-wrap:anywhere]">
                           <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[14px] after:content-['']">
                             {event.title}
                           </Link>
                         </h2>
-                        <span className="flex items-center gap-1 text-[13.5px] text-ink-muted">
+                        <span className="flex min-w-0 items-center gap-1 text-[13.5px] text-ink-muted">
                           {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
-                          <span>
+                          <span className="min-w-0 [overflow-wrap:anywhere]">
                             {event.organizer} · {event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul')}
                           </span>
                         </span>

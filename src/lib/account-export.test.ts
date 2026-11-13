@@ -12,6 +12,8 @@ const base: AccountExportInput = {
     interests: ['teknologi'],
     providers: ['email'],
     organizerDraft: null,
+    createdAt: '2026-10-01T03:00:00.000Z',
+    profileMedia: { avatarId: null, bannerId: null, bannerPreset: null, available: true },
   },
   saved: [],
   tracker: [],
@@ -75,5 +77,23 @@ describe('buildAccountExport', () => {
     expect(result.submissions).toEqual({ unavailable: expect.stringContaining('tidak bisa dimuat') });
     expect(result.studyPlace).toMatchObject({ institutionId: '001002', domicileCode: '32.76.03' });
     expect(result.publicProfile).toEqual({ username: 'ana.uji', bio: 'Halo', visibleTo: 'MEMBERS' });
+  });
+
+  it('Komunitas: tulisan sendiri termasuk yang disembunyikan moderator, bertautan ke utasnya (ADR-087)', () => {
+    expect(buildAccountExport(base).community).toEqual([]);
+    const result = buildAccountExport({
+      ...base,
+      community: [{ kind: 'reply', id: 'r1', postId: 'p1', title: 'Boleh lintas kampus?', body: 'Boleh!', hidden: true, createdAt: '2026-11-12T01:00:00.000Z' }],
+    });
+    expect(result.community).toEqual([
+      { kind: 'reply', url: '/komunitas/p1', title: 'Boleh lintas kampus?', body: 'Boleh!', hiddenByModerator: true, createdAt: '2026-11-12T01:00:00.000Z' },
+    ]);
+  });
+
+  it('foto profil & banner: tautan berkas milik sendiri dan pilihan banner bawaan (ADR-083)', () => {
+    expect(buildAccountExport(base).profileLook).toEqual({ photoUrl: null, bannerUrl: null, bannerPreset: null });
+    const avatarId = '3f2b8c1e-4a5d-4e6f-8a9b-0c1d2e3f4a5b';
+    const result = buildAccountExport({ ...base, user: { ...base.user, profileMedia: { avatarId, bannerId: null, bannerPreset: 'ombak', available: true } } });
+    expect(result.profileLook).toEqual({ photoUrl: `/media/profil/${avatarId}`, bannerUrl: null, bannerPreset: 'ombak' });
   });
 });

@@ -115,7 +115,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                             <span className="text-[12.5px] font-medium text-ink-muted">
                               {category ? shortCategoryName(category.name) : 'Umum'}
                             </span>
-                            <h2 className="text-lg font-semibold leading-snug tracking-[-0.02em]">
+                            <h2 className="text-lg font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere]">
                               <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[12px] after:content-['']">
                                 {event.title}
                               </Link>
@@ -125,7 +125,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                         </div>
                         <span className="flex min-w-0 items-center gap-1 text-sm text-ink-soft">
                           {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
-                          {event.organizer}
+                          <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
                         </span>
                         <PriceBadge event={event} className="self-start" />
                         <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">

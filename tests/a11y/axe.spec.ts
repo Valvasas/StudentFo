@@ -19,7 +19,7 @@ const STATIC_ROUTES = [
   // Slide poster + foto, dan slide video bergaya fasad (ADR-079).
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026',
   '/events/festival-film-pendek-pelajar-nusantara',
-  // Lencana otoritas + biaya + buku panduan + tombol kalender (ADR-049/050).
+  // Tamu: gerbang anggota di tab (ADR-085). Isi tab penuh diaudit di SIGNED_IN_ROUTES.
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=syarat',
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan',
   '/teams',
@@ -43,9 +43,8 @@ const STATIC_ROUTES = [
   '/about',
   '/connections',
   '/halaman-yang-tidak-ada',
-  // Pendataan kinerja sebelum tautan resmi (ADR-070): tanpa & dengan pertanyaan rencana (lomba).
-  '/events/program-relawan-literasi-desa-angkatan-7/sebelum-daftar',
-  '/events/olimpiade-matematika-pelajar-tingkat-nasional/sebelum-daftar',
+  // Komunitas untuk tamu: penjelasan & pintu masuk (ADR-087).
+  '/komunitas',
 ];
 
 async function expectNoViolations(page: Page) {
@@ -99,6 +98,17 @@ for (const [listing, linkPrefix] of [
   });
 }
 
+// Id utas Komunitas dibuat ulang tiap proses: utas dicapai lewat tautan pertama di lini masa.
+test('tanpa pelanggaran WCAG: utas Komunitas pertama (anggota)', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/komunitas');
+  const href = await page.locator('main a[href^="/komunitas/"]:not([href="/komunitas/baru"])').first().getAttribute('href');
+  expect(href).toMatch(/^\/komunitas\/[0-9a-f-]{36}$/);
+  await page.goto(href!);
+  // Panel lapor terbuka supaya isinya ikut diaudit.
+  await page.locator('#postingan summary', { hasText: 'Laporkan' }).click();
+  await expectNoViolations(page);
+});
+
 test('tautan lompat-ke-konten adalah fokus pertama dan membawa ke <main>', async ({ page }) => {
   await page.goto('/');
   await page.keyboard.press('Tab');
@@ -148,6 +158,21 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001/galeri'],
   ['Mahasiswa', '/pembayaran'],
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026/formulir'],
+  // Isi tab penuh (khusus anggota, ADR-085): lencana otoritas + biaya + buku panduan +
+  // tombol kalender (ADR-049/050), dan tanya jawab berformulir.
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=syarat'],
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan'],
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya'],
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=penyelenggara'],
+  // Komunitas (ADR-087): lini masa, saringan topik & kegiatan, tulis postingan, galat kontak.
+  ['Mahasiswa', '/komunitas'],
+  ['Mahasiswa', '/komunitas?topik=cari-tim'],
+  ['Mahasiswa', '/komunitas?kegiatan=kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
+  ['Mahasiswa', '/komunitas/baru?kegiatan=kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
+  ['Mahasiswa', '/komunitas/baru?error=community_contact_blocked'],
+  // Pendataan kinerja sebelum tautan resmi (ADR-070): tanpa & dengan pertanyaan rencana (lomba).
+  ['Mahasiswa', '/events/program-relawan-literasi-desa-angkatan-7/sebelum-daftar'],
+  ['Mahasiswa', '/events/olimpiade-matematika-pelajar-tingkat-nasional/sebelum-daftar'],
   ['Mahasiswa', '/penyelenggara'],
   ['Mahasiswa', '/'],
   // Beranda pribadi punya varian per persona (ADR-053): ajakan lengkapi profil.

@@ -81,6 +81,12 @@ describe('SupabaseEventRepository — penyelenggara', () => {
     await repo.reviewClaim({ claimId: claim!.id, decision: 'APPROVED', reviewerId: admin, note: null });
 
     expect((await repo.listManagedEvents(id)).map((entry) => entry.event.id)).toEqual([event.id]);
+    // Hak kelola satu acara langsung (studio, galeri, menjawab Tanya) — bukan dicari di jendela daftar.
+    expect(await repo.getManagedEvent(id, event.id)).toMatchObject({ event: { id: event.id, slug: event.slug }, source: 'CLAIM' });
+    expect(await repo.getManagedEvent(id, createEvent().id)).toBeNull();
+    actAs(stranger);
+    expect(await repo.getManagedEvent(stranger, event.id)).toBeNull();
+    actAs(id);
     expect((await repo.listMyClaims(id))[0]?.status).toBe('APPROVED');
     expect(await reason(repo.claimEvent(id, event.id, 'Acara ini milik lembaga kami, lihat tautan'))).toBe('claim_already_managed');
     actAs(null);

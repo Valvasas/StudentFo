@@ -77,6 +77,20 @@ export const ACTION_ERROR_CODES = [
   'invalid_video_url',
   'video_rate_limited',
   'media_unavailable',
+  'profile_image_too_large',
+  'profile_media_rate_limited',
+  'profile_media_unavailable',
+  'profile_media_empty',
+  'invalid_banner_preset',
+  'community_unavailable',
+  'invalid_community_post',
+  'invalid_community_reply',
+  'community_contact_blocked',
+  'community_rate_limited',
+  'community_post_not_found',
+  'community_reply_not_found',
+  'community_own_content',
+  'community_event_unavailable',
   'report_unavailable',
   'report_rate_limited',
   'invalid_report',
@@ -193,13 +207,19 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   invalid_video_url: 'Tautan video harus dari YouTube atau Vimeo, mis. https://youtu.be/… atau https://vimeo.com/….',
   video_rate_limited: 'Video acara sudah terlalu sering diganti hari ini. Coba lagi besok.',
   media_unavailable: 'Poster & video belum bisa diatur — pembaruan database belum diterapkan. Coba lagi nanti.',
+  profile_image_too_large:
+    'Gambar terlalu besar untuk profil. Foto profil maksimal 1 MB (sisi terpanjang 1024 px), banner maksimal 2 MB (2400 px). Perkecil dulu, atau unggah dari peramban dengan JavaScript aktif supaya diperkecil otomatis.',
+  profile_media_rate_limited: 'Foto & banner sudah terlalu sering diganti hari ini. Coba lagi besok.',
+  profile_media_unavailable: 'Foto profil & banner belum bisa diatur — pembaruan database belum diterapkan. Coba lagi nanti.',
+  profile_media_empty: 'Akun itu tidak punya foto profil atau banner unggahan.',
+  invalid_banner_preset: 'Pilihan banner tidak dikenal. Pilih salah satu dari daftar.',
   report_unavailable: 'Yang kamu laporkan sudah tidak tersedia.',
   report_rate_limited: 'Kamu sudah mengirim banyak laporan hari ini. Coba lagi besok, atau hubungi kami lewat email.',
   invalid_report: 'Pilih alasan laporan, lalu kirim ulang. Keterangan maksimal 1.000 karakter.',
   report_not_found: 'Laporan itu sudah diputuskan admin lain.',
   user_not_found: 'Akun itu sudah tidak ada.',
   user_protected: 'Akun admin dan akunmu sendiri tidak bisa diubah dari sini.',
-  suspension_reason_required: 'Tulis alasan penangguhan (minimal 5 karakter) — alasan ini tercatat di riwayat.',
+  suspension_reason_required: 'Tulis alasannya (minimal 5 karakter) — alasan ini tercatat di riwayat moderasi.',
   account_delete_confirm: 'Ketik HAPUS AKUN persis untuk mengonfirmasi.',
   account_delete_failed: 'Akun belum terhapus karena berkas unggahanmu gagal dihapus. Coba lagi sebentar lagi.',
   mfa_invalid_code: 'Kode tidak cocok atau sudah kedaluwarsa. Masukkan kode TERBARU dari aplikasi autentikator, dan pastikan jam ponselmu otomatis.',
@@ -228,11 +248,22 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   study_profile_unavailable: 'Tempat studi & domisili belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
   invalid_study_place: 'Tempat studi maksimal 120 karakter (minimal 2), dan domisili harus dipilih dari daftar wilayah.',
   outbound_unavailable: 'Pengaturan pertanyaan pendataan belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
+  community_unavailable: 'Komunitas belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
+  invalid_community_post: 'Pilih topik, tulis judul 6–120 karakter dan isi 10–2.000 karakter.',
+  invalid_community_reply: 'Balasan 2–1.000 karakter.',
+  community_contact_blocked:
+    'Demi keamanan, nomor HP, email, dan tautan WhatsApp/Telegram/LINE tidak bisa ditulis di Komunitas. Ajak orangnya terhubung lewat Koneksi atau gabung tim.',
+  community_rate_limited: 'Kamu sudah banyak menulis hari ini. Coba lagi besok — batas ini menjaga Komunitas dari banjir pesan.',
+  community_post_not_found: 'Postingan itu tidak ada, sudah dihapus, atau disembunyikan moderator.',
+  community_reply_not_found: 'Balasan itu tidak ada atau sudah dihapus.',
+  community_own_content: 'Tulisanmu sendiri tidak bisa ditandai bermanfaat.',
+  community_event_unavailable: 'Kegiatan itu tidak tersedia untuk ditautkan.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
 
 export const ACTION_NOTICE_CODES = [
   'submission_received',
+  'submission_received_poster_skipped',
   'submission_approved',
   'submission_rejected',
   'demo_reset',
@@ -274,6 +305,16 @@ export const ACTION_NOTICE_CODES = [
   'poster_unset',
   'video_saved',
   'video_removed',
+  'avatar_saved',
+  'avatar_removed',
+  'banner_saved',
+  'banner_removed',
+  'banner_preset_saved',
+  'profile_media_cleared',
+  'community_post_created',
+  'community_reply_sent',
+  'community_post_deleted',
+  'community_reply_deleted',
   'reminders_on',
   'reminders_off',
   'undo_done',
@@ -309,6 +350,8 @@ export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
 export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   submission_received:
     'Terima kasih! Kiriman kamu masuk antrean verifikasi. Kegiatan baru tayang setelah dicek manual ke sumbernya.',
+  submission_received_poster_skipped:
+    'Kiriman kamu masuk antrean verifikasi, tetapi posternya belum bisa disimpan. Setelah kegiatannya tayang, poster bisa ditambahkan dari studio penyelenggara atau oleh moderator.',
   submission_approved: 'Kiriman disetujui dan kini tayang di katalog.',
   submission_rejected: 'Kiriman ditolak.',
   demo_reset: 'Data demo diatur ulang ke kondisi awal, dengan tenggat dihitung ulang dari hari ini.',
@@ -364,6 +407,16 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   poster_unset: 'Foto itu tidak lagi jadi poster.',
   video_saved: 'Video dipasang di halaman acara.',
   video_removed: 'Video dilepas dari halaman acara.',
+  avatar_saved: 'Foto profil terpasang. Orang yang boleh membuka profilmu melihatnya di Koneksi, tim, lobi, dan Komunitas.',
+  avatar_removed: 'Foto profil dihapus. Inisial namamu tampil lagi.',
+  banner_saved: 'Banner terpasang di kartu profilmu.',
+  banner_removed: 'Banner unggahan dihapus.',
+  banner_preset_saved: 'Banner kartu profil diperbarui.',
+  profile_media_cleared: 'Foto profil & banner akun itu dicabut dan tercatat di riwayat moderasi.',
+  community_post_created: 'Postinganmu sudah tampil untuk anggota StudentFo.',
+  community_reply_sent: 'Balasan terkirim.',
+  community_post_deleted: 'Postinganmu dihapus beserta balasannya.',
+  community_reply_deleted: 'Balasanmu dihapus.',
   report_sent: 'Laporan terkirim. Moderator meninjaunya — identitasmu tidak diberitahukan ke pihak yang dilaporkan.',
   report_resolved: 'Laporan ditandai sudah ditindak dan tercatat di riwayat.',
   report_dismissed: 'Laporan diabaikan dan tercatat di riwayat.',
@@ -407,7 +460,9 @@ export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError
       : code === 'submission_rate_limited' ||
           code === 'connection_rate_limited' ||
           code === 'organizer_rate_limited' ||
-          code === 'registration_rate_limited'
+          code === 'registration_rate_limited' ||
+          code === 'profile_media_rate_limited' ||
+          code === 'community_rate_limited'
         ? 429
         : code.endsWith('not_found')
           ? 404

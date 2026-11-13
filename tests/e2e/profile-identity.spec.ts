@@ -12,14 +12,14 @@ test('pasang username & bio: saran dari nama, tersimpan, tampil di profil; usern
   await expect(username).not.toHaveValue('');
 
   await username.fill('rani.prameswari');
-  await page.getByRole('button', { name: 'Simpan' }).click();
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click();
   await expect(page).toHaveURL(/error=username_taken/);
   await expect(page.getByText(/Username itu sudah dipakai orang lain/)).toBeVisible();
 
   const handle = `uji.${Date.now().toString(36)}`;
   await username.fill(`@${handle.toUpperCase()}`);
   await page.getByLabel(/^Bio/).fill('Suka lomba desain & data. Cari tim Gemastik.');
-  await page.getByRole('button', { name: 'Simpan' }).click();
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click();
   await expect(page).toHaveURL(/notice=profile_identity_saved/);
   await expect(page.locator('#publik').getByRole('link', { name: `@${handle}` })).toBeVisible();
 

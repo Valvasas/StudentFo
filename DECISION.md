@@ -12,6 +12,413 @@ terdokumentasi.
 
 ---
 
+## ADR-088 — Jendela daftar adalah kontrak bersama; "milik saya?" = lookup satu baris; konten terpanjang ikut diuji
+
+**Konteks:** Audit skalabilitas & efisiensi alur (permintaan pemilik: banyak
+lomba, layar berbeda, alur algoritma). Tiga bug dengan akar yang sama, ditambah
+satu celah uji:
+1. `listTeams()` di Supabase `.limit(60)`, di mode seed tanpa batas.
+   `/teams?kegiatan=` dan "Tim kamu" MENYARING 60 tim terbaru global, jadi tim
+   lama sebuah kegiatan tampil "Belum ada tim". Mode seed menutupinya.
+2. `listManagedEvents` dipotong 200, sedangkan studio acara, aksi galeri, dan
+   hak menjawab Tanya mencari acaranya di dalam 200 itu. Penyelenggara dengan
+   >200 acara ditolak membuka studio acara lamanya sendiri.
+3. Halaman detail kegiatan (halaman terpanas), `/tracker/[slug]`, persiapan,
+   dan aksi tracker memuat SELURUH tracker pengguna, plus ringkasan setiap
+   acaranya, hanya demi satu status.
+4. Seed terpanjang ±55 karakter, padahal form & kolom menerima 255. Dengan judul
+   berisi satu "kata" panjang (tagar/URL/singkatan berantai), antrean
+   moderator, kartu katalog, dan header detail kegiatan meluber 180–455px di
+   320px. Di detail, tombol "Daftar" bilah bawah ikut terdorong keluar layar.
+
+**Keputusan:**
+1. Setiap batas jendela daftar di repository = konstanta yang diekspor
+   `repository.ts` (`TEAM_LIST_LIMIT`, `MANAGED_EVENTS_LIMIT`,
+   `OUTBOUND_READ_LIMIT`, …) dan dipakai KEDUA implementasi. Mode seed memotong
+   di angka yang sama; jangan lagi menulis `.limit(<angka>)` lokal.
+2. Pertanyaan "apakah X ada / milik saya?" memakai lookup satu baris:
+   `getTrackerItem`, `getManagedEvent`, `listTeams(eventId)`, `listTeamsByIds`
+   (satu kueri `IN`, bukan `getTeamById` berulang). `list…().find()` hanya
+   boleh di tempat yang memang menampilkan daftar itu.
+3. Angka dari jendela yang terpotong tampil sebagai batas bawah ("60+") plus
+   catatan "Menampilkan 60 tim terbaru…", bukan angka yang terlihat lengkap.
+4. Teks: `body { overflow-wrap: break-word }` (memecah hanya kata yang tidak
+   muat, tanpa mengubah min-content). Teks DAUN yang isinya murni string
+   pengguna (judul, penyelenggara, judul tim) di dalam item flex/grid diberi
+   `min-w-0 [overflow-wrap:anywhere]`; bila dibungkus `inline-flex`, teksnya
+   dibungkus `<span className="min-w-0 …">` karena teks langsung di flex jadi
+   item anonim yang tidak bisa menyusut. `anywhere` TIDAK dipasang global:
+   nilai ini mengecilkan min-content, sehingga chip pendek di baris flex yang
+   padat ikut terbelah ("Berba-yar").
+5. `tests/e2e/extreme-content.spec.ts` mengunci poin 4: kegiatan berjudul &
+   berpenyelenggara 255 karakter dengan kata 72 karakter dibuat lewat alur
+   sungguhan (kirim → moderator menyetujui), lalu antrean, katalog, papan
+   lomba, detail (3 tab), tracker, persiapan, profil, tim, lobi, dan Komunitas
+   diukur di 320px, sebagai anggota maupun tamu.
+
+**Konsekuensi:** Kontrak repository bertambah tiga metode (`listTeamsByIds`,
+`getTrackerItem`, `getManagedEvent`). Paritasnya dikunci `parity.test.ts` &
+`organizers.test.ts` di Postgres sungguhan. `/teams` belum punya halaman
+berikutnya: di atas 60 tim per kegiatan, catatan jujur menggantikan paging
+(TASKS). Komponen baru yang menampilkan teks pengguna wajib ikut aturan poin 4.
+Halaman barunya ditambahkan ke `extreme-content.spec.ts`.
+
+## ADR-087 — Komunitas: forum PUBLIK khusus anggota yang dimoderasi, bukan pesan pribadi
+
+**Konteks:** Pemilik meminta fitur komunitas supaya pengguna bisa berinteraksi
+di dalam situs. ADR-062 #7 sengaja menolak pesan pribadi & grup tertutup:
+pengguna mulai 13 tahun, dan saluran privat antar-orang asing adalah kategori
+risiko PP 17/2025. `/discussions` ("Ruang diskusi") hanya pratinjau demo.
+
+**Keputusan:**
+1. **Forum publik khusus anggota** (`/komunitas`): postingan bertopik (Tanya,
+   Cari tim, Info & tips, Cerita), opsional tertaut ke kegiatan, balasan,
+   tanda "Bermanfaat". Setiap percakapan terbuka untuk SEMUA anggota yang
+   masuk — tidak ada DM. Tamu & mesin pencari hanya melihat penjelasan dan
+   pintu masuk (judul utas pun tidak masuk metadata).
+2. **Privasi penulis:** nama selalu disingkat ("Dinda P."); id akun tidak
+   pernah keluar; username (tautan profil) & foto hanya bila pembaca memang
+   boleh membuka profil itu (`can_view_profile`, ADR-077). Blokir dua arah
+   saling menyembunyikan tulisan; akun ditangguhkan hilang dari Komunitas.
+3. **Kontak pribadi ditolak** (nomor HP Indonesia, email, tautan
+   WhatsApp/Telegram/LINE) di SQL (`community_has_contact`) dan aplikasi
+   (`CONTACT_PATTERNS`, contoh uji yang sama di kedua sisi). Kontak di ruang
+   publik = pintu ke saluran privat yang dihindari ADR-062; jalur yang
+   disarankan: Koneksi (persetujuan dua arah) atau tim. Tulisan teks polos —
+   tanpa tautan aktif, tanpa gambar.
+4. **Moderasi:** laporan bertabel sendiri (`community_reports`) dengan
+   cuplikan isi saat dilaporkan — bukti bertahan walau penulis menghapusnya.
+   Tidak memakai `content_reports`: menambah jenis subjek di CHECK-nya butuh
+   DROP CONSTRAINT (CLAUDE.md, dikunci `migrations-manifest.test.ts`).
+   Kuota lapor SAMA dengan laporan lain (`report:` 10/hari). **Tiga pelapor
+   berbeda menyembunyikan otomatis** sampai moderator memutuskan (melindungi
+   pembaca di luar jam moderator); "Abaikan" memunculkannya lagi, "Tandai
+   ditindak + sembunyikan" final. Antrean = satu kartu per tulisan di
+   `/admin/laporan`; badge antrean ikut menghitung. Keputusan tercatat di
+   riwayat (subjek `report`), pelapor dikabari tanpa catatan moderator.
+5. **Semua lewat RPC DEFINER** (pola `event_questions`), tabel tanpa policy;
+   batas laju 5 postingan / 30 balasan / 200 "bermanfaat" per hari.
+6. **Balasan mengabari penulis** lewat lonceng: kolom baru
+   `notifications.community_post_id` + indeks unik → satu notifikasi per
+   (penerima, postingan) yang diperbarui, bukan satu per balasan; hapus
+   postingan ikut menghapus notifikasinya.
+7. **Lini masa "aktif terbaru"** dengan kursor keyset `(last_activity_at, id)`
+   di URL (`?sebelum=`), saringan `?topik=` & `?kegiatan=` — tautan biasa,
+   jalan tanpa JavaScript. Halaman kegiatan (anggota) menautkan diskusinya.
+
+**Konsekuensi:** Migration `20261112100002_community` (hanya CREATE/ADD/
+CREATE OR REPLACE), kode aman urutan deploy (`available: false` →
+"Komunitas aktif setelah pembaruan server terpasang"; tulis → 
+`community_unavailable`). Ekspor data memuat tulisan sendiri; kebijakan
+privasi diperbarui. Data contoh: empat percakapan dari orang contoh.
+`/discussions` (demo) dibiarkan; tidak ada tautan baru ke sana.
+
+**Ditolak:** pesan pribadi / grup tertutup (ADR-062 #7); markdown & tautan
+aktif (phishing, "transfer ke rekening ini"); unggah gambar di postingan
+(moderasi gambar dari anak 13+ butuh kapasitas yang belum ada); peringkat
+"terpopuler" (mendorong konten sensasional — urutan aktivitas cukup);
+menampilkan nama lengkap (melangkahi pilihan "hanya koneksi" ADR-077).
+
+---
+
+## ADR-086 — Ajakan bertindak = "Langkah awal" yang dihitung, bukan notifikasi yang disimpan
+
+**Konteks:** Pemilik meminta notifikasi ajakan bertindak (lengkapi profil,
+ikut lomba pertama, dst.) supaya situs lebih interaktif. Yang sudah ada hanya
+satu tautan "Pilih minat & jenjangmu" di beranda.
+
+**Keputusan:**
+1. **Dihitung dari keadaan akun di setiap render** (`lib/next-steps.ts`), tidak
+   ditulis ke tabel `notifications`: langkah yang dikerjakan hilang dengan
+   sendirinya, tidak ada pengingat basi ("Lengkapi profilmu" untuk profil
+   yang sudah lengkap), tanpa penjadwal & migration. Fakta yang gagal dimuat
+   = langkahnya tidak ditawarkan, bukan ditebak belum dikerjakan.
+2. **Enam langkah**, urut menurut dampak bagi pendatang baru: minat & jenjang →
+   simpan kegiatan → daftar kegiatan pertama → foto profil → satu koneksi →
+   tim. Semuanya diukur dari catatan nyata (simpanan, papan lamaran,
+   pendaftaran, koneksi diterima, keanggotaan tim), bukan klik "sudah".
+3. **Beranda peserta: kartu "Langkah awalmu"** (progres, langkah berikutnya
+   disorot, selesai dicentang) menggantikan tautan minat yang lama; hilang saat
+   semua selesai. Dua query tambahan (hitungan koneksi, tim) hanya bila kartu
+   tidak disembunyikan.
+4. **Lonceng: satu saran tersemat + titik**, BUKAN angka "belum dibaca" —
+   saran bukan kabar, dan lonceng yang angkanya tak pernah nol berhenti
+   dipercaya. Hanya langkah tingkat profil (minat, foto) yang faktanya sudah
+   ada di sesi: lonceng tampil di setiap halaman, dan query tambahan di sana
+   dibayar di setiap kunjungan. Hanya untuk peran USER.
+5. **Bisa disembunyikan** dari beranda maupun lonceng (cookie preferensi
+   `sf_langkah`, pola `sf_sidebar`, tercantum di Kebijakan cookie). Dari
+   lonceng — yang tidak tahu halamannya — kembali ke halaman asal lewat
+   Referer berhost sama (`refererPath`).
+
+**Ditolak:** notifikasi tersimpan per langkah (butuh penjadwal + menghapus
+yang basi; sumber utama lonceng yang diabaikan); email ajakan (pemasaran
+tanpa persetujuan terpisah = masalah UU PDP); gamifikasi poin/streak (lihat
+ADR-082 #2).
+
+---
+
+## ADR-085 — Gerbang anggota di halaman kegiatan: etalase untuk tamu, isi lengkap untuk yang masuk
+
+**Konteks:** Pemilik ingin pengguna wajib masuk untuk mengakses informasi lomba
+supaya komunitasnya aktif. Sebelumnya semua isi halaman kegiatan — deskripsi,
+syarat, jadwal, tanya jawab, tautan pendaftaran — terbuka untuk tamu.
+
+**Keputusan:**
+1. **Etalase, bukan tembok penuh.** Tamu tetap melihat yang juga tampil di
+   kartu daftar: judul, penyelenggara, jenis & bidang, jenjang, tempat, biaya,
+   tenggat, poster & video, kegiatan serupa — plus cuplikan deskripsi
+   ≤ 200 karakter (`teaserOf`, dipotong di batas kata). Di balik gerbang:
+   deskripsi lengkap, tab Syarat & berkas (buku panduan), Tahapan, Tanya jawab,
+   Penyelenggara (sumber resmi), tautan pendaftaran, dan kalender.
+   Tembok penuh ditolak karena tiga hal: Google tidak bisa mengindeks halaman
+   di balik login (pencarian organik = cara pelajar menemukan lomba); pratinjau
+   tautan WhatsApp/IG yang mendarat di halaman masuk kosong nyaris tidak pernah
+   dikonversi; dan orang mendaftar akun setelah melihat acaranya relevan, bukan
+   sebelumnya.
+2. **Halaman yang sama untuk tamu dan mesin pencari** — tanpa membaca
+   user-agent (cloaking melanggar pedoman Google). Karena isi tergerbang juga
+   tidak diberikan ke Google, tidak perlu markah paywall.
+3. **Gerbang produk, bukan batas keamanan.** Info kegiatan memang diumumkan
+   publik oleh penyelenggaranya; RLS `events` dan kueri publik ber-cache TIDAK
+   diubah. Isi tergerbang cukup tidak dirender — dan tidak ikut terserialisasi
+   ke payload RSC (dikunci `event-gate.spec.ts`: HTML tamu tidak memuat tautan
+   pendaftaran, sumber, panduan, maupun akhir deskripsi).
+4. **Ditegakkan di setiap pintu, di server:** render halaman (`gated = user ===
+   null`; tanya jawab bahkan tidak dimuat), `/events/[slug]/daftar` (303 ke
+   masuk), `/sebelum-daftar` beserta Server Action-nya, dan `/api/events/[slug]/calendar`
+   (401, `Cache-Control: private`).
+5. **Setelah masuk kembali ke bagian yang sama** — `next` dibawa tombol Masuk,
+   Daftar gratis, dan tautan akun demo. Dari `/daftar` tujuannya halaman
+   acara, bukan langsung keluar: syarat & biaya terbaca dulu.
+6. **Tetap terbuka:** `/events`, beranda, `/teams`, `/submit` (kiriman tamu
+   tetap diterima, ADR-084).
+
+**Konsekuensi:** Porsi "dari akun yang masuk" di `/admin/kinerja` selalu 100%
+sejak gerbang ini (pendataan hanya untuk anggota) — tile & kolomnya dihapus;
+kolom `signed_in` di database dibiarkan (tanpa migration). `EventQuestions`
+cabang "Masuk untuk bertanya" kini tidak terjangkau dari halaman acara.
+Uji tamu yang dulu membaca isi tab dipindah ke sesi masuk; audit axe/ponsel
+mencakup gerbang (tamu) dan isi penuh (anggota).
+
+**Ditolak:** menyembunyikan kolom lewat RLS/hak kolom anon (merusak cache
+publik & tidak menambah keamanan untuk info yang memang publik); modal blur di
+atas isi (isinya tetap terkirim ke HTML, dan menjebak fokus pembaca layar);
+kuota "3 acara gratis per bulan" (butuh pelacakan per peramban yang tidak
+sejalan dengan kebijakan privasi).
+
+---
+
+## ADR-084 — Poster dilampirkan saat mengirim kegiatan: kolom di kiriman yang hanya ditulis server, berkas yang sama jadi poster acara
+
+**Konteks:** Pemilik meminta menu untuk menambah gambar/video poster ketika
+penyelenggara atau admin mengirim kegiatan. Video sudah bisa (tautan
+YouTube/Vimeo di `/submit`, ADR-079) tetapi tersembunyi di lipatan "detail
+tambahan"; poster baru bisa dipasang SETELAH acaranya tayang (studio/admin) —
+acara baru tampil tanpa gambar tepat di hari-hari pertamanya.
+
+**Keputusan:**
+1. **Langkah "Media kegiatan" di `/submit`** (poster + video), di luar lipatan.
+2. **Poster hanya untuk pengirim yang masuk.** Tamu tetap boleh mengirim
+   (kualitas dijaga antrean moderasi, bukan gerbang login) tetapi tidak
+   menitipkan berkas: unggahan anonim = penyimpanan gratis untuk siapa pun dan
+   gambar tanpa penanggung jawab. Penyelenggara & admin — yang diminta pemilik
+   — selalu masuk.
+3. **Empat kolom `poster_*` di `ugc_submissions`, tanpa hak INSERT untuk
+   klien.** Server menulisnya (klien admin) setelah byte berkas diperiksa &
+   EXIF dibuang. Payload JSON sengaja TIDAK dipakai: ia bisa ditulis siapa pun
+   lewat PostgREST, dan referensi berkas di dalamnya tidak boleh dipercaya
+   `approve_submission()`.
+4. **Tidak ada penyalinan berkas.** Berkas disimpan di bucket `event-photos`
+   pada `<id kiriman>/<id poster>.<ext>` — lolos CHECK
+   `event_photos.storage_path` — sehingga persetujuan cukup MENAMBAH baris
+   `event_photos (is_poster)` di transaksi yang sama: tidak ada jendela "acara
+   tayang tapi posternya belum ikut". Kolom kiriman lalu dikosongkan
+   (kolom terisi = berkas masih milik kiriman).
+5. **Ditolak = dihapus** (`take_submission_poster()` mengembalikan path untuk
+   dihapus dari Storage; kiriman PENDING tidak bisa dilepas). Gambar yang
+   ditolak tidak disimpan; "Kembalikan ke antrean" memulihkan kirimannya tanpa
+   poster — poster bisa ditambah lagi dari studio/admin setelah tayang.
+6. **Poster yang belum tayang** disajikan `/media/kiriman/[id]` (`no-store`)
+   hanya untuk moderator ber-MFA dan pengirimnya (`submission_poster_file()`,
+   sesi pembaca). Kartu antrean menampilkannya cukup besar untuk dinilai —
+   gambar ini tayang publik begitu disetujui.
+7. **Isian form tidak hilang saat server menolak**: `FieldMemory` (dulu hanya
+   form daftar, kolom teks) pindah ke `components/ui` dan menerima `choices` —
+   daftar EKSPLISIT kelompok kotak centang/radio yang ikut dipulihkan. Bukan
+   "semua kotak centang": persetujuan di form akun tidak boleh tercentang
+   sendiri. Berkas tidak bisa dipulihkan (larangan peramban).
+
+**Konsekuensi:** Migration `20261112100001_submission_poster` (hanya
+ADD/CREATE OR REPLACE). Aman urutan deploy: kolom belum ada → kiriman
+tersimpan tanpa poster dan pengirim diberi tahu
+(`submission_received_poster_skipped`); daftar kiriman dibaca dengan kolom
+lama. `createSubmission()` kini mengembalikan `{ posterAttached }`.
+`migrations-manifest.test.ts` menolak DROP/TRUNCATE di migration yang belum
+diterapkan.
+
+**Ditolak:** referensi poster di payload (lihat #3); bucket/tabel "media
+kiriman" terpisah (penyalinan berkas saat disetujui + dua jalur moderasi);
+menyimpan poster kiriman yang ditolak sampai retensi (menumpuk gambar yang
+justru sudah dinilai tidak layak); mewajibkan login untuk seluruh `/submit`
+(penyelenggara yang belum punya akun kehilangan jalur termudah memberi info).
+
+---
+
+## ADR-083 — Foto profil & banner kartu profil: berkas privat ber-RPC, banner bawaan dari token, bisa dicabut moderator
+
+**Konteks:** Pemilik meminta kustomisasi profil — foto profil dan banner
+kartu profil yang terlihat dari menu akun, Koneksi, dan Cari tim. Sebelumnya
+setiap orang = inisial di atas tint (ADR-054) dan sampul kertas bertitik.
+
+**Keputusan:**
+1. **Lima kolom di `users`** (`avatar_id/_type`, `banner_id/_type`,
+   `banner_preset`), bukan tabel baru: satu orang paling banyak satu foto &
+   satu banner, dan setiap pembaca profil sudah membaca baris itu. Berkas di
+   bucket privat `profile-media` (2 MB), path `<uid>/<id>.<ext>`.
+2. **Id berkas hanya ditulis RPC DEFINER** `set_profile_media` /
+   `clear_profile_media` (klien tidak diberi hak UPDATE kolomnya); RPC
+   mengembalikan path berkas LAMA supaya server menghapusnya — tidak ada
+   berkas yatim. `set_profile_media` menolak id yang sudah dipakai akun mana
+   pun: indeks unik per kolom tidak menangkap silang foto ↔ banner, dan tanpa
+   itu pemanggil RPC langsung bisa membuat foto orang lain gagal dimuat.
+   Batas laju 20/hari. `banner_preset` boleh ditulis klien (GRANT per kolom +
+   CHECK daftar tertutup).
+3. **Siapa-melihat = aturan detail profil (ADR-077)**: diri sendiri,
+   `can_view_profile()`, atau satu lobi tanpa blokir; akun ditangguhkan
+   tertutup. Tamu & mesin pencari tidak pernah. Daftar dibaca lewat
+   `public_profile_media(uuid[])` (maks. 100), berkas lewat
+   `profile_media_file(id)` yang dipanggil dengan SESI pembaca — rute
+   `/media/profil/[id]` tidak perlu bolak-balik ke server auth, dan aturan
+   tinggal di satu tempat (SQL). Tidak boleh / tidak ada = 404 yang sama.
+4. **Foto menimpa inisial, bukan menggantikannya** (`Avatar photo`, `alt=""`):
+   berkas yang gagal dimuat (dicabut, pembaca baru diblokir) memperlihatkan
+   inisial di bawahnya tanpa JavaScript dan tanpa ikon gambar rusak. Banner
+   unggahan menimpa banner bawaan dengan cara yang sama.
+5. **Delapan banner bawaan digambar dari token** (tint, stabilo, garis tinta),
+   bukan berkas: ikut tema gelap, nol permintaan jaringan, tidak butuh
+   moderasi. Daftarnya = CHECK SQL (dikunci `profile-media.test.ts`).
+6. **Batas lebih ketat dari galeri acara** (foto 1 MB/1024 px, banner
+   2 MB/2400 px): rutenya bersesi sehingga tidak bisa lewat pengoptimal
+   gambar — setiap pembaca mengunduh berkas aslinya. Peramban memperkecil dulu
+   (`ImageUploadField maxEdge`); tanpa JavaScript berkas besar ditolak dengan
+   pesan jelas. Byte diperiksa & EXIF dibuang (`readImageUpload`).
+7. **Moderasi**: `/admin/pengguna` menampilkan gambar unggahan (admin ber-MFA
+   boleh membuka berkas siapa pun lewat `is_admin()` di `profile_media_file`)
+   dan aksi "Cabut foto & banner" beralasan wajib → `admin_clear_profile_media`
+   (service_role). Tercatat di riwayat dengan `from_status` kosong dan
+   `to_status` = status akun saat itu: Riwayat membaca entri terbaru per subjek
+   sebagai statusnya kini, jadi pencabutan tidak boleh mengaku mengubah status.
+   Tanpa DROP CONSTRAINT: memakai subjek `user` yang sudah ada.
+8. **Hapus akun** ikut menghapus berkasnya (`account_storage_paths`); ekspor
+   data memuat tautannya (`profileLook`); kebijakan privasi mencakupnya
+   (`LEGAL_REVISION` 2026-11-12).
+
+**Konsekuensi:** Migration `20261110100001_profile_media` (hanya ADD/CREATE
+OR REPLACE). Aman urutan deploy: kolom belum ada → `getSessionUser()` membaca
+ulang tanpa kolom media (peran tidak ikut jatuh ke USER), kartu "Foto &
+banner" mengatakan fiturnya belum aktif, semua orang tampil dengan inisial.
+Halaman yang memuat banyak orang memanggil `loadProfileMedia()` SEKALI per
+halaman (potongan 100) — jangan memanggilnya per kartu.
+
+**Ditolak:** bucket publik + URL tetap (foto wajah anak sekolah terindeks
+mesin pencari dan tetap terbuka setelah diblokir); menyimpan tautan foto
+Google (kebijakan privasi berjanji hanya memakai nama & email, dan tautannya
+bisa berubah/dilacak); tabel `profile_media` terpisah (join tambahan di setiap
+kartu orang untuk relasi 1:1); pemotong gambar interaktif (butuh JS berat —
+`object-cover` + anjuran rasio cukup untuk versi pertama); avatar animasi/GIF
+(membuka pintu konten bergerak tak termoderasi di setiap daftar).
+
+---
+
+## ADR-082 — Dua belas ragam lencana + animasi medali; tetap dihitung, tidak pernah diberikan
+
+**Konteks:** Pemilik meminta variasi lencana yang lebih beragam berikut
+animasinya. Enam lencana lama (ADR-068/072) hanya mengukur jumlah keikutsertaan
+per jenis kegiatan.
+
+**Keputusan:**
+1. **Enam lencana baru**, semuanya dari catatan yang ditulis pihak ketiga
+   (pendaftaran terkonfirmasi, tanggal bergabung) — aturan ADR-068 tidak
+   berubah: `pemburu-beasiswa`, `perintis-karier` (magang), `relawan`
+   (volunteer), `gerak-cepat` (mendaftar ≥ `EARLY_BIRD_DAYS` = 7 hari sebelum
+   tutup), `konsisten` (bulan berturut-turut, `monthlyStreak()`), `perintis`
+   (bergabung sebelum `FOUNDING_MEMBER_UNTIL`).
+2. **Tidak ada lencana dari klaim sendiri** (profil lengkap, streak masuk
+   harian): yang bisa dipalsukan pemiliknya tidak bernilai bagi pembaca, dan
+   streak harian adalah pola adiktif yang tidak cocok untuk pelajar.
+3. **Animasi murni CSS, keadaan akhir = gambar diam**: `medal-in` (masuk),
+   `ribbon-sway`, `medal-glint` (kilau sekali), `medal-wiggle` (hover),
+   `medal-halo` (baru diraih). Aturan global reduced-motion mematikan
+   semuanya tanpa kode tambahan; tidak ada animasi yang berulang tanpa henti.
+4. **Papan lencana diurutkan** diraih → sedang dikejar → belum disentuh, dan
+   `nearestBadgeGoal` memilih rasio kemajuan tertinggi saat seri.
+
+**Konsekuensi:** `AchievementFacts.memberSince` opsional — `public_badge_facts`
+produksi belum mengirimnya, jadi `perintis` baru tampil untuk pemiliknya
+sendiri sampai fungsi itu diperbarui (dijadwalkan bersama migration
+Komunitas, sekali CREATE OR REPLACE). Ringkasan lencana kini /27 tingkat.
+
+**Ditolak:** lencana berbayar/hadiah; papan peringkat antar pengguna
+(mengubah pencarian peluang jadi perlombaan angka); konfeti berulang.
+
+---
+
+## ADR-081 — Tur beranda hanya cuplikan: tanpa judul, daftar langkah, atau keterangan
+
+**Konteks:** Tur "Cara kerja" (ADR-065) berupa panggung beranimasi DI SAMPING
+judul, lima tab langkah berteks, dan label "Contoh tampilan". Pemilik: cukup
+videonya — teks pendampingnya terasa seperti panduan buatan AI.
+
+**Keputusan:** Satu panggung selebar kontainer. Yang tersisa di sekitarnya
+hanya kendali pemutar: tombol putar/jeda dan bilah lima ruas (ruas = tombol
+lompat ke adegan, `aria-current`). Deskripsi lima adegan pindah ke teks
+`sr-only` — pembaca layar tetap mendapat isinya, mata tidak. Tanpa JavaScript:
+adegan pertama tampil sebagai gambar diam dan TIDAK ada tombol (kendali baru
+dirender setelah hidrasi — tidak ada tombol mati). Gerak dikurangi: tidak
+berjalan sendiri; tombol putar memajukan satu adegan.
+
+**Konsekuensi:** `landing-tour.spec.ts` ditulis ulang dan mengunci ketiadaan
+judul/tab/label. Jangkar `#cara-kerja` dipertahankan (tautan lama tetap hidup).
+
+**Ditolak:** berkas video sungguhan (MP4 ±MB, tidak ikut tema gelap, basi
+setiap UI berubah, butuh takarir); menghapus kendali sama sekali (WCAG 2.2.2:
+konten bergerak > 5 detik wajib bisa dijeda).
+
+---
+
+## ADR-080 — Logo baru hasil jiplak vektor: satu simbol, tiga lapis, ikut tema
+
+**Konteks:** Pemilik mengirim logo baru (gambar tangan toga + map + piala,
+JPG berlatar putih) dan meminta latarnya dibuang serta logonya ikut warna
+tema. Logo lama = monogram SVG tulisan tangan di `illustrations.tsx`.
+
+**Keputusan:**
+1. **Dijiplak ke path SVG** dengan potrace (`scripts/trace-logo.py`, sumber di
+   `docs/brand/logo-sumber.jpg`) → `src/components/ui/logo-paths.ts`. Bukan
+   PNG transparan: PNG tidak bisa berganti warna di tema gelap dan pecah di
+   layar rapat piksel.
+2. **Tiga lapis**: kertas (`--color-surface`, mengisi bagian dalam bentuk
+   supaya logo tidak "bolong" di atas latar berwarna), stabilo
+   (`--color-highlight`), tinta (`currentColor`, evenodd). Warna logo = warna
+   teks di sekitarnya, otomatis benar di kedua tema.
+3. **Dua tingkat detail dari sumber yang sama**: `LOGO_BOLD` (garis ditebalkan,
+   untuk ≤ 40 px: navbar, favicon, ikon aplikasi, kartu OG) dan `LOGO_DETAIL`
+   (garis asli + kilau, untuk ≥ 64 px: halaman masuk). Satu ukuran untuk semua
+   = garis tipis hilang di 16 px.
+4. **Satu `<symbol id="sf-logo">` di root layout** (`LogoSprite`), dipakai
+   lewat `<use>` (`LogoMark`): path beberapa KB tidak diulang di navbar, footer, dan
+   menu ponsel. Ikon/OG (`next/og`, tidak mendukung `<use>` atau variabel CSS)
+   menggambar path yang sama dengan warna literal.
+
+**Konsekuensi:** Mengganti logo = ganti berkas sumber + jalankan ulang skrip;
+jangan menyunting `logo-paths.ts` dengan tangan.
+
+**Ditolak:** `<img src="logo.png">` (tidak ikut tema); `filter: invert()` di
+tema gelap (stabilo ikut terbalik jadi ungu); font ikon.
+
+---
+
 ## ADR-079 — Poster, slide & video kegiatan: poster = foto galeri bertanda, video = tautan kanonis, pemutar fasad
 
 **Konteks:** Pemilik meminta poster/foto tampil di UI lomba dan sebagai slide

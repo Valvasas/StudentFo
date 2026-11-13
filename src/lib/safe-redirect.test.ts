@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loginHref, parseAuthAudience, safeNextPath } from './safe-redirect';
+import { loginHref, parseAuthAudience, refererPath, safeNextPath } from './safe-redirect';
 
 describe('safeNextPath', () => {
   it('meloloskan path internal apa adanya', () => {
@@ -79,5 +79,20 @@ describe('parseAuthAudience', () => {
     expect(parseAuthAudience('organizer')).toBe('organizer');
     expect(parseAuthAudience('admin')).toBe('participant');
     expect(parseAuthAudience(undefined)).toBe('participant');
+  });
+});
+
+describe('refererPath', () => {
+  it('halaman asal dari host yang sama, lengkap dengan query', () => {
+    expect(refererPath('https://studentfo.id/events?type=LOMBA', 'studentfo.id')).toBe('/events?type=LOMBA');
+    expect(refererPath('http://localhost:3000/tracker', 'localhost:3000')).toBe('/tracker');
+  });
+
+  it('host lain, Referer kosong, atau rusak → fallback', () => {
+    expect(refererPath('https://evil.example/curi', 'studentfo.id')).toBe('/');
+    expect(refererPath('https://studentfo.id.evil.example/x', 'studentfo.id')).toBe('/');
+    expect(refererPath(null, 'studentfo.id')).toBe('/');
+    expect(refererPath('bukan url', 'studentfo.id')).toBe('/');
+    expect(refererPath('https://studentfo.id/x', null, '/profile')).toBe('/profile');
   });
 });

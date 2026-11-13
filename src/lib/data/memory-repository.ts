@@ -22,6 +22,14 @@ import { ANALYTICS_MIN_GROUP, kAnonymize } from '@/lib/organizer-analytics';
 import { buildDeadlineMessage, notificationTypeForDeadline } from '@/lib/notifications';
 import { clampCandidateWindow } from '@/lib/matchmaking';
 import type { AchievementFacts } from '@/lib/achievements';
+import {
+  communityDisplayName,
+  COMMUNITY_LIMITS,
+  hasContactInfo,
+  toCommunityTopic,
+  type CommunityPostInput,
+  type CommunityTopic,
+} from '@/lib/community';
 import { hasRegistered, isLobbyEvent, isLobbyOpen, LOBBY_LIMITS, lobbyEventsOf, rankLobbyMembers, toLobbyEventRef, type LobbyMemberInput } from '@/lib/lobby';
 import { isPortfolioStatus, isPubliclyListed, portfolioDigestOf, toPortfolioEntry, type DigestRow, type PortfolioInput } from '@/lib/portfolio';
 import { MemoryRateLimiter } from '@/lib/rate-limit';
@@ -117,12 +125,24 @@ import type {
   StudyPlaceInput,
   StudyProfile,
   OutboundSurveyRecord,
+  BannerPreset,
+  OwnProfileMedia,
+  ProfileMedia,
+  CommunityAuthor,
+  CommunityPage,
+  CommunityPost,
+  CommunityPostSummary,
+  CommunityReportQueueItem,
+  CommunityThread,
+  MyCommunityContent,
 } from '@/types/domain';
+import { REPORT_REASONS } from '@/types/domain';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortPhotosPosterFirst, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
+import { isProfileMediaId, NO_PROFILE_MEDIA, PROFILE_MEDIA_RATE_LIMIT, type ProfileMediaKind } from '@/lib/profile-media';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, MANAGED_EVENTS_LIMIT, OUTBOUND_READ_LIMIT, TEAM_LIST_LIMIT } from './repository';
 import { DEMO_POSTER_SIZE, DEMO_SCENE_SIZE, demoPosterPng, demoReceiptPng, demoScenePng } from './demo-media';
 import type {
   DeleteAccountInput,
@@ -132,6 +152,7 @@ import type {
   ResolveReportInput,
   UserSuspensionInput,
   CreateSubmissionInput,
+  CreateSubmissionResult,
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
@@ -145,6 +166,13 @@ import type {
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
+  ClearProfileMediaInput,
+  MediaViewer,
+  CommunityQuery,
+  CommunityReportInput,
+  CommunityTarget,
+  CommunityViewer,
+  ResolveCommunityReportInput,
 } from './repository';
 import {
   SEED_LOBBY,
@@ -160,11 +188,52 @@ import {
   SEED_PERSON_CONNECTIONS,
   SEED_TEAMS,
   SEED_IDENTITIES,
+  SEED_PROFILE_MEDIA,
   SEED_STUDY_PROFILES,
   type SeedEvent,
 } from './seed-data';
 
 const MS_PER_DAY = 86_400_000;
+
+interface MemoryCommunityPost {
+  readonly id: string;
+  readonly authorId: string;
+  /** Nama saat menulis — mode seed tidak selalu punya baris orang untuk akun demo. */
+  readonly authorName: string;
+  readonly topic: CommunityTopic;
+  readonly title: string;
+  readonly body: string;
+  readonly eventId: string | null;
+  readonly lastActivityAt: string;
+  readonly createdAt: string;
+  readonly hiddenAt: string | null;
+  readonly hiddenAuto: boolean;
+}
+
+interface MemoryCommunityReply {
+  readonly id: string;
+  readonly postId: string;
+  readonly authorId: string;
+  readonly authorName: string;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly hiddenAt: string | null;
+  readonly hiddenAuto: boolean;
+}
+
+interface MemoryCommunityReport {
+  readonly id: string;
+  readonly reporterId: string | null;
+  readonly subjectType: 'post' | 'reply';
+  readonly subjectId: string;
+  postId: string | null;
+  readonly authorId: string | null;
+  readonly snapshot: string;
+  readonly reason: ReportReason;
+  readonly details: string | null;
+  status: 'OPEN' | 'RESOLVED' | 'DISMISSED';
+  readonly createdAt: string;
+}
 
 const SEED_SEEKER_IDS: ReadonlySet<string> = new Set(SEED_SEEKERS.map((seed) => seed.userId));
 
@@ -476,6 +545,19 @@ export class MemoryEventRepository implements EventRepository {
   private readonly identities = new Map<string, Omit<ProfileIdentity, 'available'>>(SEED_IDENTITIES);
   /** Cermin `users.show_badges` (ADR-072): bawaan privat. */
   private readonly badgeVisible = new Set<string>();
+  /** Foto profil & banner (ADR-083) — kolom `users.avatar_id/banner_id/banner_preset` di produksi. */
+  /** Poster lampiran kiriman yang belum diputuskan (ADR-084); kunci = id kiriman. */
+  private readonly submissionPosters = new Map<string, { readonly key: string; readonly width: number; readonly height: number }>();
+  private readonly profileMedia = new Map<string, ProfileMedia>(SEED_PROFILE_MEDIA);
+  /** Cermin tabel komunitas (ADR-087). */
+  private readonly communityPosts = new Map<string, MemoryCommunityPost>();
+  private readonly communityReplies = new Map<string, MemoryCommunityReply>();
+  /** Kunci `pengguna|post|id` atau `pengguna|reply|id` — cermin indeks unik community_helpful. */
+  private readonly communityHelpful = new Set<string>();
+  private readonly communityReports = new Map<string, MemoryCommunityReport>();
+  private lastCommunityStamp = 0;
+  /** Id berkas → pemilik & jenis; isi berkasnya di `media` (kunci `profil:<id>`). */
+  private readonly profileMediaOwners = new Map<string, string>();
   /** Lobi lomba (ADR-071): eventId → userId → kartu. */
   private readonly lobbyMembers = new Map<string, Map<string, LobbyEntry>>();
   /** `${eventId}:${inviterId}` → yang sudah diajak; cermin PK `lobby_invites`. */
@@ -483,6 +565,8 @@ export class MemoryEventRepository implements EventRepository {
   private readonly demoSeededUsers = new Set<string>();
   private readonly demoSeedLimit: number;
   private readonly isolateSeekers: boolean;
+  /** Saat data contoh dibangun — dipakai sebagai "tanggal bergabung" orang contoh (lencana Angkatan Perintis). */
+  private readonly seededAt: string;
 
   /**
    * `isolateSeekers` (store demo aplikasi): pencocokan hanya mencalonkan orang
@@ -497,10 +581,12 @@ export class MemoryEventRepository implements EventRepository {
   ) {
     this.demoSeedLimit = demoSeedLimit;
     this.isolateSeekers = isolateSeekers;
+    this.seededAt = base.toISOString();
     this.events = SEED_EVENTS.map((seed) => buildDetail(seed, base));
     this.seedTeams(base);
     this.seedPeople(base);
     this.seedLobby(base);
+    this.seedCommunity(base);
     // Formulir & pendaftar contoh ada sejak data demo dibangun, bukan baru
     // saat persona Penyelenggara masuk: setelah reset/restart, acara berbayar
     // contoh harus langsung menunjukkan alur formulir & pembayaran (ADR-056).
@@ -827,12 +913,20 @@ export class MemoryEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, submittedBy, payload }: CreateSubmissionInput): Promise<void> {
+  async createSubmission({ submittedByEmail, submittedBy, payload, poster }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
     if (isSubmissionRateLimited([...this.submissions.values()], submittedByEmail)) {
       throw actionError('submission_rate_limited');
     }
     const id = this.nextId();
     if (submittedBy) this.submissionOwners.set(id, submittedBy);
+    // Cermin kolom poster_* (migration 20261112100001): hanya pengirim yang
+    // masuk. Ruang media demo habis = "penyimpanan belum siap": kiriman tetap masuk.
+    const attached = poster && submittedBy && this.hasMediaRoom(poster.bytes.length) ? poster : null;
+    if (attached) {
+      const key = `kiriman/${id}/${this.nextId()}.${IMAGE_EXTENSION[attached.type]}`;
+      this.storeMedia(key, { bytes: attached.bytes, contentType: attached.type });
+      this.submissionPosters.set(id, { key, width: attached.width, height: attached.height });
+    }
     this.submissions.set(id, {
       id,
       submittedByEmail,
@@ -841,7 +935,18 @@ export class MemoryEventRepository implements EventRepository {
       createdAt: new Date().toISOString(),
       payload,
       rejectionReason: null,
+      poster: attached ? { width: attached.width, height: attached.height } : null,
     });
+    return { posterAttached: attached !== null };
+  }
+
+  /** Cermin `submission_poster_file()`: moderator atau pengirimnya sendiri. */
+  async getSubmissionPosterFile(viewer: MediaViewer | null, submissionId: string): Promise<StoredFile | null> {
+    const submission = this.submissions.get(submissionId);
+    const poster = this.submissionPosters.get(submissionId);
+    if (!viewer || !submission || !poster) return null;
+    if (!viewer.isAdmin && submission.submittedBy !== viewer.id) return null;
+    return this.media.get(poster.key) ?? null;
   }
 
   async listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]> {
@@ -929,10 +1034,22 @@ export class MemoryEventRepository implements EventRepository {
       if (owner && this.isVerifiedOrganizer(owner)) {
         getOrCreate(this.eventManagers, id, () => new Map()).set(owner, { source: 'SUBMISSION', since: new Date().toISOString() });
       }
+      // Cermin approve_submission() (20261112100001): poster lampiran jadi
+      // poster acara — berkas yang sama, bukan salinan.
+      const poster = this.submissionPosters.get(submissionId);
+      if (poster) {
+        const photoId = this.nextId();
+        this.photos.set(photoId, { id: photoId, key: poster.key, eventId: id, width: poster.width, height: poster.height, caption: null, createdAt: new Date().toISOString(), isPoster: true });
+        this.syncPoster(id);
+      }
+    } else {
+      // Cermin take_submission_poster(): kiriman yang ditolak tidak menyimpan berkasnya.
+      this.dropMedia(this.submissionPosters.get(submissionId)?.key ?? null);
     }
+    this.submissionPosters.delete(submissionId);
 
     const rejectionReason = decision === 'REJECTED' ? reason?.trim() || null : null;
-    this.submissions.set(submissionId, { ...submission, status: decision, rejectionReason });
+    this.submissions.set(submissionId, { ...submission, status: decision, rejectionReason, poster: null });
     this.notifySubmitter(submissionId, submission.payload?.title ?? 'kegiatan', decision, rejectionReason);
     this.logModeration({
       subjectType: 'submission',
@@ -998,7 +1115,9 @@ export class MemoryEventRepository implements EventRepository {
   }
 
   async countOpenReports(): Promise<number> {
-    return [...this.reports.values()].filter((report) => report.status === 'OPEN').length;
+    // Laporan Komunitas (ADR-087) ikut dihitung: badge antrean tidak boleh melewatkannya.
+    const community = [...this.communityReports.values()].filter((report) => report.status === 'OPEN').length;
+    return [...this.reports.values()].filter((report) => report.status === 'OPEN').length + community;
   }
 
   async resolveReport({ reportId, actorId, actorName, outcome, note }: ResolveReportInput): Promise<void> {
@@ -1189,6 +1308,8 @@ export class MemoryEventRepository implements EventRepository {
           createdAt: null,
           suspendedAt: suspension?.at ?? null,
           suspensionReason: suspension?.reason ?? null,
+          avatarId: this.profileMedia.get(member.person.userId)?.avatarId ?? null,
+          bannerId: this.profileMedia.get(member.person.userId)?.bannerId ?? null,
         };
       });
   }
@@ -1253,6 +1374,8 @@ export class MemoryEventRepository implements EventRepository {
     this.organizers.delete(userId);
     for (const members of this.lobbyMembers.values()) members.delete(userId);
     this.badgeVisible.delete(userId);
+    this.dropProfileFiles(userId);
+    this.profileMedia.delete(userId);
     for (const [key, invitees] of this.lobbyInvites) {
       if (key.endsWith(`:${userId}`)) this.lobbyInvites.delete(key);
       else invitees.delete(userId);
@@ -1334,6 +1457,12 @@ export class MemoryEventRepository implements EventRepository {
       if (event) items.push({ ...entry, eventId, event });
     }
     return items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }
+
+  async getTrackerItem(userId: string, eventId: string): Promise<TrackerItem | null> {
+    const entry = this.trackerEntries.get(userId)?.get(eventId);
+    const event = entry ? this.findEvent(eventId) : undefined;
+    return entry && event ? { ...entry, eventId, event } : null;
   }
 
   async upsertTrackerItem(
@@ -1634,6 +1763,15 @@ export class MemoryEventRepository implements EventRepository {
   async listTeams(eventId?: string): Promise<readonly Team[]> {
     return [...this.teams.values()]
       .filter((entry) => !eventId || entry.eventId === eventId)
+      .map((entry) => this.toTeam(entry))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, TEAM_LIST_LIMIT);
+  }
+
+  async listTeamsByIds(teamIds: readonly string[]): Promise<readonly Team[]> {
+    const wanted = new Set([...new Set(teamIds)].slice(0, TEAM_LIST_LIMIT));
+    return [...this.teams.values()]
+      .filter((entry) => wanted.has(entry.id))
       .map((entry) => this.toTeam(entry))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
@@ -2183,7 +2321,14 @@ export class MemoryEventRepository implements EventRepository {
       const event = this.findEvent(eventId);
       if (entry && event) managed.push({ event, source: entry.source, since: entry.since });
     }
-    return managed.sort((a, b) => b.since.localeCompare(a.since));
+    return managed.sort((a, b) => b.since.localeCompare(a.since)).slice(0, MANAGED_EVENTS_LIMIT);
+  }
+
+  async getManagedEvent(userId: string, eventId: string): Promise<ManagedEvent | null> {
+    if (!this.isVerifiedOrganizer(userId)) return null;
+    const entry = this.eventManagers.get(eventId)?.get(userId);
+    const event = entry ? this.findEvent(eventId) : undefined;
+    return entry && event ? { event, source: entry.source, since: entry.since } : null;
   }
 
   /** Cermin `organizer_event_history()`: kelolaan, sudah tutup, angka seumur acara. */
@@ -3266,6 +3411,554 @@ export class MemoryEventRepository implements EventRepository {
     return result;
   }
 
+  // ------------------------------------------------------------------
+  // Foto profil & banner (ADR-083). Cermin migration 20261110100001:
+  // siapa-melihat = aturan detail profil; menulis hanya milik sendiri.
+  // ------------------------------------------------------------------
+
+  /** Cermin klausa WHERE `public_profile_media()` / `profile_media_file()`. */
+  private canSeeProfileMedia(viewerId: string, userId: string): boolean {
+    if (this.suspensions.has(userId)) return false;
+    return userId === viewerId || this.canViewProfile(viewerId, userId) || (this.sharesLobby(viewerId, userId) && !this.isBlocked(viewerId, userId));
+  }
+
+  private dropProfileFiles(userId: string, kind?: ProfileMediaKind): void {
+    const current = this.profileMedia.get(userId);
+    for (const id of [kind !== 'banner' ? current?.avatarId : null, kind !== 'avatar' ? current?.bannerId : null]) {
+      if (!id) continue;
+      this.dropMedia(`profil:${id}`);
+      this.profileMediaOwners.delete(id);
+    }
+  }
+
+  /** Mode seed saja: `getSessionUser()` membacanya sinkron untuk navbar (lihat `demoProfileMedia`). */
+  profileMediaOf(userId: string): ProfileMedia {
+    return this.profileMedia.get(userId) ?? NO_PROFILE_MEDIA;
+  }
+
+  async getOwnProfileMedia(userId: string): Promise<OwnProfileMedia> {
+    return { ...this.profileMediaOf(userId), available: true };
+  }
+
+  async listProfileMedia(viewerId: string, userIds: readonly string[]): Promise<ReadonlyMap<string, ProfileMedia>> {
+    const result = new Map<string, ProfileMedia>();
+    for (const userId of [...new Set(userIds)].slice(0, 100)) {
+      const media = this.profileMedia.get(userId);
+      if (!media || (!media.avatarId && !media.bannerId && !media.bannerPreset)) continue;
+      if (this.canSeeProfileMedia(viewerId, userId)) result.set(userId, media);
+    }
+    return result;
+  }
+
+  async setProfileImage(userId: string, kind: ProfileMediaKind, image: UploadedImage): Promise<void> {
+    if (this.suspensions.has(userId)) throw actionError('profile_media_unavailable');
+    if (!this.rateLimiter.consume(`profile-media:${userId}`, PROFILE_MEDIA_RATE_LIMIT.limit, PROFILE_MEDIA_RATE_LIMIT.windowSeconds)) {
+      throw actionError('profile_media_rate_limited');
+    }
+    if (!this.hasMediaRoom(image.bytes.length)) throw actionError('image_too_large');
+    const id = crypto.randomUUID();
+    this.dropProfileFiles(userId, kind);
+    this.storeMedia(`profil:${id}`, { bytes: image.bytes, contentType: image.type });
+    this.profileMediaOwners.set(id, userId);
+    const current = this.profileMediaOf(userId);
+    this.profileMedia.set(userId, kind === 'avatar' ? { ...current, avatarId: id } : { ...current, bannerId: id });
+  }
+
+  async removeProfileImage(userId: string, kind: ProfileMediaKind): Promise<void> {
+    this.dropProfileFiles(userId, kind);
+    const current = this.profileMediaOf(userId);
+    this.profileMedia.set(userId, kind === 'avatar' ? { ...current, avatarId: null } : { ...current, bannerId: null });
+  }
+
+  async setBannerPreset(userId: string, preset: BannerPreset | null): Promise<void> {
+    this.profileMedia.set(userId, { ...this.profileMediaOf(userId), bannerPreset: preset });
+  }
+
+  async getProfileMediaFile(viewer: MediaViewer | null, fileId: string): Promise<StoredFile | null> {
+    if (!viewer || !isProfileMediaId(fileId)) return null;
+    const owner = this.profileMediaOwners.get(fileId);
+    // Admin membuka berkas siapa pun untuk moderasi (cermin `is_admin()` di `profile_media_file`).
+    if (!owner || !(viewer.isAdmin || this.canSeeProfileMedia(viewer.id, owner))) return null;
+    return this.media.get(`profil:${fileId}`) ?? null;
+  }
+
+  async clearProfileMediaAsAdmin({ userId, actorId, actorName, reason }: ClearProfileMediaInput): Promise<void> {
+    const member = this.people.get(userId);
+    if (!member) throw actionError('user_not_found');
+    const current = this.profileMedia.get(userId);
+    if (!current?.avatarId && !current?.bannerId) throw actionError('profile_media_empty');
+    const trimmed = reason.trim();
+    if (trimmed.length < SUSPENSION_REASON_MIN) throw actionError('suspension_reason_required');
+    this.dropProfileFiles(userId);
+    this.profileMedia.set(userId, { ...current, avatarId: null, bannerId: null });
+    this.logModeration({
+      subjectType: 'user',
+      subjectId: userId,
+      title: `Foto & banner dicabut — ${member.person.fullName}`,
+      // Status akun tidak berubah: Riwayat membaca entri terbaru per subjek sebagai statusnya kini.
+      fromStatus: null,
+      toStatus: this.suspensions.has(userId) ? 'SUSPENDED' : 'ACTIVE',
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: trimmed,
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Komunitas (ADR-087). Cermin migration 20261112100002: nama disingkat,
+  // username/foto hanya bila boleh melihat profil, blokir & penangguhan
+  // dihormati, kontak pribadi ditolak, 3 pelapor = sembunyi otomatis.
+  // ------------------------------------------------------------------
+
+  /**
+   * Cap waktu tulisan yang selalu naik: dua tulisan dalam milidetik yang sama
+   * (tes, klik ganda) tetap berurutan seperti di produksi, tempat setiap
+   * tulisan adalah permintaan & transaksi tersendiri.
+   */
+  private communityNow(): string {
+    const now = Math.max(Date.now(), this.lastCommunityStamp + 1);
+    this.lastCommunityStamp = now;
+    return new Date(now).toISOString();
+  }
+
+  /** Cermin `community_author_visible()`. */
+  private communityAuthorVisible(viewerId: string, authorId: string): boolean {
+    return !this.suspensions.has(authorId) && !this.isBlocked(viewerId, authorId);
+  }
+
+  private communityAuthor(viewerId: string, authorId: string, storedName: string): CommunityAuthor {
+    const visible = this.canViewProfile(viewerId, authorId);
+    return {
+      name: communityDisplayName(this.people.get(authorId)?.person.fullName ?? storedName),
+      username: visible ? (this.identities.get(authorId)?.username ?? null) : null,
+      avatarId: visible ? (this.profileMedia.get(authorId)?.avatarId ?? null) : null,
+    };
+  }
+
+  /** Postingan yang boleh dibaca pembaca ini (tidak disembunyikan, penulis terlihat). */
+  private readableCommunityPost(viewerId: string, postId: string): MemoryCommunityPost | null {
+    const post = this.communityPosts.get(postId);
+    return post && !post.hiddenAt && this.communityAuthorVisible(viewerId, post.authorId) ? post : null;
+  }
+
+  private readableCommunityReplies(viewerId: string, post: MemoryCommunityPost): MemoryCommunityReply[] {
+    return [...this.communityReplies.values()]
+      .filter((reply) => reply.postId === post.id && !reply.hiddenAt && this.communityAuthorVisible(viewerId, reply.authorId))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  }
+
+  private helpfulKey(userId: string, kind: 'post' | 'reply', id: string): string {
+    return `${userId}|${kind}|${id}`;
+  }
+
+  private helpfulCount(kind: 'post' | 'reply', id: string): number {
+    const suffix = `|${kind}|${id}`;
+    let count = 0;
+    for (const key of this.communityHelpful) if (key.endsWith(suffix)) count += 1;
+    return count;
+  }
+
+  private communityEventRef(eventId: string | null): CommunityPostSummary['event'] {
+    const event = eventId ? this.findEvent(eventId) : undefined;
+    return event && (event.status === 'APPROVED' || event.status === 'EXPIRED') ? { slug: event.slug, title: event.title } : null;
+  }
+
+  private communityPostView(viewerId: string, post: MemoryCommunityPost): CommunityPost {
+    return {
+      id: post.id,
+      topic: post.topic,
+      title: post.title,
+      body: post.body,
+      event: this.communityEventRef(post.eventId),
+      author: this.communityAuthor(viewerId, post.authorId, post.authorName),
+      isMine: post.authorId === viewerId,
+      helpfulCount: this.helpfulCount('post', post.id),
+      helped: this.communityHelpful.has(this.helpfulKey(viewerId, 'post', post.id)),
+      createdAt: post.createdAt,
+      lastActivityAt: post.lastActivityAt,
+    };
+  }
+
+  async listCommunityPosts(viewerId: string, { topic, eventId, before, limit = COMMUNITY_LIMITS.pageSize }: CommunityQuery): Promise<CommunityPage> {
+    const size = Math.min(Math.max(limit, 1), 50);
+    const rows = [...this.communityPosts.values()]
+      .filter((post) => this.readableCommunityPost(viewerId, post.id) !== null)
+      .filter((post) => (topic === null || post.topic === topic) && (eventId === null || post.eventId === eventId))
+      // Cermin kursor keyset (last_activity_at, id) DESC.
+      .filter((post) => !before || post.lastActivityAt < before.at || (post.lastActivityAt === before.at && post.id < before.id))
+      .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt) || b.id.localeCompare(a.id));
+    const page = rows.slice(0, size);
+    const last = page.at(-1);
+    return {
+      items: page.map((post) => {
+        const { body, ...view } = this.communityPostView(viewerId, post);
+        return { ...view, excerpt: body.slice(0, 240), replyCount: this.readableCommunityReplies(viewerId, post).length };
+      }),
+      nextCursor: rows.length > size && last ? { at: last.lastActivityAt, id: last.id } : null,
+      available: true,
+    };
+  }
+
+  async getCommunityThread(viewerId: string, postId: string): Promise<CommunityThread | null> {
+    const post = this.readableCommunityPost(viewerId, postId);
+    if (!post) return null;
+    return {
+      post: this.communityPostView(viewerId, post),
+      replies: this.readableCommunityReplies(viewerId, post)
+        .slice(0, COMMUNITY_LIMITS.repliesShown)
+        .map((reply) => ({
+          id: reply.id,
+          body: reply.body,
+          author: this.communityAuthor(viewerId, reply.authorId, reply.authorName),
+          isMine: reply.authorId === viewerId,
+          isOp: reply.authorId === post.authorId,
+          helpfulCount: this.helpfulCount('reply', reply.id),
+          helped: this.communityHelpful.has(this.helpfulKey(viewerId, 'reply', reply.id)),
+          createdAt: reply.createdAt,
+        })),
+    };
+  }
+
+  async createCommunityPost(viewer: CommunityViewer, input: CommunityPostInput): Promise<string> {
+    if (this.suspensions.has(viewer.id)) throw actionError('community_unavailable');
+    const title = input.title.trim();
+    const body = input.body.trim();
+    if (
+      !toCommunityTopic(input.topic) ||
+      title.length < COMMUNITY_LIMITS.titleMin ||
+      title.length > COMMUNITY_LIMITS.titleMax ||
+      body.length < COMMUNITY_LIMITS.bodyMin ||
+      body.length > COMMUNITY_LIMITS.bodyMax
+    ) {
+      throw actionError('invalid_community_post');
+    }
+    if (hasContactInfo(title) || hasContactInfo(body)) throw actionError('community_contact_blocked');
+    if (input.eventId && !this.communityEventRef(input.eventId)) throw actionError('community_event_unavailable');
+    if (!this.rateLimiter.consume(`community-post:${viewer.id}`, COMMUNITY_LIMITS.postsPerDay, 86_400)) throw actionError('community_rate_limited');
+    const id = this.nextId();
+    const now = this.communityNow();
+    this.communityPosts.set(id, {
+      id,
+      authorId: viewer.id,
+      authorName: viewer.fullName,
+      topic: input.topic,
+      title,
+      body,
+      eventId: input.eventId,
+      lastActivityAt: now,
+      createdAt: now,
+      hiddenAt: null,
+      hiddenAuto: false,
+    });
+    return id;
+  }
+
+  async replyToCommunityPost(viewer: CommunityViewer, postId: string, body: string): Promise<void> {
+    if (this.suspensions.has(viewer.id)) throw actionError('community_unavailable');
+    const post = this.readableCommunityPost(viewer.id, postId);
+    if (!post) throw actionError('community_post_not_found');
+    const text = body.trim();
+    if (text.length < COMMUNITY_LIMITS.replyMin || text.length > COMMUNITY_LIMITS.replyMax) throw actionError('invalid_community_reply');
+    if (hasContactInfo(text)) throw actionError('community_contact_blocked');
+    if (!this.rateLimiter.consume(`community-reply:${viewer.id}`, COMMUNITY_LIMITS.repliesPerDay, 86_400)) throw actionError('community_rate_limited');
+    const id = this.nextId();
+    const now = this.communityNow();
+    this.communityReplies.set(id, { id, postId, authorId: viewer.id, authorName: viewer.fullName, body: text, createdAt: now, hiddenAt: null, hiddenAuto: false });
+    this.communityPosts.set(postId, { ...post, lastActivityAt: now });
+    if (post.authorId !== viewer.id) this.notifyCommunityReply(post);
+  }
+
+  /** Cermin `idx_notifications_community_dedupe`: satu notifikasi per (penerima, postingan), diperbarui. */
+  private notifyCommunityReply(post: MemoryCommunityPost): void {
+    const list = getOrCreate(this.storedNotifications, post.authorId, () => []);
+    const id = `community-reply-${post.id}`;
+    const fresh: AppNotification = {
+      id,
+      type: 'COMMUNITY_REPLY',
+      message: `Ada balasan baru di postinganmu "${post.title.slice(0, 100)}".`,
+      isRead: false,
+      sentAt: new Date().toISOString(),
+      event: null,
+      communityPostId: post.id,
+    };
+    const index = list.findIndex((notification) => notification.id === id);
+    if (index >= 0) list.splice(index, 1, fresh);
+    else list.push(fresh);
+    this.readNotifications.get(post.authorId)?.delete(id);
+  }
+
+  async toggleCommunityHelpful(viewerId: string, target: CommunityTarget): Promise<boolean> {
+    const reply = target.kind === 'reply' ? this.communityReplies.get(target.id) : undefined;
+    const post = this.readableCommunityPost(viewerId, target.kind === 'post' ? target.id : (reply?.postId ?? ''));
+    const author = target.kind === 'post' ? post?.authorId : reply && !reply.hiddenAt ? reply.authorId : undefined;
+    if (!post || !author || !this.communityAuthorVisible(viewerId, author)) throw actionError('community_post_not_found');
+    if (author === viewerId) throw actionError('community_own_content');
+    const key = this.helpfulKey(viewerId, target.kind, target.id);
+    if (this.communityHelpful.delete(key)) return false;
+    if (!this.rateLimiter.consume(`community-helpful:${viewerId}`, COMMUNITY_LIMITS.helpfulPerDay, 86_400)) throw actionError('community_rate_limited');
+    this.communityHelpful.add(key);
+    return true;
+  }
+
+  private dropCommunityHelpful(kind: 'post' | 'reply', id: string): void {
+    const suffix = `|${kind}|${id}`;
+    for (const key of [...this.communityHelpful]) if (key.endsWith(suffix)) this.communityHelpful.delete(key);
+  }
+
+  async deleteCommunityPost(viewerId: string, postId: string): Promise<void> {
+    const post = this.communityPosts.get(postId);
+    if (!post || post.authorId !== viewerId) throw actionError('community_post_not_found');
+    this.communityPosts.delete(postId);
+    this.dropCommunityHelpful('post', postId);
+    for (const reply of [...this.communityReplies.values()]) {
+      if (reply.postId !== postId) continue;
+      this.communityReplies.delete(reply.id);
+      this.dropCommunityHelpful('reply', reply.id);
+    }
+    // Cermin ON DELETE CASCADE notifications.community_post_id; laporan tetap (post_id → NULL).
+    for (const [userId, list] of this.storedNotifications) {
+      this.storedNotifications.set(userId, list.filter((notification) => notification.communityPostId !== postId));
+    }
+    for (const report of this.communityReports.values()) if (report.postId === postId) report.postId = null;
+  }
+
+  async deleteCommunityReply(viewerId: string, replyId: string): Promise<string> {
+    const reply = this.communityReplies.get(replyId);
+    if (!reply || reply.authorId !== viewerId) throw actionError('community_reply_not_found');
+    this.communityReplies.delete(replyId);
+    this.dropCommunityHelpful('reply', replyId);
+    return reply.postId;
+  }
+
+  async reportCommunityContent(viewerId: string, { kind, id, reason, details }: CommunityReportInput): Promise<void> {
+    if (this.suspensions.has(viewerId)) throw actionError('community_unavailable');
+    const reply = kind === 'reply' ? this.communityReplies.get(id) : undefined;
+    const post = this.readableCommunityPost(viewerId, kind === 'post' ? id : (reply?.postId ?? ''));
+    const author = kind === 'post' ? post?.authorId : reply && !reply.hiddenAt ? reply.authorId : undefined;
+    if (!post || !author || author === viewerId || !this.communityAuthorVisible(viewerId, author)) throw actionError('report_unavailable');
+    if (!REPORT_REASONS.includes(reason)) throw actionError('invalid_report');
+    // Kuota yang SAMA dengan laporan konten lain.
+    if (!this.rateLimiter.consume(`report:${viewerId}`, REPORT_RATE_LIMIT_PER_DAY, 86_400)) throw actionError('report_rate_limited');
+    const open = [...this.communityReports.values()].filter((report) => report.subjectType === kind && report.subjectId === id && report.status === 'OPEN');
+    if (!open.some((report) => report.reporterId === viewerId)) {
+      const reportId = this.nextId();
+      this.communityReports.set(reportId, {
+        id: reportId,
+        reporterId: viewerId,
+        subjectType: kind,
+        subjectId: id,
+        postId: post.id,
+        authorId: author,
+        snapshot: (kind === 'post' ? `${post.title}\n\n${post.body}` : (reply?.body ?? '')).slice(0, 2200),
+        reason,
+        details: details?.trim().slice(0, 1000) || null,
+        status: 'OPEN',
+        createdAt: new Date().toISOString(),
+      });
+      open.push({ reporterId: viewerId } as MemoryCommunityReport);
+    }
+    if (new Set(open.map((report) => report.reporterId)).size >= COMMUNITY_LIMITS.autoHideReporters) this.hideCommunityContent(kind, id, true);
+  }
+
+  private hideCommunityContent(kind: 'post' | 'reply', id: string, auto: boolean): void {
+    const now = new Date().toISOString();
+    if (kind === 'post') {
+      const post = this.communityPosts.get(id);
+      if (post && (!post.hiddenAt || !auto)) this.communityPosts.set(id, { ...post, hiddenAt: post.hiddenAt ?? now, hiddenAuto: auto && !post.hiddenAt });
+    } else {
+      const reply = this.communityReplies.get(id);
+      if (reply && (!reply.hiddenAt || !auto)) this.communityReplies.set(id, { ...reply, hiddenAt: reply.hiddenAt ?? now, hiddenAuto: auto && !reply.hiddenAt });
+    }
+  }
+
+  async listMyCommunityContent(viewerId: string): Promise<readonly MyCommunityContent[]> {
+    const posts = [...this.communityPosts.values()]
+      .filter((post) => post.authorId === viewerId)
+      .map((post) => ({ kind: 'post' as const, id: post.id, postId: post.id, title: post.title, body: post.body, hidden: post.hiddenAt !== null, createdAt: post.createdAt }));
+    const replies = [...this.communityReplies.values()]
+      .filter((reply) => reply.authorId === viewerId)
+      .map((reply) => ({
+        kind: 'reply' as const,
+        id: reply.id,
+        postId: reply.postId,
+        title: this.communityPosts.get(reply.postId)?.title ?? '',
+        body: reply.body,
+        hidden: reply.hiddenAt !== null,
+        createdAt: reply.createdAt,
+      }));
+    return [...posts, ...replies].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async listCommunityReports(limit: number): Promise<readonly CommunityReportQueueItem[]> {
+    const groups = new Map<string, MemoryCommunityReport[]>();
+    for (const report of this.communityReports.values()) {
+      if (report.status !== 'OPEN') continue;
+      getOrCreate(groups, `${report.subjectType}:${report.subjectId}`, () => []).push(report);
+    }
+    return [...groups.values()]
+      .map((reports) => {
+        const ordered = [...reports].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        const first = ordered[0]!;
+        const latest = ordered.at(-1)!;
+        const subject = first.subjectType === 'post' ? this.communityPosts.get(first.subjectId) : this.communityReplies.get(first.subjectId);
+        const post = latest.postId ? this.communityPosts.get(latest.postId) : undefined;
+        return {
+          reportId: first.id,
+          subjectType: first.subjectType,
+          subjectId: first.subjectId,
+          postId: post ? post.id : null,
+          postTitle: post?.title ?? null,
+          authorId: latest.authorId,
+          authorName: latest.authorId ? (this.people.get(latest.authorId)?.person.fullName ?? subject?.authorName ?? null) : null,
+          snapshot: latest.snapshot,
+          reasons: [...new Set(ordered.map((report) => report.reason))].sort(),
+          details: [...ordered].reverse().find((report) => report.details)?.details ?? null,
+          reportCount: ordered.length,
+          hidden: Boolean(subject?.hiddenAt),
+          hiddenAuto: subject?.hiddenAuto ?? false,
+          stillExists: subject !== undefined,
+          firstAt: first.createdAt,
+        };
+      })
+      .sort((a, b) => a.firstAt.localeCompare(b.firstAt))
+      .slice(0, Math.min(Math.max(limit, 1), 100));
+  }
+
+  async resolveCommunityReport({ reportId, actorId, actorName, outcome, hide, note }: ResolveCommunityReportInput): Promise<void> {
+    const report = this.communityReports.get(reportId);
+    if (!report || report.status !== 'OPEN') throw actionError('report_not_found');
+    if (outcome === 'RESOLVED' && hide) this.hideCommunityContent(report.subjectType, report.subjectId, false);
+    if (outcome === 'DISMISSED') {
+      // Hanya yang tersembunyi OTOMATIS tampil lagi.
+      if (report.subjectType === 'post') {
+        const post = this.communityPosts.get(report.subjectId);
+        if (post?.hiddenAuto) this.communityPosts.set(post.id, { ...post, hiddenAt: null, hiddenAuto: false });
+      } else {
+        const reply = this.communityReplies.get(report.subjectId);
+        if (reply?.hiddenAuto) this.communityReplies.set(reply.id, { ...reply, hiddenAt: null, hiddenAuto: false });
+      }
+    }
+    const closed = [...this.communityReports.values()].filter(
+      (other) => other.subjectType === report.subjectType && other.subjectId === report.subjectId && other.status === 'OPEN',
+    );
+    for (const other of closed) other.status = outcome;
+    const trimmedNote = note?.trim().slice(0, 500) || null;
+    this.logModeration({
+      subjectType: 'report',
+      subjectId: report.id,
+      title: `Laporan Komunitas: ${report.subjectType === 'post' ? 'postingan' : 'balasan'} (${report.reason})${outcome === 'RESOLVED' && hide ? ' — disembunyikan' : ''}`,
+      fromStatus: 'OPEN',
+      toStatus: outcome,
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: trimmedNote,
+    });
+    for (const reporterId of new Set(closed.map((other) => other.reporterId).filter((id): id is string => id !== null))) {
+      this.notify(reporterId, {
+        id: this.nextId(),
+        type: outcome === 'RESOLVED' ? 'REPORT_RESOLVED' : 'REPORT_DISMISSED',
+        message:
+          outcome === 'RESOLVED'
+            ? 'Terima kasih. Laporanmu tentang sebuah tulisan di Komunitas sudah ditindaklanjuti moderator. Demi privasi semua pihak, rincian tindakannya tidak kami bagikan.'
+            : 'Laporanmu tentang sebuah tulisan di Komunitas sudah ditinjau moderator dan belum ditemukan pelanggaran Syarat & Ketentuan. Punya bukti tambahan? Kirim laporan baru.',
+      });
+    }
+  }
+
+  /**
+   * Percakapan contoh (mode seed): lini masa demo tidak pernah kosong, dan
+   * setiap topik punya contoh. Ditulis orang contoh — tidak ada akun sungguhan.
+   */
+  private seedCommunity(base: Date): void {
+    const at = (hoursAgo: number) => new Date(base.getTime() - hoursAgo * 3_600_000).toISOString();
+    const eventId = (slug: string) => this.events.find((event) => event.slug === slug)?.id ?? null;
+    const plan: readonly {
+      author: string;
+      topic: CommunityTopic;
+      title: string;
+      body: string;
+      event?: string;
+      hoursAgo: number;
+      replies: readonly { author: string; body: string; hoursAgo: number }[];
+    }[] = [
+      {
+        author: 'seed-user-5',
+        topic: 'cari-tim',
+        title: 'Cari 1 programmer untuk Kompetisi Inovasi Perangkat Lunak',
+        body: 'Timku sudah ada desainer UI dan analis bisnis, kurang satu orang yang nyaman dengan Next.js atau Flutter. Tema ketahanan pangan, kami mau bikin aplikasi pencatat panen petani kecil. Yang tertarik, ajak terhubung lewat Koneksi ya!',
+        event: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026',
+        hoursAgo: 5,
+        replies: [
+          { author: 'seed-user-2', body: 'Aku bisa backend Go + sedikit Next.js. Sudah kirim ajakan terhubung.', hoursAgo: 3 },
+          { author: 'seed-user-5', body: 'Mantap, sudah aku terima. Kita lanjut di tim ya.', hoursAgo: 2 },
+        ],
+      },
+      {
+        author: 'seed-user-3',
+        topic: 'tanya',
+        title: 'Esai beasiswa: lebih baik cerita gagal atau cerita prestasi?',
+        body: 'Prompt esainya "ceritakan tantangan terbesarmu". Aku bingung mau cerita waktu gagal lomba tahun lalu atau prestasi terbaru. Mana yang biasanya lebih dinilai juri?',
+        hoursAgo: 20,
+        replies: [
+          { author: 'seed-user-6', body: 'Waktu aku jadi juri, cerita gagal yang ada refleksi dan perubahan konkretnya justru paling berkesan. Prestasi tanpa proses terasa seperti CV yang ditulis ulang.', hoursAgo: 18 },
+          { author: 'seed-user-4', body: 'Setuju. Tulis apa yang kamu ubah setelah gagal, dengan angka kalau ada.', hoursAgo: 16 },
+        ],
+      },
+      {
+        author: 'seed-user-6',
+        topic: 'info',
+        title: 'Checklist berkas magang yang sering terlupa',
+        body: 'Dari pengalaman menyeleksi magang: (1) transkrip terbaru, bukan yang semester lalu; (2) portofolio dalam satu tautan, bukan lima; (3) surat rekomendasi dosen minta jauh hari; (4) nama berkas jelas: Nama_Posisi_CV.pdf. Semoga membantu!',
+        hoursAgo: 30,
+        replies: [],
+      },
+      {
+        author: 'seed-user-9',
+        topic: 'cerita',
+        title: 'Pertama kali lolos final olimpiade — yang aku pelajari',
+        body: 'Dua kali gagal di babak penyisihan, tahun ini akhirnya lolos final. Yang paling berpengaruh: latihan soal tahun-tahun lalu dengan timer, dan belajar bareng tiga teman dari sekolah lain yang kenal di sini.',
+        event: 'olimpiade-matematika-pelajar-tingkat-nasional',
+        hoursAgo: 52,
+        replies: [{ author: 'seed-user-1', body: 'Selamat! Boleh share sumber soal latihannya?', hoursAgo: 50 }],
+      },
+    ];
+    for (const entry of plan) {
+      const id = this.nextId();
+      const name = this.people.get(entry.author)?.person.fullName ?? 'Anggota';
+      const replyTimes = entry.replies.map((reply) => at(reply.hoursAgo));
+      this.communityPosts.set(id, {
+        id,
+        authorId: entry.author,
+        authorName: name,
+        topic: entry.topic,
+        title: entry.title,
+        body: entry.body,
+        eventId: entry.event ? eventId(entry.event) : null,
+        lastActivityAt: replyTimes.at(-1) ?? at(entry.hoursAgo),
+        createdAt: at(entry.hoursAgo),
+        hiddenAt: null,
+        hiddenAuto: false,
+      });
+      entry.replies.forEach((reply, index) => {
+        const replyId = this.nextId();
+        this.communityReplies.set(replyId, {
+          id: replyId,
+          postId: id,
+          authorId: reply.author,
+          authorName: this.people.get(reply.author)?.person.fullName ?? 'Anggota',
+          body: reply.body,
+          createdAt: replyTimes[index]!,
+          hiddenAt: null,
+          hiddenAuto: false,
+        });
+      });
+    }
+    // Beberapa tanda "bermanfaat" dari orang contoh.
+    for (const post of this.communityPosts.values()) {
+      for (const helper of ['seed-user-1', 'seed-user-4', 'seed-user-7']) {
+        if (helper !== post.authorId) this.communityHelpful.add(this.helpfulKey(helper, 'post', post.id));
+      }
+    }
+  }
+
   async listPublicBadgeFacts(viewerId: string, userIds: readonly string[], now: Date = new Date()): Promise<ReadonlyMap<string, AchievementFacts>> {
     const result = new Map<string, AchievementFacts>();
     for (const userId of [...new Set(userIds)].slice(0, 100)) {
@@ -3318,6 +4011,8 @@ export class MemoryEventRepository implements EventRepository {
       organizerStatus: organizer?.status ?? null,
       organizerReviewedAt: organizer?.reviewedAt ?? null,
       hostedEventClosedAt,
+      // Mode seed tidak punya tabel `users`: orang contoh dianggap bergabung saat data demo dibangun.
+      memberSince: this.seededAt,
     };
   }
 

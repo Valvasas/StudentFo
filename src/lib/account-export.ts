@@ -1,5 +1,6 @@
 import type { AuthUser } from '@/lib/auth';
 import type { MyEventQuestion } from '@/lib/data/repository';
+import { profileMediaSrc } from '@/lib/profile-media';
 import type {
   AppNotification,
   ProfileIdentity,
@@ -9,6 +10,7 @@ import type {
   EventRegistration,
   EventSummary,
   LobbySummary,
+  MyCommunityContent,
   NetworkProfile,
   NotificationPreferences,
   OrganizerProfile,
@@ -45,14 +47,17 @@ export interface AccountExportInput {
   readonly studyProfile: StudyProfile;
   /** Username, bio, siapa yang boleh membuka profil (ADR-077). */
   readonly identity: ProfileIdentity;
+  /** Postingan & balasan Komunitas (ADR-087), termasuk yang disembunyikan moderator. Opsional: tes lama tidak mengisinya. */
+  readonly community?: readonly MyCommunityContent[];
 }
 
 /**
  * Salinan data akun untuk hak akses & portabilitas (UU PDP Pasal 7 dan 13):
  * JSON berkunci Inggris yang stabil, bisa dibaca mesin dan manusia.
  *
- * Yang SENGAJA tidak ikut: berkas bukti bayar (gambar — diunduh dari halaman
- * pendaftarannya), data orang lain selain yang memang terlihat olehmu (nama
+ * Yang SENGAJA tidak ikut: berkas gambar (bukti bayar diunduh dari halaman
+ * pendaftarannya; foto profil & banner lewat tautan di `profileLook`), data
+ * orang lain selain yang memang terlihat olehmu (nama
  * dan headline koneksi), dan kolom internal moderasi (`reviewed_by`).
  */
 export function buildAccountExport(input: AccountExportInput, now: Date = new Date()) {
@@ -143,12 +148,26 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
     ),
     badges: { shownToOthers: input.showBadges },
     publicProfile: { username: input.identity.username, bio: input.identity.bio, visibleTo: input.identity.visibility },
+    // Berkas gambarnya tidak ikut di JSON (sama seperti bukti bayar): tautannya bisa dibuka selama kamu masuk.
+    profileLook: {
+      photoUrl: user.profileMedia.avatarId ? profileMediaSrc(user.profileMedia.avatarId) : null,
+      bannerUrl: user.profileMedia.bannerId ? profileMediaSrc(user.profileMedia.bannerId) : null,
+      bannerPreset: user.profileMedia.bannerPreset,
+    },
     studyPlace: {
       institutionId: input.studyProfile.institutionId,
       institutionName: input.studyProfile.institutionName,
       domicileCode: input.studyProfile.domicileCode,
       studyFields: input.studyProfile.studyFields,
     },
+    community: (input.community ?? []).map((content) => ({
+      kind: content.kind,
+      url: `/komunitas/${content.postId}`,
+      title: content.title,
+      body: content.body,
+      hiddenByModerator: content.hidden,
+      createdAt: content.createdAt,
+    })),
     notifications: input.notifications.map((notification) => ({
       type: notification.type,
       message: notification.message,

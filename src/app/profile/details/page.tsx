@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AtSign, Award, FileText, GraduationCap, IdCard, MapPin, Pencil, Phone } from 'lucide-react';
+import { AtSign, Award, FileText, GraduationCap, IdCard, Images, MapPin, Pencil, Phone } from 'lucide-react';
 import { updateProfileAction, updateProfileIdentityAction, updateStudyPlaceAction } from '@/app/profile/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
@@ -15,6 +15,7 @@ import {
   detailPrimaryButton,
 } from '@/components/profile/detail-card';
 import { MajorField } from '@/components/profile/major-field';
+import { ProfileLookCard } from '@/components/profile/profile-look-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { InstitutionPicker } from '@/components/ui/institution-picker';
 import { RegionPicker } from '@/components/ui/region-picker';
@@ -39,8 +40,21 @@ export const metadata: Metadata = {
 
 const EDITABLE = ['identitas', 'publik', 'pendidikan', 'asal'] as const;
 /** Kode milik kartu Profil publik & Tempat studi — kode bersama (`unknown`) sudah ditangani AuthFeedback. */
-const STUDY_ERRORS = new Set(['invalid_study_place', 'study_profile_unavailable', 'username_taken', 'invalid_profile_identity', 'profile_identity_unavailable']);
-const STUDY_NOTICES = new Set(['study_place_saved', 'profile_identity_saved']);
+const STUDY_ERRORS = new Set([
+  'invalid_study_place',
+  'study_profile_unavailable',
+  'username_taken',
+  'invalid_profile_identity',
+  'profile_identity_unavailable',
+  'image_missing',
+  'image_invalid',
+  'image_too_large',
+  'profile_image_too_large',
+  'profile_media_rate_limited',
+  'profile_media_unavailable',
+  'invalid_banner_preset',
+]);
+const STUDY_NOTICES = new Set(['study_place_saved', 'profile_identity_saved', 'avatar_saved', 'avatar_removed', 'banner_saved', 'banner_removed', 'banner_preset_saved']);
 type Editable = (typeof EDITABLE)[number];
 
 /**
@@ -108,6 +122,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
 
   const jumps = [
     { href: '#identitas', label: 'Identitas', icon: IdCard },
+    { href: '#tampilan', label: 'Foto & banner', icon: Images },
     ...(identity.available ? [{ href: '#publik', label: 'Profil publik', icon: AtSign }] : []),
     { href: '#pendidikan', label: 'Pendidikan', icon: GraduationCap },
     ...(studyProfile.available ? [{ href: '#asal', label: 'Tempat studi', icon: MapPin }] : []),
@@ -181,6 +196,13 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
             />
           )}
         </DetailCard>
+
+        <ProfileLookCard
+          media={user.profileMedia}
+          fullName={user.fullName}
+          subtitle={identity.username ? `@${identity.username}` : (user.major ?? 'Belum ada username')}
+          delay={75}
+        />
 
         {identity.available && (
           <DetailCard

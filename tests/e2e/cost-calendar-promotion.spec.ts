@@ -45,6 +45,8 @@ test('promosi berbayar: di puncak daftar umum dengan label, tidak di papan "teng
 });
 
 test('detail: lencana otoritas + tooltip, biaya, buku panduan (PDF di balik <details>), CSP frame-src hanya di detail', async ({ page }) => {
+  // Syarat & buku panduan khusus anggota (ADR-085).
+  await signInAsDemo(page, 'Mahasiswa', `${KOMPETISI}?tab=syarat`);
   const response = await page.goto(`${KOMPETISI}?tab=syarat`);
   expect(response?.headers()['content-security-policy']).toMatch(/frame-src [^;]*https:/);
 
@@ -62,8 +64,13 @@ test('detail: lencana otoritas + tooltip, biaya, buku panduan (PDF di balik <det
   expect(listing.headers()['content-security-policy']).not.toMatch(/frame-src [^;]*https:(?!\/\/)/);
 });
 
-test('tambah ke kalender: tautan Google per tenggat + berkas .ics RFC 5545', async ({ page }) => {
-  await page.goto(`${KOMPETISI}?tab=tahapan`);
+test('tambah ke kalender: tautan Google per tenggat + berkas .ics RFC 5545', async ({ page, request }) => {
+  // Kalender = alat anggota (ADR-085): tamu ditolak dengan galat yang bisa dibaca mesin.
+  const guest = await request.get(`/api/events/${KOMPETISI.split('/').pop()}/calendar`);
+  expect(guest.status()).toBe(401);
+  expect(await guest.json()).toMatchObject({ code: 'UNAUTHORIZED' });
+
+  await signInAsDemo(page, 'Mahasiswa', `${KOMPETISI}?tab=tahapan`);
   const menu = page.locator('main section details').filter({ hasText: 'Tambah ke kalender' }).first();
   await menu.locator('summary').click();
   const google = menu.getByRole('link', { name: /Pendaftaran/ }).first();
@@ -74,6 +81,8 @@ test('tambah ke kalender: tautan Google per tenggat + berkas .ics RFC 5545', asy
   expect(ics.status()).toBe(200);
   expect(ics.headers()['content-type']).toContain('text/calendar');
   expect(ics.headers()['content-disposition']).toContain('attachment; filename="kompetisi-inovasi-perangkat-lunak-nusantara-2026.ics"');
+  // Bergantung pada sesi → tidak boleh tersimpan di cache bersama.
+  expect(ics.headers()['cache-control']).toContain('private');
   const body = await ics.text();
   expect(body.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true);
   expect(body).toContain('BEGIN:VALARM');
@@ -148,6 +157,7 @@ test('kiriman berbayar: nominal & kontak panitia sampai ke kartu moderasi, bukan
 });
 
 test('320px: detail berlencana, menu kalender terbuka, dan tooltip tidak membuat halaman menggulir ke samping', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', KOMPETISI);
   await page.setViewportSize({ width: 320, height: 800 });
   for (const tab of ['ringkasan', 'syarat', 'tahapan']) {
     await page.goto(`${KOMPETISI}?tab=${tab}`);

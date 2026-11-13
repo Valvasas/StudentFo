@@ -5,7 +5,8 @@ import { notFound, redirect } from 'next/navigation';
 import { readAdminMfaStep, type AdminMfaStep } from '@/lib/admin-mfa';
 import { demoEmailOf } from '@/lib/demo/personas';
 import { readDemoSession } from '@/lib/demo/session';
-import { isDemoUserSuspended } from '@/lib/data';
+import { demoProfileMedia, isDemoUserSuspended } from '@/lib/data';
+import { isMissingColumnError, toProfileMedia } from '@/lib/data/supabase-mappers';
 import { dataMode } from '@/lib/env';
 import { parseOrganizerDraft, type OrganizerApplicationInput } from '@/lib/organizer';
 import { NOT_FOUND_TITLE } from '@/lib/page-title';
@@ -13,7 +14,8 @@ import { loginHref } from '@/lib/safe-redirect';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import type { EventActor } from '@/lib/data/repository';
 import type { UserProfileRow } from '@/types/database';
-import type { EducationLevel } from '@/types/domain';
+import { UNAVAILABLE_PROFILE_MEDIA } from '@/lib/profile-media';
+import type { EducationLevel, OwnProfileMedia } from '@/types/domain';
 
 export interface AuthUser {
   readonly id: string;
@@ -31,7 +33,14 @@ export interface AuthUser {
    * izin apa pun; null bila tidak ada atau tidak lolos skema pengajuan.
    */
   readonly organizerDraft: OrganizerApplicationInput | null;
+  /** Kapan akun dibuat (ISO, dicatat server) — bahan lencana "Angkatan Perintis"; null bila tak diketahui. */
+  readonly createdAt: string | null;
+  /** Foto profil & banner milik sendiri (ADR-083) — ikut di sini karena navbar menampilkannya di setiap halaman. */
+  readonly profileMedia: OwnProfileMedia;
 }
+
+const PROFILE_COLUMNS = 'full_name, role, education_level, major, interests, suspended_at';
+const PROFILE_MEDIA_COLUMNS = 'avatar_id, banner_id, banner_preset';
 
 /**
  * Pengguna yang sedang masuk, atau null.
@@ -55,11 +64,16 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
 
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('full_name, role, education_level, major, interests, suspended_at')
-    .eq('id', user.id)
-    .maybeSingle<UserProfileRow>();
+  const readProfile = (columns: string) => supabase.from('users').select(columns).eq('id', user.id).maybeSingle<UserProfileRow>();
+  let mediaAvailable = true;
+  let { data: profile, error: profileError } = await readProfile(`${PROFILE_COLUMNS}, ${PROFILE_MEDIA_COLUMNS}`);
+  // Kode tayang sebelum migration 20261110100001: baca ulang TANPA kolom
+  // foto. Membiarkan kueri ini gagal menjatuhkan semua orang ke peran USER
+  // (admin kehilangan /admin) — pelajaran dari `suspended_at` (TASKS, ADR-061).
+  if (profileError && isMissingColumnError(profileError)) {
+    mediaAvailable = false;
+    ({ data: profile, error: profileError } = await readProfile(PROFILE_COLUMNS));
+  }
 
   // Akun yang ditangguhkan (ADR-061) diperlakukan tidak masuk SEKETIKA, tanpa
   // menunggu access token-nya kedaluwarsa. GoTrue (`banned_until`) menolak
@@ -83,6 +97,11 @@ export const getSessionUser = cache(async (): Promise<AuthUser | null> => {
     interests: profile?.interests ?? [],
     providers: user.app_metadata?.providers ?? (user.app_metadata?.provider ? [user.app_metadata.provider] : []),
     organizerDraft: parseOrganizerDraft(user.user_metadata?.organizer_application),
+    createdAt: user.created_at ?? null,
+    profileMedia:
+      mediaAvailable && profile
+        ? { ...toProfileMedia({ avatar_id: profile.avatar_id ?? null, banner_id: profile.banner_id ?? null, banner_preset: profile.banner_preset ?? null }), available: true }
+        : UNAVAILABLE_PROFILE_MEDIA,
   };
 });
 
@@ -117,6 +136,8 @@ async function getDemoUser(): Promise<AuthUser | null> {
     interests: session.interests,
     providers: ['demo'],
     organizerDraft: null,
+    createdAt: new Date(session.iat * 1000).toISOString(),
+    profileMedia: demoProfileMedia(session.uid),
   };
 }
 

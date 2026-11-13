@@ -12,7 +12,7 @@ import { BackLink } from '@/components/ui/back-link';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
-import { initialsOf } from '@/lib/initials';
+import { SelfAvatar } from '@/components/ui/avatar';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import { isColdStart } from '@/lib/recommendation';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -70,9 +70,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           href="/profile"
           className="enter group flex items-center gap-4 rounded-[18px] border border-line bg-panel p-4 transition-colors duration-150 ease-snap [animation-duration:600ms] hover:bg-panel-nested sm:p-5"
         >
-          <span aria-hidden className="flex size-14 shrink-0 items-center justify-center rounded-pill bg-brand text-[17px] font-semibold text-on-brand">
-            {initialsOf(user.fullName)}
-          </span>
+          <SelfAvatar name={user.fullName} photo={user.profileMedia.avatarId} className="size-14 text-[17px]" />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="truncate text-[17px] font-semibold tracking-[-0.01em]">{user.fullName}</span>
             <span className="truncate text-[13.5px] text-ink-muted">{user.email}</span>
