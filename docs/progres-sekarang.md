@@ -12,7 +12,7 @@
 
 | Hal | Keadaan |
 |---|---|
-| `main` | `11fa26a` — PR #29 di-merge pemilik 13 Nov 13:31 WIB: ADR-079–088 semuanya di `main` |
+| `main` | `11fa26a` — PR #29 di-merge pemilik 13 Nov 13:31 WIB: ADR-079–088 semuanya di `main`. CI: 6/6 check PR hijau (termasuk Playwright penuh) dan run push `main` hijau — run push sebelumnya (PR #28) merah |
 | Cabang kerja | `claude/brave-cray-xsqigf` = `main` (+ commit dokumen ini). Tidak ada pekerjaan yang menggantung |
 | Tes terakhir (13 Nov) | `verify` 1.085 · `db:test` semua · integrasi PostgREST 113 (+5 butuh GoTrue/Storage sungguhan) · Playwright seed penuh 1.021 lulus / 18 gagal → 3 akar masalah tes diperbaiki, rerun spec terdampak 79/79 + `event-gate` setelah data dimutasi 21/21 |
 
