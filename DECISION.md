@@ -12,6 +12,64 @@ terdokumentasi.
 
 ---
 
+## ADR-087 — Komunitas: forum PUBLIK khusus anggota yang dimoderasi, bukan pesan pribadi
+
+**Konteks:** Pemilik meminta fitur komunitas supaya pengguna bisa berinteraksi
+di dalam situs. ADR-062 #7 sengaja menolak pesan pribadi & grup tertutup:
+pengguna mulai 13 tahun, dan saluran privat antar-orang asing adalah kategori
+risiko PP 17/2025. `/discussions` ("Ruang diskusi") hanya pratinjau demo.
+
+**Keputusan:**
+1. **Forum publik khusus anggota** (`/komunitas`): postingan bertopik (Tanya,
+   Cari tim, Info & tips, Cerita), opsional tertaut ke kegiatan, balasan,
+   tanda "Bermanfaat". Setiap percakapan terbuka untuk SEMUA anggota yang
+   masuk — tidak ada DM. Tamu & mesin pencari hanya melihat penjelasan dan
+   pintu masuk (judul utas pun tidak masuk metadata).
+2. **Privasi penulis:** nama selalu disingkat ("Dinda P."); id akun tidak
+   pernah keluar; username (tautan profil) & foto hanya bila pembaca memang
+   boleh membuka profil itu (`can_view_profile`, ADR-077). Blokir dua arah
+   saling menyembunyikan tulisan; akun ditangguhkan hilang dari Komunitas.
+3. **Kontak pribadi ditolak** (nomor HP Indonesia, email, tautan
+   WhatsApp/Telegram/LINE) di SQL (`community_has_contact`) dan aplikasi
+   (`CONTACT_PATTERNS`, contoh uji yang sama di kedua sisi). Kontak di ruang
+   publik = pintu ke saluran privat yang dihindari ADR-062; jalur yang
+   disarankan: Koneksi (persetujuan dua arah) atau tim. Tulisan teks polos —
+   tanpa tautan aktif, tanpa gambar.
+4. **Moderasi:** laporan bertabel sendiri (`community_reports`) dengan
+   cuplikan isi saat dilaporkan — bukti bertahan walau penulis menghapusnya.
+   Tidak memakai `content_reports`: menambah jenis subjek di CHECK-nya butuh
+   DROP CONSTRAINT (CLAUDE.md, dikunci `migrations-manifest.test.ts`).
+   Kuota lapor SAMA dengan laporan lain (`report:` 10/hari). **Tiga pelapor
+   berbeda menyembunyikan otomatis** sampai moderator memutuskan (melindungi
+   pembaca di luar jam moderator); "Abaikan" memunculkannya lagi, "Tandai
+   ditindak + sembunyikan" final. Antrean = satu kartu per tulisan di
+   `/admin/laporan`; badge antrean ikut menghitung. Keputusan tercatat di
+   riwayat (subjek `report`), pelapor dikabari tanpa catatan moderator.
+5. **Semua lewat RPC DEFINER** (pola `event_questions`), tabel tanpa policy;
+   batas laju 5 postingan / 30 balasan / 200 "bermanfaat" per hari.
+6. **Balasan mengabari penulis** lewat lonceng: kolom baru
+   `notifications.community_post_id` + indeks unik → satu notifikasi per
+   (penerima, postingan) yang diperbarui, bukan satu per balasan; hapus
+   postingan ikut menghapus notifikasinya.
+7. **Lini masa "aktif terbaru"** dengan kursor keyset `(last_activity_at, id)`
+   di URL (`?sebelum=`), saringan `?topik=` & `?kegiatan=` — tautan biasa,
+   jalan tanpa JavaScript. Halaman kegiatan (anggota) menautkan diskusinya.
+
+**Konsekuensi:** Migration `20261112100002_community` (hanya CREATE/ADD/
+CREATE OR REPLACE), kode aman urutan deploy (`available: false` →
+"Komunitas aktif setelah pembaruan server terpasang"; tulis → 
+`community_unavailable`). Ekspor data memuat tulisan sendiri; kebijakan
+privasi diperbarui. Data contoh: empat percakapan dari orang contoh.
+`/discussions` (demo) dibiarkan; tidak ada tautan baru ke sana.
+
+**Ditolak:** pesan pribadi / grup tertutup (ADR-062 #7); markdown & tautan
+aktif (phishing, "transfer ke rekening ini"); unggah gambar di postingan
+(moderasi gambar dari anak 13+ butuh kapasitas yang belum ada); peringkat
+"terpopuler" (mendorong konten sensasional — urutan aktivitas cukup);
+menampilkan nama lengkap (melangkahi pilihan "hanya koneksi" ADR-077).
+
+---
+
 ## ADR-086 — Ajakan bertindak = "Langkah awal" yang dihitung, bukan notifikasi yang disimpan
 
 **Konteks:** Pemilik meminta notifikasi ajakan bertindak (lengkapi profil,

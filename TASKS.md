@@ -397,7 +397,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
-## Logo, cuplikan beranda, lencana, foto profil, poster kiriman, gerbang anggota, langkah awal 2026-11-12 (@claude) — ADR-080–086
+## Logo, cuplikan beranda, lencana, foto profil, poster kiriman, gerbang anggota, langkah awal, Komunitas 2026-11-12 (@claude) — ADR-080–087
 
 - [x] Logo baru dijiplak ke SVG tiga lapis (kertas/stabilo/tinta) yang ikut tema; favicon, ikon aplikasi, kartu OG dari path yang sama (ADR-080)
 - [x] Tur beranda jadi satu cuplikan ala video — tanpa judul/daftar langkah/label; kendali putar/jeda + ruas adegan (ADR-081)
@@ -406,8 +406,10 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Poster dilampirkan saat mengirim kegiatan (pengirim yang masuk); pratinjau di antrean admin; disetujui = poster acara, ditolak = dihapus; isian `/submit` dipulihkan bila ditolak server (ADR-084)
 - [x] Gerbang anggota di halaman kegiatan: etalase + cuplikan untuk tamu, isi lengkap/tautan pendaftaran/kalender untuk yang masuk; `/daftar`, `/sebelum-daftar`, `.ics` ikut dijaga (ADR-085)
 - [x] "Langkah awalmu" di beranda (6 langkah dihitung dari akun) + satu saran tersemat di lonceng; bisa disembunyikan (ADR-086)
+- [x] Komunitas: forum publik khusus anggota — topik, balasan, "Bermanfaat", lapor + sembunyi otomatis 3 pelapor, antrean moderator, notifikasi balasan, tanpa DM & tanpa kontak pribadi (ADR-087)
 - [x] Tes: `profile-media.test.ts` ×2, `116_profile_media.test.sql`, `117_submission_poster.test.sql`, `event-access.test.ts`, `profile-media.spec.ts`, `submission-poster.spec.ts`, `event-gate.spec.ts`; penjaga "migration baru tanpa DROP/TRUNCATE"
-- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan `20261109100002_event_media`, `20261110100001_profile_media`, `20261112100001_submission_poster` ke staging lalu produksi (semuanya hanya ADD/CREATE OR REPLACE). Kode aman urutan deploy
+- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan `20261109100002_event_media`, `20261110100001_profile_media`, `20261112100001_submission_poster`, `20261112100002_community` ke staging lalu produksi (semuanya hanya ADD/CREATE OR REPLACE). Kode aman urutan deploy
+- [ ] Komunitas: lencana "Penolong" dari tanda "Bermanfaat" orang lain (perlu `public_badge_facts` diperbarui); sunting tulisan sendiri; halaman balasan > 300
 - [ ] Pemotong foto profil (crop bulat) di peramban — kini `object-cover` + anjuran rasio
 - [ ] Tinjau ulang metrik konversi tamu → akun setelah gerbang aktif (butuh analitik halaman; belum ada)
 
