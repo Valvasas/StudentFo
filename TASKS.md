@@ -407,6 +407,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] MFA admin: tautan "Buka di aplikasi autentikator" (`otpauth://`, tervalidasi) untuk pendaftaran dari ponsel yang sama
 - [x] Tes: `popover-dismiss.spec.ts` (8), `admin-mfa.test.ts` (`otpauthHref`), asersi `otpauthUri` di integrasi GoTrue
 - [ ] Header di ponsel memakan ±130px (logo + ikon + baris tab). Pertimbangkan menyembunyikan baris tab saat menggulir ke bawah
+- [ ] Flake `matchmaking.spec.ts` "axe: form dan hasil": `link-name` pada tautan nama kartu teratas, hanya di run penuh berbeban (sendirian 4/4 lulus; lulus di CI PR #29). Muka kartu disembunyikan utuh lewat `visibility`, jadi "tautan terlihat tanpa nama" belum terjelaskan. Selidiki keadaan dek saat hidrasi (`resetFaces`/`epoch`), jangan menambah retry
 
 ## Audit skalabilitas, efisiensi alur & konten terpanjang 2026-11-13 (@claude) — ADR-088
 
