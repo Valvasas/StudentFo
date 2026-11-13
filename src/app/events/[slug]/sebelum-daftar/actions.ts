@@ -11,7 +11,7 @@ import { institutionById } from '@/lib/institutions';
 import { parseOutboundAnswers, SKIPPED_ANSWERS, type OutboundSurveyAnswers } from '@/lib/outbound-survey';
 import { rememberOutboundSurvey } from '@/lib/outbound-survey-cookie';
 import { RATE_LIMITS } from '@/lib/rate-limit';
-import { recordSignal } from '@/lib/recommendation-signals';
+import { noteRegisterClick } from '@/lib/register-click';
 import { registrationDestination } from '@/lib/registration-destination';
 import { loginHref } from '@/lib/safe-redirect';
 import { isRateLimited, requestClientIp } from '@/lib/rate-limit-server';
@@ -65,7 +65,7 @@ export async function submitOutboundSurveyAction(formData: FormData): Promise<vo
   if (recordable) await recordVisit(event.id, answers, skipped, formText(formData, HONEYPOT_FIELD) !== '', true);
   await rememberOutboundSurvey(event.id);
   if (!destination) redirect(`/events/${event.slug}`);
-  await recordSignal('register_click', event.id, user);
+  await noteRegisterClick(event.id, user, repository);
   // LANGSUNG ke tujuan resmi, bukan lewat `/daftar`: redirect Server Action ke
   // path internal membuat Next merender tujuan itu di server — dan ikut
   // mengikuti 303 rute `/daftar` sampai ke situs penyelenggara. Tujuannya tetap

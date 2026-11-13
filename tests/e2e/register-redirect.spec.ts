@@ -74,6 +74,14 @@ test('Lewati: tanpa mengisi apa pun langsung ke tautan resmi, tidak ditanya lagi
   await expect.poll(() => external).toMatch(/^https?:\/\//);
   const survey = await page.request.get(`${href}/sebelum-daftar`, { maxRedirects: 0 });
   expect([303, 307]).toContain(survey.status());
+
+  // Klik "Daftar" menaruh acaranya di Papan lamaran (ADR-090) — sebagai "Disimpan", bukan
+  // "Sudah Daftar": klik bukan bukti pendaftaran selesai, tahap itu dilaporkan sendiri (ADR-046).
+  await page.goto(href);
+  await expect(page.getByRole('button', { name: 'Tersimpan di Tracker' })).toBeVisible();
+  const title = (await page.getByRole('heading', { level: 1 }).textContent())?.trim() ?? '';
+  await page.goto('/tracker');
+  await expect(page.getByLabel(`Tahap lamaran untuk ${title}`, { exact: true })).toHaveValue('SAVED');
 });
 
 test('pendataan lomba menunjuk lobi, asal sekolah dari direktori; admin melihat hasilnya tanpa identitas', async ({ page, context, browser }) => {

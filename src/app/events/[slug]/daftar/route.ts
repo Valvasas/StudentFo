@@ -4,13 +4,14 @@ import { getEventRepository } from '@/lib/data';
 import { siteUrl } from '@/lib/env';
 import { isSurveyEmpty } from '@/lib/outbound-survey';
 import { hasAnsweredOutboundSurvey } from '@/lib/outbound-survey-cookie';
-import { recordSignal } from '@/lib/recommendation-signals';
+import { noteRegisterClick } from '@/lib/register-click';
 import { registrationDestination } from '@/lib/registration-destination';
 import { loginHref } from '@/lib/safe-redirect';
 
 /**
  * Keluar ke tautan pendaftaran lewat server, supaya klik "Daftar" — sinyal
- * niat terkuat yang kita punya — bisa dicatat untuk kalibrasi (ADR-032).
+ * niat terkuat yang kita punya — bisa dicatat untuk kalibrasi (ADR-032) dan
+ * acaranya masuk Papan lamaran sebagai "Disimpan" (ADR-090).
  *
  * Bukan open redirect: tujuannya SELALU `registration_link` event itu dari
  * database, tidak pernah dari parameter URL. Route ini di-Disallow di
@@ -62,6 +63,6 @@ export async function GET(
     return NextResponse.redirect(new URL(`/events/${event.slug}/sebelum-daftar`, siteUrl), 303);
   }
 
-  await recordSignal('register_click', event.id, user);
+  await noteRegisterClick(event.id, user, repository);
   return NextResponse.redirect(destination.url, 303);
 }

@@ -63,7 +63,8 @@ yang tidak memuat migration yang sudah ada di produksi
 | Jendela daftar & lookup | Batas `TEAM_LIST_LIMIT`/`MANAGED_EVENTS_LIMIT` di `repository.ts`, sama di kedua repository; satu item = `getTrackerItem`/`getManagedEvent`/`listTeams(eventId)`/`listTeamsByIds` (ADR-088) | `list…().find()` di halaman per kegiatan; `.limit(60)`/`200` hanya di Supabase | `teams.test.ts`, `managed-events.test.ts`, `parity.test.ts`, `organizers.test.ts` |
 | Menu melayang | `<details data-popover>` + `PopoverDismiss` (ketuk di luar, Escape, pindah halaman); panel lonceng & akun menjangkar ke header di ponsel (ADR-089) | Panel diratakan kanan ke lonceng (terpotong di 320px), menu tetap terbuka | `popover-dismiss.spec.ts` |
 | Teks pengguna panjang | `body { overflow-wrap: break-word }` + `min-w-0 [overflow-wrap:anywhere]` di teks daun item flex/grid (ADR-088) | Tanpa pengaman; `anywhere` global (jangan — chip terbelah) | `extreme-content.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–089 | Nomor ganda 061/062 | — |
+| Klik "Daftar" → Papan lamaran | `noteRegisterClick()` di `/daftar` & `/sebelum-daftar`: sinyal + sama dengan "Simpan ke Tracker" (`saveEvent` + `addTrackerItemIfAbsent` → kolom "Disimpan"), tanpa sinyal `save` kedua (ADR-090). "Sudah Daftar" tetap dilaporkan sendiri (ADR-046) | Klik hanya sinyal; Papan lamaran kosong setelah menekan "Daftar" | `register-click.test.ts`, `register-redirect.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–090 | Nomor ganda 061/062 | — |
 
 ## Migration
 

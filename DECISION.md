@@ -12,6 +12,52 @@ terdokumentasi.
 
 ---
 
+## ADR-090 — Klik "Daftar" = "Simpan ke Tracker": acara masuk simpanan & Papan lamaran sebagai "Disimpan"
+
+**Konteks:** Pemilik menekan "Daftar" di beasiswa pertama yang tayang di
+produksi, lalu mencari lamarannya di Papan lamaran. Hasilnya kosong. Klik
+"Daftar" hanya dicatat sebagai sinyal kalibrasi (ADR-032), sementara Papan
+lamaran hanya terisi lewat "Simpan ke Tracker". Masalahnya bukan cuma
+kebingungan: pengingat tenggat H-3/H-1 dibaca dari simpanan ∪ tracker. Tanpa
+salah satunya, pengingat tidak pernah dikirim — padahal orang yang sudah
+membuka pendaftaran paling butuh diingatkan untuk menyelesaikannya.
+
+**Keputusan:**
+1. Kedua jalur klik — rute `/events/[slug]/daftar` dan aksi pendataan
+   `/sebelum-daftar` — memanggil satu fungsi `noteRegisterClick()`
+   (`lib/register-click.ts`). Fungsi itu mencatat sinyal `register_click`,
+   lalu melakukan hal yang sama dengan tombol "Simpan ke Tracker":
+   `saveEvent` + `addTrackerItemIfAbsent` (status SAVED, hanya bila acara
+   belum dilacak). Tidak ada sinyal `save` kedua, supaya satu niat tidak
+   terhitung dua kali. Versi pertama hanya mengisi Papan lamaran. Uji e2e
+   memperlihatkan akibatnya: halaman acara bertuliskan "Di pendaftaranmu:
+   Disimpan" sambil tombolnya masih menawarkan "Simpan ke Tracker", karena
+   tombol itu membaca simpanan (`saved_events`).
+2. Klik tidak pernah mengubah tahap menjadi "Sudah Daftar" (APPLIED). Klik
+   bukan bukti pendaftaran selesai di situs luar. Tahap Papan lamaran
+   dilaporkan sendiri (ADR-046) karena dipakai portofolio, lencana,
+   pencocokan tim, dan akses lobi (ADR-071). Formulir internal (ADR-056)
+   tetap menaikkan SAVED → APPLIED sendiri saat dikirim (`register_for_event`
+   memperbarui `WHERE status = 'SAVED'`), jadi baris yang ditanam klik ikut
+   maju.
+3. Tahap yang sudah lebih jauh tidak disentuh. Kalau penambahan gagal,
+   galatnya hanya dicatat di log dan pengalihan ke tautan resmi tetap
+   berjalan, sama seperti sinyal.
+
+**Konsekuensi:**
+- Papan lamaran bisa memuat acara yang baru dibuka pendaftarannya. Pengguna
+  sendiri yang memindahkannya ke "Sudah Daftar" atau menghapusnya.
+- Pengingat tenggat kini juga datang untuk acara yang diklik "Daftar".
+- Hitungan publik "Disimpan N orang" ikut menghitung orang yang menekan
+  "Daftar". Ini wajar, karena niat mereka lebih kuat daripada sekadar
+  menyimpan.
+- Rute GET `/daftar` memang sudah punya efek samping (sinyal) dan di-Disallow
+  di robots.txt. Navigasi dari situs lain yang memicunya hanya menambah acara
+  yang sudah tayang ke kolom "Disimpan" milik orang itu, tidak lebih dari
+  menekan tombolnya sendiri.
+- Dikunci oleh `register-click.test.ts` dan tes "Lewati" di
+  `register-redirect.spec.ts`.
+
 ## ADR-089 — Menu melayang = `<details data-popover>` + satu penutup global; panel header menjangkar ke header di ponsel
 
 **Konteks:** Pemilik melaporkan dua hal dari ponsel. Pertama, panel notifikasi

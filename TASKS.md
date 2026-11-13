@@ -371,7 +371,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] `docker build` + `docker run` pertama kali terbukti (image 364 MB, non-root, health OK, CSP/HSTS); tanpa Supabase & tanpa izin demo server menolak melayani (500 + log).
 - [x] P3 Judul portofolio di `/orang/[id]` 21–41 px → `::after` ≥ 44 px tanpa menggeser baris; dikunci touch-targets (ADR-061).
 - [~] ~~Kedua project Supabase INACTIVE~~ (basi per 4 Nov): staging `iwttgkzxudhjatbvywke` aktif dengan 41 migration. Produksi BELUM ada — org paket Free penuh (2 project aktif); lihat `docs/peluncuran.md` Fase 1.3–1.5.
-- [ ] **BUTUH PEMILIK, P0 produk.** Katalog hari-H kosong bila pipeline tidak jalan: default `gemini-2.0-flash` di `pipeline/run.py` sudah dimatikan Google (1 Jun 2026). Isi `GEMINI_MODEL` dengan model hidup + 10+ sumber nyata, atau siapkan kiriman awal manual lewat `/submit` + `/admin`.
+- [ ] **BUTUH PEMILIK, P0 produk.** Katalog hari-H kosong bila pipeline tidak jalan. `pipeline/run.py` sudah mewajibkan `GEMINI_MODEL` (tanpa bawaan; seri 2.0 dimatikan Google 1 Jun 2026) — per 13 Nov model hidup `gemini-3.8-flash` / `gemini-3.5-flash-lite`. Scraper GitHub gagal tiap hari karena secret `PIPELINE_SOURCES_YAML` kosong; memilih 10+ sumber = keputusan pemilik (kandidat di `docs/progres-sekarang.md` §5 E). 13 Nov: 8 peluang terverifikasi dari domain resmi di-stage sebagai PENDING — menunggu persetujuan di `/admin`.
 - [ ] Monitor uptime eksternal ke `/api/health` dengan asersi `dataMode == "supabase"`.
 - [ ] Uji Safari iOS & WebView Instagram/TikTok di perangkat fisik (WebKit tidak tersedia di lingkungan ini).
 
@@ -396,6 +396,12 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] Akun Google yang DIBUAT dari `/login` belum punya catatan `legal_consent` (berbasis pemberitahuan). Pertimbangkan meminta centang di halaman sambutan pertama.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
+
+## Klik "Daftar" → Papan lamaran 2026-11-13 (@claude) — ADR-090
+
+- [x] Klik "Daftar" (langsung atau lewat pendataan kinerja) sama dengan "Simpan ke Tracker": masuk simpanan dan Papan lamaran sebagai "Disimpan" bila belum dilacak. Tidak pernah menaikkan ke "Sudah Daftar" dan tidak menurunkan tahap yang sudah maju
+- [x] Gagal menambah tidak menahan pengalihan ke tautan resmi
+- [ ] Opsional, setelah ada data beta: kartu yang berasal dari klik "Daftar" menampilkan ajakan "Sudah selesai daftar? Tandai Sudah Daftar". Butuh kolom asal di `application_tracker`
 
 ## UX ponsel: menu melayang, panel header, gangguan kecil 2026-11-13 (@claude) — ADR-089
 
