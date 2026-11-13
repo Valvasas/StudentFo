@@ -99,7 +99,7 @@ yang tidak memuat migration yang sudah ada di produksi
 - Logo baru (ADR-080), tur beranda hanya cuplikan (ADR-081), 12 ragam lencana + animasi (ADR-082).
 - Foto profil & banner (ADR-083), poster dilampirkan saat kirim kegiatan (ADR-084),
   gerbang anggota di halaman kegiatan (ADR-085), "Langkah awal" (ADR-086), Komunitas (ADR-087). `LEGAL_REVISION` 2026-11-12.
-- Empat migration BELUM diterapkan (lihat bagian Migration). Cabang ini **belum di `main`**.
+- Empat migration diterapkan 2026-11-13 (lihat bagian Migration). Di-merge ke `main` lewat PR #29 (2026-11-13).
 
 ### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 5, setelah PR #27)
 - **Serah-terima sesi & langkah konfigurasi pemilik yang sedang berjalan: `docs/progres-sekarang.md`.**

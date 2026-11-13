@@ -12,9 +12,8 @@
 
 | Hal | Keadaan |
 |---|---|
-| Cabang kerja | `claude/brave-cray-xsqigf` — sudah memuat `main` (merge tanpa perubahan isi, tanpa force push) |
-| `main` | `9935081` (PR #28: poster/slide/video ADR-079, logo ADR-080, cuplikan beranda ADR-081). **Tayang di produksi sejak 11 Nov 17:24 WIB** |
-| Isi cabang yang BELUM di `main` | Lencana baru + animasi (ADR-082), foto profil & banner (ADR-083), poster saat kirim kegiatan (ADR-084), gerbang anggota (ADR-085), "Langkah awalmu" (ADR-086), **Komunitas** (ADR-087), audit skalabilitas & konten 255 karakter (ADR-088) |
+| `main` | `11fa26a` — PR #29 di-merge pemilik 13 Nov 13:31 WIB: ADR-079–088 semuanya di `main` |
+| Cabang kerja | `claude/brave-cray-xsqigf` = `main` (+ commit dokumen ini). Tidak ada pekerjaan yang menggantung |
 | Tes terakhir (13 Nov) | `verify` 1.085 · `db:test` semua · integrasi PostgREST 113 (+5 butuh GoTrue/Storage sungguhan) · Playwright seed penuh 1.021 lulus / 18 gagal → 3 akar masalah tes diperbaiki, rerun spec terdampak 79/79 + `event-gate` setelah data dimutasi 21/21 |
 
 ## 2. Keadaan database & hosting (dicek langsung 13 Nov)
@@ -99,7 +98,7 @@ sampai, hampir pasti A3a (SMTP) belum aktif — pengirim bawaan Supabase hanya m
 ## 4. Menunggu jawaban pemilik (Claude yang mengerjakan)
 
 1. ✅ **Migration** — empat migration diterapkan ke staging (diuji, di-rollback bersih) lalu produksi, 13 Nov.
-2. **"Ya, PR & merge"** → PR `claude/brave-cray-xsqigf` → `main` (ADR-082–088), merge bila CI hijau; Vercel men-deploy `main` otomatis. Urutan 1 ↔ 2 aman dua-duanya (kode aman urutan deploy), tapi migration dulu = fitur langsung aktif saat tayang.
+2. ✅ **PR & merge** — Valvasas/StudentFo#29 di-merge 13 Nov; deploy produksi `11fa26a` READY. Uji asap situs langsung: `/`, `/komunitas`, `/teams`, `/submit` 200 tanpa galat, navigasi memuat Komunitas, langkah "Media kegiatan" tampil di `/submit`.
 3. **"Tahap A selesai"** → cek situs langsung: daftar/konfirmasi email/masuk, `/admin` + MFA, kirim & setujui satu kegiatan, poster tampil.
 
 ## 5. Tahap berikutnya (setelah A)
