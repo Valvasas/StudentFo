@@ -140,7 +140,7 @@ export function BeasiswaBoard({
                 <div className="flex min-w-0 items-center gap-3.5">
                   <PosterThumb poster={event.poster} className="w-12 sm:w-12" />
                   <div className="flex min-w-0 flex-col gap-[3px]">
-                    <h2 className="text-[15.5px] font-semibold tracking-[-0.01em]">
+                    <h2 className="text-[15.5px] font-semibold tracking-[-0.01em] [overflow-wrap:anywhere]">
                       <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:content-['']">
                         {event.title}
                       </Link>

@@ -397,6 +397,18 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Audit skalabilitas, efisiensi alur & konten terpanjang 2026-11-13 (@claude) — ADR-088
+
+- [x] `/teams?kegiatan=` meminta tim per kegiatan langsung (dulu menyaring 60 tim terbaru global → tim lama "hilang"); "Tim kamu" dari keanggotaan sungguhan (`listTeamLinks` → `listTeamsByIds`, satu kueri); angka di jendela terpotong tampil "60+" dengan catatan
+- [x] `TEAM_LIST_LIMIT` & `MANAGED_EVENTS_LIMIT` dibagi kedua repository; mode seed memotong di angka yang sama
+- [x] `getTrackerItem`: halaman detail kegiatan, `/tracker/[slug]`, persiapan, dan dua aksi tracker tidak lagi memuat seluruh tracker demi satu status
+- [x] `getManagedEvent`: studio acara, galeri, dan hak menjawab Tanya memeriksa satu acara (dulu penyelenggara dengan >200 acara ditolak di acara lamanya)
+- [x] Konten 255 karakter dengan kata 72 karakter: antrean moderator (+315px), kartu katalog (+455px), header detail (+180px, tombol "Daftar" terdorong keluar layar), lima papan jenis, kartu tim & tracker, Komunitas → rapi di 320px (`break-word` global + `min-w-0 [overflow-wrap:anywhere]` di teks daun)
+- [x] Tes: `teams.test.ts` (jendela & tim lama), `saved-events.test.ts` & `managed-events.test.ts` (lookup = `list().find()`), paritas Postgres (`parity.test.ts`, `organizers.test.ts`), `extreme-content.spec.ts`
+- [ ] `/teams`: halaman berikutnya (kursor) untuk kegiatan dengan > 60 tim — kini catatan jujur
+- [ ] `connections` (`viewerEventsOf`) & fakta lencana masih memuat seluruh tracker/acara kelolaan lalu memotong — tambahkan parameter batas bila tracker pengguna mulai ratusan
+- [ ] Konten ekstrem untuk papan beasiswa/magang/seminar/workshop: sudah diperbaiki statis, belum diukur e2e (tes hanya membuat LOMBA)
+
 ## Logo, cuplikan beranda, lencana, foto profil, poster kiriman, gerbang anggota, langkah awal, Komunitas 2026-11-12 (@claude) — ADR-080–087
 
 - [x] Logo baru dijiplak ke SVG tiga lapis (kertas/stabilo/tinta) yang ikut tema; favicon, ikon aplikasi, kartu OG dari path yang sama (ADR-080)

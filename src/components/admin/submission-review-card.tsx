@@ -95,7 +95,7 @@ export function SubmissionReviewCard({
   return (
     <li className="flex flex-col gap-4 rounded-card border border-line bg-panel p-5 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
-        <span>Dikirim {formatDateId(submission.createdAt)} oleh {submission.submittedByEmail}</span>
+        <span className="min-w-0">Dikirim {formatDateId(submission.createdAt)} oleh {submission.submittedByEmail}</span>
         <span className="flex flex-wrap items-center gap-2">
           {verifiedOrg && (
             <Badge variant="success">

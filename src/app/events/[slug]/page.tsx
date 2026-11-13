@@ -396,13 +396,13 @@ export default async function EventDetailPage({
             </div>
             <h1 className="text-[clamp(30px,4.6vw,42px)] leading-[1.08] tracking-[-0.04em] [text-wrap:balance]">{event.title}</h1>
             <div className="flex items-center gap-2.5">
-              <span className="flex flex-col gap-px">
+              <span className="flex min-w-0 flex-col gap-px">
                 <span className="flex items-center gap-1.5 text-[15px] font-semibold">
-                  {event.organizer}
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
                   {verifiedOrg ? (
-                    <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 text-success" />
+                    <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 shrink-0 text-success" />
                   ) : (
-                    <ShieldCheck aria-hidden className="size-4 text-ink-muted" />
+                    <ShieldCheck aria-hidden className="size-4 shrink-0 text-ink-muted" />
                   )}
                 </span>
                 <span className="text-[12.5px] text-ink-muted">
@@ -633,11 +633,11 @@ export default async function EventDetailPage({
                 <div className="flex flex-wrap items-center gap-[18px] rounded-[14px] border border-line p-[22px]">
                   <div className="flex min-w-[200px] flex-1 flex-col gap-1">
                     <span className="flex items-center gap-1.5 text-base font-semibold">
-                      {event.organizer}
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
                       {verifiedOrg ? (
-                        <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 text-success" />
+                        <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 shrink-0 text-success" />
                       ) : (
-                        <ShieldCheck aria-hidden className="size-4 text-ink-muted" />
+                        <ShieldCheck aria-hidden className="size-4 shrink-0 text-ink-muted" />
                       )}
                     </span>
                     <span className="text-[13.5px] text-ink-muted">

@@ -174,14 +174,14 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
                         </>
                       )}
                     </span>
-                    <h3 className="text-[17px] font-semibold leading-snug tracking-[-0.015em]">
+                    <h3 className="text-[17px] font-semibold leading-snug tracking-[-0.015em] [overflow-wrap:anywhere]">
                       <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-2xl after:content-['']">
                         {event.title}
                       </Link>
                     </h3>
-                    <span className="flex items-center gap-1 text-[13px] text-ink-muted">
+                    <span className="flex min-w-0 items-center gap-1 text-[13px] text-ink-muted">
                       {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
-                      {event.organizer}
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
                     </span>
                     <PriceBadge event={event} className="self-start" />
                   </div>

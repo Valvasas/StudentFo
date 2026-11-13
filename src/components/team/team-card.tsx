@@ -141,13 +141,13 @@ export function TeamCard({
           <h3 className="font-display text-[18px] font-semibold leading-snug tracking-[-0.02em]">
             <Link
               href={`/teams/${team.id}`}
-              className="inline-flex min-h-11 items-center decoration-2 underline-offset-4 after:absolute after:inset-0 after:rounded-[22px] after:content-[''] group-hover:underline"
+              className="inline-flex min-h-11 min-w-0 items-center decoration-2 underline-offset-4 after:absolute after:inset-0 after:rounded-[22px] after:content-[''] group-hover:underline"
             >
-              {team.title}
+              <span className="min-w-0 [overflow-wrap:anywhere]">{team.title}</span>
             </Link>
           </h3>
           {showEvent && team.event && (
-            <p className="-mt-1 line-clamp-1 text-[13px] text-ink-muted">
+            <p className="-mt-1 line-clamp-1 text-[13px] text-ink-muted [overflow-wrap:anywhere]">
               untuk <span className="font-medium text-ink-soft">{team.event.title}</span>
             </p>
           )}

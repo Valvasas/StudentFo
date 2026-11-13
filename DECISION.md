@@ -12,6 +12,57 @@ terdokumentasi.
 
 ---
 
+## ADR-088 — Jendela daftar adalah kontrak bersama; "milik saya?" = lookup satu baris; konten terpanjang ikut diuji
+
+**Konteks:** Audit skalabilitas & efisiensi alur (permintaan pemilik: banyak
+lomba, layar berbeda, alur algoritma). Tiga bug dengan akar yang sama, ditambah
+satu celah uji:
+1. `listTeams()` di Supabase `.limit(60)`, di mode seed tanpa batas.
+   `/teams?kegiatan=` dan "Tim kamu" MENYARING 60 tim terbaru global, jadi tim
+   lama sebuah kegiatan tampil "Belum ada tim". Mode seed menutupinya.
+2. `listManagedEvents` dipotong 200, sedangkan studio acara, aksi galeri, dan
+   hak menjawab Tanya mencari acaranya di dalam 200 itu. Penyelenggara dengan
+   >200 acara ditolak membuka studio acara lamanya sendiri.
+3. Halaman detail kegiatan (halaman terpanas), `/tracker/[slug]`, persiapan,
+   dan aksi tracker memuat SELURUH tracker pengguna, plus ringkasan setiap
+   acaranya, hanya demi satu status.
+4. Seed terpanjang ±55 karakter, padahal form & kolom menerima 255. Dengan judul
+   berisi satu "kata" panjang (tagar/URL/singkatan berantai), antrean
+   moderator, kartu katalog, dan header detail kegiatan meluber 180–455px di
+   320px. Di detail, tombol "Daftar" bilah bawah ikut terdorong keluar layar.
+
+**Keputusan:**
+1. Setiap batas jendela daftar di repository = konstanta yang diekspor
+   `repository.ts` (`TEAM_LIST_LIMIT`, `MANAGED_EVENTS_LIMIT`,
+   `OUTBOUND_READ_LIMIT`, …) dan dipakai KEDUA implementasi. Mode seed memotong
+   di angka yang sama; jangan lagi menulis `.limit(<angka>)` lokal.
+2. Pertanyaan "apakah X ada / milik saya?" memakai lookup satu baris:
+   `getTrackerItem`, `getManagedEvent`, `listTeams(eventId)`, `listTeamsByIds`
+   (satu kueri `IN`, bukan `getTeamById` berulang). `list…().find()` hanya
+   boleh di tempat yang memang menampilkan daftar itu.
+3. Angka dari jendela yang terpotong tampil sebagai batas bawah ("60+") plus
+   catatan "Menampilkan 60 tim terbaru…", bukan angka yang terlihat lengkap.
+4. Teks: `body { overflow-wrap: break-word }` (memecah hanya kata yang tidak
+   muat, tanpa mengubah min-content). Teks DAUN yang isinya murni string
+   pengguna (judul, penyelenggara, judul tim) di dalam item flex/grid diberi
+   `min-w-0 [overflow-wrap:anywhere]`; bila dibungkus `inline-flex`, teksnya
+   dibungkus `<span className="min-w-0 …">` karena teks langsung di flex jadi
+   item anonim yang tidak bisa menyusut. `anywhere` TIDAK dipasang global:
+   nilai ini mengecilkan min-content, sehingga chip pendek di baris flex yang
+   padat ikut terbelah ("Berba-yar").
+5. `tests/e2e/extreme-content.spec.ts` mengunci poin 4: kegiatan berjudul &
+   berpenyelenggara 255 karakter dengan kata 72 karakter dibuat lewat alur
+   sungguhan (kirim → moderator menyetujui), lalu antrean, katalog, papan
+   lomba, detail (3 tab), tracker, persiapan, profil, tim, lobi, dan Komunitas
+   diukur di 320px, sebagai anggota maupun tamu.
+
+**Konsekuensi:** Kontrak repository bertambah tiga metode (`listTeamsByIds`,
+`getTrackerItem`, `getManagedEvent`). Paritasnya dikunci `parity.test.ts` &
+`organizers.test.ts` di Postgres sungguhan. `/teams` belum punya halaman
+berikutnya: di atas 60 tim per kegiatan, catatan jujur menggantikan paging
+(TASKS). Komponen baru yang menampilkan teks pengguna wajib ikut aturan poin 4.
+Halaman barunya ditambahkan ke `extreme-content.spec.ts`.
+
 ## ADR-087 — Komunitas: forum PUBLIK khusus anggota yang dimoderasi, bukan pesan pribadi
 
 **Konteks:** Pemilik meminta fitur komunitas supaya pengguna bisa berinteraksi

@@ -57,6 +57,14 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
   `pipeline/studentfo_pipeline/models.py`.
 - Aturan paging/sort/visibilitas publik ada di `src/lib/data/listing.ts` dan
   dipakai KEDUA repository. Jangan menulis ulang logika itu di salah satunya.
+- Batas jendela daftar (`TEAM_LIST_LIMIT`, `MANAGED_EVENTS_LIMIT`, …) =
+  konstanta di `repository.ts` yang dipakai kedua repository. "Apakah X
+  ada / milik saya?" pakai lookup satu baris (`getTrackerItem`,
+  `getManagedEvent`, `listTeams(eventId)`), jangan `list…().find()` (ADR-088).
+- Teks pengguna (judul, penyelenggara) di item flex/grid:
+  `min-w-0 [overflow-wrap:anywhere]` pada teks daunnya. Jangan pasang
+  `anywhere` global karena chip pendek ikut terbelah. Halaman baru →
+  `tests/e2e/extreme-content.spec.ts` (ADR-088).
 - Pesan hasil Server Action: lempar `actionError('kode')` dari repository dan
   redirect dengan `withQuery(returnTo, { error: toActionErrorCode(err) })`.
   Jangan pernah menaruh teks pesan di URL (ADR-019).

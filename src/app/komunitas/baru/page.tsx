@@ -58,7 +58,7 @@ export default async function NewCommunityPostPage({ searchParams }: { searchPar
             <input type="hidden" name="kegiatan" value={event.slug} />
             <p className="flex flex-wrap items-center gap-2 rounded-card bg-panel-nested px-3.5 py-2 text-sm">
               <span className="text-ink-muted">Tentang</span>
-              <span className="font-semibold">{event.title}</span>
+              <span className="min-w-0 font-semibold">{event.title}</span>
               <Link href="/komunitas/baru" className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-sm px-2 text-ink-muted hover:text-ink">
                 <X aria-hidden className="size-3.5" /> Lepas
               </Link>

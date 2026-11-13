@@ -369,6 +369,12 @@
     line-height: var(--leading-body);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Judul, nama penyelenggara, dan isi buatan pengguna bisa memuat satu "kata" selebar layar
+       (tagar, URL, singkatan berantai) — tanpa ini seluruh halaman bergeser horizontal di ponsel.
+       `break-word`, bukan `anywhere`: hanya memecah kata yang tidak muat di barisnya sendiri dan
+       tidak mengubah ukuran min-content, jadi chip pendek di baris flex tidak ikut terbelah.
+       Item flex/grid berisi teks pengguna tetap butuh `min-w-0` (tests/e2e/extreme-content.spec.ts). */
+    overflow-wrap: break-word;
   }
 
   h1, h2, h3, h4 {

@@ -89,7 +89,7 @@ export default async function CommunityPage({ searchParams }: { searchParams: Pr
 
       {event && (
         <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          Tentang <Link href={`/events/${event.slug}`} className="font-semibold text-ink underline underline-offset-[3px]">{event.title}</Link>
+          Tentang <Link href={`/events/${event.slug}`} className="min-w-0 font-semibold text-ink underline underline-offset-[3px]">{event.title}</Link>
           <Link href={href({ kegiatan: undefined, sebelum: undefined })} className="inline-flex min-h-11 items-center gap-1 rounded-sm px-2 text-ink-muted hover:text-ink">
             <X aria-hidden className="size-3.5" /> Lihat semua kegiatan
           </Link>

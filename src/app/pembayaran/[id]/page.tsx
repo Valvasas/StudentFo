@@ -103,7 +103,7 @@ export default async function RegistrationDetailPage({
           <RegistrationStatusBadge status={registration.status} className="self-start" />
           <h1 className="text-[clamp(26px,4.2vw,36px)] leading-[1.1] tracking-[-0.03em] [text-wrap:balance]">{registration.event.title}</h1>
           <p className="flex flex-wrap items-center gap-x-3 text-[15px] text-ink-soft">
-            {registration.event.organizer}
+            <span className="min-w-0 [overflow-wrap:anywhere]">{registration.event.organizer}</span>
             <Link href={eventPath} className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
               Lihat acara
             </Link>

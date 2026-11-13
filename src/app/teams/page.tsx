@@ -116,8 +116,8 @@ export default async function TeamsPage({ searchParams }: { searchParams: Promis
   return (
     <div className="container-page pb-24 pt-8 sm:pt-12">
       {scoped && (
-        <Link href={`/events/${scoped.slug}`} className="-mt-2 mb-4 flex min-h-11 w-fit items-center gap-1.5 text-[13.5px] font-medium text-ink-muted hover:text-ink">
-          <ArrowLeft aria-hidden className="size-4" /> {scoped.title}
+        <Link href={`/events/${scoped.slug}`} className="-mt-2 mb-4 flex min-h-11 w-fit max-w-full items-center gap-1.5 text-[13.5px] font-medium text-ink-muted hover:text-ink">
+          <ArrowLeft aria-hidden className="size-4 shrink-0" /> <span className="min-w-0 [overflow-wrap:anywhere]">{scoped.title}</span>
         </Link>
       )}
 

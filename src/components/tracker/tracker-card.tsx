@@ -134,13 +134,13 @@ export function TrackerCard({ item, returnTo = '/tracker' }: { item: TrackerItem
             <DeadlineTag deadlineAt={event.primaryDeadlineAt} />
           </div>
           <h3 className="text-[15.5px] font-semibold leading-snug tracking-[-0.01em]">
-            <Link href={`/tracker/${event.slug}`} className="-my-1 inline-flex min-h-11 items-center gap-1 hover:underline">
-              {event.title}
+            <Link href={`/tracker/${event.slug}`} className="-my-1 inline-flex min-h-11 min-w-0 items-center gap-1 hover:underline">
+              <span className="min-w-0 [overflow-wrap:anywhere]">{event.title}</span>
               <ChevronRight aria-hidden className="size-4 shrink-0 text-ink-muted" />
               <span className="sr-only">, lihat status</span>
             </Link>
           </h3>
-          <span className="text-[13px] text-ink-muted">{event.organizer}</span>
+          <span className="text-[13px] text-ink-muted [overflow-wrap:anywhere]">{event.organizer}</span>
           <TrackerSteps item={item} className="mt-1.5 max-w-[460px]" />
           {progress.rejected && (
             <span className="mt-1 inline-flex items-center gap-1.5 self-start rounded-sm border border-dashed border-ink-muted px-2 py-0.5 text-[12.5px] font-medium">

@@ -163,7 +163,7 @@ export function MatchCard({
                 <h3 id={headingId} className="font-display text-[21px] font-bold leading-tight tracking-[-0.025em]">
                   {/* Tanpa margin negatif: nama dua baris tak boleh menimpa subjudul. Tinggi min 44px = target sentuh. */}
                   <Link href={`/orang/${person.userId}`} className="inline-flex min-h-11 min-w-11 max-w-full items-center hover:underline">
-                    {person.fullName}
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{person.fullName}</span>
                   </Link>
                 </h3>
                 {sub && <p className="text-[13px] text-ink-muted">{sub}</p>}

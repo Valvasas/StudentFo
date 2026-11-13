@@ -60,7 +60,9 @@ yang tidak memuat migration yang sudah ada di produksi
 | Komunitas | `/komunitas` (+ `baru`, `[id]`): forum publik khusus anggota, nama tersingkat, tanpa DM & tanpa kontak pribadi, lapor + sembunyi otomatis 3 pelapor, antrean di `/admin/laporan` (ADR-087) | `/discussions` "Ruang diskusi" (pratinjau demo, localStorage — tetap demo saja) | `community.test.ts` ×2, `118_community.test.sql`, `community.spec.ts` |
 | Ajakan bertindak | "Langkah awalmu" di beranda peserta + satu saran di lonceng, dihitung dari akun (`lib/next-steps.ts`), cookie `sf_langkah` untuk menyembunyikan (ADR-086) | Satu tautan "Pilih minat & jenjangmu" | `next-steps.test.ts`, `personal-home.spec.ts` |
 | Detail kegiatan untuk tamu | Etalase + cuplikan ≤ 200 karakter + `MemberGate`; tab lain, tautan pendaftaran, kalender khusus anggota (ADR-085) | Semua isi & "Daftar sekarang" terbuka untuk tamu | `event-gate.spec.ts`, `event-access.test.ts`, `register-redirect.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–087 | Nomor ganda 061/062 | — |
+| Jendela daftar & lookup | Batas `TEAM_LIST_LIMIT`/`MANAGED_EVENTS_LIMIT` di `repository.ts`, sama di kedua repository; satu item = `getTrackerItem`/`getManagedEvent`/`listTeams(eventId)`/`listTeamsByIds` (ADR-088) | `list…().find()` di halaman per kegiatan; `.limit(60)`/`200` hanya di Supabase | `teams.test.ts`, `managed-events.test.ts`, `parity.test.ts`, `organizers.test.ts` |
+| Teks pengguna panjang | `body { overflow-wrap: break-word }` + `min-w-0 [overflow-wrap:anywhere]` di teks daun item flex/grid (ADR-088) | Tanpa pengaman; `anywhere` global (jangan — chip terbelah) | `extreme-content.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–088 | Nomor ganda 061/062 | — |
 
 ## Migration
 
@@ -87,6 +89,11 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-13 — cabang `claude/brave-cray-xsqigf` (lanjutan)
+- Audit skalabilitas (ADR-088): jendela daftar sama di kedua repository, lookup satu baris untuk tracker/hak kelola/tim,
+  `/teams` per kegiatan tidak lagi menyaring jendela global; konten 255 karakter rapi di 320px (`extreme-content.spec.ts`).
+- Tanpa migration baru. Empat migration 2026-11-12 masih menunggu persetujuan. Cabang ini **belum di `main`**.
 
 ### 2026-11-12 — cabang `claude/brave-cray-xsqigf` (dari `…registration-form-competition-features-sptvfz`)
 - Logo baru (ADR-080), tur beranda hanya cuplikan (ADR-081), 12 ragam lencana + animasi (ADR-082).

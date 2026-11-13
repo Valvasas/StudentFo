@@ -56,9 +56,9 @@ export default async function CommunityThreadPage({ params, searchParams }: { pa
         <div className="flex flex-wrap items-center gap-2">
           <TopicChip topic={post.topic} />
           {post.event && (
-            <Link href={`/events/${post.event.slug}`} className="inline-flex min-h-11 items-center gap-1.5 text-[13px] text-ink-soft underline-offset-[3px] hover:underline">
-              <CalendarDays aria-hidden className="size-3.5" />
-              {post.event.title}
+            <Link href={`/events/${post.event.slug}`} className="inline-flex min-h-11 min-w-0 items-center gap-1.5 text-[13px] text-ink-soft underline-offset-[3px] hover:underline">
+              <CalendarDays aria-hidden className="size-3.5 shrink-0" />
+              <span className="min-w-0">{post.event.title}</span>
             </Link>
           )}
         </div>

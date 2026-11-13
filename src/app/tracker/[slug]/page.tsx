@@ -225,7 +225,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
             <span className="inline-flex h-7 items-center rounded-sm bg-brand px-2.5 text-[13px] font-semibold text-on-brand">{TRACKER_STATUS_LABEL[item.status]}</span>
             <span>Disimpan {formatDateId(item.createdAt)}</span>
             <span aria-hidden>·</span>
-            <span>{event.organizer}</span>
+            <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
             <span aria-hidden>·</span>
             <Link href={`/events/${event.slug}`} className="inline-flex min-h-11 items-center font-medium text-ink underline underline-offset-[3px] sm:min-h-0">
               Detail kegiatan

@@ -188,14 +188,14 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                     </div>
                     <div className="flex items-start gap-3.5">
                       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                        <h3 className="text-[16.5px] font-semibold leading-snug tracking-[-0.015em]">
+                        <h3 className="text-[16.5px] font-semibold leading-snug tracking-[-0.015em] [overflow-wrap:anywhere]">
                           <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:rounded-[14px] after:content-['']">
                             {event.title}
                           </Link>
                         </h3>
-                        <span className="flex items-center gap-1 text-[13px] text-ink-muted">
+                        <span className="flex min-w-0 items-center gap-1 text-[13px] text-ink-muted">
                           {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}
-                          {event.organizer}
+                          <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
                         </span>
                       </div>
                       <PosterThumb poster={event.poster} />
