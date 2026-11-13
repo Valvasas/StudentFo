@@ -405,7 +405,9 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] `getManagedEvent`: studio acara, galeri, dan hak menjawab Tanya memeriksa satu acara (dulu penyelenggara dengan >200 acara ditolak di acara lamanya)
 - [x] Konten 255 karakter dengan kata 72 karakter: antrean moderator (+315px), kartu katalog (+455px), header detail (+180px, tombol "Daftar" terdorong keluar layar), lima papan jenis, kartu tim & tracker, Komunitas → rapi di 320px (`break-word` global + `min-w-0 [overflow-wrap:anywhere]` di teks daun)
 - [x] Tes: `teams.test.ts` (jendela & tim lama), `saved-events.test.ts` & `managed-events.test.ts` (lookup = `list().find()`), paritas Postgres (`parity.test.ts`, `organizers.test.ts`), `extreme-content.spec.ts`
+- [x] Run Playwright penuh (1.021 lulus): tiga kerapuhan tes dibereskan — tombol "Simpan" eksak di Data diri (kartu foto & banner menambah "Simpan banner"), `organizer.spec` MENAMBAH kalimat ke deskripsi acara contoh (dulu mengganti → `event-gate` gagal di proyek gelap/ponsel), pengirim `extreme-content` = persona sendiri (jatah 3 kiriman/jam per email persona)
 - [ ] `/teams`: halaman berikutnya (kursor) untuk kegiatan dengan > 60 tim — kini catatan jujur
+- [ ] `organizer.spec` "periksa bukti bayar" memakai bukti contoh yang habis setelah sekali jalan — gagal bila diulang di server yang sama; siapkan buktinya sendiri (`registerForPaidDemoEvent`)
 - [ ] `connections` (`viewerEventsOf`) & fakta lencana masih memuat seluruh tracker/acara kelolaan lalu memotong — tambahkan parameter batas bila tracker pengguna mulai ratusan
 - [ ] Konten ekstrem untuk papan beasiswa/magang/seminar/workshop: sudah diperbaiki statis, belum diukur e2e (tes hanya membuat LOMBA)
 

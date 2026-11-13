@@ -64,9 +64,12 @@ test('penyelenggara: analitik, lalu perubahan acara baru tayang setelah diterapk
   await org.getByRole('link', { name: '7 hari' }).click();
   await expect(org.getByRole('img', { name: /Grafik kunjungan harian, 7 hari/ })).toBeVisible();
 
-  const description = `Deskripsi uji e2e ${Date.now()}`;
+  // DITAMBAHKAN di akhir, tidak mengganti: acara contoh ini dipakai bersama, dan event-gate.spec menguji
+  // cuplikan 200 karakter pertamanya. Mengganti deskripsi membuat gerbang tamu berubah di proyek berikutnya.
+  const description = `Uji e2e ${Date.now()}.`;
   await org.getByText('Ajukan perubahan').click();
-  await org.getByLabel('Deskripsi').fill(description);
+  const field = org.getByLabel('Deskripsi');
+  await field.fill(`${await field.inputValue()} ${description}`);
   await org.getByRole('button', { name: 'Kirim ke moderator' }).click();
   await expect(org).toHaveURL(/notice=revision_submitted/);
 

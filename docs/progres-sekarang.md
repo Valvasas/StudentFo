@@ -15,7 +15,7 @@
 | Cabang kerja | `claude/brave-cray-xsqigf` — sudah memuat `main` (merge tanpa perubahan isi, tanpa force push) |
 | `main` | `9935081` (PR #28: poster/slide/video ADR-079, logo ADR-080, cuplikan beranda ADR-081). **Tayang di produksi sejak 11 Nov 17:24 WIB** |
 | Isi cabang yang BELUM di `main` | Lencana baru + animasi (ADR-082), foto profil & banner (ADR-083), poster saat kirim kegiatan (ADR-084), gerbang anggota (ADR-085), "Langkah awalmu" (ADR-086), **Komunitas** (ADR-087), audit skalabilitas & konten 255 karakter (ADR-088) |
-| Tes terakhir (13 Nov, semua hijau) | `verify` 1.085 · `db:test` semua · integrasi PostgREST 113 (+5 butuh GoTrue/Storage sungguhan) · Playwright seed: lihat §6 |
+| Tes terakhir (13 Nov) | `verify` 1.085 · `db:test` semua · integrasi PostgREST 113 (+5 butuh GoTrue/Storage sungguhan) · Playwright seed penuh 1.021 lulus / 18 gagal → 3 akar masalah tes diperbaiki, rerun spec terdampak 79/79 + `event-gate` setelah data dimutasi 21/21 |
 
 ## 2. Keadaan database & hosting (dicek langsung 13 Nov)
 
