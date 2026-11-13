@@ -61,8 +61,9 @@ yang tidak memuat migration yang sudah ada di produksi
 | Ajakan bertindak | "Langkah awalmu" di beranda peserta + satu saran di lonceng, dihitung dari akun (`lib/next-steps.ts`), cookie `sf_langkah` untuk menyembunyikan (ADR-086) | Satu tautan "Pilih minat & jenjangmu" | `next-steps.test.ts`, `personal-home.spec.ts` |
 | Detail kegiatan untuk tamu | Etalase + cuplikan ≤ 200 karakter + `MemberGate`; tab lain, tautan pendaftaran, kalender khusus anggota (ADR-085) | Semua isi & "Daftar sekarang" terbuka untuk tamu | `event-gate.spec.ts`, `event-access.test.ts`, `register-redirect.spec.ts` |
 | Jendela daftar & lookup | Batas `TEAM_LIST_LIMIT`/`MANAGED_EVENTS_LIMIT` di `repository.ts`, sama di kedua repository; satu item = `getTrackerItem`/`getManagedEvent`/`listTeams(eventId)`/`listTeamsByIds` (ADR-088) | `list…().find()` di halaman per kegiatan; `.limit(60)`/`200` hanya di Supabase | `teams.test.ts`, `managed-events.test.ts`, `parity.test.ts`, `organizers.test.ts` |
+| Menu melayang | `<details data-popover>` + `PopoverDismiss` (ketuk di luar, Escape, pindah halaman); panel lonceng & akun menjangkar ke header di ponsel (ADR-089) | Panel diratakan kanan ke lonceng (terpotong di 320px), menu tetap terbuka | `popover-dismiss.spec.ts` |
 | Teks pengguna panjang | `body { overflow-wrap: break-word }` + `min-w-0 [overflow-wrap:anywhere]` di teks daun item flex/grid (ADR-088) | Tanpa pengaman; `anywhere` global (jangan — chip terbelah) | `extreme-content.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–088 | Nomor ganda 061/062 | — |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–089 | Nomor ganda 061/062 | — |
 
 ## Migration
 
@@ -99,7 +100,7 @@ yang tidak memuat migration yang sudah ada di produksi
 - Logo baru (ADR-080), tur beranda hanya cuplikan (ADR-081), 12 ragam lencana + animasi (ADR-082).
 - Foto profil & banner (ADR-083), poster dilampirkan saat kirim kegiatan (ADR-084),
   gerbang anggota di halaman kegiatan (ADR-085), "Langkah awal" (ADR-086), Komunitas (ADR-087). `LEGAL_REVISION` 2026-11-12.
-- Empat migration BELUM diterapkan (lihat bagian Migration). Cabang ini **belum di `main`**.
+- Empat migration diterapkan 2026-11-13 (lihat bagian Migration). Di-merge ke `main` lewat PR #29 (2026-11-13).
 
 ### 2026-11-09 — cabang `claude/registration-form-competition-features-sptvfz` (bagian 5, setelah PR #27)
 - **Serah-terima sesi & langkah konfigurasi pemilik yang sedang berjalan: `docs/progres-sekarang.md`.**

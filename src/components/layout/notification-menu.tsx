@@ -109,9 +109,9 @@ export async function NotificationMenu() {
       : null;
 
   return (
-    <details className="relative">
+    <details data-popover className="sm:relative">
       <summary
-        className="inline-flex min-h-11 cursor-pointer list-none items-center rounded-card px-2 text-ink-soft transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
+        className="inline-flex min-h-11 cursor-pointer list-none items-center rounded-card px-2 text-ink-soft transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink [&::-webkit-details-marker]:hidden"
         aria-label={
           unreadCount > 0
             ? `Notifikasi, ${unreadCount} belum dibaca`
@@ -136,7 +136,11 @@ export async function NotificationMenu() {
         </span>
       </summary>
 
-      <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-card border border-line bg-panel p-2 shadow-overlay">
+      {/* Ponsel: <details> statis → panel menjangkar ke header (sticky), selebar
+          layar. Dulu diratakan kanan ke lonceng yang bukan di tepi layar, jadi
+          di 320px 100px panelnya terpotong di kiri dan ujung bawahnya di luar
+          layar tanpa bisa digulir. `--popover-max` diisi PopoverDismiss. */}
+      <div className="absolute inset-x-3 top-full z-50 mt-2 max-h-[var(--popover-max,calc(100dvh-100%-1.5rem))] overflow-y-auto overscroll-contain rounded-card border border-line bg-panel p-2 shadow-overlay sm:inset-x-auto sm:right-0 sm:w-80">
         <div className="flex items-baseline justify-between gap-2 border-b border-line px-3 pb-2 pt-1">
           <p className="text-sm font-medium">Notifikasi</p>
           <p className="text-xs text-ink-muted">

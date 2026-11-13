@@ -120,7 +120,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
                       open={chosen > 0 || user.interests.includes(category.slug)}
                       className="group rounded-card border border-line bg-panel [&_summary::-webkit-details-marker]:hidden"
                     >
-                      <summary className="flex min-h-12 cursor-pointer items-center gap-2.5 rounded-card px-3.5 text-[14.5px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+                      <summary className="flex min-h-12 cursor-pointer items-center gap-2.5 rounded-card px-3.5 text-[14.5px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden">
                         <CategoryIcon slug={category.slug} className="size-4 text-ink-muted" />
                         <span className="min-w-0 flex-1">{category.name}</span>
                         {chosen > 0 && <span className="text-[12.5px] font-medium text-ink-muted">{chosen} dipilih</span>}

@@ -12,6 +12,50 @@ terdokumentasi.
 
 ---
 
+## ADR-089 — Menu melayang = `<details data-popover>` + satu penutup global; panel header menjangkar ke header di ponsel
+
+**Konteks:** Pemilik melaporkan dua hal dari ponsel. Pertama, panel notifikasi
+"tembus" layar: di 320px panelnya terpotong 100px di kiri, dan ujung bawahnya
+87px di luar layar tanpa bisa digulir. Kedua, menu tidak hilang saat mengetuk
+di luarnya. Semua menu memakai `<details>` tanpa JS (sengaja, ADR navbar), dan
+`<details>` tidak punya *light dismiss*. Audit lanjutan menemukan tiga hal lagi:
+- menu akun di 320px mendorong "Keluar" 75px keluar layar;
+- menu yang dipakai untuk berpindah halaman tetap terbuka di halaman tujuan,
+  karena navigasi Next mempertahankan elemen header;
+- tab aktif di ujung baris navigasi ("Seminar") berada di luar layar di 360px.
+
+**Keputusan:**
+1. Menu melayang ditandai `data-popover` (lonceng, menu akun, Urutkan). Satu
+   komponen klien di root layout (`PopoverDismiss`, pola `SearchShortcut`)
+   menutupnya saat: diketuk di luar; Escape (fokus kembali ke ringkasan);
+   menu lain dibuka; item tautan/kirim dipilih; pindah halaman. Tombol yang
+   `preventDefault` (mis. `ConfirmSubmit` membuka dialog di dalam menu)
+   tidak ikut menutup. Tanpa JS semuanya tetap buka-tutup seperti dulu.
+2. `<details>` lain TIDAK diberi penanda: rincian, form lapor, konfirmasi
+   Tolak berisi alasan (satu salah ketuk bisa menghapus ketikan), dan panel
+   Saring yang sengaja tetap terbuka saat memilih beberapa filter.
+3. Di bawah `sm`, `<details>` lonceng & akun statis, sehingga panel menjangkar
+   ke `header` (sticky = containing block) selebar layar dikurangi 12px.
+   `position: fixed` tidak bisa dipakai karena `backdrop-blur` header membuat
+   header menjadi containing block untuk anak `fixed`. Tinggi =
+   `--popover-max` (dihitung saat dibuka dari posisi panel sebenarnya,
+   termasuk spanduk di atas header), dengan cadangan CSS
+   `100dvh − 100% − 1.5rem`.
+4. Polesan ponsel lain:
+   - tab aktif digeser ke tengah baris navigasi;
+   - `html:has(dialog:modal)` mengunci gulir halaman, hanya di penunjuk
+     kasar, supaya desktop tidak bergeser karena scrollbar hilang;
+   - pendaftaran MFA admin menampilkan tautan `otpauth://` (tervalidasi)
+     "Buka di aplikasi autentikator", karena QR tidak bisa dipindai oleh
+     ponsel yang menampilkannya.
+
+**Konsekuensi:** Menu melayang baru WAJIB `data-popover`. Bila panelnya di
+header, ikuti pola penjangkaran poin 3. Dikunci oleh
+`tests/e2e/popover-dismiss.spec.ts`: posisi di 320/375px, ketuk di luar,
+Escape, berpindah menu, memilih item (termasuk Urutkan di pathname yang sama),
+dialog konfirmasi di dalam menu, tab aktif, Saring tetap terbuka, dan mode
+tanpa JS.
+
 ## ADR-088 — Jendela daftar adalah kontrak bersama; "milik saya?" = lookup satu baris; konten terpanjang ikut diuji
 
 **Konteks:** Audit skalabilitas & efisiensi alur (permintaan pemilik: banyak

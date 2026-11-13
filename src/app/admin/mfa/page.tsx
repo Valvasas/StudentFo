@@ -92,6 +92,12 @@ function EnrollScan({ enrollment }: { enrollment: TotpEnrollment }) {
         />
         <div className="flex min-w-0 flex-col gap-2 text-sm">
           <p className="font-medium">Tidak bisa memindai?</p>
+          {/* Di ponsel QR-nya ada di layar yang sama dengan kamera — tautan otpauth membuka aplikasinya langsung. */}
+          {enrollment.otpauthUri && (
+            <a href={enrollment.otpauthUri} className={buttonVariants({ variant: 'secondary', className: 'hidden self-start pointer-coarse:inline-flex' })}>
+              Buka di aplikasi autentikator
+            </a>
+          )}
           <p className="text-ink-soft">Pilih &ldquo;masukkan kunci&rdquo; di aplikasimu, jenis berbasis waktu, lalu ketik:</p>
           <code className="select-all break-all rounded-card bg-panel-nested px-3 py-2 font-mono text-[15px] tracking-wide">
             {groupSecret(enrollment.secret)}

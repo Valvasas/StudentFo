@@ -377,6 +377,15 @@
     overflow-wrap: break-word;
   }
 
+  /* Dialog modal (konfirmasi, lightbox, buku panduan) tampil sebagai lembar di
+     ponsel — tanpa ini menyapu backdrop-nya ikut menggulir halaman di belakang.
+     Hanya penunjuk kasar: di desktop scrollbar yang hilang menggeser tata letak. */
+  @media (pointer: coarse) {
+    html:has(dialog:modal) {
+      overflow: hidden;
+    }
+  }
+
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     letter-spacing: var(--tracking-heading);

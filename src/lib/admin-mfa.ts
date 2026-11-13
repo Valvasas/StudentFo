@@ -19,6 +19,13 @@ export interface TotpEnrollment {
   /** Data URI SVG yang aman dipakai di `<img src>` (GoTrue mengirim SVG mentah dengan `#`). */
   readonly qrCode: string;
   readonly secret: string;
+  /** `otpauth://totp/…` — di ponsel membuka aplikasi autentikator dengan kunci terisi (QR tak bisa dipindai layar sendiri). */
+  readonly otpauthUri: string | null;
+}
+
+/** Hanya URI TOTP yang boleh jadi tautan; selain itu (skema lain, kosong) = tidak ada tombol. */
+export function otpauthHref(uri: unknown): string | null {
+  return typeof uri === 'string' && /^otpauth:\/\/totp\/[^\s]+$/.test(uri) ? uri : null;
 }
 
 export const TOTP_CODE_PATTERN = /^\d{6}$/;
@@ -84,6 +91,7 @@ export async function startTotpEnrollment(supabase: SupabaseClient): Promise<Tot
     factorId: data.id,
     qrCode: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
     secret: data.totp.secret,
+    otpauthUri: otpauthHref(data.totp.uri),
   };
 }
 

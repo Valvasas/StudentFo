@@ -316,7 +316,7 @@ export function FilterBar({
 /** Menu urutan: tiga tautan di balik satu tombol, melayang di kanan baris "Saring". */
 function SortMenu({ query }: { query: ParsedEventQuery }) {
   return (
-    <details className="group/urut absolute right-0 top-0">
+    <details data-popover className="group/urut absolute right-0 top-0">
       <summary className="inline-flex h-11 cursor-pointer list-none items-center gap-1.5 rounded-card px-3 text-sm font-medium text-ink-soft transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink [&::-webkit-details-marker]:hidden">
         <ArrowDownUp aria-hidden className="size-4" />
         <span className="sr-only">Urutkan: </span>

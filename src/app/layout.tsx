@@ -10,6 +10,7 @@ import { NavigationProgress } from '@/components/layout/navigation-progress';
 import { SiteBackdrop } from '@/components/layout/site-backdrop';
 import { ThemeScript } from '@/components/layout/theme-script';
 import { LogoSprite } from '@/components/ui/logo';
+import { PopoverDismiss } from '@/components/ui/popover-dismiss';
 import { SearchShortcut } from '@/components/ui/search-shortcut';
 import { siteUrl } from '@/lib/env';
 import { NONCE_HEADER } from '@/lib/security-headers';
@@ -103,6 +104,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </main>
         <Footer />
         <SearchShortcut />
+        <PopoverDismiss />
       </body>
     </html>
   );

@@ -74,7 +74,8 @@ test('anggota menulis → orang lain membalas & menandai bermanfaat → penulis 
   await expect(note).toBeVisible();
   await note.click();
   await expect(author).toHaveURL(threadPath);
-  await expect(author.locator('#balasan li').filter({ hasText: token }).getByText('Penulis')).toHaveCount(0);
+  // `exact`: form Laporkan (tersembunyi) di balasan yang sama memuat kata "penulisnya".
+  await expect(author.locator('#balasan li').filter({ hasText: token }).getByText('Penulis', { exact: true })).toHaveCount(0);
 
   // Penulis menghapus postingannya: hilang dari lini masa.
   await author.locator('#postingan').getByRole('button', { name: /^Hapus/ }).click();
