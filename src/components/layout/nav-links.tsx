@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 import { EVENT_TYPE_NAV, eventTypeHref, eventTypeNavFor } from '@/lib/event-type-nav';
 import type { EventType } from '@/types/domain';
 import { cn } from '@/lib/utils';
@@ -23,8 +24,21 @@ export function NavLinks() {
   const pathname = usePathname();
   const params = useSearchParams();
   const active = pathname === '/events' ? eventTypeNavFor(params.getAll('type') as EventType[]) : null;
+  const activeKey = active?.key ?? null;
 
-  return <NavLinkList pathname={pathname} activeKey={active?.key ?? null} />;
+  // Di ponsel baris tab bisa digeser: tab aktif di ujung ("Seminar", "Workshop")
+  // dulu berada di luar layar di 360px, jadi tidak terlihat sedang di mana.
+  // Hanya `nav` yang digeser (scrollBy), bukan halaman; desktop tidak tersentuh.
+  useEffect(() => {
+    const link = document.querySelector<HTMLElement>('nav[aria-label="Navigasi utama"] [aria-current="page"]');
+    const nav = link?.parentElement;
+    if (!link || !nav || nav.scrollWidth <= nav.clientWidth) return;
+    const navBox = nav.getBoundingClientRect();
+    const linkBox = link.getBoundingClientRect();
+    nav.scrollBy({ left: linkBox.left + linkBox.width / 2 - (navBox.left + navBox.width / 2), behavior: 'instant' });
+  }, [pathname, activeKey]);
+
+  return <NavLinkList pathname={pathname} activeKey={activeKey} />;
 }
 
 /** Versi tanpa hook, untuk fallback Suspense saat prerender. */

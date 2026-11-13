@@ -122,6 +122,8 @@ describe.skipIf(!GOTRUE || !STORAGE)('Supabase sungguhan: GoTrue & Storage', () 
     expect(enrollment.qrCode.startsWith('data:image/svg+xml;charset=utf-8,')).toBe(true);
     expect(enrollment.qrCode).not.toContain('#');
     expect(decodeURIComponent(enrollment.qrCode.slice(enrollment.qrCode.indexOf(',') + 1))).toMatch(/<svg[\s\S]*<\/svg>\s*$/);
+    // Tombol "Buka di aplikasi autentikator" di ponsel.
+    expect(enrollment.otpauthUri).toMatch(/^otpauth:\/\/totp\/.*secret=/);
     expect((await browser.auth.mfa.listFactors()).data!.all.filter((factor) => factor.status === 'unverified')).toHaveLength(1);
 
     const wrong = String((Number(totp(enrollment.secret)) + 500_000) % 1_000_000).padStart(6, '0');

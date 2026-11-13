@@ -31,7 +31,7 @@ export function AccountMenu({ user, context, counts }: { user: AuthUser; context
   const groups = accountMenuGroups(context.role, { demoFeatures: demoFeaturesEnabled });
 
   return (
-    <details className="group relative ml-1">
+    <details data-popover className="group ml-1 sm:relative">
       <summary
         className="relative flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-pill pl-1 pr-1.5 transition-colors duration-150 ease-snap hover:bg-panel-nested group-open:bg-panel-nested [&::-webkit-details-marker]:hidden"
         aria-label={`Menu akun untuk ${user.fullName}`}
@@ -44,11 +44,13 @@ export function AccountMenu({ user, context, counts }: { user: AuthUser; context
         <ChevronDown aria-hidden className="size-3.5 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-180" />
       </summary>
 
-      {/* Di ponsel panel SELALU setinggi batasnya, dengan "Keluar" di dasar (zona
+      {/* Di ponsel panel SELALU setinggi sisa layar, dengan "Keluar" di dasar (zona
           jempol). Panel yang berakhir di tengah layar memotong tautan halaman di
           belakangnya jadi sisa beberapa piksel (axe target-size), dan tingginya
-          berubah tiap kali isi menu berubah. */}
-      <div className="pop absolute right-0 top-[calc(100%+10px)] z-50 flex max-h-[calc(100dvh-80px)] w-72 max-w-[calc(100vw-32px)] flex-col overflow-y-auto overscroll-contain rounded-modal border border-line bg-panel shadow-overlay max-sm:min-h-[calc(100dvh-80px)]">
+          berubah tiap kali isi menu berubah. Menjangkar ke header (seperti
+          lonceng): dulu `100dvh-80px` dihitung dari bawah avatar, padahal di
+          320px header dua baris — "Keluar" terdorong 75px keluar layar. */}
+      <div className="pop absolute z-50 flex flex-col overflow-y-auto overscroll-contain rounded-modal border border-line bg-panel shadow-overlay max-sm:inset-x-3 max-sm:top-full max-sm:mt-2 max-sm:h-[var(--popover-max,calc(100dvh-100%-1.5rem))] sm:right-0 sm:top-[calc(100%+10px)] sm:max-h-[var(--popover-max,calc(100dvh-80px))] sm:w-72">
         {/* Kartu profil mini (ADR-083): banner + foto, sama dengan yang dilihat orang lain di Koneksi & tim. */}
         <Link href="/profile" className="group/kartu flex shrink-0 flex-col transition-colors duration-150 ease-snap hover:bg-panel-nested">
           <ProfileBanner media={user.profileMedia} className="h-14 rounded-t-[calc(var(--radius-modal)-1px)]" />

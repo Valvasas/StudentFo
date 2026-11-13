@@ -397,6 +397,17 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## UX ponsel: menu melayang, panel header, gangguan kecil 2026-11-13 (@claude) — ADR-089
+
+- [x] Panel notifikasi di ponsel tidak lagi terpotong: dulu −100px di kiri & 87px di bawah layar pada 320px. Kini menjangkar ke header, selebar layar, tinggi = sisa layar, bisa digulir
+- [x] Menu akun di 320px: "Keluar" kembali terjangkau (dulu 75px di luar layar)
+- [x] Menu `<details data-popover>` tertutup saat diketuk di luar, Escape, membuka menu lain, memilih item, atau pindah halaman; dialog konfirmasi di dalam menu tidak ikut menutup
+- [x] Tab aktif di ujung baris navigasi (Seminar/Workshop) tergeser masuk layar di ponsel
+- [x] Gulir halaman terkunci selama dialog modal terbuka (layar sentuh)
+- [x] MFA admin: tautan "Buka di aplikasi autentikator" (`otpauth://`, tervalidasi) untuk pendaftaran dari ponsel yang sama
+- [x] Tes: `popover-dismiss.spec.ts` (8), `admin-mfa.test.ts` (`otpauthHref`), asersi `otpauthUri` di integrasi GoTrue
+- [ ] Header di ponsel memakan ±130px (logo + ikon + baris tab). Pertimbangkan menyembunyikan baris tab saat menggulir ke bawah
+
 ## Audit skalabilitas, efisiensi alur & konten terpanjang 2026-11-13 (@claude) — ADR-088
 
 - [x] `/teams?kegiatan=` meminta tim per kegiatan langsung (dulu menyaring 60 tim terbaru global → tim lama "hilang"); "Tim kamu" dari keanggotaan sungguhan (`listTeamLinks` → `listTeamsByIds`, satu kueri); angka di jendela terpotong tampil "60+" dengan catatan

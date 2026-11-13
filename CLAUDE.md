@@ -61,6 +61,9 @@ menambahkan hal yang spesifik untuk cara Claude bekerja di repo ini.
   konstanta di `repository.ts` yang dipakai kedua repository. "Apakah X
   ada / milik saya?" pakai lookup satu baris (`getTrackerItem`,
   `getManagedEvent`, `listTeams(eventId)`), jangan `list…().find()` (ADR-088).
+- Menu melayang berbasis `<details>` WAJIB `data-popover` (ditutup `PopoverDismiss`:
+  ketuk di luar, Escape, pindah halaman). Disclosure biasa jangan ditandai.
+  Panel di header pakai penjangkaran ponsel ADR-089 (bukan `fixed`).
 - Teks pengguna (judul, penyelenggara) di item flex/grid:
   `min-w-0 [overflow-wrap:anywhere]` pada teks daunnya. Jangan pasang
   `anywhere` global karena chip pendek ikut terbelah. Halaman baru →
