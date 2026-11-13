@@ -34,8 +34,21 @@
 Env Production terpisah dari staging sudah ada. Bila ragu kuncinya cocok:
 uji langsung (daftar akun di situs), bukan dari log — log Vercel Hobby hanya 1 jam.
 
-> A3–A4 di bawah **tidak bisa dicek dari sesi Claude** (pengaturan Auth tidak
-> terbaca lewat alat yang ada). Centang sendiri yang sudah.
+> A3–A4 di bawah **tidak bisa dikerjakan dari sesi Claude**: konektor Supabase
+> sesi ini ditolak API dengan `Missing required permission(s): auth_config_read`
+> (13 Nov), dan pengaturan Auth tidak tersimpan di database. Supaya sesi berikutnya
+> bisa mengerjakannya, sambungkan ulang konektor Supabase di
+> https://claude.ai/customize/connectors dengan izin konfigurasi Auth (bila
+> ditawarkan), lalu mulai sesi baru. Centang sendiri yang sudah.
+
+**Urutan tercepat (±10 menit):**
+1. **A3b dulu** — Site URL & Redirect URLs. Tanpa ini tautan konfirmasi email
+   mendarat di `localhost`.
+2. **A4 tanpa menunggu SMTP** — daftar memakai **email akun Supabase-mu**:
+   pengirim bawaan Supabase hanya mengirim ke anggota tim project, dan kamu
+   anggotanya. Buka tautan konfirmasi di peramban yang sama (alur PKCE). Lalu
+   bilang ke Claude "sudah daftar" — Claude yang menjalankan `UPDATE … role = 'ADMIN'`.
+3. **A3a SMTP → A3c template → A3d MFA** — supaya pendaftar LAIN juga menerima email.
 
 ### A3a. SMTP — POSISI SEKARANG
 Supabase tidak mengizinkan edit template tanpa SMTP sendiri, dan pengirim
