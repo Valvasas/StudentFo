@@ -142,7 +142,7 @@ import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
 import { isProfileMediaId, NO_PROFILE_MEDIA, PROFILE_MEDIA_RATE_LIMIT, type ProfileMediaKind } from '@/lib/profile-media';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, MANAGED_EVENTS_LIMIT, OUTBOUND_READ_LIMIT, TEAM_LIST_LIMIT } from './repository';
 import { DEMO_POSTER_SIZE, DEMO_SCENE_SIZE, demoPosterPng, demoReceiptPng, demoScenePng } from './demo-media';
 import type {
   DeleteAccountInput,
@@ -1459,6 +1459,12 @@ export class MemoryEventRepository implements EventRepository {
     return items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }
 
+  async getTrackerItem(userId: string, eventId: string): Promise<TrackerItem | null> {
+    const entry = this.trackerEntries.get(userId)?.get(eventId);
+    const event = entry ? this.findEvent(eventId) : undefined;
+    return entry && event ? { ...entry, eventId, event } : null;
+  }
+
   async upsertTrackerItem(
     userId: string,
     eventId: string,
@@ -1757,6 +1763,15 @@ export class MemoryEventRepository implements EventRepository {
   async listTeams(eventId?: string): Promise<readonly Team[]> {
     return [...this.teams.values()]
       .filter((entry) => !eventId || entry.eventId === eventId)
+      .map((entry) => this.toTeam(entry))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, TEAM_LIST_LIMIT);
+  }
+
+  async listTeamsByIds(teamIds: readonly string[]): Promise<readonly Team[]> {
+    const wanted = new Set([...new Set(teamIds)].slice(0, TEAM_LIST_LIMIT));
+    return [...this.teams.values()]
+      .filter((entry) => wanted.has(entry.id))
       .map((entry) => this.toTeam(entry))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
@@ -2306,7 +2321,14 @@ export class MemoryEventRepository implements EventRepository {
       const event = this.findEvent(eventId);
       if (entry && event) managed.push({ event, source: entry.source, since: entry.since });
     }
-    return managed.sort((a, b) => b.since.localeCompare(a.since));
+    return managed.sort((a, b) => b.since.localeCompare(a.since)).slice(0, MANAGED_EVENTS_LIMIT);
+  }
+
+  async getManagedEvent(userId: string, eventId: string): Promise<ManagedEvent | null> {
+    if (!this.isVerifiedOrganizer(userId)) return null;
+    const entry = this.eventManagers.get(eventId)?.get(userId);
+    const event = entry ? this.findEvent(eventId) : undefined;
+    return entry && event ? { event, source: entry.source, since: entry.since } : null;
   }
 
   /** Cermin `organizer_event_history()`: kelolaan, sudah tutup, angka seumur acara. */

@@ -170,7 +170,7 @@ import {
   totalPagesFor,
 } from './listing';
 import { type CacheLayer, nextDataCache } from './cache';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, OUTBOUND_READ_LIMIT } from './repository';
+import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, MANAGED_EVENTS_LIMIT, OUTBOUND_READ_LIMIT, TEAM_LIST_LIMIT } from './repository';
 import type {
   EventQuestionContext,
   MyEventQuestion,
@@ -271,6 +271,21 @@ const PAGE_SIZE = 1000;
  * jauh di bawah batas panjang URL proxy/CDN di depan PostgREST.
  */
 const IN_CHUNK = 60;
+
+const TRACKER_COLUMNS = 'id, user_id, event_id, status, notes, created_at, updated_at, achievement, achievement_note, proof_url, portfolio_visible';
+
+function toTrackerItem(row: TrackerRow, event: EventSummary): TrackerItem {
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    status: row.status,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...toPortfolioFields(row),
+    event,
+  };
+}
 /**
  * Batas baca pasangan koneksi untuk MENGECUALIKAN orang dari saran — bukan
  * untuk menampilkan (itu `listConnections`, berhalaman). Di atas batas ini
@@ -282,7 +297,6 @@ const PEER_COLUMNS =
   'connection_id, status, message, created_at, responded_at, is_outgoing, peer_id, full_name, headline, education_level, major, interests';
 /** Kalibrasi dijalankan manual dan jarang; batas ini hanya pengaman memori. */
 const CALIBRATION_ROW_LIMIT = 50_000;
-const MANAGED_EVENTS_LIMIT = 200;
 /** Riwayat klaim/perubahan milik sendiri — yang lebih lama tetap ada di log admin. */
 const TRUST_LIST_LIMIT = 50;
 
@@ -1192,7 +1206,7 @@ export class SupabaseEventRepository implements EventRepository {
     const supabase = await createSupabaseServerClient();
     const { data: rows, error } = await supabase
       .from('application_tracker')
-      .select('id, user_id, event_id, status, notes, created_at, updated_at, achievement, achievement_note, proof_url, portfolio_visible')
+      .select(TRACKER_COLUMNS)
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .returns<TrackerRow[]>();
@@ -1203,21 +1217,24 @@ export class SupabaseEventRepository implements EventRepository {
     const events = await this.fetchSummariesByIds(rows.map((row) => row.event_id));
     return rows.flatMap((row) => {
       const event = events.get(row.event_id);
-      return event
-        ? [
-            {
-              id: row.id,
-              eventId: row.event_id,
-              status: row.status,
-              notes: row.notes,
-              createdAt: row.created_at,
-              updatedAt: row.updated_at,
-              ...toPortfolioFields(row),
-              event,
-            },
-          ]
-        : [];
+      return event ? [toTrackerItem(row, event)] : [];
     });
+  }
+
+  async getTrackerItem(userId: string, eventId: string): Promise<TrackerItem | null> {
+    if (!isUuid(eventId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data: row, error } = await supabase
+      .from('application_tracker')
+      .select(TRACKER_COLUMNS)
+      .eq('user_id', userId)
+      .eq('event_id', eventId)
+      .maybeSingle<TrackerRow>();
+
+    if (error) throw upstreamFailure('Gagal memuat tracker.', error);
+    if (!row) return null;
+    const event = (await this.fetchSummariesByIds([eventId])).get(eventId);
+    return event ? toTrackerItem(row, event) : null;
   }
 
   async upsertTrackerItem(
@@ -1494,11 +1511,25 @@ export class SupabaseEventRepository implements EventRepository {
   async listTeams(eventId?: string): Promise<readonly Team[]> {
     if (eventId !== undefined && !isUuid(eventId)) return [];
     const supabase = await createSupabaseServerClient();
-    let builder = supabase.from('teams').select(TEAM_COLUMNS).order('created_at', { ascending: false }).limit(60);
+    let builder = supabase.from('teams').select(TEAM_COLUMNS).order('created_at', { ascending: false }).limit(TEAM_LIST_LIMIT);
     if (eventId) builder = builder.eq('event_id', eventId);
 
     const { data, error } = await builder.returns<TeamRow[]>();
     if (error) throw upstreamFailure('Gagal memuat daftar tim.', error);
+    return this.hydrateTeams(data);
+  }
+
+  async listTeamsByIds(teamIds: readonly string[]): Promise<readonly Team[]> {
+    const ids = [...new Set(teamIds)].filter(isUuid).slice(0, TEAM_LIST_LIMIT);
+    if (ids.length === 0) return [];
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('teams')
+      .select(TEAM_COLUMNS)
+      .in('id', ids)
+      .order('created_at', { ascending: false })
+      .returns<TeamRow[]>();
+    if (error) throw upstreamFailure('Gagal memuat tim.', error);
     return this.hydrateTeams(data);
   }
 
@@ -2072,6 +2103,22 @@ export class SupabaseEventRepository implements EventRepository {
       const event = events.get(row.event_id);
       return event ? [{ event, source: row.source, since: row.created_at }] : [];
     });
+  }
+
+  async getManagedEvent(userId: string, eventId: string): Promise<ManagedEvent | null> {
+    if (!isUuid(eventId)) return null;
+    if ((await this.getOrganizerProfile(userId))?.status !== 'VERIFIED') return null;
+    const supabase = await createSupabaseServerClient();
+    const { data: row, error } = await supabase
+      .from('event_managers')
+      .select('event_id, source, created_at')
+      .eq('user_id', userId)
+      .eq('event_id', eventId)
+      .maybeSingle<EventManagerRow>();
+    if (error) throw upstreamFailure('Gagal memuat acara yang dikelola.', error);
+    if (!row) return null;
+    const event = (await this.fetchSummariesByIds([eventId])).get(eventId);
+    return event ? { event, source: row.source, since: row.created_at } : null;
   }
 
   async claimEvent(actorId: string, eventId: string, evidence: string): Promise<void> {

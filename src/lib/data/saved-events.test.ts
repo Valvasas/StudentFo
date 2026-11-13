@@ -49,11 +49,16 @@ describe('MemoryEventRepository — Saved Events & Application Tracker', () => {
     expect(items.length).toBe(1);
     expect(items[0]?.status).toBe('INTERVIEW');
     expect(items[0]?.notes).toBe('Jadwal wawancara besok');
+    // Pencarian satu baris = hasil `list().find()`, tanpa memuat seluruh tracker.
+    expect(await repo.getTrackerItem(userId, eventId)).toEqual(items[0]);
+    expect(await repo.getTrackerItem(userId, all.items[0]!.id)).toBeNull();
+    expect(await repo.getTrackerItem('orang-lain', eventId)).toBeNull();
 
     // Hapus dari tracker
     await repo.removeTrackerItem(userId, eventId);
     items = await repo.listTrackerItems(userId);
     expect(items.length).toBe(0);
+    expect(await repo.getTrackerItem(userId, eventId)).toBeNull();
   });
 
   it('menggunakan profil pengguna untuk mempersonalisasi ranking listEvents', async () => {

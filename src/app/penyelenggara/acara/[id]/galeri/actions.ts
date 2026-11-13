@@ -42,7 +42,7 @@ function failed(returnTo: string, error: ActionErrorCode): never {
 }
 
 async function done(user: AuthUser, { eventId, returnTo }: MediaTarget, notice: ActionNoticeCode): Promise<never> {
-  const slug = (await (await getEventRepository()).listManagedEvents(user.id)).find((entry) => entry.event.id === eventId)?.event.slug;
+  const slug = eventId ? (await (await getEventRepository()).getManagedEvent(user.id, eventId))?.event.slug : undefined;
   if (slug) revalidatePath(`/events/${slug}`);
   else revalidatePath('/events/[slug]', 'page');
   // Poster tampil di kartu setiap daftar (beranda, /events, tersimpan) yang di-cache dengan tag ini.

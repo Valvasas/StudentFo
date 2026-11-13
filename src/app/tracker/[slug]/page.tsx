@@ -81,8 +81,8 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
   const returnTo = `/tracker/${slug}`;
   const user = await requireUser(returnTo);
   const repository = await getEventRepository();
-  const [items, event] = await Promise.all([repository.listTrackerItems(user.id), repository.getEventBySlug(slug)]);
-  const item = items.find((entry) => entry.event.slug === slug);
+  const event = await repository.getEventBySlug(slug);
+  const item = event ? await repository.getTrackerItem(user.id, event.id) : null;
   if (!item || !event) notFound();
 
   const [teams, form, mine] = await Promise.all([

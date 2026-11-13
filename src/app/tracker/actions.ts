@@ -93,7 +93,7 @@ export async function updateTrackerStatusAction(formData: FormData): Promise<voi
   let previous: TrackerStatus | null = null;
   try {
     const repository = await getEventRepository();
-    previous = (await repository.listTrackerItems(user.id)).find((item) => item.eventId === eventId)?.status ?? null;
+    previous = (await repository.getTrackerItem(user.id, eventId))?.status ?? null;
     await repository.upsertTrackerItem(user.id, eventId, status, notes);
   } catch (error) {
     failure = toActionErrorCode(error);
@@ -158,7 +158,7 @@ export async function updatePortfolioAction(formData: FormData): Promise<void> {
   let failure: ActionErrorCode | null = null;
   try {
     const repository = await getEventRepository();
-    const item = (await repository.listTrackerItems(user.id)).find((entry) => entry.eventId === eventId);
+    const item = await repository.getTrackerItem(user.id, eventId);
     if (!item) throw actionError('portfolio_not_eligible');
     const input = parsePortfolioInput(
       {

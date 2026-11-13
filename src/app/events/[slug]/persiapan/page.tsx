@@ -49,13 +49,12 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
   if (!event) notFound();
 
   const isTeamEvent = event.eventType === 'LOMBA';
-  const [items, teams, form, mine] = await Promise.all([
-    repository.listTrackerItems(user.id),
+  const [tracked, teams, form, mine] = await Promise.all([
+    repository.getTrackerItem(user.id, event.id),
     isTeamEvent ? repository.listTeams(event.id) : Promise.resolve([]),
     withFallback('formulir pendaftaran', () => repository.getRegistrationForm(event.id), null),
     withFallback('pendaftaran sendiri', () => repository.getMyRegistration(user.id, event.id), null),
   ]);
-  const tracked = items.find((item) => item.eventId === event.id);
   const myTeam = teams.find((team) => team.members.some((member) => member.userId === user.id));
 
   const now = new Date();

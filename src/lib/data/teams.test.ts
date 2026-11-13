@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppError } from '@/lib/errors';
 import { remainingSlots } from '@/types/domain';
 import { MemoryEventRepository } from './memory-repository';
+import { TEAM_LIST_LIMIT } from './repository';
 
 async function freshTeam(repo: MemoryEventRepository, slotsNeeded = 3) {
   const events = await repo.listEvents({});
@@ -143,5 +144,48 @@ describe('MemoryEventRepository — tim lomba', () => {
     expect(forEvent.some((team) => team.id === teamId)).toBe(true);
 
     expect(await repo.listTeams('event-yang-tidak-ada')).toEqual([]);
+  });
+});
+
+describe('MemoryEventRepository — jendela daftar tim (paritas dengan Supabase)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Satu tim lama untuk kegiatan B, lalu `TEAM_LIST_LIMIT` tim yang lebih baru untuk kegiatan A. */
+  async function crowdedRepo() {
+    const repo = new MemoryEventRepository();
+    const [eventA, eventB] = (await repo.listEvents({})).items;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    let clock = Date.now() + 24 * 60 * 60 * 1000;
+    const create = (eventId: string, title: string) => {
+      clock += 60_000;
+      vi.setSystemTime(clock);
+      return repo.createTeam({ eventId, title, description: null, slotsNeeded: 3, createdBy: 'leader-1', createdByName: 'Ketua Satu' });
+    };
+    const oldTeam = await create(eventB!.id, 'Tim lama kegiatan B');
+    for (let index = 0; index < TEAM_LIST_LIMIT; index += 1) await create(eventA!.id, `Tim baru ${index}`);
+    return { repo, oldTeam, eventB: eventB!.id };
+  }
+
+  it('daftar global dipotong di TEAM_LIST_LIMIT, terbaru dulu — seperti .limit() di produksi', async () => {
+    const { repo, oldTeam } = await crowdedRepo();
+    const all = await repo.listTeams();
+    expect(all).toHaveLength(TEAM_LIST_LIMIT);
+    expect(all[0]!.title).toBe(`Tim baru ${TEAM_LIST_LIMIT - 1}`);
+    expect(all.some((team) => team.id === oldTeam)).toBe(false);
+  });
+
+  it('tim lama sebuah kegiatan tetap terbaca lewat listTeams(eventId), bukan saringan jendela global', async () => {
+    const { repo, oldTeam, eventB } = await crowdedRepo();
+    expect((await repo.listTeams(eventB)).map((team) => team.id)).toContain(oldTeam);
+  });
+
+  it('listTeamsByIds: terbaru dulu, id tak dikenal dilewati, duplikat dihitung sekali', async () => {
+    const { repo, oldTeam } = await crowdedRepo();
+    const [newest] = await repo.listTeams();
+    const teams = await repo.listTeamsByIds([oldTeam, 'tidak-ada', newest!.id, oldTeam]);
+    expect(teams.map((team) => team.id)).toEqual([newest!.id, oldTeam]);
+    expect(await repo.listTeamsByIds([])).toEqual([]);
   });
 });

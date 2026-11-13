@@ -110,6 +110,12 @@ describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
     expect(await outcome(() => world.as(late, () => world.repo.joinTeam(late, 'Telat', teamId)))).toBe('team_full');
     const team = await world.repo.getTeamById(teamId);
     expect(team?.memberCount).toBe(2);
+    // "Tim kamu" di /teams: keanggotaan → listTeamsByIds (satu kueri), sama dengan getTeamById.
+    const links = await world.as(member, () => world.repo.listTeamLinks([member], 10));
+    expect(links.map((link) => link.teamId)).toEqual([teamId]);
+    const [byIds] = await world.as(member, () => world.repo.listTeamsByIds([teamId, teamId]));
+    expect(byIds).toMatchObject({ id: teamId, memberCount: 2, title: 'Tim Paritas' });
+    expect(await world.repo.listTeamsByIds([])).toEqual([]);
   });
 
   it('ketua tidak bisa keluar; bukan ketua tidak bisa mengeluarkan anggota', async () => {
@@ -158,6 +164,9 @@ describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
     });
     const items = await world.as(user, () => world.repo.listTrackerItems(user));
     expect(items.find((item) => item.eventId === eventId)?.status).toBe('INTERVIEW');
+    // Pencarian satu baris (halaman & aksi per kegiatan) = hasil list().find().
+    expect(await world.as(user, () => world.repo.getTrackerItem(user, eventId))).toEqual(items.find((item) => item.eventId === eventId));
+    expect(await world.as(user, () => world.repo.getTrackerItem(world.user(), eventId))).toBeNull();
   });
 
   it('kiriman ke-4 per email per jam → submission_rate_limited', async () => {

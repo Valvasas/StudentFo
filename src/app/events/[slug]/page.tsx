@@ -210,9 +210,9 @@ export default async function EventDetailPage({
   const requestHeaders = await headers();
   after(() => recordEventView(event.id, requestHeaders));
 
-  const [isSaved, trackerItems, categories, similar, verifiedOrganizers, organizerProfile, form, photos, myRegistration] = await Promise.all([
+  const [isSaved, tracked, categories, similar, verifiedOrganizers, organizerProfile, form, photos, myRegistration] = await Promise.all([
     user ? repository.isEventSaved(user.id, event.id) : Promise.resolve(false),
-    user ? repository.listTrackerItems(user.id) : Promise.resolve([]),
+    user ? repository.getTrackerItem(user.id, event.id) : Promise.resolve(null),
     repository.listCategories(),
     repository.listEvents({ types: [event.eventType], sort: 'deadline', pageSize: 4 }),
     repository.listVerifiedOrganizers([event.id]),
@@ -231,14 +231,13 @@ export default async function EventDetailPage({
       ? await Promise.all([
           optional<readonly EventQuestion[]>(() => repository.listEventQuestions(event.id, user?.id ?? null, 50), [], 'tanya jawab'),
           user
-            ? Promise.all([checkAdminAccess(), optional(() => repository.listManagedEvents(user.id), [], 'acara kelolaan')]).then(
-                ([gate, managed]) => gate.allowed || managed.some((item) => item.event.id === event.id),
+            ? Promise.all([checkAdminAccess(), optional(() => repository.getManagedEvent(user.id, event.id), null, 'acara kelolaan')]).then(
+                ([gate, managed]) => gate.allowed || managed !== null,
               )
             : Promise.resolve(false),
         ])
       : [[], false];
   const verifiedOrg = verifiedOrganizers.get(event.id) ?? null;
-  const tracked = trackerItems.find((item) => item.eventId === event.id);
   const category = categories.find((item) => item.slug === event.categorySlugs[0]);
 
   const now = new Date();

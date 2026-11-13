@@ -465,6 +465,13 @@ export interface SavedEventRepository {
 export interface TrackerRepository {
   /** Application tracker — lacak tahapan lamaran (Phase 2) */
   listTrackerItems(userId: string): Promise<readonly TrackerItem[]>;
+  /**
+   * Satu baris tracker untuk kegiatan ini — null bila belum dilacak atau
+   * kegiatannya tak lagi terbaca (sama dengan `listTrackerItems().find()`).
+   * Halaman & aksi per kegiatan memakai ini: memuat seluruh tracker demi
+   * satu status tumbuh bersama jumlah kegiatan yang dilacak.
+   */
+  getTrackerItem(userId: string, eventId: string): Promise<TrackerItem | null>;
   upsertTrackerItem(
     userId: string,
     eventId: string,
@@ -506,6 +513,17 @@ export interface NotificationRepository {
   updateNotificationPreferences(userId: string, preferences: NotificationPreferencesInput): Promise<void>;
 }
 
+/**
+ * Jendela `listTeams`: tim terbaru dulu, maks. sekian baris — SAMA di kedua
+ * repository supaya mode seed tidak menutupi pemotongan yang terjadi di
+ * produksi. Halaman yang butuh tim di luar jendela (tim sendiri, satu
+ * kegiatan) memintanya secara spesifik, bukan menyaring jendela global.
+ */
+export const TEAM_LIST_LIMIT = 60;
+
+/** Jendela `listManagedEvents` (terbaru dulu) — sama di kedua repository. Cek hak kelola satu acara: `getManagedEvent`. */
+export const MANAGED_EVENTS_LIMIT = 200;
+
 /** Tim lomba. */
 export interface TeamRepository {
   /**
@@ -519,6 +537,8 @@ export interface TeamRepository {
    * deploy.
    */
   listTeams(eventId?: string): Promise<readonly Team[]>;
+  /** Tim dengan id ini (maks. `TEAM_LIST_LIMIT` id unik), terbaru dulu; id yang tidak ada dilewati. Satu kueri, bukan `getTeamById` berulang. */
+  listTeamsByIds(teamIds: readonly string[]): Promise<readonly Team[]>;
   getTeamById(teamId: string): Promise<Team | null>;
   createTeam(input: CreateTeamRepositoryInput): Promise<string>;
   joinTeam(actorId: string, actorName: string, teamId: string): Promise<void>;
@@ -621,8 +641,14 @@ export interface OrganizerRepository {
   getOrganizerProfile(userId: string): Promise<OrganizerProfile | null>;
   /** Ajukan / perbarui. Mengubah data setelah terverifikasi = kembali ke antrean. REVOKED ditolak. */
   applyAsOrganizer(actor: OrganizerActor, input: OrganizerApplicationInput): Promise<void>;
-  /** Acara yang dikelola — kosong bila tidak (lagi) terverifikasi. */
+  /** Acara yang dikelola, terbaru dulu (maks. `MANAGED_EVENTS_LIMIT`) — kosong bila tidak (lagi) terverifikasi. */
   listManagedEvents(userId: string): Promise<readonly ManagedEvent[]>;
+  /**
+   * Hak kelola SATU acara (null = tidak mengelola / tidak terverifikasi).
+   * Jangan mencarinya di `listManagedEvents()`: acara di luar jendela 200
+   * terbaru akan tampak "bukan kelolaanmu" bagi penyelenggara besar.
+   */
+  getManagedEvent(userId: string, eventId: string): Promise<ManagedEvent | null>;
   claimEvent(actorId: string, eventId: string, evidence: string): Promise<void>;
   listMyClaims(userId: string): Promise<readonly EventClaim[]>;
   proposeEventRevision(actorId: string, eventId: string, changes: EventRevisionChanges, note: string | null): Promise<void>;
