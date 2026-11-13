@@ -21,8 +21,7 @@
 
 | Hal | Keadaan |
 |---|---|
-| Migration produksi & staging | Sama-sama **47** (`…20261109100001`), cocok dengan `supabase/APPLIED_MIGRATIONS.txt` |
-| Migration menunggu persetujuan | `20261109100002_event_media`, `20261110100001_profile_media`, `20261112100001_submission_poster`, `20261112100002_community` — semuanya hanya ADD/CREATE OR REPLACE. Tanpa ini: poster/video tidak tampil (sudah tayang di `main`), dan setelah merge berikutnya foto profil, poster kiriman, & Komunitas menampilkan keadaan "belum aktif" — situs tetap jalan |
+| Migration produksi & staging | **51** di keduanya (13 Nov, atas persetujuan pemilik): `event_media`, `profile_media`, `submission_poster`, `community` sudah diterapkan; sidik skema identik lokal = staging = produksi |
 | Supabase produksi `urmmihzjkkbxcwfzvuao` | **0 akun, 0 admin, 0 acara, 0 kiriman**; ekstensi `http` masih ada |
 | Vercel `studentfo` — Production | `NEXT_PUBLIC_SUPABASE_URL` & `NEXT_PUBLIC_SUPABASE_ANON_KEY` khusus Production (dibuat pemilik 10 Nov; isinya terenkripsi, tidak dibuka), `SUPABASE_SERVICE_ROLE_KEY` (Sensitive, diperbarui 10 Nov), `NEXT_PUBLIC_SITE_URL=https://studentfo.vercel.app` |
 | Vercel — Preview & Development | URL & anon key **staging** (`iwttgkzxudhjatbvywke`) |
@@ -86,7 +85,7 @@ sampai, hampir pasti A3a (SMTP) belum aktif — pengirim bawaan Supabase hanya m
 
 ## 4. Menunggu jawaban pemilik (Claude yang mengerjakan)
 
-1. **"Ya, terapkan migration"** → empat migration di §2 ke **staging** dulu (uji: unggah foto profil, kirim kegiatan berposter, tulis & balas di Komunitas, lapor 3×), lalu **produksi**; catat di `supabase/APPLIED_MIGRATIONS.txt` di commit yang sama.
+1. ✅ **Migration** — empat migration diterapkan ke staging (diuji, di-rollback bersih) lalu produksi, 13 Nov.
 2. **"Ya, PR & merge"** → PR `claude/brave-cray-xsqigf` → `main` (ADR-082–088), merge bila CI hijau; Vercel men-deploy `main` otomatis. Urutan 1 ↔ 2 aman dua-duanya (kode aman urutan deploy), tapi migration dulu = fitur langsung aktif saat tayang.
 3. **"Tahap A selesai"** → cek situs langsung: daftar/konfirmasi email/masuk, `/admin` + MFA, kirim & setujui satu kegiatan, poster tampil.
 

@@ -66,17 +66,17 @@ yang tidak memuat migration yang sudah ada di produksi
 
 ## Migration
 
-- Produksi: **47** migration, dicocokkan langsung 2026-11-09 → `supabase/APPLIED_MIGRATIONS.txt`.
+- Produksi: **51** migration, dicocokkan langsung 2026-11-13 → `supabase/APPLIED_MIGRATIONS.txt`.
+- 2026-11-13 (persetujuan pemilik di chat): `20261109100002_event_media`, `20261110100001_profile_media`,
+  `20261112100001_submission_poster`, `20261112100002_community` diterapkan ke staging, diuji, lalu produksi.
+  Postgres mengunduh tiap berkas dari commit `657c998` dan menolak bila SHA-256 tidak cocok (pola ADR-062 #8);
+  tiap berkas atomik, versi = nama berkas. Sidik skema publik 12 komponen (fungsi, policy, constraint, kolom,
+  indeks, trigger, view, RLS, hak anon/authenticated, kategori) identik lokal = staging = produksi — selisih satu-satunya
+  hak `MAINTAIN` Postgres 17 bawaan Supabase pada tabel lama. Uji asap staging (di-rollback): tulis → balas →
+  penulis dikabari, tamu ditolak, media profil & poster kiriman terbaca sesuai hak.
 - 2026-11-09: `20261108100001`–`04` dan `20261109100001_profile_details` diterapkan ke staging lalu produksi,
   persis isi berkas (tanpa DROP). Versi di `schema_migrations` disamakan dengan nama berkas; sidik skema
   (policy, constraint, hak kolom, kategori, 14 definisi fungsi) identik lokal = staging = produksi.
-- Belum diterapkan (menunggu persetujuan pemilik, semuanya hanya ADD/CREATE OR REPLACE):
-  `20261109100002_event_media` (ADR-079), `20261110100001_profile_media` (ADR-083),
-  `20261112100001_submission_poster` (ADR-084), `20261112100002_community` (ADR-087).
-  Kode aman urutan deploy: tanpa migration ini fitur terkait turun anggun
-  (kolom lama, lobi kosong + `lobby_unavailable`, survei tidak dicatat tapi
-  pengunjung tetap diantar dengan pertanyaan bawaan, lencana tetap privat,
-  kartu tempat studi & bidang spesifik disembunyikan).
 
 ## Cabang usang (ada migration, TIDAK di produksi, JANGAN digabung tanpa tinjauan)
 
@@ -93,7 +93,7 @@ yang tidak memuat migration yang sudah ada di produksi
 ### 2026-11-13 — cabang `claude/brave-cray-xsqigf` (lanjutan)
 - Audit skalabilitas (ADR-088): jendela daftar sama di kedua repository, lookup satu baris untuk tracker/hak kelola/tim,
   `/teams` per kegiatan tidak lagi menyaring jendela global; konten 255 karakter rapi di 320px (`extreme-content.spec.ts`).
-- Tanpa migration baru. Empat migration 2026-11-12 masih menunggu persetujuan. Cabang ini **belum di `main`**.
+- Tanpa migration baru. Empat migration 2026-11-12 **diterapkan ke staging & produksi** (lihat bagian Migration).
 
 ### 2026-11-12 — cabang `claude/brave-cray-xsqigf` (dari `…registration-form-competition-features-sptvfz`)
 - Logo baru (ADR-080), tur beranda hanya cuplikan (ADR-081), 12 ragam lencana + animasi (ADR-082).

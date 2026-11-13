@@ -422,7 +422,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] "Langkah awalmu" di beranda (6 langkah dihitung dari akun) + satu saran tersemat di lonceng; bisa disembunyikan (ADR-086)
 - [x] Komunitas: forum publik khusus anggota — topik, balasan, "Bermanfaat", lapor + sembunyi otomatis 3 pelapor, antrean moderator, notifikasi balasan, tanpa DM & tanpa kontak pribadi (ADR-087)
 - [x] Tes: `profile-media.test.ts` ×2, `116_profile_media.test.sql`, `117_submission_poster.test.sql`, `event-access.test.ts`, `profile-media.spec.ts`, `submission-poster.spec.ts`, `event-gate.spec.ts`; penjaga "migration baru tanpa DROP/TRUNCATE"
-- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan `20261109100002_event_media`, `20261110100001_profile_media`, `20261112100001_submission_poster`, `20261112100002_community` ke staging lalu produksi (semuanya hanya ADD/CREATE OR REPLACE). Kode aman urutan deploy
+- [x] Terapkan `20261109100002_event_media`, `20261110100001_profile_media`, `20261112100001_submission_poster`, `20261112100002_community` ke staging lalu produksi — 2026-11-13 atas persetujuan pemilik; sidik skema identik lokal = staging = produksi
 - [ ] Komunitas: lencana "Penolong" dari tanda "Bermanfaat" orang lain (perlu `public_badge_facts` diperbarui); sunting tulisan sendiri; halaman balasan > 300
 - [ ] Pemotong foto profil (crop bulat) di peramban — kini `object-cover` + anjuran rasio
 - [ ] Tinjau ulang metrik konversi tamu → akun setelah gerbang aktif (butuh analitik halaman; belum ada)
@@ -435,7 +435,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Studio penyelenggara "Poster, galeri & video" + halaman admin `/admin/media/[slug]` (acara tanpa pengelola) dengan komponen yang sama; isian video di `/submit` (disalin saat disetujui bila kanonis)
 - [x] Kebijakan privasi & cookie menyebut YouTube/Vimeo (hanya setelah Putar); `LEGAL_REVISION` → 2026-11-09
 - [x] Tes: `video.test.ts`, `event-media.test.ts`, `115_event_media.test.sql`, `event-media.spec.ts`, axe + `narrow-viewport` untuk halaman baru
-- [ ] **BUTUH PERSETUJUAN PEMILIK.** Terapkan `20261109100002_event_media` ke staging lalu produksi (hanya ADD/CREATE OR REPLACE). Sebelum itu poster & video sekadar tidak tampil di situs langsung
+- [x] Terapkan `20261109100002_event_media` ke staging lalu produksi — 2026-11-13 (bersama tiga migration ADR-083/084/087)
 - [ ] Pemotong poster (crop 4:5) di peramban sebelum unggah — kini poster non-4:5 tampil utuh dengan latar kabur
 - [ ] Urutkan ulang foto galeri (seret/tombol naik-turun) — kini urut poster dulu lalu waktu unggah
 
