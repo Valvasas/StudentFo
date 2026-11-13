@@ -24,7 +24,7 @@ test('Data diri: pilih kampus dari direktori + domisili sampai kecamatan; orang 
   await expect(district).toBeEnabled();
   await district.selectOption({ label: 'Coblong' });
 
-  await page.getByRole('button', { name: 'Simpan' }).click();
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click();
   await expect(page).toHaveURL(/notice=study_place_saved/);
   const card = page.locator('#asal');
   await expect(card).toContainText('Institut Teknologi Bandung (ITB)');
@@ -45,7 +45,7 @@ test('"Lainnya" di kampus & domisili: teks bebas + luar negeri tersimpan apa ada
   await campus.fill('Pesantren Kilat Uji Coba');
   await page.getByRole('button', { name: 'Domisili' }).click();
   await page.getByRole('option', { name: /^Luar negeri/ }).click();
-  await page.getByRole('button', { name: 'Simpan' }).click();
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click();
   await expect(page).toHaveURL(/notice=study_place_saved/);
   await expect(page.locator('#asal')).toContainText('Pesantren Kilat Uji Coba');
   await expect(page.locator('#asal')).toContainText('Luar negeri');
@@ -58,7 +58,7 @@ test('prodi "Lainnya — tulis sendiri" membuka isian bebas dan tersimpan', asyn
   const custom = page.getByPlaceholder('Tulis nama prodi/jurusanmu');
   await expect(custom).toBeFocused();
   await custom.fill('Teknologi Rekayasa Pangan Halal');
-  await page.getByRole('button', { name: 'Simpan' }).click();
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click();
   await expect(page).toHaveURL(/notice=profile_saved/);
   await expect(page.locator('#pendidikan')).toContainText('Teknologi Rekayasa Pangan Halal');
 });

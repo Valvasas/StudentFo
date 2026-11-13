@@ -1,7 +1,7 @@
-# Progres StudentFo — serah-terima sesi (10 Nov 2026)
+# Progres StudentFo — serah-terima sesi (13 Nov 2026)
 
 > **Mulai sesi baru dengan pesan ini:**
-> "Baca `docs/progres-sekarang.md`, lalu lanjutkan dari bagian *Sedang dikerjakan*."
+> "Baca `docs/progres-sekarang.md`, lalu lanjutkan dari bagian *Menunggu jawaban pemilik*."
 >
 > Berkas ini ringkasan keadaan saat itu. Kebenaran tetap di `CHANGELOG.md`,
 > `TASKS.md`, dan `DECISION.md` — perbarui berkas ini (atau hapus) bila sudah basi.
@@ -12,39 +12,31 @@
 
 | Hal | Keadaan |
 |---|---|
-| Cabang kerja | `claude/registration-form-competition-features-sptvfz` @ `9c6e410` (+ commit berkas ini) |
-| `main` | `8f42cd1` (PR #27). **Cabang kerja BELUM digabung ke `main`** |
-| Isi cabang yang belum di `main` | Poster, slide & video kegiatan (ADR-079): poster = foto galeri bertanda, slide di tab Ringkasan, video YouTube/Vimeo (pemutar baru dimuat setelah Putar), thumbnail poster di kartu & papan, og:image, kelola di studio + `/admin/media/[slug]`, isian video di `/submit` |
-| Tes terakhir (semua hijau) | `verify` 996 · `db:test` · integrasi PostgREST 113 · Playwright seed 954 (+470 ulang) · e2e Supabase 13 |
+| Cabang kerja | `claude/brave-cray-xsqigf` — sudah memuat `main` (merge tanpa perubahan isi, tanpa force push) |
+| `main` | `9935081` (PR #28: poster/slide/video ADR-079, logo ADR-080, cuplikan beranda ADR-081). **Tayang di produksi sejak 11 Nov 17:24 WIB** |
+| Isi cabang yang BELUM di `main` | Lencana baru + animasi (ADR-082), foto profil & banner (ADR-083), poster saat kirim kegiatan (ADR-084), gerbang anggota (ADR-085), "Langkah awalmu" (ADR-086), **Komunitas** (ADR-087), audit skalabilitas & konten 255 karakter (ADR-088) |
+| Tes terakhir (13 Nov, semua hijau) | `verify` 1.085 · `db:test` semua · integrasi PostgREST 113 (+5 butuh GoTrue/Storage sungguhan) · Playwright seed: lihat §6 |
 
-## 2. Keadaan database & hosting (dicek langsung 10 Nov)
+## 2. Keadaan database & hosting (dicek langsung 13 Nov)
 
 | Hal | Keadaan |
 |---|---|
-| Migration `20261109100002_event_media` | **Belum diterapkan** di staging maupun produksi (menunggu persetujuan pemilik). Tanpa ini poster & video tidak tampil, situs tetap jalan |
-| Supabase produksi `urmmihzjkkbxcwfzvuao` ("StudentFo") | 47 migration, **0 akun, 0 acara**, ekstensi `http` masih ada |
-| Supabase staging `iwttgkzxudhjatbvywke` | 4 akun, 0 acara, skema `studentfo_migration_runner` + ekstensi `http` masih ada |
-| Vercel `studentfo` | Hanya 4 env: `NEXT_PUBLIC_SUPABASE_URL` & `_ANON_KEY` (**masih staging**), `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL=https://studentfo.vercel.app` |
-| Turnstile (anti-bot) | Belum diisi |
-| Secret GitHub Actions | Belum dicek; anggap belum ada |
-| Katalog | **0 acara tayang** — masalah produk nomor satu |
+| Migration produksi & staging | Sama-sama **47** (`…20261109100001`), cocok dengan `supabase/APPLIED_MIGRATIONS.txt` |
+| Migration menunggu persetujuan | `20261109100002_event_media`, `20261110100001_profile_media`, `20261112100001_submission_poster`, `20261112100002_community` — semuanya hanya ADD/CREATE OR REPLACE. Tanpa ini: poster/video tidak tampil (sudah tayang di `main`), dan setelah merge berikutnya foto profil, poster kiriman, & Komunitas menampilkan keadaan "belum aktif" — situs tetap jalan |
+| Supabase produksi `urmmihzjkkbxcwfzvuao` | **0 akun, 0 admin, 0 acara, 0 kiriman**; ekstensi `http` masih ada |
+| Vercel `studentfo` — Production | `NEXT_PUBLIC_SUPABASE_URL` & `NEXT_PUBLIC_SUPABASE_ANON_KEY` khusus Production (dibuat pemilik 10 Nov; isinya terenkripsi, tidak dibuka), `SUPABASE_SERVICE_ROLE_KEY` (Sensitive, diperbarui 10 Nov), `NEXT_PUBLIC_SITE_URL=https://studentfo.vercel.app` |
+| Vercel — Preview & Development | URL & anon key **staging** (`iwttgkzxudhjatbvywke`) |
+| Turnstile, secret GitHub Actions | Belum diisi (lihat §5) |
+| Katalog | **0 acara tayang** — masih masalah produk nomor satu |
 
-## 3. Sedang dikerjakan — Tahap A: pindah situs ke Supabase produksi
+## 3. Tahap A: pindah situs ke Supabase produksi (dikerjakan pemilik)
 
-Dikerjakan **pemilik** di dasbor; Claude menunggu kabar. Centang yang sudah:
+### A1–A2. Kunci & env Vercel — ✅ selesai (10 Nov)
+Env Production terpisah dari staging sudah ada. Bila ragu kuncinya cocok:
+uji langsung (daftar akun di situs), bukan dari log — log Vercel Hobby hanya 1 jam.
 
-### A1. Kunci project produksi
-Supabase → project **StudentFo** → **Project Settings → API Keys**
-- [ ] Salin **Publishable key** (`sb_publishable_…`)
-- [ ] Buat secret key `vercel-produksi`
-- [ ] Buat secret key `github-actions` (untuk Tahap C)
-
-### A2. Env Vercel (Settings → Environment Variables)
-- [ ] `NEXT_PUBLIC_SUPABASE_URL` lama: Edit → hilangkan centang **Production**
-- [ ] Add New `NEXT_PUBLIC_SUPABASE_URL` = `https://urmmihzjkkbxcwfzvuao.supabase.co`, **Production saja**
-- [ ] Sama untuk `NEXT_PUBLIC_SUPABASE_ANON_KEY` = publishable key
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` → Edit → secret key `vercel-produksi`
-- [ ] **Jangan redeploy dulu** — Claude menerapkan migration ke produksi, lalu redeploy
+> A3–A4 di bawah **tidak bisa dicek dari sesi Claude** (pengaturan Auth tidak
+> terbaca lewat alat yang ada). Centang sendiri yang sudah.
 
 ### A3a. SMTP — POSISI SEKARANG
 Supabase tidak mengizinkan edit template tanpa SMTP sendiri, dan pengirim
@@ -85,16 +77,18 @@ di GitHub → ikon **Copy raw file** → di Supabase *Message body*: Ctrl+A, Del
 ### A3d. MFA
 - [ ] **Authentication → Multi-Factor**: TOTP **Enabled** (biasanya sudah)
 
-### A4. Akun admin di produksi (setelah Claude redeploy)
+### A4. Akun admin di produksi (bisa sekarang — produksi sudah tayang dengan env produksi)
+Per 13 Nov produksi masih **0 akun**: belum ada yang berhasil mendaftar. Bila email konfirmasi tidak
+sampai, hampir pasti A3a (SMTP) belum aktif — pengirim bawaan Supabase hanya mengirim ke anggota tim project.
 - [ ] Daftar di `https://studentfo.vercel.app/register`, konfirmasi email
 - [ ] SQL Editor produksi: `UPDATE public.users SET role = 'ADMIN' WHERE email = '<email-kamu>';`
 - [ ] Buka `/admin` → pindai QR MFA dengan aplikasi autentikator
 
 ## 4. Menunggu jawaban pemilik (Claude yang mengerjakan)
 
-1. **"Ya, terapkan migration"** → `20261109100002_event_media` ke staging lalu produksi (hanya ADD / CREATE OR REPLACE), catat di `supabase/APPLIED_MIGRATIONS.txt`.
-2. **"Ya, PR & merge"** → buka PR cabang kerja → `main`, merge bila CI hijau.
-3. **"Tahap A selesai"** → redeploy produksi, cek login/daftar/email konfirmasi/`/admin`/poster di situs langsung.
+1. **"Ya, terapkan migration"** → empat migration di §2 ke **staging** dulu (uji: unggah foto profil, kirim kegiatan berposter, tulis & balas di Komunitas, lapor 3×), lalu **produksi**; catat di `supabase/APPLIED_MIGRATIONS.txt` di commit yang sama.
+2. **"Ya, PR & merge"** → PR `claude/brave-cray-xsqigf` → `main` (ADR-082–088), merge bila CI hijau; Vercel men-deploy `main` otomatis. Urutan 1 ↔ 2 aman dua-duanya (kode aman urutan deploy), tapi migration dulu = fitur langsung aktif saat tayang.
+3. **"Tahap A selesai"** → cek situs langsung: daftar/konfirmasi email/masuk, `/admin` + MFA, kirim & setujui satu kegiatan, poster tampil.
 
 ## 5. Tahap berikutnya (setelah A)
 
@@ -108,9 +102,9 @@ di GitHub → ikon **Copy raw file** → di Supabase *Message body*: Ctrl+A, Del
 
 - Langkah 0 tetap berlaku: `git fetch origin && npm run check:sync -- --fetch`, baca `CHANGELOG.md`.
 - **Jangan** menerapkan migration ke staging/produksi atau merge tanpa persetujuan eksplisit di chat.
-- Push hanya ke cabang kerja di atas; tanpa force push; PR hanya bila diminta.
-- Jangan pernah menulis/mencetak rahasia; kredensial lewat `request_credential`, bukan chat.
+- Push hanya ke cabang kerja di atas; **tanpa force push**; PR hanya bila diminta. Bila PR cabang ini sudah di-merge, `git merge origin/main` (bukan rebase + force push).
+- Jangan pernah menulis/mencetak rahasia; kredensial lewat `request_credential`, bukan chat. Jangan membuka (decrypt) env Vercel.
 - ID yang dipakai: Vercel project `prj_QyApCj5dlEIFlWAhDdjXsvISmJ9Q`, team `team_9idfLfrFbcUzRDswt4KjcAB6`; Supabase produksi `urmmihzjkkbxcwfzvuao`, staging `iwttgkzxudhjatbvywke`.
-- Log runtime Vercel (paket Hobby) hanya tersimpan 1 jam — cek kecocokan kunci lewat uji langsung, bukan log lama.
-- Tes lokal: `npm run verify` · `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run db:test` (juga `test:integration`, `test:e2e:supabase`) · `npx playwright test --trace off`. Postgres lokal: `service postgresql start`.
-- Usulan lanjutan di `TASKS.md` § ADR-079: pemotong poster 4:5, urutkan ulang foto galeri.
+- Tes lokal: `npm run verify` · Postgres `service postgresql start` lalu `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run db:test` (juga `test:integration`) · `npx playwright test --trace off` (build produksi mode seed di port 3100).
+- Aturan baru ADR-088: batas jendela daftar = konstanta bersama di `repository.ts`; "milik saya?" = lookup satu baris; teks pengguna di item flex/grid `min-w-0 [overflow-wrap:anywhere]`; halaman baru → `tests/e2e/extreme-content.spec.ts`.
+- Lanjutan yang tercatat di `TASKS.md`: paging `/teams` > 60 tim, lencana "Penolong" & sunting di Komunitas, pemotong foto profil/poster.

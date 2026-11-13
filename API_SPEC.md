@@ -57,7 +57,8 @@ interface EventRepository {
   updateNotificationPreferences(userId: string, preferences: NotificationPreferences): Promise<void>;
 
   // Tim lomba (Phase 3)
-  listTeams(eventId?: string): Promise<readonly Team[]>;
+  listTeams(eventId?: string): Promise<readonly Team[]>; // terbaru dulu, maks. TEAM_LIST_LIMIT (ADR-088)
+  listTeamsByIds(teamIds: readonly string[]): Promise<readonly Team[]>; // satu kueri IN, maks. TEAM_LIST_LIMIT id unik
   getTeamById(teamId: string): Promise<Team | null>;
   createTeam(input: CreateTeamRepositoryInput): Promise<string>; // -> teamId; Supabase: RPC create_team_with_leader (atomik)
   joinTeam(actorId: string, actorName: string, teamId: string): Promise<void>;
@@ -67,6 +68,7 @@ interface EventRepository {
 
   // Application tracker (Phase 2)
   listTrackerItems(userId: string): Promise<readonly TrackerItem[]>;
+  getTrackerItem(userId: string, eventId: string): Promise<TrackerItem | null>; // = listTrackerItems().find(), satu baris (ADR-088)
   upsertTrackerItem(
     userId: string,
     eventId: string,
@@ -77,6 +79,13 @@ interface EventRepository {
   removeTrackerItem(userId: string, eventId: string): Promise<void>;
 }
 ```
+
+**Kontrak jendela daftar (ADR-088).** Setiap batas `list…` adalah konstanta
+yang diekspor `repository.ts` (`TEAM_LIST_LIMIT`, `MANAGED_EVENTS_LIMIT`, …)
+dan dipakai KEDUA implementasi — mode seed memotong di angka yang sama.
+Pertanyaan "apakah X ada / milik saya?" memakai lookup satu baris
+(`getTrackerItem`, `getManagedEvent`, `listTeams(eventId)`,
+`listTeamsByIds`), bukan `list…().find()` yang diam-diam salah di luar jendela.
 
 **Kontrak id.** Id dari URL/form yang bukan UUID tidak pernah dikirim ke
 Postgres: method baca mengembalikan `null`/kosong, method tulis melempar

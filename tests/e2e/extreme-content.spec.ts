@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { confirmDialog, signInAsDemo } from './helpers';
+import { confirmDialog, signInAsDemo, type PersonaLabel } from './helpers';
 
 /**
  * Konten terburuk yang masih LOLOS validasi: judul & penyelenggara 255
@@ -72,10 +72,10 @@ async function expectNoOverflow(page: Page, label: string) {
   expect.soft(result, `${label}: ${JSON.stringify(result.offenders)}`).toEqual({ page: 0, offenders: [] });
 }
 
-async function narrowMember(browser: Browser, next: string): Promise<Page> {
+async function narrowMember(browser: Browser, next: string, persona: PersonaLabel = 'Mahasiswa'): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: true, isMobile: true, ...freshIp() });
   const page = await context.newPage();
-  await signInAsDemo(page, 'Mahasiswa', next);
+  await signInAsDemo(page, persona, next);
   return page;
 }
 
@@ -83,7 +83,9 @@ let eventPath = '';
 
 test('kirim kegiatan berjudul 255 karakter → antrean moderator tetap rapi di 320px → disetujui', async ({ browser }) => {
   test.setTimeout(90_000);
-  const sender = await narrowMember(browser, '/submit');
+  // Bukan "Mahasiswa": email persona demo tetap, dan batas 3 kiriman/jam per email sudah habis dipakai
+  // submission-notification & submission-poster dalam satu run penuh.
+  const sender = await narrowMember(browser, '/submit', 'Siswa baru');
   await sender.getByLabel('Judul kegiatan').fill(TITLE);
   await sender.getByLabel('Penyelenggara', { exact: true }).fill(ORGANIZER);
   await sender.getByLabel('Jenis kegiatan').selectOption('LOMBA');
