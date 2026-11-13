@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { formText } from '@/lib/form-data';
+import { daysAgoLabel } from '@/lib/network';
 
 /**
  * Komunitas (ADR-087): bentuk & aturan yang dipakai bersama form, Server
@@ -128,4 +129,14 @@ export function parseCommunityCursor(value: string | null | undefined): Communit
 
 export function isCommunityId(value: string | null | undefined): value is string {
   return typeof value === 'string' && UUID.test(value);
+}
+
+/** "baru saja" / "12 menit lalu" / "3 jam lalu", lalu per hari kalender (`daysAgoLabel`). Forum hidup per jam, bukan per hari. */
+export function communityTimeLabel(iso: string, now: Date = new Date()): string {
+  const minutes = Math.floor((now.getTime() - Date.parse(iso)) / 60_000);
+  if (Number.isNaN(minutes)) return '';
+  if (minutes < 1) return 'baru saja';
+  if (minutes < 60) return `${minutes} menit lalu`;
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} jam lalu`;
+  return daysAgoLabel(iso, now);
 }

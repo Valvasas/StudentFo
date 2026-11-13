@@ -8,6 +8,7 @@ import {
   ListChecks,
   Medal,
   MessageCircle,
+  MessagesSquare,
   Radar,
   ReceiptText,
   Settings,
@@ -59,6 +60,7 @@ export type AccountSection =
   | 'pembayaran'
   | 'lobi'
   | 'koneksi'
+  | 'komunitas'
   | 'cocok'
   | 'tersimpan'
   | 'lencana'
@@ -130,6 +132,7 @@ export function accountMenuGroups(role: AccountRole, options: { readonly demoFea
           ]
         : []),
       { key: 'koneksi', label: 'Koneksi', href: '/connections', icon: Users },
+      { key: 'komunitas', label: 'Komunitas', href: '/komunitas', icon: MessagesSquare },
       { key: 'cocok', label: 'Cocokkan tim', href: '/teams/cocok', icon: Radar },
     ],
   };

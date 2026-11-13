@@ -65,6 +65,7 @@ const GUEST_ROUTES = [
   // Tamu: gerbang anggota (ADR-085).
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026',
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya',
+  '/komunitas',
 ];
 const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin'],
@@ -110,6 +111,8 @@ const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026/formulir'],
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya'],
   ['Mahasiswa', '/events/olimpiade-matematika-pelajar-tingkat-nasional/sebelum-daftar'],
+  ['Mahasiswa', '/komunitas'],
+  ['Mahasiswa', '/komunitas/baru?kegiatan=kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
 ];
 
 for (const width of WIDTHS) {

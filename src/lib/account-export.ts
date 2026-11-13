@@ -10,6 +10,7 @@ import type {
   EventRegistration,
   EventSummary,
   LobbySummary,
+  MyCommunityContent,
   NetworkProfile,
   NotificationPreferences,
   OrganizerProfile,
@@ -46,6 +47,8 @@ export interface AccountExportInput {
   readonly studyProfile: StudyProfile;
   /** Username, bio, siapa yang boleh membuka profil (ADR-077). */
   readonly identity: ProfileIdentity;
+  /** Postingan & balasan Komunitas (ADR-087), termasuk yang disembunyikan moderator. Opsional: tes lama tidak mengisinya. */
+  readonly community?: readonly MyCommunityContent[];
 }
 
 /**
@@ -157,6 +160,14 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       domicileCode: input.studyProfile.domicileCode,
       studyFields: input.studyProfile.studyFields,
     },
+    community: (input.community ?? []).map((content) => ({
+      kind: content.kind,
+      url: `/komunitas/${content.postId}`,
+      title: content.title,
+      body: content.body,
+      hiddenByModerator: content.hidden,
+      createdAt: content.createdAt,
+    })),
     notifications: input.notifications.map((notification) => ({
       type: notification.type,
       message: notification.message,

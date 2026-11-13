@@ -43,6 +43,8 @@ const STATIC_ROUTES = [
   '/about',
   '/connections',
   '/halaman-yang-tidak-ada',
+  // Komunitas untuk tamu: penjelasan & pintu masuk (ADR-087).
+  '/komunitas',
 ];
 
 async function expectNoViolations(page: Page) {
@@ -95,6 +97,17 @@ for (const [listing, linkPrefix] of [
     await expectNoViolations(page);
   });
 }
+
+// Id utas Komunitas dibuat ulang tiap proses: utas dicapai lewat tautan pertama di lini masa.
+test('tanpa pelanggaran WCAG: utas Komunitas pertama (anggota)', async ({ page }) => {
+  await signInAsDemo(page, 'Mahasiswa', '/komunitas');
+  const href = await page.locator('main a[href^="/komunitas/"]:not([href="/komunitas/baru"])').first().getAttribute('href');
+  expect(href).toMatch(/^\/komunitas\/[0-9a-f-]{36}$/);
+  await page.goto(href!);
+  // Panel lapor terbuka supaya isinya ikut diaudit.
+  await page.locator('#postingan summary', { hasText: 'Laporkan' }).click();
+  await expectNoViolations(page);
+});
 
 test('tautan lompat-ke-konten adalah fokus pertama dan membawa ke <main>', async ({ page }) => {
   await page.goto('/');
@@ -151,6 +164,12 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan'],
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya'],
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=penyelenggara'],
+  // Komunitas (ADR-087): lini masa, saringan topik & kegiatan, tulis postingan, galat kontak.
+  ['Mahasiswa', '/komunitas'],
+  ['Mahasiswa', '/komunitas?topik=cari-tim'],
+  ['Mahasiswa', '/komunitas?kegiatan=kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
+  ['Mahasiswa', '/komunitas/baru?kegiatan=kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
+  ['Mahasiswa', '/komunitas/baru?error=community_contact_blocked'],
   // Pendataan kinerja sebelum tautan resmi (ADR-070): tanpa & dengan pertanyaan rencana (lomba).
   ['Mahasiswa', '/events/program-relawan-literasi-desa-angkatan-7/sebelum-daftar'],
   ['Mahasiswa', '/events/olimpiade-matematika-pelajar-tingkat-nasional/sebelum-daftar'],

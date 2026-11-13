@@ -17,6 +17,7 @@ import {
   GraduationCap,
   KeyRound,
   MapPin,
+  MessagesSquare,
   ShieldCheck,
   Ticket,
   Users,
@@ -514,6 +515,25 @@ export default async function EventDetailPage({
                     >
                       <Users aria-hidden className="size-4" />
                       Cari tim
+                    </Link>
+                  </div>
+                )}
+
+                {/* Komunitas (ADR-087) khusus anggota, seperti isi halaman ini sendiri. */}
+                {!gated && (
+                  <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] border border-line p-[18px]">
+                    <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-tint-sky text-ink">
+                      <MessagesSquare className="size-4" />
+                    </span>
+                    <p className="min-w-[200px] flex-1 text-sm leading-normal text-ink-soft">
+                      Ada yang membingungkan, atau ingin tahu pengalaman peserta lain? Ngobrol dengan sesama pelajar di Komunitas.
+                    </p>
+                    <Link
+                      href={`/komunitas?kegiatan=${event.slug}`}
+                      className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 bg-panel px-3.5 text-sm font-semibold transition-colors duration-150 ease-snap hover:border-brand"
+                    >
+                      <MessagesSquare aria-hidden className="size-4" />
+                      Diskusikan di Komunitas
                     </Link>
                   </div>
                 )}

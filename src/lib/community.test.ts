@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   communityDisplayName,
+  communityTimeLabel,
   COMMUNITY_LIMITS,
   COMMUNITY_TOPIC_LABEL,
   COMMUNITY_TOPICS,
@@ -104,4 +105,15 @@ describe('kode dan SQL sepakat (migration 20261112100002)', () => {
     expect(MIGRATION).toMatch(/GRANT EXECUTE ON FUNCTION public\.admin_resolve_community_report\([^)]*\) TO service_role;/);
     expect(MIGRATION).not.toMatch(/GRANT EXECUTE ON FUNCTION public\.admin_[a-z_]+\([^)]*\) TO authenticated/);
   });
+});
+
+describe('communityTimeLabel', () => {
+  const now = new Date('2026-11-12T10:00:00Z');
+  it.each([
+    ['2026-11-12T09:59:40Z', 'baru saja'],
+    ['2026-11-12T09:48:00Z', '12 menit lalu'],
+    ['2026-11-12T07:00:00Z', '3 jam lalu'],
+    ['2026-11-10T10:00:00Z', '2 hari lalu'],
+    ['bukan-tanggal', ''],
+  ])('%s → %s', (iso, label) => expect(communityTimeLabel(iso, now)).toBe(label));
 });
