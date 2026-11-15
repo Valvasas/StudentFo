@@ -23,7 +23,7 @@ import { seedDemoLobby, seedDemoNetwork, seedDemoOrganizer, seedDemoParticipatio
 import { DEMO_PERSONAS, demoEmailOf, isDemoPersonaId } from '@/lib/demo/personas';
 import { isDemoAdminPersonaAllowed, isDemoAvailable } from '@/lib/demo/gate';
 import { endDemoSession, startDemoSession } from '@/lib/demo/session';
-import { dataMode, siteUrl } from '@/lib/env';
+import { dataMode, env, siteUrl } from '@/lib/env';
 import { formText as field } from '@/lib/form-data';
 import { LEGAL_REVISION, legalConsentRecord } from '@/lib/legal';
 import { RATE_LIMITS } from '@/lib/rate-limit';
@@ -36,6 +36,7 @@ import {
   parseAuthAudience,
   safeNextPath,
 } from '@/lib/safe-redirect';
+import { isOAuthProviderEnabled } from '@/lib/supabase/oauth-provider';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -297,6 +298,11 @@ export async function signInWithGoogleAction(formData: FormData): Promise<void> 
   }
   if (!failure && accountType && field(formData, 'ageConfirm') !== AGE_CONFIRM_VALUE) failure = 'age_required';
   if (!failure && accountType && field(formData, 'privacyConsent') !== PRIVACY_CONSENT_VALUE) failure = 'consent_required';
+
+  const { NEXT_PUBLIC_SUPABASE_URL: supabaseUrl, NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey } = env;
+  if (!failure && supabaseUrl && anonKey && !(await isOAuthProviderEnabled('google', { supabaseUrl, anonKey }))) {
+    failure = 'provider_disabled';
+  }
 
   if (!failure) {
     const supabase = await createSupabaseServerClient();

@@ -16,7 +16,7 @@ const serverSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(20).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
-  NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
+  NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   /** Opt-in eksplisit untuk menjalankan mode demo di build produksi (mis. situs pratinjau). */
   ALLOW_DEMO_IN_PRODUCTION: z
@@ -198,7 +198,32 @@ export const dataMode: DataMode = resolveDataMode({
   nextPhase: process.env.NEXT_PHASE,
 });
 
-export const siteUrl = env.NEXT_PUBLIC_SITE_URL;
+export interface SiteUrlInput {
+  readonly configured: string | undefined;
+  /** `process.env.VERCEL_ENV`: 'production' | 'preview' | 'development'. */
+  readonly vercelEnv: string | undefined;
+  /** `process.env.VERCEL_URL`: host deploy ini, tanpa skema. */
+  readonly vercelUrl: string | undefined;
+}
+
+/**
+ * Nilai eksplisit selalu menang. Tanpa itu, deploy preview Vercel memakai
+ * host-nya sendiri: dulu jatuh ke localhost sehingga `redirectTo` OAuth dan
+ * tautan email di preview menunjuk ke `localhost:3000` — pengguna mendarat di
+ * halaman kosong. Produksi sengaja TIDAK memakai `VERCEL_URL` (host per-deploy,
+ * bukan domain kanonik); di sana nilainya wajib diisi.
+ */
+export function resolveSiteUrl({ configured, vercelEnv, vercelUrl }: SiteUrlInput): string {
+  if (configured) return configured;
+  if (vercelEnv === 'preview' && vercelUrl) return `https://${vercelUrl}`;
+  return 'http://localhost:3000';
+}
+
+export const siteUrl = resolveSiteUrl({
+  configured: env.NEXT_PUBLIC_SITE_URL,
+  vercelEnv: process.env.VERCEL_ENV,
+  vercelUrl: process.env.VERCEL_URL,
+});
 
 /**
  * Panel moderasi & data lintas pengguna butuh `SUPABASE_SERVICE_ROLE_KEY`.

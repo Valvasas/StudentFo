@@ -154,7 +154,10 @@ Meilisearch nanti hanya berarti menulis satu implementasi baru.
      milikmu: `https://<project-ref>.supabase.co/auth/v1/callback`.
    - Tempel Client ID & Secret ke Supabase, lalu aktifkan providernya.
    - Tombolnya selalu tampil selama Supabase terkonfigurasi; kalau provider
-     belum aktif, pengguna melihat pesan yang mengarahkannya ke pengelola.
+     belum aktif, server mengeceknya lewat `/auth/v1/settings` dan pengguna
+     melihat pesan yang mengarahkannya ke pengelola (ADR-091). Preview Vercel
+     yang memakai Supabase staging: tambahkan `https://*.vercel.app/**` ke
+     Redirect URLs staging.
    - **Uji end-to-end (manual, belum pernah dijalankan — butuh project Google
      Cloud sungguhan):** (1) buka `/login` di jendela penyamaran, klik
      "Masuk dengan Google", **dengan JavaScript mati juga** (CSP `form-action`

@@ -57,9 +57,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Google mengembalikan `?error=access_denied` kalau pengguna membatalkan
   // di layar consent. Itu bukan kegagalan sistem, jadi tidak dicatat sebagai
-  // error — pengguna cukup dikembalikan ke halaman masuk.
-  if (searchParams.get('error')) {
+  // error — pengguna cukup dikembalikan ke halaman masuk. Galat lain (mis.
+  // Supabase gagal menukar kode dari Google karena Client Secret salah) TIDAK
+  // boleh ikut diam: tanpa pesan, pengguna dan pengelola sama-sama buta.
+  const oauthError = searchParams.get('error');
+  if (oauthError === 'access_denied') {
     return NextResponse.redirect(new URL('/login', siteUrl));
+  }
+  if (oauthError) {
+    const errorCode = searchParams.get('error_code') ?? undefined;
+    console.error('[auth] OAuth dikembalikan dengan galat:', oauthError, errorCode ?? '-');
+    return NextResponse.redirect(
+      failure(mapSupabaseAuthError({ code: errorCode, message: searchParams.get('error_description') ?? undefined })),
+    );
   }
 
   const supabase = await createSupabaseServerClient();
