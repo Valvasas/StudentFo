@@ -12,8 +12,8 @@
 
 | Hal | Keadaan |
 |---|---|
-| `main` | `b48d0e9` — PR #29 (ADR-079–088) dan #30 (menu melayang ADR-089) di-merge pemilik 13 Nov; deploy produksi READY. CI push `main` hijau setelah satu rerun (unduhan Google Fonts saat build) |
-| Cabang kerja | `claude/brave-cray-xsqigf` = `main` + dokumen ini + ADR-090 (klik "Daftar" → Papan lamaran) — PR Valvasas/StudentFo#31 |
+| `main` | `ed339f6` — PR #29 (ADR-079–088), #30 (menu melayang ADR-089), dan #31 (klik "Daftar" → Papan lamaran, ADR-090) di-merge pemilik 13 Nov |
+| Cabang kerja | `claude/brave-cray-xsqigf` = `main` + hasil audit 14 Nov (`docs/audit-menyeluruh.md`): **`next` 15.5.29 (patch RCE kritis)**, status pending di tombol toggle, area ketuk `/lobi`, animasi panel lonceng — **belum ada PR** |
 | Tes terakhir (13 Nov) | `verify` 1.085 · `db:test` semua · integrasi PostgREST 113 (+5 butuh GoTrue/Storage sungguhan) · Playwright seed penuh 1.021 lulus / 18 gagal → 3 akar masalah tes diperbaiki, rerun spec terdampak 79/79 + `event-gate` setelah data dimutasi 21/21 |
 
 ## 2. Keadaan database & hosting (dicek langsung 13 Nov)
@@ -154,4 +154,5 @@ Yang ditunda adalah *mengumumkan* situs (lihat "Sebelum diumumkan").
 - Tes lokal: `npm run verify` · Postgres `service postgresql start` lalu `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run db:test` (juga `test:integration`) · `npx playwright test --trace off` (build produksi mode seed di port 3100).
 - Aturan baru ADR-088: batas jendela daftar = konstanta bersama di `repository.ts`; "milik saya?" = lookup satu baris; teks pengguna di item flex/grid `min-w-0 [overflow-wrap:anywhere]`; halaman baru → `tests/e2e/extreme-content.spec.ts`.
 - Lanjutan yang tercatat di `TASKS.md`: paging `/teams` > 60 tim, lencana "Penolong" & sunting di Komunitas, pemotong foto profil/poster.
+- Audit menyeluruh 14 Nov: `docs/audit-menyeluruh.md` (§0 mencatat kandidat yang ternyata aman — jangan diaudit ulang); sisa pekerjaannya di `TASKS.md` bagian "Audit menyeluruh".
 - Menambah katalog dari riset: jaringan sesi memblokir WebFetch ke situs luar, tetapi WebSearch dengan `allowed_domains` = domain resmi penyelenggara bisa dipakai untuk mengonfirmasi tanggal. Masukkan HANYA lewat `select public.stage_scraped_event(p)` (status PENDING, hash dedup dihitung SQL) — jangan pernah menulis APPROVED; penerbitan = keputusan pemilik di `/admin`. Tanggal tanpa jam resmi → pilih waktu yang lebih awal dari kemungkinan sebenarnya.
