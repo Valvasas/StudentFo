@@ -135,8 +135,18 @@ import type {
   CommunityReportQueueItem,
   CommunityThread,
   MyCommunityContent,
+  AdminEventRow,
+  EventComment,
+  EventCommentPage,
+  EventCommentReportQueueItem,
+  EventEngagement,
+  MyEventComment,
+  RegistrationMode,
+  ShareRecipient,
 } from '@/types/domain';
-import { REPORT_REASONS } from '@/types/domain';
+import { REGISTRATION_MODES, REPORT_REASONS } from '@/types/domain';
+import { buildCommentThreads, countComments, EVENT_COMMENT_LIMITS, EVENT_LIKE_LIMIT_PER_DAY, EVENT_SHARE_LIMITS, sortShareRecipients } from '@/lib/event-comments';
+import { jakartaNoonOf, latestPerPerson, trendScore, type TrendSignal } from '@/lib/popularity';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortPhotosPosterFirst, sortSummaries } from './listing';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
@@ -227,6 +237,33 @@ interface MemoryCommunityReport {
   readonly subjectType: 'post' | 'reply';
   readonly subjectId: string;
   postId: string | null;
+  readonly authorId: string | null;
+  readonly snapshot: string;
+  readonly reason: ReportReason;
+  readonly details: string | null;
+  status: 'OPEN' | 'RESOLVED' | 'DISMISSED';
+  readonly createdAt: string;
+}
+
+interface MemoryEventComment {
+  readonly id: string;
+  readonly eventId: string;
+  readonly authorId: string;
+  readonly authorName: string;
+  /** Mode seed saja (tanpa tabel users): penanda "Tim StudentFo" dicatat saat menulis. */
+  readonly authorIsAdmin: boolean;
+  readonly parentId: string | null;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly hiddenAt: string | null;
+  readonly hiddenAuto: boolean;
+}
+
+interface MemoryEventCommentReport {
+  readonly id: string;
+  readonly reporterId: string | null;
+  readonly commentId: string;
+  eventId: string | null;
   readonly authorId: string | null;
   readonly snapshot: string;
   readonly reason: ReportReason;
@@ -555,6 +592,12 @@ export class MemoryEventRepository implements EventRepository {
   /** Kunci `pengguna|post|id` atau `pengguna|reply|id` — cermin indeks unik community_helpful. */
   private readonly communityHelpful = new Set<string>();
   private readonly communityReports = new Map<string, MemoryCommunityReport>();
+  /** Suka (ADR-092): kegiatan → orang → waktu. */
+  private readonly eventLikes = new Map<string, Map<string, string>>();
+  private readonly eventComments = new Map<string, MemoryEventComment>();
+  private readonly eventCommentReports = new Map<string, MemoryEventCommentReport>();
+  /** Waktu simpan per `userId|eventId` — sinyal "Lagi ramai" (cermin `saved_events.saved_at`). */
+  private readonly savedAt = new Map<string, string>();
   private lastCommunityStamp = 0;
   /** Id berkas → pemilik & jenis; isi berkasnya di `media` (kunci `profil:<id>`). */
   private readonly profileMediaOwners = new Map<string, string>();
@@ -587,6 +630,7 @@ export class MemoryEventRepository implements EventRepository {
     this.seedPeople(base);
     this.seedLobby(base);
     this.seedCommunity(base);
+    this.seedEngagement(base);
     // Formulir & pendaftar contoh ada sejak data demo dibangun, bukan baru
     // saat persona Penyelenggara masuk: setelah reset/restart, acara berbayar
     // contoh harus langsung menunjukkan alur formulir & pembayaran (ADR-056).
@@ -763,8 +807,11 @@ export class MemoryEventRepository implements EventRepository {
     if (mode) results = results.filter((event) => event.isOnline === (mode === 'online'));
     if (cost) results = results.filter((event) => matchesCost(event, cost));
 
+    const sort = query.sort ?? 'relevance';
+    // Angka kartu & skor ramai dihitung saat dibaca (produksi: tabel event_engagement + pg_cron).
+    const trends = sort === 'popular' ? this.trendScores(now) : null;
     return paginate(
-      sortSummaries(results, query.sort ?? 'relevance', now, query.profile, query.promoted ?? false),
+      sortSummaries(results.map((event) => this.withCounts(event, trends)), sort, now, query.profile, query.promoted ?? false),
       resolvePaging(query),
     );
   }
@@ -786,7 +833,8 @@ export class MemoryEventRepository implements EventRepository {
         (a, b) =>
           new Date(a.primaryDeadlineAt ?? 0).getTime() - new Date(b.primaryDeadlineAt ?? 0).getTime(),
       )
-      .slice(0, limit);
+      .slice(0, limit)
+      .map((event) => this.withCounts(event, null));
   }
 
   async listCategories(): Promise<readonly Category[]> {
@@ -1366,6 +1414,10 @@ export class MemoryEventRepository implements EventRepository {
     this.seekers.delete(userId);
     this.suspensions.delete(userId);
     this.savedEvents.delete(userId);
+    for (const key of this.savedAt.keys()) if (key.startsWith(`${userId}|`)) this.savedAt.delete(key);
+    for (const likes of this.eventLikes.values()) likes.delete(userId);
+    for (const [id, comment] of this.eventComments) if (comment.authorId === userId) this.dropEventComment(id);
+    for (const report of this.eventCommentReports.values()) if (report.reporterId === userId) this.eventCommentReports.set(report.id, { ...report, reporterId: null });
     this.trackerEntries.delete(userId);
     this.readNotifications.delete(userId);
     this.storedNotifications.delete(userId);
@@ -1428,12 +1480,14 @@ export class MemoryEventRepository implements EventRepository {
     const saved = getOrCreate(this.savedEvents, userId, () => new Set<string>());
     if (saved.has(eventId)) return;
     saved.add(eventId);
+    this.savedAt.set(`${userId}|${eventId}`, new Date().toISOString());
     this.updateEvent(eventId, (event) => ({ ...event, savedCount: event.savedCount + 1 }));
   }
 
   async unsaveEvent(userId: string, eventId: string): Promise<void> {
     const saved = this.savedEvents.get(userId);
     if (!saved?.delete(eventId)) return;
+    this.savedAt.delete(`${userId}|${eventId}`);
     this.updateEvent(eventId, (event) => ({ ...event, savedCount: Math.max(event.savedCount - 1, 0) }));
   }
 
@@ -4042,5 +4096,498 @@ export class MemoryEventRepository implements EventRepository {
       });
     }
     return 'invited';
+  }
+  // ------------------------------------------------------------------
+  // Suka, komentar, bagikan, "Lagi ramai", perawatan postingan (ADR-092).
+  // Cermin migration 20261116100001: hak & urutan pemeriksaan sama dengan
+  // RPC DEFINER-nya, kuota memakai ember yang sama, notifikasi satu per
+  // (penerima, kegiatan, jenis).
+  // ------------------------------------------------------------------
+
+  /** Komentar yang terhitung di kartu: tidak disembunyikan, dan utamanya juga tampil (cermin trigger penghitung). */
+  private cardCommentCount(eventId: string): number {
+    let count = 0;
+    for (const comment of this.eventComments.values()) {
+      if (comment.eventId !== eventId || comment.hiddenAt) continue;
+      if (comment.parentId && this.eventComments.get(comment.parentId)?.hiddenAt !== null) continue;
+      count += 1;
+    }
+    return count;
+  }
+
+  /** Cermin `event_engagement_state`: penulis tertangguh juga tidak dihitung. */
+  private visibleCommentCount(eventId: string): number {
+    let count = 0;
+    for (const comment of this.eventComments.values()) {
+      if (comment.eventId !== eventId || comment.hiddenAt || this.suspensions.has(comment.authorId)) continue;
+      if (comment.parentId) {
+        const parent = this.eventComments.get(comment.parentId);
+        if (!parent || parent.hiddenAt || this.suspensions.has(parent.authorId)) continue;
+      }
+      count += 1;
+    }
+    return count;
+  }
+
+  private withCounts<T extends EventSummary>(event: T, trends: ReadonlyMap<string, number> | null): T {
+    return {
+      ...event,
+      counts: { likes: this.eventLikes.get(event.id)?.size ?? 0, comments: this.cardCommentCount(event.id) },
+      ...(trends ? { trendScore: trends.get(event.id) ?? 0 } : {}),
+    };
+  }
+
+  /** Kembaran `refresh_event_trends()` — dihitung saat dibaca, bukan tiap 15 menit. */
+  private trendScores(now: Date): Map<string, number> {
+    const open = new Set(
+      this.events
+        .filter((event) => event.status === 'APPROVED' && (!event.primaryDeadlineAt || Date.parse(event.primaryDeadlineAt) >= now.getTime()))
+        .map((event) => event.id),
+    );
+    const signals = new Map<string, TrendSignal[]>();
+    const push = (eventId: string, signal: TrendSignal) => {
+      if (open.has(eventId)) getOrCreate(signals, eventId, () => []).push(signal);
+    };
+    for (const [eventId, likes] of this.eventLikes) {
+      for (const [userId, at] of likes) if (!this.suspensions.has(userId)) push(eventId, { kind: 'like', at });
+    }
+    const commenters = latestPerPerson(
+      [...this.eventComments.values()]
+        .filter((comment) => !comment.hiddenAt && !this.suspensions.has(comment.authorId))
+        .map((comment) => ({ eventId: comment.eventId, userId: comment.authorId, at: comment.createdAt })),
+    );
+    for (const [eventId, people] of commenters) for (const at of people.values()) push(eventId, { kind: 'comment', at });
+    for (const [key, at] of this.savedAt) push(key.slice(key.indexOf('|') + 1), { kind: 'save', at });
+    const clickers = latestPerPerson(
+      this.recommendationSignals
+        .filter((signal) => signal.kind === 'register_click' && signal.userId)
+        .map((signal) => ({ eventId: signal.eventId, userId: signal.userId!, at: signal.createdAt })),
+    );
+    for (const [eventId, people] of clickers) for (const at of people.values()) push(eventId, { kind: 'click', at });
+    for (const registration of this.registrations.values()) {
+      if (isActiveRegistration(registration.status)) push(registration.eventId, { kind: 'registration', at: registration.createdAt });
+    }
+    for (const [key, stats] of this.dailyStats) {
+      const [eventId = '', day = ''] = key.split('|');
+      const at = jakartaNoonOf(day);
+      if (at && stats.visitors > 0) push(eventId, { kind: 'visitor', at, count: stats.visitors });
+    }
+    const scores = new Map<string, number>();
+    for (const [eventId, list] of signals) scores.set(eventId, trendScore(list, now));
+    return scores;
+  }
+
+  async getEventEngagement(viewerId: string | null, eventId: string): Promise<EventEngagement> {
+    const event = this.findEvent(eventId);
+    if (!event || !isPubliclyVisible(event)) return { likes: 0, comments: 0, liked: false, available: true };
+    const likes = this.eventLikes.get(eventId);
+    return { likes: likes?.size ?? 0, comments: this.visibleCommentCount(eventId), liked: viewerId ? (likes?.has(viewerId) ?? false) : false, available: true };
+  }
+
+  async toggleEventLike(viewerId: string, eventId: string): Promise<{ readonly liked: boolean; readonly likes: number }> {
+    if (this.suspensions.has(viewerId)) throw actionError('engagement_unavailable');
+    const event = this.findEvent(eventId);
+    if (!event || !isPubliclyVisible(event)) throw actionError('event_unavailable');
+    const likes = getOrCreate(this.eventLikes, eventId, () => new Map<string, string>());
+    if (likes.delete(viewerId)) return { liked: false, likes: likes.size };
+    if (!this.rateLimiter.consume(`event-like:${viewerId}`, EVENT_LIKE_LIMIT_PER_DAY, 86_400)) throw actionError('like_rate_limited');
+    likes.set(viewerId, this.communityNow());
+    return { liked: true, likes: likes.size };
+  }
+
+  private eventCommentView(viewerId: string, comment: MemoryEventComment): EventComment {
+    return {
+      id: comment.id,
+      parentId: comment.parentId,
+      body: comment.body,
+      author: this.communityAuthor(viewerId, comment.authorId, comment.authorName),
+      role: comment.authorIsAdmin ? 'team' : this.managesEvent(comment.authorId, comment.eventId) ? 'organizer' : null,
+      isMine: comment.authorId === viewerId,
+      createdAt: comment.createdAt,
+    };
+  }
+
+  async listEventComments(viewerId: string, eventId: string): Promise<EventCommentPage> {
+    const event = this.findEvent(eventId);
+    if (!event || !isPubliclyVisible(event)) return { threads: [], total: 0, truncated: false, available: true };
+    const visible = [...this.eventComments.values()].filter(
+      (comment) => comment.eventId === eventId && !comment.hiddenAt && this.communityAuthorVisible(viewerId, comment.authorId),
+    );
+    const tops = visible
+      .filter((comment) => comment.parentId === null)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || (a.id < b.id ? 1 : -1));
+    const shown = tops.slice(0, EVENT_COMMENT_LIMITS.threadsShown);
+    const shownIds = new Set(shown.map((comment) => comment.id));
+    const replies = visible
+      .filter((comment) => comment.parentId !== null && shownIds.has(comment.parentId))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || (a.id < b.id ? -1 : 1))
+      .slice(0, EVENT_COMMENT_LIMITS.repliesMax);
+    const threads = buildCommentThreads([...shown, ...replies].map((comment) => this.eventCommentView(viewerId, comment)));
+    return { threads, total: countComments(threads), truncated: tops.length > shown.length, available: true };
+  }
+
+  async createEventComment(actor: EventActor, eventId: string, body: string, parentId: string | null): Promise<string> {
+    if (this.suspensions.has(actor.id)) throw actionError('engagement_unavailable');
+    const event = this.findEvent(eventId);
+    if (!event || event.status !== 'APPROVED') throw actionError('comment_event_unavailable');
+    const text = body.trim();
+    if (text.length < EVENT_COMMENT_LIMITS.bodyMin || text.length > EVENT_COMMENT_LIMITS.bodyMax) throw actionError('invalid_event_comment');
+    if (hasContactInfo(text)) throw actionError('community_contact_blocked');
+    let parent: MemoryEventComment | undefined;
+    if (parentId !== null) {
+      parent = this.eventComments.get(parentId);
+      if (!parent || parent.eventId !== eventId || parent.parentId !== null || parent.hiddenAt || !this.communityAuthorVisible(actor.id, parent.authorId)) {
+        throw actionError('event_comment_not_found');
+      }
+    }
+    if (!this.rateLimiter.consume(`event-comment:${actor.id}`, EVENT_COMMENT_LIMITS.perDay, 86_400)) throw actionError('comment_rate_limited');
+    const id = this.nextId();
+    this.eventComments.set(id, {
+      id,
+      eventId,
+      authorId: actor.id,
+      authorName: actor.fullName,
+      authorIsAdmin: actor.isAdmin,
+      parentId,
+      body: text,
+      createdAt: this.communityNow(),
+      hiddenAt: null,
+      hiddenAuto: false,
+    });
+    if (parent && parent.authorId !== actor.id) {
+      this.notifyAbout(parent.authorId, eventId, 'EVENT_COMMENT_REPLY', `Ada balasan untuk komentarmu di "${event.title.slice(0, 100)}".`);
+    }
+    return id;
+  }
+
+  /** Komentar + balasannya (CASCADE parent_id). */
+  private dropEventComment(commentId: string): void {
+    this.eventComments.delete(commentId);
+    for (const [id, comment] of this.eventComments) if (comment.parentId === commentId) this.eventComments.delete(id);
+  }
+
+  async deleteEventComment(viewerId: string, commentId: string): Promise<void> {
+    const comment = this.eventComments.get(commentId);
+    if (!comment || comment.authorId !== viewerId) throw actionError('event_comment_not_found');
+    this.dropEventComment(commentId);
+  }
+
+  async reportEventComment(viewerId: string, { commentId, reason, details }: { commentId: string; reason: ReportReason; details: string | null }): Promise<void> {
+    if (this.suspensions.has(viewerId)) throw actionError('report_unavailable');
+    const comment = this.eventComments.get(commentId);
+    const event = comment ? this.findEvent(comment.eventId) : undefined;
+    if (!comment || comment.hiddenAt || !event || !isPubliclyVisible(event) || comment.authorId === viewerId || !this.communityAuthorVisible(viewerId, comment.authorId)) {
+      throw actionError('report_unavailable');
+    }
+    if (!REPORT_REASONS.includes(reason)) throw actionError('invalid_report');
+    if (!this.rateLimiter.consume(`report:${viewerId}`, REPORT_RATE_LIMIT_PER_DAY, 86_400)) throw actionError('report_rate_limited');
+    const open = [...this.eventCommentReports.values()].filter((report) => report.commentId === commentId && report.status === 'OPEN');
+    if (!open.some((report) => report.reporterId === viewerId)) {
+      const reportId = this.nextId();
+      const report: MemoryEventCommentReport = {
+        id: reportId,
+        reporterId: viewerId,
+        commentId,
+        eventId: comment.eventId,
+        authorId: comment.authorId,
+        snapshot: comment.body.slice(0, 1000),
+        reason,
+        details: details?.trim().slice(0, 1000) || null,
+        status: 'OPEN',
+        createdAt: new Date().toISOString(),
+      };
+      this.eventCommentReports.set(reportId, report);
+      open.push(report);
+    }
+    if (new Set(open.map((report) => report.reporterId)).size >= EVENT_COMMENT_LIMITS.autoHideReporters) {
+      this.eventComments.set(commentId, { ...comment, hiddenAt: new Date().toISOString(), hiddenAuto: true });
+    }
+  }
+
+  async listMyEventComments(viewerId: string): Promise<readonly MyEventComment[]> {
+    return [...this.eventComments.values()]
+      .filter((comment) => comment.authorId === viewerId)
+      .map((comment) => {
+        const event = this.findEvent(comment.eventId);
+        return {
+          id: comment.id,
+          eventSlug: event?.slug ?? null,
+          eventTitle: event?.title ?? null,
+          body: comment.body,
+          isReply: comment.parentId !== null,
+          hidden: comment.hiddenAt !== null,
+          createdAt: comment.createdAt,
+        };
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async listShareRecipients(viewer: NetworkViewer): Promise<readonly ShareRecipient[]> {
+    // Sumber yang sama dengan Koneksi (kedua repository), lalu A–Z untuk dicari mata.
+    const page = await this.listConnections(viewer.id, { limit: EVENT_SHARE_LIMITS.recipientsListed, cursor: null, kind: 'accepted' });
+    return sortShareRecipients(page.items.map((connection) => ({ userId: connection.person.userId, fullName: connection.person.fullName })));
+  }
+
+  async shareEventWithConnections(actor: NetworkViewer, eventId: string, recipientIds: readonly string[]): Promise<number> {
+    if (this.suspensions.has(actor.id)) throw actionError('engagement_unavailable');
+    const event = this.findEvent(eventId);
+    if (!event || event.status !== 'APPROVED') throw actionError('event_unavailable');
+    if (recipientIds.length < 1 || recipientIds.length > EVENT_SHARE_LIMITS.recipientsMax) throw actionError('invalid_share');
+    if (!this.rateLimiter.consume(`event-share:${actor.id}`, EVENT_SHARE_LIMITS.perDay, 86_400)) throw actionError('share_rate_limited');
+    const peers = this.acceptedPeers(actor.id);
+    const message = `${communityDisplayName(actor.fullName)} membagikan "${event.title.slice(0, 100)}" kepadamu.`;
+    let sent = 0;
+    for (const recipient of new Set(recipientIds)) {
+      if (recipient === actor.id || !peers.has(recipient) || this.isBlocked(actor.id, recipient) || this.suspensions.has(recipient)) continue;
+      this.notifyAbout(recipient, eventId, 'EVENT_SHARED', message);
+      sent += 1;
+    }
+    return sent;
+  }
+
+  async listEventCommentReports(limit: number): Promise<readonly EventCommentReportQueueItem[]> {
+    const groups = new Map<string, MemoryEventCommentReport[]>();
+    for (const report of this.eventCommentReports.values()) {
+      if (report.status === 'OPEN') getOrCreate(groups, report.commentId, () => []).push(report);
+    }
+    return [...groups.values()]
+      .map((reports) => {
+        const ordered = [...reports].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        const first = ordered[0]!;
+        const latest = ordered.at(-1)!;
+        const comment = this.eventComments.get(first.commentId);
+        const event = latest.eventId ? this.findEvent(latest.eventId) : undefined;
+        return {
+          reportId: first.id,
+          commentId: first.commentId,
+          event: event ? { slug: event.slug, title: event.title } : null,
+          authorId: latest.authorId,
+          authorName: latest.authorId ? (this.people.get(latest.authorId)?.person.fullName ?? comment?.authorName ?? null) : null,
+          snapshot: latest.snapshot,
+          reasons: [...new Set(ordered.map((report) => report.reason))].sort(),
+          details: [...ordered].reverse().find((report) => report.details)?.details ?? null,
+          reportCount: ordered.length,
+          hidden: Boolean(comment?.hiddenAt),
+          hiddenAuto: comment?.hiddenAuto ?? false,
+          stillExists: comment !== undefined,
+          firstAt: first.createdAt,
+        };
+      })
+      .sort((a, b) => a.firstAt.localeCompare(b.firstAt))
+      .slice(0, Math.min(Math.max(limit, 1), 100));
+  }
+
+  async resolveEventCommentReport({ reportId, actorId, actorName, outcome, hide, note }: ResolveCommunityReportInput): Promise<void> {
+    const report = this.eventCommentReports.get(reportId);
+    if (!report || report.status !== 'OPEN') throw actionError('report_not_found');
+    const comment = this.eventComments.get(report.commentId);
+    if (comment && outcome === 'RESOLVED' && hide) {
+      this.eventComments.set(comment.id, { ...comment, hiddenAt: comment.hiddenAt ?? new Date().toISOString(), hiddenAuto: false });
+    }
+    // Tidak melanggar: hanya yang tersembunyi OTOMATIS tampil lagi.
+    if (comment?.hiddenAuto && outcome === 'DISMISSED') this.eventComments.set(comment.id, { ...comment, hiddenAt: null, hiddenAuto: false });
+    const closed = [...this.eventCommentReports.values()].filter((other) => other.commentId === report.commentId && other.status === 'OPEN');
+    for (const other of closed) other.status = outcome;
+    this.logModeration({
+      subjectType: 'report',
+      subjectId: report.id,
+      title: `Laporan komentar kegiatan (${report.reason})${outcome === 'RESOLVED' && hide ? ' — disembunyikan' : ''}`,
+      fromStatus: 'OPEN',
+      toStatus: outcome,
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: note?.trim().slice(0, 500) || null,
+    });
+    for (const reporterId of new Set(closed.map((other) => other.reporterId).filter((id): id is string => id !== null))) {
+      this.notify(reporterId, {
+        id: this.nextId(),
+        type: outcome === 'RESOLVED' ? 'REPORT_RESOLVED' : 'REPORT_DISMISSED',
+        message:
+          outcome === 'RESOLVED'
+            ? 'Terima kasih. Laporanmu tentang sebuah komentar kegiatan sudah ditindaklanjuti moderator. Demi privasi semua pihak, rincian tindakannya tidak kami bagikan.'
+            : 'Laporanmu tentang sebuah komentar kegiatan sudah ditinjau moderator dan belum ditemukan pelanggaran Syarat & Ketentuan. Punya bukti tambahan? Kirim laporan baru.',
+      });
+    }
+  }
+
+  async hideEventCommentAsAdmin({ commentId, actorId, actorName, reason }: { commentId: string; actorId: string; actorName?: string; reason: string | null }): Promise<void> {
+    const comment = this.eventComments.get(commentId);
+    if (!comment || comment.hiddenAt) throw actionError('event_comment_not_found');
+    this.eventComments.set(commentId, { ...comment, hiddenAt: new Date().toISOString(), hiddenAuto: false });
+    const trimmed = reason?.trim().slice(0, 500) || null;
+    for (const report of this.eventCommentReports.values()) if (report.commentId === commentId && report.status === 'OPEN') report.status = 'RESOLVED';
+    this.logModeration({
+      subjectType: 'report',
+      subjectId: commentId,
+      title: `Komentar kegiatan disembunyikan: ${comment.body.slice(0, 80)}`,
+      fromStatus: 'OPEN',
+      toStatus: 'RESOLVED',
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: trimmed,
+    });
+  }
+
+  async searchEventsForAdmin({ search, status, limit }: { search: string; status: EventStatus | null; limit: number }): Promise<readonly AdminEventRow[]> {
+    const needle = search.trim().toLowerCase();
+    return this.events
+      .filter((event) => (status === null || event.status === status) && (!needle || [event.title, event.organizer, event.slug].some((value) => value.toLowerCase().includes(needle))))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || (a.id < b.id ? -1 : 1))
+      .slice(0, Math.min(Math.max(limit, 1), 100))
+      .map((event) => ({
+        id: event.id,
+        slug: event.slug,
+        title: event.title,
+        organizer: event.organizer,
+        eventType: event.eventType,
+        status: event.status,
+        primaryDeadlineAt: event.primaryDeadlineAt,
+        createdAt: event.createdAt,
+        registrationMode: event.registrationMode ?? 'external',
+        rejectionReason:
+          event.status === 'REJECTED'
+            ? ([...this.moderationLog].reverse().find((entry) => entry.subjectId === event.id && entry.toStatus === 'REJECTED')?.reason ?? null)
+            : null,
+      }));
+  }
+
+  async getEventForAdmin(eventId: string): Promise<EventDetail | null> {
+    return this.findEvent(eventId) ?? null;
+  }
+
+  async deleteEventPermanently({ eventId, actorId, actorName, reason }: { eventId: string; actorId: string; actorName?: string; reason: string }): Promise<void> {
+    const event = this.findEvent(eventId);
+    if (!event) throw actionError('event_not_found');
+    if (event.status !== 'REJECTED') throw actionError('event_not_taken_down');
+    const trimmed = reason.trim().slice(0, 500);
+    if (trimmed.length < 5) throw actionError('deletion_reason_required');
+    if ([...this.registrations.values()].some((entry) => entry.eventId === eventId && isActiveRegistration(entry.status))) {
+      throw actionError('event_has_registrations');
+    }
+    this.logModeration({
+      subjectType: 'event',
+      subjectId: eventId,
+      title: event.title,
+      fromStatus: 'REJECTED',
+      toStatus: 'DELETED',
+      actor: { reviewerId: actorId, reviewerName: actorName },
+      reason: trimmed,
+    });
+
+    // CASCADE seperti FK `ON DELETE CASCADE` ke events; SET NULL untuk Komunitas & laporan komentar.
+    this.events.splice(this.events.findIndex((candidate) => candidate.id === eventId), 1);
+    for (const [userId, saved] of this.savedEvents) {
+      saved.delete(eventId);
+      this.savedAt.delete(`${userId}|${eventId}`);
+    }
+    for (const entries of this.trackerEntries.values()) entries.delete(eventId);
+    for (const [id, team] of this.teams) if (team.eventId === eventId) this.teams.delete(id);
+    for (const [id, claim] of this.claims) if (claim.eventId === eventId) this.claims.delete(id);
+    for (const [id, revision] of this.revisions) if (revision.eventId === eventId) this.revisions.delete(id);
+    this.eventManagers.delete(eventId);
+    for (const key of this.dailyStats.keys()) if (key.startsWith(`${eventId}|`)) this.dailyStats.delete(key);
+    for (const key of this.viewDedup) if (key.startsWith(`${eventId}|`)) this.viewDedup.delete(key);
+    const keepSignals = <T extends { readonly eventId: string }>(list: T[]) => list.splice(0, list.length, ...list.filter((item) => item.eventId !== eventId));
+    keepSignals(this.recommendationSignals);
+    keepSignals(this.demoAnalyticsSignals);
+    keepSignals(this.outboundSurveys);
+    this.registrationForms.delete(eventId);
+    for (const [id, registration] of this.registrations) {
+      if (registration.eventId !== eventId) continue;
+      this.dropMedia(registration.proofKey);
+      this.registrations.delete(id);
+    }
+    for (const [id, photo] of this.photos) {
+      if (photo.eventId !== eventId) continue;
+      this.dropMedia(photo.key);
+      this.photos.delete(id);
+    }
+    for (const [id, question] of this.questions) if (question.eventId === eventId) this.questions.delete(id);
+    this.lobbyMembers.delete(eventId);
+    for (const key of this.lobbyInvites.keys()) if (key.startsWith(`${eventId}:`)) this.lobbyInvites.delete(key);
+    this.eventLikes.delete(eventId);
+    for (const [id, comment] of this.eventComments) if (comment.eventId === eventId) this.eventComments.delete(id);
+    for (const report of this.eventCommentReports.values()) if (report.eventId === eventId) report.eventId = null;
+    for (const [id, post] of this.communityPosts) if (post.eventId === eventId) this.communityPosts.set(id, { ...post, eventId: null });
+    for (const list of this.storedNotifications.values()) list.splice(0, list.length, ...list.filter((item) => item.event?.id !== eventId));
+  }
+
+  async setEventRegistrationMode(actor: EventActor, eventId: string, mode: RegistrationMode): Promise<void> {
+    if (!REGISTRATION_MODES.includes(mode)) throw actionError('invalid_request');
+    if (!this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
+    if (!this.findEvent(eventId)) throw actionError('event_unavailable');
+    this.updateEvent(eventId, (event) => ({ ...event, registrationMode: mode }));
+  }
+
+  /**
+   * Suka & komentar contoh dari orang contoh (mode seed): halaman kegiatan
+   * dan bagian "Lagi ramai" langsung bisa dinilai. Tidak ada akun sungguhan.
+   */
+  private seedEngagement(base: Date): void {
+    const at = (hoursAgo: number) => new Date(base.getTime() - hoursAgo * 3_600_000).toISOString();
+    const bySlug = (slug: string) => this.events.find((event) => event.slug === slug);
+    const plan: readonly { slug: string; likers: readonly string[]; likeHoursAgo: number; comments: readonly { author: string; body: string; hoursAgo: number; replies?: readonly { author: string; body: string; hoursAgo: number }[] }[] }[] = [
+      {
+        slug: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026',
+        likers: ['seed-user-1', 'seed-user-2', 'seed-user-3', 'seed-user-4', 'seed-user-5', 'seed-user-6', 'seed-user-7'],
+        likeHoursAgo: 6,
+        comments: [
+          {
+            author: 'seed-user-2',
+            body: 'Tahun lalu finalisnya banyak yang pakai tema pertanian. Ada yang tahu juri tahun ini dari kampus mana saja?',
+            hoursAgo: 9,
+            replies: [{ author: 'seed-user-5', body: 'Belum diumumkan, biasanya muncul di buku panduan versi kedua. Pantau tab Syarat & berkas.', hoursAgo: 7 }],
+          },
+          { author: 'seed-user-7', body: 'Semangat semua! Jangan lupa daftar sebelum H-3, server pendaftarannya biasanya penuh di hari terakhir.', hoursAgo: 3 },
+        ],
+      },
+      {
+        slug: 'festival-film-pendek-pelajar-nusantara',
+        likers: ['seed-user-1', 'seed-user-3', 'seed-user-6', 'seed-user-9'],
+        likeHoursAgo: 20,
+        comments: [{ author: 'seed-user-9', body: 'Durasi maksimal 10 menit termasuk kredit ya? Aku baca ulang panduannya masih ragu.', hoursAgo: 22 }],
+      },
+      {
+        slug: 'lomba-karya-tulis-ilmiah-energi-terbarukan',
+        likers: ['seed-user-4', 'seed-user-8'],
+        likeHoursAgo: 40,
+        comments: [],
+      },
+    ];
+    for (const entry of plan) {
+      const event = bySlug(entry.slug);
+      if (!event) continue;
+      const likes = getOrCreate(this.eventLikes, event.id, () => new Map<string, string>());
+      entry.likers.forEach((userId, index) => likes.set(userId, at(entry.likeHoursAgo + index)));
+      for (const comment of entry.comments) {
+        const id = this.nextId();
+        const name = (userId: string) => this.people.get(userId)?.person.fullName ?? 'Anggota';
+        this.eventComments.set(id, {
+          id,
+          eventId: event.id,
+          authorId: comment.author,
+          authorName: name(comment.author),
+          authorIsAdmin: false,
+          parentId: null,
+          body: comment.body,
+          createdAt: at(comment.hoursAgo),
+          hiddenAt: null,
+          hiddenAuto: false,
+        });
+        for (const reply of comment.replies ?? []) {
+          const replyId = this.nextId();
+          this.eventComments.set(replyId, {
+            id: replyId,
+            eventId: event.id,
+            authorId: reply.author,
+            authorName: name(reply.author),
+            authorIsAdmin: false,
+            parentId: id,
+            body: reply.body,
+            createdAt: at(reply.hoursAgo),
+            hiddenAt: null,
+            hiddenAuto: false,
+          });
+        }
+      }
+    }
   }
 }

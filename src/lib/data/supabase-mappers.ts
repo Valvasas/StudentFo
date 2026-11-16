@@ -43,6 +43,7 @@ import type {
   AdminUserSummary,
   ContentReport,
   ProfileMedia,
+  RegistrationMode,
 } from '@/types/domain';
 import {
   ACHIEVEMENTS,
@@ -52,6 +53,7 @@ import {
   ORGANIZER_STATUSES,
   LOBBY_INTENTS,
   ORGANIZER_TYPES,
+  REGISTRATION_MODES,
   REGISTRATION_STATUSES,
   TEAM_SKILL_SLUGS,
   toTeamRole,
@@ -124,7 +126,13 @@ export function toSummary(row: EventListingRow): EventSummary {
     priceAmount: row.is_free === false ? toPriceAmount(row.price_amount) : null,
     featuredUntil: row.is_featured ? row.featured_until : null,
     verificationBadge: toVerificationBadge(row.verification_badge),
+    ...(typeof row.trend_score === 'number' ? { trendScore: row.trend_score } : {}),
   };
+}
+
+/** Nilai tak dikenal/kolom belum ada = `external` (perilaku lama: tautan resmi). */
+export function toRegistrationMode(value: string | null | undefined): RegistrationMode {
+  return (REGISTRATION_MODES as readonly string[]).includes(value ?? '') ? (value as RegistrationMode) : 'external';
 }
 
 export function toDetail(row: EventListingRow, deadlines: readonly EventDeadlineRow[]): EventDetail {

@@ -9,13 +9,19 @@ import {
   ChevronDown,
   CircleAlert,
   CircleDot,
+  Clock,
+  Copy,
+  Gauge,
   Hash,
+  Heading,
+  LayoutTemplate,
   Link2,
   ListChecks,
   Mail,
   Phone,
   Plus,
   SquareCheck,
+  SquareChevronDown,
   Trash2,
   Type,
   X,
@@ -24,9 +30,10 @@ import {
 import { FORM_BUILDER_CHANGE_EVENT } from '@/components/organizer/registration-settings';
 import { buttonVariants } from '@/components/ui/button';
 import { controlClass, SelectInput } from '@/components/ui/field';
-import { hasOptions, newFieldId, REGISTRATION_FORM_LIMITS } from '@/lib/registration-form';
+import { DEFAULT_SCALE, hasOptions, newFieldId, REGISTRATION_FORM_LIMITS } from '@/lib/registration-form';
+import { FORM_TEMPLATES, type FormTemplate } from '@/lib/form-templates';
 import { cn } from '@/lib/utils';
-import { FORM_FIELD_TYPE_LABEL, FORM_FIELD_TYPES, type FormField, type FormFieldType } from '@/types/domain';
+import { FORM_FIELD_TYPE_LABEL, FORM_FIELD_TYPES, type FormField, type FormFieldType, type FormScale } from '@/types/domain';
 
 const TYPE_ICON: Record<FormFieldType, LucideIcon> = {
   short_text: Type,
@@ -39,6 +46,10 @@ const TYPE_ICON: Record<FormFieldType, LucideIcon> = {
   select: CircleDot,
   multi_select: ListChecks,
   checkbox: SquareCheck,
+  dropdown: SquareChevronDown,
+  time: Clock,
+  scale: Gauge,
+  section: Heading,
 };
 
 const LIMITS = REGISTRATION_FORM_LIMITS;
@@ -52,12 +63,13 @@ interface DraftField {
   readonly help: string;
   readonly required: boolean;
   readonly options: readonly string[];
+  readonly scale: FormScale;
 }
 
 type Problem = 'label' | 'options' | null;
 
 function toDraft(field: FormField): DraftField {
-  return { ...field, help: field.help ?? '', options: [...field.options] };
+  return { ...field, help: field.help ?? '', options: [...field.options], scale: field.scale ?? DEFAULT_SCALE };
 }
 
 function cleanOptions(options: readonly string[]): string[] {
@@ -70,13 +82,33 @@ function toPayload(field: DraftField) {
     type: field.type,
     label: field.label.trim(),
     help: field.help.trim() || null,
-    required: field.required,
+    required: field.type === 'section' ? false : field.required,
     options: hasOptions(field.type) ? cleanOptions(field.options) : [],
+    ...(field.type === 'scale'
+      ? { scale: { max: field.scale.max, lowLabel: field.scale.lowLabel?.trim() || null, highLabel: field.scale.highLabel?.trim() || null } }
+      : {}),
   };
 }
 
+function blankField(type: FormFieldType): DraftField {
+  return {
+    id: newFieldId(),
+    type,
+    label: '',
+    help: '',
+    required: type !== 'section',
+    options: hasOptions(type) ? ['', ''] : [],
+    scale: DEFAULT_SCALE,
+  };
+}
+
+const SCALE_MAX_OPTIONS = Array.from(
+  { length: REGISTRATION_FORM_LIMITS.scaleMax - REGISTRATION_FORM_LIMITS.scaleMin + 1 },
+  (_, index) => index + REGISTRATION_FORM_LIMITS.scaleMin,
+);
+
 function titleOf(field: DraftField): string {
-  return field.label.trim() || 'Pertanyaan tanpa judul';
+  return field.label.trim() || (field.type === 'section' ? 'Bagian tanpa judul' : 'Pertanyaan tanpa judul');
 }
 
 /** Wilayah live tidak membacakan ulang teks yang persis sama (hapus kedua, gagal simpan kedua) — spasi tak terlihat bergantian membuatnya berubah. */
@@ -91,7 +123,7 @@ function problemOf(field: DraftField): Problem {
 }
 
 const PROBLEM_TEXT: Record<Exclude<Problem, null>, string> = {
-  label: 'Tulis pertanyaannya.',
+  label: 'Tulis pertanyaan atau judul bagiannya.',
   options: `Isi minimal ${LIMITS.optionsMin} pilihan yang berbeda.`,
 };
 
@@ -113,16 +145,20 @@ export function FormBuilder({
   types = FORM_FIELD_TYPES,
   maxFields = LIMITS.maxFields,
   emptyText = 'Belum ada pertanyaan tambahan. Pendaftar cukup mengirim nama & email akunnya.',
+  templates = false,
 }: {
   initialFields: readonly FormField[];
   /** Jenis yang boleh dipilih — pendataan kinerja (ADR-073) membatasinya ke jenis yang bisa dihitung & anonim. */
   types?: readonly FormFieldType[];
   maxFields?: number;
   emptyText?: string;
+  /** Tawarkan templat siap pakai (formulir pendaftaran; ADR-092). */
+  templates?: boolean;
 }) {
   const [fields, setFields] = useState<DraftField[]>(() => initialFields.map(toDraft));
   const [openId, setOpenId] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const [pickingTemplate, setPickingTemplate] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [removed, setRemoved] = useState<{ field: DraftField; index: number } | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -175,12 +211,42 @@ export function FormBuilder({
   };
 
   const add = (type: FormFieldType) => {
-    const field: DraftField = { id: newFieldId(), type, label: '', help: '', required: true, options: hasOptions(type) ? ['', ''] : [] };
+    const field = blankField(type);
     setFields((current) => [...current, field]);
     setOpenId(field.id);
     setPicking(false);
     setRemoved(null);
     focusAfterRender.current = `${field.id}-label`;
+  };
+
+  /** "Duplikat" Google Form: salinan tepat di bawahnya, id baru (jawaban tidak tertukar). */
+  const duplicate = (index: number) => {
+    const field = fields[index];
+    if (!field || fields.length >= maxFields) return;
+    const copy: DraftField = { ...field, id: newFieldId(), label: field.label.trim() ? `${field.label.trim()} (salinan)`.slice(0, LIMITS.labelMax) : '' };
+    const next = [...fields];
+    next.splice(index + 1, 0, copy);
+    setFields(next);
+    setOpenId(copy.id);
+    setRemoved(null);
+    focusAfterRender.current = `${copy.id}-label`;
+    announce(`Salinan “${titleOf(field)}” ditambahkan di urutan ${index + 2}.`);
+  };
+
+  const applyTemplate = (template: FormTemplate) => {
+    const room = maxFields - fields.length;
+    const additions = template.fields.slice(0, room).map((field) => toDraft({ ...field, id: newFieldId() }));
+    setPickingTemplate(false);
+    if (additions.length === 0) return;
+    setFields((current) => [...current, ...additions]);
+    setOpenId(null);
+    setRemoved(null);
+    focusAfterRender.current = `${additions[0]!.id}-toggle`;
+    announce(
+      additions.length < template.fields.length
+        ? `${additions.length} dari ${template.fields.length} kolom templat ditambahkan — batas ${maxFields} pertanyaan tercapai.`
+        : `${additions.length} kolom dari templat “${template.name}” ditambahkan di bawah.`,
+    );
   };
 
   const move = (index: number, delta: -1 | 1) => {
@@ -255,6 +321,7 @@ export function FormBuilder({
               onChange={(patch) => update(field.id, patch)}
               onMove={(delta) => move(index, delta)}
               onRemove={() => remove(index)}
+              onDuplicate={fields.length < maxFields ? () => duplicate(index) : null}
             />
           ))}
         </ol>
@@ -328,15 +395,79 @@ export function FormBuilder({
             disabled={full || !hydrated}
             onClick={() => {
               setPicking(true);
+              setPickingTemplate(false);
               focusAfterRender.current = 'form-builder-first-type';
             }}
             className={buttonVariants({ variant: 'secondary' })}
           >
             <Plus aria-hidden /> Tambah pertanyaan
           </button>
+          {templates && (
+            <button
+              id="form-builder-template"
+              type="button"
+              disabled={full || !hydrated}
+              aria-expanded={pickingTemplate}
+              aria-controls="form-builder-templates"
+              onClick={() => {
+                setPickingTemplate((current) => !current);
+                focusAfterRender.current = pickingTemplate ? null : 'form-builder-first-template';
+              }}
+              className={buttonVariants({ variant: 'ghost' })}
+            >
+              <LayoutTemplate aria-hidden /> Pakai templat
+            </button>
+          )}
           <span className="text-[12.5px] text-ink-muted">
             {full ? `Batas ${maxFields} pertanyaan tercapai.` : `${fields.length} dari ${maxFields} pertanyaan`}
           </span>
+        </div>
+      )}
+
+      {templates && pickingTemplate && !picking && (
+        <div
+          id="form-builder-templates"
+          className="fade-in flex flex-col gap-3 rounded-card border border-line bg-panel p-3 sm:p-4"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              setPickingTemplate(false);
+              focusAfterRender.current = 'form-builder-template';
+            }
+          }}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-0.5">
+              <h3 id="pilih-templat" className="text-sm font-semibold">Mulai dari templat</h3>
+              <p className="text-[12.5px] text-ink-muted">Kolomnya ditambahkan di bawah pertanyaan yang sudah ada — semua bisa diubah atau dihapus.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPickingTemplate(false);
+                focusAfterRender.current = 'form-builder-template';
+              }}
+              className={buttonVariants({ variant: 'ghost', size: 'icon' })}
+            >
+              <X aria-hidden />
+              <span className="sr-only">Tutup pilihan templat</span>
+            </button>
+          </div>
+          <ul aria-labelledby="pilih-templat" className="grid gap-2 sm:grid-cols-3">
+            {FORM_TEMPLATES.map((template, index) => (
+              <li key={template.key}>
+                <button
+                  id={index === 0 ? 'form-builder-first-template' : undefined}
+                  type="button"
+                  onClick={() => applyTemplate(template)}
+                  className="press flex h-full min-h-12 w-full flex-col items-start gap-1 rounded-card border border-line bg-panel px-3 py-2.5 text-left transition-colors duration-150 ease-snap hover:border-line-strong hover:bg-panel-nested focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                >
+                  <span className="text-sm font-semibold">{template.name}</span>
+                  <span className="text-[12.5px] leading-snug text-ink-muted">{template.description}</span>
+                  <span className="text-[12px] font-medium text-ink-soft">{template.fields.length} kolom</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -360,6 +491,7 @@ function QuestionCard({
   onChange,
   onMove,
   onRemove,
+  onDuplicate,
 }: {
   field: DraftField;
   index: number;
@@ -368,6 +500,8 @@ function QuestionCard({
   interactive: boolean;
   showProblem: boolean;
   types: readonly FormFieldType[];
+  /** null = batas jumlah pertanyaan tercapai. */
+  onDuplicate: (() => void) | null;
   onToggle: () => void;
   /** "Selesai" menutup editor tempat tombolnya berada — fokus harus dipindah ke kepala kartu, bukan jatuh ke <body>. */
   onDone: () => void;
@@ -380,10 +514,12 @@ function QuestionCard({
   const editorId = `${field.id}-editor`;
   const name = titleOf(field);
   const optionCount = cleanOptions(field.options).length;
+  const isSection = field.type === 'section';
   const meta = [
     FORM_FIELD_TYPE_LABEL[field.type],
-    field.required ? 'Wajib' : 'Opsional',
+    ...(isSection ? [] : [field.required ? 'Wajib' : 'Opsional']),
     ...(hasOptions(field.type) ? [`${optionCount} pilihan`] : []),
+    ...(field.type === 'scale' ? [`1–${field.scale.max}`] : []),
   ].join(' · ');
 
   return (
@@ -433,14 +569,22 @@ function QuestionCard({
       {open && (
         <div id={editorId} className="flex flex-col gap-4 border-t border-line p-3 sm:p-4">
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_13rem]">
-            <EditorField id={`${field.id}-label`} label="Pertanyaan" error={showProblem && problem === 'label' ? PROBLEM_TEXT.label : null}>
+            <EditorField id={`${field.id}-label`} label={isSection ? 'Judul bagian' : 'Pertanyaan'} error={showProblem && problem === 'label' ? PROBLEM_TEXT.label : null}>
               <input
                 id={`${field.id}-label`}
                 value={field.label}
                 maxLength={LIMITS.labelMax}
                 onChange={(event) => onChange({ label: event.target.value })}
                 onKeyDown={blockImplicitSubmit}
-                placeholder={field.type === 'checkbox' ? 'Mis. Saya bersedia mengikuti seluruh rangkaian acara' : 'Mis. Asal sekolah / kampus'}
+                placeholder={
+                  field.type === 'checkbox'
+                    ? 'Mis. Saya bersedia mengikuti seluruh rangkaian acara'
+                    : isSection
+                      ? 'Mis. Data anggota tim'
+                      : field.type === 'scale'
+                        ? 'Mis. Seberapa siap timmu?'
+                        : 'Mis. Asal sekolah / kampus'
+                }
                 aria-invalid={showProblem && problem === 'label' ? true : undefined}
                 aria-describedby={showProblem && problem === 'label' ? `${field.id}-label-error` : undefined}
                 className={controlClass}
@@ -454,7 +598,7 @@ function QuestionCard({
                 onChange={(event) => {
                   const type = event.target.value as FormFieldType;
                   const options = hasOptions(type) && field.options.length === 0 ? ['', ''] : field.options;
-                  onChange({ type, options });
+                  onChange({ type, options, ...(type === 'section' ? { required: false } : {}) });
                 }}
               >
                 {types.map((type) => (
@@ -472,7 +616,7 @@ function QuestionCard({
             </EditorField>
           </div>
 
-          <EditorField id={`${field.id}-help`} label="Keterangan (opsional)">
+          <EditorField id={`${field.id}-help`} label={isSection ? 'Keterangan bagian (opsional)' : 'Keterangan (opsional)'}>
             <input
               id={`${field.id}-help`}
               value={field.help}
@@ -488,18 +632,29 @@ function QuestionCard({
             <OptionsEditor field={field} error={showProblem && problem === 'options' ? PROBLEM_TEXT.options : null} onChange={onChange} />
           )}
 
+          {field.type === 'scale' && <ScaleEditor field={field} onChange={onChange} />}
+
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-            <label className="choice">
-              <input
-                type="checkbox"
-                className="check"
-                checked={field.required}
-                onChange={(event) => onChange({ required: event.target.checked })}
-              />
-              {field.type === 'checkbox' ? 'Wajib dicentang' : 'Wajib diisi'}
-            </label>
+            {isSection ? (
+              <p className="text-[12.5px] text-ink-muted">Judul bagian hanya pemisah — pendaftar tidak mengisinya.</p>
+            ) : (
+              <label className="choice">
+                <input
+                  type="checkbox"
+                  className="check"
+                  checked={field.required}
+                  onChange={(event) => onChange({ required: event.target.checked })}
+                />
+                {field.type === 'checkbox' ? 'Wajib dicentang' : 'Wajib diisi'}
+              </label>
+            )}
             <div className="flex flex-wrap items-center gap-1">
               <MoveButtons field={field} index={index} total={total} onMove={onMove} />
+              {onDuplicate && (
+                <button type="button" onClick={onDuplicate} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                  <Copy aria-hidden /> Duplikat
+                </button>
+              )}
               <button type="button" onClick={onRemove} className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'text-danger hover:bg-danger-soft hover:text-danger' })}>
                 <Trash2 aria-hidden /> Hapus
               </button>
@@ -606,7 +761,7 @@ function OptionsEditor({
           <li key={index} className="flex items-center gap-2">
             <span
               aria-hidden
-              className={cn('size-4 shrink-0 border-[1.5px] border-line-strong', field.type === 'select' ? 'rounded-pill' : 'rounded-[4px]')}
+              className={cn('size-4 shrink-0 border-[1.5px] border-line-strong', field.type === 'multi_select' ? 'rounded-[4px]' : 'rounded-pill')}
             />
             <input
               id={`${field.id}-option-${index}`}
@@ -645,6 +800,48 @@ function OptionsEditor({
         </span>
       </div>
       {error && <ProblemText id={errorId}>{error}</ProblemText>}
+    </fieldset>
+  );
+}
+
+function ScaleEditor({ field, onChange }: { field: DraftField; onChange: (patch: Partial<DraftField>) => void }) {
+  const update = (patch: Partial<FormScale>) => onChange({ scale: { ...field.scale, ...patch } });
+  return (
+    <fieldset className="flex flex-col gap-3">
+      <legend className="mb-1.5 text-[13.5px] font-semibold">Rentang skala</legend>
+      <div className="grid gap-3 sm:grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)]">
+        <EditorField id={`${field.id}-scale-max`} label="Dari 1 sampai">
+          <SelectInput id={`${field.id}-scale-max`} value={field.scale.max} onChange={(event) => update({ max: Number(event.target.value) })}>
+            {SCALE_MAX_OPTIONS.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </SelectInput>
+        </EditorField>
+        <EditorField id={`${field.id}-scale-low`} label="Label untuk 1 (opsional)">
+          <input
+            id={`${field.id}-scale-low`}
+            value={field.scale.lowLabel ?? ''}
+            maxLength={LIMITS.scaleLabelMax}
+            onChange={(event) => update({ lowLabel: event.target.value })}
+            onKeyDown={blockImplicitSubmit}
+            placeholder="Mis. Belum siap"
+            className={controlClass}
+          />
+        </EditorField>
+        <EditorField id={`${field.id}-scale-high`} label={`Label untuk ${field.scale.max} (opsional)`}>
+          <input
+            id={`${field.id}-scale-high`}
+            value={field.scale.highLabel ?? ''}
+            maxLength={LIMITS.scaleLabelMax}
+            onChange={(event) => update({ highLabel: event.target.value })}
+            onKeyDown={blockImplicitSubmit}
+            placeholder="Mis. Sangat siap"
+            className={controlClass}
+          />
+        </EditorField>
+      </div>
     </fieldset>
   );
 }

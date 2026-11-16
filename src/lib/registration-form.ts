@@ -8,6 +8,7 @@ import {
   type EventRegistration,
   type FormField,
   type FormFieldType,
+  type FormScale,
   type RegistrationStatus,
 } from '@/types/domain';
 
@@ -36,6 +37,10 @@ export const REGISTRATION_FORM_LIMITS = {
   capacityMax: 100_000,
   feeMax: 100_000_000,
   noteMax: 500,
+  /** Skala linear: 1 sampai 2–10 (cermin Google Form). */
+  scaleMin: 2,
+  scaleMax: 10,
+  scaleLabelMax: 40,
 } as const;
 
 /** Pendaftaran per pengguna per jam — cermin `consume_rate_limit` di `register_for_event()`. */
@@ -53,6 +58,13 @@ export function cleanText(value: string): string {
   return stripMarkup(value.replace(/\r\n?/g, '\n')).trim();
 }
 
+const scaleLabel = z
+  .string()
+  .nullish()
+  .transform((value) => (value ? cleanText(value) : ''))
+  .pipe(z.string().max(REGISTRATION_FORM_LIMITS.scaleLabelMax))
+  .transform((value) => value || null);
+
 const fieldSchema = z
   .object({
     id: z.string().regex(FIELD_ID),
@@ -69,18 +81,39 @@ const fieldSchema = z
       .array(z.string().transform(cleanText).pipe(z.string().min(1).max(REGISTRATION_FORM_LIMITS.optionMax)))
       .max(REGISTRATION_FORM_LIMITS.optionsMax)
       .default([]),
+    scale: z
+      .object({
+        max: z.number().int().min(REGISTRATION_FORM_LIMITS.scaleMin).max(REGISTRATION_FORM_LIMITS.scaleMax),
+        lowLabel: scaleLabel,
+        highLabel: scaleLabel,
+      })
+      .optional(),
   })
-  .transform((field): FormField => ({
-    ...field,
-    // Pilihan hanya bermakna untuk dua jenis; jenis lain tidak membawa sisa pilihan dari jenis sebelumnya.
-    options: hasOptions(field.type) ? [...new Set(field.options)] : [],
-  }))
+  .transform((field): FormField => {
+    const { scale, ...rest } = field;
+    return {
+      ...rest,
+      // Pilihan hanya bermakna untuk jenis berpilihan; jenis lain tidak membawa sisa pilihan dari jenis sebelumnya.
+      options: hasOptions(field.type) ? [...new Set(field.options)] : [],
+      // Judul bagian bukan pertanyaan: tidak pernah "wajib".
+      required: field.type === 'section' ? false : field.required,
+      ...(field.type === 'scale' ? { scale: scale ?? DEFAULT_SCALE } : {}),
+    };
+  })
   .refine((field) => !hasOptions(field.type) || field.options.length >= REGISTRATION_FORM_LIMITS.optionsMin, {
     message: 'options',
   });
 
 export function hasOptions(type: FormFieldType): boolean {
-  return type === 'select' || type === 'multi_select';
+  return type === 'select' || type === 'multi_select' || type === 'dropdown';
+}
+
+/** Skala linear bawaan Google Form: 1–5 tanpa label ujung. */
+export const DEFAULT_SCALE: FormScale = { max: 5, lowLabel: null, highLabel: null };
+
+/** Kolom yang menghasilkan jawaban — judul bagian (`section`) hanya pemisah tampilan. */
+export function answerFields<T extends Pick<FormField, 'type'>>(fields: readonly T[]): T[] {
+  return fields.filter((field) => field.type !== 'section');
 }
 
 export const formFieldsSchema = z
@@ -172,6 +205,8 @@ export function answerInputName(field: Pick<FormField, 'id'>): string {
 const emailAnswer = z.string().email().max(254);
 const PHONE = /^\+?[0-9][0-9\s-]{6,18}[0-9]$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** `<input type="time">` mengirim HH:MM (24 jam) apa pun tampilan lokalnya. */
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const GROUPED_NUMBER = /^-?[1-9]\d{0,2}(?:\.\d{3}){1,3}(?:,\d+)?$/;
 const PLAIN_NUMBER = /^-?\d{1,12}(?:[.,]\d+)?$/;
 
@@ -231,7 +266,7 @@ export type AnswerResult =
 export function readAnswers(fields: readonly FormField[], formData: FormData): AnswerResult {
   const answers: Record<string, AnswerValue> = {};
 
-  for (const field of fields) {
+  for (const field of answerFields(fields)) {
     const name = answerInputName(field);
     const fail = { ok: false as const, fieldId: field.id };
 
@@ -291,9 +326,22 @@ export function readAnswers(fields: readonly FormField[], formData: FormData): A
         answers[field.id] = raw;
         break;
       case 'select':
+      case 'dropdown':
         if (!field.options.includes(raw)) return fail;
         answers[field.id] = raw;
         break;
+      case 'time':
+        if (!TIME.test(raw)) return fail;
+        answers[field.id] = raw;
+        break;
+      case 'scale': {
+        const max = field.scale?.max ?? DEFAULT_SCALE.max;
+        if (!/^\d{1,2}$/.test(raw)) return fail;
+        const value = Number(raw);
+        if (value < 1 || value > max) return fail;
+        answers[field.id] = value;
+        break;
+      }
     }
   }
 
@@ -427,7 +475,8 @@ function csvAnswer(value: AnswerValue | undefined): string {
   return typeof value === 'number' ? String(value) : formatAnswer(value);
 }
 
-export function registrationsToCsv(fields: readonly FormField[], registrations: readonly EventRegistration[]): string {
+export function registrationsToCsv(allFields: readonly FormField[], registrations: readonly EventRegistration[]): string {
+  const fields = answerFields(allFields);
   const header = ['Kode', 'Nama', 'Email akun', 'Status', 'Biaya', 'Waktu daftar (WIB)', ...fields.map((field) => field.label)];
   const rows = registrations.map((registration) => [
     registration.code,

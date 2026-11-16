@@ -1,3 +1,4 @@
+import { compareTrending } from '@/lib/popularity';
 import { rankEvents } from '@/lib/recommendation';
 import type { CostFilter, EventQuery, EventStatus, EventSummary, Paginated, UserProfile } from '@/types/domain';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from './repository';
@@ -69,6 +70,9 @@ export function isPromoted(
  *  - deadline  : tenggat terdekat dulu; yang tanpa tenggat ditaruh terakhir
  *                supaya tidak "menyelinap" ke puncak lewat nilai 0
  *  - newest    : entri terbaru dulu
+ *  - popular   : "Lagi ramai" (ADR-092) — `trendScore` turun, lalu tenggat
+ *                terdekat, lalu id. Skornya dihitung di luar fungsi ini
+ *                (`lib/popularity.ts`; produksi: kolom `events_listing.trend_score`)
  *
  * `promoted` = kegiatan berpromosi aktif dipindah ke puncak dengan urutan
  * relatif yang sama (partisi stabil), lalu sisanya dalam urutan aslinya.
@@ -93,6 +97,8 @@ function orderBy<T extends EventSummary>(
   now: Date,
   profile?: UserProfile | null,
 ): T[] {
+  if (sort === 'popular') return [...events].sort(compareTrending);
+
   if (sort === 'newest') {
     return [...events].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),

@@ -12,6 +12,7 @@ import {
   MessageCircleQuestion,
   MessageCircleReply,
   MessagesSquare,
+  Share2,
   Receipt,
   ShieldAlert,
   ShieldCheck,
@@ -72,6 +73,8 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   QUESTION_ANSWERED: MessageCircleReply,
   LOBBY_INVITE: DoorOpen,
   COMMUNITY_REPLY: MessagesSquare,
+  EVENT_COMMENT_REPLY: MessageCircleReply,
+  EVENT_SHARED: Share2,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {
@@ -184,7 +187,9 @@ export async function NotificationMenu() {
                   : /^(REGISTRATION|PAYMENT)_/.test(notification.type)
                     ? '/pembayaran'
                     : notification.event
-                  ? `/events/${notification.event.slug}`
+                  ? notification.type === 'EVENT_COMMENT_REPLY'
+                    ? `/events/${notification.event.slug}?tab=komentar#komentar`
+                    : `/events/${notification.event.slug}`
                   : notification.type.startsWith('CONNECTION_')
                     ? '/connections'
                     : '/';
