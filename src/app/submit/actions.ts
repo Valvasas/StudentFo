@@ -2,8 +2,11 @@
 
 import { redirect } from 'next/navigation';
 import { toActionErrorCode, type ActionErrorCode } from '@/lib/action-feedback';
-import { getSessionUser } from '@/lib/auth';
+import { getSessionUser, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { siteUrl } from '@/lib/env';
+import { withFallback } from '@/lib/fallback';
+import { formText } from '@/lib/form-data';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
 import { readImageUpload, type UploadedImage } from '@/lib/image-file';
@@ -19,10 +22,25 @@ import { isLikelyBot, parseSubmissionForm, SUBMISSION_POSTER_FIELD } from '@/lib
  * hanya lampiran poster (ADR-084): berkas dari pengirim tanpa identitas tidak
  * diterima.
  */
+/** Admin, atau penyelenggara terverifikasi (yang otomatis mengelola acaranya setelah disetujui). */
+async function canHostForms(user: AuthUser): Promise<boolean> {
+  if (user.role === 'ADMIN') return true;
+  const profile = await withFallback('profil penyelenggara', async () => (await getEventRepository()).getOrganizerProfile(user.id), null);
+  return profile?.status === 'VERIFIED';
+}
+
 export async function submitEventAction(formData: FormData): Promise<void> {
   // Bot diperlakukan seolah berhasil. Memberi tahu bahwa ia tertangkap hanya
   // mengajarinya kolom mana yang harus dikosongkan.
   if (isLikelyBot(formData)) redirect('/submit?notice=submission_received');
+
+  // Lomba mandiri (ADR-092): hanya untuk yang bisa menyusun formulirnya setelah tayang.
+  // Tautan pengganti tidak pernah ditampilkan (`registration_mode` = studentfo) —
+  // kolom DB tetap NOT NULL http(s), dan kotak tautan disembunyikan di form.
+  const sessionUser = await getSessionUser();
+  const wantsStudentfo = formText(formData, 'registrationMode') === 'studentfo';
+  const hostsForm = wantsStudentfo && sessionUser !== null && (await canHostForms(sessionUser));
+  if (hostsForm) formData.set('registrationLink', new URL('/events', siteUrl).toString());
 
   const parsed = parseSubmissionForm(formData);
   if (!parsed.success) {
@@ -45,7 +63,7 @@ export async function submitEventAction(formData: FormData): Promise<void> {
   if (!(await passesCaptcha(formData, ip))) redirect('/submit?error=captcha_failed');
 
   // Pengirim yang sedang masuk dikabari saat kirimannya ditinjau (ADR-037).
-  const user = await getSessionUser();
+  const user = sessionUser;
 
   // Poster (ADR-084) hanya untuk pengirim yang masuk; form tidak menawarkan
   // kolomnya ke tamu, jadi berkas dari tamu diabaikan, bukan galat. Dibaca
@@ -59,12 +77,19 @@ export async function submitEventAction(formData: FormData): Promise<void> {
     poster = upload.image;
   }
 
-  const { submittedByEmail, ...payload } = parsed.data;
+  const { submittedByEmail, ...fields } = parsed.data;
+  const payload = hostsForm ? { ...fields, registrationMode: 'studentfo' as const } : fields;
   let failure: ActionErrorCode | null = null;
   let posterSkipped = false;
   try {
     const repository = await getEventRepository();
-    const result = await repository.createSubmission({ submittedByEmail, submittedBy: user?.id ?? null, payload, poster });
+    const result = await repository.createSubmission({
+      submittedByEmail,
+      submittedBy: user?.id ?? null,
+      payload,
+      poster,
+      submitterIsAdmin: user?.role === 'ADMIN',
+    });
     posterSkipped = poster !== null && !result.posterAttached;
   } catch (error) {
     failure = toActionErrorCode(error);

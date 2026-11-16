@@ -277,6 +277,10 @@ export const NOTIFICATION_TYPES = [
   'LOBBY_INVITE',
   /** Balasan di postingan Komunitas milikmu (RPC reply_community_post, ADR-087). Satu per postingan, diperbarui. */
   'COMMUNITY_REPLY',
+  /** Balasan untuk komentarmu di halaman kegiatan (RPC create_event_comment, ADR-092). Satu per kegiatan, diperbarui. */
+  'EVENT_COMMENT_REPLY',
+  /** Koneksi membagikan kegiatan kepadamu (RPC share_event_with_connections, ADR-092). Satu per kegiatan, diperbarui. */
+  'EVENT_SHARED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -398,7 +402,28 @@ export interface EventSummary {
    * Tidak ada / `null` = tanpa poster; kartu & slide tidak menebak gambar lain.
    */
   readonly poster?: EventPoster | null;
+  /**
+   * Suka & komentar (ADR-092), ditempel di lapisan aplikasi seperti poster.
+   * Tidak ada = angkanya tidak dimuat (kartu tidak menampilkan "0").
+   */
+  readonly counts?: EventCounts | null;
+  /** Skor "Lagi ramai" (`lib/popularity.ts`); hanya bermakna pada urutan `popular`. */
+  readonly trendScore?: number;
 }
+
+export interface EventCounts {
+  readonly likes: number;
+  readonly comments: number;
+}
+
+/**
+ * Cara mendaftar (ADR-092). `studentfo` = HANYA lewat formulir StudentFo
+ * (lomba mandiri): tautan luar tidak pernah ditampilkan atau dipakai sebagai
+ * cadangan saat formulir ditutup. VARCHAR + CHECK, bukan enum Postgres —
+ * pipeline tidak pernah menulisnya (bawaan `external`).
+ */
+export const REGISTRATION_MODES = ['external', 'studentfo'] as const;
+export type RegistrationMode = (typeof REGISTRATION_MODES)[number];
 
 /** Cukup untuk menggambar poster tanpa menggeser tata letak (`/media/foto/[id]`). */
 export interface EventPoster {
@@ -417,6 +442,8 @@ export interface EventDetail extends EventSummary {
   readonly deadlines: readonly EventDeadline[];
   /** Buku panduan resmi, selalu https (CHECK di migration 20261003100001). */
   readonly guidebookUrl: string | null;
+  /** Tidak ada = `external` (kolom belum ada sebelum migration 20261116100001). */
+  readonly registrationMode?: RegistrationMode;
 }
 
 /** Profil yang dipakai algoritma rekomendasi (§6). */
@@ -461,6 +488,12 @@ export interface SubmissionPayload {
   readonly guidebookUrl: string | null;
   /** Video YouTube/Vimeo kanonis (ADR-079) → `events.video_url` saat disetujui. Tidak ada = tanpa video. */
   readonly videoUrl?: string | null;
+  /**
+   * Lomba mandiri (ADR-092): `studentfo` = pendaftaran hanya lewat formulir
+   * StudentFo. Dihormati `approve_submission` HANYA bila pengirimnya
+   * penyelenggara terverifikasi atau admin. Tidak ada = tautan resmi.
+   */
+  readonly registrationMode?: RegistrationMode;
   /**
    * Bahan verifikasi untuk moderator — TIDAK pernah disalin ke `events`
    * dan tidak pernah tampil publik (bisa berupa nomor WhatsApp pribadi).
@@ -735,7 +768,8 @@ export interface EventAnalytics {
 export const EVENT_MODES = ['online', 'onsite'] as const;
 export type EventMode = (typeof EVENT_MODES)[number];
 
-export const SORT_OPTIONS = ['relevance', 'deadline', 'newest'] as const;
+/** `popular` = "Lagi ramai" (ADR-092): skor interaksi 14 hari terakhir yang meluruh, lihat `lib/popularity.ts`. */
+export const SORT_OPTIONS = ['relevance', 'deadline', 'newest', 'popular'] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
 
 export interface EventQuery {
@@ -1067,6 +1101,12 @@ export const FORM_FIELD_TYPES = [
   'select',
   'multi_select',
   'checkbox',
+  // Ditambahkan ADR-092 (paritas Google Form). Urutan lama tidak digeser.
+  'dropdown',
+  'time',
+  'scale',
+  /** Bukan pertanyaan: judul + keterangan pemisah bagian. Tidak punya jawaban. */
+  'section',
 ] as const;
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 
@@ -1081,7 +1121,18 @@ export const FORM_FIELD_TYPE_LABEL: Record<FormFieldType, string> = {
   select: 'Pilihan ganda',
   multi_select: 'Kotak centang',
   checkbox: 'Persetujuan',
+  dropdown: 'Daftar pilihan (drop-down)',
+  time: 'Jam',
+  scale: 'Skala linear',
+  section: 'Judul bagian',
 };
+
+/** Skala linear (ADR-092): selalu mulai dari 1; label ujung opsional. */
+export interface FormScale {
+  readonly max: number;
+  readonly lowLabel: string | null;
+  readonly highLabel: string | null;
+}
 
 export interface FormField {
   /** Stabil antar-penyuntingan (`f_…`): jawaban lama tetap cocok dengan kolomnya walau label diganti. */
@@ -1090,8 +1141,10 @@ export interface FormField {
   readonly label: string;
   readonly help: string | null;
   readonly required: boolean;
-  /** Hanya untuk `select` & `multi_select`. */
+  /** Hanya untuk `select`, `multi_select` & `dropdown`. */
   readonly options: readonly string[];
+  /** Hanya untuk `scale`. */
+  readonly scale?: FormScale;
 }
 
 export interface RegistrationForm {
@@ -1323,4 +1376,103 @@ export interface MyCommunityContent {
   readonly body: string;
   readonly hidden: boolean;
   readonly createdAt: string;
+}
+
+// ----------------------------------------------------------------------
+// Interaksi di halaman kegiatan (ADR-092): suka, komentar, bagikan
+// ----------------------------------------------------------------------
+
+/** Angka & keadaan untuk halaman detail — selalu segar (tidak lewat cache katalog). */
+export interface EventEngagement {
+  readonly likes: number;
+  readonly comments: number;
+  /** false untuk tamu. */
+  readonly liked: boolean;
+  /** false = tabelnya belum ada di database ini (migration belum diterapkan). */
+  readonly available: boolean;
+}
+
+/**
+ * Satu komentar. Penulis mengikuti aturan Komunitas (ADR-087): nama
+ * disingkat, id akun tidak pernah keluar. `role` = penanda resmi —
+ * pengelola terverifikasi acara itu (`organizer`) atau tim StudentFo (`team`).
+ */
+export interface EventComment {
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly body: string;
+  readonly author: CommunityAuthor;
+  readonly role: 'organizer' | 'team' | null;
+  readonly isMine: boolean;
+  readonly createdAt: string;
+}
+
+/** Komentar utama + balasannya (satu tingkat), terbaru dulu; balasan lama → baru. */
+export interface EventCommentThread extends EventComment {
+  readonly replies: readonly EventComment[];
+}
+
+export interface EventCommentPage {
+  readonly threads: readonly EventCommentThread[];
+  /** Jumlah semua komentar yang tampil (utama + balasan). */
+  readonly total: number;
+  /** true = ada komentar utama lama di luar jendela yang dimuat. */
+  readonly truncated: boolean;
+  readonly available: boolean;
+}
+
+/** Satu KOMENTAR dengan laporan terbuka (pola `CommunityReportQueueItem`). */
+export interface EventCommentReportQueueItem {
+  readonly reportId: string;
+  readonly commentId: string;
+  readonly event: { readonly slug: string; readonly title: string } | null;
+  readonly authorId: string | null;
+  readonly authorName: string | null;
+  readonly snapshot: string;
+  readonly reasons: readonly ReportReason[];
+  readonly details: string | null;
+  readonly reportCount: number;
+  readonly hidden: boolean;
+  readonly hiddenAuto: boolean;
+  readonly stillExists: boolean;
+  readonly firstAt: string;
+}
+
+/** Komentar milik sendiri — untuk ekspor data akun (termasuk yang disembunyikan moderator). */
+export interface MyEventComment {
+  readonly id: string;
+  readonly eventSlug: string | null;
+  readonly eventTitle: string | null;
+  readonly body: string;
+  readonly isReply: boolean;
+  readonly hidden: boolean;
+  readonly createdAt: string;
+}
+
+/** Suka milik sendiri — hanya untuk ekspor data akun (UU PDP Pasal 7). */
+export interface MyEventLike {
+  readonly eventSlug: string | null;
+  readonly eventTitle: string | null;
+  readonly likedAt: string;
+}
+
+/** Koneksi yang bisa dikirimi kegiatan (Bagikan ke koneksi). */
+export interface ShareRecipient {
+  readonly userId: string;
+  readonly fullName: string;
+}
+
+/** Baris "Kelola postingan" admin — semua status, untuk mencari & menghapus. */
+export interface AdminEventRow {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly organizer: string;
+  readonly eventType: EventType;
+  readonly status: EventStatus;
+  readonly primaryDeadlineAt: string | null;
+  readonly createdAt: string;
+  readonly registrationMode: RegistrationMode;
+  /** Alasan penurunan terakhir (status REJECTED). */
+  readonly rejectionReason: string | null;
 }

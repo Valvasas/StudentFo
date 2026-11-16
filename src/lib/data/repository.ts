@@ -65,6 +65,14 @@ import type {
   CommunityReportQueueItem,
   CommunityThread,
   MyCommunityContent,
+  AdminEventRow,
+  EventCommentPage,
+  EventCommentReportQueueItem,
+  EventEngagement,
+  MyEventComment,
+  MyEventLike,
+  RegistrationMode,
+  ShareRecipient,
 } from '@/types/domain';
 import type { CommunityCursor, CommunityPostInput, CommunityTopic } from '@/lib/community';
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
@@ -122,7 +130,64 @@ export interface EventRepository
     LobbyRepository,
     BadgeRepository,
     ProfileMediaRepository,
-    CommunityRepository {}
+    CommunityRepository,
+    EngagementRepository,
+    EventMaintenanceRepository {}
+
+/**
+ * Suka, komentar, dan bagikan ke koneksi di halaman kegiatan (ADR-092).
+ * Semua tulis atas nama pelaku dari sesi server (bukan dari form); produksi
+ * memutuskan hak lewat RPC DEFINER berdasarkan sesi di cookie, mode seed
+ * mencerminkan aturannya. Tabel belum ada (urutan deploy) → `available: false`
+ * saat membaca, `engagement_unavailable` saat menulis.
+ */
+export interface EngagementRepository {
+  /** Angka & keadaan suka untuk halaman detail — tamu boleh (`viewerId` null). Tidak lewat cache katalog. */
+  getEventEngagement(viewerId: string | null, eventId: string): Promise<EventEngagement>;
+  /** Keadaan sesudahnya. Kegiatan tidak tayang → `event_unavailable`; banjir → `like_rate_limited`. */
+  toggleEventLike(viewerId: string, eventId: string): Promise<{ readonly liked: boolean; readonly likes: number }>;
+  /** Khusus anggota. Utas terbaru (maks. `EVENT_COMMENT_LIMITS.threadsShown`) + balasannya. */
+  listEventComments(viewerId: string, eventId: string): Promise<EventCommentPage>;
+  /**
+   * `parentId` = membalas komentar UTAMA kegiatan yang sama (satu tingkat).
+   * Isi SUDAH lolos `parseEventComment`. `actor.isAdmin` hanya mode seed
+   * (penanda "Tim StudentFo"); produksi membaca peran dari `users`.
+   */
+  createEventComment(actor: EventActor, eventId: string, body: string, parentId: string | null): Promise<string>;
+  /** Hanya penulisnya; balasan ikut terhapus. */
+  deleteEventComment(viewerId: string, commentId: string): Promise<void>;
+  reportEventComment(viewerId: string, input: { readonly commentId: string; readonly reason: ReportReason; readonly details: string | null }): Promise<void>;
+  listMyEventComments(viewerId: string): Promise<readonly MyEventComment[]>;
+  listMyEventLikes(viewerId: string): Promise<readonly MyEventLike[]>;
+  /** Koneksi DITERIMA pembaca yang bisa dikirimi kegiatan (maks. 200, nama A–Z). */
+  listShareRecipients(viewer: NetworkViewer): Promise<readonly ShareRecipient[]>;
+  /** Jumlah penerima yang benar-benar dikabari (bukan koneksi/diblokir/ditangguhkan dilewati). */
+  shareEventWithConnections(actor: NetworkViewer, eventId: string, recipientIds: readonly string[]): Promise<number>;
+  /** Moderasi — hanya dari rute admin SETELAH `checkAdminAccess()`. */
+  listEventCommentReports(limit: number): Promise<readonly EventCommentReportQueueItem[]>;
+  resolveEventCommentReport(input: ResolveCommunityReportInput): Promise<void>;
+  hideEventCommentAsAdmin(input: { readonly commentId: string; readonly actorId: string; readonly actorName?: string; readonly reason: string | null }): Promise<void>;
+}
+
+/**
+ * Perawatan postingan oleh admin (ADR-092 #1) & cara mendaftar (lomba
+ * mandiri). Method admin dipanggil Server Action SETELAH `checkAdminAccess()`;
+ * menurunkan postingan = `reviewEvent(REJECTED)` yang sudah ada.
+ */
+export interface EventMaintenanceRepository {
+  /** Semua status, terbaru dulu; `search` mencocokkan judul/penyelenggara/slug. */
+  searchEventsForAdmin(query: { readonly search: string; readonly status: EventStatus | null; readonly limit: number }): Promise<readonly AdminEventRow[]>;
+  /** Kegiatan dengan status apa pun (studio mode admin, halaman hapus). */
+  getEventForAdmin(eventId: string): Promise<EventDetail | null>;
+  /**
+   * Hapus permanen. Hanya kegiatan yang SUDAH diturunkan (`event_not_taken_down`),
+   * tanpa pendaftar aktif (`event_has_registrations`), alasan ≥ 5 karakter
+   * (`deletion_reason_required`). Berkas Storage dihapus DULU; gagal = tidak dihapus.
+   */
+  deleteEventPermanently(input: { readonly eventId: string; readonly actorId: string; readonly actorName?: string; readonly reason: string }): Promise<void>;
+  /** Pengelola terverifikasi acara itu atau admin (`not_event_manager`). */
+  setEventRegistrationMode(actor: EventActor, eventId: string, mode: RegistrationMode): Promise<void>;
+}
 
 /**
  * Komunitas (ADR-087): forum publik khusus anggota yang dimoderasi. Semua
@@ -886,6 +951,11 @@ export interface CreateSubmissionInput {
    * bila `submittedBy` terisi — tamu tidak boleh menitipkan berkas.
    */
   readonly poster?: UploadedImage | null;
+  /**
+   * Hanya mode seed (tanpa tabel users): pengirim admin boleh lomba mandiri
+   * (ADR-092). Produksi membaca `users.role` di `approve_submission`.
+   */
+  readonly submitterIsAdmin?: boolean;
 }
 
 export interface CreateSubmissionResult {

@@ -399,6 +399,36 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Suka, komentar, bagikan, "Lagi ramai", hapus postingan, lomba mandiri 2026-11-16 (@claude) — ADR-092
+
+- [x] Hapus postingan kapan saja (juga sebelum tenggat): "Alat moderator" di halaman kegiatan + `/admin/acara`; Urungkan / Tayangkan lagi; hapus permanen dua langkah (ketik HAPUS, tanpa pendaftar aktif, berkas storage ikut terhapus, tercatat `DELETED`)
+- [x] Suka (toggle ber-`aria-pressed`, siapa yang menyukai tidak ditampilkan) & komentar (tab khusus anggota, balasan satu tingkat, kontak ditolak, lapor + sembunyi otomatis, antrean admin, label Penyelenggara/Tim StudentFo)
+- [x] "Lagi ramai": skor tren berbobot & meluruh (`lib/popularity.ts` ↔ `refresh_event_trends()`, pg_cron 15 menit), urutan `sort=popular`, strip berperingkat di beranda & papan Lomba
+- [x] Bagikan: menu tanpa pelacak (salin, Web Share, WA/Telegram/X/FB/LinkedIn/Email) + kirim ke koneksi lewat lonceng (kalimat tetap, 20/kirim, 20/hari)
+- [x] Lomba mandiri: `registration_mode = 'studentfo'` dari `/submit` (penyelenggara terverifikasi/admin) & studio; admin membuka studio kegiatan apa pun
+- [x] Formulir ala Google Form: drop-down, jam, skala linear, judul bagian, gandakan, templat (tanpa menggandakan pertanyaan), Ringkasan jawaban
+- [x] Pendataan kinerja juga sebelum formulir StudentFo; ekspor data akun memuat komentar & suka; kebijakan privasi & S&K (`LEGAL_REVISION` 2026-11-16)
+- [x] Perbaikan yang ketemu saat uji: panel Bagikan tertimpa blok "Ringkasan" (header `.enter` = konteks tumpukan → diangkat saat menu terbuka); templat menggandakan "Asal sekolah / kampus" & "Nomor WhatsApp" di formulir baru
+- [x] Tes: `popularity`, `event-comments`, `event-removal`, `registration-summary`, `form-templates`, `engagement` (memori), `parity` (memori ↔ Postgres), `119_event_engagement.test.sql`, `event-engagement.spec.ts`, rute baru di `extreme-content`/`narrow-viewport`/axe
+- [ ] **Pemilik:** setujui penerapan migration `20261116100001_event_engagement` (staging dulu, lalu produksi) — sebelum itu fitur interaksi tidak aktif di produksi
+- [ ] Pemilik: tinjau teks kebijakan privasi & S&K bagian suka/komentar/bagikan
+- [ ] Opsional setelah ada data: kalibrasi bobot "Lagi ramai" dari `recommendation_signals` nyata; pertimbangkan notifikasi "komentarmu disukai"/sebutan (@) hanya bila ada permintaan — keduanya menambah kebisingan lonceng
+- [ ] Opsional: unggah berkas di formulir (sengaja tidak dibuat, ADR-092 #7) — hanya bila ada kebutuhan nyata + pemindaian malware + retensi
+
+## Audit menyeluruh 2026-11-14 (@claude) — `docs/audit-menyeluruh.md`
+
+- [x] KRITIS: `next`/`eslint-config-next` 15.5.29 (RCE Image Optimization GHSA-2464-fhr4-w9xw, DoS Server Actions GHSA-p3m5-59mp-jv5r, cache poisoning) + `sharp` 0.35.5 (librsvg)
+- [x] Toggle tanpa status pending: "Hapus dari tersimpan" & "Ciutkan menu akun" → `SubmitButton` (ketuk ganda membalik aksi). "Simpan profil" & "Ya, tolak" diberi status pending
+- [x] Area ketuk judul `/lobi` ≥ 24px (WCAG 2.5.8); panel lonceng memakai `pop` seperti menu akun
+- [ ] `zod` 4 (GHSA-mrhx-c7xc-m3w5, breaking). Sementara: batasi jumlah elemen `formData.getAll()` sebelum parse (§3 S2)
+- [ ] `source-map-js` (lewat `@tailwindcss/postcss`, hanya saat build) — naik bersama rilis Tailwind berikutnya
+- [ ] `team_member_profiles` tanpa filter: semua nama anggota tim bisa ditarik sekaligus lewat REST (§3 S4)
+- [ ] Indeks FK jalur panas: `application_tracker.event_id`, `notifications.event_id`, `recommendation_signals.user_id`, `outbound_surveys.event_id` (§3 P1) — staging dulu, produksi atas persetujuan
+- [ ] Tombol "Kirim email uji" khusus admin — insiden SMTP `535` 13 Nov tidak terlihat dari aplikasi (§1 F5)
+- [ ] Sisa tombol mentah di form idempoten → `SubmitButton` (§1 F3)
+- [ ] Satukan "Tersimpan" & "Papan lamaran" dalam satu rumah (§2 D3)
+- [ ] Fitur: aksi massal moderasi, peringatan acara baru sesuai filter, langganan kalender pribadi, analitik tanpa cookie (§4)
+
 ## Klik "Daftar" → Papan lamaran 2026-11-13 (@claude) — ADR-090
 
 - [x] Klik "Daftar" (langsung atau lewat pendataan kinerja) sama dengan "Simpan ke Tracker": masuk simpanan dan Papan lamaran sebagai "Disimpan" bila belum dilacak. Tidak pernah menaikkan ke "Sudah Daftar" dan tidak menurunkan tahap yang sudah maju

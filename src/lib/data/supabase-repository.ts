@@ -110,9 +110,19 @@ import type {
   CommunityThread,
   MyCommunityContent,
   ReportReason,
+  AdminEventRow,
+  EventComment,
+  EventCommentPage,
+  EventCommentReportQueueItem,
+  EventEngagement,
+  MyEventComment,
+  MyEventLike,
+  RegistrationMode,
+  ShareRecipient,
 } from '@/types/domain';
 import { LOBBY_INTENTS, REPORT_REASONS, toNotificationType } from '@/types/domain';
 import { COMMUNITY_LIMITS, toCommunityTopic, type CommunityPostInput } from '@/lib/community';
+import { buildCommentThreads, countComments, EVENT_COMMENT_LIMITS, EVENT_SHARE_LIMITS, sortShareRecipients } from '@/lib/event-comments';
 import type {
   BlockedPersonRow,
   CronJobHealthRow,
@@ -159,6 +169,11 @@ import type {
   PublicProfileDetailsRow,
   StudyProfileRow,
   OutboundSurveyRow,
+  AdminEventDbRow,
+  EventCommentReportQueueRow,
+  EventCommentRow,
+  EventEngagementCountRow,
+  EventEngagementStateRow,
 } from '@/types/database';
 import {
   chooseCountMode,
@@ -226,6 +241,7 @@ import {
   sqlState,
   isMissingColumnError,
   toDetail,
+  toRegistrationMode,
   toEventClaim,
   toEventRevision,
   toAdminUserSummary,
@@ -358,7 +374,7 @@ interface ListingFilters {
 }
 
 interface ListingFetch extends ListingFilters {
-  readonly sort: 'deadline' | 'newest';
+  readonly sort: 'deadline' | 'newest' | 'popular';
   readonly from: number;
   readonly to: number;
   readonly countMode: ListingCountMode;
@@ -411,7 +427,8 @@ export class SupabaseEventRepository implements EventRepository {
   private readonly fetchStats: () => Promise<RepositoryStats>;
   private readonly fetchDeadlineWeek: () => Promise<DeadlineDay[]>;
   private readonly fetchPosters: (eventIds: readonly string[]) => Promise<PosterRow[]>;
-  private readonly fetchVideo: (eventId: string) => Promise<string | null>;
+  private readonly fetchExtras: (eventId: string) => Promise<EventExtras>;
+  private readonly fetchCounts: (eventIds: readonly string[]) => Promise<EventEngagementCountRow[]>;
 
   constructor(
     cacheLayer: CacheLayer = nextDataCache,
@@ -425,7 +442,8 @@ export class SupabaseEventRepository implements EventRepository {
     this.fetchStats = cacheLayer(queryStats, ['events-stats-v1']);
     this.fetchDeadlineWeek = cacheLayer(queryDeadlineWeek, ['events-deadline-week-v1']);
     this.fetchPosters = cacheLayer(queryPosters, ['event-posters-v1']);
-    this.fetchVideo = cacheLayer(queryEventVideo, ['event-video-v1']);
+    this.fetchExtras = cacheLayer(queryEventExtras, ['event-extras-v1']);
+    this.fetchCounts = cacheLayer(queryEngagementCounts, ['event-counts-v1']);
   }
 
   /**
@@ -444,6 +462,25 @@ export class SupabaseEventRepository implements EventRepository {
       console.error('[poster] gagal dimuat:', error);
       return items.map((item) => ({ ...item, poster: null }));
     }
+  }
+
+  /**
+   * Poster + angka suka/komentar kartu (ADR-092), pola yang sama: satu query
+   * per daftar, tag cache katalog, gagal = kartu tanpa angka. Angka boleh
+   * tertinggal ≤ TTL cache; halaman detail membaca angka segar sendiri.
+   */
+  private async withCardExtras<T extends EventSummary>(items: readonly T[]): Promise<T[]> {
+    if (items.length === 0) return [];
+    const [withPoster, counts] = await Promise.all([
+      this.withPosters(items),
+      this.fetchCounts([...new Set(items.map((item) => item.id))].sort()).catch((error: unknown) => {
+        console.error('[angka kartu] gagal dimuat:', error);
+        return null;
+      }),
+    ]);
+    if (!counts) return withPoster;
+    const byEvent = new Map(counts.map((row) => [row.event_id, { likes: row.like_count, comments: row.comment_count }]));
+    return withPoster.map((item) => ({ ...item, counts: byEvent.get(item.id) ?? { likes: 0, comments: 0 } }));
   }
 
   async listEvents(query: EventQuery): Promise<Paginated<EventSummary>> {
@@ -479,7 +516,7 @@ export class SupabaseEventRepository implements EventRepository {
         page = { rows: [], count: (await this.fetchRelevancePage({ ...request, offset: 0, limit: 1 })).count };
       }
       return {
-        items: await this.withPosters(page.rows.map(toSummary)),
+        items: await this.withCardExtras(page.rows.map(toSummary)),
         total: page.count ?? 0,
         page: paging.page,
         pageSize: paging.pageSize,
@@ -500,7 +537,7 @@ export class SupabaseEventRepository implements EventRepository {
 
     const total = count ?? rows.length;
     return {
-      items: await this.withPosters(rows.map(toSummary)),
+      items: await this.withCardExtras(rows.map(toSummary)),
       total,
       page: paging.page,
       pageSize: paging.pageSize,
@@ -511,18 +548,18 @@ export class SupabaseEventRepository implements EventRepository {
   async getEventBySlug(slug: string): Promise<EventDetail | null> {
     const detail = await this.fetchDetailBySlug(slug);
     if (!detail) return null;
-    const [[withPoster], videoUrl] = await Promise.all([
+    const [[withPoster], extras] = await Promise.all([
       this.withPosters([detail]),
-      this.fetchVideo(detail.id).catch((error: unknown) => {
-        console.error('[video] gagal dimuat:', error);
-        return null;
+      this.fetchExtras(detail.id).catch((error: unknown): EventExtras => {
+        console.error('[video/cara daftar] gagal dimuat:', error);
+        return { videoUrl: null, registrationMode: 'external' };
       }),
     ]);
-    return { ...(withPoster ?? detail), videoUrl };
+    return { ...(withPoster ?? detail), ...extras };
   }
 
   async listClosingSoon(limit: number): Promise<readonly EventSummary[]> {
-    return this.withPosters(await this.fetchClosingSoon(limit));
+    return this.withCardExtras(await this.fetchClosingSoon(limit));
   }
 
   async listCategories(): Promise<readonly Category[]> {
@@ -3312,6 +3349,291 @@ export class SupabaseEventRepository implements EventRepository {
     });
     if (error) throw communityFailure(error, 'Gagal memutuskan laporan Komunitas.');
   }
+
+  // ------------------------------------------------------------------
+  // Suka, komentar, bagikan (ADR-092) — RPC DEFINER dengan sesi pembaca;
+  // `viewerId` tidak dikirim: database memutuskan dari token di cookie.
+  // ------------------------------------------------------------------
+
+  async getEventEngagement(_viewerId: string | null, eventId: string): Promise<EventEngagement> {
+    if (!isUuid(eventId)) return { likes: 0, comments: 0, liked: false, available: true };
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('event_engagement_state', { p_event: eventId });
+    if (error && isMissingRelationError(error)) return { likes: 0, comments: 0, liked: false, available: false };
+    if (error) throw upstreamFailure('Gagal memuat suka & komentar.', error);
+    const row = rpcRows<EventEngagementStateRow>(data)[0];
+    return { likes: row?.like_count ?? 0, comments: row?.comment_count ?? 0, liked: row?.liked ?? false, available: true };
+  }
+
+  async toggleEventLike(_viewerId: string, eventId: string): Promise<{ readonly liked: boolean; readonly likes: number }> {
+    if (!isUuid(eventId)) throw actionError('event_unavailable');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('toggle_event_like', { p_event: eventId });
+    if (error) throw engagementFailure(error, 'Gagal menyimpan suka.');
+    const row = rpcRows<{ liked: boolean; like_count: number }>(data)[0];
+    return { liked: row?.liked ?? false, likes: row?.like_count ?? 0 };
+  }
+
+  async listEventComments(_viewerId: string, eventId: string): Promise<EventCommentPage> {
+    if (!isUuid(eventId)) return { threads: [], total: 0, truncated: false, available: true };
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('list_event_comments', { p_event: eventId, p_limit: EVENT_COMMENT_LIMITS.threadsShown });
+    if (error && isMissingRelationError(error)) return { threads: [], total: 0, truncated: false, available: false };
+    if (error) throw upstreamFailure('Gagal memuat komentar.', error);
+    const rows = rpcRows<EventCommentRow>(data);
+    const threads = buildCommentThreads(rows.map(toEventComment));
+    return { threads, total: countComments(threads), truncated: rows[0]?.more_threads ?? false, available: true };
+  }
+
+  async createEventComment(_actor: EventActor, eventId: string, body: string, parentId: string | null): Promise<string> {
+    if (!isUuid(eventId)) throw actionError('comment_event_unavailable');
+    if (parentId !== null && !isUuid(parentId)) throw actionError('event_comment_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('create_event_comment', { p_event: eventId, p_body: body, p_parent: parentId });
+    if (error) throw engagementFailure(error, 'Gagal mengirim komentar.');
+    if (typeof data !== 'string') throw upstreamFailure('Komentar tersimpan tanpa id.', data, 500);
+    return data;
+  }
+
+  async deleteEventComment(_viewerId: string, commentId: string): Promise<void> {
+    if (!isUuid(commentId)) throw actionError('event_comment_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('delete_event_comment', { p_comment: commentId });
+    if (error) throw engagementFailure(error, 'Gagal menghapus komentar.');
+  }
+
+  async reportEventComment(_viewerId: string, { commentId, reason, details }: { commentId: string; reason: ReportReason; details: string | null }): Promise<void> {
+    if (!isUuid(commentId)) throw actionError('report_unavailable');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('report_event_comment', { p_comment: commentId, p_reason: reason, p_details: details });
+    if (error) throw engagementFailure(error, 'Gagal mengirim laporan.');
+  }
+
+  async listMyEventComments(_viewerId: string): Promise<readonly MyEventComment[]> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('my_event_comments');
+    if (error && isMissingRelationError(error)) return [];
+    if (error) throw upstreamFailure('Gagal memuat komentarmu.', error);
+    return rpcRows<{ id: string; event_slug: string | null; event_title: string | null; body: string; is_reply: boolean; hidden: boolean; created_at: string }>(data).map(
+      (row) => ({
+        id: row.id,
+        eventSlug: row.event_slug,
+        eventTitle: row.event_title,
+        body: row.body,
+        isReply: row.is_reply,
+        hidden: row.hidden,
+        createdAt: row.created_at,
+      }),
+    );
+  }
+
+  async listMyEventLikes(_viewerId: string): Promise<readonly MyEventLike[]> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('my_event_likes');
+    if (error && isMissingRelationError(error)) return [];
+    if (error) throw upstreamFailure('Gagal memuat suka milikmu.', error);
+    return rpcRows<{ event_slug: string | null; event_title: string | null; created_at: string }>(data).map((row) => ({
+      eventSlug: row.event_slug,
+      eventTitle: row.event_title,
+      likedAt: row.created_at,
+    }));
+  }
+
+  async listShareRecipients(viewer: NetworkViewer): Promise<readonly ShareRecipient[]> {
+    const page = await this.listConnections(viewer.id, { limit: EVENT_SHARE_LIMITS.recipientsListed, cursor: null, kind: 'accepted' });
+    return sortShareRecipients(page.items.map((connection) => ({ userId: connection.person.userId, fullName: connection.person.fullName })));
+  }
+
+  async shareEventWithConnections(_actor: NetworkViewer, eventId: string, recipientIds: readonly string[]): Promise<number> {
+    if (!isUuid(eventId)) throw actionError('event_unavailable');
+    const ids = recipientIds.filter(isUuid);
+    if (ids.length === 0 || ids.length !== recipientIds.length) throw actionError('invalid_share');
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('share_event_with_connections', { p_event: eventId, p_recipients: ids });
+    if (error) throw engagementFailure(error, 'Gagal membagikan kegiatan.');
+    return typeof data === 'number' ? data : 0;
+  }
+
+  async listEventCommentReports(limit: number): Promise<readonly EventCommentReportQueueItem[]> {
+    const { data, error } = await createSupabaseAdminClient().rpc('admin_event_comment_report_queue', { p_limit: limit });
+    if (error && isMissingRelationError(error)) return [];
+    if (error) throw upstreamFailure('Gagal memuat laporan komentar.', error);
+    return rpcRows<EventCommentReportQueueRow>(data).map((row) => ({
+      reportId: row.report_id,
+      commentId: row.comment_id,
+      event: row.event_slug && row.event_title ? { slug: row.event_slug, title: row.event_title } : null,
+      authorId: row.author_id,
+      authorName: row.author_name,
+      snapshot: row.snapshot,
+      reasons: (row.reasons ?? []).filter((reason): reason is ReportReason => (REPORT_REASONS as readonly string[]).includes(reason)),
+      details: row.details,
+      reportCount: row.report_count,
+      hidden: row.hidden,
+      hiddenAuto: row.hidden_auto,
+      stillExists: row.still_exists,
+      firstAt: row.first_at,
+    }));
+  }
+
+  async resolveEventCommentReport({ reportId, actorId, outcome, hide, note }: ResolveCommunityReportInput): Promise<void> {
+    if (!isUuid(reportId)) throw actionError('report_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('admin_resolve_event_comment_report', {
+      p_report: reportId,
+      p_actor: actorId,
+      p_outcome: outcome,
+      p_hide: hide,
+      p_note: note,
+    });
+    if (error) throw engagementFailure(error, 'Gagal memutuskan laporan komentar.');
+  }
+
+  async hideEventCommentAsAdmin({ commentId, actorId, reason }: { commentId: string; actorId: string; actorName?: string; reason: string | null }): Promise<void> {
+    if (!isUuid(commentId)) throw actionError('event_comment_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('admin_hide_event_comment', { p_comment: commentId, p_actor: actorId, p_reason: reason });
+    if (error) throw engagementFailure(error, 'Gagal menyembunyikan komentar.');
+  }
+
+  // ------------------------------------------------------------------
+  // Perawatan postingan (ADR-092 #1) — admin, service_role, SETELAH checkAdminAccess()
+  // ------------------------------------------------------------------
+
+  async searchEventsForAdmin({ search, status, limit }: { search: string; status: EventStatus | null; limit: number }): Promise<readonly AdminEventRow[]> {
+    const q = normalizeUserSearch(search);
+    const size = Math.min(Math.max(limit, 1), 100);
+    const query = (columns: string) => {
+      let request = createSupabaseAdminClient().from('events').select(columns).order('created_at', { ascending: false }).order('id').limit(size);
+      if (status) request = request.eq('status', status);
+      // `q` sudah lewat normalizeUserSearch(): tanpa koma/kurung/wildcard, jadi tidak bisa mengubah bentuk filter `or`.
+      if (q) request = request.or(`title.ilike.%${q}%,organizer.ilike.%${q}%,slug.ilike.%${q}%`);
+      return request.returns<AdminEventDbRow[]>();
+    };
+    const base = 'id, slug, title, organizer, event_type, status, created_at, rejection_reason, event_deadlines(deadline_at, is_primary)';
+    let result = await query(`${base}, registration_mode`);
+    // Sebelum migration 20261116100001: daftar tetap tampil, cara daftar dianggap tautan luar.
+    if (result.error && isMissingColumnError(result.error)) result = await query(base);
+    if (result.error) throw upstreamFailure('Gagal mencari postingan.', result.error);
+    return result.data.map(toAdminEventRow);
+  }
+
+  async getEventForAdmin(eventId: string): Promise<EventDetail | null> {
+    if (!isUuid(eventId)) return null;
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase.from('events_listing').select(LISTING_COLUMNS).eq('id', eventId).maybeSingle<EventListingRow>();
+    if (error) throw upstreamFailure('Gagal memuat postingan.', error);
+    if (!data) return null;
+    const [deadlines, extras] = await Promise.all([
+      supabase.from('event_deadlines').select('id, label, deadline_at, is_primary').eq('event_id', eventId).order('deadline_at', { ascending: true }).returns<EventDeadlineRow[]>(),
+      supabase
+        .from('events')
+        .select('video_url, registration_mode')
+        .eq('id', eventId)
+        .maybeSingle<{ video_url: string | null; registration_mode: string | null }>(),
+    ]);
+    if (deadlines.error) throw upstreamFailure('Gagal memuat tenggat postingan.', deadlines.error);
+    if (extras.error && !isMissingColumnError(extras.error)) throw upstreamFailure('Gagal memuat postingan.', extras.error);
+    return {
+      ...toDetail(data, deadlines.data),
+      videoUrl: extras.data?.video_url ?? null,
+      registrationMode: toRegistrationMode(extras.data?.registration_mode),
+    };
+  }
+
+  async deleteEventPermanently({ eventId, actorId, reason }: { eventId: string; actorId: string; actorName?: string; reason: string }): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('event_not_found');
+    const supabase = createSupabaseAdminClient();
+    // Sekaligus gerbang kelayakan: diturunkan dulu, tanpa pendaftar aktif.
+    const { data, error: listError } = await supabase.rpc('event_deletion_files', { p_event: eventId });
+    if (listError) throw engagementFailure(listError, 'Gagal membaca berkas postingan.');
+    const files = rpcRows<{ bucket: string; path: string }>(data);
+
+    // Berkas dulu (pola hapus akun): Supabase menolak DELETE langsung di
+    // storage.objects, dan setelah barisnya hilang path-nya tak terlacak.
+    const byBucket = new Map<string, string[]>();
+    for (const file of files) byBucket.set(file.bucket, [...(byBucket.get(file.bucket) ?? []), file.path]);
+    for (const [bucket, paths] of byBucket) {
+      for (const part of chunks(paths, 100)) {
+        const removed = await supabase.storage.from(bucket).remove(part);
+        if (removed.error) {
+          console.error('[hapus postingan] gagal menghapus berkas:', bucket, removed.error.message);
+          throw actionError('event_delete_failed');
+        }
+      }
+    }
+
+    const { error } = await supabase.rpc('delete_event_permanently', { p_event: eventId, p_actor: actorId, p_reason: reason });
+    if (error) throw engagementFailure(error, 'Gagal menghapus postingan.');
+  }
+
+  async setEventRegistrationMode(_actor: EventActor, eventId: string, mode: RegistrationMode): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('event_unavailable');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('set_event_registration_mode', { p_event: eventId, p_mode: mode });
+    if (error && isMissingRelationError(error)) throw actionError('registration_mode_unavailable');
+    if (error) throw engagementFailure(error, 'Gagal menyimpan cara mendaftar.');
+  }
+}
+
+/**
+ * Pesan RAISE dari RPC migration 20261116100001 → kode tertutup. Dicocokkan
+ * PERSIS (bukan `includes`): `comment_event_unavailable` memuat
+ * `event_unavailable`, dan galat yang tak dikenal harus jatuh ke galat hulu.
+ */
+const ENGAGEMENT_ERROR_CODES = [
+  'event_unavailable',
+  'like_rate_limited',
+  'invalid_event_comment',
+  'community_contact_blocked',
+  'comment_event_unavailable',
+  'event_comment_not_found',
+  'comment_rate_limited',
+  'invalid_share',
+  'share_rate_limited',
+  'report_unavailable',
+  'report_rate_limited',
+  'invalid_report',
+  'report_not_found',
+  'not_event_manager',
+  'invalid_request',
+  'event_not_found',
+  'event_not_taken_down',
+  'event_has_registrations',
+  'deletion_reason_required',
+] as const satisfies readonly Exclude<ActionErrorCode, 'unknown'>[];
+
+function engagementFailure(error: { code?: string; message?: string }, fallback: string): Error {
+  if (isMissingRelationError(error)) return actionError('engagement_unavailable');
+  const message = (error.message ?? '').trim();
+  // Sesi kedaluwarsa atau akun ditangguhkan di tengah jalan.
+  if (message === 'login_required') return actionError('engagement_unavailable');
+  const code = ENGAGEMENT_ERROR_CODES.find((candidate) => candidate === message);
+  return code ? actionError(code) : upstreamFailure(fallback, error, 500);
+}
+
+function toEventComment(row: EventCommentRow): EventComment {
+  return {
+    id: row.id,
+    parentId: row.parent_id,
+    body: row.body,
+    author: toCommunityAuthor(row),
+    role: row.author_role === 'organizer' || row.author_role === 'team' ? row.author_role : null,
+    isMine: row.is_mine,
+    createdAt: row.created_at,
+  };
+}
+
+function toAdminEventRow(row: AdminEventDbRow): AdminEventRow {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    organizer: row.organizer,
+    eventType: row.event_type,
+    status: row.status,
+    primaryDeadlineAt: (row.event_deadlines ?? []).find((deadline) => deadline.is_primary)?.deadline_at ?? null,
+    createdAt: row.created_at,
+    registrationMode: toRegistrationMode(row.registration_mode),
+    rejectionReason: row.status === 'REJECTED' ? row.rejection_reason : null,
+  };
 }
 
 const COMMUNITY_ERROR_CODES = [
@@ -3468,8 +3790,24 @@ async function downloadPrivateFile(bucket: string, path: string): Promise<Stored
 // ----------------------------------------------------------------------
 
 async function queryListingPage(filters: ListingFetch): Promise<ListingPage> {
+  const page = await runListingQuery(filters, filters.sort === 'popular');
+  // Sebelum migration 20261116100001 view belum punya `trend_score`: "Lagi
+  // ramai" turun anggun ke tenggat terdekat, bukan katalog yang jatuh.
+  if (page.error && filters.sort === 'popular' && isMissingColumnError(page.error)) {
+    const fallback = await runListingQuery({ ...filters, sort: 'deadline' }, false);
+    if (fallback.error) throw upstreamFailure('Gagal memuat daftar event.', fallback.error);
+    return { rows: fallback.rows, count: fallback.count };
+  }
+  if (page.error) throw upstreamFailure('Gagal memuat daftar event.', page.error);
+  return { rows: page.rows, count: page.count };
+}
+
+async function runListingQuery(
+  filters: ListingFetch,
+  withTrend: boolean,
+): Promise<{ rows: EventListingRow[]; count: number | null; error: PostgrestError | null }> {
   const supabase = createSupabasePublicClient();
-  let builder = supabase.from('events_listing').select(LISTING_COLUMNS, { count: filters.countMode });
+  let builder = supabase.from('events_listing').select(withTrend ? `${LISTING_COLUMNS}, trend_score` : LISTING_COLUMNS, { count: filters.countMode });
 
   if (filters.includeClosed) {
     // EXPIRED ikut: begitu job expiry harian berjalan, event yang tenggatnya
@@ -3498,14 +3836,15 @@ async function queryListingPage(filters: ListingFetch): Promise<ListingPage> {
   // Promosi aktif dulu (ADR-049) — kolom view, bukan dihitung di sini, supaya
   // aturannya satu dengan RPC relevansi dan `isPromoted()`.
   if (filters.promoted) builder = builder.order('is_promoted', { ascending: false });
+  // Urutan "Lagi ramai" = `compareTrending()` (lib/popularity.ts): skor, tenggat terdekat, id.
+  if (withTrend) builder = builder.order('trend_score', { ascending: false });
   builder =
-    filters.sort === 'deadline'
+    filters.sort === 'deadline' || filters.sort === 'popular'
       ? builder.order('primary_deadline_at', { ascending: true, nullsFirst: false }).order('id')
       : builder.order('created_at', { ascending: false }).order('id');
 
-  const { data, error, count } = await builder.range(filters.from, filters.to).returns<EventListingRow[]>();
-  if (error) throw upstreamFailure('Gagal memuat daftar event.', error);
-  return { rows: data, count };
+  const { data, error, count } = await builder.range(filters.from, filters.to).returns<(EventListingRow & { trend_score?: number })[]>();
+  return { rows: data ?? [], count, error };
 }
 
 async function queryRelevancePage(request: RelevanceFetch): Promise<ListingPage> {
@@ -3560,18 +3899,45 @@ async function queryPosters(eventIds: readonly string[]): Promise<PosterRow[]> {
   return rows;
 }
 
-async function queryEventVideo(eventId: string): Promise<string | null> {
-  if (!isUuid(eventId)) return null;
-  const { data, error } = await createSupabasePublicClient()
+interface EventExtras {
+  readonly videoUrl: string | null;
+  readonly registrationMode: RegistrationMode;
+}
+
+/** Kolom di luar `LISTING_COLUMNS`; masing-masing boleh belum ada (urutan deploy) tanpa menjatuhkan halaman. */
+async function queryEventExtras(eventId: string): Promise<EventExtras> {
+  if (!isUuid(eventId)) return { videoUrl: null, registrationMode: 'external' };
+  const supabase = createSupabasePublicClient();
+  const full = await supabase
     .from('events')
-    .select('video_url')
+    .select('video_url, registration_mode')
     .eq('id', eventId)
-    .maybeSingle<{ video_url: string | null }>();
-  if (error) {
-    if (isMissingColumnError(error)) return null;
-    throw upstreamFailure('Gagal memuat video.', error);
+    .maybeSingle<{ video_url: string | null; registration_mode: string | null }>();
+  if (!full.error) return { videoUrl: full.data?.video_url ?? null, registrationMode: toRegistrationMode(full.data?.registration_mode) };
+  if (!isMissingColumnError(full.error)) throw upstreamFailure('Gagal memuat video.', full.error);
+  // Sebelum migration 20261116100001 (cara daftar) — atau 20261109100002 (video).
+  const video = await supabase.from('events').select('video_url').eq('id', eventId).maybeSingle<{ video_url: string | null }>();
+  if (video.error && !isMissingColumnError(video.error)) throw upstreamFailure('Gagal memuat video.', video.error);
+  return { videoUrl: video.data?.video_url ?? null, registrationMode: 'external' };
+}
+
+/** Angka kartu dari `event_engagement` (policy publik = hanya kegiatan tayang). Tabel belum ada = []. */
+async function queryEngagementCounts(eventIds: readonly string[]): Promise<EventEngagementCountRow[]> {
+  const supabase = createSupabasePublicClient();
+  const rows: EventEngagementCountRow[] = [];
+  for (const part of chunks(eventIds.filter(isUuid), IN_CHUNK)) {
+    const { data, error } = await supabase
+      .from('event_engagement')
+      .select('event_id, like_count, comment_count')
+      .in('event_id', part)
+      .returns<EventEngagementCountRow[]>();
+    if (error) {
+      if (isMissingRelationError(error)) return [];
+      throw upstreamFailure('Gagal memuat angka kegiatan.', error);
+    }
+    rows.push(...data);
   }
-  return data?.video_url ?? null;
+  return rows;
 }
 
 async function queryDetailBySlug(slug: string): Promise<EventDetail | null> {

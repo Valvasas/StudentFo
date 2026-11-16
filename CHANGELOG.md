@@ -42,7 +42,7 @@ yang tidak memuat migration yang sudah ada di produksi
 | Ulangi kata sandi | `ConfirmPasswordInput` di daftar ×2, setel ulang, ganti sandi; kode `password_mismatch`/`same_password`/`weak_password` | Mismatch → "Ada isian yang belum benar" | `auth-failure.test.ts` |
 | Pengaturan | Hub `/profile/settings` + `keamanan/` + `notifikasi/` (ADR-067). Pengingat email di **Notifikasi**, Hapus akun di **Privasi & data** | Satu halaman Pengaturan berisi semuanya (cabang `ccr-c5c96a43`) | `settings.spec.ts`, `email-reminders.spec.ts`, `trust-safety.spec.ts` |
 | Tur penyelenggara | `organizer-tour.tsx` + `product-tour.tsx` (ADR-063/066) | `student-tour.tsx` (dihapus, menjanjikan alur 404) | — |
-| Keluar ke tautan resmi | `/events/[slug]/daftar` → **pendataan kinerja** `/sebelum-daftar` sekali per acara → tautan resmi (ADR-070). Pertanyaan **diatur admin** di `/admin/kinerja/pertanyaan` + tombol **Lewati** (ADR-073) | Langsung ke tautan resmi; pertanyaan dikunci di kode/CHECK SQL (`source`/`plan`, ADR-070 awal) | `register-redirect.spec.ts`, `outbound-survey.test.ts`, `110_outbound_surveys.test.sql` |
+| Keluar ke tautan resmi | `/events/[slug]/daftar` → **pendataan kinerja** `/sebelum-daftar` sekali per acara → tautan resmi **atau formulir StudentFo** (ADR-070, ADR-092 #8). Pertanyaan **diatur admin** di `/admin/kinerja/pertanyaan` + tombol **Lewati** (ADR-073) | Langsung ke tautan resmi; pertanyaan dikunci di kode/CHECK SQL (`source`/`plan`, ADR-070 awal); formulir StudentFo melewati pendataan (ADR-070 awal) | `register-redirect.spec.ts`, `event-engagement.spec.ts`, `outbound-survey.test.ts`, `110_outbound_surveys.test.sql` |
 | Wilayah | `lib/wilayah.ts` + `wilayah-districts.ts`: 38 prov / 514 kab-kota / 7.285 kecamatan (Kepmendagri, ADR-074), `RegionPicker`. `REGIONS` TETAP untuk filter lokasi acara & jarak (butuh titik) | — (jangan "melengkapi" `REGIONS` tanpa koordinat; jangan ganti filter acara ke wilayah lengkap tanpa normalisasi `location`) | `wilayah.test.ts`, `geo.test.ts` |
 | Tempat studi | Direktori resmi `src/data/institutions.ts` (±49 rb SMA/SMK/MA/SLB/keagamaan + 5.800 PT) + `/api/institusi` + `InstitutionPicker`; kolom `users.institution_*`, `domicile_code`; tampil lewat `public_profile_details()` (ADR-076) | `CAMPUSES` (50 kampus contoh, dihapus) | `institutions.test.ts`, `study-profile.test.ts`, `study-place.spec.ts`, `113_study_profile.test.sql` |
 | Peminatan | 19 kategori + 150 bidang spesifik (`lib/study-fields.ts`, `users.study_fields`), bidang membawa induknya (ADR-075); `MAJORS` ±260 prodi/jurusan | 12 kategori saja; `MAJORS` ±60 contoh | `study-fields.test.ts`, `study-place.spec.ts` |
@@ -64,10 +64,23 @@ yang tidak memuat migration yang sudah ada di produksi
 | Menu melayang | `<details data-popover>` + `PopoverDismiss` (ketuk di luar, Escape, pindah halaman); panel lonceng & akun menjangkar ke header di ponsel (ADR-089) | Panel diratakan kanan ke lonceng (terpotong di 320px), menu tetap terbuka | `popover-dismiss.spec.ts` |
 | Teks pengguna panjang | `body { overflow-wrap: break-word }` + `min-w-0 [overflow-wrap:anywhere]` di teks daun item flex/grid (ADR-088) | Tanpa pengaman; `anywhere` global (jangan — chip terbelah) | `extreme-content.spec.ts` |
 | Klik "Daftar" → Papan lamaran | `noteRegisterClick()` di `/daftar` & `/sebelum-daftar`: sinyal + sama dengan "Simpan ke Tracker" (`saveEvent` + `addTrackerItemIfAbsent` → kolom "Disimpan"), tanpa sinyal `save` kedua (ADR-090). "Sudah Daftar" tetap dilaporkan sendiri (ADR-046) | Klik hanya sinyal; Papan lamaran kosong setelah menekan "Daftar" | `register-click.test.ts`, `register-redirect.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–090 | Nomor ganda 061/062 | — |
+| Hapus postingan | "Alat moderator" di halaman kegiatan + `/admin/acara` (Kelola postingan): turunkan kapan saja, juga sebelum tenggat → **Urungkan / Tayangkan lagi**; hapus permanen hanya yang sudah diturunkan, ketik `HAPUS`, tanpa pendaftar aktif (ADR-092 #1) | Hanya Tolak di antrean moderasi; kegiatan yang sudah tayang tidak bisa diturunkan dari UI | `event-removal.test.ts`, `engagement.test.ts`, `119_event_engagement.test.sql`, `event-engagement.spec.ts` |
+| Suka & komentar | Baris `EngagementBar` (Suka · Komentar · Bagikan) di bawah judul; tab `?tab=komentar` khusus anggota dengan rel Komunitas, laporan di `/admin/laporan` → "Komentar kegiatan" (ADR-092 #2–3). Tanya jawab TETAP untuk jawaban resmi | Tidak ada; satu tombol `ShareButton` di halaman kegiatan | `event-comments.test.ts`, `engagement.test.ts`, `parity.test.ts`, `119_event_engagement.test.sql`, `event-engagement.spec.ts` |
+| "Lagi ramai" | Urutan `sort=popular` + `TrendingStrip` (beranda tamu & pribadi, papan Lomba); skor `refresh_event_trends()` ↔ `lib/popularity.ts` (ADR-092 #4). Urutan bawaan TETAP "Paling relevan" | — (jangan jadikan "ramai" urutan bawaan / papan bertenggat) | `popularity.test.ts`, `119_event_engagement.test.sql`, `event-engagement.spec.ts` |
+| Bagikan | `ShareMenu` `<details data-popover>` (salin, Web Share, WA/Telegram/X/FB/LinkedIn/Email, tanpa pelacak) + `/events/[slug]/bagikan` ke koneksi (ADR-092 #5). `ShareButton` hanya untuk tim & lobi | `ShareButton` (salin tautan) di halaman kegiatan | `event-engagement.spec.ts`, `extreme-content.spec.ts` |
+| Lomba mandiri | `events.registration_mode = 'studentfo'`: pilihan "Lewat formulir di StudentFo" di `/submit` (penyelenggara terverifikasi & admin) + sakelar "Hanya lewat StudentFo" di studio; admin membuka studio kegiatan apa pun (ADR-092 #6) | Setiap postingan wajib bertautan pendaftaran luar | `119_event_engagement.test.sql`, `event-engagement.spec.ts` |
+| Formulir ala Google Form | + drop-down, jam, skala linear, judul bagian, gandakan, templat (mengganti kolom awal formulir baru; tidak menggandakan pertanyaan), **Ringkasan jawaban** `pendaftar?tampilan=ringkasan` (ADR-092 #7). Tanpa unggah berkas | ADR-056 awal: 10 jenis, tanpa templat/ringkasan | `registration-form.test.ts`, `form-templates.test.ts`, `registration-summary.test.ts`, `event-engagement.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–092 | Nomor ganda 061/062 | — |
 
 ## Migration
 
+- **BELUM diterapkan (menunggu persetujuan pemilik):** `20261116100001_event_engagement` — suka, komentar,
+  laporan komentar, "Lagi ramai", `registration_mode`, hapus permanen (ADR-092). Tanpa DROP; lolos
+  `npm run db:test` & `test:integration`. Kode aman urutan deploy: tanpa migration ini angka suka/komentar
+  tidak tampil, aksi → `engagement_unavailable`, katalog memakai kueri lama. **Urutan yang disarankan:
+  migration dulu, baru deploy kode** — kiriman "lomba mandiri" yang disetujui SEBELUM migration tidak membawa
+  `registration_mode` dan tombol Daftar-nya menunjuk tautan pengganti `/events` (perbaiki lewat sakelar
+  "Hanya lewat StudentFo" di studio setelah migration).
 - Produksi: **51** migration, dicocokkan langsung 2026-11-13 → `supabase/APPLIED_MIGRATIONS.txt`.
 - 2026-11-13 (persetujuan pemilik di chat): `20261109100002_event_media`, `20261110100001_profile_media`,
   `20261112100001_submission_poster`, `20261112100002_community` diterapkan ke staging, diuji, lalu produksi.
@@ -91,6 +104,13 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-16 — cabang `ccr-efbe8b18-bip6n8` (dari `main` `b86fa8f` + `claude/brave-cray-xsqigf` `267a35d`)
+- Suka, komentar, bagikan (menu + ke koneksi), "Lagi ramai", hapus postingan kapan saja (turunkan → urungkan →
+  hapus permanen), lomba mandiri berformulir StudentFo, formulir ala Google Form + Ringkasan jawaban (ADR-092).
+- Pendataan kinerja kini juga sebelum formulir StudentFo; ekspor data akun memuat komentar & suka;
+  kebijakan privasi & S&K diperbarui, `LEGAL_REVISION` 2026-11-16.
+- Migration `20261116100001_event_engagement` **belum diterapkan**. Cabang **belum digabung ke `main`.**
 
 ### 2026-11-13 — cabang `claude/brave-cray-xsqigf` (lanjutan)
 - Audit skalabilitas (ADR-088): jendela daftar sama di kedua repository, lookup satu baris untuk tracker/hak kelola/tim,

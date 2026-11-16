@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Check, EyeOff, ExternalLink, Flag, MessagesSquare, UserRound, X } from 'lucide-react';
-import { resolveCommunityReportAction, resolveReportAction } from '@/app/admin/actions';
+import { Check, EyeOff, ExternalLink, Flag, MessageCircle, MessagesSquare, UserRound, X } from 'lucide-react';
+import { resolveCommunityReportAction, resolveEventCommentReportAction, resolveReportAction } from '@/app/admin/actions';
 import { AdminNav } from '@/components/admin/admin-nav';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { formatDateTimeId } from '@/lib/deadline';
 import { MODERATION_SUBJECT_TEXT, REPORT_REASON_TEXT } from '@/lib/moderation-labels';
 import type { RawSearchParams } from '@/lib/search-params';
 import { MODERATION_NOTE_MAX } from '@/lib/trust-safety';
-import type { CommunityReportQueueItem, ContentReport } from '@/types/domain';
+import type { EventCommentReportQueueItem, CommunityReportQueueItem, ContentReport } from '@/types/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,8 +67,13 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
   const params = await searchParams;
   await requireAdmin();
   const repository = await getEventRepository();
-  const [reports, communityReports] = await Promise.all([repository.listOpenReports(QUEUE_LIMIT), repository.listCommunityReports(QUEUE_LIMIT)]);
-  const communityOpen = communityReports.reduce((sum, item) => sum + item.reportCount, 0);
+  const [reports, communityReports, commentReports] = await Promise.all([
+    repository.listOpenReports(QUEUE_LIMIT),
+    repository.listCommunityReports(QUEUE_LIMIT),
+    repository.listEventCommentReports(QUEUE_LIMIT),
+  ]);
+  const communityOpen =
+    communityReports.reduce((sum, item) => sum + item.reportCount, 0) + commentReports.reduce((sum, item) => sum + item.reportCount, 0);
   const openPerSubject = new Map<string, number>();
   for (const report of reports) {
     const key = `${report.subjectType}:${report.subjectId}`;
@@ -187,7 +192,106 @@ export default async function ReportsQueuePage({ searchParams }: { searchParams:
           </ul>
         )}
       </section>
+
+      <section aria-labelledby="laporan-komentar" className="mt-12">
+        <h2 id="laporan-komentar" className="flex items-center gap-2 text-2xl">
+          <MessageCircle aria-hidden className="size-6 text-ink-muted" />
+          Komentar kegiatan
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-ink-soft">
+          Aturannya sama dengan Komunitas: satu kartu per komentar, {'≥ 3'} pelapor = tersembunyi otomatis (beserta balasannya), &ldquo;Abaikan&rdquo;
+          menampilkannya lagi.
+        </p>
+        {commentReports.length === 0 ? (
+          <p className="mt-4 flex items-center justify-center gap-2 rounded-card border border-dashed border-line bg-panel px-6 py-8 text-center text-sm text-ink-muted">
+            <Check aria-hidden className="size-4 text-success" />
+            Tidak ada laporan komentar yang menunggu.
+          </p>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-4">
+            {commentReports.map((item) => (
+              <EventCommentReportCard key={item.reportId} item={item} />
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
+  );
+}
+
+function EventCommentReportCard({ item }: { item: EventCommentReportQueueItem }) {
+  return (
+    <li className="flex flex-col gap-3 rounded-card border border-line bg-panel p-5 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
+        <span>
+          Sejak {formatDateTimeId(item.firstAt)} · {item.reportCount} pelapor
+        </span>
+        <span className="flex flex-wrap gap-2">
+          {item.reasons.map((reason) => (
+            <Badge key={reason} variant={reason === 'scam' || reason === 'harassment' ? 'danger' : 'warning'}>
+              {REPORT_REASON_TEXT[reason].label}
+            </Badge>
+          ))}
+          {item.hidden && (
+            <Badge variant="neutral">
+              <EyeOff aria-hidden className="size-3.5" /> {item.hiddenAuto ? 'Tersembunyi otomatis' : 'Disembunyikan'}
+            </Badge>
+          )}
+        </span>
+      </div>
+      <p className="text-sm">
+        {item.authorId ? (
+          <Link href={`/admin/pengguna?q=${item.authorId}`} className="inline-flex min-h-11 items-center gap-1.5 font-semibold underline underline-offset-[3px]">
+            <UserRound aria-hidden className="size-4" /> {item.authorName ?? 'Penulis'}
+          </Link>
+        ) : (
+          <span className="text-ink-muted">Akun penulis sudah dihapus</span>
+        )}
+        {item.event && (
+          <>
+            {' · '}
+            <Link href={`/events/${item.event.slug}?tab=komentar#k-${item.commentId}`} target="_blank" className="inline-flex min-h-11 items-center gap-1 underline underline-offset-[3px]">
+              Buka “{item.event.title}” <ExternalLink aria-hidden className="size-3.5" />
+              <span className="sr-only">(tab baru)</span>
+            </Link>
+          </>
+        )}
+        {!item.stillExists && <span className="text-ink-muted"> · komentar sudah dihapus penulisnya</span>}
+      </p>
+      <div className="rounded-card bg-panel-nested p-3 text-sm">
+        <p className="mb-1 font-medium text-ink-muted">Isi komentar saat dilaporkan</p>
+        <p className="whitespace-pre-line [overflow-wrap:anywhere]">{item.snapshot}</p>
+      </div>
+      {item.details && (
+        <div className="rounded-card bg-panel-nested p-3 text-sm">
+          <p className="mb-1 font-medium text-ink-muted">Keterangan pelapor terbaru</p>
+          <p className="whitespace-pre-line [overflow-wrap:anywhere]">{item.details}</p>
+        </div>
+      )}
+      <form action={resolveEventCommentReportAction} className="flex flex-col gap-3 border-t border-line/70 pt-3">
+        <input type="hidden" name="reportId" value={item.reportId} />
+        <label htmlFor={`comment-note-${item.reportId}`} className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Catatan keputusan (internal, tercatat di riwayat)</span>
+          <TextArea id={`comment-note-${item.reportId}`} name="note" rows={2} maxLength={MODERATION_NOTE_MAX} />
+        </label>
+        {item.stillExists && (
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1 text-sm">
+            <input type="checkbox" name="hide" defaultChecked={item.hidden} className="check mt-px" />
+            <span>
+              Sembunyikan komentar ini <span className="text-ink-muted">(final; berlaku bila kamu menandai sudah ditindak)</span>
+            </span>
+          </label>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <SubmitButton name="outcome" value="RESOLVED" className={buttonVariants({ variant: 'success', size: 'sm' })}>
+            <Check aria-hidden /> Tandai sudah ditindak
+          </SubmitButton>
+          <SubmitButton name="outcome" value="DISMISSED" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+            <X aria-hidden /> Abaikan
+          </SubmitButton>
+        </div>
+      </form>
+    </li>
   );
 }
 

@@ -13,6 +13,7 @@ import { loadBadgeFacts } from '@/components/profile/badge-facts';
 import { ProfileBanner } from '@/components/profile/profile-banner';
 import { BadgeVisibilityToggle, PublicBadges } from '@/components/profile/public-badges';
 import { SelfAvatar } from '@/components/ui/avatar';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { StudyPlaceLine } from '@/components/profile/study-place';
 import { PortfolioList, type PortfolioRow } from '@/components/profile/portfolio-list';
 import {
@@ -495,13 +496,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                           <input type="hidden" name="returnTo" value="/profile?tab=tersimpan" />
                           {/* Barisnya langsung hilang dari daftar ini — tawarkan Urungkan (ADR-067). */}
                           <input type="hidden" name="undo" value="offer" />
-                          <button
-                            type="submit"
+                          {/* Aksi ini TOGGLE: ketukan kedua sebelum pengalihan selesai menyimpannya lagi. */}
+                          <SubmitButton
                             aria-label={`Hapus ${event.title} dari tersimpan`}
                             className="flex size-11 items-center justify-center rounded-sm transition-colors duration-150 ease-snap hover:bg-panel-nested"
                           >
                             <Bookmark aria-hidden className="size-4 fill-current" />
-                          </button>
+                          </SubmitButton>
                         </form>
                       </li>
                     );

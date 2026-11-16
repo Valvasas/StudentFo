@@ -107,7 +107,7 @@ export default async function EventAnalyticsPage({
 
   return (
     <div className="container-page flex flex-col gap-8 py-8">
-      <EventWorkspaceHeader event={event} active="ringkasan" badges={badges} />
+      <EventWorkspaceHeader event={event} active="ringkasan" badges={badges} asAdmin={context.asAdmin} />
 
       <ActionFeedback params={query} className="max-w-2xl" />
 

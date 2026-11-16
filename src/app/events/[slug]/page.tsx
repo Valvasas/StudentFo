@@ -28,13 +28,15 @@ import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
 import { EventMedia } from '@/components/event/event-media';
 import { photoSrc } from '@/components/event/event-photo';
+import { AdminEventTools } from '@/components/admin/admin-event-tools';
+import { EngagementBar } from '@/components/event/engagement-bar';
+import { EventComments } from '@/components/event/event-comments';
 import { EventQuestions } from '@/components/event/event-questions';
 import { GuidebookViewer } from '@/components/event/guidebook-viewer';
 import { MemberGate } from '@/components/event/member-gate';
 import { PromotedBadge } from '@/components/event/price-badge';
 import { RequirementsChecklist } from '@/components/event/requirements-checklist';
 import { SaveButton } from '@/components/event/save-button';
-import { ShareButton } from '@/components/event/share-button';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
@@ -63,6 +65,7 @@ import {
   getDeadlineState,
 } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
+import { siteUrl } from '@/lib/env';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { sectionTitle } from '@/lib/page-title';
 import { loginHref } from '@/lib/safe-redirect';
@@ -73,7 +76,9 @@ import {
   EDUCATION_LEVEL_LABEL,
   EVENT_TYPE_LABEL,
   TRACKER_STATUS_LABEL,
+  type EventCommentPage,
   type EventDetail,
+  type EventEngagement,
   type EventPhoto,
   type EventQuestion,
   type EventRegistration,
@@ -126,6 +131,7 @@ const TABS = [
   { key: 'ringkasan', label: 'Ringkasan' },
   { key: 'syarat', label: 'Syarat & berkas' },
   { key: 'tahapan', label: 'Tahapan' },
+  { key: 'komentar', label: 'Komentar' },
   { key: 'tanya', label: 'Tanya jawab' },
   { key: 'penyelenggara', label: 'Penyelenggara' },
 ] as const;
@@ -146,6 +152,8 @@ function gateCopy(tab: Exclude<TabKey, 'ringkasan'>, stageCount: number): { head
             ? `Kegiatan ini punya ${stageCount} tahap. Masuk atau buat akun gratis untuk melihat jadwalnya dan menyimpannya ke kalender.`
             : 'Masuk atau buat akun gratis untuk melihat jadwalnya dan menyimpannya ke kalender.',
       };
+    case 'komentar':
+      return { heading: 'Komentar khusus anggota', lead: 'Masuk atau buat akun gratis untuk membaca obrolan calon peserta lain dan ikut berkomentar.' };
     case 'tanya':
       return { heading: 'Tanya jawab khusus anggota', lead: 'Masuk atau buat akun gratis untuk membaca jawaban penyelenggara dan bertanya sendiri.' };
     case 'penyelenggara':
@@ -169,6 +177,10 @@ async function optional<T>(load: () => Promise<T>, fallback: T, label: string): 
     return fallback;
   }
 }
+
+/** Fitur interaksi gagal dimuat / belum ada di database = tampil "belum aktif", bukan halaman jatuh. */
+const NO_ENGAGEMENT: EventEngagement = { likes: 0, comments: 0, liked: false, available: false };
+const NO_COMMENTS: EventCommentPage = { threads: [], total: 0, truncated: false, available: false };
 
 /**
  * Detail kegiatan (kanvas desain Detail, versi bertab — chat8).
@@ -210,7 +222,7 @@ export default async function EventDetailPage({
   const requestHeaders = await headers();
   after(() => recordEventView(event.id, requestHeaders));
 
-  const [isSaved, tracked, categories, similar, verifiedOrganizers, organizerProfile, form, photos, myRegistration] = await Promise.all([
+  const [isSaved, tracked, categories, similar, verifiedOrganizers, organizerProfile, form, photos, myRegistration, engagement, comments, canModerate] = await Promise.all([
     user ? repository.isEventSaved(user.id, event.id) : Promise.resolve(false),
     user ? repository.getTrackerItem(user.id, event.id) : Promise.resolve(null),
     repository.listCategories(),
@@ -224,6 +236,11 @@ export default async function EventDetailPage({
     user
       ? optional<EventRegistration | null>(() => repository.getMyRegistration(user.id, event.id), null, 'pendaftaran sendiri')
       : Promise.resolve(null),
+    // Angka suka/komentar selalu (tamu pun melihatnya); daftar komentar hanya di tabnya, khusus anggota.
+    optional<EventEngagement>(() => repository.getEventEngagement(user?.id ?? null, event.id), NO_ENGAGEMENT, 'suka & komentar'),
+    user && tab === 'komentar' ? optional<EventCommentPage>(() => repository.listEventComments(user.id, event.id), NO_COMMENTS, 'komentar') : Promise.resolve(NO_COMMENTS),
+    // Alat moderator (hapus postingan, sembunyikan komentar) = admin yang lolos MFA. Peserta tidak memicu pemeriksaan MFA.
+    user?.role === 'ADMIN' ? checkAdminAccess().then((gate) => gate.allowed) : Promise.resolve(false),
   ]);
   // Tanya jawab hanya dimuat di tabnya; yang boleh menjawab = pengelola terverifikasi atau admin ber-MFA.
   const [questions, canAnswer] =
@@ -231,9 +248,7 @@ export default async function EventDetailPage({
       ? await Promise.all([
           optional<readonly EventQuestion[]>(() => repository.listEventQuestions(event.id, user?.id ?? null, 50), [], 'tanya jawab'),
           user
-            ? Promise.all([checkAdminAccess(), optional(() => repository.getManagedEvent(user.id, event.id), null, 'acara kelolaan')]).then(
-                ([gate, managed]) => gate.allowed || managed !== null,
-              )
+            ? optional(() => repository.getManagedEvent(user.id, event.id), null, 'acara kelolaan').then((managed) => canModerate || managed !== null)
             : Promise.resolve(false),
         ])
       : [[], false];
@@ -246,12 +261,17 @@ export default async function EventDetailPage({
   const cta = registrationCta(form, myRegistration, isClosed || registrationEventClosed(event, now));
   // Formulir StudentFo yang aktif menggantikan tautan luar; biayanya pun yang berlaku.
   const internalForm = form?.isOpen ? form : null;
-  const formHref = `/events/${event.slug}/formulir`;
+  // Lewat rute keluar `/daftar`: pendataan kinerja sekali per acara + klik tercatat (ADR-070/090/092).
+  const formHref = `/events/${event.slug}/daftar`;
+  // Lomba mandiri (ADR-092): hanya formulir StudentFo — tautan luar tidak pernah tampil.
+  const studentfoOnly = event.registrationMode === 'studentfo';
   // Tautan berasal dari sumber pihak ketiga hasil scraping. Divalidasi ulang
   // di titik render — bukan diasumsikan aman karena "kan sudah divalidasi
   // di pipeline". Satu lapis saja tidak cukup untuk data yang tidak kita tulis.
-  const registrationUrl = sanitizeExternalUrl(event.registrationLink);
-  const sourceUrl = sanitizeExternalUrl(event.sourceUrl);
+  const registrationUrl = studentfoOnly ? null : sanitizeExternalUrl(event.registrationLink);
+  const rawSourceUrl = sanitizeExternalUrl(event.sourceUrl);
+  // Postingan yang "sumbernya" StudentFo sendiri tidak diberi tautan "pengumuman asli" ke diri sendiri.
+  const sourceUrl = rawSourceUrl && safeHostname(rawSourceUrl) !== safeHostname(siteUrl) ? rawSourceUrl : null;
   const sourceHost = sourceUrl ? safeHostname(sourceUrl) : null;
 
   const nav = EVENT_TYPE_NAV.find((item) => item.types.includes(event.eventType));
@@ -270,7 +290,7 @@ export default async function EventDetailPage({
     levels.length > 0 ? `Pelajar/mahasiswa aktif jenjang ${levels.join(' atau ')}` : 'Terbuka untuk semua jenjang',
     event.isOnline ? 'Bisa mengikuti kegiatan secara daring' : `Bisa hadir di ${place}`,
     ...(isTeamEvent ? ['Memenuhi ketentuan jumlah anggota tim dari penyelenggara'] : []),
-    internalForm ? 'Mendaftar sebelum tenggat lewat formulir pendaftaran di StudentFo' : 'Mendaftar sebelum tenggat melalui tautan resmi penyelenggara',
+    internalForm || studentfoOnly ? 'Mendaftar sebelum tenggat lewat formulir pendaftaran di StudentFo' : 'Mendaftar sebelum tenggat melalui tautan resmi penyelenggara',
   ];
 
   const price: PriceLabel = !internalForm
@@ -329,6 +349,10 @@ export default async function EventDetailPage({
       <ArrowUpRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       <span className="sr-only">(membuka situs penyelenggara di tab baru)</span>
     </RegisterLaunch>
+  ) : studentfoOnly ? (
+    <p className="rounded-card bg-panel-nested p-3 text-sm text-ink-soft">
+      Pendaftaran lewat formulir StudentFo segera dibuka. Simpan kegiatan ini supaya kamu dikabari tenggatnya.
+    </p>
   ) : (
     <p className="rounded-card bg-caution-soft p-3 text-sm text-caution">
       Tautan pendaftaran belum tersedia atau tidak valid. Cek langsung ke situs penyelenggara.
@@ -362,7 +386,10 @@ export default async function EventDetailPage({
           samping / bilah bawah ponsel, sisanya di baris meta judul. */}
       <div className="container-page flex flex-wrap items-start gap-12 pb-12 pt-4">
         <div className="flex min-w-0 flex-[1_1_560px] flex-col">
-          <header className="enter flex flex-col gap-4">
+          {/* `.enter` (animasi ber-fill) = konteks tumpukan sendiri: z-index panel Bagikan terkurung di
+              dalamnya dan blok sesudahnya menimpa panel. Diangkat HANYA saat menu terbuka — selain itu
+              bilah tab lengket (z-30) tetap menutupi judul ketika digulir. */}
+          <header className="enter relative flex flex-col gap-4 has-[[data-popover][open]]:z-40">
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex h-[26px] items-center rounded-[6px] bg-brand px-2.5 text-[12.5px] font-semibold text-on-brand">
                 {EVENT_TYPE_LABEL[event.eventType]}
@@ -422,12 +449,12 @@ export default async function EventDetailPage({
                 </div>
               ))}
             </dl>
-            {/* Panel samping (bagikan, persiapan berkas) hilang di bawah 960px
-                dan bilah bawah hanya muat simpan + daftar — tanpa baris ini
-                keduanya tak terjangkau dari ponsel. Kalender ada di tab Tahapan. */}
-            <div className="-ml-3.5 flex flex-wrap items-center gap-1 min-[960px]:hidden">
-              <ShareButton title={event.title} path={detailPath} />
-              {demoFeaturesEnabled && !isClosed && (
+            <EngagementBar event={event} engagement={engagement} signedIn={user !== null} tab={tab} />
+            {/* Panel samping (persiapan berkas) hilang di bawah 960px dan bilah
+                bawah hanya muat simpan + daftar — tanpa baris ini tautannya tak
+                terjangkau dari ponsel. Kalender ada di tab Tahapan. */}
+            {demoFeaturesEnabled && !isClosed && (
+              <div className="-ml-3.5 flex flex-wrap items-center gap-1 min-[960px]:hidden">
                 <Link
                   href={`${detailPath}/persiapan`}
                   className="flex h-11 items-center gap-2 rounded-card px-3.5 text-sm font-medium transition-colors duration-150 ease-snap hover:bg-panel-nested"
@@ -435,15 +462,22 @@ export default async function EventDetailPage({
                   <FileText aria-hidden className="size-4" />
                   Siapkan berkas
                 </Link>
-              )}
-            </div>
+              </div>
+            )}
           </header>
 
           <div className="sticky top-0 z-30 mt-8 border-b border-line bg-canvas md:top-16">
             <nav aria-label="Bagian informasi" className="-mx-4 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
               {TABS.map((item) => {
                 const active = item.key === tab;
-                const count = item.key === 'syarat' ? requirements.length : item.key === 'tahapan' ? event.deadlines.length : null;
+                const count =
+                  item.key === 'syarat'
+                    ? requirements.length
+                    : item.key === 'tahapan'
+                      ? event.deadlines.length
+                      : item.key === 'komentar'
+                        ? engagement.comments
+                        : null;
                 return (
                   <Link
                     key={item.key}
@@ -617,6 +651,17 @@ export default async function EventDetailPage({
               </div>
             )}
 
+            {tab === 'komentar' && !gated && (
+              <EventComments
+                event={event}
+                page={comments}
+                signedIn={user !== null}
+                acceptsComments={event.status === 'APPROVED'}
+                canModerate={canModerate}
+                now={now}
+              />
+            )}
+
             {tab === 'tanya' && !gated && (
               <EventQuestions
                 event={event}
@@ -641,8 +686,13 @@ export default async function EventDetailPage({
                       )}
                     </span>
                     <span className="text-[13.5px] text-ink-muted">
-                      Informasinya dicocokkan moderator dengan sumber{' '}
-                      {sourceHost ? <strong className="font-medium text-ink-soft">{sourceHost}</strong> : 'aslinya'} sebelum tayang.
+                      {sourceHost ? (
+                        <>
+                          Informasinya dicocokkan moderator dengan sumber <strong className="font-medium text-ink-soft">{sourceHost}</strong> sebelum tayang.
+                        </>
+                      ) : (
+                        'Ditinjau moderator StudentFo sebelum tayang.'
+                      )}
                     </span>
                     {verifiedOrg && (
                       <span className="text-[13.5px] text-ink-muted">
@@ -657,7 +707,7 @@ export default async function EventDetailPage({
                 <div role="note" className="flex gap-3 rounded-[12px] border border-dashed border-ink-muted p-4 text-sm leading-normal">
                   <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
                   <span>
-                    {internalForm
+                    {internalForm || studentfoOnly
                       ? 'Untuk pendaftaran lewat StudentFo, bayar hanya ke tujuan yang tertulis di halaman pembayaranmu. StudentFo tidak pernah meminta OTP, PIN, atau kata sandi.'
                       : 'Jangan transfer biaya pendaftaran ke rekening pribadi, dan pastikan formulir yang kamu isi berada di domain resmi penyelenggara. Ada yang janggal? Bandingkan dengan pengumuman aslinya.'}
                   </span>
@@ -676,6 +726,8 @@ export default async function EventDetailPage({
                 )}
               </div>
             )}
+
+            {canModerate && <AdminEventTools event={event} />}
 
             {/* Setiap tab, bukan hanya tab sumber: penipuan paling sering terlihat
                 dari syarat & biaya (ADR-061). Tamu diarahkan masuk dulu. */}
@@ -706,10 +758,7 @@ export default async function EventDetailPage({
             </div>
             <div className="flex flex-col gap-2">
               {register}
-              <div className="flex gap-2">
-                <SaveButton eventId={event.id} isSaved={isSaved} returnTo={detailPath} variant="full" className="flex-1" />
-                <ShareButton title={event.title} path={detailPath} />
-              </div>
+              <SaveButton eventId={event.id} isSaved={isSaved} returnTo={detailPath} variant="full" />
               {!isClosed && !gated && <AddToCalendarButton event={event} now={now} />}
             </div>
           </div>

@@ -5,6 +5,7 @@ import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { DeadlineWeek } from '@/components/event/deadline-week';
 import { EventGrid } from '@/components/event/event-grid';
+import { TrendingStrip, trendingItems } from '@/components/event/trending-strip';
 import { loadMyRegistrations } from '@/components/home/account-role';
 import { NextStepsCard } from '@/components/home/next-steps-card';
 import { SearchBox } from '@/components/listing/listing-ui';
@@ -45,7 +46,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
   const repository = await getEventRepository();
   const now = new Date();
   const stepsHidden = isNextStepsHidden((await cookies()).get(NEXT_STEPS_COOKIE)?.value);
-  const [tracker, saved, recommended, week, categories, registrations, connectionCount, teamCount] = await Promise.all([
+  const [tracker, saved, recommended, week, categories, registrations, connectionCount, teamCount, popular] = await Promise.all([
     repository.listTrackerItems(user.id),
     repository.listSavedEvents(user.id),
     repository.listEvents({
@@ -60,6 +61,8 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     // Hanya untuk "Langkah awal" — tidak dimuat bila disembunyikan; gagal = langkahnya tidak ditawarkan.
     stepsHidden ? null : withFallback<number | null>('hitungan koneksi', async () => (await repository.countConnections(user.id)).accepted, null),
     stepsHidden ? null : withFallback<number | null>('tim saya', async () => (await repository.listTeamLinks([user.id], 1)).length, null),
+    // "Lagi ramai" (ADR-092) — bagian sendiri, tidak mencampuri urutan "Sesuai minatmu".
+    withFallback('kegiatan lagi ramai', async () => (await repository.listEvents({ sort: 'popular', pageSize: 8 })).items, []),
   ]);
 
   const trackedIds = new Set(tracker.map((item) => item.eventId));
@@ -239,6 +242,8 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
       <div className="mt-14">
         <DeadlineWeek days={week} />
       </div>
+
+      <TrendingStrip events={trendingItems(popular, 3)} now={now} moreHref="/events?sort=popular" className="mb-14" />
 
       <section aria-labelledby="untukmu">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">

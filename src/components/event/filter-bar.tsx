@@ -29,6 +29,7 @@ const SORT_LABEL: Record<(typeof SORT_OPTIONS)[number], string> = {
   relevance: 'Paling relevan',
   deadline: 'Tenggat terdekat',
   newest: 'Terbaru',
+  popular: 'Lagi ramai',
 };
 
 /**

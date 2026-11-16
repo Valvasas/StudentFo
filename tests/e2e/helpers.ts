@@ -39,6 +39,10 @@ export const PAID_DEMO_EVENT = {
 export async function registerForPaidDemoEvent(page: Page): Promise<string> {
   await signInAsDemo(page, 'Mahasiswa', PAID_DEMO_EVENT.path);
   await page.getByRole('link', { name: /Daftar sekarang/ }).first().click();
+  // Pendataan kinerja juga sebelum formulir StudentFo (ADR-092) — sekali per acara per peramban;
+  // konteks uji selalu baru, jadi layar ini selalu muncul.
+  await expect(page).toHaveURL(/\/sebelum-daftar$/);
+  await page.getByRole('button', { name: 'Lewati' }).click();
   await expect(page).toHaveURL(/\/formulir$/);
 
   await page.getByLabel('Nomor WhatsApp').fill('081234567890');

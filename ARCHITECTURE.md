@@ -54,7 +54,7 @@ src/
 │   ├── page.tsx                Beranda — GuestLanding untuk tamu; RoleHome bila masuk: peserta/penyelenggara/admin (ADR-053/056)
 │   ├── error.tsx / not-found.tsx
 │   ├── robots.ts / sitemap.ts  SEO — dibangun dari repository, bukan statis
-│   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056)
+│   ├── events/                 Listing + filter (force-dynamic, Suspense manual), [slug] detail + [slug]/formulir (isi formulir internal, ADR-056) + [slug]/bagikan (kirim ke koneksi, ADR-092)
 │   │                           [slug]/daftar (rute keluar) → [slug]/sebelum-daftar (pendataan kinerja + actions.ts, ADR-070)
 │   ├── lobi/                   Lobi lomba (ADR-071): page.tsx (lobi saya), [slug]/page.tsx (kartu lobi, anggota, tim, ajak teman), actions.ts
 │   ├── (auth)/                 Route group — login & register peserta (form biasa; pintu penyelenggara di penyelenggara/(akun), ADR-063), demo/ (akun demo, tidak ditautkan dari mana pun — ADR-057), forgot/reset password
@@ -80,7 +80,7 @@ src/
 │   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
 │   ├── api/health/             GET untuk monitor uptime: 200 bila database terjangkau (tanpa Data Cache), 503 bila tidak (ADR-059)
 │   ├── icon.tsx / apple-icon.tsx / manifest.ts   Ikon 32/192/512 + 180 dari geometri LogoMark (og/brand-icon.tsx); /favicon.ico = rewrite ke /icon/32 (ADR-059)
-│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); media/[slug] (poster & video acara tanpa pengelola, ADR-079); laporan/ & pengguna/ (ADR-061); kinerja/ (pendataan kinerja, ADR-070);
+│   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); media/[slug] (poster & video acara tanpa pengelola, ADR-079); laporan/ & pengguna/ (ADR-061); kinerja/ (pendataan kinerja, ADR-070); acara/ (Kelola postingan: turunkan, urungkan, hapus permanen — ADR-092);
 │                               actions.ts (auth di dalam); AdminNav di semua halaman (ADR-055).
 │                               Semua halaman memakai requireAdmin() = 404 bagi non-admin dan generateMetadata (ADR-057)
 │
@@ -114,7 +114,8 @@ src/
 │   │                           GuidebookViewer, AddToCalendarButton (<details>, tanpa JS),
 │   │                           RegisterLaunch (Daftar → kartu "formulir dibuka" + tandai terdaftar, ADR-055),
 │   │                           EventMedia + MediaSlider (slide poster → video → foto, carousel APG, pemutar fasad) + PhotoLightbox (<dialog>),
-│   │                           PosterThumb (thumbnail kartu), MediaManager (kelola poster/foto/video, studio & admin) (ADR-056, 079), event-photo.ts (src/alt foto)
+│   │                           PosterThumb (thumbnail kartu), MediaManager (kelola poster/foto/video, studio & admin) (ADR-056, 079), event-photo.ts (src/alt foto),
+│   │                           EngagementBar + LikeSubmit + ShareMenu/ShareQuickActions + EventComments + CardCounts + TrendingStrip (ADR-092)
 │   ├── team/                   TeamCard, TeamSeats, SeatMeter, MyTeamLink, CreateTeamForm (klien, pratinjau)
 │   ├── match/                  Pencocokan (ADR-057, 058): MatchRadar + ScanStage + ScanSession (pemindaian), MatchRing & ScoreHex (skor),
 │   │                           MatchCard (kartu koleksi, Server Component), MatchEndCard, MatchEmpty, ActiveFilterChips, MatchFilters (<form method="get">),
@@ -172,6 +173,10 @@ src/
 │   ├── demo/                   access.ts (murni: host demo & kunci Admin, ADR-057) [teruji], gate.ts (membaca env + header Host), personas, profile-extras
 │   ├── legal.ts                Status dokumen hukum (draf/final) dari env, LEGAL_REVISION, bukti persetujuan daftar (ADR-057, 060) [teruji]
 │   ├── account-export.ts       Salinan data akun JSON untuk /profile/privacy/ekspor — hak akses & portabilitas UU PDP (ADR-060) [teruji]
+│   ├── popularity.ts           Skor "Lagi ramai": bobot, peluruhan 72 jam, jendela 14 hari — cermin refresh_event_trends() (ADR-092) [teruji, murni]
+│   ├── event-comments.ts       Batas & validasi komentar kegiatan, utas, label peran, batas bagikan ke koneksi (ADR-092) [teruji, murni]
+│   ├── event-removal.ts        Alasan baku hapus postingan + frasa HAPUS (ADR-092) [teruji, murni]
+│   ├── form-templates.ts · registration-summary.ts   Templat formulir & Ringkasan jawaban ala Google Form (ADR-092) [teruji, murni]
 │   ├── trust-safety.ts         Validasi form laporan, normalisasi cari pengguna, frasa hapus akun (ADR-061) [teruji]
 │   ├── moderation-labels.ts    Label status/subjek log moderasi & alasan laporan — satu sumber untuk halaman admin
 │   ├── error-alert.ts          Entri galat JSON (tanpa query string) + pembatas webhook; dipakai src/instrumentation.ts (ADR-061) [teruji]

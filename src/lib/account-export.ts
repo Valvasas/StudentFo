@@ -11,6 +11,8 @@ import type {
   EventSummary,
   LobbySummary,
   MyCommunityContent,
+  MyEventComment,
+  MyEventLike,
   NetworkProfile,
   NotificationPreferences,
   OrganizerProfile,
@@ -49,6 +51,10 @@ export interface AccountExportInput {
   readonly identity: ProfileIdentity;
   /** Postingan & balasan Komunitas (ADR-087), termasuk yang disembunyikan moderator. Opsional: tes lama tidak mengisinya. */
   readonly community?: readonly MyCommunityContent[];
+  /** Komentar kegiatan (ADR-092), termasuk yang disembunyikan moderator. Opsional: tes lama tidak mengisinya. */
+  readonly eventComments?: readonly MyEventComment[];
+  /** Kegiatan yang kamu sukai (ADR-092). */
+  readonly eventLikes?: readonly MyEventLike[];
 }
 
 /**
@@ -167,6 +173,19 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
       body: content.body,
       hiddenByModerator: content.hidden,
       createdAt: content.createdAt,
+    })),
+    eventComments: (input.eventComments ?? []).map((comment) => ({
+      event: comment.eventTitle,
+      url: comment.eventSlug ? `/events/${comment.eventSlug}?tab=komentar#k-${comment.id}` : null,
+      body: comment.body,
+      isReply: comment.isReply,
+      hiddenByModerator: comment.hidden,
+      createdAt: comment.createdAt,
+    })),
+    likedEvents: (input.eventLikes ?? []).map((like) => ({
+      event: like.eventTitle,
+      url: like.eventSlug ? `/events/${like.eventSlug}` : null,
+      likedAt: like.likedAt,
     })),
     notifications: input.notifications.map((notification) => ({
       type: notification.type,

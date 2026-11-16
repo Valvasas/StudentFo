@@ -110,6 +110,12 @@ test('kirim kegiatan berjudul 255 karakter → antrean moderator tetap rapi di 3
   await admin.getByRole('link', { name: TITLE, exact: true }).first().click();
   await expect(admin).toHaveURL(/\/events\/lomba-ekstrem/);
   eventPath = new URL(admin.url()).pathname;
+  // Alat moderator di halaman kegiatan & Kelola postingan (ADR-092).
+  await expect(admin.getByRole('region', { name: 'Alat moderator' })).toBeVisible();
+  await expectNoOverflow(admin, `${eventPath} (admin)`);
+  await admin.goto(`/admin/acara?q=${token}`);
+  await expect(admin.getByRole('heading', { name: TITLE })).toBeVisible();
+  await expectNoOverflow(admin, '/admin/acara?q=');
   await Promise.all([sender.context().close(), adminContext.close()]);
 });
 
@@ -126,11 +132,21 @@ test('katalog, detail, tracker, tim & Komunitas tidak meluber di 320px', async (
   await expect(page.getByRole('link', { name: TITLE, exact: true }).first()).toBeVisible();
   await expectNoOverflow(page, '/events?type=LOMBA&q=');
 
-  for (const tab of ['', '?tab=tanya', '?tab=penyelenggara']) {
+  for (const tab of ['', '?tab=tanya', '?tab=penyelenggara', '?tab=komentar']) {
     await page.goto(`${eventPath}${tab}`);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(token);
     await expectNoOverflow(page, `${eventPath}${tab}`);
   }
+
+  // Komentar satu "kata" panjang + nama penulis (ADR-092), lalu halaman Kirim ke koneksi.
+  await page.goto(`${eventPath}?tab=komentar`);
+  await page.getByRole('textbox', { name: 'Tulis komentar' }).fill(`Ada yang mau satu tim? ${UNBROKEN}${UNBROKEN}`);
+  await page.getByRole('button', { name: 'Kirim komentar' }).click();
+  await expect(page).toHaveURL(/notice=comment_sent/);
+  await expectNoOverflow(page, `${eventPath}?tab=komentar (berisi)`);
+  await page.goto(`${eventPath}/bagikan`);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(token);
+  await expectNoOverflow(page, `${eventPath}/bagikan`);
 
   await page.goto(eventPath);
   await page.getByRole('button', { name: 'Simpan ke Tracker' }).click();
@@ -168,7 +184,7 @@ test('tamu: gerbang anggota dengan judul 255 karakter tetap rapi di 320px', asyn
   test.skip(!eventPath, 'butuh kegiatan dari tes pertama');
   const context = await browser.newContext({ viewport: { width: 320, height: 700 }, hasTouch: true, isMobile: true });
   const page = await context.newPage();
-  for (const route of [`/events?q=${token}`, eventPath, `${eventPath}?tab=tanya`]) {
+  for (const route of [`/events?q=${token}`, eventPath, `${eventPath}?tab=tanya`, `${eventPath}?tab=komentar`]) {
     await page.goto(route);
     await expectNoOverflow(page, `tamu ${route}`);
   }

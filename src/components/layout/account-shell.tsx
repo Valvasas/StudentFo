@@ -11,6 +11,7 @@ import { REQUEST_PATH_HEADER } from '@/lib/security-headers';
 import type { AuthUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { SelfAvatar } from '@/components/ui/avatar';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { profileCompleteness } from '@/lib/profile-completeness';
 import { cn } from '@/lib/utils';
 
@@ -134,15 +135,15 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
           </SignOutForm>
           <form action={toggleAccountSidebarAction} className="flex">
             <input type="hidden" name="returnTo" value={returnTo} />
-            <button
-              type="submit"
+            {/* TOGGLE: ketukan ganda sebelum pengalihan selesai membatalkan dirinya sendiri. */}
+            <SubmitButton
               aria-expanded={!collapsed}
               aria-label={collapsed ? 'Lebarkan menu akun' : 'Ciutkan menu akun'}
               title={collapsed ? 'Lebarkan menu' : 'Ciutkan menu'}
               className="flex size-11 items-center justify-center rounded-[10px] text-ink-muted transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
             >
               {collapsed ? <PanelLeftOpen aria-hidden className="size-[18px]" /> : <PanelLeftClose aria-hidden className="size-[18px]" />}
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </nav>

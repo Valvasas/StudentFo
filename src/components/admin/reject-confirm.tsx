@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { TextArea } from '@/components/ui/field';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { cn } from '@/lib/utils';
 
 /**
@@ -46,9 +47,9 @@ export function RejectConfirm({
             <TextArea id={reasonId} name="reason" rows={3} maxLength={500} placeholder="Mis. tautan pendaftaran tidak bisa dibuka" />
           </label>
         )}
-        <Button type="submit" variant="danger" size="sm">
+        <SubmitButton className={buttonVariants({ variant: 'danger', size: 'sm' })} pendingLabel="Menolak…">
           Ya, tolak
-        </Button>
+        </SubmitButton>
       </form>
     </details>
   );

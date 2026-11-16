@@ -90,6 +90,21 @@ describe('buildAccountExport', () => {
     ]);
   });
 
+  it('komentar & suka kegiatan milik sendiri; acara yang sudah dihapus tetap tercatat tanpa tautan (ADR-092)', () => {
+    expect(buildAccountExport(base)).toMatchObject({ eventComments: [], likedEvents: [] });
+    const result = buildAccountExport({
+      ...base,
+      eventComments: [
+        { id: 'k1', eventSlug: 'lomba-a', eventTitle: 'Lomba A', body: 'Boleh tim lintas kampus?', isReply: false, hidden: true, createdAt: '2026-11-12T01:00:00.000Z' },
+      ],
+      eventLikes: [{ eventSlug: null, eventTitle: null, likedAt: '2026-11-11T01:00:00.000Z' }],
+    });
+    expect(result.eventComments).toEqual([
+      { event: 'Lomba A', url: '/events/lomba-a?tab=komentar#k-k1', body: 'Boleh tim lintas kampus?', isReply: false, hiddenByModerator: true, createdAt: '2026-11-12T01:00:00.000Z' },
+    ]);
+    expect(result.likedEvents).toEqual([{ event: null, url: null, likedAt: '2026-11-11T01:00:00.000Z' }]);
+  });
+
   it('foto profil & banner: tautan berkas milik sendiri dan pilihan banner bawaan (ADR-083)', () => {
     expect(buildAccountExport(base).profileLook).toEqual({ photoUrl: null, bannerUrl: null, bannerPreset: null });
     const avatarId = '3f2b8c1e-4a5d-4e6f-8a9b-0c1d2e3f4a5b';

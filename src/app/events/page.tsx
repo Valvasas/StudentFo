@@ -10,10 +10,12 @@ import { parseEligibilityLevel } from '@/lib/eligibility';
 import { Breadcrumb, PageTitle } from '@/components/listing/listing-ui';
 import { LombaBoard } from '@/components/listing/lomba-board';
 import { MagangBoard } from '@/components/listing/magang-board';
+import { trendingItems } from '@/components/event/trending-strip';
 import { SeminarAgenda } from '@/components/listing/seminar-agenda';
 import { WorkshopCalendar } from '@/components/listing/workshop-calendar';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { getDeadlineState } from '@/lib/deadline';
 import { eventTypeNavFor } from '@/lib/event-type-nav';
 import {
@@ -21,6 +23,7 @@ import {
   hasActiveFilters,
   parseEventQuery,
   type RawSearchParams,
+  isBoardUnfiltered,
 } from '@/lib/search-params';
 
 export const dynamic = 'force-dynamic';
@@ -103,11 +106,17 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
 
   switch (nav?.key) {
     case 'LOMBA': {
-      const top = await repository.listEvents({ types: nav.types, sort: 'deadline', pageSize: 1 });
+      const [top, popular] = await Promise.all([
+        repository.listEvents({ types: nav.types, sort: 'deadline', pageSize: 1 }),
+        // "Lagi ramai" (ADR-092) di atas papan; gagal dimuat = tanpa bagian itu, bukan papan yang jatuh.
+        isBoardUnfiltered(query) && query.page <= 1
+          ? withFallback('lomba lagi ramai', () => repository.listEvents({ types: nav.types, sort: 'popular', pageSize: 6 }), null)
+          : Promise.resolve(null),
+      ]);
       return (
         <>
           {feedback}
-          <LombaBoard {...board} top={top.items[0] ?? null} />
+          <LombaBoard {...board} top={top.items[0] ?? null} trending={trendingItems(popular?.items ?? [], 3)} />
         </>
       );
     }

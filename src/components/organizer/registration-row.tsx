@@ -8,7 +8,7 @@ import { TextArea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { formatRupiah } from '@/lib/currency';
 import { formatDateTimeId, formatShortDateId } from '@/lib/deadline';
-import { formatAnswer, REGISTRATION_FORM_LIMITS, registrationTransition, type ReviewDecision } from '@/lib/registration-form';
+import { answerFields, formatAnswer, REGISTRATION_FORM_LIMITS, registrationTransition, type ReviewDecision } from '@/lib/registration-form';
 import { cn } from '@/lib/utils';
 import { REGISTRATION_STATUS_LABEL, type AnswerValue, type EventRegistration, type FormField, type RegistrationStatus } from '@/types/domain';
 
@@ -156,7 +156,7 @@ export function RegistrationRow({
                 </dd>
               </div>
             </dl>
-            <AnswerList title="Jawaban" entries={fields.map((field) => ({ key: field.id, label: field.label, field, value: registration.answers[field.id] }))} />
+            <AnswerList title="Jawaban" entries={answerFields(fields).map((field) => ({ key: field.id, label: field.label, field, value: registration.answers[field.id] }))} />
             {extra.length > 0 && (
               <AnswerList
                 title="Jawaban lain"

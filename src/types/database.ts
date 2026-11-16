@@ -50,6 +50,8 @@ export interface EventListingRow {
   featured_until: string | null;
   verification_badge: string | null;
   guidebook_url: string | null;
+  /** Hanya bila diminta (urutan "Lagi ramai", migration 20261116100001). */
+  trend_score?: number;
 }
 
 /** RPC `list_personalized_events()` — kolom listing + skor + total semua hasil filter. */
@@ -557,4 +559,68 @@ export interface LobbyMemberRow {
 export interface LobbyCountRow {
   event_id: string;
   member_count: number;
+}
+
+// ----------------------------------------------------------------------
+// Interaksi kegiatan (migration 20261116100001, ADR-092)
+// ----------------------------------------------------------------------
+
+/** RPC `event_engagement_state()`. */
+export interface EventEngagementStateRow {
+  like_count: number;
+  comment_count: number;
+  liked: boolean;
+}
+
+/** Tabel `event_engagement` (angka kartu; skor ramai diambil lewat view). */
+export interface EventEngagementCountRow {
+  event_id: string;
+  like_count: number;
+  comment_count: number;
+}
+
+/** RPC `list_event_comments()`. */
+export interface EventCommentRow {
+  id: string;
+  parent_id: string | null;
+  body: string;
+  author_name: string;
+  author_username: string | null;
+  author_avatar_id: string | null;
+  author_role: string | null;
+  is_mine: boolean;
+  created_at: string;
+  more_threads: boolean;
+}
+
+/** RPC `admin_event_comment_report_queue()`. */
+export interface EventCommentReportQueueRow {
+  report_id: string;
+  comment_id: string;
+  event_slug: string | null;
+  event_title: string | null;
+  author_id: string | null;
+  author_name: string | null;
+  snapshot: string;
+  reasons: string[] | null;
+  details: string | null;
+  report_count: number;
+  hidden: boolean;
+  hidden_auto: boolean;
+  still_exists: boolean;
+  first_at: string;
+}
+
+/** Tabel `events` + tenggat utama untuk "Kelola postingan" admin. */
+export interface AdminEventDbRow {
+  id: string;
+  slug: string;
+  title: string;
+  organizer: string;
+  event_type: EventType;
+  status: EventStatus;
+  created_at: string;
+  rejection_reason: string | null;
+  registration_mode?: string | null;
+  event_deadlines: { deadline_at: string; is_primary: boolean }[] | null;
 }

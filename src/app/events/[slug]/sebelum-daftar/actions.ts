@@ -66,6 +66,9 @@ export async function submitOutboundSurveyAction(formData: FormData): Promise<vo
   await rememberOutboundSurvey(event.id);
   if (!destination) redirect(`/events/${event.slug}`);
   await noteRegisterClick(event.id, user, repository);
+  // Formulir StudentFo (ADR-092): path internal, bukan URL absolut `siteUrl` —
+  // di pratinjau deploy URL absolut melempar pendaftar ke domain produksi.
+  if (destination.kind === 'internal') redirect(`/events/${event.slug}/formulir`);
   // LANGSUNG ke tujuan resmi, bukan lewat `/daftar`: redirect Server Action ke
   // path internal membuat Next merender tujuan itu di server — dan ikut
   // mengikuti 303 rute `/daftar` sampai ke situs penyelenggara. Tujuannya tetap

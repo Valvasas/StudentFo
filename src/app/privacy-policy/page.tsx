@@ -94,6 +94,15 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               disimpan untuk moderator walau tulisannya kemudian dihapus; identitas pelapor tidak diberitahukan ke penulis.
             </li>
             <li>
+              <strong>Suka, komentar & bagikan kegiatan (bila kamu memakainya):</strong> kegiatan yang kamu sukai beserta waktunya, komentar dan
+              balasan yang kamu tulis di tab Komentar, laporan komentar yang kamu kirim, dan kegiatan yang kamu bagikan ke koneksimu lewat StudentFo.
+              Siapa yang menyukai sebuah kegiatan tidak pernah ditampilkan ke siapa pun — yang terlihat hanya jumlahnya. Komentar terlihat oleh
+              anggota yang sudah masuk dengan nama tersingkat (mis. &ldquo;Dinda P.&rdquo;), dengan aturan yang sama seperti Komunitas: tamu dan
+              mesin pencari tidak melihatnya, nomor HP/email/tautan chat ditolak, dan cuplikan komentar yang dilaporkan disimpan untuk moderator.
+              Membagikan ke koneksi mengirim notifikasi berisi namamu dan judul kegiatannya ke koneksi yang kamu pilih; membagikan lewat
+              WhatsApp, X, dan sejenisnya hanya membuka aplikasi itu dengan tautan kegiatan — kami tidak mencatat ke mana kamu membagikannya.
+            </li>
+            <li>
               <strong>Tempat studi, domisili & bidang peminatan (bila kamu mengisinya):</strong> nama sekolah/kampus (dipilih dari direktori
               resmi atau diketik sendiri), domisili sampai kecamatan, dan bidang peminatan spesifik. Orang yang boleh membuka profilmu (lihat butir di atas) dan
               sesama peserta lobi lomba melihat tempat studi, bidang peminatan, dan kabupaten/kota domisilimu. <em>Kecamatan tidak pernah ditampilkan ke siapa pun selain kamu.</em> Tempat studi diisi
@@ -104,7 +113,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               serta koneksi mana yang kamu ajak ikut lomba itu.
             </li>
             <li>
-              <strong>Pendataan kinerja postingan:</strong> sebelum kamu diarahkan ke situs pendaftaran resmi penyelenggara, kami menampilkan
+              <strong>Pendataan kinerja postingan:</strong> sebelum kamu diarahkan ke situs pendaftaran resmi penyelenggara atau ke formulir
+              pendaftaran StudentFo (sekali per kegiatan), kami menampilkan
               beberapa pertanyaan singkat yang disusun pengelola StudentFo — bawaannya jenjang pendidikan, dari mana kamu tahu info itu, rencana
               ikut, dan bila kamu mau kabupaten/kota domisili serta asal sekolah/kampus. Kamu boleh menekan <em>Lewati</em>; yang kami catat
               saat itu hanya bahwa ada kunjungan yang melewati. Jawaban ini <em>tidak</em> memuat nama, email, atau id akunmu (hanya tanda
@@ -113,7 +123,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               hanya ditampilkan sebagai angka bila ada sedikitnya lima jawaban yang sama.
             </li>
             <li>
-              <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu. Bila kamu menyalakan
+              <strong>Notifikasi:</strong> pengingat tenggat dan kabar tentang pendaftaran, kiriman, dan koneksimu, balasan atas komentarmu, serta
+              kegiatan yang dibagikan koneksimu kepadamu. Bila kamu menyalakan
               pengingat tenggat lewat email, juga waktu persetujuanmu dan catatan email mana yang sudah terkirim.
             </li>
             <li>
@@ -122,7 +133,7 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               penyelenggara atau moderator juga tampil publik.
             </li>
             <li>
-              <strong>Laporan:</strong> alasan dan keterangan saat kamu melaporkan kegiatan, pertanyaan, atau pengguna lain.
+              <strong>Laporan:</strong> alasan dan keterangan saat kamu melaporkan kegiatan, pertanyaan, komentar, atau pengguna lain.
             </li>
             <li>
               <strong>Status akun:</strong> bila akunmu ditangguhkan admin karena melanggar Syarat &amp; Ketentuan, waktu dan alasannya.
@@ -182,6 +193,10 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
             Urutan &ldquo;cocok untukmu&rdquo; dan skor kecocokan di pencocokan tim dihitung otomatis dari jenjang, minat, keahlian, kota, dan
             portofolio. Hasilnya hanya mengatur apa yang tampil lebih dulu: tidak menolak pendaftaranmu, tidak menentukan seleksi kegiatan apa pun,
             dan tidak menimbulkan akibat hukum. Kegiatan berlabel &ldquo;Promosi&rdquo; adalah iklan dan tidak mengubah skor.
+          </p>
+          <p>
+            Urutan &ldquo;Lagi ramai&rdquo; sama untuk semua orang: dihitung dari <em>jumlah</em> pendaftaran, klik daftar, simpan, komentar, suka,
+            dan pengunjung sebuah kegiatan dalam 14 hari terakhir — bukan dari siapa yang melakukannya, dan tidak memakai data dirimu.
           </p>
           <p>
             Kamu bisa mengosongkan minat, menutup kartu pemain, atau menyatakan keberatan atas keputusan yang diambil hanya berdasarkan pemrosesan
@@ -296,8 +311,9 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
           <ul>
             <li>
               <strong>Akun, profil, aktivitas, koneksi, kartu pemain, dan pendaftaran:</strong> selama akunmu aktif. Saat akun dihapus, semuanya ikut
-              terhapus, termasuk berkas bukti pembayaran, foto profil, banner unggahanmu, dan tulisan Komunitas-mu (postingan beserta
-              balasan di dalamnya). Laporan tentang tulisan Komunitas disimpan sebagai arsip moderasi tanpa namamu. Foto profil & banner juga langsung terhapus saat kamu
+              terhapus, termasuk berkas bukti pembayaran, foto profil, banner unggahanmu, tulisan Komunitas-mu (postingan beserta
+              balasan di dalamnya), serta suka dan komentar kegiatanmu (beserta balasan di bawahnya). Laporan tentang tulisan Komunitas dan
+              komentar kegiatan disimpan sebagai arsip moderasi tanpa namamu. Foto profil & banner juga langsung terhapus saat kamu
               menggantinya atau menghapusnya dari Data diri. Foto galeri yang kamu unggah sebagai penyelenggara tetap menjadi bagian halaman
               acaranya.
             </li>

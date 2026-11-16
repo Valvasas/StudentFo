@@ -15,9 +15,11 @@ export function registrationHref(registrationId: string): string {
 }
 
 /**
- * Ajakan daftar lewat formulir StudentFo di panel samping (ADR-056).
- * Tab yang sama, `<Link>` biasa — formulirnya bagian dari situs ini, jadi
- * tidak ada alasan membuka tab baru seperti tautan resmi luar.
+ * Ajakan daftar lewat formulir StudentFo di panel samping (ADR-056). Tab
+ * yang sama — formulirnya bagian dari situs ini. "Daftar sekarang" menuju
+ * `formHref` = rute keluar `/daftar` (pendataan kinerja sekali per acara,
+ * klik tercatat & masuk Papan lamaran, ADR-090/092), jadi `<a>` biasa:
+ * prefetch `<Link>` akan MENJALANKAN route handler itu dan mencatat klik palsu.
  */
 export function RegistrationCtaPanel({ cta, formHref }: { cta: RegistrationCta; formHref: string }) {
   switch (cta.kind) {
@@ -36,10 +38,10 @@ export function RegistrationCtaPanel({ cta, formHref }: { cta: RegistrationCta; 
     case 'open':
       return (
         <div className="flex flex-col gap-2">
-          <Link href={formHref} className={solid}>
+          <a href={formHref} className={solid}>
             Daftar sekarang
             <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-snap group-hover:translate-x-0.5" />
-          </Link>
+          </a>
           {cta.remaining !== null && (
             <p className="text-center text-[13px] text-ink-muted">Sisa kuota {cta.remaining.toLocaleString('id-ID')}</p>
           )}
@@ -81,9 +83,9 @@ export function RegistrationCtaBarAction({ cta, formHref }: { cta: RegistrationC
       );
     case 'open':
       return (
-        <Link href={formHref} aria-label="Daftar sekarang" className={cn(button, 'bg-brand text-on-brand')}>
+        <a href={formHref} aria-label="Daftar sekarang" className={cn(button, 'bg-brand text-on-brand')}>
           Daftar
-        </Link>
+        </a>
       );
     case 'full':
       return <span className="shrink-0 px-1 text-sm font-semibold text-ink-muted">Kuota penuh</span>;

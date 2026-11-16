@@ -288,3 +288,59 @@ describe('newRegistrationCode', () => {
     expect(newRegistrationCode()).toMatch(/^SF-[0-9A-F]{8}$/);
   });
 });
+
+describe('jenis kolom ala Google Form (ADR-092)', () => {
+  it('skema: skala dijepit 2–10 dengan bawaan 1–5; judul bagian tidak pernah wajib; drop-down butuh dua pilihan', () => {
+    const [scale] = formFieldsSchema.parse([field({ type: 'scale' })]);
+    expect(scale?.scale).toEqual({ max: 5, lowLabel: null, highLabel: null });
+    expect(formFieldsSchema.safeParse([field({ type: 'scale', scale: { max: 11, lowLabel: null, highLabel: null } })]).success).toBe(false);
+    expect(formFieldsSchema.safeParse([field({ type: 'scale', scale: { max: 1, lowLabel: null, highLabel: null } })]).success).toBe(false);
+    const [section] = formFieldsSchema.parse([field({ type: 'section', required: true })]);
+    expect(section?.required).toBe(false);
+    expect(formFieldsSchema.safeParse([field({ type: 'dropdown', options: ['A'] })]).success).toBe(false);
+    // Pilihan & skala tidak menempel ke jenis lain.
+    const [text] = formFieldsSchema.parse([field({ type: 'short_text', options: ['A', 'B'], scale: { max: 7, lowLabel: 'x', highLabel: 'y' } })]);
+    expect(text?.options).toEqual([]);
+    expect(text?.scale).toBeUndefined();
+  });
+
+  it('jawaban: drop-down dari daftar, jam HH:MM, skala dalam rentang, judul bagian dilewati', () => {
+    const fields = [
+      field({ type: 'section', label: 'Data tim' }),
+      field({ type: 'dropdown', options: ['1', '2', '3'] }),
+      field({ type: 'time' }),
+      field({ type: 'scale', scale: { max: 7, lowLabel: null, highLabel: null } }),
+    ];
+    const ok = readAnswers(fields, form({ q_f_dropdown: '2', q_f_time: '13:30', q_f_scale: '7' }));
+    expect(ok).toEqual({ ok: true, answers: { f_dropdown: '2', f_time: '13:30', f_scale: 7 } });
+    expect(readAnswers(fields, form({ q_f_dropdown: '9', q_f_time: '13:30', q_f_scale: '1' }))).toEqual({ ok: false, fieldId: 'f_dropdown' });
+    expect(readAnswers(fields, form({ q_f_dropdown: '1', q_f_time: '24:00', q_f_scale: '1' }))).toEqual({ ok: false, fieldId: 'f_time' });
+    expect(readAnswers(fields, form({ q_f_dropdown: '1', q_f_time: '07:05', q_f_scale: '8' }))).toEqual({ ok: false, fieldId: 'f_scale' });
+    expect(readAnswers(fields, form({ q_f_dropdown: '1', q_f_time: '07:05', q_f_scale: '0' }))).toEqual({ ok: false, fieldId: 'f_scale' });
+    expect(readAnswers(fields, form({ q_f_dropdown: '1', q_f_time: '07:05', q_f_scale: '1.5' }))).toEqual({ ok: false, fieldId: 'f_scale' });
+  });
+
+  it('CSV tidak memuat kolom untuk judul bagian', () => {
+    const fields = [field({ type: 'section', label: 'Data tim' }), field({ type: 'short_text', label: 'Nama tim' })];
+    const registration = {
+      id: 'r1',
+      code: 'SF-0000AAAA',
+      eventId: 'e1',
+      userId: 'u1',
+      fullName: 'Ana',
+      email: 'ana@example.com',
+      answers: { f_shorttext: 'Garuda' },
+      status: 'CONFIRMED',
+      feeAmount: null,
+      proofUploadedAt: null,
+      reviewNote: null,
+      reviewedAt: null,
+      createdAt: '2026-11-16T03:00:00Z',
+      updatedAt: '2026-11-16T03:00:00Z',
+    } as unknown as EventRegistration;
+    const [header, row] = registrationsToCsv(fields, [registration]).trim().split('\r\n');
+    expect(header).not.toContain('Data tim');
+    expect(header).toContain('"Nama tim"');
+    expect(row).toContain('"Garuda"');
+  });
+});

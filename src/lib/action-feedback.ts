@@ -126,6 +126,22 @@ export const ACTION_ERROR_CODES = [
   'profile_identity_unavailable',
   'invalid_study_place',
   'badges_unavailable',
+  'engagement_unavailable',
+  'like_rate_limited',
+  'invalid_event_comment',
+  'comment_rate_limited',
+  'comment_event_unavailable',
+  'event_comment_not_found',
+  'invalid_share',
+  'share_rate_limited',
+  'share_empty',
+  'event_not_found',
+  'event_not_taken_down',
+  'event_has_registrations',
+  'deletion_reason_required',
+  'event_delete_confirm',
+  'event_delete_failed',
+  'registration_mode_unavailable',
   'unknown',
 ] as const;
 
@@ -258,6 +274,23 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   community_reply_not_found: 'Balasan itu tidak ada atau sudah dihapus.',
   community_own_content: 'Tulisanmu sendiri tidak bisa ditandai bermanfaat.',
   community_event_unavailable: 'Kegiatan itu tidak tersedia untuk ditautkan.',
+  engagement_unavailable: 'Suka & komentar belum aktif di server ini. Coba lagi setelah pembaruan database terpasang.',
+  like_rate_limited: 'Kamu sudah menyukai banyak sekali kegiatan hari ini. Coba lagi besok.',
+  invalid_event_comment: 'Komentar 2–1.000 karakter.',
+  comment_rate_limited: 'Kamu sudah berkomentar 30 kali hari ini. Coba lagi besok — batas ini menjaga halaman kegiatan dari banjir pesan.',
+  comment_event_unavailable: 'Kegiatan ini sudah ditutup atau belum tayang, jadi tidak menerima komentar baru.',
+  event_comment_not_found: 'Komentar itu tidak ada, sudah dihapus, atau disembunyikan moderator.',
+  invalid_share: 'Pilih 1–20 koneksi untuk dikirimi kegiatan ini.',
+  share_rate_limited: 'Kamu sudah membagikan 20 kali hari ini. Coba lagi besok.',
+  share_empty: 'Tidak ada yang dikabari: pilih koneksi yang sudah menerima ajakanmu.',
+  event_not_found: 'Kegiatan itu sudah tidak ada.',
+  event_not_taken_down: 'Turunkan postingan ini dulu. Hapus permanen hanya untuk postingan yang sudah diturunkan.',
+  event_has_registrations:
+    'Postingan ini masih punya pendaftar aktif lewat formulir StudentFo. Batalkan atau tolak pendaftaran mereka dulu (dan selesaikan pengembalian dana bila ada) supaya data & uang peserta tidak ikut lenyap.',
+  deletion_reason_required: 'Tulis alasan penghapusan minimal 5 karakter — tercatat di Riwayat moderasi.',
+  event_delete_confirm: 'Ketik HAPUS untuk mengonfirmasi penghapusan permanen.',
+  event_delete_failed: 'Berkas postingan gagal dihapus dari penyimpanan, jadi postingan belum dihapus. Coba lagi sebentar lagi.',
+  registration_mode_unavailable: 'Pengaturan cara mendaftar aktif setelah pembaruan database terpasang. Formulir lainnya sudah tersimpan.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
 
@@ -343,6 +376,14 @@ export const ACTION_NOTICE_CODES = [
   'outbound_config_saved',
   'study_place_saved',
   'profile_identity_saved',
+  'comment_sent',
+  'comment_deleted',
+  'comment_hidden',
+  'event_shared',
+  'event_taken_down',
+  'event_restored',
+  'event_deleted',
+  'registration_mode_saved',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -381,6 +422,14 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   badges_hidden: 'Lencanamu kembali privat — hanya kamu yang melihatnya.',
   outbound_config_saved: 'Pertanyaan pendataan tersimpan. Pengunjung berikutnya langsung melihat versi ini.',
   profile_identity_saved: 'Profil publikmu tersimpan. Bagikan tautannya supaya orang lebih mudah menemukanmu.',
+  comment_sent: 'Komentarmu tampil di bawah.',
+  comment_deleted: 'Komentarmu dihapus beserta balasannya.',
+  comment_hidden: 'Komentar disembunyikan dan tercatat di Riwayat moderasi.',
+  event_shared: 'Terkirim. Koneksimu dikabari lewat lonceng notifikasi.',
+  event_taken_down: 'Postingan diturunkan dari katalog dan tercatat di Riwayat moderasi. Salah tekan? Urungkan di bawah.',
+  event_restored: 'Postingan tayang lagi seperti semula dan tercatat di Riwayat moderasi.',
+  event_deleted: 'Postingan dihapus permanen beserta foto, komentar, dan datanya. Riwayat moderasi tetap menyimpan jejaknya.',
+  registration_mode_saved: 'Cara mendaftar disimpan.',
   study_place_saved: 'Tempat studi & domisili tersimpan. Orang yang bisa melihat profilmu kini tahu kamu dari mana.',
   reminders_on: 'Pengingat tenggat menyala. Kegiatan yang kamu simpan atau lacak diingatkan H-3 dan H-1.',
   reminders_off: 'Pengingat tenggat dimatikan. Pengingat yang sudah ada di lonceng tidak dihapus.',
@@ -462,7 +511,10 @@ export function actionError(code: Exclude<ActionErrorCode, 'unknown'>): AppError
           code === 'organizer_rate_limited' ||
           code === 'registration_rate_limited' ||
           code === 'profile_media_rate_limited' ||
-          code === 'community_rate_limited'
+          code === 'community_rate_limited' ||
+          code === 'like_rate_limited' ||
+          code === 'comment_rate_limited' ||
+          code === 'share_rate_limited'
         ? 429
         : code.endsWith('not_found')
           ? 404

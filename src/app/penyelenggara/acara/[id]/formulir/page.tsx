@@ -58,7 +58,7 @@ export default async function RegistrationFormPage({
 
   return (
     <div className="container-page flex flex-col gap-8 pb-0 pt-8">
-      <EventWorkspaceHeader event={event} active="formulir" badges={badges} />
+      <EventWorkspaceHeader event={event} active="formulir" badges={badges} asAdmin={context.asAdmin} />
 
       <ActionFeedback params={query} className="max-w-2xl" />
 
@@ -83,6 +83,18 @@ export default async function RegistrationFormPage({
                 defaultChecked={form?.isOpen ?? false}
                 className="relative mt-0.5 h-7 w-12 shrink-0 cursor-pointer appearance-none rounded-pill bg-line-strong transition-colors duration-200 ease-snap before:absolute before:left-[3px] before:top-[3px] before:size-[22px] before:rounded-pill before:bg-canvas before:shadow-sm before:transition-transform before:duration-300 before:ease-[var(--easing-spring)] before:content-[''] checked:bg-brand checked:before:translate-x-5 focus-visible:outline-none"
               />
+            </label>
+            {/* Lomba mandiri (ADR-092): tanpa tautan luar, tombol Daftar tidak pernah keluar dari StudentFo. */}
+            <input type="hidden" name="modeField" value="on" />
+            <label className="flex cursor-pointer items-start gap-3 rounded-card border border-line bg-panel-nested px-3.5 py-3 text-sm">
+              <input type="checkbox" name="studentfoOnly" defaultChecked={event.registrationMode === 'studentfo'} className="check mt-0.5 shrink-0" />
+              <span className="flex flex-col gap-0.5">
+                <span className="font-semibold text-ink">Hanya lewat StudentFo (lomba mandiri)</span>
+                <span className="text-[13px] leading-snug text-ink-muted">
+                  Tautan pendaftaran luar tidak pernah ditampilkan. Saat formulir ditutup, peserta melihat “Pendaftaran belum dibuka/ditutup”, bukan
+                  diarahkan ke situs lain.
+                </span>
+              </span>
             </label>
             {closed && (
               <p className="flex items-start gap-2 rounded-card bg-caution-soft px-3 py-2.5 text-sm text-caution">
@@ -129,7 +141,7 @@ export default async function RegistrationFormPage({
                 <strong className="font-semibold text-ink">Nama & email</strong> diambil otomatis dari akun peserta.
               </span>
             </p>
-            <FormBuilder initialFields={form ? form.fields : starterFields()} />
+            <FormBuilder initialFields={form ? form.fields : starterFields()} templates fresh={!form} />
           </section>
 
           <section aria-labelledby="kuota-biaya" className="flex flex-col gap-5 rounded-panel border border-line bg-panel p-5 lg:col-start-2 lg:row-start-2">

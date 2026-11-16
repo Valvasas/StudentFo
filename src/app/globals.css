@@ -102,6 +102,13 @@
   --color-tint-sky: #cde0f2;
   --color-tint-lilac: #e0d8f3;
 
+  /* ===== Suka (ADR-092) — rona mawar (±335°), sengaja jauh dari merah
+     bahaya (--color-error, ±0°) supaya "disukai" tidak terbaca "galat".
+     Maknanya dibawa ikon hati terisi + teks "Batal suka", bukan warna saja. ===== */
+  --color-like: #a8245a;
+  --color-like-soft: #fce9f1;
+  --color-like-line: rgb(168 36 90 / 0.35);
+
   /* ===== Focus ring ===== */
   --focus-ring: #1d1b17;
   --focus-ring-offset: 2px;
@@ -214,6 +221,10 @@
 
   --focus-ring: #efebe1;
 
+  --color-like: #f39bbf;
+  --color-like-soft: rgb(243 155 191 / 0.16);
+  --color-like-line: rgb(243 155 191 / 0.36);
+
   /* Stabilo di gelap: kuning redup dengan teks terang di atasnya akan gagal
      kontras, jadi coretan dipakai sebagai GARIS (bukan latar teks) di sini. */
   --color-highlight: #b8901d;
@@ -322,6 +333,9 @@
   --color-tint-peach: var(--color-tint-peach);
   --color-tint-sky: var(--color-tint-sky);
   --color-tint-lilac: var(--color-tint-lilac);
+  --color-like: var(--color-like);
+  --color-like-soft: var(--color-like-soft);
+  --color-like-line: var(--color-like-line);
   --ease-enter: var(--easing-enter);
 
   --container-page: var(--layout-max);
