@@ -77,7 +77,10 @@ yang tidak memuat migration yang sudah ada di produksi
 - **BELUM diterapkan (menunggu persetujuan pemilik):** `20261116100001_event_engagement` — suka, komentar,
   laporan komentar, "Lagi ramai", `registration_mode`, hapus permanen (ADR-092). Tanpa DROP; lolos
   `npm run db:test` & `test:integration`. Kode aman urutan deploy: tanpa migration ini angka suka/komentar
-  tidak tampil, aksi → `engagement_unavailable`, katalog memakai kueri lama.
+  tidak tampil, aksi → `engagement_unavailable`, katalog memakai kueri lama. **Urutan yang disarankan:
+  migration dulu, baru deploy kode** — kiriman "lomba mandiri" yang disetujui SEBELUM migration tidak membawa
+  `registration_mode` dan tombol Daftar-nya menunjuk tautan pengganti `/events` (perbaiki lewat sakelar
+  "Hanya lewat StudentFo" di studio setelah migration).
 - Produksi: **51** migration, dicocokkan langsung 2026-11-13 → `supabase/APPLIED_MIGRATIONS.txt`.
 - 2026-11-13 (persetujuan pemilik di chat): `20261109100002_event_media`, `20261110100001_profile_media`,
   `20261112100001_submission_poster`, `20261112100002_community` diterapkan ke staging, diuji, lalu produksi.
