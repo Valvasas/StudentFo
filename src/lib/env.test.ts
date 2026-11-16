@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveDataMode, type DataModeInput } from './env';
+import { resolveDataMode, resolveSiteUrl, type DataModeInput } from './env';
 
 const base: DataModeInput = {
   supabaseUrl: undefined,
@@ -32,5 +32,29 @@ describe('resolveDataMode', () => {
     expect(
       resolveDataMode({ ...base, nodeEnv: 'production', nextPhase: 'phase-production-build' }),
     ).toBe('seed');
+  });
+});
+
+describe('resolveSiteUrl', () => {
+  const none = { configured: undefined, vercelEnv: undefined, vercelUrl: undefined };
+
+  it('nilai eksplisit selalu menang, juga di preview', () => {
+    expect(resolveSiteUrl({ configured: 'https://studentfo.vercel.app', vercelEnv: 'preview', vercelUrl: 'x-abc.vercel.app' })).toBe(
+      'https://studentfo.vercel.app',
+    );
+  });
+
+  it('preview Vercel tanpa nilai eksplisit memakai host deploy-nya, bukan localhost', () => {
+    expect(resolveSiteUrl({ ...none, vercelEnv: 'preview', vercelUrl: 'studentfo-git-x.vercel.app' })).toBe(
+      'https://studentfo-git-x.vercel.app',
+    );
+  });
+
+  it('produksi tanpa nilai eksplisit TIDAK memakai VERCEL_URL (host per-deploy)', () => {
+    expect(resolveSiteUrl({ ...none, vercelEnv: 'production', vercelUrl: 'studentfo-abc123.vercel.app' })).toBe('http://localhost:3000');
+  });
+
+  it('lokal jatuh ke localhost', () => {
+    expect(resolveSiteUrl(none)).toBe('http://localhost:3000');
   });
 });

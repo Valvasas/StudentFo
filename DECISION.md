@@ -12,6 +12,49 @@ terdokumentasi.
 
 ---
 
+## ADR-091 — Google OAuth: cek provider sebelum mengalihkan, galat callback tidak lagi diam, dan preview tidak jatuh ke localhost
+
+**Konteks:** Pemilik menekan "Masuk dengan Google" dan mendarat di halaman
+kosong. Penyebab di sisi kode ada tiga celah. (1) ADR-010 mengira Supabase
+mengembalikan `provider_disabled` ke Server Action, padahal `signInWithOAuth`
+di server hanya merakit URL tanpa panggilan jaringan; browserlah yang kemudian
+mengunjungi `/auth/v1/authorize`, jadi provider yang belum diaktifkan
+mendarat di JSON galat mentah dan kode `provider_disabled` yang sudah ada
+tidak pernah terpicu. (2) `/auth/callback` menganggap SETIAP `?error=` sebagai
+"pengguna membatalkan" dan membuangnya ke `/login` tanpa pesan, termasuk
+kegagalan Supabase menukar kode dari Google (Client Secret salah, dst).
+(3) `NEXT_PUBLIC_SITE_URL` kosong → `localhost:3000`; env preview Vercel
+memang tidak mengisinya, sehingga `redirectTo` OAuth di preview menunjuk ke
+localhost.
+
+**Keputusan:**
+1. `signInWithGoogleAction` bertanya ke `GET /auth/v1/settings` GoTrue
+   (publik, anon key; memuat `external.google`) lewat
+   `lib/supabase/oauth-provider.ts`. Google mati → kembali ke form dengan
+   `provider_disabled`. Gagal terbuka: jaringan putus, timeout 3 dtk, non-2xx,
+   atau bentuk balasan tak dikenal dianggap hidup; hanya `false` eksplisit
+   yang memblokir.
+2. Callback: hanya `access_denied` yang diam-diam kembali ke `/login`. Galat
+   lain dipetakan `mapSupabaseAuthError({ code: error_code, message:
+   error_description })` dan dicatat (nama galat + kode saja) ke log server.
+3. `resolveSiteUrl()` di `lib/env.ts`: nilai eksplisit menang; hanya
+   `VERCEL_ENV=preview` yang boleh jatuh ke `https://$VERCEL_URL`; produksi
+   tidak (host per-deploy bukan domain kanonik, nilainya wajib diisi).
+
+**Konsekuensi:**
+- Satu round-trip server ke Supabase (≤3 dtk) per klik tombol Google. Dipilih
+  daripada env flag `NEXT_PUBLIC_AUTH_GOOGLE_ENABLED` karena flag bisa tidak
+  sinkron dengan dashboard (alasan penolakan yang sama dengan ADR-010); ini
+  juga meralat klaim ADR-010 bahwa ketersediaan provider "tidak bisa
+  dideteksi dari server".
+- Preview Vercel yang memakai Supabase staging butuh pola
+  `https://*.vercel.app/**` di Redirect URLs staging, karena host preview
+  berbeda tiap deploy. Itu konfigurasi dashboard, bukan kode.
+- Kesalahan di sisi Google (redirect URI salah → `redirect_uri_mismatch`)
+  terjadi di halaman Google dan tidak bisa dideteksi dari sini.
+
+---
+
 ## ADR-090 — Klik "Daftar" = "Simpan ke Tracker": acara masuk simpanan & Papan lamaran sebagai "Disimpan"
 
 **Konteks:** Pemilik menekan "Daftar" di beasiswa pertama yang tayang di
@@ -3913,6 +3956,8 @@ berupa URL consent, lalu `redirect()` yang mengalihkan. Code verifier PKCE
 ditulis ke cookie oleh klien server — Server Action memang boleh menulis
 cookie. Penukaran `code` menjadi sesi terjadi di route handler
 `/auth/callback`.
+
+> **Diperbarui oleh ADR-091:** klaim `provider_disabled` & "tidak bisa dideteksi dari server" di bawah keliru — dicek lewat `/auth/v1/settings`.
 
 **Konsekuensi:** tidak ada satu pun klien Supabase di bundle browser, jadi
 tombol "Masuk dengan Google" tetap berfungsi tanpa JavaScript dan tidak ada

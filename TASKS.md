@@ -211,6 +211,8 @@ Belum / butuh akses pemilik:
 - [ ] Apply SEMUA migration 20260926* ke Supabase staging, lalu `npm run db:verify`
       (belum pernah di-apply ke project mana pun — jangan langsung produksi).
 - [ ] Google OAuth end-to-end sungguhan (runbook: README § Autentikasi).
+- [x] Google OAuth: cek provider aktif sebelum redirect, galat callback non-`access_denied` tidak lagi diam, preview Vercel tidak jatuh ke localhost (ADR-091).
+- [ ] **BUTUH PEMILIK.** Aktifkan provider Google di Supabase produksi (`urmmihzjkkbxcwfzvuao`) + Redirect URL `https://studentfo.vercel.app/auth/callback` + redirect URI Google `https://urmmihzjkkbxcwfzvuao.supabase.co/auth/v1/callback`, lalu uji README § Autentikasi langkah (1)–(5).
 - [ ] Isi `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` + `RATE_LIMIT_SECRET` di hosting;
       uji widget Turnstile asli (egress ke Cloudflare diblokir di lingkungan pengerjaan).
 - [ ] Scan securityheaders.com setelah staging publik (ADR-038 #3).
