@@ -521,9 +521,13 @@ BEGIN
   END;
 END$$;
 
--- 12. Ekspor: komentar milik sendiri, termasuk yang disembunyikan.
+-- 12. Ekspor: komentar (termasuk yang disembunyikan) & suka milik sendiri — bukan milik orang lain.
 INSERT INTO public.event_comments (event_id, author_id, body, hidden_at) VALUES
   ('00000000-0000-4000-8000-0000000e0e01', '00000000-0000-4000-8000-0000000e0a01', 'Tersembunyi tapi milikku', now());
+DELETE FROM public.event_likes;
+INSERT INTO public.event_likes (event_id, user_id) VALUES
+  ('00000000-0000-4000-8000-0000000e0e01', '00000000-0000-4000-8000-0000000e0a01'),
+  ('00000000-0000-4000-8000-0000000e0e03', '00000000-0000-4000-8000-0000000e0a02');
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = '00000000-0000-4000-8000-0000000e0a01';
 DO $$
@@ -531,6 +535,19 @@ BEGIN
   IF (SELECT count(*) FROM public.my_event_comments() WHERE hidden AND event_title = 'Lomba Ramai Uji') <> 1 THEN
     RAISE EXCEPTION 'ekspor memuat komentar sendiri termasuk yang disembunyikan';
   END IF;
+  IF (SELECT array_agg(event_title) FROM public.my_event_likes()) IS DISTINCT FROM ARRAY['Lomba Ramai Uji'] THEN
+    RAISE EXCEPTION 'ekspor memuat suka sendiri saja';
+  END IF;
+END$$;
+RESET ROLE;
+SET LOCAL ROLE anon;
+DO $$
+BEGIN
+  BEGIN
+    PERFORM 1 FROM public.my_event_likes();
+    RAISE EXCEPTION 'tamu tidak boleh memanggil my_event_likes';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
 END$$;
 RESET ROLE;
 ROLLBACK;

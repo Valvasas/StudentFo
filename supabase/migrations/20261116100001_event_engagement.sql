@@ -318,6 +318,23 @@ AS $$
   LIMIT 2000;
 $$;
 
+-- Suka milik sendiri (ekspor data akun, UU PDP Pasal 7). Tabelnya tertutup
+-- untuk klien, jadi pemilik membacanya lewat sini.
+CREATE OR REPLACE FUNCTION public.my_event_likes()
+RETURNS TABLE (event_slug TEXT, event_title TEXT, created_at TIMESTAMPTZ)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT e.slug::text, e.title::text, l.created_at
+  FROM public.event_likes l
+  LEFT JOIN public.events e ON e.id = l.event_id
+  WHERE l.user_id = (select auth.uid())
+  ORDER BY l.created_at DESC
+  LIMIT 2000;
+$$;
+
 -- ---------------------------------------------------------------------
 -- 5. Menulis
 -- ---------------------------------------------------------------------
@@ -982,6 +999,7 @@ REVOKE ALL ON FUNCTION public.sync_event_comment_count() FROM PUBLIC, anon, auth
 REVOKE ALL ON FUNCTION public.event_engagement_state(UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.list_event_comments(UUID, INT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.my_event_comments() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.my_event_likes() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.toggle_event_like(UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.create_event_comment(UUID, TEXT, UUID) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.delete_event_comment(UUID) FROM PUBLIC, anon, authenticated;
@@ -1000,6 +1018,7 @@ REVOKE ALL ON FUNCTION public.approve_submission(UUID, UUID) FROM PUBLIC, anon, 
 GRANT EXECUTE ON FUNCTION public.event_engagement_state(UUID) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.list_event_comments(UUID, INT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.my_event_comments() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.my_event_likes() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.toggle_event_like(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_event_comment(UUID, TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_event_comment(UUID) TO authenticated;

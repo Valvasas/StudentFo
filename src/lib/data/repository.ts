@@ -70,6 +70,7 @@ import type {
   EventCommentReportQueueItem,
   EventEngagement,
   MyEventComment,
+  MyEventLike,
   RegistrationMode,
   ShareRecipient,
 } from '@/types/domain';
@@ -157,6 +158,7 @@ export interface EngagementRepository {
   deleteEventComment(viewerId: string, commentId: string): Promise<void>;
   reportEventComment(viewerId: string, input: { readonly commentId: string; readonly reason: ReportReason; readonly details: string | null }): Promise<void>;
   listMyEventComments(viewerId: string): Promise<readonly MyEventComment[]>;
+  listMyEventLikes(viewerId: string): Promise<readonly MyEventLike[]>;
   /** Koneksi DITERIMA pembaca yang bisa dikirimi kegiatan (maks. 200, nama A–Z). */
   listShareRecipients(viewer: NetworkViewer): Promise<readonly ShareRecipient[]>;
   /** Jumlah penerima yang benar-benar dikabari (bukan koneksi/diblokir/ditangguhkan dilewati). */
@@ -949,6 +951,11 @@ export interface CreateSubmissionInput {
    * bila `submittedBy` terisi — tamu tidak boleh menitipkan berkas.
    */
   readonly poster?: UploadedImage | null;
+  /**
+   * Hanya mode seed (tanpa tabel users): pengirim admin boleh lomba mandiri
+   * (ADR-092). Produksi membaca `users.role` di `approve_submission`.
+   */
+  readonly submitterIsAdmin?: boolean;
 }
 
 export interface CreateSubmissionResult {

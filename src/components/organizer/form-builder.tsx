@@ -72,6 +72,14 @@ function toDraft(field: FormField): DraftField {
   return { ...field, help: field.help ?? '', options: [...field.options], scale: field.scale ?? DEFAULT_SCALE };
 }
 
+/** Pertanyaan "sama" = jenis + judul sama (huruf besar-kecil & spasi diabaikan) — templat tidak menggandakannya. */
+const sameQuestionKey = (field: { readonly type: FormFieldType; readonly label: string }) =>
+  `${field.type}:${field.label.trim().replace(/\s+/g, ' ').toLocaleLowerCase('id-ID')}`;
+
+/** Isi yang terlihat, tanpa id: untuk tahu kolom awal formulir baru belum disentuh. */
+const contentOf = (fields: readonly DraftField[]) =>
+  JSON.stringify(fields.map((field) => [field.type, field.label.trim(), field.help.trim(), field.required, field.options]));
+
 function cleanOptions(options: readonly string[]): string[] {
   return [...new Set(options.map((option) => option.trim()).filter(Boolean))];
 }
@@ -123,7 +131,7 @@ function problemOf(field: DraftField): Problem {
 }
 
 const PROBLEM_TEXT: Record<Exclude<Problem, null>, string> = {
-  label: 'Tulis pertanyaan atau judul bagiannya.',
+  label: 'Tulis pertanyaannya.',
   options: `Isi minimal ${LIMITS.optionsMin} pilihan yang berbeda.`,
 };
 
@@ -146,6 +154,7 @@ export function FormBuilder({
   maxFields = LIMITS.maxFields,
   emptyText = 'Belum ada pertanyaan tambahan. Pendaftar cukup mengirim nama & email akunnya.',
   templates = false,
+  fresh = false,
 }: {
   initialFields: readonly FormField[];
   /** Jenis yang boleh dipilih — pendataan kinerja (ADR-073) membatasinya ke jenis yang bisa dihitung & anonim. */
@@ -154,8 +163,15 @@ export function FormBuilder({
   emptyText?: string;
   /** Tawarkan templat siap pakai (formulir pendaftaran; ADR-092). */
   templates?: boolean;
+  /**
+   * Formulir belum pernah disimpan: selama kolom awalnya belum disentuh, templat
+   * MENGGANTINYA (seperti "mulai dari templat"). Formulir tersimpan selalu
+   * ditambah saja — jawaban pendaftar terikat ke id pertanyaan lama.
+   */
+  fresh?: boolean;
 }) {
   const [fields, setFields] = useState<DraftField[]>(() => initialFields.map(toDraft));
+  const [starterContent] = useState(() => contentOf(initialFields.map(toDraft)));
   const [openId, setOpenId] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [pickingTemplate, setPickingTemplate] = useState(false);
@@ -234,18 +250,29 @@ export function FormBuilder({
   };
 
   const applyTemplate = (template: FormTemplate) => {
-    const room = maxFields - fields.length;
-    const additions = template.fields.slice(0, room).map((field) => toDraft({ ...field, id: newFieldId() }));
     setPickingTemplate(false);
-    if (additions.length === 0) return;
-    setFields((current) => [...current, ...additions]);
+    const replace = fresh && contentOf(fields) === starterContent;
+    const base = replace ? [] : fields;
+    const existing = new Set(base.map(sameQuestionKey));
+    const fresher = template.fields.filter((field) => !existing.has(sameQuestionKey(field)));
+    const additions = fresher.slice(0, maxFields - base.length).map((field) => toDraft({ ...field, id: newFieldId() }));
+    const skipped = template.fields.length - fresher.length;
+    if (additions.length === 0) {
+      announce(`Semua kolom templat “${template.name}” sudah ada di formulir ini.`);
+      return;
+    }
+    setFields([...base, ...additions]);
     setOpenId(null);
     setRemoved(null);
     focusAfterRender.current = `${additions[0]!.id}-toggle`;
+    const note = [
+      skipped > 0 ? `${skipped} dilewati karena sudah ada` : null,
+      additions.length < fresher.length ? `batas ${maxFields} pertanyaan tercapai` : null,
+    ].filter(Boolean);
     announce(
-      additions.length < template.fields.length
-        ? `${additions.length} dari ${template.fields.length} kolom templat ditambahkan — batas ${maxFields} pertanyaan tercapai.`
-        : `${additions.length} kolom dari templat “${template.name}” ditambahkan di bawah.`,
+      replace
+        ? `Formulir disusun dari templat “${template.name}” — ${additions.length} kolom.`
+        : `${additions.length} kolom dari templat “${template.name}” ditambahkan di bawah${note.length ? ` (${note.join('; ')})` : ''}.`,
     );
   };
 
@@ -569,7 +596,7 @@ function QuestionCard({
       {open && (
         <div id={editorId} className="flex flex-col gap-4 border-t border-line p-3 sm:p-4">
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_13rem]">
-            <EditorField id={`${field.id}-label`} label={isSection ? 'Judul bagian' : 'Pertanyaan'} error={showProblem && problem === 'label' ? PROBLEM_TEXT.label : null}>
+            <EditorField id={`${field.id}-label`} label={isSection ? 'Judul bagian' : 'Pertanyaan'} error={showProblem && problem === 'label' ? (isSection ? 'Tulis judul bagiannya.' : PROBLEM_TEXT.label) : null}>
               <input
                 id={`${field.id}-label`}
                 value={field.label}

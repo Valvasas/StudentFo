@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cache } from 'react';
-import { ArrowLeft, ArrowUpRight, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Lock, ShieldCheck } from 'lucide-react';
 import { registrationEventClosed } from '@/components/registration/registration-view';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { ScrollRail } from '@/components/ui/scroll-rail';
-import { getSessionUser, toEventActor, type AuthUser } from '@/lib/auth';
+import { checkAdminAccess, getSessionUser, toEventActor, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
 import { sectionTitle } from '@/lib/page-title';
@@ -29,19 +29,30 @@ export function workspacePath(eventId: string, tab: WorkspaceTab = 'ringkasan'):
 export interface ManagedEventContext {
   readonly managed: ManagedEvent;
   readonly event: EventDetail;
+  /**
+   * true = admin StudentFo yang bukan pengelola acara ini (ADR-092): lomba
+   * mandiri tim StudentFo, atau acara tanpa pengelola. Hak di repository
+   * memang sudah mengizinkan admin (ADR-056); yang ditambahkan hanya pintunya.
+   */
+  readonly asAdmin: boolean;
 }
 
 /**
  * Acara kelolaan pengguna ini, atau null. Halaman studio TIDAK memakai id
  * dari URL untuk membaca acara sebelum hak kelolanya terbukti — id asing
- * berakhir di `NotManaging`, sama dengan acara yang tidak ada.
+ * berakhir di `NotManaging`, sama dengan acara yang tidak ada. Admin (aal2)
+ * yang bukan pengelola masuk lewat jalur admin, bukan lewat `getManagedEvent`.
  */
 export const loadManagedEvent = cache(async (user: AuthUser, eventId: string): Promise<ManagedEventContext | null> => {
   const repository = await getEventRepository();
   const managed = await repository.getManagedEvent(user.id, eventId);
-  if (!managed) return null;
-  const event = await repository.getEventBySlug(managed.event.slug);
-  return event ? { managed, event } : null;
+  if (managed) {
+    const event = await repository.getEventBySlug(managed.event.slug);
+    return event ? { managed, event, asAdmin: false } : null;
+  }
+  if (user.role !== 'ADMIN' || !(await checkAdminAccess()).allowed) return null;
+  const event = await repository.getEventForAdmin(eventId);
+  return event ? { managed: { event, source: 'ADMIN', since: event.createdAt }, event, asAdmin: true } : null;
 });
 
 /**
@@ -78,22 +89,35 @@ export function EventWorkspaceHeader({
   event,
   active,
   badges = {},
+  asAdmin = false,
 }: {
   event: EventDetail;
   active: WorkspaceTab;
   /** Angka kecil di tab, mis. bukti bayar yang menunggu diperiksa. */
   badges?: Partial<Record<WorkspaceTab, number>>;
+  asAdmin?: boolean;
 }) {
   const closed = registrationEventClosed(event);
   return (
     <div className="flex flex-col gap-4">
-      <Link href="/penyelenggara" className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-ink-muted hover:text-ink">
-        <ArrowLeft aria-hidden className="size-4" /> Studio
+      <Link href={asAdmin ? '/admin/acara' : '/penyelenggara'} className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-ink-muted hover:text-ink">
+        <ArrowLeft aria-hidden className="size-4" /> {asAdmin ? 'Kelola postingan' : 'Studio'}
       </Link>
+      {asAdmin && (
+        <p className="flex items-start gap-2 rounded-card border border-line bg-panel-nested px-3.5 py-2.5 text-[13.5px] text-ink-soft">
+          <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
+          <span>
+            <strong className="font-semibold text-ink">Mode admin.</strong> Kamu bukan pengelola acara ini — formulir, pendaftar, dan galeri diubah atas
+            nama tim StudentFo.
+          </span>
+        </p>
+      )}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-0 max-w-3xl flex-col gap-2">
           <span className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-            <Badge variant={closed ? 'neutral' : 'success'}>{closed ? 'Pendaftaran ditutup' : 'Tayang'}</Badge>
+            <Badge variant={event.status === 'REJECTED' ? 'danger' : event.status === 'PENDING' ? 'warning' : closed ? 'neutral' : 'success'}>
+              {event.status === 'REJECTED' ? 'Diturunkan' : event.status === 'PENDING' ? 'Menunggu moderasi' : closed ? 'Pendaftaran ditutup' : 'Tayang'}
+            </Badge>
             {event.primaryDeadlineAt && <span>Tutup {formatDateTimeId(event.primaryDeadlineAt)}</span>}
           </span>
           <h1 className="text-[clamp(24px,3.4vw,34px)] leading-tight">{event.title}</h1>

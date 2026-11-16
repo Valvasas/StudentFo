@@ -47,6 +47,10 @@ describe('MemoryEventRepository — suka & komentar kegiatan', () => {
     await repository.toggleEventLike('dinda', eventId);
     expect(await repository.getEventEngagement(null, eventId)).toMatchObject({ likes: 2, liked: false, available: true });
     expect((await repository.getEventEngagement('bima', eventId)).liked).toBe(true);
+    // Ekspor data akun: hanya suka milik sendiri.
+    const liked = (await repository.listEvents({ types: ['LOMBA'], pageSize: 48 })).items.find((event) => event.id === eventId);
+    expect((await repository.listMyEventLikes('bima')).map((like) => like.eventSlug)).toEqual([liked?.slug]);
+    expect(await repository.listMyEventLikes('orang-lain')).toEqual([]);
 
     const pending = (await repository.listByStatus('PENDING', 1))[0]!;
     expect(await reason(repository.toggleEventLike('bima', pending.id))).toBe('event_unavailable');

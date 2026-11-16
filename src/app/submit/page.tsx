@@ -92,7 +92,7 @@ const REMEMBERED_FIELDS = [
   'proofLink',
   'email',
 ] as const;
-const REMEMBERED_CHOICES = ['isOnline', 'educationLevels', 'categorySlugs', 'costType'] as const;
+const REMEMBERED_CHOICES = ['isOnline', 'educationLevels', 'categorySlugs', 'costType', 'registrationMode'] as const;
 
 function invalidFieldLabels(raw: RawSearchParams['fields']): string[] {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -118,6 +118,8 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
     user ? withFallback('kiriman saya', () => repository.listMySubmissions(user.id, 5), []) : Promise.resolve([]),
   ]);
   const verifiedOrg = organizerProfile?.status === 'VERIFIED' ? organizerProfile.orgName : null;
+  // Lomba mandiri (ADR-092): hanya yang bisa menyusun formulirnya setelah tayang. Server memeriksa ulang.
+  const canHostForm = user !== null && (user.role === 'ADMIN' || verifiedOrg !== null);
   const invalidFields = invalidFieldLabels(params.fields);
   const optionalInvalid = invalidFields.some((label) => OPTIONAL_DETAIL_LABELS.has(label));
   const today = jakartaDateKey(new Date());
@@ -216,13 +218,42 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             </Field>
           </div>
 
-          <Field
-            id="registrationLink"
-            label="Tautan pendaftaran"
-            hint="Alamat lengkap, diawali https://. Tautan ini yang dibuka peserta saat menekan “Daftar”."
-          >
-            <TextInput id="registrationLink" name="registrationLink" type="url" required maxLength={2000} placeholder="https://" />
-          </Field>
+          {/* `:has()` menyembunyikan kotak tautan saat "Formulir StudentFo" dipilih — tanpa JavaScript. */}
+          <div className="flex flex-col gap-5 [&:has(input[value=studentfo]:checked)_[data-registration-link]]:hidden">
+            {canHostForm && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-[13.5px] font-semibold">Cara mendaftar</legend>
+                <label className="choice w-full">
+                  <input type="radio" name="registrationMode" value="external" defaultChecked className="check" />
+                  Lewat tautan resmi penyelenggara
+                </label>
+                <label className="choice w-full">
+                  <input type="radio" name="registrationMode" value="studentfo" className="check" />
+                  <span className="flex flex-col">
+                    <span>Lewat formulir di StudentFo (lomba mandiri)</span>
+                    <span className="text-[12.5px] font-normal text-ink-muted">
+                      Seperti Google Form, tapi langsung di sini: pendaftar, pembayaran, dan ekspor CSV di satu tempat. Formulirnya disusun setelah
+                      postingan disetujui, dari tombol “Formulir & pendaftar”.
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+            )}
+            <div data-registration-link>
+              <Field
+                id="registrationLink"
+                label="Tautan pendaftaran"
+                hint={
+                  canHostForm
+                    ? 'Wajib bila memakai tautan resmi. Alamat lengkap, diawali https://. Tautan ini yang dibuka peserta saat menekan “Daftar”.'
+                    : 'Alamat lengkap, diawali https://. Tautan ini yang dibuka peserta saat menekan “Daftar”.'
+                }
+              >
+                {/* Tanpa `required` bila pilihan StudentFo ada: kotak tersembunyi yang wajib menahan kirim tanpa bisa difokus. Server tetap mewajibkannya untuk tautan resmi. */}
+                <TextInput id="registrationLink" name="registrationLink" type="url" required={!canHostForm} maxLength={2000} placeholder="https://" />
+              </Field>
+            </div>
+          </div>
 
           <Field
             id="sourceUrl"

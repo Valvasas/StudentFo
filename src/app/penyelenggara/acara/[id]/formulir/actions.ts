@@ -1,12 +1,13 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { loadManagedEvent, workspacePath } from '@/components/organizer/event-workspace';
 import { toActionErrorCode, withQuery } from '@/lib/action-feedback';
 import { requireUser, toEventActor } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
-import { formTrimmed } from '@/lib/form-data';
+import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
+import { formText, formTrimmed } from '@/lib/form-data';
 import { parseRegistrationFormInput } from '@/lib/registration-form';
 import { safeNextPath } from '@/lib/safe-redirect';
 
@@ -30,10 +31,26 @@ export async function saveRegistrationFormAction(formData: FormData): Promise<vo
   const context = await loadManagedEvent(user, eventId);
   if (!context) redirect(withQuery(returnTo, { notice: undefined, error: 'not_event_manager' }));
 
+  const repository = await getEventRepository();
   try {
-    await (await getEventRepository()).saveRegistrationForm(toEventActor(user), eventId, parsed.value);
+    await repository.saveRegistrationForm(toEventActor(user), eventId, parsed.value);
   } catch (error) {
     redirect(withQuery(returnTo, { notice: undefined, error: toActionErrorCode(error) }));
+  }
+
+  // Lomba mandiri (ADR-092): hanya bila berubah — halaman lama tanpa kotak ini tidak mengubah apa pun.
+  if (formText(formData, 'modeField') === 'on') {
+    const mode = formText(formData, 'studentfoOnly') === 'on' ? 'studentfo' : 'external';
+    if (mode !== (context.event.registrationMode ?? 'external')) {
+      try {
+        await repository.setEventRegistrationMode(toEventActor(user), eventId, mode);
+      } catch (error) {
+        revalidatePath(`/events/${context.event.slug}`, 'layout');
+        redirect(withQuery(returnTo, { notice: undefined, error: toActionErrorCode(error) }));
+      }
+      // Cara mendaftar dibaca halaman publik lewat Data Cache bertag `events` — revalidatePath saja tidak mencabutnya.
+      revalidateTag(EVENTS_CACHE_TAG);
+    }
   }
 
   revalidatePath(`/events/${context.event.slug}`, 'layout');

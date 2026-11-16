@@ -141,6 +141,7 @@ import type {
   EventCommentReportQueueItem,
   EventEngagement,
   MyEventComment,
+  MyEventLike,
   RegistrationMode,
   ShareRecipient,
 } from '@/types/domain';
@@ -530,6 +531,8 @@ export class MemoryEventRepository implements EventRepository {
   private readonly moderationLog: ModerationLogEntry[] = [];
   /** submissionId → akun pengirim yang masuk (cermin ugc_submissions.submitted_by). */
   private readonly submissionOwners = new Map<string, string>();
+  /** Kiriman dari akun admin (mode seed tanpa tabel users) — lomba mandiri, ADR-092. */
+  private readonly adminSubmissions = new Set<string>();
   /** Notifikasi tersimpan (bukan turunan tenggat): kabar kiriman komunitas. */
   private readonly storedNotifications = new Map<string, AppNotification[]>();
   /** Cermin `users` + `network_profiles`: orang contoh dan pengguna demo yang pernah bertindak. */
@@ -961,12 +964,13 @@ export class MemoryEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, submittedBy, payload, poster }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
+  async createSubmission({ submittedByEmail, submittedBy, payload, poster, submitterIsAdmin = false }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
     if (isSubmissionRateLimited([...this.submissions.values()], submittedByEmail)) {
       throw actionError('submission_rate_limited');
     }
     const id = this.nextId();
     if (submittedBy) this.submissionOwners.set(id, submittedBy);
+    if (submittedBy && submitterIsAdmin) this.adminSubmissions.add(id);
     // Cermin kolom poster_* (migration 20261112100001): hanya pengirim yang
     // masuk. Ruang media demo habis = "penyimpanan belum siap": kiriman tetap masuk.
     const attached = poster && submittedBy && this.hasMediaRoom(poster.bytes.length) ? poster : null;
@@ -1064,6 +1068,8 @@ export class MemoryEventRepository implements EventRepository {
         guidebookUrl: payload.guidebookUrl,
         // Cermin approve_submission(): hanya bentuk kanonis yang disalin.
         videoUrl: payload.videoUrl && CANONICAL_VIDEO_PATTERN.test(payload.videoUrl) ? payload.videoUrl : null,
+        // Cermin approve_submission() (20261116100001): lomba mandiri hanya untuk penyelenggara terverifikasi/admin.
+        registrationMode: payload.registrationMode === 'studentfo' && this.mayHostForms(submissionId) ? 'studentfo' : 'external',
         featuredUntil: null,
         verificationBadge: null,
       });
@@ -1387,6 +1393,12 @@ export class MemoryEventRepository implements EventRepository {
       actor: { reviewerId: actorId, reviewerName: actorName },
       reason: trimmed || null,
     });
+  }
+
+  /** Cermin syarat `studentfo` di approve_submission(): pengirim penyelenggara terverifikasi atau admin. */
+  private mayHostForms(submissionId: string): boolean {
+    const owner = this.submissionOwners.get(submissionId);
+    return Boolean(owner && (this.isVerifiedOrganizer(owner) || this.adminSubmissions.has(submissionId)));
   }
 
   /** Mode seed saja: penangguhan ditegakkan `getSessionUser()` lewat `isDemoUserSuspended`. */
@@ -4302,6 +4314,17 @@ export class MemoryEventRepository implements EventRepository {
     if (new Set(open.map((report) => report.reporterId)).size >= EVENT_COMMENT_LIMITS.autoHideReporters) {
       this.eventComments.set(commentId, { ...comment, hiddenAt: new Date().toISOString(), hiddenAuto: true });
     }
+  }
+
+  async listMyEventLikes(viewerId: string): Promise<readonly MyEventLike[]> {
+    return [...this.eventLikes]
+      .flatMap(([eventId, likes]) => {
+        const likedAt = likes.get(viewerId);
+        if (!likedAt) return [];
+        const event = this.findEvent(eventId);
+        return [{ eventSlug: event?.slug ?? null, eventTitle: event?.title ?? null, likedAt }];
+      })
+      .sort((a, b) => b.likedAt.localeCompare(a.likedAt));
   }
 
   async listMyEventComments(viewerId: string): Promise<readonly MyEventComment[]> {

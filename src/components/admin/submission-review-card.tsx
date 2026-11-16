@@ -82,7 +82,9 @@ export function SubmissionReviewCard({
   verifiedOrg?: string | null;
 }) {
   const { payload } = submission;
-  const registrationUrl = payload ? sanitizeExternalUrl(payload.registrationLink) : null;
+  // Lomba mandiri (ADR-092): tautan di payload hanya pengganti, jangan ditawarkan sebagai tautan pendaftaran.
+  const studentfoForm = payload?.registrationMode === 'studentfo';
+  const registrationUrl = payload && !studentfoForm ? sanitizeExternalUrl(payload.registrationLink) : null;
   const sourceUrl = payload?.sourceUrl ? sanitizeExternalUrl(payload.sourceUrl) : null;
   const guidebookUrl = payload?.guidebookUrl ? sanitizeExternalUrl(payload.guidebookUrl) : null;
   // Kanonis (YouTube/Vimeo) sejak dibaca dari payload — periksa isinya sebelum menyetujui: ia tayang publik.
@@ -144,6 +146,14 @@ export function SubmissionReviewCard({
                 <dd className="inline">{price && price.kind !== 'unknown' ? price.text : 'Belum diketahui'}</dd>
               </div>
               {/* Privat: tidak pernah ikut tayang (approve_submission tidak menyalinnya). */}
+              <div className="sm:col-span-2">
+                <dt className="inline text-ink-muted">Cara mendaftar: </dt>
+                <dd className="inline">
+                  {studentfoForm
+                    ? 'Formulir StudentFo (lomba mandiri) — berlaku bila pengirimnya penyelenggara terverifikasi atau admin'
+                    : 'Tautan resmi penyelenggara'}
+                </dd>
+              </div>
               <div className="sm:col-span-2">
                 <dt className="inline text-ink-muted">Kontak panitia: </dt>
                 <dd className="inline">{payload.organizerContact ?? '—'}</dd>

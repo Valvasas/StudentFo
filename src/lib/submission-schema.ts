@@ -9,6 +9,7 @@ import {
   SUBMISSION_STAGE_LABELS,
   type Submission,
   type SubmissionPayload,
+  REGISTRATION_MODES,
 } from '@/types/domain';
 
 /**
@@ -285,6 +286,8 @@ const storedPayloadSchema = z.object({
   video_url: z.string().regex(CANONICAL_VIDEO_PATTERN).nullable().optional().catch(null),
   organizer_contact: z.string().max(120).nullable().optional(),
   proof_link: z.string().regex(/^https?:\/\//i).max(2000).nullable().optional(),
+  // ADR-092; nilai asing = tautan resmi, bukan kiriman yang tak terbaca di antrean.
+  registration_mode: z.enum(REGISTRATION_MODES).optional().catch(undefined),
 });
 
 export type StoredSubmissionPayload = z.infer<typeof storedPayloadSchema>;
@@ -309,6 +312,8 @@ export function toStoredPayload(payload: SubmissionPayload): StoredSubmissionPay
     video_url: payload.videoUrl ?? null,
     organizer_contact: payload.organizerContact,
     proof_link: payload.proofLink,
+    // Hanya bila lomba mandiri: payload tautan resmi tetap persis seperti sebelum ADR-092.
+    ...(payload.registrationMode === 'studentfo' ? { registration_mode: 'studentfo' as const } : {}),
   };
 }
 
@@ -335,5 +340,6 @@ export function fromStoredPayload(raw: unknown): SubmissionPayload | null {
     videoUrl: value.video_url ?? null,
     organizerContact: value.organizer_contact ?? null,
     proofLink: value.proof_link ?? null,
+    ...(value.registration_mode === 'studentfo' ? { registrationMode: 'studentfo' as const } : {}),
   };
 }

@@ -12,6 +12,111 @@ terdokumentasi.
 
 ---
 
+## ADR-092 — Interaksi postingan (suka, komentar, bagikan), "Lagi ramai", hapus postingan kapan saja, dan lomba mandiri berformulir StudentFo
+
+**Konteks:** Pemilik meminta (2026-11-16) dalam satu pesan: hapus postingan
+walau tenggatnya belum lewat ("jaga-jaga kalau kita salah posting"), suka &
+komentar di postingan, algoritma supaya kegiatan yang ramai muncul di atas,
+tiap pengguna bisa berbagi, dan formulir lomba dibuat langsung di StudentFo
+seperti Google Form untuk lomba mandiri — "fitur yang ada di sistem
+sebelumnya tambahkan ke sini". Yang sudah ada dan dipakai ulang: moderasi
+tolak/pulihkan (ADR-046), Tanya jawab (ADR-062 #7), rel pengaman Komunitas
+(ADR-087), formulir pendaftaran internal (ADR-056), pendataan kinerja
+(ADR-070/073), sinyal rekomendasi & `consume_rate_limit`.
+
+**Keputusan:**
+1. **Hapus postingan = dua tahap, khusus admin ber-MFA.** "Hapus postingan"
+   (Alat moderator di halaman kegiatan & `/admin/acara`) = turunkan ke
+   `REJECTED` dengan alasan baku (`lib/event-removal.ts`) — berlaku kapan pun,
+   langsung hilang dari katalog, tercatat di Riwayat, bisa **Urungkan /
+   Tayangkan lagi** (langsung `APPROVED`, bukan antre lagi). **Hapus
+   permanen** hanya untuk yang sudah diturunkan, wajib mengetik `HAPUS`, dan
+   ditolak selama masih ada pendaftaran aktif (`event_has_registrations`);
+   berkas storage dihapus lebih dulu (`event_deletion_files`), lalu
+   `delete_event_permanently` mencatat `DELETED` di `moderation_log`. Bukan
+   langsung hapus fisik karena (a) salah klik tidak bisa diurungkan dan
+   (b) kegiatan hasil penelusuran yang dihapus fisik kehilangan `dedup_hash`
+   lalu muncul lagi di antrean. Penyelenggara tidak diberi tombol hapus —
+   permintaannya untuk tim StudentFo ("kita"); penyelenggara menutup
+   formulirnya atau mengajukan perubahan (ADR-046 tetap).
+2. **Suka:** `event_likes` (PK kegiatan+orang), angka di `event_engagement`
+   lewat trigger. *Siapa* yang menyukai tidak pernah ditampilkan — hanya
+   jumlahnya (tamu pun melihat; menyukai harus masuk). Kuota 300/hari hanya
+   saat menyukai (`like_rate_limited`); membatalkan tidak pernah ditolak.
+   Tombol toggle: nama tetap "Suka, N orang menyukai" + `aria-pressed`,
+   optimistis seperti `BookmarkSubmit` (ADR-064).
+3. **Komentar:** tab "Komentar" khusus anggota dengan rel Komunitas —
+   `community_writer()`, nama tersingkat, kontak pribadi ditolak, tiga pelapor
+   berbeda → sembunyi otomatis, antrean di `/admin/laporan` (bagian
+   "Komentar kegiatan"). Balasan satu tingkat; penulis komentar utama dikabari
+   sekali per kegiatan (`EVENT_COMMENT_REPLY`, dedupe notifikasi). Label
+   "Penyelenggara" (pengelola terverifikasi kegiatan itu) & "Tim StudentFo"
+   (ADMIN) dari peran di server, bukan dari isian. Penghitung = kunci baris +
+   hitung ulang komentar yang terlihat (bukan ±1): balasan di bawah induk
+   tersembunyi tidak ikut terhitung dan dua tulisan bersamaan tidak menggeser
+   angka. Tanya jawab TETAP untuk jawaban resmi panitia — keduanya saling
+   menautkan. Kegiatan `EXPIRED` = baca saja.
+4. **"Lagi ramai" (`lib/popularity.ts` ↔ `refresh_event_trends()`):** skor =
+   Σ bobot × 2^(−umur jam/72) dalam 14 hari — pendaftaran 6, klik daftar 4,
+   simpan 3, komentar 2, suka 1, pengunjung 0,25; komentar & klik dihitung
+   sekali per orang; hanya kegiatan terbuka. Diperbarui tiap 15 menit
+   (pg_cron bila ada) ke `events_listing.trend_score`. Dipakai sebagai urutan
+   **sendiri** `sort=popular` (URL kanonik) + strip berperingkat di beranda
+   tamu/pribadi & papan Lomba (tampil bila ≥ 2 kegiatan berskor ≥ 1 — strip
+   "trending" berisi kegiatan sepi adalah klaim palsu). **Tidak** menggantikan
+   urutan bawaan "Paling relevan" maupun papan bertenggat: ramai = bukti
+   sosial, bukan relevansi; memasukkannya ke urutan bawaan membuat yang
+   populer makin populer dan menenggelamkan lomba baru. Sama untuk semua
+   orang, tanpa data pribadi.
+5. **Bagikan:** menu `<details data-popover>` — Salin tautan / lembar bagikan
+   bawaan ponsel (Web Share), WhatsApp, Telegram, X, Facebook, LinkedIn, Email.
+   Hanya URL kanonis + judul: tanpa parameter pelacak dan tanpa skrip tombol
+   resmi platform (pelacak ke setiap pengunjung, alasan ADR-079). "Kirim ke
+   koneksi StudentFo" (`/events/[slug]/bagikan`): koneksi DITERIMA saja, maks.
+   20 per kiriman, 20 kiriman/hari, dikabari lewat lonceng dengan kalimat
+   TETAP — bukan pesan bebas, jadi tidak membuka saluran pribadi (ADR-087).
+   Header kegiatan ber-`.enter` adalah konteks tumpukan sendiri, jadi diangkat
+   `z-40` hanya selama menu di dalamnya terbuka.
+6. **Lomba mandiri:** `events.registration_mode` (`external` | `studentfo`).
+   Pilihan "Lewat formulir di StudentFo" di `/submit` hanya untuk penyelenggara
+   terverifikasi & admin (server memeriksa ulang; `approve_submission` hanya
+   menyalinnya bila pengirimnya memang berhak) dan sakelar "Hanya lewat
+   StudentFo" di studio Formulir. Mode ini: tautan luar tidak pernah tampil;
+   tanpa formulir terbuka → "Pendaftaran lewat formulir StudentFo segera
+   dibuka". Admin boleh membuka studio kegiatan apa pun (`source: 'ADMIN'`,
+   spanduk "Mode admin") supaya lomba milik StudentFo sendiri bisa disusun
+   formulirnya tanpa akun penyelenggara.
+7. **Formulir ala Google Form (melengkapi ADR-056):** jenis drop-down, jam,
+   skala linear (1..N + label ujung), judul bagian; gandakan pertanyaan;
+   templat Lomba tim / Lomba individu / Seminar — formulir baru yang kolom
+   awalnya belum disentuh DIGANTI templat, selain itu ditambah tanpa
+   menggandakan pertanyaan yang sama (jenis + judul); "Ringkasan jawaban"
+   (`?tampilan=ringkasan`, `lib/registration-summary.ts`) atas pendaftar
+   AKTIF — isian identitas (email, telepon, tautan, tanggal, jam) hanya
+   dihitung, tidak dipajang ulang. **Unggah berkas sengaja tidak ada:**
+   berkas sembarang dari peserta = data pribadi tak terkendali (KTP, kartu
+   pelajar) + risiko malware; karya ditautkan lewat jenis Tautan.
+8. **Pendataan kinerja juga sebelum formulir StudentFo** (mencabut
+   pengecualian ADR-070): `/daftar` → `/sebelum-daftar` sekali per kegiatan →
+   `/formulir`. Data "dari mana tahu info ini" kini sebanding untuk semua
+   postingan; tetap bisa dilewati, tetap tanpa identitas.
+9. **Urutan deploy:** migration `20261116100001_event_engagement` belum
+   diterapkan. Tanpa tabel/RPC → angka tidak tampil, tab Komentar menjelaskan,
+   aksi → `engagement_unavailable`; tanpa kolom `trend_score` /
+   `registration_mode` di view → kueri katalog jatuh ke bentuk lama.
+
+**Konsekuensi:**
+- Satu migration (4 tabel + RLS, 19 fungsi, `events_listing` & `approve_submission`
+  diganti, tanpa DROP) — diterapkan hanya atas persetujuan pemilik.
+- Ekspor data akun memuat komentar & suka (`my_event_comments`, `my_event_likes`);
+  kebijakan privasi & S&K diperbarui, `LEGAL_REVISION` 2026-11-16.
+- Angka di kartu boleh tertinggal ≤ 5 menit (Data Cache); halaman detail selalu segar.
+- Dikunci: `popularity.test.ts`, `event-comments.test.ts`, `event-removal.test.ts`,
+  `registration-summary.test.ts`, `engagement.test.ts`, `parity.test.ts` (memori ↔
+  Postgres), `119_event_engagement.test.sql`, `event-engagement.spec.ts`.
+
+---
+
 ## ADR-091 — Google OAuth: cek provider sebelum mengalihkan, galat callback tidak lagi diam, dan preview tidak jatuh ke localhost
 
 **Konteks:** Pemilik menekan "Masuk dengan Google" dan mendarat di halaman

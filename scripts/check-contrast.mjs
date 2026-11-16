@@ -173,6 +173,10 @@ const PAIRS = [
   // sengaja TIDAK diuji 3:1: dekoratif; yang membawa makna adalah teks "2/6" dan kotak centang.
   ['Teks sekunder / stabilo lembut (pilihan Cari)', '--color-text-secondary', '--color-highlight-soft', 4.5],
   ['Teks redup / panel (petunjuk papan ketik)', '--color-text-muted', '--color-surface', 4.5],
+  // Suka (ADR-092): tombol aktif (teks & angka) di atas softnya, dan angka hati di kartu.
+  ['Suka / softnya (tombol aktif)', '--color-like', '--color-like-soft', 4.5],
+  ['Suka / latar', '--color-like', '--color-bg', 4.5],
+  ['Suka / kartu', '--color-like', '--color-surface', 4.5],
 ];
 
 let failures = 0;

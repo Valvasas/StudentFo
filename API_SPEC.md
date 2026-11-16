@@ -277,6 +277,30 @@ diabaikan, bukan galat):
 `requestConnection` kini juga menerima target yang SATU LOBI dengan pelaku
 walau tidak "bisa ditemukan" (cermin policy `connections_insert_requester`).
 
+### Interaksi & perawatan postingan (ADR-092)
+
+`EngagementRepository` + `EventMaintenanceRepository`. Tabel/RPC belum ada
+(urutan deploy) → baca `available: false` / `[]`, tulis `engagement_unavailable`.
+
+| Method | Kontrak |
+|---|---|
+| `getEventEngagement(viewerId \| null, eventId)` | `{ likes, comments, liked, available }`; tamu boleh; kegiatan tak tayang = nol. Tidak lewat Data Cache |
+| `toggleEventLike(viewerId, eventId)` | Keadaan sesudahnya `{ liked, likes }`; `event_unavailable`, `like_rate_limited` (300 suka/hari; membatalkan tidak dibatasi) |
+| `listEventComments(viewerId, eventId)` | Anggota saja. ≤ 100 utas terbaru + balasannya, `truncated`, `total`; tanpa orang yang saling blokir |
+| `createEventComment(actor, eventId, body, parentId)` | Isi SUDAH lolos `parseEventComment`. `invalid_event_comment`, `community_contact_blocked`, `comment_event_unavailable` (tak tayang / `EXPIRED`), `event_comment_not_found` (induk bukan komentar utama kegiatan ini), `comment_rate_limited` (30/hari). Mengembalikan id |
+| `deleteEventComment(viewerId, commentId)` | Hanya penulisnya; balasan ikut terhapus; bukan penulis = diam (tidak ada yang terhapus) |
+| `reportEventComment(viewerId, { commentId, reason, details })` | `report_unavailable` (bukan anggota / komentar sendiri / tak terlihat), `invalid_report`, `report_rate_limited` (10/hari); laporan ulang selagi yang lama masih terbuka diabaikan (tidak digandakan); tiga pelapor berbeda → sembunyi otomatis |
+| `listMyEventComments(viewerId)` / `listMyEventLikes(viewerId)` | Ekspor data akun (termasuk yang disembunyikan moderator) |
+| `listShareRecipients(viewer)` / `shareEventWithConnections(actor, eventId, ids)` | Koneksi diterima (≤ 200, A–Z) / jumlah yang benar-benar dikabari; `share_rate_limited`, 0 = `share_empty` di aksi |
+| `listEventCommentReports` / `resolveEventCommentReport` / `hideEventCommentAsAdmin` | Admin (setelah `checkAdminAccess()`), service_role |
+| `searchEventsForAdmin({ search, status, limit })` / `getEventForAdmin(id)` | Semua status, untuk `/admin/acara` & studio mode admin |
+| `deleteEventPermanently({ eventId, actorId, actorName?, reason })` | Hanya `REJECTED`: `event_not_found`, `event_not_taken_down`, `event_has_registrations`; berkas storage dihapus dulu |
+| `setEventRegistrationMode(actor, eventId, mode)` | Pengelola atau admin; `not_event_manager`, `invalid_request`, `event_unavailable` |
+
+`CreateSubmissionInput.submitterIsAdmin` — hanya ditulis server; bersama status
+penyelenggara terverifikasi menentukan apakah `registrationMode: 'studentfo'`
+dari `/submit` dipakai.
+
 ### `ReviewEventInput`
 
 ```ts
@@ -587,6 +611,22 @@ questionId, answer)` (`question_not_found`, `question_forbidden`,
 - `/laporkan?pertanyaan=<id>`; `resolveReportAction` menerima `hideQuestionId`
   (hanya bersama RESOLVED).
 
+### Suka, komentar, bagikan, hapus postingan (ADR-092)
+
+- `toggleEventLikeAction` / `createEventCommentAction` / `deleteEventCommentAction` /
+  `reportEventCommentAction` / `hideEventCommentAction` (`src/app/events/[slug]/actions.ts`):
+  `slug` (`[a-z0-9-]`), `eventId`, `commentId`, `parentId`, `body`, `reason`, `details`.
+  Kembali ke `/events/<slug>[?tab=komentar]&notice=…#interaksi|#komentar|#k-<id>`.
+  Sembunyikan = admin ber-MFA.
+- `shareEventAction` (`/events/[slug]/bagikan/actions.ts`): `slug`, `recipient` (berulang, ≤ 20)
+  → `/events/<slug>?notice=event_shared` atau `/bagikan?error=…`.
+- `takeDownEventAction` / `restoreEventAction` / `deleteEventPermanentlyAction` /
+  `resolveEventCommentReportAction` (`src/app/admin/actions.ts`, admin ber-MFA): `eventId`,
+  `preset` (`TAKEDOWN_REASONS`), `details` (wajib untuk `lainnya`), `confirm` (= `HAPUS`),
+  `q`/`status` dibawa kembali sebagai NILAI → `/admin/acara?…&notice=event_taken_down&urungkan=<id>`.
+- Studio Formulir: `modeField=on` + `studentfoOnly` (checkbox) → `setEventRegistrationMode`
+  bila berubah, lalu `revalidateTag('events')`.
+
 ### Pengingat tenggat lewat email (ADR-062 #6)
 
 `EmailReminderRepository`: `getDeadlineEmailOptIn(userId)` (sesi pemilik),
@@ -695,6 +735,8 @@ dengan `ALLOW_DEMO_IN_PRODUCTION` tetap menjawab 200.
 
 Unduhan JSON `studentfo-account-export/1` milik pengguna yang masuk
 (`Content-Disposition: attachment`, `no-store`). Tamu → `/login?next=/profile/privacy`.
+Sejak ADR-092 memuat `eventComments` (termasuk yang disembunyikan moderator) dan
+`likedEvents`; kegiatan yang sudah dihapus tercatat tanpa tautan (`url: null`).
 
 ### Pemantauan galat — `src/instrumentation.ts` (ADR-061)
 
@@ -767,7 +809,7 @@ aturannya: **nilai tidak dikenal dibuang, tidak pernah error 500**.
 | `type` (bisa berulang / CSV) | types | hanya nilai yang ada di `EVENT_TYPES`, dedup |
 | `kategori` (bisa berulang / CSV) | categories | regex `^[a-z0-9-]{1,50}$`, maks 12 |
 | `jenjang` (bisa berulang / CSV) | levels | hanya nilai yang ada di `EDUCATION_LEVELS` |
-| `sort` | sort | fallback `'relevance'` kalau tidak dikenal |
+| `sort` | sort | `relevance` \| `deadline` \| `newest` \| `popular` ("Lagi ramai", ADR-092); fallback `'relevance'` kalau tidak dikenal |
 | `tampilkan=semua` | includeClosed | boolean literal |
 | `biaya=gratis\|berbayar` | cost | `free`/`paid`; nilai lain (termasuk `constructor`, `__proto__`) dibuang — `Object.hasOwn` |
 | `page` | page | integer positif, fallback 1 |

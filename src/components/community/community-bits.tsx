@@ -31,7 +31,22 @@ export function TopicChip({ topic, className }: { topic: CommunityTopic; classNa
  * Penulis + waktu. Nama selalu tersingkat; tautan profil hanya bila pembaca
  * boleh membukanya (username terisi). Avatar & nama satu tautan setinggi 44 px.
  */
-export function AuthorLine({ author, at, now, isOp = false, link = true }: { author: CommunityAuthor; at: string; now: Date; isOp?: boolean; link?: boolean }) {
+export function AuthorLine({
+  author,
+  at,
+  now,
+  isOp = false,
+  link = true,
+  badge = null,
+}: {
+  author: CommunityAuthor;
+  at: string;
+  now: Date;
+  isOp?: boolean;
+  link?: boolean;
+  /** Penanda resmi selain "Penulis" (komentar kegiatan: Penyelenggara / Tim StudentFo, ADR-092). */
+  badge?: string | null;
+}) {
   const face = (
     <>
       <Avatar name={author.name} seed={author.username ?? author.name} photo={author.avatarId} size="sm" />
@@ -48,6 +63,7 @@ export function AuthorLine({ author, at, now, isOp = false, link = true }: { aut
         <span className="inline-flex items-center gap-2">{face}</span>
       )}
       {isOp && <span className="rounded-[6px] border border-line-strong px-1.5 text-[11.5px] font-semibold text-ink">Penulis</span>}
+      {badge && <span className="rounded-[6px] bg-brand px-1.5 text-[11.5px] font-semibold text-on-brand">{badge}</span>}
       <time dateTime={at}>{communityTimeLabel(at, now)}</time>
     </span>
   );

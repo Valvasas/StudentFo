@@ -321,4 +321,40 @@ describe.each([memoryWorld, supabaseWorld])('paritas: %o', (makeWorld) => {
     expect((await world.repo.listByStatus('PENDING', 200)).some((event) => event.id === eventId)).toBe(true);
     expect(await outcome(() => world.repo.restoreRejected({ subjectType: 'event', subjectId: eventId, reviewerId: admin }))).toBe('moderation_not_rejected');
   });
+
+  it('suka & komentar (ADR-092): toggle, kontak ditolak, balasan satu tingkat, hapus menghitung ulang, ekspor milik sendiri', async () => {
+    const world = makeWorld();
+    const [writer, reader] = [world.user(), world.user()];
+    const actor = (id: string) => ({ id, fullName: 'Pengguna Uji', email: `${id}@uji.example`, isAdmin: false });
+    const eventId = await world.approvedEventId();
+    const before = await world.as(reader, () => world.repo.getEventEngagement(reader, eventId));
+    expect(before).toMatchObject({ liked: false, available: true });
+
+    expect(await world.as(reader, () => world.repo.toggleEventLike(reader, eventId))).toEqual({ liked: true, likes: before.likes + 1 });
+    expect(await world.as(reader, () => world.repo.getEventEngagement(reader, eventId))).toMatchObject({ liked: true, likes: before.likes + 1 });
+    expect((await world.as(reader, () => world.repo.listMyEventLikes(reader))).length).toBe(1);
+    expect(await world.as(writer, () => world.repo.listMyEventLikes(writer))).toEqual([]);
+    expect(await world.as(reader, () => world.repo.toggleEventLike(reader, eventId))).toEqual({ liked: false, likes: before.likes });
+    expect(await outcome(() => world.as(reader, async () => world.repo.toggleEventLike(reader, await world.pendingEventId())))).toBe('event_unavailable');
+
+    expect(await outcome(() => world.as(writer, () => world.repo.createEventComment(actor(writer), eventId, 'wa aku 081234567890', null)))).toBe('community_contact_blocked');
+    const top = await world.as(writer, () => world.repo.createEventComment(actor(writer), eventId, 'Ada yang mau satu tim?', null));
+    const reply = await world.as(reader, () => world.repo.createEventComment(actor(reader), eventId, 'Aku mau, dari Bandung.', top));
+    expect(await outcome(() => world.as(writer, () => world.repo.createEventComment(actor(writer), eventId, 'Balasan untuk balasan', reply)))).toBe('event_comment_not_found');
+
+    const page = await world.as(reader, () => world.repo.listEventComments(reader, eventId));
+    expect(page.total).toBe(before.comments + 2);
+    const thread = page.threads.find((item) => item.id === top);
+    expect(thread?.replies.map((item) => item.id)).toEqual([reply]);
+    expect(thread?.replies[0]?.isMine).toBe(true);
+    expect(thread?.isMine).toBe(false);
+    expect((await world.as(writer, () => world.repo.listMyEventComments(writer))).map((item) => item.id)).toEqual([top]);
+
+    // Bukan penulisnya: tidak ada yang terhapus. Penulis: utas beserta balasannya hilang, angka dihitung ulang.
+    await outcome(() => world.as(reader, () => world.repo.deleteEventComment(reader, top)));
+    expect((await world.as(reader, () => world.repo.getEventEngagement(reader, eventId))).comments).toBe(before.comments + 2);
+    await world.as(writer, () => world.repo.deleteEventComment(writer, top));
+    expect((await world.as(reader, () => world.repo.getEventEngagement(reader, eventId))).comments).toBe(before.comments);
+    expect(await world.as(reader, () => world.repo.listMyEventComments(reader))).toEqual([]);
+  });
 });

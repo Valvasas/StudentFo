@@ -16,6 +16,8 @@ const STATIC_ROUTES = [
   '/events',
   '/events?type=LOMBA&sort=deadline',
   '/events?biaya=berbayar',
+  '/events?sort=popular',
+  '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=komentar',
   // Slide poster + foto, dan slide video bergaya fasad (ADR-079).
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026',
   '/events/festival-film-pendek-pelajar-nusantara',
@@ -140,6 +142,9 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   // Poster & video untuk acara tanpa pengelola (ADR-079): form unggah + slide pratinjau.
   ['Admin moderator', '/admin/media/kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
   ['Admin moderator', '/admin/laporan'],
+  ['Admin moderator', '/admin/acara'],
+  ['Admin moderator', '/admin/acara?status=REJECTED'],
+  ['Admin moderator', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
   ['Admin moderator', '/admin/pengguna'],
   ['Admin moderator', '/admin/pengguna?q=Rani'],
   ['Mahasiswa', '/laporkan?kegiatan=kompetisi-inovasi-perangkat-lunak-nusantara-2026'],
@@ -155,6 +160,7 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/formulir'],
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/pendaftar'],
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/pendaftar?status=diperiksa'],
+  ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000004/pendaftar?tampilan=ringkasan'],
   ['Penyelenggara', '/penyelenggara/acara/e1000000-0000-4000-8000-000000000001/galeri'],
   ['Mahasiswa', '/pembayaran'],
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026/formulir'],
@@ -164,6 +170,8 @@ const SIGNED_IN_ROUTES: readonly (readonly [PersonaLabel, string])[] = [
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tahapan'],
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=tanya'],
   ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=penyelenggara'],
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026?tab=komentar'],
+  ['Mahasiswa', '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026/bagikan'],
   // Komunitas (ADR-087): lini masa, saringan topik & kegiatan, tulis postingan, galat kontak.
   ['Mahasiswa', '/komunitas'],
   ['Mahasiswa', '/komunitas?topik=cari-tim'],

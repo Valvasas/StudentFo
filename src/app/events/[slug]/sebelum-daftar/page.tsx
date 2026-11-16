@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, ShieldCheck, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, ShieldCheck, Users } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { RegistrationFieldInput } from '@/components/registration/registration-field-input';
 import { buttonVariants } from '@/components/ui/button';
@@ -70,14 +70,16 @@ export default async function BeforeRegisterPage({
   if (!user) redirect(loginHref(eventPath));
   const destination = await registrationDestination(event, repository);
   if (!destination) redirect(eventPath);
-  if (destination.kind === 'internal' || (await hasAnsweredOutboundSurvey(event.id))) redirect(`${eventPath}/daftar`);
+  if (await hasAnsweredOutboundSurvey(event.id)) redirect(`${eventPath}/daftar`);
   // Pertanyaan gagal dimuat = langsung ke tautan resmi, bukan halaman galat —
   // dan bukan kembali ke `/daftar`, yang bisa memantul ke sini lagi (ADR-070).
   const config = await withFallback('pertanyaan pendataan', () => repository.getOutboundSurveyConfig(), null);
-  if (!config) redirect(destination.url);
+  if (!config) redirect(destination.kind === 'internal' ? `${eventPath}/formulir` : destination.url);
   if (isSurveyEmpty(config)) redirect(`${eventPath}/daftar`);
 
-  const host = safeHostname(destination.url);
+  // Formulir StudentFo (ADR-092): tujuan di situs ini sendiri, bukan "situs resmi" lain.
+  const internal = destination.kind === 'internal';
+  const host = internal ? null : safeHostname(destination.url);
   const count = surveyQuestionCount(config);
   const problem = firstParam(query.error) === 'invalid_outbound_survey' ? firstParam(query.kolom) : undefined;
 
@@ -89,7 +91,7 @@ export default async function BeforeRegisterPage({
         </Link>
 
         <header className="flex flex-col gap-3">
-          <p className="text-[13.5px] font-semibold text-ink-muted">Satu langkah sebelum pendaftaran resmi</p>
+          <p className="text-[13.5px] font-semibold text-ink-muted">{internal ? 'Satu langkah sebelum mengisi formulir pendaftaran' : 'Satu langkah sebelum pendaftaran resmi'}</p>
           <h1 className="text-[clamp(26px,4.2vw,34px)] leading-[1.1] tracking-[-0.03em] [text-wrap:balance]">{event.title}</h1>
           <p className="text-[15px] text-ink-soft">{event.organizer}</p>
         </header>
@@ -177,7 +179,15 @@ export default async function BeforeRegisterPage({
           <div className="flex flex-col gap-3 border-t border-line pt-5">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <SubmitButton pendingLabel="Membuka pendaftaran…" className={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto' })}>
-                Lanjut ke pendaftaran resmi <ArrowUpRight aria-hidden />
+                {internal ? (
+                  <>
+                    Lanjut ke formulir pendaftaran <ArrowRight aria-hidden />
+                  </>
+                ) : (
+                  <>
+                    Lanjut ke pendaftaran resmi <ArrowUpRight aria-hidden />
+                  </>
+                )}
               </SubmitButton>
               {/* formNoValidate: melewati tidak boleh ditahan isian wajib peramban. */}
               <button
@@ -190,7 +200,11 @@ export default async function BeforeRegisterPage({
                 Lewati
               </button>
             </div>
-            {host && <p className="text-[12.5px] text-ink-muted">Keduanya langsung mengarahkanmu ke {host}.</p>}
+            {internal ? (
+              <p className="text-[12.5px] text-ink-muted">Keduanya langsung membuka formulir pendaftaran di StudentFo.</p>
+            ) : (
+              host && <p className="text-[12.5px] text-ink-muted">Keduanya langsung mengarahkanmu ke {host}.</p>
+            )}
           </div>
         </form>
 

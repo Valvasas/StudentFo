@@ -493,6 +493,22 @@ dipotong ke kab/kota. Uji: `supabase/tests/113_study_profile.test.sql`.
 Kategori (tabel `categories`) sejak migration 47: 19 — tambahan `teknik`,
 `ekonomi`, `pertanian`, `bahasa`, `media`, `agama`, `pariwisata`.
 
+### `event_engagement`, `event_likes`, `event_comments`, `event_comment_reports` (Interaksi postingan — ADR-092)
+Migration `20261116100001_event_engagement` (**belum diterapkan ke produksi**).
+
+| Tabel | Isi & aturan |
+|---|---|
+| `event_engagement` | PK `event_id`; `like_count`, `comment_count` (dijaga trigger), `trend_score` FLOAT8 + `trend_at` (ditulis `refresh_event_trends()`). SELECT anon/authenticated hanya untuk kegiatan `APPROVED`/`EXPIRED` (policy `event_engagement_public_read`) |
+| `event_likes` | PK (`event_id`, `user_id`), `created_at`. Tertutup untuk klien (RLS tanpa policy + REVOKE): tulis lewat `toggle_event_like()`, baca milik sendiri lewat `event_engagement_state()`/`my_event_likes()`. Siapa yang menyukai tidak pernah keluar |
+| `event_comments` | `body` 2–1000, `parent_id` = satu tingkat (FK ke komentar utama, ON DELETE CASCADE), `hidden_at`/`hidden_auto`. Tertutup untuk klien: baca `list_event_comments()` (authenticated), tulis `create_event_comment()` / `delete_event_comment()` |
+| `event_comment_reports` | Pola `community_reports`: `snapshot` ≤ 1000, pelapor/penulis/kegiatan `ON DELETE SET NULL` (arsip moderasi tanpa nama), satu laporan TERBUKA per pelapor per komentar; tiga pelapor berbeda → sembunyi otomatis |
+
+`events.registration_mode` VARCHAR(16) `external` (bawaan) | `studentfo` (lomba mandiri:
+tautan luar tidak pernah ditampilkan). Ditulis `set_event_registration_mode()` (pengelola
+atau admin) dan `approve_submission()` (hanya bila pengirimnya penyelenggara terverifikasi
+atau ADMIN). Penghitung komentar = kunci baris `event_engagement` + hitung ulang komentar
+terlihat yang induknya juga terlihat (bukan ±1). Uji: `supabase/tests/119_event_engagement.test.sql`.
+
 ## Fungsi (semua `SECURITY DEFINER` punya `SET search_path = public, pg_temp`)
 
 | Fungsi | Guna |
@@ -516,6 +532,14 @@ Kategori (tabel `categories`) sejak migration 47: 19 — tambahan `teknik`,
 | `public.team_skill_slugs()` | IMMUTABLE; satu-satunya sumber daftar slug keahlian di SQL (dipakai CHECK `team_seekers`). `authenticated` WAJIB punya EXECUTE — CHECK dievaluasi dengan hak pemanggil INSERT (ADR-057) |
 | `public.list_team_candidates(int)` | DEFINER, `authenticated`. Kartu terbuka orang lain tanpa email, tanpa pemblokir/diblokir, plus ringkasan portofolio PUBLIK (aturan = `public_portfolio()`); kosong bila kartu pemanggil sendiri tidak terbuka (timbal-balik); `p_limit` dijepit 1..400 (ADR-057) |
 | `public.claim_notification_dispatch(int, int)` / `ack_notification_dispatch(uuid[])` | DEFINER, **hanya `service_role`**. Klaim berbasis sewa (`FOR UPDATE SKIP LOCKED`), lewati pengingat basi; ack hanya untuk baris yang sedang diklaim |
+| `public.event_engagement_state(uuid)` | DEFINER, anon + authenticated. Suka/komentar + `liked` milik pemanggil; kegiatan tak tayang = nol (ADR-092) |
+| `public.list_event_comments(uuid, int)` / `my_event_comments()` / `my_event_likes()` | DEFINER, `authenticated`. Utas terbaru + balasan, nama tersingkat, `author_role` `team`/`organizer`, tanpa orang yang saling blokir; dua lainnya = ekspor data akun |
+| `public.toggle_event_like(uuid)` / `create_event_comment(uuid, text, uuid)` / `delete_event_comment(uuid)` / `report_event_comment(uuid, text, text)` | DEFINER, `authenticated`, penulis = `community_writer()`. Batas laju 300 suka, 30 komentar, 10 laporan per hari; kontak pribadi ditolak `community_contact_blocked`; balasan mengabari penulis utama (`EVENT_COMMENT_REPLY`, dedupe) |
+| `public.share_event_with_connections(uuid, uuid[])` | DEFINER, `authenticated`. Hanya koneksi DITERIMA tanpa blokir/penangguhan, ≤ 20 penerima, 20 kiriman/hari; notifikasi kalimat tetap |
+| `public.set_event_registration_mode(uuid, text)` | DEFINER, `authenticated`; hak = `manages_event()` atau admin |
+| `public.admin_event_comment_report_queue(int)` / `admin_resolve_event_comment_report(…)` / `admin_hide_event_comment(…)` | **Hanya `service_role`** (rute admin setelah `checkAdminAccess()`), tercatat di `moderation_log` |
+| `public.event_deletion_files(uuid)` / `delete_event_permanently(uuid, uuid, text)` | **Hanya `service_role`**. Hanya kegiatan `REJECTED` tanpa pendaftaran aktif; daftar berkas storage dulu, lalu hapus + catat `DELETED` |
+| `public.refresh_event_trends()` | **Hanya `service_role`**/pg_cron. Satu pernyataan: skor tren 14 hari (rumus = `lib/popularity.ts`) + menolkan yang tidak lagi ramai |
 
 ## Row Level Security
 
@@ -550,7 +574,9 @@ menghitung ulang.
 Ini yang di-`SELECT` oleh `SupabaseEventRepository`, bukan tabel `events`
 langsung. Sejak `20261003100001` view juga memuat kolom biaya/promosi/lencana/
 panduan dan `is_promoted` (dihitung dengan `now()` — cermin `isPromoted()` di
-`src/lib/data/listing.ts`; ubah keduanya bersamaan).
+`src/lib/data/listing.ts`; ubah keduanya bersamaan). Sejak `20261116100001`
+(ADR-092) view juga memuat `registration_mode` dan `trend_score` (0 bila belum
+ada baris `event_engagement`) untuk urutan "Lagi ramai".
 
 `public.team_member_profiles` — **`security_invoker` sengaja dibiarkan `off`**,
 kebalikan dari `events_listing`. View ini berjalan dengan hak pemiliknya
@@ -596,6 +622,7 @@ ADR-030), jadwal dalam UTC:
 | `studentfo-purge-event-view-dedup` | `purge_event_view_dedup()` | `23 18 * * *` = 01:23 WIB |
 | `studentfo-purge-old-notifications` | `purge_old_notifications()` | `29 18 * * *` = 01:29 WIB |
 | `studentfo-redact-submission-emails` | `redact_decided_submission_emails()` | `41 18 * * *` = 01:41 WIB |
+| `studentfo-refresh-event-trends` | `refresh_event_trends()` (ADR-092, dipasang bila pg_cron ada) | `7,22,37,52 * * * *` = tiap 15 menit |
 
 Angka retensi (ADR-060) dikutip apa adanya di Kebijakan privasi — mengubah
 salah satunya berarti mengubah dokumen itu dan menaikkan `LEGAL_REVISION`.

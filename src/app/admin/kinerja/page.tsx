@@ -131,7 +131,7 @@ export default async function OutboundPerformancePage({ searchParams }: { search
           </h1>
           <p className="mt-2 text-ink-soft">
             Jawaban singkat pengunjung tepat sebelum keluar ke tautan pendaftaran resmi — siapa yang benar-benar menuju
-            pendaftaran, dan berapa yang memilih melewati. Acara berformulir StudentFo tidak lewat pendataan ini.
+            pendaftaran, dan berapa yang memilih melewati. Acara berformulir StudentFo ikut didata tepat sebelum formulirnya dibuka.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

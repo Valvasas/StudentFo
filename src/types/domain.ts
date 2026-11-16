@@ -489,6 +489,12 @@ export interface SubmissionPayload {
   /** Video YouTube/Vimeo kanonis (ADR-079) → `events.video_url` saat disetujui. Tidak ada = tanpa video. */
   readonly videoUrl?: string | null;
   /**
+   * Lomba mandiri (ADR-092): `studentfo` = pendaftaran hanya lewat formulir
+   * StudentFo. Dihormati `approve_submission` HANYA bila pengirimnya
+   * penyelenggara terverifikasi atau admin. Tidak ada = tautan resmi.
+   */
+  readonly registrationMode?: RegistrationMode;
+  /**
    * Bahan verifikasi untuk moderator — TIDAK pernah disalin ke `events`
    * dan tidak pernah tampil publik (bisa berupa nomor WhatsApp pribadi).
    */
@@ -1441,6 +1447,13 @@ export interface MyEventComment {
   readonly isReply: boolean;
   readonly hidden: boolean;
   readonly createdAt: string;
+}
+
+/** Suka milik sendiri — hanya untuk ekspor data akun (UU PDP Pasal 7). */
+export interface MyEventLike {
+  readonly eventSlug: string | null;
+  readonly eventTitle: string | null;
+  readonly likedAt: string;
 }
 
 /** Koneksi yang bisa dikirimi kegiatan (Bagikan ke koneksi). */

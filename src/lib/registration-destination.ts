@@ -23,6 +23,8 @@ export async function registrationDestination(event: EventDetail, repository: Ev
   if (form?.isOpen && !registrationEventClosed(event)) {
     return { kind: 'internal', url: new URL(`/events/${event.slug}/formulir`, siteUrl).toString() };
   }
+  // Lomba mandiri (ADR-092): formulir ditutup ≠ boleh keluar ke tautan lain.
+  if (event.registrationMode === 'studentfo') return null;
   const external = sanitizeExternalUrl(event.registrationLink);
   return external ? { kind: 'external', url: external } : null;
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Building2, Globe, MapPin } from 'lucide-react';
 import { DeadlineRing } from '@/components/event/deadline-ring';
+import { CardCounts } from '@/components/event/card-counts';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { PosterThumb } from '@/components/event/poster-thumb';
 import { PriceBadge, PromotedBadge } from '@/components/event/price-badge';
@@ -70,6 +71,7 @@ export function EventCard({
         <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 pt-1.5 text-[13px] font-medium text-ink-muted">
           <span>{EVENT_TYPE_LABEL[event.eventType]}</span>
           {promoted && <PromotedBadge />}
+          <CardCounts counts={event.counts} />
         </p>
         <div className="flex shrink-0 items-center gap-2">
           {featured && <DeadlineRing deadlineAt={event.primaryDeadlineAt} size={44} />}

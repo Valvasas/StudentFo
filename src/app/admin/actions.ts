@@ -2,15 +2,17 @@
 
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { type ActionErrorCode, type ActionNoticeCode, toActionErrorCode, withQuery } from '@/lib/action-feedback';
+import { actionError, type ActionErrorCode, type ActionNoticeCode, toActionErrorCode, withQuery } from '@/lib/action-feedback';
 import { checkAdminAccess } from '@/lib/auth';
 import { getEventRepository, resetDemoData } from '@/lib/data';
 import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
 import { dataMode } from '@/lib/env';
 import { toApiError } from '@/lib/errors';
 import { parsePresentationForm } from '@/lib/event-presentation';
+import { isEventDeleteConfirmed, takedownReasonText } from '@/lib/event-removal';
 import { formText, formTrimmed } from '@/lib/form-data';
 import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
+import { EVENT_STATUSES } from '@/types/domain';
 
 /**
  * Aksi moderasi.
@@ -440,4 +442,122 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
   if (failure) redirect(usersPage(formData, { error: failure }));
   revalidatePath(USERS_PAGE);
   redirect(withQuery(USERS_PAGE, { notice: 'user_deleted' }));
+}
+
+// ----------------------------------------------------------------------
+// Kelola postingan (ADR-092 #1): hapus (turunkan) kapan saja — juga sebelum
+// tenggat — lalu urungkan / tayangkan lagi, atau hapus permanen.
+// ----------------------------------------------------------------------
+
+const EVENTS_PAGE = '/admin/acara';
+
+/** Kembali ke pencarian yang sama — hanya sebagai NILAI parameter, bukan path dari form. */
+function eventsPage(formData: FormData, feedback: { error?: ActionErrorCode; notice?: ActionNoticeCode; urungkan?: string }): string {
+  const status = formText(formData, 'status');
+  return withQuery(EVENTS_PAGE, {
+    q: normalizeUserSearch(formText(formData, 'q')) || undefined,
+    status: (EVENT_STATUSES as readonly string[]).includes(status) ? status : undefined,
+    ...feedback,
+  });
+}
+
+export async function takeDownEventAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const eventId = formTrimmed(formData, 'eventId');
+  const reason = takedownReasonText(formText(formData, 'preset'), formText(formData, 'details'));
+  if (!eventId) redirect(eventsPage(formData, { error: 'invalid_request' }));
+  if (!reason) redirect(eventsPage(formData, { error: 'deletion_reason_required' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    const event = await repository.getEventForAdmin(eventId);
+    if (!event) throw actionError('event_not_found');
+    // Tercatat di riwayat sebagai keputusan moderasi biasa (trigger log), bisa diurungkan.
+    await repository.reviewEvent({ eventId, decision: 'REJECTED', reviewerId: gate.userId, reviewerName: gate.userName, reason });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(eventsPage(formData, { error: failure }));
+  refreshPublicViews();
+  revalidatePath(EVENTS_PAGE);
+  redirect(eventsPage(formData, { notice: 'event_taken_down', urungkan: eventId }));
+}
+
+/** Urungkan / tayangkan lagi postingan yang diturunkan — langsung tayang, bukan kembali ke antrean. */
+export async function restoreEventAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const eventId = formTrimmed(formData, 'eventId');
+  if (!eventId) redirect(eventsPage(formData, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    const event = await repository.getEventForAdmin(eventId);
+    if (!event) throw actionError('event_not_found');
+    if (event.status !== 'REJECTED') throw actionError('moderation_not_rejected');
+    await repository.reviewEvent({ eventId, decision: 'APPROVED', reviewerId: gate.userId, reviewerName: gate.userName });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(eventsPage(formData, { error: failure }));
+  refreshPublicViews();
+  revalidatePath(EVENTS_PAGE);
+  redirect(eventsPage(formData, { notice: 'event_restored' }));
+}
+
+export async function deleteEventPermanentlyAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const eventId = formTrimmed(formData, 'eventId');
+  if (!eventId) redirect(eventsPage(formData, { error: 'invalid_request' }));
+  if (!isEventDeleteConfirmed(formText(formData, 'confirm'))) redirect(eventsPage(formData, { error: 'event_delete_confirm' }));
+  const reason = takedownReasonText(formText(formData, 'preset'), formText(formData, 'details'));
+  if (!reason) redirect(eventsPage(formData, { error: 'deletion_reason_required' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).deleteEventPermanently({ eventId, actorId: gate.userId, actorName: gate.userName, reason });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(eventsPage(formData, { error: failure }));
+  refreshPublicViews();
+  revalidatePath(EVENTS_PAGE);
+  revalidatePath('/admin/riwayat');
+  redirect(eventsPage(formData, { notice: 'event_deleted' }));
+}
+
+/** Laporan komentar kegiatan (ADR-092) — pola laporan Komunitas: satu keputusan menutup semua laporan terbuka komentar itu. */
+export async function resolveEventCommentReportAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const reportId = formTrimmed(formData, 'reportId');
+  const outcome = formText(formData, 'outcome');
+  if (!reportId || (outcome !== 'RESOLVED' && outcome !== 'DISMISSED')) redirect(withQuery(REPORTS_PAGE, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).resolveEventCommentReport({
+      reportId,
+      actorId: gate.userId,
+      actorName: gate.userName,
+      outcome,
+      hide: outcome === 'RESOLVED' && formData.get('hide') === 'on',
+      note: formText(formData, 'note').trim().slice(0, MODERATION_NOTE_MAX) || null,
+    });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+
+  if (failure) redirect(withQuery(REPORTS_PAGE, { error: failure }));
+  revalidatePath('/events', 'layout');
+  revalidatePath(REPORTS_PAGE);
+  redirect(withQuery(REPORTS_PAGE, { notice: outcome === 'RESOLVED' ? 'report_resolved' : 'report_dismissed' }));
 }

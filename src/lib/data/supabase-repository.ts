@@ -116,6 +116,7 @@ import type {
   EventCommentReportQueueItem,
   EventEngagement,
   MyEventComment,
+  MyEventLike,
   RegistrationMode,
   ShareRecipient,
 } from '@/types/domain';
@@ -3426,6 +3427,18 @@ export class SupabaseEventRepository implements EventRepository {
     );
   }
 
+  async listMyEventLikes(_viewerId: string): Promise<readonly MyEventLike[]> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('my_event_likes');
+    if (error && isMissingRelationError(error)) return [];
+    if (error) throw upstreamFailure('Gagal memuat suka milikmu.', error);
+    return rpcRows<{ event_slug: string | null; event_title: string | null; created_at: string }>(data).map((row) => ({
+      eventSlug: row.event_slug,
+      eventTitle: row.event_title,
+      likedAt: row.created_at,
+    }));
+  }
+
   async listShareRecipients(viewer: NetworkViewer): Promise<readonly ShareRecipient[]> {
     const page = await this.listConnections(viewer.id, { limit: EVENT_SHARE_LIMITS.recipientsListed, cursor: null, kind: 'accepted' });
     return sortShareRecipients(page.items.map((connection) => ({ userId: connection.person.userId, fullName: connection.person.fullName })));
@@ -3555,6 +3568,7 @@ export class SupabaseEventRepository implements EventRepository {
     if (!isUuid(eventId)) throw actionError('event_unavailable');
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.rpc('set_event_registration_mode', { p_event: eventId, p_mode: mode });
+    if (error && isMissingRelationError(error)) throw actionError('registration_mode_unavailable');
     if (error) throw engagementFailure(error, 'Gagal menyimpan cara mendaftar.');
   }
 }

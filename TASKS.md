@@ -399,6 +399,22 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Mekanisme pengumuman perubahan dokumen ≥ 14 hari: `LegalUpdateBanner` otomatis dari tanggal berlaku di env (ADR-061).
 - [ ] Batang "Minggu ini" di beranda 39 px di ponsel 360 (pitch 47 px, tinggi 158 px; lolos WCAG 2.5.8). Sengaja dibiarkan: 44 px memaksa jarak ≤ 3 px.
 
+## Suka, komentar, bagikan, "Lagi ramai", hapus postingan, lomba mandiri 2026-11-16 (@claude) — ADR-092
+
+- [x] Hapus postingan kapan saja (juga sebelum tenggat): "Alat moderator" di halaman kegiatan + `/admin/acara`; Urungkan / Tayangkan lagi; hapus permanen dua langkah (ketik HAPUS, tanpa pendaftar aktif, berkas storage ikut terhapus, tercatat `DELETED`)
+- [x] Suka (toggle ber-`aria-pressed`, siapa yang menyukai tidak ditampilkan) & komentar (tab khusus anggota, balasan satu tingkat, kontak ditolak, lapor + sembunyi otomatis, antrean admin, label Penyelenggara/Tim StudentFo)
+- [x] "Lagi ramai": skor tren berbobot & meluruh (`lib/popularity.ts` ↔ `refresh_event_trends()`, pg_cron 15 menit), urutan `sort=popular`, strip berperingkat di beranda & papan Lomba
+- [x] Bagikan: menu tanpa pelacak (salin, Web Share, WA/Telegram/X/FB/LinkedIn/Email) + kirim ke koneksi lewat lonceng (kalimat tetap, 20/kirim, 20/hari)
+- [x] Lomba mandiri: `registration_mode = 'studentfo'` dari `/submit` (penyelenggara terverifikasi/admin) & studio; admin membuka studio kegiatan apa pun
+- [x] Formulir ala Google Form: drop-down, jam, skala linear, judul bagian, gandakan, templat (tanpa menggandakan pertanyaan), Ringkasan jawaban
+- [x] Pendataan kinerja juga sebelum formulir StudentFo; ekspor data akun memuat komentar & suka; kebijakan privasi & S&K (`LEGAL_REVISION` 2026-11-16)
+- [x] Perbaikan yang ketemu saat uji: panel Bagikan tertimpa blok "Ringkasan" (header `.enter` = konteks tumpukan → diangkat saat menu terbuka); templat menggandakan "Asal sekolah / kampus" & "Nomor WhatsApp" di formulir baru
+- [x] Tes: `popularity`, `event-comments`, `event-removal`, `registration-summary`, `form-templates`, `engagement` (memori), `parity` (memori ↔ Postgres), `119_event_engagement.test.sql`, `event-engagement.spec.ts`, rute baru di `extreme-content`/`narrow-viewport`/axe
+- [ ] **Pemilik:** setujui penerapan migration `20261116100001_event_engagement` (staging dulu, lalu produksi) — sebelum itu fitur interaksi tidak aktif di produksi
+- [ ] Pemilik: tinjau teks kebijakan privasi & S&K bagian suka/komentar/bagikan
+- [ ] Opsional setelah ada data: kalibrasi bobot "Lagi ramai" dari `recommendation_signals` nyata; pertimbangkan notifikasi "komentarmu disukai"/sebutan (@) hanya bila ada permintaan — keduanya menambah kebisingan lonceng
+- [ ] Opsional: unggah berkas di formulir (sengaja tidak dibuat, ADR-092 #7) — hanya bila ada kebutuhan nyata + pemindaian malware + retensi
+
 ## Audit menyeluruh 2026-11-14 (@claude) — `docs/audit-menyeluruh.md`
 
 - [x] KRITIS: `next`/`eslint-config-next` 15.5.29 (RCE Image Optimization GHSA-2464-fhr4-w9xw, DoS Server Actions GHSA-p3m5-59mp-jv5r, cache poisoning) + `sharp` 0.35.5 (librsvg)

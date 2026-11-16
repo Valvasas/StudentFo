@@ -22,7 +22,7 @@ import { loginHref } from '@/lib/safe-redirect';
  * ke formulir itu, bukan tautan luar — sama dengan `registrationCta` di
  * halaman acara — supaya pendaftar tidak lolos dari alur bayar & verifikasi.
  *
- * Tujuan LUAR melewati pendataan kinerja dulu (ADR-070): sekali per acara per
+ * Tujuan — luar maupun formulir StudentFo (ADR-092) — melewati pendataan kinerja dulu (ADR-070): sekali per acara per
  * peramban, dijawab atau dilewati (ADR-073). Aksi pendataan lalu mengantar langsung ke tujuan & mencatat klik
  * sendiri (tujuan dari `registrationDestination()` yang sama); di sini klik
  * hanya dicatat saat benar-benar keluar, jadi tidak terhitung dua kali.
@@ -59,7 +59,9 @@ export async function GET(
   if (!destination) {
     return NextResponse.redirect(new URL(`/events/${event.slug}`, siteUrl), 303);
   }
-  if (destination.kind === 'external' && (await shouldAskSurvey(event.id, repository))) {
+  // Formulir StudentFo juga (ADR-092): lomba mandiri butuh data sumber info yang
+  // sama dengan postingan bertautan luar. Tetap sekali per acara, bisa dilewati.
+  if (await shouldAskSurvey(event.id, repository)) {
     return NextResponse.redirect(new URL(`/events/${event.slug}/sebelum-daftar`, siteUrl), 303);
   }
 

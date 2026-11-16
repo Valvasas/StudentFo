@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ClipboardList, Download, Search, X } from 'lucide-react';
+import { BarChart3, ClipboardList, Download, List, Search, X } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { AnswerSummary } from '@/components/organizer/answer-summary';
 import {
   EventWorkspaceHeader,
   loadManagedEvent,
@@ -16,6 +17,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { requireUser, toEventActor } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { isActiveRegistration } from '@/lib/registration-form';
+import { summarizeAnswers } from '@/lib/registration-summary';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
 import type { EventRegistration, RegistrationStatus } from '@/types/domain';
@@ -47,10 +49,15 @@ function matchesSearch(registration: EventRegistration, needle: string): boolean
 
 const number = (value: number) => value.toLocaleString('id-ID');
 
+/** `?tampilan=ringkasan` = Ringkasan jawaban ala Google Form (ADR-092); selain itu daftar per orang. */
+const SUMMARY_VIEW = 'ringkasan';
+
 /**
  * Daftar pendaftar satu acara (ADR-056). Saring status = tautan, cari = form
  * GET — tanpa state klien, setiap tampilan punya URL sendiri (AGENTS §9).
  * Hak baca diperiksa repository; acara yang tidak dikelola = `NotManaging`.
+ * Tampilan Ringkasan (ADR-092) selalu atas pendaftar AKTIF — saringan status &
+ * pencarian hanya untuk daftar per orang, jadi tidak ikut dibawa.
  */
 export default async function RegistrantsPage({
   params,
@@ -73,6 +80,7 @@ export default async function RegistrantsPage({
     workspaceBadges(user, event.id),
   ]);
 
+  const summaryView = firstParam(query.tampilan) === SUMMARY_VIEW;
   const filter = parseFilter(firstParam(query.status));
   const search = (firstParam(query.q) ?? '').trim().slice(0, 120);
   const needle = search.toLowerCase();
@@ -84,20 +92,21 @@ export default async function RegistrantsPage({
     return qs ? `${basePath}?${qs}` : basePath;
   };
   const selfHref = hrefFor(filter);
+  const summaryHref = `${basePath}?tampilan=${SUMMARY_VIEW}`;
 
   const count = (key: FilterKey) => registrations.filter((registration) => FILTERS[key].match(registration.status)).length;
   const isPaid = (form?.feeAmount ?? 0) > 0 || registrations.some((registration) => registration.feeAmount !== null);
   const visible = registrations.filter((registration) => FILTERS[filter].match(registration.status) && matchesSearch(registration, needle));
   const fields = form?.fields ?? [];
 
-  const openId = firstParam(query.open);
+  const openId = summaryView ? undefined : firstParam(query.open);
   const openRow = openId ? visible.find((registration) => registration.id === openId) : undefined;
   const stats: FilterKey[] = isPaid ? ['aktif', 'terkonfirmasi', 'menunggu', 'diperiksa'] : ['aktif', 'terkonfirmasi'];
   const inactive = count('nonaktif');
 
   return (
     <div className="container-page flex flex-col gap-8 py-8">
-      <EventWorkspaceHeader event={event} active="pendaftar" badges={badges} />
+      <EventWorkspaceHeader event={event} active="pendaftar" badges={badges} asAdmin={context.asAdmin} />
 
       {!openRow && <ActionFeedback params={query} className="max-w-2xl" />}
 
@@ -109,7 +118,7 @@ export default async function RegistrantsPage({
             <ul className={cn('grid gap-3', isPaid ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2')}>
               {stats.map((key) => {
                 const value = count(key);
-                const current = key === filter;
+                const current = !summaryView && key === filter;
                 const attention = key === 'diperiksa' && value > 0;
                 return (
                   <li key={key}>
@@ -131,7 +140,7 @@ export default async function RegistrantsPage({
                 );
               })}
             </ul>
-            {(inactive > 0 || filter === 'nonaktif') && (
+            {!summaryView && (inactive > 0 || filter === 'nonaktif') && (
               <Link
                 href={filter === 'nonaktif' ? hrefFor(DEFAULT_FILTER) : hrefFor('nonaktif')}
                 aria-current={filter === 'nonaktif' ? 'page' : undefined}
@@ -151,65 +160,91 @@ export default async function RegistrantsPage({
             </p>
           )}
 
-          <section aria-labelledby="daftar-pendaftar" className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2 id="daftar-pendaftar" className="text-xl">
-                {FILTERS[filter].label}
-                <span className="ml-2 text-base font-normal text-ink-muted tabular-nums">{number(visible.length)}</span>
-              </h2>
-              <a href={`${basePath}/ekspor`} download className={buttonVariants({ variant: 'secondary' })}>
-                <Download aria-hidden /> Unduh CSV
-              </a>
-            </div>
-
-            <form action={basePath} method="get" role="search" className="flex w-full max-w-xl gap-2">
-              {filter !== DEFAULT_FILTER && <input type="hidden" name="status" value={filter} />}
-              <div className="relative min-w-0 flex-1">
-                <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-                <input
-                  type="search"
-                  name="q"
-                  defaultValue={search}
-                  maxLength={120}
-                  placeholder="Nama, kode, atau email"
-                  aria-label="Cari pendaftar"
-                  className="field-control h-11 w-full rounded-card border border-line-strong/70 bg-panel pl-9 pr-3 text-base text-ink placeholder:text-ink-faint hover:border-line-strong"
-                />
-              </div>
-              <button type="submit" className={buttonVariants({ variant: 'secondary' })}>
-                Cari
-              </button>
-            </form>
-            {search && (
-              <Link href={hrefFor(filter, '')} className="-mt-2 flex min-h-11 w-fit items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
-                <X aria-hidden className="size-4" /> Hapus pencarian “{search}”
+          <nav aria-label="Tampilan jawaban" className="-mb-4 flex flex-wrap gap-1.5">
+            {(
+              [
+                { href: selfHref, label: 'Daftar pendaftar', icon: List, active: !summaryView },
+                { href: summaryHref, label: 'Ringkasan jawaban', icon: BarChart3, active: summaryView },
+              ] as const
+            ).map(({ href, label, icon: Icon, active }) => (
+              <Link
+                key={label}
+                href={href}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex min-h-11 items-center gap-2 rounded-sm border px-3.5 text-[13.5px] font-medium transition-colors duration-150',
+                  active ? 'border-brand bg-brand text-on-brand' : 'border-line bg-panel hover:border-line-strong',
+                )}
+              >
+                <Icon aria-hidden className="size-4" />
+                {label}
               </Link>
-            )}
+            ))}
+          </nav>
 
-            {visible.length === 0 ? (
-              <p className="rounded-panel border border-dashed border-line bg-panel px-6 py-10 text-center text-sm text-ink-muted">
-                {search ? 'Tidak ada pendaftar yang cocok dengan pencarian ini.' : 'Tidak ada pendaftar dengan status ini.'}
-              </p>
-            ) : (
-              <div className="overflow-hidden rounded-panel border border-line bg-panel">
-                <RegistrationListHeader showFee={isPaid} />
-                <ul className="divide-y divide-line">
-                  {visible.map((registration) => (
-                    <RegistrationRow
-                      key={registration.id}
-                      registration={registration}
-                      fields={fields}
-                      eventId={event.id}
-                      returnTo={selfHref}
-                      showFee={isPaid}
-                      open={registration.id === openRow?.id}
-                      feedback={registration.id === openRow?.id ? <ActionFeedback params={query} /> : undefined}
-                    />
-                  ))}
-                </ul>
+          {summaryView ? (
+            <AnswerSummary questions={summarizeAnswers(fields, registrations)} total={count('aktif')} />
+          ) : (
+            <section aria-labelledby="daftar-pendaftar" className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <h2 id="daftar-pendaftar" className="text-xl">
+                  {FILTERS[filter].label}
+                  <span className="ml-2 text-base font-normal text-ink-muted tabular-nums">{number(visible.length)}</span>
+                </h2>
+                <a href={`${basePath}/ekspor`} download className={buttonVariants({ variant: 'secondary' })}>
+                  <Download aria-hidden /> Unduh CSV
+                </a>
               </div>
-            )}
-          </section>
+
+              <form action={basePath} method="get" role="search" className="flex w-full max-w-xl gap-2">
+                {filter !== DEFAULT_FILTER && <input type="hidden" name="status" value={filter} />}
+                <div className="relative min-w-0 flex-1">
+                  <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+                  <input
+                    type="search"
+                    name="q"
+                    defaultValue={search}
+                    maxLength={120}
+                    placeholder="Nama, kode, atau email"
+                    aria-label="Cari pendaftar"
+                    className="field-control h-11 w-full rounded-card border border-line-strong/70 bg-panel pl-9 pr-3 text-base text-ink placeholder:text-ink-faint hover:border-line-strong"
+                  />
+                </div>
+                <button type="submit" className={buttonVariants({ variant: 'secondary' })}>
+                  Cari
+                </button>
+              </form>
+              {search && (
+                <Link href={hrefFor(filter, '')} className="-mt-2 flex min-h-11 w-fit items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
+                  <X aria-hidden className="size-4" /> Hapus pencarian “{search}”
+                </Link>
+              )}
+
+              {visible.length === 0 ? (
+                <p className="rounded-panel border border-dashed border-line bg-panel px-6 py-10 text-center text-sm text-ink-muted">
+                  {search ? 'Tidak ada pendaftar yang cocok dengan pencarian ini.' : 'Tidak ada pendaftar dengan status ini.'}
+                </p>
+              ) : (
+                <div className="overflow-hidden rounded-panel border border-line bg-panel">
+                  <RegistrationListHeader showFee={isPaid} />
+                  <ul className="divide-y divide-line">
+                    {visible.map((registration) => (
+                      <RegistrationRow
+                        key={registration.id}
+                        registration={registration}
+                        fields={fields}
+                        eventId={event.id}
+                        returnTo={selfHref}
+                        showFee={isPaid}
+                        open={registration.id === openRow?.id}
+                        feedback={registration.id === openRow?.id ? <ActionFeedback params={query} /> : undefined}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
         </>
       )}
     </div>

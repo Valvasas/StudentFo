@@ -37,7 +37,7 @@ export default async function EventGalleryStudioPage({
 
   return (
     <div className="container-page flex flex-col gap-8 py-8">
-      <EventWorkspaceHeader event={event} active="galeri" badges={badges} />
+      <EventWorkspaceHeader event={event} active="galeri" badges={badges} asAdmin={context.asAdmin} />
       <ActionFeedback params={query} className="max-w-2xl" />
       <MediaManager context="studio" event={event} photos={photos} />
     </div>

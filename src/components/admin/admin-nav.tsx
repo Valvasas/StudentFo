@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import { BadgeCheck, BarChart3, Flag, History, Megaphone, Scale, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, BarChart3, FileStack, Flag, History, Megaphone, Scale, ShieldCheck, UsersRound, type LucideIcon } from 'lucide-react';
 import { ScrollRail } from '@/components/ui/scroll-rail';
 import { cn } from '@/lib/utils';
 
-export type AdminSection = 'antrean' | 'laporan' | 'penyelenggara' | 'pengguna' | 'riwayat' | 'kinerja' | 'kalibrasi' | 'promosi';
+export type AdminSection = 'antrean' | 'postingan' | 'laporan' | 'penyelenggara' | 'pengguna' | 'riwayat' | 'kinerja' | 'kalibrasi' | 'promosi';
 
 const ITEMS: readonly { key: AdminSection; label: string; href: string; icon: LucideIcon }[] = [
   { key: 'antrean', label: 'Antrean moderasi', href: '/admin', icon: ShieldCheck },
+  { key: 'postingan', label: 'Kelola postingan', href: '/admin/acara', icon: FileStack },
   { key: 'laporan', label: 'Laporan', href: '/admin/laporan', icon: Flag },
   { key: 'penyelenggara', label: 'Penyelenggara', href: '/admin/penyelenggara', icon: BadgeCheck },
   { key: 'pengguna', label: 'Pengguna', href: '/admin/pengguna', icon: UsersRound },

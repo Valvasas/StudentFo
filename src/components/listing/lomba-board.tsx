@@ -1,6 +1,8 @@
 import { PriceBadge } from '@/components/event/price-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import { PosterThumb } from '@/components/event/poster-thumb';
+import { CardCounts } from '@/components/event/card-counts';
+import { TrendingStrip } from '@/components/event/trending-strip';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { DeadlineTag } from '@/components/event/deadline-tag';
@@ -50,7 +52,16 @@ const addDays = (now: Date, days: number) => new Date(now.getTime() + days * 86_
  * ada di skema (ADR-039), jadi angka besarnya diganti hal yang benar-benar
  * kita tahu dan sama berguna untuk memutuskan: tanggal tutup.
  */
-export function LombaBoard({ query, result, categories, savedIds, currentHref, now, top }: BoardProps & { top: EventSummary | null }) {
+export function LombaBoard({
+  query,
+  result,
+  categories,
+  savedIds,
+  currentHref,
+  now,
+  top,
+  trending = [],
+}: BoardProps & { top: EventSummary | null; /** "Lagi ramai" (ADR-092) — di atas papan, papannya tetap urut tenggat. */ trending?: readonly EventSummary[] }) {
   const withDays = result.items.map((event) => ({
     event,
     days: event.primaryDeadlineAt ? (daysUntil(event.primaryDeadlineAt, now) ?? 999) : 999,
@@ -104,6 +115,17 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
           </Link>
         )}
       </div>
+
+      {isBoardUnfiltered(query) && query.page <= 1 && (
+        <TrendingStrip
+          events={trending}
+          now={now}
+          title="Lomba yang lagi ramai"
+          // Papan per jenis selalu urut tenggat; urutan "Lagi ramai" lengkap ada di daftar umum.
+          moreHref="/events?sort=popular"
+          className="mt-10"
+        />
+      )}
 
       <section
         aria-label="Filter kegiatan"
@@ -200,7 +222,10 @@ export function LombaBoard({ query, result, categories, savedIds, currentHref, n
                       </div>
                       <PosterThumb poster={event.poster} />
                     </div>
-                    <PriceBadge event={event} className="self-start" />
+                    <span className="flex flex-wrap items-center justify-between gap-2">
+                      <PriceBadge event={event} />
+                      <CardCounts counts={event.counts} />
+                    </span>
                     <ul aria-label="Ringkasan" className="mt-auto flex flex-wrap gap-1.5">
                       {[
                         levelSummary(event.educationLevels).short,

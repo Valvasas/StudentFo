@@ -141,6 +141,7 @@ export const ACTION_ERROR_CODES = [
   'deletion_reason_required',
   'event_delete_confirm',
   'event_delete_failed',
+  'registration_mode_unavailable',
   'unknown',
 ] as const;
 
@@ -289,6 +290,7 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   deletion_reason_required: 'Tulis alasan penghapusan minimal 5 karakter — tercatat di Riwayat moderasi.',
   event_delete_confirm: 'Ketik HAPUS untuk mengonfirmasi penghapusan permanen.',
   event_delete_failed: 'Berkas postingan gagal dihapus dari penyimpanan, jadi postingan belum dihapus. Coba lagi sebentar lagi.',
+  registration_mode_unavailable: 'Pengaturan cara mendaftar aktif setelah pembaruan database terpasang. Formulir lainnya sudah tersimpan.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
 

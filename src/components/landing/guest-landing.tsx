@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Plus } from 'lucide-react';
 import { EventCard } from '@/components/event/event-card';
+import { TrendingStrip, trendingItems } from '@/components/event/trending-strip';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { STUDENT_LEVEL_OPTIONS } from '@/components/listing/listing-ui';
 import { getEventRepository } from '@/lib/data';
@@ -74,7 +75,7 @@ const SHORTCUTS: readonly HeroLink[] = [
 ];
 
 export async function GuestLanding({ params = {} }: { params?: RawSearchParams }) {
-  const [closingSoon, typeTotals] = await Promise.all([
+  const [closingSoon, typeTotals, popular] = await Promise.all([
     withFallback('pratinjau tenggat terdekat', async () => (await getEventRepository()).listClosingSoon(PREVIEW_LIMIT), []),
     // `newest`: hanya totalnya yang dipakai, jadi tidak perlu urutan relevansi
     // yang menskor seluruh katalog (ADR-050). Gagal = tab tanpa angka, bukan beranda rusak.
@@ -88,6 +89,8 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
       },
       EVENT_TYPE_NAV.map(() => null),
     ),
+    // "Lagi ramai" (ADR-092): gagal dimuat = bagiannya tidak tampil.
+    withFallback('kegiatan lagi ramai', async () => (await (await getEventRepository()).listEvents({ sort: 'popular', pageSize: 8 })).items, []),
   ]);
   const types: HeroLink[] = EVENT_TYPE_NAV.map((item, index) => ({
     label: item.label,
@@ -102,6 +105,12 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
       <ActionFeedback params={params} className="container-page max-w-[1120px] pt-6" />
       <LandingHero types={types} shortcuts={SHORTCUTS} />
 
+      <TrendingStrip
+        events={trendingItems(popular, 6)}
+        now={new Date()}
+        moreHref={buildEventHref({ sort: 'popular' })}
+        className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')}
+      />
 
       {closingSoon.length > 0 && (
         <section aria-labelledby="tenggat-title" className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')}>
