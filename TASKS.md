@@ -415,6 +415,18 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [ ] Opsional setelah ada data: kalibrasi bobot "Lagi ramai" dari `recommendation_signals` nyata; pertimbangkan notifikasi "komentarmu disukai"/sebutan (@) hanya bila ada permintaan — keduanya menambah kebisingan lonceng
 - [ ] Opsional: unggah berkas di formulir (sengaja tidak dibuat, ADR-092 #7) — hanya bila ada kebutuhan nyata + pemindaian malware + retensi
 
+## Laporan "email konfirmasi tidak sampai" 2026-11-18 (@claude)
+
+Diperiksa langsung di produksi (log Auth 13–18 Nov, `auth.users`, `auth.flow_state`). SMTP Gmail kini
+mengirim (daftar 18 Nov 11.05 WIB → dikonfirmasi 11.12 WIB). Pelapor tidak pernah menekan Daftar sebelum
+hari itu: ia mencoba Google (gagal), lalu Lupa sandi untuk alamat yang belum terdaftar — email memang tidak
+dikirim, dan halaman diam saja (sengaja seragam, AGENTS.md #12).
+
+- [x] Pesan `email_not_confirmed` di halaman masuk membawa tautan "Kirim ulang email konfirmasi" → `/verify-email` (sebelumnya buntu bila email pertama hilang/kedaluwarsa)
+- [x] Notis `reset_email_sent` menambah "Belum punya akun? Email tidak akan datang — daftar dulu" untuk SEMUA alamat (tetap tanpa oracle keanggotaan)
+- [ ] **BUTUH PEMILIK.** Masuk dengan Google gagal untuk semua orang: 8 percobaan `/authorize` sejak 16 Nov (5 milik pemilik), 0 kembali ke `/callback`, tiap `flow_state` tak selesai. Google berhenti di halaman galatnya sendiri — cek di Google Cloud: redirect URI `https://urmmihzjkkbxcwfzvuao.supabase.co/auth/v1/callback`, status publikasi consent screen (Testing = hanya penguji), Client ID/Secret di Supabase cocok
+- [ ] Kredensial `api.supabase.com` yang disuntik proxy sesi ditolak (`Invalid access token`) → konfigurasi Auth (SMTP, batas laju) tetap tak terbaca dari sesi Claude
+
 ## Audit menyeluruh 2026-11-14 (@claude) — `docs/audit-menyeluruh.md`
 
 - [x] KRITIS: `next`/`eslint-config-next` 15.5.29 (RCE Image Optimization GHSA-2464-fhr4-w9xw, DoS Server Actions GHSA-p3m5-59mp-jv5r, cache poisoning) + `sharp` 0.35.5 (librsvg)

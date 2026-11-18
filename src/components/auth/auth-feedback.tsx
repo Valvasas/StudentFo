@@ -33,29 +33,58 @@ export function AuthFeedback({ params, loginPath = '/login' }: { params: RawSear
         <FormAlert tone="error">
           {AUTH_ERROR_MESSAGE[error]}
           {error === 'email_taken' && <EmailTakenLinks email={params.email} loginPath={loginPath} />}
+          {error === 'email_not_confirmed' && (
+            <>
+              {' '}
+              <Link href={`/verify-email${emailQuery(params.email)}`} className={recoveryLink}>
+                Kirim ulang email konfirmasi
+              </Link>
+            </>
+          )}
         </FormAlert>
       )}
-      {notice && <FormAlert tone="notice">{AUTH_NOTICE_MESSAGE[notice]}</FormAlert>}
+      {notice && (
+        <FormAlert tone="notice">
+          {AUTH_NOTICE_MESSAGE[notice]}
+          {/* Tampil untuk SEMUA alamat (AGENTS.md #12): tanpanya orang yang
+              belum pernah daftar menunggu email yang memang tidak dikirim. */}
+          {notice === 'reset_email_sent' && (
+            <>
+              {' '}
+              Belum punya akun? Email tidak akan datang —{' '}
+              <Link href="/register" className={recoveryLink}>
+                daftar dulu
+              </Link>
+              .
+            </>
+          )}
+        </FormAlert>
+      )}
       {celebration && <CelebrationBurst celebration={celebration} burstKey={randomUUID()} />}
     </div>
   );
 }
 
 /**
- * Jalan keluar langsung dari `email_taken`. Alamat hanya diteruskan bila
- * berbentuk email (pola /verify-email): `?email=` bisa diisi siapa saja.
+ * Alamat hanya diteruskan bila berbentuk email (pola /verify-email):
+ * `?email=` bisa diisi siapa saja.
  */
-function EmailTakenLinks({ email, loginPath }: { email: RawSearchParams[string]; loginPath: string }) {
+function emailQuery(email: RawSearchParams[string]): string {
   const valid = emailSchema.safeParse(typeof email === 'string' ? email : '').data;
-  const withEmail = (path: string) => (valid ? `${path}?email=${encodeURIComponent(valid)}` : path);
+  return valid ? `?email=${encodeURIComponent(valid)}` : '';
+}
+
+/** Jalan keluar langsung dari `email_taken`. */
+function EmailTakenLinks({ email, loginPath }: { email: RawSearchParams[string]; loginPath: string }) {
+  const query = emailQuery(email);
   return (
     <>
       {' '}
-      <Link href={withEmail(loginPath)} className={recoveryLink}>
+      <Link href={`${loginPath}${query}`} className={recoveryLink}>
         Masuk
       </Link>
       {' · '}
-      <Link href={withEmail('/forgot-password')} className={recoveryLink}>
+      <Link href={`/forgot-password${query}`} className={recoveryLink}>
         Lupa kata sandi
       </Link>
     </>
