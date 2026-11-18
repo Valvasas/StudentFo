@@ -22,7 +22,8 @@
 |---|---|
 | Migration produksi & staging | **51** di keduanya (13 Nov, atas persetujuan pemilik): `event_media`, `profile_media`, `submission_poster`, `community` sudah diterapkan; sidik skema identik lokal = staging = produksi |
 | Supabase produksi `urmmihzjkkbxcwfzvuao` | **1 akun** (pemilik, ADMIN, email terkonfirmasi, MFA TOTP ✅), 8 acara di-stage Claude 13 Nov malam (§5 E): **1 tayang** (Yenching, disetujui 22.49 WIB), 7 PENDING; ekstensi `http` masih ada |
-| SMTP Auth | Dipasang pemilik 13 Nov dengan Gmail khusus, tetapi **ditolak Gmail**: log Auth 22.47 WIB `535 5.7.8 Username and Password not accepted` (BadCredentials) → belum ada email Auth yang terkirim (§5, butir 2) |
+| SMTP Auth | **Jalan (dicek 18 Nov).** 13 Nov 22.47 WIB sempat `535 BadCredentials`, tampaknya pulih sejak 14 Nov 00.33 WIB; bukti langsung: 18 Nov 11.05 WIB akun peserta kedua daftar dan mengonfirmasi 7 menit kemudian. Masih Gmail (batas harian Gmail + rawan spam) → tetap pindah ke Resend saat domain dibeli |
+| Masuk dengan Google | **Gagal untuk semua orang (18 Nov):** 8 percobaan sejak 16 Nov (5 milik pemilik), tak satu pun kembali ke `/auth/v1/callback`. Penyebab di sisi Google Cloud — lihat `TASKS.md` § Laporan "email konfirmasi tidak sampai" |
 | Region | Supabase `ap-southeast-1` + fungsi Vercel `sin1` — klaim "Singapura" di kebijakan privasi akurat |
 | Job terjadwal | **pg_cron 7 job aktif, 0 gagal** (kedaluwarsa acara, notifikasi tenggat, pembersihan data). GitHub: *Scraper* gagal tiap hari (secret `PIPELINE_SOURCES_YAML` kosong); *Ops watchdog* & *Send deadline emails* **hijau palsu** — log: "secret belum diisi — dilewati" |
 | Domain | `studentfo.com` **masih tersedia** (US$12,03/thn di Vercel), sudah terpasang di project tapi belum dimiliki → "misconfigured" |

@@ -44,6 +44,20 @@ test('halaman studio yang butuh akun mengarah ke pintu masuk penyelenggara', asy
   await expect(page.getByRole('link', { name: 'Masuk sebagai peserta' })).toHaveAttribute('href', '/login');
 });
 
+test('pesan akun memberi jalan keluar: kirim ulang konfirmasi & daftar dulu', async ({ page }) => {
+  const resend = page.getByRole('link', { name: 'Kirim ulang email konfirmasi' });
+
+  await page.goto('/login?error=email_not_confirmed&email=dinda%40kampus.ac.id');
+  await expect(resend).toHaveAttribute('href', '/verify-email?email=dinda%40kampus.ac.id');
+
+  await page.goto('/penyelenggara/masuk?error=email_not_confirmed&email=bukan%20email');
+  await expect(resend).toHaveAttribute('href', '/verify-email');
+
+  await page.goto('/forgot-password?notice=reset_email_sent');
+  await expect(page.getByText(/^Kalau alamat itu terdaftar/)).toContainText('Belum punya akun?');
+  await expect(page.getByRole('link', { name: 'daftar dulu' })).toHaveAttribute('href', '/register');
+});
+
 test('lupa sandi & cek email jujur soal mode demo, tanpa form palsu', async ({ page }) => {
   for (const path of ['/forgot-password', '/verify-email?email=dinda%40kampus.ac.id']) {
     await page.goto(path);
