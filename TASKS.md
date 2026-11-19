@@ -891,3 +891,15 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] **P2** Preferensi notifikasi di produksi (kanal & jam) belum ada backend — Personalisasi hanya memuat preferensi PERANGKAT (tema, gerak) dan ringkasan rekomendasi akun.
 - [ ] **P2** Form lain yang panjang (pengajuan penyelenggara, revisi acara, promosi admin) belum memakai `FormStep`; samakan bila disentuh.
 - [ ] **P3** Mode demo: menu samping akun (12 tujuan) melebihi tinggi layar 900px dan bergulir sendiri; di produksi (tanpa Pesan/Ruang diskusi) muat.
+
+## Audit pra-produksi 2026-11-19 (@claude) — `docs/audit-pra-produksi-2026-11-19.md`
+
+- [ ] B1 TINGGI: `engagement.test.ts` bom-waktu (jam tes tetap vs `new Date()` di `listEvents`) — `npm run verify` & CI merah sejak 19 Nov
+- [ ] B2/B3: `/events` produksi gagal 11× (18 Nov 20.03–22.17 UTC, PostgREST 400); catat `code/details/hint` di `upstreamFailure` agar bisa didiagnosis
+- [ ] B4: jepit `?page=` (offset melewati int4 → 502 + cache baru per angka)
+- [ ] S1 TINGGI: "Lagi ramai" bisa didongkrak tanpa akun (pengunjung unik = IP+User-Agent, batas 300/jam per IP lintas acara) — kunci per IP+acara + batas sumbangan pengunjung harian
+- [ ] S3: `formList()` berbatas (mitigasi zod, sisa audit 14 Nov §3 S2)
+- [ ] S4: `mutual_connection_counts` hormati blokir/keterlihatan
+- [ ] **BUTUH PEMILIK.** Setujui 7 kiriman PENDING (sejak 13 Nov); isi `ERROR_ALERT_WEBHOOK_URL`, `RESEND_API_KEY`/`EMAIL_FROM`/`EMAIL_LINK_SECRET`/`CRON_SECRET`, `TURNSTILE_*`, `RATE_LIMIT_SECRET`
+- [ ] **BUTUH PEMILIK.** Vercel Hobby: log 1 jam & larangan komersial — Pro atau log drain sebelum promosi publik
+- [ ] UX: kartu kegiatan di layar pertama beranda tamu (kini y=1.155px di 390×844); sembunyikan angka suka/komentar 0; CTA tamu "Masuk untuk daftar"
