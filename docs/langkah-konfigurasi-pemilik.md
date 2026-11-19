@@ -1,133 +1,185 @@
-# Langkah konfigurasi untuk pemilik — 19 Nov 2026
+# Langkah konfigurasi untuk pemilik — versi pelan-pelan (19 Nov 2026)
 
-Daftar ini HANYA berisi hal yang butuh akun, uang, atau keputusan pemilik —
-yang bisa dikerjakan dari sesi Claude sudah dikerjakan (lihat bagian
-"Sudah dikerjakan" di bawah). Urutan = prioritas. Setiap langkah ditutup
-dengan cara memeriksa bahwa ia berhasil.
+Kerjakan **satu tahap sampai selesai dan terperiksa**, baru lanjut. Tiap tahap
+berdiri sendiri — berhenti di tengah tidak merusak apa pun.
 
-> Nama variabel di bawah dibaca `src/lib/env.ts`. Env Vercel baru berlaku
-> setelah **Redeploy** (Vercel → Deployments → ⋯ → Redeploy).
+**Aturan emas:**
+
+- Kunci/rahasia (API key, secret, URL webhook) **hanya ditempel di dasbor** (Vercel,
+  GitHub, Supabase) — jangan pernah ditempel di chat, termasuk ke Claude.
+- Env Vercel baru berlaku setelah **Redeploy**.
+- Kalau situs rusak setelah redeploy: Vercel → project `studentfo` → **Deployments** →
+  deployment sebelumnya yang *Ready* → **⋯ → Promote** (atau *Instant Rollback*).
+  Situs kembali seperti semula dalam ±10 detik; perbaiki env-nya dengan tenang.
+
+**Siapkan tiga tab:** GitHub (`github.com/Valvasas/StudentFo`), Vercel (project
+`studentfo`), Supabase (project produksi `urmmihzjkkbxcwfzvuao`).
+
+| Tahap | Isi | Waktu | Biaya |
+|---|---|---|---|
+| 1 | Tayangkan perbaikan (gabungkan cabang ke `main`) | 10–20 mnt | — |
+| 2 | Notifikasi galat ke Discord | 10 mnt | gratis |
+| 3 | CAPTCHA pendaftaran (Cloudflare Turnstile) | 15 mnt | gratis |
+| 4 | Perbaiki "Masuk dengan Google" | 15–20 mnt | gratis |
+| 5 | Katalog otomatis (scraper) | 30–60 mnt | gratis (kuota Gemini gratis) |
+| — | Ditunda: domain, Vercel Pro, email pengingat, Supabase Pro, dokumen hukum | — | — |
+
+---
+
+## Tahap 1 — Tayangkan perbaikan (gabungkan cabang ke `main`)
+
+Database produksi SUDAH diperbarui; yang belum tayang hanya kodenya (Buat acara
+StudentFo, navigasi admin, perbaikan keamanan & tampilan). Vercel hanya
+men-deploy cabang `main`.
+
+1. Buka GitHub → repo **StudentFo** → tab **Pull requests**.
+2. Klik **New pull request**.
+3. Atur: **base:** `main` ← **compare:** `claude/practical-ritchie-emo0or`.
+4. Klik **Create pull request** → judul bebas (mis. "Perbaikan pra-produksi 19 Nov") →
+   **Create pull request** lagi.
+5. Tunggu pemeriksaan **CI** di bawah PR berubah hijau ✅ (±15 menit). Kalau merah,
+   jangan merge — kabari Claude dengan tautan PR-nya.
+6. Klik **Merge pull request** → **Confirm merge**.
+7. Buka Vercel → **Deployments**: muncul deployment baru dari `main` → tunggu *Ready*.
+
+**Periksa:**
+
+- `https://studentfo.vercel.app` terbuka normal.
+- Masuk sebagai admin → beranda admin punya tombol **Buat acara StudentFo** dan panel
+  **Cek pengiriman email** → tekan **Kirim email uji** → cek kotak masuk (dan Spam)
+  emailmu dalam 1–2 menit. Kalau gagal, pesannya menunjuk pengaturan SMTP Supabase.
+
+## Tahap 2 — Notifikasi galat ke Discord
+
+Supaya kejadian seperti `/events` 18 Nov (11 pengunjung gagal, tidak ada yang tahu)
+langsung sampai ke HP-mu.
+
+1. Discord → ikon **+** di bilah kiri → **Create My Own** → **For me and my friends**
+   → nama `StudentFo Ops` → **Create**.
+2. Buat kanal teks `galat-studentfo` (klik **+** di samping *Text Channels*).
+3. Arahkan ke kanal itu → ikon ⚙️ **Edit Channel** → **Integrations** → **Webhooks** →
+   **New Webhook** → klik webhook yang muncul → **Copy Webhook URL**.
+4. Vercel → **Settings → Environment Variables** → **Add**:
+   - Key: `ERROR_ALERT_WEBHOOK_URL`
+   - Value: tempel URL tadi
+   - Environment: centang **Production** saja
+   - Nyalakan **Sensitive** → **Save**
+5. GitHub → **Settings → Secrets and variables → Actions** → **New repository secret**:
+   nama `ERROR_ALERT_WEBHOOK_URL`, nilai URL yang sama → **Add secret**
+   (dipakai *Ops watchdog* untuk melapor job harian yang mati).
+6. Vercel → **Deployments** → deployment teratas → **⋯ → Redeploy**.
+
+**Periksa (opsional, dari terminal):**
+
+```bash
+curl -H "Content-Type: application/json" -d '{"content":"Tes notifikasi StudentFo"}' "TEMPEL_URL_WEBHOOK_DI_SINI"
+```
+
+Pesan muncul di kanal = siap. Galat asli dibatasi maks. 10 pesan per 5 menit.
+
+## Tahap 3 — CAPTCHA pendaftaran (Cloudflare Turnstile)
+
+Sekarang akun palsu hanya dibatasi 5/jam per IP.
+
+1. Daftar/masuk di `dash.cloudflare.com` (gratis, tidak perlu memindah domain).
+2. Menu kiri **Turnstile** → **Add widget**:
+   - Widget name: `StudentFo`
+   - Hostname: `studentfo.vercel.app`
+   - Widget mode: **Managed** → **Create**
+3. Salin **Site Key** dan **Secret Key** (biarkan halaman ini terbuka).
+4. Vercel → **Environment Variables** → tambahkan **DUA-DUANYA sebelum redeploy**
+   (kalau hanya satu, aplikasi sengaja menolak start):
+   - `TURNSTILE_SITE_KEY` = Site Key (Production)
+   - `TURNSTILE_SECRET_KEY` = Secret Key (Production, **Sensitive**)
+5. Supabase → **Authentication → Attack Protection** → pastikan **CAPTCHA protection
+   MATI**. (StudentFo memverifikasi sendiri di server; kalau dua-duanya aktif, daftar gagal.)
+6. Vercel → **Redeploy**.
+
+**Periksa:** jendela samaran → `/register` → ada kotak verifikasi Cloudflare di atas tombol
+Daftar → coba daftar dengan email cadangan → email konfirmasi datang.
+
+## Tahap 4 — Perbaiki "Masuk dengan Google"
+
+Log Auth: sejak 16 Nov ada 8 percobaan, semuanya berhenti di halaman galat Google.
+Penyebab paling umum: aplikasi masih mode *Testing* atau alamat callback tidak sama persis.
+
+1. `console.cloud.google.com` → pilih project yang dipakai untuk login StudentFo
+   (pemilih project di bilah atas).
+2. Menu **Google Auth Platform** (dulu: *APIs & Services → OAuth consent screen*) →
+   **Audience** → *Publishing status*: kalau **Testing**, klik **Publish app** →
+   **Confirm**. Harus menjadi **In production**.
+   (Scope email/profil tidak butuh verifikasi Google.)
+3. Masih di sana → **Clients** (dulu *Credentials*) → klik klien jenis *Web application*:
+   - **Authorized redirect URIs** memuat PERSIS
+     `https://urmmihzjkkbxcwfzvuao.supabase.co/auth/v1/callback`
+     (tanpa garis miring di akhir, tanpa spasi).
+   - **Authorized JavaScript origins**: `https://studentfo.vercel.app`
+   - **Save**. Catat *Client ID*. Kalau *Client secret* tidak kamu simpan, buat baru di
+     halaman yang sama (**Add secret**) dan salin.
+4. Supabase → **Authentication → Sign In / Providers → Google** → **Enable** → tempel
+   *Client ID* dan *Client Secret* → **Save**.
+5. Supabase → **Authentication → URL Configuration**:
+   - *Site URL*: `https://studentfo.vercel.app`
+   - *Redirect URLs*: pastikan ada `https://studentfo.vercel.app/auth/callback`
+
+**Periksa:** jendela samaran → `/login` → **Masuk dengan Google** → pilih akun → kembali ke
+StudentFo dalam keadaan masuk.
+
+| Pesan yang muncul | Artinya |
+|---|---|
+| `redirect_uri_mismatch` | Alamat di langkah 3 belum sama persis |
+| "Akses diblokir" / "app is in testing" | Langkah 2 belum *In production* |
+| Kembali ke `/login` dengan pesan galat | Client ID/Secret di langkah 4 tidak cocok |
+
+## Tahap 5 — Katalog otomatis (scraper)
+
+Scraper gagal tiap hari karena daftar sumbernya kosong. Hasilnya **tidak pernah tayang
+sendiri** — semua masuk antrean `/admin` sebagai PENDING untuk kamu setujui.
+
+**5a. Kunci Gemini (gratis)**
+
+1. `aistudio.google.com` → **Get API key** → **Create API key** → salin.
+2. GitHub → **Settings → Secrets and variables → Actions** → **New repository secret**:
+   - `GEMINI_API_KEY` = kunci tadi
+   - `GEMINI_MODEL` = `gemini-3.5-flash-lite` (cocokkan dengan daftar model di AI Studio;
+     model seri 2.0 sudah dimatikan Google)
+
+**5b. Daftar sumber** — bagian yang butuh keputusanmu.
+
+1. Pilih 5–10 situs resmi yang rutin mengumumkan lomba/beasiswa (kampus, kementerian,
+   lembaga). Kandidat ada di `docs/progres-sekarang.md` bagian E.
+2. Salin isi `pipeline/config/sources.example.yaml`, satu blok `- id:` per situs, isi
+   `start_url`, ubah `enabled: true`.
+   Lebih mudah: kirim daftar alamat situsnya ke Claude — Claude memeriksa robots.txt &
+   tata letaknya lalu menyusun YAML-nya. Kamu tinggal menempel.
+3. GitHub → **New repository secret** → `PIPELINE_SOURCES_YAML` = seluruh isi YAML itu.
+4. Pastikan secret `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` sudah ada di daftar yang
+   sama (job lain sudah memakainya; kalau tidak ada, tambahkan).
+
+**Periksa:** GitHub → **Actions** → **Scraper** → **Run workflow** → tunggu hijau ✅ →
+buka `/admin`: hasil baru ada di "Kegiatan dari sumber otomatis".
 
 ---
 
-## 0. Gabungkan cabang ke `main` (wajib, 5 menit)
+## Ditunda (sengaja — StudentFo belum dikomersialkan)
 
-Perbaikan sesi ini ada di cabang `claude/practical-ritchie-emo0or`. Produksi
-(Vercel) hanya men-deploy `main`.
+| Apa | Kenapa ditunda | Akibatnya sekarang |
+|---|---|---|
+| Domain sendiri | Belum perlu | Tetap `studentfo.vercel.app` |
+| Vercel Pro | Paket Hobby boleh untuk proyek non-komersial | Log hanya 1 jam → tutup dengan Tahap 2 (notifikasi Discord) |
+| Email pengingat tenggat (Resend + `CRON_SECRET`) | Resend butuh domain terverifikasi | Opsi email di Pengaturan → Notifikasi otomatis disembunyikan; pengingat di lonceng tetap jalan |
+| Supabase Pro (*Leaked password protection*) | Berbayar | Sandi minimal tetap divalidasi aplikasi |
+| Dokumen hukum (`LEGAL_*`) | Butuh tinjauan penasihat hukum | Kebijakan privasi & S&K tetap berlabel DRAF |
 
-1. GitHub → repo `Valvasas/StudentFo` → **Pull requests** → **New pull request**.
-2. base: `main`, compare: `claude/practical-ritchie-emo0or` → **Create pull request**.
-3. Tunggu CI hijau → **Merge**.
-4. **Periksa:** Vercel → Deployments: deployment baru `main` berstatus *Ready*.
-
-Urutan aman: migration (bagian "Sudah dikerjakan") sudah terpasang di
-database, jadi kode boleh menyusul kapan saja.
-
-## 1. Notifikasi galat ke HP (10 menit) — `ERROR_ALERT_WEBHOOK_URL`
-
-Insiden `/events` 18 Nov (11 pengunjung gagal) tidak diketahui siapa pun.
-
-1. Discord: buat server pribadi → kanal `#galat-studentfo` → ⚙️ **Edit Channel**
-   → **Integrations** → **Webhooks** → **New Webhook** → **Copy Webhook URL**.
-   (Slack juga bisa: *Incoming Webhooks*.)
-2. Vercel → project `studentfo` → **Settings → Environment Variables** →
-   `ERROR_ALERT_WEBHOOK_URL` = URL tadi, Environment **Production**, tipe *Sensitive*.
-3. Redeploy.
-4. **Periksa:** buka `https://studentfo.vercel.app/events?page=abc` — tidak boleh
-   galat (sudah diperbaiki); galat sungguhan berikutnya muncul di kanal itu,
-   maksimal 10 pesan per 5 menit.
-
-## 2. CAPTCHA pendaftaran (15 menit) — `TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`
-
-Tanpa ini akun palsu hanya dibatasi 5/jam per IP.
-
-1. dash.cloudflare.com (akun gratis) → **Turnstile** → **Add widget**.
-   Hostname: `studentfo.vercel.app` (+ domain sendiri bila ada). Mode: *Managed*.
-2. Salin **Site Key** dan **Secret Key** → Vercel env (Production):
-   `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (keduanya WAJIB diisi berpasangan,
-   kalau hanya satu aplikasi menolak start).
-3. Supabase → Authentication → **Attack Protection** → pastikan *CAPTCHA* **mati**
-   (kita memverifikasi sendiri di server; dua-duanya aktif = daftar gagal).
-4. Redeploy. **Periksa:** `/register` menampilkan kotak verifikasi Cloudflare.
-
-## 3. Masuk dengan Google (15 menit)
-
-Log Auth: 8 percobaan sejak 16 Nov, 0 kembali — Google berhenti di halaman galatnya.
-
-1. console.cloud.google.com → **APIs & Services → OAuth consent screen**:
-   *Publishing status* harus **In production** (bukan *Testing* — mode itu hanya
-   untuk alamat penguji yang didaftarkan).
-2. **Credentials → OAuth 2.0 Client IDs** → klien web StudentFo:
-   *Authorized redirect URIs* = `https://urmmihzjkkbxcwfzvuao.supabase.co/auth/v1/callback`
-   (persis, tanpa garis miring di akhir).
-3. Supabase → Authentication → **Providers → Google**: Client ID & Secret sama
-   dengan langkah 2, **Enabled**.
-4. Supabase → Authentication → **URL Configuration**: *Site URL*
-   `https://studentfo.vercel.app`; *Redirect URLs* memuat
-   `https://studentfo.vercel.app/auth/callback`.
-5. **Periksa:** jendela samaran → `/login` → *Masuk dengan Google* → kembali ke
-   StudentFo dalam keadaan masuk.
-
-## 4. Pengingat email tenggat (30 menit + domain)
-
-Halaman `/profile/settings/notifikasi` menawarkan pengingat email, tetapi
-produksi belum punya pengirim: workflow "Send deadline emails" hijau palsu
-(dilewati). Butuh **domain sendiri** — Resend tidak bisa memverifikasi `vercel.app`.
-
-1. resend.com → **Domains → Add domain** (mis. `studentfo.id`) → pasang 3 DNS
-   record yang diminta → tunggu *Verified*.
-2. **API Keys → Create** (izin *Sending access*).
-3. Vercel env (Production): `RESEND_API_KEY`, `EMAIL_FROM` =
-   `StudentFo <pengingat@studentfo.id>`.
-4. Buat satu rahasia acak ≥ 32 karakter (`openssl rand -hex 32`) untuk `CRON_SECRET`.
-   Isi **nilai yang sama** di dua tempat: Vercel env `CRON_SECRET` dan GitHub →
-   repo → **Settings → Secrets and variables → Actions** → `CRON_SECRET`. Tambahkan
-   juga secret GitHub `SITE_URL` = `https://studentfo.vercel.app`.
-5. Redeploy. **Periksa:** GitHub → Actions → *Send deadline emails* → **Run workflow**
-   → log menulis `sent`/`skipped`, bukan "dilewati".
-
-## 5. Katalog otomatis (keputusan sumber) — scraper gagal setiap hari
-
-1. Pilih 10+ sumber resmi (kandidat: `docs/progres-sekarang.md` §5 E).
-2. GitHub secret `PIPELINE_SOURCES_YAML` = isi `pipeline/config/sources.yaml` versi
-   produksi; `GEMINI_API_KEY`; variabel `GEMINI_MODEL` = `gemini-3.5-flash-lite`
-   (model 2.0 sudah dimatikan Google).
-3. **Periksa:** Actions → *Scraper* → Run → hasil masuk `/admin` sebagai PENDING.
-   (Scraper TIDAK PERNAH menayangkan sendiri — semua tetap lewat persetujuanmu.)
-
-## 6. Hosting untuk rilis publik
-
-- **Vercel Pro** ($20/bulan): ketentuan paket Hobby melarang penggunaan
-  komersial (StudentFo punya acara berbayar & promosi), dan log runtime Hobby
-  hanya disimpan 1 jam — insiden 18 Nov sudah tak terbaca 6 jam kemudian.
-  Alternatif log saja: *Log Drains* ke layanan gratis (Better Stack, Axiom).
-- **Supabase Pro** ($25/bulan): baru bisa menyalakan *Leaked password protection*
-  (Authentication → Attack Protection) dan backup harian 7 hari.
-- **Domain sendiri** (`studentfo.id` / `.com`): urutan aman di
-  `docs/kesiapan-hosting.md` (URL Supabase Auth dulu, baru `NEXT_PUBLIC_SITE_URL`).
-
-## 7. Hukum (sebelum promosi publik)
-
-Isi HANYA setelah ditinjau penasihat hukum (ADR-057/060), lalu Redeploy:
-`LEGAL_OPERATOR_NAME`, `PRIVACY_CONTACT_EMAIL`, `PRIVACY_POLICY_EFFECTIVE_DATE`,
-`TERMS_EFFECTIVE_DATE`. Sampai itu Kebijakan privasi & S&K tayang berlabel DRAF
-(disengaja). Juga: pendaftaran PSE Lingkup Privat, DPIA (`docs/dpia-draf.md`),
-DPA dengan Supabase/Vercel/Resend.
-
----
+> Catatan jujur soal hukum: UU PDP berlaku untuk data pribadi pelajar walau situsnya
+> tidak komersial. Sebelum mengundang banyak pengguna umum (bukan teman/penguji),
+> tuntaskan dulu dokumen hukum & pendaftaran PSE.
 
 ## Sudah dikerjakan dari sesi Claude (tidak perlu diulang)
 
-Rincian & bukti: `CHANGELOG.md` entri 19 Nov dan `DECISION.md` ADR-093.
-
-| Apa | Status | Bukti |
-|---|---|---|
-| Migration `20261116100001_event_engagement` (suka, komentar, "Lagi ramai", lomba mandiri) | ✅ staging → produksi | SHA-256 dicocokkan dengan commit `e6bcabf`; `APPLIED_MIGRATIONS.txt` = 54 |
-| Migration `20261119100001` (tren tahan bot, koneksi bersama hormati blokir) | ✅ staging → produksi | uji SQL `120_trend_hardening` |
-| Migration `20261119100002` (Buat acara StudentFo) | ✅ staging → produksi | uji asap di staging (di-rollback) + `121_admin_create_event` |
-| `RATE_LIMIT_SECRET` (Vercel Production, *sensitive*) | ✅ diisi, berlaku di deploy berikutnya | — |
-| Security Advisor produksi setelah migration | ✅ tanpa temuan baru di luar pola yang disengaja | ADR-093 |
-| Kode: perbaikan, fitur admin, UI responsif | ✅ di cabang, **menunggu langkah 0 (merge)** | `npm run verify` 1.151 tes, e2e 1.106 lulus, sapuan 70 rute × 5 lebar |
-
-Yang SENGAJA tidak disentuh: 7 acara PENDING di antrean (keputusanmu), dokumen hukum,
-dan semua yang butuh akun pihak ketiga di atas.
+| Apa | Status |
+|---|---|
+| Migration `20261116100001`, `20261119100001`, `20261119100002` | ✅ staging → produksi (SHA-256 dicocokkan dengan commit `e6bcabf`), 54 migration |
+| `RATE_LIMIT_SECRET` di Vercel Production | ✅ diisi (dibuat acak di sesi Claude; boleh diganti nilai baru kapan saja — efeknya hanya mereset hitungan batas laju) |
+| Security Advisor produksi | ✅ tanpa temuan baru di luar pola yang disengaja |
+| Kode (cabang `claude/practical-ritchie-emo0or`) | ✅ `npm run verify` 1.151 tes, e2e 1.106 lulus — menunggu Tahap 1 |
