@@ -1001,3 +1001,10 @@ export interface ReviewEventInput {
 
 export const DEFAULT_PAGE_SIZE = 12;
 export const MAX_PAGE_SIZE = 48;
+/**
+ * Halaman tertinggi yang dilayani (1.000 × 48 = 48.000 kartu, jauh di atas
+ * katalog realistis). Tanpa plafon, `?page=999999999` membuat offset melewati
+ * `int4` Postgres → RPC 400 → halaman galat 502, dan tiap angka halaman
+ * menambah entri Data Cache baru.
+ */
+export const MAX_PAGE = 1000;

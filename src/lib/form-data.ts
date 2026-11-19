@@ -16,8 +16,23 @@ export function formTrimmed(formData: FormData, name: string): string {
   return formText(formData, name).trim();
 }
 
+/**
+ * Plafon jumlah nilai satu kolom berulang. Batas sah terbesar di aplikasi = 20
+ * (penerima Bagikan); semua validator punya `.max()` sendiri yang lebih kecil,
+ * jadi daftar yang dipotong di sini tetap DITOLAK oleh validatornya. Gunanya:
+ * badan 32 MB tidak bisa menyodorkan jutaan elemen ke zod v3, yang memproses
+ * seluruh array sebelum mengecek `.max()` (GHSA-mrhx-c7xc-m3w5).
+ */
+export const FORM_LIST_MAX = 200;
+
 export function formList(formData: FormData, name: string): string[] {
-  return formData.getAll(name).filter((value): value is string => typeof value === 'string');
+  const values: string[] = [];
+  for (const value of formData.getAll(name)) {
+    if (typeof value !== 'string') continue;
+    values.push(value);
+    if (values.length >= FORM_LIST_MAX) break;
+  }
+  return values;
 }
 
 /**
