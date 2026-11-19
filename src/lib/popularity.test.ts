@@ -4,6 +4,7 @@ import {
   jakartaNoonOf,
   latestPerPerson,
   TREND_HALF_LIFE_HOURS,
+  TREND_VISITOR_DAILY_CAP,
   TREND_WEIGHTS,
   trendDecay,
   trendScore,
@@ -45,6 +46,9 @@ describe('trendScore', () => {
 
   it('jumlah nol/negatif tidak menyumbang apa pun', () => {
     expect(trendScore([{ kind: 'visitor', at: now, count: 0 }, { kind: 'visitor', at: now, count: -3 }], now)).toBe(0);
+    // Pengunjung anonim dijepit per hari: ribuan "pengunjung unik" palsu = maks 5 poin (ADR-093).
+    expect(trendScore([{ kind: 'visitor', at: now, count: 5_000 }], now)).toBe(TREND_WEIGHTS.visitor * TREND_VISITOR_DAILY_CAP);
+    expect(trendScore([{ kind: 'visitor', at: now, count: 5_000 }], now)).toBeLessThan(TREND_WEIGHTS.save * 2);
   });
 
   it('acara baru yang diserbu hari ini mengalahkan acara lama yang ramai dua minggu lalu', () => {
@@ -85,5 +89,20 @@ describe('compareTrending', () => {
       { id: 'e', primaryDeadlineAt: '2026-11-20T00:00:00Z' },
     ];
     expect([...items].sort(compareTrending).map((item) => item.id)).toEqual(['d', 'a', 'b', 'c', 'e']);
+  });
+});
+
+describe('kembaran SQL refresh_event_trends()', () => {
+  it('migration terbaru memakai plafon pengunjung yang sama dengan TREND_VISITOR_DAILY_CAP', async () => {
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const dir = new URL('../../supabase/migrations/', import.meta.url);
+    const latest = readdirSync(dir)
+      .filter((name) => name.endsWith('.sql'))
+      .sort()
+      .filter((name) => readFileSync(new URL(name, dir), 'utf8').includes('CREATE OR REPLACE FUNCTION public.refresh_event_trends()'))
+      .at(-1)!;
+    const sql = readFileSync(new URL(latest, dir), 'utf8');
+    expect(sql).toContain(`least(v.visitors, ${TREND_VISITOR_DAILY_CAP})`);
+    expect(sql).toContain(`${TREND_HALF_LIFE_HOURS}.0`);
   });
 });
