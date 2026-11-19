@@ -39,6 +39,10 @@ interface EventRepository {
   // Kiriman milik userId (dari sesi server, bukan input), terbaru dulu — /submit & studio.
   listMySubmissions(userId: string, limit: number): Promise<readonly Submission[]>;
   reviewSubmission(input: ReviewSubmissionInput): Promise<void>;
+  // "Buat acara StudentFo" (ADR-093): langsung tayang, tanpa antrean. Pemanggil WAJIB lolos
+  // checkAdminAccess(); actor.isAdmin diperiksa lagi (produksi: RPC admin_create_event, service_role).
+  // Galat: not_event_manager · submission_duplicate · invalid_submission · admin_event_unavailable.
+  createEventAsAdmin(actor: EventActor, payload: SubmissionPayload): Promise<{ id: string; slug: string }>;
 
   // Saved events (Phase 2)
   isEventSaved(userId: string, eventId: string): Promise<boolean>;

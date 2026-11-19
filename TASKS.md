@@ -410,7 +410,7 @@ Laporan lengkap + daftar periksa pemilik: `docs/kesiapan-hosting.md`.
 - [x] Pendataan kinerja juga sebelum formulir StudentFo; ekspor data akun memuat komentar & suka; kebijakan privasi & S&K (`LEGAL_REVISION` 2026-11-16)
 - [x] Perbaikan yang ketemu saat uji: panel Bagikan tertimpa blok "Ringkasan" (header `.enter` = konteks tumpukan → diangkat saat menu terbuka); templat menggandakan "Asal sekolah / kampus" & "Nomor WhatsApp" di formulir baru
 - [x] Tes: `popularity`, `event-comments`, `event-removal`, `registration-summary`, `form-templates`, `engagement` (memori), `parity` (memori ↔ Postgres), `119_event_engagement.test.sql`, `event-engagement.spec.ts`, rute baru di `extreme-content`/`narrow-viewport`/axe
-- [ ] **Pemilik:** setujui penerapan migration `20261116100001_event_engagement` (staging dulu, lalu produksi) — sebelum itu fitur interaksi tidak aktif di produksi
+- [x] Migration `20261116100001_event_engagement` diterapkan ke staging & produksi (19 Nov, ADR-093 #9)
 - [ ] Pemilik: tinjau teks kebijakan privasi & S&K bagian suka/komentar/bagikan
 - [ ] Opsional setelah ada data: kalibrasi bobot "Lagi ramai" dari `recommendation_signals` nyata; pertimbangkan notifikasi "komentarmu disukai"/sebutan (@) hanya bila ada permintaan — keduanya menambah kebisingan lonceng
 - [ ] Opsional: unggah berkas di formulir (sengaja tidak dibuat, ADR-092 #7) — hanya bila ada kebutuhan nyata + pemindaian malware + retensi
@@ -432,14 +432,15 @@ dikirim, dan halaman diam saja (sengaja seragam, AGENTS.md #12).
 - [x] KRITIS: `next`/`eslint-config-next` 15.5.29 (RCE Image Optimization GHSA-2464-fhr4-w9xw, DoS Server Actions GHSA-p3m5-59mp-jv5r, cache poisoning) + `sharp` 0.35.5 (librsvg)
 - [x] Toggle tanpa status pending: "Hapus dari tersimpan" & "Ciutkan menu akun" → `SubmitButton` (ketuk ganda membalik aksi). "Simpan profil" & "Ya, tolak" diberi status pending
 - [x] Area ketuk judul `/lobi` ≥ 24px (WCAG 2.5.8); panel lonceng memakai `pop` seperti menu akun
-- [ ] `zod` 4 (GHSA-mrhx-c7xc-m3w5, breaking). Sementara: batasi jumlah elemen `formData.getAll()` sebelum parse (§3 S2)
+- [ ] `zod` 4 (GHSA-mrhx-c7xc-m3w5, breaking). Mitigasi sudah: `formList()` plafon 200 (19 Nov)
 - [ ] `source-map-js` (lewat `@tailwindcss/postcss`, hanya saat build) — naik bersama rilis Tailwind berikutnya
 - [ ] `team_member_profiles` tanpa filter: semua nama anggota tim bisa ditarik sekaligus lewat REST (§3 S4)
 - [ ] Indeks FK jalur panas: `application_tracker.event_id`, `notifications.event_id`, `recommendation_signals.user_id`, `outbound_surveys.event_id` (§3 P1) — staging dulu, produksi atas persetujuan
-- [ ] Tombol "Kirim email uji" khusus admin — insiden SMTP `535` 13 Nov tidak terlihat dari aplikasi (§1 F5)
-- [ ] Sisa tombol mentah di form idempoten → `SubmitButton` (§1 F3)
+- [x] Tombol "Kirim email uji" khusus admin di beranda admin (ADR-093)
+- [x] Sisa tombol mentah di form Server Action → `SubmitButton` (6 tombol; form GET dibiarkan)
 - [ ] Satukan "Tersimpan" & "Papan lamaran" dalam satu rumah (§2 D3)
-- [ ] Fitur: aksi massal moderasi, peringatan acara baru sesuai filter, langganan kalender pribadi, analitik tanpa cookie (§4)
+- [x] Aksi massal moderasi (setujui yang dipilih, ADR-093)
+- [ ] Fitur: peringatan acara baru sesuai filter, langganan kalender pribadi, analitik tanpa cookie (§4)
 
 ## Klik "Daftar" → Papan lamaran 2026-11-13 (@claude) — ADR-090
 
@@ -894,12 +895,17 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 
 ## Audit pra-produksi 2026-11-19 (@claude) — `docs/audit-pra-produksi-2026-11-19.md`
 
-- [ ] B1 TINGGI: `engagement.test.ts` bom-waktu (jam tes tetap vs `new Date()` di `listEvents`) — `npm run verify` & CI merah sejak 19 Nov
-- [ ] B2/B3: `/events` produksi gagal 11× (18 Nov 20.03–22.17 UTC, PostgREST 400); catat `code/details/hint` di `upstreamFailure` agar bisa didiagnosis
-- [ ] B4: jepit `?page=` (offset melewati int4 → 502 + cache baru per angka)
-- [ ] S1 TINGGI: "Lagi ramai" bisa didongkrak tanpa akun (pengunjung unik = IP+User-Agent, batas 300/jam per IP lintas acara) — kunci per IP+acara + batas sumbangan pengunjung harian
-- [ ] S3: `formList()` berbatas (mitigasi zod, sisa audit 14 Nov §3 S2)
-- [ ] S4: `mutual_connection_counts` hormati blokir/keterlihatan
+- [x] B1 TINGGI: `engagement.test.ts` bom-waktu — jam dibekukan; seluruh suite diuji dengan jam +90 & +400 hari
+- [x] B3: baris log galat membawa `code/message/hint` PostgREST (`error-alert.ts`)
+- [ ] B2 (dipantau): akar 400 `/events` 18 Nov belum terbukti (badan respons tak tercatat). Pantau log setelah deploy; `?page` raksasa (B4) & kueri ganda `trend_score` (B5) sudah ditutup
+- [x] B4: `resolvePaging()` menjepit ke `MAX_PAGE` 1000 (+NaN → 1)
+- [x] S1 TINGGI: "Lagi ramai" — pengunjung dijepit 20/hari/acara (TS+SQL) + 30 tampilan/hari per IP per acara (ADR-093)
+- [x] S3: `formList()` plafon 200 nilai
+- [x] S4: `mutual_connection_counts` disaring `can_view_profile()` (migration 20261119100001, di produksi)
 - [ ] **BUTUH PEMILIK.** Setujui 7 kiriman PENDING (sejak 13 Nov); isi `ERROR_ALERT_WEBHOOK_URL`, `RESEND_API_KEY`/`EMAIL_FROM`/`EMAIL_LINK_SECRET`/`CRON_SECRET`, `TURNSTILE_*`, `RATE_LIMIT_SECRET`
 - [ ] **BUTUH PEMILIK.** Vercel Hobby: log 1 jam & larangan komersial — Pro atau log drain sebelum promosi publik
-- [ ] UX: kartu kegiatan di layar pertama beranda tamu (kini y=1.155px di 390×844); sembunyikan angka suka/komentar 0; CTA tamu "Masuk untuk daftar"
+- [x] UX: hero ponsel dirapatkan (judul "Lagi ramai" mengintip di layar pertama), angka 0 disembunyikan, CTA tamu "Masuk & daftar"
+- [x] Fitur: Buat acara StudentFo, navigasi admin berkelompok, setujui massal, email uji (ADR-093)
+- [x] Migration 20261116100001/20261119100001/20261119100002 → staging → produksi; `RATE_LIMIT_SECRET` di Vercel
+- [ ] **BUTUH PEMILIK.** Gabungkan cabang `claude/practical-ritchie-emo0or` ke `main` (langkah: `docs/langkah-konfigurasi-pemilik.md` §0)
+- [ ] Pertimbangkan peran MODERATOR terbatas (bukan admin penuh) — butuh desain hak per alat & uji ulang RLS (ADR-093 #2)

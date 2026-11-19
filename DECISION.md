@@ -12,6 +12,59 @@ terdokumentasi.
 
 ---
 
+## ADR-093 — "Buat acara StudentFo", navigasi admin berkelompok, pengerasan "Lagi ramai", dan perbaikan pra-produksi (19 Nov 2026)
+
+**Konteks.** Audit pra-produksi (`docs/audit-pra-produksi-2026-11-19.md`) menemukan: tes
+bom-waktu yang membuat CI merah sejak 19 Nov; `/events` produksi gagal untuk 11 pengunjung
+(penyebabnya tak terbaca karena log hanya `[cause]: [Object]`); `?page=` tanpa batas;
+"Lagi ramai" bisa didongkrak tanpa akun (kunci pengunjung = IP + User-Agent, batas 300/jam
+per IP lintas acara); `mutual_connection_counts` mengukur siapa pun. Pemilik juga meminta
+admin/moderator bisa membuat lomba internal dengan formulir sendiri tanpa membingungkan —
+alur lama 5 langkah di 3 tempat (/submit → antrean → setujui sendiri → studio → formulir),
+dan kiriman admin ikut kena batas 3/jam per email.
+
+**Keputusan.**
+1. **Buat acara StudentFo** (`/admin/acara/baru`): RPC `admin_create_event(p_actor, p_payload)`
+   — kolom = `approve_submission()`, hanya `service_role`, pelaku diperiksa ULANG (admin,
+   tidak ditangguhkan), log moderasi ditulis trigger yang sudah ada (tidak ganda). Bukan
+   lewat `ugc_submissions`: itu menuntut melonggarkan trigger batas laju bersama dan memicu
+   notifikasi "kirimanmu disetujui" ke admin sendiri. Lomba mandiri mendapat formulir dari
+   templat yang **tertutup** (admin memeriksa dulu, lalu menyalakan "Terima pendaftaran
+   lewat StudentFo"); berbayar wajib nominal + cara bayar sejak awal (CHECK
+   `event_registration_forms`). Semua isian & poster divalidasi SEBELUM acara dibuat.
+2. **"Moderator" = peran ADMIN** (satu-satunya peran berhak di sistem). Peran moderator
+   terbatas TIDAK dibuat: ±60 policy & RPC memakai `is_admin()`; memecahnya butuh desain hak
+   per alat dan uji ulang seluruh RLS — keputusan pemilik, bukan efek samping fitur ini.
+3. **Navigasi admin 3 kelompok** (Moderasi · Postingan · Akun & data) + alat kelompok aktif,
+   menggantikan 9 tab rata. API `AdminNav` tetap → halaman lama tidak berubah. Riwayat ikut
+   Moderasi (catatan keputusan yang sama).
+4. **Setujui massal** hanya SETUJUI, maks 50, per item lewat jalur kartu (riwayat per acara).
+   Tolak tetap per kartu: alasannya dikirim ke pengirim masing-masing. Kotak "Pilih" milik
+   form massal lewat atribut `form` (form bersarang dilarang HTML; jalan tanpa JS).
+5. **Email uji admin**: email atur ulang sandi ke alamat admin SENDIRI, kegagalan SMTP
+   ditampilkan terang ke admin saja; publik tetap seragam (AGENTS #12). 5/jam per akun.
+6. **"Lagi ramai"**: pengunjung anonim dijepit 20/hari/acara (`TREND_VISITOR_DAILY_CAP`,
+   SQL `least(v.visitors, 20)`, dikunci tes paritas) + maks 30 tampilan/hari dari satu IP ke
+   satu acara. User-Agent TETAP di kunci pengunjung: CGNAT operator & wifi kampus membuat
+   banyak pelajar berbagi IP — IP saja akan meremehkan analitik penyelenggara.
+7. `mutual_connection_counts`: kandidat disaring `can_view_profile()`.
+   `team_member_profiles` SENGAJA tidak diubah: halaman Tim memang menampilkan nama anggota
+   ke semua anggota (rekrutmen); membaca sekaligus = menjelajah halaman satu per satu, dan
+   filter baru berisiko memecah `/teams` & peta koneksi.
+8. `resolvePaging()` menjepit halaman ke `MAX_PAGE` (1000); `formList()` plafon 200 nilai
+   (mitigasi zod GHSA-mrhx-c7xc-m3w5); baris log galat membawa `code/message/hint` PostgREST.
+9. Migration `20261116100001`, `20261119100001`, `20261119100002` diterapkan ke staging lalu
+   produksi (19 Nov) dengan pola ADR-062 #8 (unduh dari commit `e6bcabf`, SHA-256 & ukuran
+   dicocokkan, versi = nama berkas); `RATE_LIMIT_SECRET` diisi di Vercel Production.
+
+**Konsekuensi.** + Lomba internal: satu halaman → formulir siap diperiksa. + Admin baru tahu
+mulai dari mana. + Peringkat beranda tidak bisa dibeli dengan bot. − Admin yang membuat acara
+langsung tayang tanpa pemeriksa kedua (sama seperti menyetujui kiriman sendiri, kini tanpa
+basa-basi); tercatat di Riwayat. − Tes e2e membuat acara di data demo bersama; tes yang
+bergantung pada "20 terbaru" harus mencari langsung (`event-media.spec`).
+
+---
+
 ## ADR-092 — Interaksi postingan (suka, komentar, bagikan), "Lagi ramai", hapus postingan kapan saja, dan lomba mandiri berformulir StudentFo
 
 **Konteks:** Pemilik meminta (2026-11-16) dalam satu pesan: hapus postingan
