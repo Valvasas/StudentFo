@@ -133,9 +133,11 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
                   queue.count > 0 ? 'border-line-strong' : 'border-line',
                 )}
               >
-                <span className="flex items-start gap-2 text-sm font-medium">
+                {/* Ikon di atas label di ponsel: di 320px dua kolom hanya menyisakan ±100px, dan
+                    "penyelenggara" sebaris dengan ikon meluber keluar kartu. */}
+                <span className="flex min-w-0 flex-col items-start gap-1.5 text-sm font-medium min-[420px]:flex-row min-[420px]:gap-2">
                   <queue.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-muted" />
-                  {queue.label}
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{queue.label}</span>
                 </span>
                 {queue.count > 0 ? (
                   <span className="font-display text-[28px] font-bold leading-none tabular-nums">

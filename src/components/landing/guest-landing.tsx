@@ -109,7 +109,7 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
         events={trendingItems(popular, 6)}
         now={new Date()}
         moreHref={buildEventHref({ sort: 'popular' })}
-        className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')}
+        className={cn(sectionClass, 'pt-8 sm:pt-[clamp(56px,7vw,88px)]')}
       />
 
       {closingSoon.length > 0 && (

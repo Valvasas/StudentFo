@@ -81,3 +81,39 @@ test('axe: halaman Buat acara StudentFo', async ({ page }) => {
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   expect(results.violations).toEqual([]);
 });
+
+test('setujui massal: dua kiriman sekaligus, sisanya tetap di antrean', async ({ browser }) => {
+  // Kiriman milik test ini sendiri (pola admin-review.spec): data demo dibagi semua proyek & run.
+  const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const titles = [`Lomba Massal A ${stamp}`, `Lomba Massal B ${stamp}`];
+  const octet = () => Math.floor(Math.random() * 250) + 1;
+  for (const [index, title] of titles.entries()) {
+    const guest = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': `10.${octet()}.${octet()}.${octet()}` } });
+    const form = await guest.newPage();
+    await form.goto('/submit');
+    await form.getByLabel('Judul kegiatan').fill(title);
+    await form.getByLabel('Penyelenggara').fill(`Penyelenggara Massal ${index}`);
+    await form.getByLabel('Jenis kegiatan').selectOption('LOMBA');
+    await form.getByLabel('Tautan pendaftaran').fill(`https://contoh.example/massal-${index}`);
+    await form.getByLabel('Tenggat pendaftaran').fill(inDays(25));
+    await form.locator('input[name="educationLevels"]').first().check();
+    await form.getByLabel('Email kamu').fill(`massal.${index}.${stamp}@contoh.example`);
+    await form.getByRole('button', { name: 'Kirim untuk diverifikasi' }).click();
+    await expect(form).toHaveURL(/notice=submission_received/);
+    await guest.close();
+  }
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await signInAsDemo(page, 'Admin moderator', '/admin');
+  for (const title of titles) await page.getByRole('checkbox', { name: `Pilih ${title}` }).check();
+  await page.getByRole('button', { name: 'Setujui yang dipilih' }).last().click();
+  await page.getByRole('button', { name: 'Ya, setujui' }).click();
+  await expect(page).toHaveURL(/notice=bulk_approved/);
+  await expect(page).not.toHaveURL(/bulk_partial/);
+  for (const title of titles) await expect(page.getByRole('heading', { name: title })).toHaveCount(0);
+
+  await page.goto(`/events?q=${encodeURIComponent(`Lomba Massal A ${stamp}`)}`);
+  await expect(page.locator('a[href^="/events/"]', { hasText: titles[0]! }).first()).toBeVisible();
+  await context.close();
+});

@@ -79,7 +79,7 @@ export function IllustrationStage({ tint, children, className }: { tint: Tint; c
 export function StatTile({ icon: Icon, value, label, index = 0 }: { icon: LucideIcon; value: number | string; label: string; index?: number }) {
   return (
     <div
-      className="rise flex min-w-0 flex-col gap-1 rounded-[18px] border border-line bg-panel px-3.5 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-4"
+      className="rise flex min-w-0 flex-col gap-1 rounded-[18px] border border-line bg-panel px-2.5 py-3 min-[360px]:px-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4"
       style={{ '--i': index + 3 } as CSSProperties}
     >
       <span aria-hidden className="hidden size-10 shrink-0 items-center justify-center rounded-[12px] bg-panel-nested sm:flex">

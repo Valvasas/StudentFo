@@ -128,7 +128,7 @@ export function AdminNav({ active, trustWaiting = 0, reportsOpen = 0 }: { active
                   href={item.href}
                   aria-current={on ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-10 items-center gap-2 rounded-pill border px-3.5 py-2 text-[13px] transition-colors duration-200 ease-snap',
+                    'flex min-h-11 items-center gap-2 rounded-pill border px-3.5 py-2 text-[13px] transition-colors duration-200 ease-snap',
                     on
                       ? 'border-ink bg-panel font-semibold text-ink'
                       : item.primary

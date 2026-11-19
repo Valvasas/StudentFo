@@ -31,7 +31,8 @@ test('tamu: etalase + cuplikan + gerbang; tautan pendaftaran & isi tab tidak ter
   // Tombol daftar diganti ajakan masuk; kalender adalah alat anggota.
   const aside = page.getByRole('complementary', { name: 'Pendaftaran' });
   await expect(page.getByRole('link', { name: /Daftar sekarang/ })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Masuk untuk mendaftar' }).first()).toHaveAttribute('href', `/login?next=${encodeURIComponent(EVENT)}`);
+  // Panel desktop: "Masuk untuk mendaftar"; bilah lekat ponsel: "Masuk & daftar" (label = teks terlihat, WCAG 2.5.3).
+  await expect(page.getByRole('link', { name: /^Masuk (untuk mendaftar|& daftar)$/ }).first()).toHaveAttribute('href', `/login?next=${encodeURIComponent(EVENT)}`);
   await expect(aside.getByText('Tambah ke kalender')).toHaveCount(0);
 
   // Tidak ada di dokumen mana pun yang diterima tamu — bukan sekadar disembunyikan CSS.

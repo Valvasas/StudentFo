@@ -113,7 +113,9 @@ test('studio: unggah poster, pasang video, lalu tampil di halaman publik', async
 });
 
 test('admin: acara tanpa pengelola bisa diberi poster & video dari Lencana & promosi', async ({ page }) => {
+  // Dicari langsung: daftar bawaan hanya 20 terbaru, dan data demo bersama terus bertambah oleh tes lain.
   await signInAsDemo(page, 'Admin moderator', '/admin/promosi');
+  await page.goto(`/admin/promosi?q=${encodeURIComponent('Program Magang Analis Data')}`);
   await page.getByRole('link', { name: /^Pasang poster & video untuk Program Magang Analis Data/ }).click();
   await expect(page).toHaveURL(/\/admin\/media\/program-magang-analis-data-kuartal-ii$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Poster & video' })).toBeVisible();

@@ -57,7 +57,7 @@ export function BulkApproveBar({
 /** Kotak "Pilih" di kartu antrean — milik form massal lewat atribut `form`. */
 export function BulkPick({ formId, id, title }: { formId: string; id: string; title: string }) {
   return (
-    <label className="choice min-h-10 self-start py-1.5 text-[13px]">
+    <label className="choice min-h-11 self-start py-1.5 text-[13px]">
       <input type="checkbox" name="ids" value={id} form={formId} className="check" aria-label={`Pilih ${title}`} />
       <span aria-hidden>Pilih</span>
     </label>

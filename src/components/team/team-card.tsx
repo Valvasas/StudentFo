@@ -132,7 +132,7 @@ export function TeamCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-3.5 px-5 pb-5">
-        <div className="-mt-6 flex items-end justify-between gap-3">
+        <div className="-mt-6 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
           <TeamSeats team={team} photos={photos} />
           <TeamSlotsBadge team={team} className="mb-0.5" />
         </div>

@@ -45,12 +45,21 @@ export function EngagementBar({
             <LikeSubmit liked={engagement.liked} likes={engagement.likes} />
           </form>
         ) : (
-          <Link href={loginHref(here)} className={pill} aria-label={`Masuk untuk menyukai — ${engagement.likes.toLocaleString('id-ID')} orang menyukai`}>
+          <Link
+            href={loginHref(here)}
+            className={pill}
+            aria-label={
+              engagement.likes > 0 ? `Masuk untuk menyukai — ${engagement.likes.toLocaleString('id-ID')} orang menyukai` : 'Masuk untuk menyukai'
+            }
+          >
             <Heart aria-hidden className="size-4" />
             <span aria-hidden>Suka</span>
-            <span aria-hidden className="tabular-nums">
-              {engagement.likes.toLocaleString('id-ID')}
-            </span>
+            {/* Nol disembunyikan: "Suka 0" di samping "Disimpan 619 orang" = bukti sosial negatif. */}
+            {engagement.likes > 0 && (
+              <span aria-hidden className="tabular-nums">
+                {engagement.likes.toLocaleString('id-ID')}
+              </span>
+            )}
           </Link>
         ))}
       {engagement.available && (
@@ -63,9 +72,11 @@ export function EngagementBar({
         >
           <MessageCircle aria-hidden className="size-4" />
           <span aria-hidden>Komentar</span>
-          <span aria-hidden className="tabular-nums">
-            {comments}
-          </span>
+          {engagement.comments > 0 && (
+            <span aria-hidden className="tabular-nums">
+              {comments}
+            </span>
+          )}
         </Link>
       )}
       <ShareMenu title={event.title} path={path} connectHref={signedIn ? `${path}/bagikan` : null} />
