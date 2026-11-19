@@ -4,6 +4,7 @@ import { hideNextStepsAction } from '@/app/notifications/actions';
 import { buttonVariants } from '@/components/ui/button';
 import type { NextStepsSummary } from '@/lib/next-steps';
 import { cn } from '@/lib/utils';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 /**
  * "Langkah awalmu" di beranda peserta (ADR-086): daftar ajakan yang dihitung
@@ -28,9 +29,9 @@ export function NextStepsCard({ summary, returnTo }: { summary: NextStepsSummary
         </div>
         <form action={hideNextStepsAction}>
           <input type="hidden" name="returnTo" value={returnTo} />
-          <button type="submit" className={buttonVariants({ variant: 'ghost' })}>
+          <SubmitButton className={buttonVariants({ variant: 'ghost' })}>
             Sembunyikan
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

@@ -23,6 +23,7 @@ import { sectionTitle } from '@/lib/page-title';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
 import { DEADLINE_LABEL_TEXT, EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL, remainingSlots, type TrackerStatus } from '@/types/domain';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -281,9 +282,9 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
                 />
                 <span className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[12.5px] text-ink-muted">Hanya kamu yang bisa membaca catatan ini. Maksimal 500 karakter.</span>
-                  <button type="submit" className="flex h-11 items-center rounded-card bg-brand px-4 text-sm font-semibold text-on-brand hover:bg-brand-hover">
+                  <SubmitButton className="flex h-11 items-center rounded-card bg-brand px-4 text-sm font-semibold text-on-brand hover:bg-brand-hover">
                     Simpan catatan
-                  </button>
+                  </SubmitButton>
                 </span>
               </form>
             </Panel>

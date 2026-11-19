@@ -1075,6 +1075,38 @@ export class SupabaseEventRepository implements EventRepository {
     return (data ?? []).map(toSubmission);
   }
 
+  async createEventAsAdmin(actor: EventActor, payload: SubmissionPayload): Promise<{ readonly id: string; readonly slug: string }> {
+    if (!actor.isAdmin || !isUuid(actor.id)) throw actionError('not_event_manager');
+    // Satu transaksi di Postgres (seperti approve_submission): kegiatan,
+    // tenggat, tahapan, kategori. Klien admin karena fungsinya hanya untuk
+    // service_role; pelaku diperiksa ulang di sana.
+    const { data, error } = await createSupabaseAdminClient().rpc('admin_create_event', {
+      p_actor: actor.id,
+      p_payload: toStoredPayload(payload),
+    });
+    if (error) {
+      // Kode tayang sebelum migration 20261119100002: fitur belum aktif, bukan galat.
+      if (isMissingRelationError(error)) throw actionError('admin_event_unavailable');
+      switch (sqlState(error)) {
+        case '23505':
+          throw actionError('submission_duplicate');
+        case '42501':
+          throw actionError('not_event_manager');
+        case '22P02':
+        case '22007':
+        case '22023':
+        case '23502':
+        case '23514':
+          throw actionError('invalid_submission');
+        default:
+          throw upstreamFailure('Gagal membuat acara.', error, 500);
+      }
+    }
+    const [row] = rpcRows<{ created_id: string; created_slug: string }>(data);
+    if (!row) throw upstreamFailure('Gagal membuat acara.', new Error('admin_create_event tanpa baris'), 500);
+    return { id: row.created_id, slug: row.created_slug };
+  }
+
   async reviewSubmission({ submissionId, decision, reviewerId, reason }: ReviewSubmissionInput): Promise<void> {
     if (!isUuid(submissionId)) throw actionError('submission_not_found');
     const supabase = createSupabaseAdminClient();

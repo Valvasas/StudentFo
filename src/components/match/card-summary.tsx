@@ -4,6 +4,7 @@ import { saveSeekerAction } from '@/app/teams/cocok/actions';
 import { PAGE } from '@/app/teams/cocok/shared';
 import { Avatar } from '@/components/ui/avatar';
 import { EDUCATION_LEVEL_LABEL, skillLabel, type TeamSeekerProfile } from '@/types/domain';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 /**
  * Ringkasan kartu pemainmu: baris ringkas di bawah `lg`, kolom vertikal di sisi
@@ -66,9 +67,9 @@ export function CardSummary({
           ))}
           {profile.remoteOk && <input type="hidden" name="remoteOk" value="on" />}
           {profile.pitch && <input type="hidden" name="pitch" value={profile.pitch} />}
-          <button type="submit" className="inline-flex min-h-11 w-full items-center justify-center rounded-sm px-3 text-[13.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
+          <SubmitButton className="inline-flex min-h-11 w-full items-center justify-center rounded-sm px-3 text-[13.5px] font-medium text-ink-muted underline underline-offset-[3px] hover:text-ink">
             Tutup kartu
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </section>

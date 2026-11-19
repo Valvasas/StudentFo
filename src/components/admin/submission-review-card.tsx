@@ -1,4 +1,5 @@
 import { AlertTriangle, BadgeCheck, Check, ExternalLink } from 'lucide-react';
+import { BulkPick } from '@/components/admin/bulk-approve-bar';
 import { reviewSubmissionAction } from '@/app/admin/actions';
 import { RejectConfirm } from '@/components/admin/reject-confirm';
 import { Badge } from '@/components/ui/badge';
@@ -76,10 +77,13 @@ function SubmissionPoster({ submissionId, title, poster }: { submissionId: strin
 export function SubmissionReviewCard({
   submission,
   verifiedOrg = null,
+  bulkFormId,
 }: {
   submission: Submission;
   /** Nama lembaga bila pengirimnya penyelenggara TERVERIFIKASI saat ini. */
   verifiedOrg?: string | null;
+  /** Form "Setujui yang dipilih" (ADR-093); tanpa ini kartu tanpa kotak Pilih. */
+  bulkFormId?: string;
 }) {
   const { payload } = submission;
   // Lomba mandiri (ADR-092): tautan di payload hanya pengganti, jangan ditawarkan sebagai tautan pendaftaran.
@@ -99,6 +103,7 @@ export function SubmissionReviewCard({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
         <span className="min-w-0">Dikirim {formatDateId(submission.createdAt)} oleh {submission.submittedByEmail}</span>
         <span className="flex flex-wrap items-center gap-2">
+          {bulkFormId && payload && <BulkPick formId={bulkFormId} id={submission.id} title={payload.title} />}
           {verifiedOrg && (
             <Badge variant="success">
               <BadgeCheck aria-hidden className="size-3.5" />

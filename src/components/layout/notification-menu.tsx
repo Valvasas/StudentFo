@@ -32,6 +32,7 @@ import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
 import { isNextStepsHidden, NEXT_STEPS_COOKIE, profileNudge } from '@/lib/next-steps';
 import type { NotificationType } from '@/types/domain';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 /**
  * Lonceng notifikasi di navbar.
@@ -162,9 +163,9 @@ export async function NotificationMenu() {
               </span>
             </Link>
             <form action={hideNextStepsAction} className="flex justify-end px-1">
-              <button type="submit" className="inline-flex min-h-11 items-center rounded-sm px-2.5 text-xs font-medium text-ink-soft hover:text-ink hover:underline">
+              <SubmitButton className="inline-flex min-h-11 items-center rounded-sm px-2.5 text-xs font-medium text-ink-soft hover:text-ink hover:underline">
                 Jangan tampilkan lagi
-              </button>
+              </SubmitButton>
             </form>
           </div>
         )}

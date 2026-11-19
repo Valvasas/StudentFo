@@ -16,6 +16,7 @@ import { withFallback } from '@/lib/fallback';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
 import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, TRACKER_STATUS_LABEL } from '@/types/domain';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -255,9 +256,9 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
                   <input type="hidden" name="status" value="APPLIED" />
                   <input type="hidden" name="returnTo" value={`/tracker/${event.slug}`} />
                   <span className="text-sm text-ink-muted">Sudah mengirim formulir di situs penyelenggara?</span>
-                  <button type="submit" className="flex h-11 items-center gap-1.5 self-start rounded-card border border-line-strong/70 px-4 text-sm font-semibold hover:bg-panel-nested">
+                  <SubmitButton className="flex h-11 items-center gap-1.5 self-start rounded-card border border-line-strong/70 px-4 text-sm font-semibold hover:bg-panel-nested">
                     <Check aria-hidden className="size-4" /> Tandai sudah daftar
-                  </button>
+                  </SubmitButton>
                 </form>
               )}
             </div>

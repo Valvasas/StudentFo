@@ -117,9 +117,9 @@ export function EventQuestions({
                   <form action={deleteQuestionAction}>
                     {slugField}
                     <input type="hidden" name="questionId" value={question.id} />
-                    <button type="submit" className={quietLink}>
+                    <SubmitButton className={quietLink}>
                       <Trash2 aria-hidden className="size-3.5" /> Hapus pertanyaanku
-                    </button>
+                    </SubmitButton>
                   </form>
                 ) : (
                   signedIn && (

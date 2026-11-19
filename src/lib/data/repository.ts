@@ -514,6 +514,14 @@ export interface SubmissionRepository {
   listMySubmissions(userId: string, limit: number): Promise<readonly Submission[]>;
   /** Setujui = salin ke `events` berstatus APPROVED (atomik); tolak = tandai REJECTED. */
   reviewSubmission(input: ReviewSubmissionInput): Promise<void>;
+  /**
+   * "Buat acara StudentFo" (ADR-093): admin membuat kegiatan yang LANGSUNG
+   * tayang — tanpa antrean dan tanpa batas laju kiriman. Kolomnya sama
+   * dengan menyetujui kiriman; `registrationMode` dihormati apa adanya.
+   * Pemanggil WAJIB sudah lolos `checkAdminAccess()`; `actor.isAdmin`
+   * diperiksa lagi di sini dan (produksi) di `admin_create_event()`.
+   */
+  createEventAsAdmin(actor: EventActor, payload: SubmissionPayload): Promise<{ readonly id: string; readonly slug: string }>;
 }
 
 /** Simpanan per pengguna. */
