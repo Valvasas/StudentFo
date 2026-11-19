@@ -142,6 +142,14 @@ export const ACTION_ERROR_CODES = [
   'event_delete_confirm',
   'event_delete_failed',
   'registration_mode_unavailable',
+  'admin_event_unavailable',
+  'payment_instructions_required',
+  'bulk_empty',
+  'bulk_too_many',
+  'bulk_partial',
+  'email_test_failed',
+  'email_test_throttled',
+  'email_test_unavailable',
   'unknown',
 ] as const;
 
@@ -291,6 +299,18 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   event_delete_confirm: 'Ketik HAPUS untuk mengonfirmasi penghapusan permanen.',
   event_delete_failed: 'Berkas postingan gagal dihapus dari penyimpanan, jadi postingan belum dihapus. Coba lagi sebentar lagi.',
   registration_mode_unavailable: 'Pengaturan cara mendaftar aktif setelah pembaruan database terpasang. Formulir lainnya sudah tersimpan.',
+  admin_event_unavailable:
+    'Buat acara StudentFo aktif setelah pembaruan database (migration 20261116100001 & 20261119100002) terpasang. Sementara itu, pakai halaman Kirim kegiatan.',
+  payment_instructions_required:
+    'Acara berbayar dengan formulir StudentFo butuh cara pembayaran (rekening/e-wallet/QRIS), minimal 10 karakter — ditampilkan ke pendaftar saja.',
+  bulk_empty: 'Centang “Pilih” di minimal satu kartu dulu.',
+  bulk_too_many: 'Maksimal 50 sekaligus. Kurangi pilihanmu lalu coba lagi.',
+  bulk_partial:
+    'Sebagian tidak bisa disetujui (judul + penyelenggara sudah ada di katalog, atau sudah ditinjau admin lain). Yang gagal masih ada di antrean.',
+  email_test_failed:
+    'Email uji GAGAL dikirim. Periksa Supabase → Authentication → Emails → SMTP Settings (sandi aplikasi Gmail bisa kedaluwarsa) dan log Auth.',
+  email_test_throttled: 'Email uji baru saja dikirim. Tunggu ±1 menit sebelum mencoba lagi.',
+  email_test_unavailable: 'Email uji hanya tersedia di mode Supabase — mode demo tidak mengirim email sungguhan.',
   unknown: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
 };
 
@@ -384,6 +404,10 @@ export const ACTION_NOTICE_CODES = [
   'event_restored',
   'event_deleted',
   'registration_mode_saved',
+  'internal_event_created',
+  'admin_event_created',
+  'bulk_approved',
+  'email_test_sent',
 ] as const;
 
 export type ActionNoticeCode = (typeof ACTION_NOTICE_CODES)[number];
@@ -430,6 +454,11 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   event_restored: 'Postingan tayang lagi seperti semula dan tercatat di Riwayat moderasi.',
   event_deleted: 'Postingan dihapus permanen beserta foto, komentar, dan datanya. Riwayat moderasi tetap menyimpan jejaknya.',
   registration_mode_saved: 'Cara mendaftar disimpan.',
+  internal_event_created:
+    'Acara sudah tayang. Formulirnya sudah disiapkan dari templat dan masih TERTUTUP — periksa pertanyaannya, lalu nyalakan “Terima pendaftaran lewat StudentFo” dan tekan Simpan formulir.',
+  admin_event_created: 'Acara sudah tayang di katalog dan tercatat di Riwayat moderasi.',
+  bulk_approved: 'Yang dipilih sudah disetujui, tayang di katalog, dan tercatat di Riwayat moderasi.',
+  email_test_sent: 'Email uji diterima server email. Cek kotak masuk (dan folder Spam) alamat admin-mu dalam 1–2 menit.',
   study_place_saved: 'Tempat studi & domisili tersimpan. Orang yang bisa melihat profilmu kini tahu kamu dari mana.',
   reminders_on: 'Pengingat tenggat menyala. Kegiatan yang kamu simpan atau lacak diingatkan H-3 dan H-1.',
   reminders_off: 'Pengingat tenggat dimatikan. Pengingat yang sudah ada di lonceng tidak dihapus.',

@@ -175,6 +175,16 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
         )}
       </header>
 
+      {user?.role === 'ADMIN' && (
+        <p className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card border border-highlight bg-highlight-soft p-4 text-sm text-ink">
+          <span>Kamu admin. Untuk lomba atau acara StudentFo sendiri, pakai</span>
+          <Link href="/admin/acara/baru" className="font-semibold underline underline-offset-[3px]">
+            Buat acara StudentFo
+          </Link>
+          <span>— langsung tayang dengan formulir pendaftarannya, tanpa antrean.</span>
+        </p>
+      )}
+
       <ActionFeedback params={params} className="mt-6" />
       {invalidFields.length > 0 && (
         <p className="mt-2 text-sm text-danger">Periksa kolom: {invalidFields.join(', ')}.</p>

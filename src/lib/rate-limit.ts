@@ -37,11 +37,20 @@ export const RATE_LIMITS = {
   reauthPerAccount: { name: 'reauth-account', limit: 10, windowSeconds: 60 * 60 },
   /** Kode TOTP admin per AKUN (ADR-062): 6 digit = 10⁶ kemungkinan; 10 tebakan/15 menit. */
   mfaPerAccount: { name: 'mfa-account', limit: 10, windowSeconds: 15 * 60 },
+  /** Email uji admin (ADR-093) per AKUN: tiap kiriman memakai kuota SMTP yang sama dengan email daftar pengguna. */
+  emailTestPerAccount: { name: 'email-test-account', limit: 5, windowSeconds: 60 * 60 },
   submissionPerIp: { name: 'submit-ip', limit: 5, windowSeconds: 60 * 60 },
   /** Sinyal rekomendasi: di atas ini, klik dianggap penggelembungan dan tidak dicatat (tetap dialihkan). */
   signalPerIp: { name: 'signal-ip', limit: 60, windowSeconds: 60 * 60 },
   /** Kunjungan halaman acara: di atas ini dianggap penggelembungan analitik, tidak dicatat (halaman tetap tampil). */
   eventViewPerIp: { name: 'view-ip', limit: 300, windowSeconds: 60 * 60 },
+  /**
+   * Kunjungan ke SATU acara dari satu IP per hari (ADR-093). Kunci pengunjung
+   * memuat User-Agent (orang di balik CGNAT/wifi kampus tetap terhitung
+   * terpisah), jadi tanpa batas ini satu IP yang berganti UA mencetak ratusan
+   * "pengunjung unik" palsu. 30 = cukup untuk satu kelas di wifi yang sama.
+   */
+  eventViewPerIpEvent: { name: 'view-ip-event', limit: 30, windowSeconds: 24 * 60 * 60 },
   /** Pendataan kinerja (ADR-070): di atas ini jawaban dianggap penggelembungan — tidak dicatat, pengunjung tetap diantar. */
   outboundSurveyPerIp: { name: 'survey-ip', limit: 30, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitRule>;

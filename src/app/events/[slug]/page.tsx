@@ -834,10 +834,10 @@ export default async function EventDetailPage({
           {guestCanRegister ? (
             <Link
               href={loginHref(detailPath)}
-              aria-label="Masuk untuk mendaftar"
-              className="flex h-12 shrink-0 items-center justify-center rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand active:pt-0.5"
+              className="flex h-12 shrink-0 items-center justify-center whitespace-nowrap rounded-card bg-brand px-[18px] text-[15px] font-semibold text-on-brand active:pt-0.5"
             >
-              Masuk
+              {/* "Masuk" saja tidak menjelaskan bahwa ini jalan menuju Daftar (gerbang anggota ADR-085). */}
+              Masuk &amp; daftar
             </Link>
           ) : cta ? (
             <RegistrationCtaBarAction cta={cta} formHref={formHref} />

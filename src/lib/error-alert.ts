@@ -15,9 +15,28 @@ export interface RequestErrorEntry {
   readonly path: string;
   readonly routePath: string;
   readonly routeType: string;
+  /**
+   * Penyebab dari hulu (PostgREST/Postgres) bila galatnya `upstreamFailure`.
+   * Tanpa ini log hanya menulis `[cause]: [Object]` dan insiden tidak bisa
+   * didiagnosis (insiden `/events` 18 Nov). Hanya log server — tidak pernah ke klien.
+   */
+  readonly upstream?: { readonly code: string | null; readonly message: string; readonly hint: string | null };
 }
 
 const MESSAGE_MAX = 300;
+const UPSTREAM_MAX = 200;
+
+const clip = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() ? value.replace(/\s+/g, ' ').slice(0, UPSTREAM_MAX) : null;
+
+function upstreamOf(error: unknown): RequestErrorEntry['upstream'] {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  if (!cause || typeof cause !== 'object') return undefined;
+  const { code, message, details, hint } = cause as Record<string, unknown>;
+  const text = [clip(message), clip(details)].filter(Boolean).join(' — ');
+  if (!text && !clip(code)) return undefined;
+  return { code: clip(code), message: text.slice(0, UPSTREAM_MAX * 2), hint: clip(hint) };
+}
 
 export function toRequestErrorEntry(
   error: unknown,
@@ -27,6 +46,7 @@ export function toRequestErrorEntry(
 ): RequestErrorEntry {
   const err = error as { message?: unknown; digest?: unknown } | null;
   const message = typeof err?.message === 'string' ? err.message : String(error);
+  const upstream = upstreamOf(error);
   return {
     event: 'request_error',
     at: now.toISOString(),
@@ -36,6 +56,7 @@ export function toRequestErrorEntry(
     path: request.path.split('?')[0]!.slice(0, 200),
     routePath: context.routePath,
     routeType: context.routeType,
+    ...(upstream ? { upstream } : {}),
   };
 }
 

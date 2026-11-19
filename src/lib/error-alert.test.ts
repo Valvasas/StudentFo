@@ -13,6 +13,15 @@ describe('toRequestErrorEntry', () => {
     expect(entry).toMatchObject({ digest: 'abc', method: 'GET', at: '2026-10-31T00:00:00.000Z', routeType: 'render' });
   });
 
+  it('membawa kode & pesan PostgREST dari `cause` (galat hulu)', () => {
+    const error = new Error('Gagal memuat daftar event.', {
+      cause: { code: '22003', message: 'integer out of range', details: null, hint: 'Periksa offset' },
+    });
+    const entry = toRequestErrorEntry(error, { path: '/events?page=9', method: 'GET' }, context);
+    expect(entry.upstream).toEqual({ code: '22003', message: 'integer out of range', hint: 'Periksa offset' });
+    expect(toRequestErrorEntry(new Error('biasa'), { path: '/', method: 'GET' }, context)).not.toHaveProperty('upstream');
+  });
+
   it('menerima galat bukan Error', () => {
     expect(toRequestErrorEntry('meledak', { path: '/', method: 'POST' }, context).message).toBe('meledak');
   });

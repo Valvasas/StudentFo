@@ -1,4 +1,5 @@
 import { AlertTriangle, Check, ExternalLink, GraduationCap, MapPin, Tag } from 'lucide-react';
+import { BulkPick } from '@/components/admin/bulk-approve-bar';
 import { reviewEventAction } from '@/app/admin/actions';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +30,16 @@ function hostOf(url: string): string {
  * daring). Yang kosong ditandai, bukan disembunyikan — kosong berarti
  * kegiatan itu tidak akan muncul di saringan jenjang/bidang mana pun.
  */
-export function EventReviewCard({ event, categoryNames }: { event: EventDetail; categoryNames: Readonly<Record<string, string>> }) {
+export function EventReviewCard({
+  event,
+  categoryNames,
+  bulkFormId,
+}: {
+  event: EventDetail;
+  categoryNames: Readonly<Record<string, string>>;
+  /** Form "Setujui yang dipilih" (ADR-093); tanpa ini kartu tanpa kotak Pilih. */
+  bulkFormId?: string;
+}) {
   const sourceUrl = sanitizeExternalUrl(event.sourceUrl);
   const registrationUrl = sanitizeExternalUrl(event.registrationLink);
 
@@ -37,6 +47,7 @@ export function EventReviewCard({ event, categoryNames }: { event: EventDetail; 
     <li className="flex flex-col gap-4 rounded-card border border-line bg-panel p-5 shadow-card sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
+          {bulkFormId && <BulkPick formId={bulkFormId} id={event.id} title={event.title} />}
           <Badge variant="brand">{EVENT_TYPE_LABEL[event.eventType]}</Badge>
           <DeadlineTag deadlineAt={event.primaryDeadlineAt} />
         </div>

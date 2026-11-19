@@ -3,14 +3,18 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { actionError, type ActionErrorCode, type ActionNoticeCode, toActionErrorCode, withQuery } from '@/lib/action-feedback';
+import { isPerAddressEmailThrottle } from '@/lib/auth-messages';
 import { checkAdminAccess } from '@/lib/auth';
 import { getEventRepository, resetDemoData } from '@/lib/data';
 import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
-import { dataMode } from '@/lib/env';
+import { dataMode, siteUrl } from '@/lib/env';
+import { RATE_LIMITS } from '@/lib/rate-limit';
+import { isAccountRateLimited } from '@/lib/rate-limit-server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { toApiError } from '@/lib/errors';
 import { parsePresentationForm } from '@/lib/event-presentation';
 import { isEventDeleteConfirmed, takedownReasonText } from '@/lib/event-removal';
-import { formText, formTrimmed } from '@/lib/form-data';
+import { formList, formText, formTrimmed } from '@/lib/form-data';
 import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
 import { EVENT_STATUSES } from '@/types/domain';
 
@@ -109,6 +113,81 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
 
   refreshPublicViews();
   redirect(`/admin?notice=${decision === 'APPROVED' ? 'submission_approved' : 'submission_rejected'}`);
+}
+
+/** Sama dengan BULK_REVIEW_LIMIT di `components/admin/bulk-approve-bar.tsx`. */
+const BULK_REVIEW_LIMIT = 50;
+
+/**
+ * "Setujui yang dipilih" (ADR-093). Gerbang admin SEKALI, lalu jalur yang
+ * sama dengan satu kartu (`reviewEvent`/`reviewSubmission`) per id — riwayat
+ * moderasi tetap tercatat per kegiatan. Satu yang gagal (duplikat, sudah
+ * ditinjau admin lain) tidak menghentikan sisanya.
+ */
+export async function bulkApproveAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const kind = formText(formData, 'kind');
+  if ((kind !== 'events' && kind !== 'submissions') || formText(formData, 'decision') !== 'APPROVED') {
+    redirect(withQuery('/admin', { error: 'invalid_request' }));
+  }
+  const ids = [...new Set(formList(formData, 'ids').map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) redirect(withQuery('/admin', { error: 'bulk_empty' }));
+  if (ids.length > BULK_REVIEW_LIMIT) redirect(withQuery('/admin', { error: 'bulk_too_many' }));
+
+  const repository = await getEventRepository();
+  let approved = 0;
+  let failed = 0;
+  for (const id of ids) {
+    try {
+      if (kind === 'events') {
+        await repository.reviewEvent({ eventId: id, decision: 'APPROVED', reviewerId: gate.userId, reviewerName: gate.userName });
+      } else {
+        await repository.reviewSubmission({ submissionId: id, decision: 'APPROVED', reviewerId: gate.userId, reviewerName: gate.userName });
+      }
+      approved += 1;
+    } catch (error) {
+      toApiError(error);
+      failed += 1;
+    }
+  }
+
+  if (approved > 0) refreshPublicViews();
+  redirect(
+    withQuery('/admin', {
+      notice: approved > 0 ? 'bulk_approved' : undefined,
+      error: failed > 0 ? 'bulk_partial' : undefined,
+    }),
+  );
+}
+
+/**
+ * Email uji (ADR-093, audit 14 Nov §1 F5): kirim email atur ulang sandi ke
+ * alamat admin SENDIRI lewat SMTP Supabase dan tampilkan hasilnya apa adanya.
+ * Halaman lupa sandi untuk umum tetap seragam (AGENTS.md #12) — hanya admin
+ * yang melihat kegagalan SMTP, dan hanya untuk alamatnya sendiri.
+ */
+export async function sendTestEmailAction(): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+  if (dataMode === 'seed') redirect(withQuery('/', { error: 'email_test_unavailable' }));
+  if (await isAccountRateLimited(gate.userId, RATE_LIMITS.emailTestPerAccount)) redirect(withQuery('/', { error: 'email_test_throttled' }));
+
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.auth.getUser();
+  const email = data.user?.email;
+  if (!email) redirect('/admin?status=forbidden');
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent('/reset-password')}`,
+  });
+  if (error) {
+    if (isPerAddressEmailThrottle(error)) redirect(withQuery('/', { error: 'email_test_throttled' }));
+    console.error('[email-uji] gagal dikirim:', error.code ?? error.status, error.message);
+    redirect(withQuery('/', { error: 'email_test_failed' }));
+  }
+  redirect(withQuery('/', { notice: 'email_test_sent' }));
 }
 
 // ----------------------------------------------------------------------

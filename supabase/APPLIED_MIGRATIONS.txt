@@ -62,3 +62,6 @@
 20261110100001 profile_media
 20261112100001 submission_poster
 20261112100002 community
+20261116100001 event_engagement
+20261119100001 trend_visitor_cap_and_mutual_privacy
+20261119100002 admin_create_event

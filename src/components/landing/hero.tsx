@@ -26,18 +26,20 @@ export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; 
   return (
     <section
       aria-labelledby="hero-title"
-      className="container-page grid max-w-[1120px] items-center gap-x-10 pt-[clamp(40px,7vw,92px)] lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]"
+      className="container-page grid max-w-[1120px] items-center gap-x-10 pt-8 sm:pt-[clamp(40px,7vw,92px)] lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]"
     >
       <div className="enter flex max-w-[860px] flex-col [animation-duration:700ms]">
         <h1 id="hero-title" className="max-w-[19ch] text-[clamp(36px,5.8vw,62px)] leading-[1.04] tracking-[-0.042em]">
           Cari lomba, beasiswa, dan magang yang <span className="marker">masih buka</span>.
         </h1>
-        <p className="mt-5 max-w-[56ch] text-[clamp(16px,1.9vw,18.5px)] leading-relaxed text-ink-muted">
+        <p className="mt-4 max-w-[56ch] text-[clamp(16px,1.9vw,18.5px)] sm:mt-5 leading-relaxed text-ink-muted">
           Satu katalog untuk siswa SMA/SMK dan mahasiswa. Setiap kegiatan dicek ke sumber resminya sebelum tayang, lengkap
           dengan sisa waktu pendaftarannya.
         </p>
 
-        <form action="/events" method="get" role="search" className="mt-8 flex w-full flex-col gap-2.5 sm:flex-row">
+        {/* Sebaris mulai 360px: tombol di baris sendiri memakan ±66px layar pertama ponsel, sehingga
+            tak satu pun kegiatan terlihat. Di 320px tetap bertumpuk supaya placeholder tidak terpotong. */}
+        <form action="/events" method="get" role="search" className="mt-6 flex w-full flex-col gap-2.5 min-[360px]:flex-row sm:mt-8">
           <div className="relative flex-1">
             <Search aria-hidden className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-ink-muted" />
             <input
@@ -48,13 +50,13 @@ export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; 
               aria-label="Kata kunci pencarian"
               aria-keyshortcuts="/"
               data-search-shortcut=""
-              className="field-control peer h-14 w-full rounded-card border border-line-strong/70 bg-panel pl-12 pr-4 text-[17px] text-ink shadow-card transition-colors duration-150 ease-snap placeholder:text-ink-faint hover:border-line-strong pointer-fine:pr-14"
+              className="field-control peer h-14 w-full rounded-card border border-line-strong/70 bg-panel pl-12 pr-4 text-[17px] text-ink shadow-card transition-colors duration-150 ease-snap placeholder:text-ink-faint hover:border-line-strong sm:pointer-fine:pr-14"
             />
-            <SearchShortcutHint className="absolute right-4 top-1/2 -translate-y-1/2" />
+            <SearchShortcutHint className="absolute right-4 top-1/2 -translate-y-1/2 max-sm:hidden!" />
           </div>
           <button
             type="submit"
-            className="flex h-14 items-center justify-center rounded-card bg-brand px-8 text-base font-semibold text-on-brand transition-colors duration-150 ease-snap hover:bg-brand-hover"
+            className="flex h-14 shrink-0 items-center justify-center rounded-card bg-brand px-5 text-base font-semibold text-on-brand sm:px-8 transition-colors duration-150 ease-snap hover:bg-brand-hover"
           >
             Cari
           </button>

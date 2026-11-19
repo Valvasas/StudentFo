@@ -31,6 +31,13 @@ export const TREND_WEIGHTS = {
 
 export type TrendKind = keyof typeof TREND_WEIGHTS;
 
+/**
+ * Pengunjung anonim yang dihitung per acara per hari (ADR-093). Sinyal
+ * termurah untuk dipalsukan — tanpa akun, cukup berganti User-Agent/IP —
+ * jadi sumbangannya dijepit: maks 20 × 0,25 = 5 poin/hari, di bawah dua
+ * simpanan sungguhan. SQL: `least(v.visitors, 20)` di `refresh_event_trends()`.
+ */
+export const TREND_VISITOR_DAILY_CAP = 20;
 export const TREND_HALF_LIFE_HOURS = 72;
 export const TREND_WINDOW_DAYS = 14;
 
@@ -69,8 +76,9 @@ export function trendDecay(at: string | Date, now: Date = new Date()): number {
 export function trendScore(signals: readonly TrendSignal[], now: Date = new Date()): number {
   let score = 0;
   for (const signal of signals) {
-    const count = signal.count ?? 1;
-    if (!(count > 0)) continue;
+    const raw = signal.count ?? 1;
+    if (!(raw > 0)) continue;
+    const count = signal.kind === 'visitor' ? Math.min(raw, TREND_VISITOR_DAILY_CAP) : raw;
     score += TREND_WEIGHTS[signal.kind] * count * trendDecay(signal.at, now);
   }
   return score;

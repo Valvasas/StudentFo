@@ -41,6 +41,10 @@ describe('resolvePaging', () => {
     expect(resolvePaging({ page: 3, pageSize: 500 })).toEqual({ page: 3, pageSize: 48, offset: 96 });
     expect(resolvePaging({ page: -2, pageSize: 0 })).toEqual({ page: 1, pageSize: 1, offset: 0 });
     expect(resolvePaging({ page: 2.7 })).toMatchObject({ page: 2 });
+    // Offset tidak pernah melewati int4 Postgres (insiden /events 18 Nov).
+    expect(resolvePaging({ page: 999_999_999_999, pageSize: 48 })).toEqual({ page: 1000, pageSize: 48, offset: 47_952 });
+    expect(resolvePaging({ page: Number.MAX_SAFE_INTEGER })).toMatchObject({ page: 1000 });
+    expect(resolvePaging({ page: Number.NaN })).toMatchObject({ page: 1, offset: 0 });
   });
 });
 

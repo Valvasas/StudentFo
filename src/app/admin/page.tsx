@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { AlertTriangle, Check, CheckCircle2, RotateCcw, Users } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, Plus, RotateCcw, Users } from 'lucide-react';
+import { BulkApproveBar } from '@/components/admin/bulk-approve-bar';
 import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -12,7 +13,7 @@ import { formatWait, REVIEW_SLA_HOURS, summarizeDecisions, summarizeQueue, type 
 import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { DEMO_DATA_TTL_MS, demoDataCreatedAt, getEventRepository } from '@/lib/data';
 import { formatDateTimeId, formatTimeId } from '@/lib/deadline';
-import { resetDemoDataAction } from './actions';
+import { bulkApproveAction, resetDemoDataAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,13 +73,18 @@ export default async function AdminPage({
     <div className="container-page py-8">
       <AdminNav active="antrean" trustWaiting={trustWaiting} reportsOpen={reportsOpen} />
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-3xl">Antrean moderasi</h1>
           <p className="mt-2 max-w-2xl text-ink-soft">
             Hasil ekstraksi otomatis menunggu verifikasi manusia. Setujui hanya setelah tautan
             pendaftaran dan tenggatnya dicek ke sumber aslinya.
           </p>
         </div>
+        {/* Pintu masuk kedua (ADR-093): admin baru yang membuka /admin langsung melihat cara membuat acara sendiri. */}
+        <Link href="/admin/acara/baru" className={buttonVariants({ variant: 'secondary', className: 'w-full sm:w-auto' })}>
+          <Plus aria-hidden />
+          Buat acara StudentFo
+        </Link>
       </header>
 
       {statusMessage && (
@@ -162,11 +168,14 @@ export default async function AdminPage({
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-4">
-          {pending.map((event) => (
-            <EventReviewCard key={event.id} event={event} categoryNames={categoryNames} />
-          ))}
-        </ul>
+        <>
+          <BulkApproveBar formId="massal-acara" kind="events" count={pending.length} action={bulkApproveAction} noun="kegiatan" />
+          <ul className="flex flex-col gap-4">
+            {pending.map((event) => (
+              <EventReviewCard key={event.id} event={event} categoryNames={categoryNames} bulkFormId={pending.length > 1 ? 'massal-acara' : undefined} />
+            ))}
+          </ul>
+        </>
       )}
 
       <section aria-labelledby="kiriman-komunitas" className="mt-12 scroll-mt-24">
@@ -184,11 +193,19 @@ export default async function AdminPage({
             Tidak ada kiriman dari halaman /submit yang menunggu.
           </p>
         ) : (
-          <ul className="flex flex-col gap-4">
-            {submissions.map((submission) => (
-              <SubmissionReviewCard key={submission.id} submission={submission} verifiedOrg={verifiedOrgOf(submission.submittedBy)} />
-            ))}
-          </ul>
+          <>
+            <BulkApproveBar formId="massal-kiriman" kind="submissions" count={submissions.length} action={bulkApproveAction} noun="kiriman" />
+            <ul className="flex flex-col gap-4">
+              {submissions.map((submission) => (
+                <SubmissionReviewCard
+                  key={submission.id}
+                  submission={submission}
+                  verifiedOrg={verifiedOrgOf(submission.submittedBy)}
+                  bulkFormId={submissions.length > 1 ? 'massal-kiriman' : undefined}
+                />
+              ))}
+            </ul>
+          </>
         )}
       </section>
 

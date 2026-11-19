@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EVENT_COMMENT_LIMITS } from '@/lib/event-comments';
 import { AppError } from '@/lib/errors';
 import { CONNECTION_PAGE, type NetworkViewer } from '@/lib/network';
@@ -27,7 +27,12 @@ describe('MemoryEventRepository — suka & komentar kegiatan', () => {
   let repository: MemoryEventRepository;
   let eventId: string;
 
+  // Jam sistem dibekukan ke jam data contoh: `listEvents()` membaca `new Date()`,
+  // dan suka contoh meluruh (paruh 72 jam) — tanpa ini tes gagal begitu kalender maju.
+  afterEach(() => vi.useRealTimers());
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-16T03:00:00Z'));
     repository = new MemoryEventRepository(new Date('2026-11-16T03:00:00Z'));
     // Kegiatan tanpa suka/komentar contoh, supaya angka bisa dihitung tangan.
     const seeded = new Set(['kompetisi-inovasi-perangkat-lunak-nusantara-2026', 'festival-film-pendek-pelajar-nusantara', 'lomba-karya-tulis-ilmiah-energi-terbarukan']);

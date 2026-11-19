@@ -1,7 +1,10 @@
 import Link from 'next/link';
-import { ArrowRight, Building2, CircleCheck, Flag, Inbox, KeyRound, type LucideIcon, Megaphone, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Building2, CircleCheck, Flag, Inbox, KeyRound, type LucideIcon, Megaphone, PencilLine, Plus, Send, ShieldCheck } from 'lucide-react';
 import { AdminSetupNotice } from '@/components/admin/admin-setup-notice';
 import { CronHealthPanel } from '@/components/admin/cron-health-panel';
+import { EmailCheckPanel } from '@/components/admin/email-check-panel';
+import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { sendTestEmailAction } from '@/app/admin/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { PersonalHome } from '@/components/home/personal-home';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +12,7 @@ import { buttonVariants } from '@/components/ui/button';
 import type { AdminMfaStep } from '@/lib/admin-mfa';
 import { ADMIN_MFA_PATH, checkAdminAccess, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
-import { adminDataAvailable } from '@/lib/env';
+import { adminDataAvailable, dataMode } from '@/lib/env';
 import { formatDateTimeId } from '@/lib/deadline';
 import { firstNameOf, greetingFor, todayLabel } from '@/lib/greeting';
 import type { RawSearchParams } from '@/lib/search-params';
@@ -92,6 +95,7 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
     <div className="container-page pb-12 pt-8 sm:pt-12">
       <div className="mb-6 max-w-2xl empty:hidden">
         <AuthFeedback params={params} />
+        <ActionFeedback params={params} />
       </div>
       <header className="enter flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
@@ -103,10 +107,16 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
             {total > 0 ? `${total}${capped ? '+' : ''} item menunggu keputusan` : 'Semua antrean kosong'}
           </p>
         </div>
-        <Link href="/admin" className={buttonVariants({ className: 'self-start md:self-auto' })}>
-          <ShieldCheck aria-hidden className="size-4" />
-          Buka antrean moderasi
-        </Link>
+        <div className="flex flex-col gap-2 self-stretch sm:flex-row sm:self-start md:self-auto">
+          <Link href="/admin" className={buttonVariants()}>
+            <ShieldCheck aria-hidden className="size-4" />
+            Buka antrean moderasi
+          </Link>
+          <Link href="/admin/acara/baru" className={buttonVariants({ variant: 'secondary' })}>
+            <Plus aria-hidden className="size-4" />
+            Buat acara StudentFo
+          </Link>
+        </div>
       </header>
 
       <section aria-labelledby="antrean" className="mt-8">
@@ -123,9 +133,11 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
                   queue.count > 0 ? 'border-line-strong' : 'border-line',
                 )}
               >
-                <span className="flex items-start gap-2 text-sm font-medium">
+                {/* Ikon di atas label di ponsel: di 320px dua kolom hanya menyisakan ±100px, dan
+                    "penyelenggara" sebaris dengan ikon meluber keluar kartu. */}
+                <span className="flex min-w-0 flex-col items-start gap-1.5 text-sm font-medium min-[420px]:flex-row min-[420px]:gap-2">
                   <queue.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-muted" />
-                  {queue.label}
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{queue.label}</span>
                 </span>
                 {queue.count > 0 ? (
                   <span className="font-display text-[28px] font-bold leading-none tabular-nums">
@@ -145,6 +157,7 @@ export async function AdminHome({ user, params }: { user: AuthUser; params: RawS
       </section>
 
       <CronHealthPanel />
+      <EmailCheckPanel action={sendTestEmailAction} available={dataMode === 'supabase'} />
 
       <section aria-labelledby="keputusan-terakhir" className="mt-8 rounded-panel border border-line bg-panel p-5 sm:p-6">
         <div className="flex items-center justify-between gap-4">

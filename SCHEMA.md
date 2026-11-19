@@ -57,7 +57,14 @@ Urutan migration (harus dijalankan berurutan):
 47. `20261109100001_profile_details.sql` — 7 kategori baru; `users.study_fields`, `institution_id/_name`, `domicile_code` (Kemendagri sampai kecamatan, atau `LN`), `username` (unik, huruf kecil, daftar terlarang), `bio` (≤280), `profile_visibility` (MEMBERS bawaan | NETWORK) + CHECK & GRANT per kolom; `is_discoverable()`/`can_view_profile()` diperluas untuk profil MEMBERS; RPC `user_id_by_username(text)` & `public_profile_details(uuid[])` (ADR-075/076/077)
 48. `20261109100002_event_media.sql` — `event_photos.is_poster` (maks. satu per acara, indeks unik parsial `idx_event_photos_one_poster`, GRANT SELECT kolom), `events.video_url` (CHECK `events_video_url_shape` = bentuk kanonis YouTube/Vimeo); RPC `set_event_poster(uuid, bool)` & `set_event_video(uuid, text)` (DEFINER, `manages_event()` / admin, video 30/hari); `approve_submission` menyalin video kanonis dari kiriman (ADR-079)
 
-> Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–47 per 2026-11-09, semua migration di repo).
+49. `20261110100001_profile_media.sql` — foto profil & banner (`users.avatar_*`/`banner_*`/`banner_preset`, bucket privat `profile-media`, RPC `set_profile_media`/`clear_profile_media`/`profile_media_file`/`public_profile_media`) (ADR-083)
+50. `20261112100001_submission_poster.sql` — poster saat kirim kegiatan (`ugc_submissions.poster_*`, `submission_poster_file`, `approve_submission` memindahkan poster) (ADR-084)
+51. `20261112100002_community.sql` — Komunitas: `community_posts`/`_replies`/`_helpful`/`_reports` (RLS tanpa policy, hanya RPC), sembunyi otomatis 3 pelapor (ADR-087)
+52. `20261116100001_event_engagement.sql` — suka, komentar, laporan komentar, `event_engagement` + `refresh_event_trends()` (pg_cron 15 menit), `events.registration_mode`, `events_listing.trend_score`, hapus permanen (ADR-092)
+53. `20261119100001_trend_visitor_cap_and_mutual_privacy.sql` — `refresh_event_trends()` menjepit pengunjung 20/hari/acara; `mutual_connection_counts()` disaring `can_view_profile()` (ADR-093)
+54. `20261119100002_admin_create_event.sql` — RPC `admin_create_event(uuid, jsonb)` (service_role saja, pelaku diperiksa ulang; kolom = `approve_submission`) untuk "Buat acara StudentFo" (ADR-093)
+
+> Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–54 per 2026-11-19, semua migration di repo).
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
@@ -494,7 +501,7 @@ Kategori (tabel `categories`) sejak migration 47: 19 — tambahan `teknik`,
 `ekonomi`, `pertanian`, `bahasa`, `media`, `agama`, `pariwisata`.
 
 ### `event_engagement`, `event_likes`, `event_comments`, `event_comment_reports` (Interaksi postingan — ADR-092)
-Migration `20261116100001_event_engagement` (**belum diterapkan ke produksi**).
+Migration `20261116100001_event_engagement` (diterapkan ke staging & produksi 19 Nov 2026).
 
 | Tabel | Isi & aturan |
 |---|---|

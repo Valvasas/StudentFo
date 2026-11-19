@@ -145,6 +145,7 @@ import type {
   RegistrationMode,
   ShareRecipient,
 } from '@/types/domain';
+import type { SubmissionPayload } from '@/types/domain';
 import { REGISTRATION_MODES, REPORT_REASONS } from '@/types/domain';
 import { buildCommentThreads, countComments, EVENT_COMMENT_LIMITS, EVENT_LIKE_LIMIT_PER_DAY, EVENT_SHARE_LIMITS, sortShareRecipients } from '@/lib/event-comments';
 import { jakartaNoonOf, latestPerPerson, trendScore, type TrendSignal } from '@/lib/popularity';
@@ -1015,6 +1016,87 @@ export class MemoryEventRepository implements EventRepository {
       .slice(0, limit);
   }
 
+  /**
+   * Salin isi kiriman menjadi kegiatan tayang — dipakai menyetujui kiriman
+   * dan "Buat acara StudentFo" (ADR-093) supaya aturan dedup, slug, tahapan,
+   * biaya, dan video identik. Mencatat riwayat moderasi; mengembalikan id.
+   */
+  private insertApprovedEvent(
+    payload: SubmissionPayload,
+    registrationMode: RegistrationMode,
+    actor: { readonly reviewerId: string | null; readonly reviewerName?: string },
+  ): string {
+    // Cermin `events.dedup_hash` UNIQUE: judul + penyelenggara ternormalisasi.
+    const key = normalize(`${payload.title}|${payload.organizer}`);
+    if (this.events.some((event) => normalize(`${event.title}|${event.organizer}`) === key)) {
+      throw actionError('submission_duplicate');
+    }
+
+    const id = this.nextId();
+    const baseSlug = slugify(payload.title);
+    let slug = baseSlug;
+    for (let n = 1; this.events.some((event) => event.slug === slug); n += 1) {
+      slug = `${baseSlug}-${n}`;
+    }
+
+    this.events.push({
+      id,
+      slug,
+      title: payload.title,
+      organizer: payload.organizer,
+      description: payload.description,
+      eventType: payload.eventType,
+      educationLevels: payload.educationLevels,
+      categorySlugs: payload.categorySlugs,
+      location: payload.location,
+      isOnline: payload.isOnline,
+      status: 'APPROVED',
+      savedCount: 0,
+      createdAt: new Date().toISOString(),
+      primaryDeadlineAt: payload.deadlineAt,
+      primaryDeadlineLabel: 'registration',
+      registrationLink: payload.registrationLink,
+      sourceUrl: payload.sourceUrl ?? payload.registrationLink,
+      // Cermin approve_submission() (migration 20261101100004): tahapan = tenggat non-utama.
+      deadlines: [
+        { id: `${id}-d0`, label: 'registration', deadlineAt: payload.deadlineAt, isPrimary: true },
+        ...[...payload.stages]
+          .sort((a, b) => a.deadlineAt.localeCompare(b.deadlineAt))
+          .map((stage, index) => ({ id: `${id}-d${index + 1}`, label: stage.label, deadlineAt: stage.deadlineAt, isPrimary: false })),
+      ],
+      // Cermin approve_submission() (20261003100001): biaya & panduan ikut,
+      // kontak/bukti (bahan moderator) tidak.
+      isFree: payload.isFree,
+      priceAmount: payload.isFree === false ? payload.priceAmount : null,
+      guidebookUrl: payload.guidebookUrl,
+      // Cermin approve_submission(): hanya bentuk kanonis yang disalin.
+      videoUrl: payload.videoUrl && CANONICAL_VIDEO_PATTERN.test(payload.videoUrl) ? payload.videoUrl : null,
+      // Cermin approve_submission() (20261116100001) / admin_create_event() (20261119100002).
+      registrationMode,
+      featuredUntil: null,
+      verificationBadge: null,
+    });
+    this.logModeration({
+      subjectType: 'event',
+      subjectId: id,
+      title: payload.title,
+      fromStatus: null,
+      toStatus: 'APPROVED',
+      actor,
+      reason: null,
+    });
+    return id;
+  }
+
+  async createEventAsAdmin(actor: EventActor, payload: SubmissionPayload): Promise<{ readonly id: string; readonly slug: string }> {
+    if (!actor.isAdmin) throw actionError('not_event_manager');
+    const id = this.insertApprovedEvent(payload, payload.registrationMode === 'studentfo' ? 'studentfo' : 'external', {
+      reviewerId: actor.id,
+      reviewerName: actor.fullName,
+    });
+    return { id, slug: this.findEvent(id)!.slug };
+  }
+
   async reviewSubmission({ submissionId, decision, reviewerId, reviewerName, reason }: ReviewSubmissionInput): Promise<void> {
     const submission = this.submissions.get(submissionId);
     if (!submission || submission.status !== 'PENDING') throw actionError('submission_not_found');
@@ -1023,65 +1105,11 @@ export class MemoryEventRepository implements EventRepository {
       const { payload } = submission;
       if (!payload) throw actionError('invalid_submission');
 
-      // Cermin `events.dedup_hash` UNIQUE: judul + penyelenggara ternormalisasi.
-      const key = normalize(`${payload.title}|${payload.organizer}`);
-      if (this.events.some((event) => normalize(`${event.title}|${event.organizer}`) === key)) {
-        throw actionError('submission_duplicate');
-      }
-
-      const id = this.nextId();
-      const baseSlug = slugify(payload.title);
-      let slug = baseSlug;
-      for (let n = 1; this.events.some((event) => event.slug === slug); n += 1) {
-        slug = `${baseSlug}-${n}`;
-      }
-
-      this.events.push({
-        id,
-        slug,
-        title: payload.title,
-        organizer: payload.organizer,
-        description: payload.description,
-        eventType: payload.eventType,
-        educationLevels: payload.educationLevels,
-        categorySlugs: payload.categorySlugs,
-        location: payload.location,
-        isOnline: payload.isOnline,
-        status: 'APPROVED',
-        savedCount: 0,
-        createdAt: new Date().toISOString(),
-        primaryDeadlineAt: payload.deadlineAt,
-        primaryDeadlineLabel: 'registration',
-        registrationLink: payload.registrationLink,
-        sourceUrl: payload.sourceUrl ?? payload.registrationLink,
-        // Cermin approve_submission() (migration 20261101100004): tahapan = tenggat non-utama.
-        deadlines: [
-          { id: `${id}-d0`, label: 'registration', deadlineAt: payload.deadlineAt, isPrimary: true },
-          ...[...payload.stages]
-            .sort((a, b) => a.deadlineAt.localeCompare(b.deadlineAt))
-            .map((stage, index) => ({ id: `${id}-d${index + 1}`, label: stage.label, deadlineAt: stage.deadlineAt, isPrimary: false })),
-        ],
-        // Cermin approve_submission() (20261003100001): biaya & panduan ikut,
-        // kontak/bukti (bahan moderator) tidak.
-        isFree: payload.isFree,
-        priceAmount: payload.isFree === false ? payload.priceAmount : null,
-        guidebookUrl: payload.guidebookUrl,
-        // Cermin approve_submission(): hanya bentuk kanonis yang disalin.
-        videoUrl: payload.videoUrl && CANONICAL_VIDEO_PATTERN.test(payload.videoUrl) ? payload.videoUrl : null,
-        // Cermin approve_submission() (20261116100001): lomba mandiri hanya untuk penyelenggara terverifikasi/admin.
-        registrationMode: payload.registrationMode === 'studentfo' && this.mayHostForms(submissionId) ? 'studentfo' : 'external',
-        featuredUntil: null,
-        verificationBadge: null,
-      });
-      this.logModeration({
-        subjectType: 'event',
-        subjectId: id,
-        title: payload.title,
-        fromStatus: null,
-        toStatus: 'APPROVED',
-        actor: { reviewerId, reviewerName },
-        reason: null,
-      });
+      const id = this.insertApprovedEvent(
+        payload,
+        payload.registrationMode === 'studentfo' && this.mayHostForms(submissionId) ? 'studentfo' : 'external',
+        { reviewerId, reviewerName },
+      );
       // Cermin approve_submission() (migration 20260928110001): kiriman
       // penyelenggara TERVERIFIKASI → acara masuk dasbornya.
       const owner = this.submissionOwners.get(submissionId);

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, ClipboardList, FileStack, Search } from 'lucide-react';
+import { ArrowRight, ClipboardList, FileStack, Plus, Search } from 'lucide-react';
 import { AdminNav } from '@/components/admin/admin-nav';
 import { PermanentDeleteForm, RestoreEventForm, TakedownForm } from '@/components/admin/event-removal-forms';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -122,15 +122,21 @@ export default async function AdminEventsPage({ searchParams }: { searchParams: 
   return (
     <div className="container-page py-8">
       <AdminNav active="postingan" reportsOpen={reportsOpen} />
-      <header className="mb-6">
-        <h1 className="flex items-center gap-2 text-3xl">
-          <FileStack aria-hidden className="size-7 text-ink-muted" />
-          Kelola postingan
-        </h1>
-        <p className="mt-2 max-w-2xl text-ink-soft">
-          Salah posting? Hapus kapan saja — juga sebelum tenggatnya lewat. Postingan yang dihapus langsung hilang dari katalog dan bisa diurungkan;
-          hapus permanen hanya untuk yang sudah diturunkan.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-3xl">
+            <FileStack aria-hidden className="size-7 text-ink-muted" />
+            Kelola postingan
+          </h1>
+          <p className="mt-2 max-w-2xl text-ink-soft">
+            Salah posting? Hapus kapan saja — juga sebelum tenggatnya lewat. Postingan yang dihapus langsung hilang dari katalog dan bisa diurungkan;
+            hapus permanen hanya untuk yang sudah diturunkan.
+          </p>
+        </div>
+        <Link href="/admin/acara/baru" className={buttonVariants({ className: 'w-full sm:w-auto' })}>
+          <Plus aria-hidden />
+          Buat acara StudentFo
+        </Link>
       </header>
 
       <ActionFeedback params={params} className="mb-4" />

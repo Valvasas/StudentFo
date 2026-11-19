@@ -36,9 +36,12 @@ export function LikeSubmit({ liked, likes, className }: { liked: boolean; likes:
     >
       <Heart aria-hidden className={cn('size-4', showLiked && 'fill-current', pending && showLiked && 'save-pop')} />
       <span aria-hidden>Suka</span>
-      <span aria-hidden className="tabular-nums">
-        {count.toLocaleString('id-ID')}
-      </span>
+      {/* Nol tidak ditampilkan: "Suka 0" terbaca sebagai "tidak ada yang tertarik" (bukti sosial negatif). */}
+      {count > 0 && (
+        <span aria-hidden className="tabular-nums">
+          {count.toLocaleString('id-ID')}
+        </span>
+      )}
     </button>
   );
 }

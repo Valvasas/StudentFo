@@ -71,18 +71,24 @@ yang tidak memuat migration yang sudah ada di produksi
 | Bagikan | `ShareMenu` `<details data-popover>` (salin, Web Share, WA/Telegram/X/FB/LinkedIn/Email, tanpa pelacak) + `/events/[slug]/bagikan` ke koneksi (ADR-092 #5). `ShareButton` hanya untuk tim & lobi | `ShareButton` (salin tautan) di halaman kegiatan | `event-engagement.spec.ts`, `extreme-content.spec.ts` |
 | Lomba mandiri | `events.registration_mode = 'studentfo'`: pilihan "Lewat formulir di StudentFo" di `/submit` (penyelenggara terverifikasi & admin) + sakelar "Hanya lewat StudentFo" di studio; admin membuka studio kegiatan apa pun (ADR-092 #6) | Setiap postingan wajib bertautan pendaftaran luar | `119_event_engagement.test.sql`, `event-engagement.spec.ts` |
 | Formulir ala Google Form | + drop-down, jam, skala linear, judul bagian, gandakan, templat (mengganti kolom awal formulir baru; tidak menggandakan pertanyaan), **Ringkasan jawaban** `pendaftar?tampilan=ringkasan` (ADR-092 #7). Tanpa unggah berkas | ADR-056 awal: 10 jenis, tanpa templat/ringkasan | `registration-form.test.ts`, `form-templates.test.ts`, `registration-summary.test.ts`, `event-engagement.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–092 | Nomor ganda 061/062 | — |
+| Membuat lomba internal (admin) | `/admin/acara/baru` "Buat acara StudentFo": langsung tayang lewat RPC `admin_create_event`, formulir dari templat TERTUTUP → penyusun formulir (ADR-093) | /submit → antrean → setujui kiriman sendiri → studio → formulir (5 langkah, kena batas 3/jam per email) | `admin-create-event.spec.ts`, `admin-events.test.ts`, `121_admin_create_event.test.sql` |
+| Navigasi admin | 3 kelompok (Moderasi · Postingan · Akun & data) + alat kelompok aktif, target ≥ 44px (ADR-093) | 9 tab rata dalam satu rel geser | `touch-targets.spec.ts`, `admin-review.spec.ts` |
+| Antrean moderasi | + "Setujui yang dipilih" (maks 50, hanya setujui; tolak tetap per kartu) (ADR-093) | Setujui satu per satu | `admin-create-event.spec.ts` |
+| Beranda admin | + "Buat acara StudentFo" & "Cek pengiriman email" (SMTP gagal terlihat admin) (ADR-093) | SMTP gagal hanya di log Supabase | — |
+| "Lagi ramai" | Pengunjung anonim dijepit 20/hari/acara + maks 30 tampilan/hari per IP per acara (ADR-093) | Pengunjung tanpa batas (bisa didongkrak bot) | `popularity.test.ts` (kunci SQL), `event-views.test.ts`, `120_trend_hardening.test.sql` |
+| Angka suka/komentar di halaman kegiatan | Disembunyikan selama 0 (aria-label tetap) | "Suka 0 · Komentar 0" | `event-engagement.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–093 | Nomor ganda 061/062 | — |
 
 ## Migration
 
-- **BELUM diterapkan (menunggu persetujuan pemilik):** `20261116100001_event_engagement` — suka, komentar,
-  laporan komentar, "Lagi ramai", `registration_mode`, hapus permanen (ADR-092). Tanpa DROP; lolos
-  `npm run db:test` & `test:integration`. Kode aman urutan deploy: tanpa migration ini angka suka/komentar
-  tidak tampil, aksi → `engagement_unavailable`, katalog memakai kueri lama. **Urutan yang disarankan:
-  migration dulu, baru deploy kode** — kiriman "lomba mandiri" yang disetujui SEBELUM migration tidak membawa
-  `registration_mode` dan tombol Daftar-nya menunjuk tautan pengganti `/events` (perbaiki lewat sakelar
-  "Hanya lewat StudentFo" di studio setelah migration).
-- Produksi: **51** migration, dicocokkan langsung 2026-11-13 → `supabase/APPLIED_MIGRATIONS.txt`.
+- **Tidak ada migration yang menunggu.** Produksi: **54** migration = repo (`npm run check:sync`).
+- 2026-11-19 (perintah pemilik "konfigurasi yang bisa dikerjakan, kerjakan"): `20261116100001_event_engagement`,
+  `20261119100001_trend_visitor_cap_and_mutual_privacy`, `20261119100002_admin_create_event` diterapkan ke staging,
+  diuji asap (buat acara admin di transaksi yang di-rollback: APPROVED, mode studentfo, 1 log berpelaku, tampil di
+  katalog), lalu produksi. Postgres mengunduh tiap berkas dari commit `e6bcabf` dan menolak bila SHA-256/ukuran tidak
+  cocok (pola ADR-062 #8); versi `schema_migrations` = nama berkas. Advisor keamanan: tanpa temuan baru di luar pola
+  yang disengaja (tabel ber-RLS tanpa policy hanya lewat RPC; `admin_create_event` tidak terbuka untuk anon/authenticated).
+- (Riwayat) Produksi: 51 migration, dicocokkan langsung 2026-11-13.
 - 2026-11-13 (persetujuan pemilik di chat): `20261109100002_event_media`, `20261110100001_profile_media`,
   `20261112100001_submission_poster`, `20261112100002_community` diterapkan ke staging, diuji, lalu produksi.
   Postgres mengunduh tiap berkas dari commit `657c998` dan menolak bila SHA-256 tidak cocok (pola ADR-062 #8);
@@ -105,6 +111,15 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-19 — cabang `claude/practical-ritchie-emo0or` (dari `main` `2350ff9`)
+- Audit pra-produksi (`docs/audit-pra-produksi-2026-11-19.md`) + perbaikan menyeluruh (ADR-093): tes bom-waktu (CI merah),
+  `?page` raksasa → 502, penyebab galat hulu kini di log, plafon `formList`, "Lagi ramai" tahan bot, koneksi bersama
+  hormati blokir.
+- Fitur: **Buat acara StudentFo**, navigasi admin berkelompok, setujui massal, email uji admin, `SubmitButton` sisa.
+- UI: beranda tamu menunjukkan isi di layar pertama, angka nol disembunyikan, CTA tamu "Masuk & daftar", luberan 320px.
+- Migration `20261116100001`, `20261119100001`, `20261119100002` **sudah di produksi**; `RATE_LIMIT_SECRET` diisi di Vercel.
+- **Cabang belum digabung ke `main`** — langkah & konfigurasi pemilik: `docs/langkah-konfigurasi-pemilik.md`.
 
 ### 2026-11-16 — cabang `ccr-efbe8b18-bip6n8` (dari `main` `b86fa8f` + `claude/brave-cray-xsqigf` `267a35d`)
 - Suka, komentar, bagikan (menu + ke koneksi), "Lagi ramai", hapus postingan kapan saja (turunkan → urungkan →

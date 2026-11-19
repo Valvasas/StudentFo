@@ -1,7 +1,7 @@
 import { compareTrending } from '@/lib/popularity';
 import { rankEvents } from '@/lib/recommendation';
 import type { CostFilter, EventQuery, EventStatus, EventSummary, Paginated, UserProfile } from '@/types/domain';
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from './repository';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE, MAX_PAGE_SIZE } from './repository';
 
 /**
  * Aturan listing yang WAJIB identik di semua implementasi repository.
@@ -26,7 +26,8 @@ export interface Paging {
 
 export function resolvePaging(query: Pick<EventQuery, 'page' | 'pageSize'>): Paging {
   const pageSize = Math.min(Math.max(query.pageSize ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
-  const page = Math.max(Math.trunc(query.page ?? 1), 1);
+  const requested = Math.trunc(query.page ?? 1);
+  const page = Number.isNaN(requested) ? 1 : Math.min(Math.max(requested, 1), MAX_PAGE);
   return { page, pageSize, offset: (page - 1) * pageSize };
 }
 

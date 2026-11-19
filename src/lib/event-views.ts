@@ -18,7 +18,7 @@ export async function recordEventView(eventId: string, requestHeaders: Pick<Head
     const ip = requestClientIp(requestHeaders);
     // Tanpa IP, semua pengunjung melebur jadi satu "pengunjung unik".
     if (ip === 'unknown') return;
-    if (await isRateLimited(ip, [[RATE_LIMITS.eventViewPerIp]])) return;
+    if (await isRateLimited(ip, [[RATE_LIMITS.eventViewPerIp], [RATE_LIMITS.eventViewPerIpEvent, eventId]])) return;
 
     const visitor = await eventVisitorHash(bucketSecret(), jakartaDateKey(new Date()), ip, userAgent ?? '');
     await (await getEventRepository()).recordEventView(eventId, visitor);
