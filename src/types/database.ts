@@ -399,6 +399,18 @@ export interface EventPhotoRow {
   created_at: string;
   /** Tidak ada sebelum migration 20261109100002 (kode aman urutan deploy). */
   is_poster?: boolean;
+  /** Urutan slide (ADR-094); tidak ada sebelum migration 20261120100001. */
+  sort_order?: number | null;
+}
+
+/** `ugc_submission_photos` — gambar pendukung kiriman (ADR-094), dibaca klien admin saja. */
+export interface SubmissionPhotoRow {
+  id: string;
+  submission_id: string;
+  width: number;
+  height: number;
+  caption: string | null;
+  sort_order: number;
 }
 
 /** `team_seekers` — kartu pemain milik sendiri (ADR-057). */

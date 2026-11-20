@@ -65,11 +65,18 @@ export function FieldMemory({
   fields,
   choices = NO_CHOICES,
   restore,
+  live = false,
 }: {
   storageKey: string;
   fields: readonly string[];
   choices?: readonly string[];
   restore: boolean;
+  /**
+   * Simpan juga SAAT mengetik (ADR-094, formulir pendaftaran): pendaftar yang
+   * membuka Cari tim di tab yang sama lalu kembali tidak mengulang dari nol.
+   * Tetap `sessionStorage` — hilang saat tab ditutup, aman di komputer lab.
+   */
+  live?: boolean;
 }) {
   const anchor = useRef<HTMLSpanElement>(null);
 
@@ -126,8 +133,22 @@ export function FieldMemory({
       }
     };
     form.addEventListener('submit', save);
-    return () => form.removeEventListener('submit', save);
-  }, [storageKey, fields, choices, restore]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const saveSoon = () => {
+      clearTimeout(timer);
+      timer = setTimeout(save, 400);
+    };
+    if (live) {
+      form.addEventListener('input', saveSoon);
+      form.addEventListener('change', saveSoon);
+    }
+    return () => {
+      clearTimeout(timer);
+      form.removeEventListener('submit', save);
+      form.removeEventListener('input', saveSoon);
+      form.removeEventListener('change', saveSoon);
+    };
+  }, [storageKey, fields, choices, restore, live]);
 
   return <span ref={anchor} hidden />;
 }

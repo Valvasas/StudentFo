@@ -15,6 +15,7 @@ import {
   Flag,
   FileText,
   GraduationCap,
+  Handshake,
   KeyRound,
   MapPin,
   MessagesSquare,
@@ -27,6 +28,7 @@ import { withNext } from '@/components/auth/auth-field';
 import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
 import { EventMedia } from '@/components/event/event-media';
+import { NudgeCards } from '@/components/event/nudge-cards';
 import { photoSrc } from '@/components/event/event-photo';
 import { AdminEventTools } from '@/components/admin/admin-event-tools';
 import { EngagementBar } from '@/components/event/engagement-bar';
@@ -55,6 +57,8 @@ import { formatRupiah, priceLabel, type PriceLabel } from '@/lib/currency';
 import { teaserOf } from '@/lib/event-access';
 import { recordEventView } from '@/lib/event-views';
 import { hasRegistered } from '@/lib/lobby';
+import { nudgesAfterRegistration, teamEventInvite } from '@/lib/nudges';
+import { isActiveRegistration, teamStatusFromAnswers } from '@/lib/registration-form';
 import { ORGANIZER_LIMITS } from '@/lib/organizer';
 import {
   daysLeftLabel,
@@ -76,6 +80,7 @@ import {
   EDUCATION_LEVEL_LABEL,
   EVENT_TYPE_LABEL,
   TRACKER_STATUS_LABEL,
+  remainingSlots,
   type EventCommentPage,
   type EventDetail,
   type EventEngagement,
@@ -280,6 +285,24 @@ export default async function EventDetailPage({
   const levels = event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]);
   const place = event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul');
   const isTeamEvent = event.eventType === 'LOMBA';
+  // Tawaran tim (ADR-094): angka tim terbuka nyata + langkah berikutnya bagi yang sudah mendaftar.
+  const showTeamHelp = isTeamEvent && !isClosed && tab === 'ringkasan';
+  const openTeams = showTeamHelp
+    ? await optional<number | null>(async () => (await repository.listTeams(event.id)).filter((team) => remainingSlots(team) > 0).length, null, 'tim terbuka')
+    : null;
+  const myTeamStatus = myRegistration && form ? teamStatusFromAnswers(form.fields, myRegistration.answers) : null;
+  const registeredNudges =
+    showTeamHelp && myRegistration
+      ? nudgesAfterRegistration({
+          eventSlug: event.slug,
+          eventType: event.eventType,
+          active: isActiveRegistration(myRegistration.status),
+          eventOpen: true,
+          teamStatus: myTeamStatus,
+          openTeams,
+        }).slice(0, 2)
+      : [];
+  const teamInvite = showTeamHelp ? teamEventInvite({ eventSlug: event.slug, openTeams, signedIn: user !== null }) : null;
   const detailPath = `/events/${event.slug}`;
   const tabHref = (key: TabKey) => (key === 'ringkasan' ? detailPath : `${detailPath}?tab=${key}`);
   const upcoming = event.deadlines.find((deadline) => (daysUntil(deadline.deadlineAt, now) ?? -1) >= 0);
@@ -534,22 +557,31 @@ export default async function EventDetailPage({
                 </div>
 
 
-                {isTeamEvent && !isClosed && (
-                  <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] bg-panel-nested p-[18px]">
-                    <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-brand text-on-brand">
-                      <Users className="size-4" />
-                    </span>
-                    <p className="min-w-[200px] flex-1 text-sm leading-normal text-ink-soft">
-                      Lomba ini diikuti per tim. Belum punya tim? Cari rekan lintas kampus atau buka timmu sendiri.
-                    </p>
-                    <Link
-                      href={`/teams?kegiatan=${event.slug}`}
-                      className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 bg-panel px-3.5 text-sm font-semibold transition-colors duration-150 ease-snap hover:border-brand"
-                    >
-                      <Users aria-hidden className="size-4" />
-                      Cari tim
-                    </Link>
-                  </div>
+                {registeredNudges.length > 0 ? (
+                  <NudgeCards nudges={registeredNudges} heading="Langkah berikutnya untukmu" />
+                ) : (
+                  teamInvite && (
+                    <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] bg-panel-nested p-[18px]">
+                      <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-brand text-on-brand">
+                        <Users className="size-4" />
+                      </span>
+                      <p className="min-w-[200px] flex-1 text-sm leading-normal text-ink-soft">{teamInvite.text}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[teamInvite.primary, teamInvite.secondary].map((action) =>
+                          action ? (
+                            <Link
+                              key={action.key}
+                              href={action.href}
+                              className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 bg-panel px-3.5 text-sm font-semibold transition-colors duration-150 ease-snap hover:border-brand"
+                            >
+                              {action.icon === 'handshake' ? <Handshake aria-hidden className="size-4" /> : <Users aria-hidden className="size-4" />}
+                              {action.cta}
+                            </Link>
+                          ) : null,
+                        )}
+                      </div>
+                    </div>
+                  )
                 )}
 
                 {/* Komunitas (ADR-087) khusus anggota, seperti isi halaman ini sendiri. */}

@@ -63,6 +63,7 @@ Urutan migration (harus dijalankan berurutan):
 52. `20261116100001_event_engagement.sql` — suka, komentar, laporan komentar, `event_engagement` + `refresh_event_trends()` (pg_cron 15 menit), `events.registration_mode`, `events_listing.trend_score`, hapus permanen (ADR-092)
 53. `20261119100001_trend_visitor_cap_and_mutual_privacy.sql` — `refresh_event_trends()` menjepit pengunjung 20/hari/acara; `mutual_connection_counts()` disaring `can_view_profile()` (ADR-093)
 54. `20261119100002_admin_create_event.sql` — RPC `admin_create_event(uuid, jsonb)` (service_role saja, pelaku diperiksa ulang; kolom = `approve_submission`) untuk "Buat acara StudentFo" (ADR-093)
+55. `20261120100001_event_slides.sql` — `event_photos.sort_order` (diisi ulang menurut urutan tampil; pemicu sisip menaruh unggahan baru di belakang), RPC `reorder_event_photos(uuid, uuid[])` & `set_event_photo_caption(uuid, text)` (DEFINER, pengelola/admin); tabel `ugc_submission_photos` (RLS tanpa policy, maks. 5 per kiriman), `submission_photo_file`, `take_submission_photos`; `approve_submission` memindahkan gambar pendukung jadi slide (ADR-094) — **belum diterapkan**
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–54 per 2026-11-19, semua migration di repo).
 
@@ -397,7 +398,11 @@ hanya acara kelolaan). `reviewed_by` tidak diberi hak SELECT.
 `<event_id>/<uuid>.<ext>`, ukuran piksel untuk tata letak tanpa CLS. SELECT
 publik untuk acara tayang; INSERT/DELETE `manages_event()`/admin.
 `is_poster` (ADR-079): maks. satu per acara (indeks unik parsial); diubah
-hanya lewat `set_event_poster()` — klien tidak punya hak UPDATE. Poster
+hanya lewat `set_event_poster()` — klien tidak punya hak UPDATE.
+`sort_order` (ADR-094): urutan slide 0..999, diisi pemicu sisip (di belakang), diubah
+hanya lewat `reorder_event_photos()`; keterangan lewat `set_event_photo_caption()`.
+Gambar pendukung kiriman: `ugc_submission_photos` (hanya service_role; maks. 5) dipindah
+`approve_submission()` ke `event_photos` dengan berkas yang sama. Poster
 ditempel ke kartu di lapisan aplikasi, BUKAN lewat `events_listing` /
 `list_personalized_events` (mengubah `RETURNS TABLE` butuh DROP).
 

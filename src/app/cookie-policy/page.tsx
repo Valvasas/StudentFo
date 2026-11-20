@@ -104,7 +104,7 @@ const BROWSER_STORAGE: readonly StorageItem[] = [
   {
     names: [`${FIELD_MEMORY_PREFIX}…`],
     purpose:
-      'Salinan isian form daftar (tanpa kata sandi) dan form kirim kegiatan supaya tidak perlu diketik ulang bila server menolak kiriman, mis. verifikasi anti-bot kedaluwarsa (sessionStorage).',
+      'Salinan isian form daftar (tanpa kata sandi), form kirim kegiatan, dan jawaban formulir pendaftaran acara (tanpa kotak persetujuan) supaya tidak perlu diketik ulang bila server menolak kiriman atau kamu membuka halaman lain di tab yang sama. Hanya di tab itu — hilang saat tab ditutup (sessionStorage).',
     lifetime: 'Hilang saat tab ditutup; dibuang saat form dibuka tanpa galat',
     category: 'Wajib',
   },

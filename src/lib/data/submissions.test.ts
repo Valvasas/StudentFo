@@ -175,7 +175,7 @@ describe('MemoryEventRepository — batas laju kiriman', () => {
 
     await expect(
       repo.createSubmission({ submittedByEmail: 'lain@b.co', submittedBy: null, payload: payload() }),
-    ).resolves.toEqual({ posterAttached: false });
+    ).resolves.toEqual({ posterAttached: false, slidesAttached: 0 });
   });
 });
 
@@ -211,8 +211,8 @@ describe('MemoryEventRepository — kabar ke pengirim yang masuk (cermin trigger
 
     it('hanya pengirim yang masuk yang bisa melampirkan; tamu tetap terkirim tanpa poster', async () => {
       const repo = new MemoryEventRepository();
-      expect(await repo.createSubmission({ submittedByEmail: 'tamu@b.co', submittedBy: null, payload: payload(), poster })).toEqual({ posterAttached: false });
-      expect(await repo.createSubmission({ submittedByEmail: 'ana@b.co', submittedBy: 'ana', payload: payload({ title: 'Lomba Kedua 2026' }), poster })).toEqual({ posterAttached: true });
+      expect(await repo.createSubmission({ submittedByEmail: 'tamu@b.co', submittedBy: null, payload: payload(), poster })).toEqual({ posterAttached: false, slidesAttached: 0 });
+      expect(await repo.createSubmission({ submittedByEmail: 'ana@b.co', submittedBy: 'ana', payload: payload({ title: 'Lomba Kedua 2026' }), poster })).toEqual({ posterAttached: true, slidesAttached: 0 });
 
       const [guest, member] = await repo.listSubmissions('PENDING', 10);
       expect(guest?.poster).toBeNull();

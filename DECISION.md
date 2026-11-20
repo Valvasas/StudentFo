@@ -12,6 +12,86 @@ terdokumentasi.
 
 ---
 
+## ADR-094 — Slide penjelas di kiriman & buat acara, penyusun formulir yang ramah, dan tawaran cari partner dari jawaban "Status tim" (20 Nov 2026)
+
+**Konteks.** Pemilik (20 Nov): (1) saat mengirim atau membuat acara hanya POSTER yang
+diminta — gambar deskriptif/slide (alur, hadiah, juri, linimasa) baru bisa diunggah dari
+studio setelah tayang, dan galeri diurutkan "terbaru dulu" sehingga slide yang diunggah
+sekaligus tampil TERBALIK tanpa cara menyusunnya; (2) membuat & mengisi formulir StudentFo
+membingungkan: urutan pertanyaan "tidak bisa dipindah" (tombol naik/turun ada, tapi
+tersembunyi di ponsel dan hanya selangkah), tanpa pembantu, banyak distraksi; (3) fitur
+pembantu admin & pengguna yang seharusnya ada; (4) fitur promotif — pendaftar lomba tim
+yang tidak punya partner otomatis ditawari koneksi/pencari tim, dan pola yang sama di
+tempat lain supaya situs "hidup".
+
+**Keputusan.**
+1. **Urutan slide = `event_photos.sort_order`** (bukan tabel baru). Baris lama diisi
+   menurut urutan tampil sekarang; unggahan baru masuk DI BELAKANG lewat pemicu sisip yang
+   sudah ada (kunci per acara yang sama). Poster tetap pertama (ADR-079). Susun ulang lewat
+   RPC `reorder_event_photos` (id asing/ganda diabaikan, yang tidak disebut tetap di
+   belakang — klien yang tertinggal satu unggahan tidak menghilangkan foto); keterangan per
+   gambar lewat `set_event_photo_caption`. Klien tetap tanpa hak UPDATE tabel. Studio:
+   tombol geser per slide adalah FORM biasa (urutan baru dihitung server dari urutan
+   tersimpan, jalan tanpa JS); keterangan slide aktif kini tampil di bawah slider, bukan
+   hanya di layar penuh.
+2. **Gambar pendukung di `/submit` = tabel `ugc_submission_photos`** dengan pola poster
+   kiriman (ADR-084): hanya server yang menulis/membaca, berkas di `event-photos/<kiriman>/…`
+   (lolos CHECK `event_photos.storage_path`), disetujui = baris `event_photos` menunjuk berkas
+   yang SAMA dalam urutan pengirim sesudah poster, ditolak = `take_submission_photos` lalu
+   dihapus. Pratinjau moderator `/media/kiriman/[id]/[gambar]` (aturan baca = poster).
+   **Maks. 5** (CHECK `sort_order` 0..4): poster + 5 = 6 berkas × 5 MB = batas body Server
+   Action 32 MB — jalur tanpa JS (tanpa kompresi) tetap muat. "Buat acara StudentFo"
+   mengunggah slide langsung ke galeri sesudah poster. `ImageUploadField` (`captionName`)
+   memberi keterangan per gambar + susun/lepas sebelum kirim; urutan FileList mengikuti.
+3. **Jenis pertanyaan `team_status` (Status tim)** dengan pilihan TETAP (`TEAM_STATUSES`):
+   sistem memahami jawabannya, jadi panitia tidak menulis pilihannya (skema server memaksa
+   pilihannya; satu per formulir). Labelnya = nilai tersimpan — tambah label baru, jangan
+   mengganti. Tidak butuh migration: jenis kolom formulir hanya dikontrak aplikasi (JSONB).
+   Templat "Lomba tim" memuatnya; "Nama tim" jadi opsional (pendaftar tanpa tim tidak tertahan).
+4. **Tawaran kontekstual = `lib/nudges.ts`** (pola "Langkah awal" ADR-086: dihitung saat
+   render, tidak disimpan, maks. 3). Status tim `seeking` → pencocokan partner, tim terbuka
+   (hanya bila ada — tidak menjanjikan angka nol), lobi `?niat=CARI_TIM`; `recruiting` →
+   buka lowongan tim + lobi `CARI_ANGGOTA`; `complete` → lobi `SIAP`; lalu "Ajak koneksi".
+   Tampil (a) LANGSUNG di formulir saat pilihan dicentang (CSS `:has`, tanpa JS; tautan tab
+   baru supaya isian tidak hilang), (b) di halaman status pendaftaran (sesudah pembayaran
+   bila belum lunas), (c) di halaman acara untuk yang sudah mendaftar. Kartu "Lomba ini
+   diikuti per tim" memakai angka tim terbuka nyata. Lobi hanya MENGISI pilihan awal dari
+   `?niat=` — kartu lobi yang sudah ada tidak ditimpa. Panitia melihat sebarannya di
+   Ringkasan jawaban.
+5. **Penyusun formulir**: urutan bisa diubah tiga cara setara — seret pegangan ⠿ (pointer
+   events: tetikus, sentuh, pena; posisi = jumlah kartu LAIN di atas penunjuk, aman dipanggil
+   berulang sebelum render; gulir otomatis di tepi), panah atas/bawah di pegangan, atau
+   pilihan "Urutan N dari M" di pertanyaan yang dibuka (pembaca layar di ponsel). Pilihan
+   jawaban bisa dinaikkan/diturunkan (tombol di ≥ sm, Alt+↑/↓ di mana pun) & "Urutkan A–Z".
+   **"Lainnya: …"** untuk pilihan ganda & kotak centang (seperti Google Form — tidak untuk
+   drop-down), disimpan `Lainnya: <teks>` ≤ 120, dikelompokkan di ringkasan. **Tambah cepat**
+   (`QUICK_QUESTIONS`: pertanyaan umum dengan jenis yang benar — mencegah NIK di kolom Angka),
+   **Pratinjau** (komponen peserta yang sama di `<fieldset disabled>`: tidak terkirim & tidak
+   menahan Simpan), **salin formulir** dari acara lain yang dikelola (maks. 6, dibaca dari 12
+   acara terbaru; id lama dibuang), dan checklist **"Siap dibuka?"** dari keadaan tersimpan.
+6. **Mengisi formulir**: progres pertanyaan wajib + "Ke yang belum diisi"; **draf per tab**
+   (`FieldMemory live`, `sessionStorage` — hilang saat tab ditutup, aman di komputer lab) yang
+   juga memulihkan jawaban saat server menolak; **"Isi dari profilku"** (tempat studi,
+   jenjang, domisili, nama, email) — hanya mengusulkan, hanya mengisi yang kosong, pencocokan
+   konservatif (judul yang menanyakan anggota/pembimbing/tim dilewati; jenjang ambigu
+   dilewati). Kotak persetujuan TIDAK PERNAH diisi ulang otomatis (ADR-084 #7).
+7. **`/submit`**: deskripsi keluar dari lipatan "Detail tambahan" (syarat & hadiah adalah hal
+   pertama yang dicari peserta), peta langkah bertaut di atas form, daftar "Kirimanmu"
+   pindah ke bawah form supaya tidak mendorong form baru ke bawah layar.
+
+**Konsekuensi.** Migration `20261120100001_event_slides` (ADD/CREATE/CREATE OR REPLACE
+saja; `approve_submission` & pemicu sisip foto diganti) — **belum diterapkan**; kode aman
+urutan deploy: tanpa kolom → urutan lama, tanpa RPC → `media_unavailable`, tanpa tabel →
+kiriman tersimpan tanpa gambar pendukung + `submission_received_slides_skipped`. Dikunci:
+`122_event_slides.test.sql`, `event-slides.test.ts`, `form-assist.test.ts`,
+`form-assist.spec.ts`. **Ditolak:** tabel `event_media` baru (dua jalur moderasi);
+mengubah urutan galeri ke "terlama dulu" saja (urutan pilihan manusia tetap tidak ada);
+"Lainnya" di drop-down (butuh JS untuk memunculkan isian); simpan draf di `localStorage`
+(jawaban berisi nomor HP bertahan di komputer bersama); mencocokkan "belum punya tim" dari
+teks pilihan bebas panitia (rapuh — jenis khusus dengan pilihan tetap lebih jujur).
+
+---
+
 ## ADR-093 — "Buat acara StudentFo", navigasi admin berkelompok, pengerasan "Lagi ramai", dan perbaikan pra-produksi (19 Nov 2026)
 
 **Konteks.** Audit pra-produksi (`docs/audit-pra-produksi-2026-11-19.md`) menemukan: tes

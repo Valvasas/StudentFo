@@ -250,3 +250,35 @@ describe('SupabaseEventRepository — poster & video (ADR-079)', () => {
     expect((await repo.getEventBySlug(slug))?.videoUrl).toBeNull();
   });
 });
+
+describe('SupabaseEventRepository — urutan & keterangan slide (ADR-094)', () => {
+  function insertPhoto(eventId: string): string {
+    const id = randomUUID();
+    sql(`INSERT INTO public.event_photos (id, event_id, storage_path, content_type, width, height)
+         VALUES ('${id}', '${eventId}', '${eventId}/${id}.png', 'image/png', 1200, 800)`);
+    return id;
+  }
+
+  it('unggahan berurutan; susun ulang & keterangan lewat RPC; tamu membaca urutan baru; orang asing ditolak', async () => {
+    const { organizer, eventId } = await managedEvent();
+    const [first, second, third] = [insertPhoto(eventId), insertPhoto(eventId), insertPhoto(eventId)];
+
+    actAs(null);
+    expect((await repo.listEventPhotos(eventId)).map((photo) => photo.id)).toEqual([first, second, third]);
+
+    const stranger = createUser();
+    actAs(stranger);
+    expect(await reason(repo.reorderEventPhotos(actor(stranger), eventId, [third!, first!]))).toBe('not_event_manager');
+    expect(await reason(repo.setEventPhotoCaption(actor(stranger), first!, 'Susupan'))).toBe('photo_not_found');
+
+    actAs(organizer);
+    await repo.reorderEventPhotos(actor(organizer), eventId, [third!, first!]);
+    await repo.setEventPhotoCaption(actor(organizer), third!, '  Alur lomba ');
+    expect(await reason(repo.setEventPhotoCaption(actor(organizer), first!, 'x'.repeat(141)))).toBe('invalid_caption');
+
+    actAs(null);
+    const photos = await repo.listEventPhotos(eventId);
+    expect(photos.map((photo) => photo.id)).toEqual([third, first, second]);
+    expect(photos[0]).toMatchObject({ caption: 'Alur lomba', sortOrder: 0 });
+  });
+});

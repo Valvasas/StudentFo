@@ -145,7 +145,7 @@ import type {
   RegistrationMode,
   ShareRecipient,
 } from '@/types/domain';
-import type { SubmissionPayload } from '@/types/domain';
+import type { SubmissionPayload, SubmissionPhoto } from '@/types/domain';
 import { REGISTRATION_MODES, REPORT_REASONS } from '@/types/domain';
 import { buildCommentThreads, countComments, EVENT_COMMENT_LIMITS, EVENT_LIKE_LIMIT_PER_DAY, EVENT_SHARE_LIMITS, sortShareRecipients } from '@/lib/event-comments';
 import { jakartaNoonOf, latestPerPerson, trendScore, type TrendSignal } from '@/lib/popularity';
@@ -154,7 +154,15 @@ import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
 import { isProfileMediaId, NO_PROFILE_MEDIA, PROFILE_MEDIA_RATE_LIMIT, type ProfileMediaKind } from '@/lib/profile-media';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, MANAGED_EVENTS_LIMIT, OUTBOUND_READ_LIMIT, TEAM_LIST_LIMIT } from './repository';
+import {
+  DISPATCH_LEASE_SECONDS,
+  DISPATCH_MAX_BATCH,
+  GALLERY_LIMITS,
+  MANAGED_EVENTS_LIMIT,
+  OUTBOUND_READ_LIMIT,
+  SUBMISSION_SLIDE_LIMIT,
+  TEAM_LIST_LIMIT,
+} from './repository';
 import { DEMO_POSTER_SIZE, DEMO_SCENE_SIZE, demoPosterPng, demoReceiptPng, demoScenePng } from './demo-media';
 import type {
   DeleteAccountInput,
@@ -492,6 +500,10 @@ interface PhotoEntry extends EventPhoto {
   key: string;
 }
 
+interface SubmissionPhotoEntry extends SubmissionPhoto {
+  readonly key: string;
+}
+
 /**
  * Batas byte berkas di memori proses demo (foto + bukti bayar). Data demo
  * dibagi semua pengunjung dan baru dibuang saat reset 6 jam — tanpa batas,
@@ -589,6 +601,8 @@ export class MemoryEventRepository implements EventRepository {
   /** Foto profil & banner (ADR-083) — kolom `users.avatar_id/banner_id/banner_preset` di produksi. */
   /** Poster lampiran kiriman yang belum diputuskan (ADR-084); kunci = id kiriman. */
   private readonly submissionPosters = new Map<string, { readonly key: string; readonly width: number; readonly height: number }>();
+  /** Cermin `ugc_submission_photos` (ADR-094): gambar pendukung kiriman, urut pilihan pengirim. */
+  private readonly submissionPhotos = new Map<string, readonly SubmissionPhotoEntry[]>();
   private readonly profileMedia = new Map<string, ProfileMedia>(SEED_PROFILE_MEDIA);
   /** Cermin tabel komunitas (ADR-087). */
   private readonly communityPosts = new Map<string, MemoryCommunityPost>();
@@ -664,7 +678,7 @@ export class MemoryEventRepository implements EventRepository {
         const key = `photo/${event.id}/${id}.png`;
         this.storeMedia(key, { bytes, contentType: 'image/png' });
         const createdAt = new Date(base.getTime() - (order * 60 + minutesAgo) * 60_000).toISOString();
-        this.photos.set(id, { id, key, eventId: event.id, ...size, caption, createdAt, isPoster });
+        this.photos.set(id, { id, key, eventId: event.id, ...size, caption, createdAt, isPoster, sortOrder: this.nextPhotoOrder(event.id) });
       };
       add(demoPosterPng(palette), DEMO_POSTER_SIZE, 'Poster contoh (data demo)', true, 30);
       for (let scene = 0; scene < scenes; scene += 1) add(demoScenePng(palette + scene), DEMO_SCENE_SIZE, 'Suasana edisi sebelumnya (data demo)', false, scene);
@@ -965,7 +979,7 @@ export class MemoryEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, submittedBy, payload, poster, submitterIsAdmin = false }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
+  async createSubmission({ submittedByEmail, submittedBy, payload, poster, slides = [], submitterIsAdmin = false }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
     if (isSubmissionRateLimited([...this.submissions.values()], submittedByEmail)) {
       throw actionError('submission_rate_limited');
     }
@@ -980,6 +994,20 @@ export class MemoryEventRepository implements EventRepository {
       this.storeMedia(key, { bytes: attached.bytes, contentType: attached.type });
       this.submissionPosters.set(id, { key, width: attached.width, height: attached.height });
     }
+    // Cermin ugc_submission_photos: sama dengan poster, hanya pengirim yang masuk; ruang demo habis = dilewati.
+    const slideBytes = slides.reduce((sum, slide) => sum + slide.image.bytes.length, 0);
+    const keptSlides = submittedBy && this.hasMediaRoom(slideBytes) ? slides.slice(0, SUBMISSION_SLIDE_LIMIT) : [];
+    if (keptSlides.length > 0) {
+      this.submissionPhotos.set(
+        id,
+        keptSlides.map((slide) => {
+          const photoId = this.nextId();
+          const key = `kiriman/${id}/${photoId}.${IMAGE_EXTENSION[slide.image.type]}`;
+          this.storeMedia(key, { bytes: slide.image.bytes, contentType: slide.image.type });
+          return { id: photoId, key, width: slide.image.width, height: slide.image.height, caption: slide.caption };
+        }),
+      );
+    }
     this.submissions.set(id, {
       id,
       submittedByEmail,
@@ -990,7 +1018,16 @@ export class MemoryEventRepository implements EventRepository {
       rejectionReason: null,
       poster: attached ? { width: attached.width, height: attached.height } : null,
     });
-    return { posterAttached: attached !== null };
+    return { posterAttached: attached !== null, slidesAttached: keptSlides.length };
+  }
+
+  /** Cermin `submission_photo_file()`: moderator atau pengirimnya, dan gambarnya memang milik kiriman itu. */
+  async getSubmissionPhotoFile(viewer: MediaViewer | null, submissionId: string, photoId: string): Promise<StoredFile | null> {
+    const submission = this.submissions.get(submissionId);
+    const photo = this.submissionPhotos.get(submissionId)?.find((entry) => entry.id === photoId);
+    if (!viewer || !submission || !photo) return null;
+    if (!viewer.isAdmin && submission.submittedBy !== viewer.id) return null;
+    return this.media.get(photo.key) ?? null;
   }
 
   /** Cermin `submission_poster_file()`: moderator atau pengirimnya sendiri. */
@@ -1006,7 +1043,11 @@ export class MemoryEventRepository implements EventRepository {
     return [...this.submissions.values()]
       .filter((submission) => submission.status === status)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-      .slice(0, limit);
+      .slice(0, limit)
+      .map((submission) => {
+        const photos = this.submissionPhotos.get(submission.id);
+        return photos ? { ...submission, photos: photos.map(({ key: _key, ...photo }) => photo) } : submission;
+      });
   }
 
   async listMySubmissions(userId: string, limit: number): Promise<readonly Submission[]> {
@@ -1121,14 +1162,30 @@ export class MemoryEventRepository implements EventRepository {
       const poster = this.submissionPosters.get(submissionId);
       if (poster) {
         const photoId = this.nextId();
-        this.photos.set(photoId, { id: photoId, key: poster.key, eventId: id, width: poster.width, height: poster.height, caption: null, createdAt: new Date().toISOString(), isPoster: true });
+        this.photos.set(photoId, { id: photoId, key: poster.key, eventId: id, width: poster.width, height: poster.height, caption: null, createdAt: new Date().toISOString(), isPoster: true, sortOrder: 0 });
         this.syncPoster(id);
       }
+      // Cermin approve_submission() (20261120100001): gambar pendukung jadi slide, urutan pengirim, sesudah poster.
+      (this.submissionPhotos.get(submissionId) ?? []).forEach((photo, index) => {
+        this.photos.set(photo.id, {
+          id: photo.id,
+          key: photo.key,
+          eventId: id,
+          width: photo.width,
+          height: photo.height,
+          caption: photo.caption,
+          createdAt: new Date().toISOString(),
+          isPoster: false,
+          sortOrder: index + 1,
+        });
+      });
     } else {
-      // Cermin take_submission_poster(): kiriman yang ditolak tidak menyimpan berkasnya.
+      // Cermin take_submission_poster() & take_submission_photos(): kiriman yang ditolak tidak menyimpan berkasnya.
       this.dropMedia(this.submissionPosters.get(submissionId)?.key ?? null);
+      for (const photo of this.submissionPhotos.get(submissionId) ?? []) this.dropMedia(photo.key);
     }
     this.submissionPosters.delete(submissionId);
+    this.submissionPhotos.delete(submissionId);
 
     const rejectionReason = decision === 'REJECTED' ? reason?.trim() || null : null;
     this.submissions.set(submissionId, { ...submission, status: decision, rejectionReason, poster: null });
@@ -3137,7 +3194,7 @@ export class MemoryEventRepository implements EventRepository {
     eventId: string,
     images: readonly UploadedImage[],
     caption: string | null,
-    options?: { readonly asPoster?: boolean },
+    options?: { readonly asPoster?: boolean; readonly captions?: readonly (string | null)[] },
   ): Promise<number> {
     if (!this.findEvent(eventId) || !this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
     const existing = [...this.photos.values()].filter((photo) => photo.eventId === eventId).length;
@@ -3149,7 +3206,17 @@ export class MemoryEventRepository implements EventRepository {
       this.storeMedia(key, { bytes: image.bytes, contentType: image.type });
       // Selisih milidetik menjaga urutan unggah dalam satu kiriman.
       const createdAt = new Date(Date.now() + index).toISOString();
-      this.photos.set(id, { id, key, eventId, width: image.width, height: image.height, caption, createdAt, isPoster: false });
+      this.photos.set(id, {
+        id,
+        key,
+        eventId,
+        width: image.width,
+        height: image.height,
+        caption: options?.captions?.[index] || caption,
+        createdAt,
+        isPoster: false,
+        sortOrder: this.nextPhotoOrder(eventId),
+      });
       return id;
     });
     if (options?.asPoster && ids[0]) this.markPoster(eventId, ids[0], true);
@@ -3162,6 +3229,42 @@ export class MemoryEventRepository implements EventRepository {
     this.photos.delete(photoId);
     this.dropMedia(photo.key);
     if (photo.isPoster) this.syncPoster(photo.eventId);
+  }
+
+  /** Cermin `reorder_event_photos()`: id asing & ganda diabaikan, yang tidak disebut tetap di belakang. */
+  async reorderEventPhotos(actor: EventActor, eventId: string, photoIds: readonly string[]): Promise<void> {
+    if (!this.findEvent(eventId) || !this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
+    const wanted = new Map<string, number>();
+    photoIds.forEach((photoId, index) => {
+      if (!wanted.has(photoId)) wanted.set(photoId, index);
+    });
+    const rank = (photo: PhotoEntry) => wanted.get(photo.id) ?? Number.POSITIVE_INFINITY;
+    const current = sortPhotosPosterFirst([...this.photos.values()].filter((photo) => photo.eventId === eventId).map((photo) => ({ ...photo, isPoster: false })));
+    const position = new Map(current.map((photo, index) => [photo.id, index]));
+    [...current]
+      .sort((a, b) => rank(a) - rank(b) || (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0))
+      .forEach((photo, index) => {
+        const stored = this.photos.get(photo.id);
+        if (stored) this.photos.set(photo.id, { ...stored, sortOrder: index });
+      });
+  }
+
+  /** Cermin `set_event_photo_caption()`. */
+  async setEventPhotoCaption(actor: EventActor, photoId: string, caption: string | null): Promise<void> {
+    const photo = this.photos.get(photoId);
+    if (!photo || !this.canManageEvent(actor, photo.eventId)) throw actionError('photo_not_found');
+    const next = (caption ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim() || null;
+    if (next !== null && next.length > GALLERY_LIMITS.captionMax) throw actionError('invalid_caption');
+    this.photos.set(photoId, { ...photo, caption: next });
+  }
+
+  /** Cermin pemicu sisip (20261120100001): unggahan baru masuk di belakang. */
+  private nextPhotoOrder(eventId: string): number {
+    let max = -1;
+    for (const photo of this.photos.values()) {
+      if (photo.eventId === eventId && typeof photo.sortOrder === 'number') max = Math.max(max, photo.sortOrder);
+    }
+    return max + 1;
   }
 
   async setEventPoster(actor: EventActor, photoId: string, isPoster: boolean): Promise<void> {

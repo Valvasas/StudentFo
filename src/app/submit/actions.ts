@@ -9,7 +9,9 @@ import { withFallback } from '@/lib/fallback';
 import { formText } from '@/lib/form-data';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { currentClientIp, isRateLimited, passesCaptcha } from '@/lib/rate-limit-server';
-import { readImageUpload, type UploadedImage } from '@/lib/image-file';
+import { formFiles, readImageUpload, type UploadedImage } from '@/lib/image-file';
+import { SUBMISSION_SLIDE_LIMIT, type SubmissionSlide } from '@/lib/data/repository';
+import { readSlideCaptions, SLIDE_CAPTION_FIELD, SLIDE_FILE_FIELD } from '@/lib/slides';
 import { isLikelyBot, parseSubmissionForm, SUBMISSION_POSTER_FIELD } from '@/lib/submission-schema';
 
 /**
@@ -77,10 +79,23 @@ export async function submitEventAction(formData: FormData): Promise<void> {
     poster = upload.image;
   }
 
+  // Gambar pendukung / slide (ADR-094): aturan sama dengan poster.
+  const slides: SubmissionSlide[] = [];
+  if (user) {
+    const slideFiles = formFiles(formData, SLIDE_FILE_FIELD);
+    if (slideFiles.length > SUBMISSION_SLIDE_LIMIT) redirect(`/submit?error=too_many_slides&fields=slides`);
+    const captions = readSlideCaptions(formData, SLIDE_CAPTION_FIELD, slideFiles.length);
+    for (const [index, file] of slideFiles.entries()) {
+      const upload = await readImageUpload(file);
+      if (!upload.ok) redirect(`/submit?error=${upload.error}&fields=slides`);
+      slides.push({ image: upload.image, caption: captions[index] ?? null });
+    }
+  }
+
   const { submittedByEmail, ...fields } = parsed.data;
   const payload = hostsForm ? { ...fields, registrationMode: 'studentfo' as const } : fields;
   let failure: ActionErrorCode | null = null;
-  let posterSkipped = false;
+  let notice: 'submission_received' | 'submission_received_poster_skipped' | 'submission_received_slides_skipped' = 'submission_received';
   try {
     const repository = await getEventRepository();
     const result = await repository.createSubmission({
@@ -88,13 +103,15 @@ export async function submitEventAction(formData: FormData): Promise<void> {
       submittedBy: user?.id ?? null,
       payload,
       poster,
+      slides,
       submitterIsAdmin: user?.role === 'ADMIN',
     });
-    posterSkipped = poster !== null && !result.posterAttached;
+    if (poster !== null && !result.posterAttached) notice = 'submission_received_poster_skipped';
+    else if (result.slidesAttached < slides.length) notice = 'submission_received_slides_skipped';
   } catch (error) {
     failure = toActionErrorCode(error);
   }
 
   if (failure) redirect(`/submit?error=${failure}`);
-  redirect(`/submit?notice=${posterSkipped ? 'submission_received_poster_skipped' : 'submission_received'}`);
+  redirect(`/submit?notice=${notice}`);
 }

@@ -24,6 +24,9 @@ import { env } from '@/lib/env';
 import type { RawSearchParams } from '@/lib/search-params';
 import { NONCE_HEADER } from '@/lib/security-headers';
 import { HONEYPOT_FIELD, SUBMISSION_POSTER_FIELD } from '@/lib/submission-schema';
+import { SUBMISSION_SLIDE_LIMIT } from '@/lib/data/repository';
+import { SLIDE_CAPTION_FIELD, SLIDE_FILE_FIELD } from '@/lib/slides';
+import { SlideIdeas } from '@/components/submit/slide-ideas';
 import {
   DEADLINE_LABEL_TEXT,
   EDUCATION_LEVEL_LABEL,
@@ -60,14 +63,16 @@ const FIELD_LABEL: Record<string, string> = {
   guidebookUrl: 'Buku panduan',
   videoUrl: 'Video',
   poster: 'Poster',
+  slides: 'Gambar pendukung',
   organizerContact: 'Kontak panitia',
   proofLink: 'Bukti kepanitiaan',
   stages: 'Tahapan jadwal',
 };
 
-const OPTIONAL_DETAIL_LABELS = new Set(
-  ['stages', 'guidebookUrl', 'description', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]),
-);
+const OPTIONAL_DETAIL_LABELS = new Set(['stages', 'guidebookUrl', 'organizerContact', 'proofLink'].map((name) => FIELD_LABEL[name]));
+
+/** Peta langkah di atas form: form ±20 kolom terasa jauh lebih pendek bila ujungnya terlihat dari awal. */
+const STEP_INDEX = ['Tentang kegiatan', 'Waktu & tempat', 'Siapa yang bisa ikut', 'Media', 'Kirim'] as const;
 
 /**
  * Isian yang dipulihkan bila server menolak kiriman (`FieldMemory`): form ini
@@ -190,11 +195,24 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
         <p className="mt-2 text-sm text-danger">Periksa kolom: {invalidFields.join(', ')}.</p>
       )}
 
-      {mySubmissions.length > 0 && (
-        <div className="mt-8">
-          <MySubmissions submissions={mySubmissions} />
-        </div>
-      )}
+      <nav aria-label="Langkah mengirim kegiatan" className="mt-6">
+        <ol className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[13px] text-ink-muted">
+          {STEP_INDEX.map((step, index) => (
+            <li key={step} className="flex items-center gap-1">
+              {index > 0 && <span aria-hidden className="px-0.5 text-ink-faint">›</span>}
+              <a
+                href={`#langkah-${index + 1}`}
+                className="flex min-h-11 items-center gap-1.5 rounded-sm px-1.5 font-medium hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+              >
+                <span aria-hidden className="flex size-5 items-center justify-center rounded-pill bg-panel-nested text-[11.5px] font-semibold text-ink-soft">
+                  {index + 1}
+                </span>
+                {step}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
 
       <form action={submitEventAction} className="mt-8 flex flex-col gap-4">
         <UnsavedChangesGuard />
@@ -271,6 +289,17 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             hint="Poster, unggahan media sosial, atau halaman resmi. Mempercepat verifikasi."
           >
             <TextInput id="sourceUrl" name="sourceUrl" type="url" maxLength={2000} placeholder="https://" />
+          </Field>
+
+          {/* Di luar lipatan "detail tambahan": syarat & hadiah adalah hal pertama yang dicari peserta. */}
+          <Field id="description" label="Deskripsi (opsional, sangat disarankan)" hint="Tema, syarat, hadiah, dan cara penilaian. Maks. 5000 karakter.">
+            <TextArea
+              id="description"
+              name="description"
+              rows={6}
+              maxLength={5000}
+              placeholder={'Mis.\nTema: Inovasi energi bersih\nPeserta: tim 2–3 mahasiswa D3/S1\nHadiah: total Rp15 juta + sertifikat\nPenilaian: orisinalitas 40%, dampak 30%, presentasi 30%'}
+            />
           </Field>
         </FormStep>
 
@@ -355,17 +384,29 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             Kolom berkas hanya untuk yang masuk — tamu tidak menitipkan berkas. */}
         <FormStep number={4} title="Media kegiatan" hint="Opsional, tapi kegiatan bergambar jauh lebih cepat dipahami peserta.">
           {user ? (
-            <ImageUploadField
-              id="poster"
-              name={SUBMISSION_POSTER_FIELD}
-              label="Poster (opsional)"
-              hint="Satu gambar, tegak (sekitar 4:5) paling pas. Maks. 5 MB — diperkecil otomatis sebelum dikirim. Setelah disetujui tampil sebagai slide pertama di halaman kegiatan dan gambar kecil di kartunya."
-            />
+            <>
+              <ImageUploadField
+                id="poster"
+                name={SUBMISSION_POSTER_FIELD}
+                label="Poster (opsional)"
+                hint="Satu gambar, tegak (sekitar 4:5) paling pas. Maks. 5 MB — diperkecil otomatis sebelum dikirim. Setelah disetujui tampil sebagai slide pertama di halaman kegiatan dan gambar kecil di kartunya."
+              />
+              <ImageUploadField
+                id="slides"
+                name={SLIDE_FILE_FIELD}
+                label={`Gambar pendukung / slide (opsional, maks. ${SUBMISSION_SLIDE_LIMIT})`}
+                hint="Tampil sesudah poster sebagai slide, persis dalam urutan ini. Susun dengan tombol panah & beri keterangan singkat tiap gambar."
+                multiple
+                maxFiles={SUBMISSION_SLIDE_LIMIT}
+                captionName={SLIDE_CAPTION_FIELD}
+              />
+              <SlideIdeas />
+            </>
           ) : (
             <div className="flex items-start gap-3 rounded-card border border-dashed border-line-strong/70 bg-panel-nested px-4 py-3.5 text-sm">
               <ImagePlus aria-hidden className="mt-0.5 size-5 shrink-0 text-ink-muted" />
               <p className="text-ink-soft">
-                <span className="font-semibold text-ink">Poster</span> hanya bisa dilampirkan dari akun.{' '}
+                <span className="font-semibold text-ink">Poster & slide</span> hanya bisa dilampirkan dari akun.{' '}
                 <Link href="/login?next=%2Fsubmit" className="font-medium text-ink underline underline-offset-[3px]">
                   Masuk
                 </Link>{' '}
@@ -404,7 +445,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
             </span>
             <span className="flex flex-1 flex-col">
               <span className="text-[15px] font-semibold">Detail tambahan (opsional)</span>
-              <span className="text-[12.5px] text-ink-muted">Tahapan jadwal, buku panduan, deskripsi, kontak panitia</span>
+              <span className="text-[12.5px] text-ink-muted">Tahapan jadwal, buku panduan, kontak panitia</span>
             </span>
             <ChevronDown aria-hidden className="size-4 shrink-0 text-ink-muted transition-transform duration-150 ease-snap group-open/opsional:rotate-180" />
           </summary>
@@ -433,9 +474,6 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
               <TextInput id="guidebookUrl" name="guidebookUrl" inputMode="url" maxLength={2000} placeholder="https://" />
             </Field>
 
-            <Field id="description" label="Deskripsi (opsional)" hint="Syarat, hadiah, dan hal penting lain. Maksimal 5000 karakter.">
-              <TextArea id="description" name="description" rows={6} maxLength={5000} />
-            </Field>
 
             {/* Bahan verifikasi — tidak pernah disalin ke halaman publik
                 (approve_submission tidak menyalinnya). */}
@@ -492,6 +530,13 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           </div>
         </FormStep>
       </form>
+
+      {/* Sesudah form: status kiriman lama berguna, tapi tidak boleh mendorong form baru ke bawah layar. */}
+      {mySubmissions.length > 0 && (
+        <div className="mt-10">
+          <MySubmissions submissions={mySubmissions} />
+        </div>
+      )}
     </div>
   );
 }

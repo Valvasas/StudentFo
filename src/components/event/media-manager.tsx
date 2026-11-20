@@ -1,6 +1,13 @@
 import Image from 'next/image';
-import { Film, Images, ShieldAlert, Star, StarOff, Trash2 } from 'lucide-react';
-import { deletePhotoAction, saveVideoAction, setPosterAction, uploadPhotosAction } from '@/app/penyelenggara/acara/[id]/galeri/actions';
+import { ArrowLeft, ArrowRight, Film, Images, PencilLine, ShieldAlert, Star, StarOff, Trash2 } from 'lucide-react';
+import {
+  deletePhotoAction,
+  movePhotoAction,
+  saveCaptionAction,
+  saveVideoAction,
+  setPosterAction,
+  uploadPhotosAction,
+} from '@/app/penyelenggara/acara/[id]/galeri/actions';
 import { EventMedia } from '@/components/event/event-media';
 import { photoAlt, photoSrc } from '@/components/event/event-photo';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +56,7 @@ export function MediaManager({
   const remaining = Math.max(0, GALLERY_LIMITS.perEvent - photos.length);
   const hasPoster = photos.some((photo) => photo.isPoster);
   const hasMedia = photos.length > 0 || Boolean(parseVideo(event.videoUrl));
+  const slides = photos.filter((photo) => !photo.isPoster);
 
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10">
@@ -61,26 +69,34 @@ export function MediaManager({
         <section aria-labelledby="foto-galeri" className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <h2 id="foto-galeri" className="text-lg font-semibold">
-              Poster & foto
+              Poster & slide
             </h2>
             <p className="max-w-prose text-sm text-ink-muted">
               {hasPoster
-                ? 'Poster tampil pertama di slide halaman acara, sebagai gambar kecil di kartu kegiatan, dan saat tautan acara dibagikan.'
+                ? 'Poster tampil pertama di slide halaman acara, sebagai gambar kecil di kartu kegiatan, dan saat tautan acara dibagikan. Slide lain tampil sesudahnya, persis dalam urutan di bawah.'
                 : 'Belum ada poster. Pilih satu foto sebagai poster — atau centang “jadikan poster” saat mengunggah — supaya acara ini punya wajah di daftar kegiatan.'}
             </p>
           </div>
           {photos.length === 0 ? (
             <div className="flex flex-col items-center gap-2 rounded-panel border border-dashed border-line bg-panel px-6 py-12 text-center">
               <Images aria-hidden className="size-8 text-ink-faint" />
-              <p className="font-semibold">Belum ada foto</p>
+              <p className="font-semibold">Belum ada gambar</p>
               <p className="max-w-sm text-sm text-ink-muted">
-                Poster resmi, foto edisi sebelumnya, atau suasana acara membantu calon peserta tahu gambarannya dan percaya acaramu benar-benar ada.
+                Poster resmi, lalu slide penjelas — alur lomba, hadiah, juri, linimasa, contoh karya — membantu calon peserta paham tanpa membuka buku panduan.
               </p>
             </div>
           ) : (
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
               {photos.map((photo, index) => (
-                <PhotoCard key={photo.id} photo={photo} position={index + 1} eventTitle={event.title} target={target} />
+                <PhotoCard
+                  key={photo.id}
+                  photo={photo}
+                  position={index + 1}
+                  eventTitle={event.title}
+                  target={target}
+                  slideIndex={photo.isPoster ? null : slides.indexOf(photo)}
+                  slideCount={slides.length}
+                />
               ))}
             </ul>
           )}
@@ -107,7 +123,7 @@ function UploadCard({ target, used, remaining, hasPoster }: { target: Target; us
     <section aria-labelledby="tambah-foto" className="flex flex-col gap-5 rounded-panel border border-line bg-panel p-5 sm:p-6">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="tambah-foto" className="text-lg font-semibold">
-          Tambah poster atau foto
+          Tambah poster atau slide
         </h2>
         <p className="text-sm tabular-nums text-ink-muted">
           <span className="font-semibold text-ink">{used}</span> / {GALLERY_LIMITS.perEvent}
@@ -122,10 +138,12 @@ function UploadCard({ target, used, remaining, hasPoster }: { target: Target; us
             id="photos"
             name="photos"
             label="Gambar"
-            hint={`Maks. ${perUpload} gambar sekali unggah, masing-masing hingga 5 MB. Poster tegak (4:5) tampil paling baik.`}
+            hint={`Maks. ${perUpload} gambar sekali unggah, masing-masing hingga 5 MB. Susun urutannya & beri keterangan sebelum mengunggah — keterangan tampil di bawah slide.`}
             multiple
             maxFiles={perUpload}
             required
+            captionName="photoCaption"
+            captionMax={GALLERY_LIMITS.captionMax}
           />
           <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1 text-sm leading-snug text-ink-soft">
             <input type="checkbox" name="asPoster" defaultChecked={!hasPoster} className="check mt-px" />
@@ -134,9 +152,6 @@ function UploadCard({ target, used, remaining, hasPoster }: { target: Target; us
               {hasPoster && <span className="block text-[12.5px] text-ink-muted">Poster yang sekarang akan diganti.</span>}
             </span>
           </label>
-          <Field id="caption" label="Keterangan (opsional)" hint="Berlaku untuk semua gambar di unggahan ini.">
-            <TextInput id="caption" name="caption" maxLength={GALLERY_LIMITS.captionMax} placeholder="mis. Babak final 2025" />
-          </Field>
           <p className="flex items-start gap-2 text-[12.5px] leading-snug text-ink-muted">
             <ShieldAlert aria-hidden className="mt-px size-4 shrink-0" />
             Jangan unggah gambar yang memuat data pribadi (KTP, nomor HP pribadi, alamat rumah) atau foto anak tanpa izin orang tuanya.
@@ -192,8 +207,23 @@ function VideoCard({ target, videoUrl }: { target: Target; videoUrl: string | nu
   );
 }
 
-function PhotoCard({ photo, position, eventTitle, target }: { photo: EventPhoto; position: number; eventTitle: string; target: Target }) {
-  const name = photo.isPoster ? 'poster' : `foto ke-${position}`;
+function PhotoCard({
+  photo,
+  position,
+  eventTitle,
+  target,
+  slideIndex,
+  slideCount,
+}: {
+  photo: EventPhoto;
+  position: number;
+  eventTitle: string;
+  target: Target;
+  /** Posisi di antara slide non-poster; null = poster (selalu pertama). */
+  slideIndex: number | null;
+  slideCount: number;
+}) {
+  const name = photo.isPoster ? 'poster' : `slide ke-${position}`;
   return (
     <li className={cn('flex min-w-0 flex-col overflow-hidden rounded-card border bg-panel', photo.isPoster ? 'border-ink' : 'border-line')}>
       <div className="relative aspect-[4/5] bg-panel-nested">
@@ -205,14 +235,46 @@ function PhotoCard({ photo, position, eventTitle, target }: { photo: EventPhoto;
           sizes="(min-width: 1280px) 200px, (min-width: 1024px) 26vw, (min-width: 640px) 33vw, 50vw"
           className="absolute inset-0 size-full object-contain"
         />
-        {photo.isPoster && (
-          <Badge variant="neutral" className="absolute left-2 top-2 bg-panel/90 text-ink shadow-sm">
-            Poster
-          </Badge>
-        )}
+        <Badge variant="neutral" className="absolute left-2 top-2 bg-panel/90 text-ink shadow-sm">
+          {photo.isPoster ? 'Poster' : `Slide ${position}`}
+        </Badge>
       </div>
       <div className="flex flex-1 flex-col gap-1 px-2.5 pb-1 pt-2">
-        {photo.caption && <p className="line-clamp-2 text-[13px] leading-snug text-ink-soft">{photo.caption}</p>}
+        {photo.caption ? (
+          <p className="line-clamp-2 text-[13px] leading-snug text-ink-soft [overflow-wrap:anywhere]">{photo.caption}</p>
+        ) : (
+          <p className="text-[12.5px] italic text-ink-muted">Tanpa keterangan</p>
+        )}
+        {slideIndex !== null && slideCount > 1 && (
+          <div className="flex items-center gap-1" role="group" aria-label={`Urutan ${name}`}>
+            <MoveForm target={target} photoId={photo.id} direction="earlier" disabled={slideIndex === 0} label={`Geser ${name} ke depan`} />
+            <MoveForm target={target} photoId={photo.id} direction="later" disabled={slideIndex === slideCount - 1} label={`Geser ${name} ke belakang`} />
+          </div>
+        )}
+        <details className="group/caption">
+          <summary
+            aria-label={`Ubah keterangan ${name}`}
+            className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-1.5 rounded-sm px-1 text-[13px] font-medium text-ink-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden"
+          >
+            <PencilLine aria-hidden className="size-4" /> Keterangan
+          </summary>
+          <form action={saveCaptionAction} className="pop flex flex-col gap-2 pb-2">
+            <TargetFields {...target} />
+            <input type="hidden" name="photoId" value={photo.id} />
+            <Field id={`caption-${photo.id}`} label="Keterangan" hint="Kosongkan untuk menghapus.">
+              <TextInput
+                id={`caption-${photo.id}`}
+                name="caption"
+                maxLength={GALLERY_LIMITS.captionMax}
+                defaultValue={photo.caption ?? ''}
+                placeholder="mis. Alur lomba"
+              />
+            </Field>
+            <SubmitButton className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'w-full')} pendingLabel="Menyimpan…">
+              Simpan keterangan
+            </SubmitButton>
+          </form>
+        </details>
         <form action={setPosterAction} className="mt-auto">
           <TargetFields {...target} />
           <input type="hidden" name="photoId" value={photo.id} />
@@ -248,5 +310,35 @@ function PhotoCard({ photo, position, eventTitle, target }: { photo: EventPhoto;
         </details>
       </div>
     </li>
+  );
+}
+
+function MoveForm({
+  target,
+  photoId,
+  direction,
+  disabled,
+  label,
+}: {
+  target: Target;
+  photoId: string;
+  direction: 'earlier' | 'later';
+  disabled: boolean;
+  label: string;
+}) {
+  const Icon = direction === 'earlier' ? ArrowLeft : ArrowRight;
+  return (
+    <form action={movePhotoAction}>
+      <TargetFields {...target} />
+      <input type="hidden" name="photoId" value={photoId} />
+      <input type="hidden" name="direction" value={direction} />
+      <SubmitButton
+        disabled={disabled}
+        aria-label={label}
+        className="flex size-11 items-center justify-center rounded-sm text-ink-soft hover:bg-panel-nested hover:text-ink disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      >
+        <Icon aria-hidden className="size-4" />
+      </SubmitButton>
+    </form>
   );
 }

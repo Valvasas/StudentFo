@@ -72,7 +72,9 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               disimpan di akunmu sebagai draf sampai pengajuannya kamu kirim dari studio.
             </li>
             <li>
-              <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru.
+              <strong>Kiriman kegiatan:</strong> email pengirim dan isi formulir saat kamu mengusulkan kegiatan baru, serta poster dan gambar
+              pendukung (slide) beserta keterangannya bila kamu melampirkannya dari akun. Gambar itu hanya dilihat moderator dan kamu sampai
+              kirimannya disetujui (lalu tampil publik di halaman kegiatan); bila ditolak, berkasnya dihapus.
             </li>
             <li>
               <strong>Username, bio & pilihan siapa yang boleh membuka profilmu:</strong> bawaannya semua anggota yang sudah masuk boleh

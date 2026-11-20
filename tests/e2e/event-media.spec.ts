@@ -79,7 +79,7 @@ test('studio: unggah poster, pasang video, lalu tampil di halaman publik', async
   test.skip(testInfo.project.name !== 'terang', 'mengubah data demo bersama');
   const gallery = `/penyelenggara/acara/${PAID_DEMO_EVENT.id}/galeri`;
   await signInAsDemo(page, 'Penyelenggara', gallery);
-  await expect(page.getByRole('heading', { name: 'Poster & foto' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Poster & slide' })).toBeVisible();
 
   const asPoster = page.getByRole('checkbox', { name: /Jadikan gambar pertama sebagai poster/ });
   await expect(asPoster).toBeChecked();
@@ -119,6 +119,6 @@ test('admin: acara tanpa pengelola bisa diberi poster & video dari Lencana & pro
   await page.getByRole('link', { name: /^Pasang poster & video untuk Program Magang Analis Data/ }).click();
   await expect(page).toHaveURL(/\/admin\/media\/program-magang-analis-data-kuartal-ii$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Poster & video' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Tambah poster atau foto' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tambah poster atau slide' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Video', exact: true })).toBeVisible();
 });

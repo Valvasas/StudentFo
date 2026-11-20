@@ -27,9 +27,9 @@ import { daysLeftLabel, daysUntil } from '@/lib/deadline';
 import { withFallback } from '@/lib/fallback';
 import { LOBBY_LIMITS } from '@/lib/lobby';
 import { sectionTitle } from '@/lib/page-title';
-import type { RawSearchParams } from '@/lib/search-params';
+import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { presentStudyProfile, type StudyPlaceView } from '@/lib/study-profile';
-import { LOBBY_INTENT_LABEL, LOBBY_INTENTS, type LobbyMember, type LobbyView, type PublicProfileDetails } from '@/types/domain';
+import { LOBBY_INTENT_LABEL, LOBBY_INTENTS, type LobbyIntent, type LobbyMember, type LobbyView, type PublicProfileDetails } from '@/types/domain';
 import { inviteToLobbyAction, joinLobbyAction, leaveLobbyAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -65,8 +65,10 @@ function Panel({ id, title, icon, hint, children }: { id: string; title: string;
   );
 }
 
-function LobbyCardForm({ lobby, slug }: { lobby: LobbyView; slug: string }) {
+function LobbyCardForm({ lobby, slug, suggested }: { lobby: LobbyView; slug: string; suggested: LobbyIntent | null }) {
   const me = lobby.me;
+  // `?niat=` dari jawaban "Status tim" (ADR-094) hanya mengisi pilihan awal — kartu yang sudah ada tidak ditimpa.
+  const initial = me?.intent ?? suggested;
   return (
     <form action={joinLobbyAction} className="flex flex-col gap-4">
       <input type="hidden" name="slug" value={slug} />
@@ -74,7 +76,7 @@ function LobbyCardForm({ lobby, slug }: { lobby: LobbyView; slug: string }) {
         <div className="flex flex-col gap-2">
           {LOBBY_INTENTS.map((intent) => (
             <label key={intent} className="choice items-start">
-              <input type="radio" name="intent" value={intent} required defaultChecked={me?.intent === intent} className="check mt-0.5" />
+              <input type="radio" name="intent" value={intent} required defaultChecked={initial === intent} className="check mt-0.5" />
               <span className="flex flex-col gap-0.5">
                 <span className="font-semibold">{LOBBY_INTENT_LABEL[intent]}</span>
                 <span className="text-[12.5px] font-normal text-ink-muted">{INTENT_HINT[intent]}</span>
@@ -155,6 +157,8 @@ function MemberRow({
  */
 export default async function LobbyPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<RawSearchParams> }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
+  const niat = firstParam(query.niat);
+  const suggestedIntent = LOBBY_INTENTS.find((intent) => intent === niat) ?? null;
   const self = `/lobi/${slug}`;
   const user = await requireUser(self);
   const repository = await getEventRepository();
@@ -252,7 +256,7 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
                 icon={<DoorOpen className="size-4" />}
                 hint="Peserta lain yang SUDAH masuk lobi ini melihat namamu, status, dan catatanmu — bukan email. Kamu bisa keluar kapan saja."
               >
-                <LobbyCardForm lobby={lobby} slug={event.slug} />
+                <LobbyCardForm lobby={lobby} slug={event.slug} suggested={suggestedIntent} />
                 {lobby.me && (
                   <form action={leaveLobbyAction} className="border-t border-line pt-4">
                     <input type="hidden" name="slug" value={event.slug} />

@@ -77,11 +77,18 @@ yang tidak memuat migration yang sudah ada di produksi
 | Beranda admin | + "Buat acara StudentFo" & "Cek pengiriman email" (SMTP gagal terlihat admin) (ADR-093) | SMTP gagal hanya di log Supabase | — |
 | "Lagi ramai" | Pengunjung anonim dijepit 20/hari/acara + maks 30 tampilan/hari per IP per acara (ADR-093) | Pengunjung tanpa batas (bisa didongkrak bot) | `popularity.test.ts` (kunci SQL), `event-views.test.ts`, `120_trend_hardening.test.sql` |
 | Angka suka/komentar di halaman kegiatan | Disembunyikan selama 0 (aria-label tetap) | "Suka 0 · Komentar 0" | `event-engagement.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–093 | Nomor ganda 061/062 | — |
+| Slide penjelas | Poster + **slide berketerangan** saat `/submit` (maks. 5, `ugc_submission_photos`) & "Buat acara StudentFo"; urutan `event_photos.sort_order` (poster tetap pertama, unggahan baru di belakang), geser & ubah keterangan per slide di studio/admin; keterangan slide aktif tampil di bawah slider (ADR-094) | Hanya poster saat kirim/buat; galeri "terbaru dulu" (slide sekaligus tampil terbalik), satu keterangan untuk semua gambar sekali unggah | `122_event_slides.test.sql`, `event-slides.test.ts`, `form-assist.spec.ts`, `event-media.spec.ts` |
+| Penyusun formulir | Seret pegangan ⠿ + panah keyboard + "Urutan N dari M", urutkan pilihan (Alt+↑/↓, A–Z), "Lainnya: …", **Tambah cepat**, **Pratinjau**, salin dari acara lain, checklist "Siap dibuka?" (ADR-094) | Tombol naik/turun saja, tersembunyi di ponsel | `form-assist.test.ts`, `form-assist.spec.ts`, `organizer.spec.ts`, `event-engagement.spec.ts` |
+| Status tim | Jenis `team_status` (pilihan tetap `TEAM_STATUSES`) di templat Lomba tim + Tambah cepat; "belum punya tim" → tawaran partner di formulir, halaman pendaftaran, halaman acara; lobi `?niat=` (ADR-094) | "Nama tim" wajib; pendaftar tanpa tim tidak diarahkan ke mana pun | `form-assist.test.ts`, `form-assist.spec.ts` |
+| Mengisi formulir StudentFo | Progres pertanyaan wajib, draf per tab (`FieldMemory live`), "Isi dari profilku", jawaban pulih saat server menolak (ADR-094) | Galat server mengosongkan semua jawaban | `form-assist.test.ts`, `form-assist.spec.ts` |
+| Kirim kegiatan | Deskripsi di langkah 1 (bukan lipatan), peta langkah bertaut, "Kirimanmu" di bawah form (ADR-094) | Deskripsi di "Detail tambahan"; daftar kiriman di atas form | `submission-poster.spec.ts`, `submission-notification.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–094 | Nomor ganda 061/062 | — |
 
 ## Migration
 
-- **Tidak ada migration yang menunggu.** Produksi: **54** migration = repo (`npm run check:sync`).
+- **MENUNGGU persetujuan pemilik:** `20261120100001_event_slides` (ADR-094; ADD/CREATE OR REPLACE saja, diuji `122_event_slides.test.sql`).
+  Kode aman urutan deploy — tanpa migration ini slide di kiriman dilewati (pengirim diberi tahu) dan geser/keterangan slide menjawab
+  `media_unavailable`. Produksi: **54** migration; repo: 55.
 - 2026-11-19 (perintah pemilik "konfigurasi yang bisa dikerjakan, kerjakan"): `20261116100001_event_engagement`,
   `20261119100001_trend_visitor_cap_and_mutual_privacy`, `20261119100002_admin_create_event` diterapkan ke staging,
   diuji asap (buat acara admin di transaksi yang di-rollback: APPROVED, mode studentfo, 1 log berpelaku, tampil di
@@ -111,6 +118,12 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-20 — cabang `claude/studentfo-improvements-features-y22p76` (dari `main` `3821965`)
+- Slide penjelas saat kirim & buat acara, urutan + keterangan per slide (ADR-094 #1–2).
+- Penyusun formulir: seret/panah/"Urutan", Lainnya, Tambah cepat, Pratinjau, salin formulir, "Siap dibuka?" (ADR-094 #5).
+- Status tim + tawaran cari partner/tim/lobi (`lib/nudges.ts`), pembantu pengisian (progres, draf per tab, isi dari profil) (ADR-094 #3–4, #6).
+- `/submit` lebih fokus (ADR-094 #7). Migration `20261120100001_event_slides` **belum diterapkan**. Cabang **belum digabung ke `main`.**
 
 ### 2026-11-19 — cabang `claude/practical-ritchie-emo0or` (dari `main` `2350ff9`)
 - Audit pra-produksi (`docs/audit-pra-produksi-2026-11-19.md`) + perbaikan menyeluruh (ADR-093): tes bom-waktu (CI merah),

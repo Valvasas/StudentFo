@@ -144,7 +144,26 @@ export function chooseCountMode(totalActive: number, threshold = EXACT_COUNT_MAX
   return totalActive > threshold ? 'planned' : 'exact';
 }
 
-/** Poster lebih dulu, lalu terbaru — urutan galeri & slide di kedua repository (ADR-079). */
-export function sortPhotosPosterFirst<T extends { readonly isPoster: boolean; readonly createdAt: string }>(photos: readonly T[]): T[] {
-  return [...photos].sort((a, b) => Number(b.isPoster) - Number(a.isPoster) || b.createdAt.localeCompare(a.createdAt));
+/**
+ * Urutan galeri & slide di kedua repository: poster lebih dulu (ADR-079),
+ * lalu urutan pilihan pengelola (ADR-094). Foto tanpa urutan (basis data
+ * sebelum migration 20261120100001) di belakang, terbaru dulu seperti dulu.
+ */
+export function sortPhotosPosterFirst<T extends { readonly isPoster: boolean; readonly createdAt: string; readonly sortOrder?: number | null }>(
+  photos: readonly T[],
+): T[] {
+  const order = (photo: T) => photo.sortOrder ?? Number.POSITIVE_INFINITY;
+  return [...photos].sort(
+    (a, b) => Number(b.isPoster) - Number(a.isPoster) || order(a) - order(b) || b.createdAt.localeCompare(a.createdAt),
+  );
+}
+
+/** Urutan baru setelah satu foto digeser satu langkah; null = sudah di ujung / tidak ada. */
+export function movePhotoOrder(ids: readonly string[], photoId: string, direction: 'earlier' | 'later'): string[] | null {
+  const index = ids.indexOf(photoId);
+  const target = direction === 'earlier' ? index - 1 : index + 1;
+  if (index < 0 || target < 0 || target >= ids.length) return null;
+  const next = [...ids];
+  [next[index], next[target]] = [next[target]!, next[index]!];
+  return next;
 }

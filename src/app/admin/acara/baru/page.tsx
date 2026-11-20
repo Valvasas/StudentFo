@@ -18,7 +18,10 @@ import { jakartaDateKey } from '@/lib/deadline';
 import { FORM_TEMPLATES } from '@/lib/form-templates';
 import { REGISTRATION_FORM_LIMITS } from '@/lib/registration-form';
 import type { RawSearchParams } from '@/lib/search-params';
+import { SUBMISSION_SLIDE_LIMIT } from '@/lib/data/repository';
+import { SLIDE_CAPTION_FIELD, SLIDE_FILE_FIELD } from '@/lib/slides';
 import { SUBMISSION_POSTER_FIELD } from '@/lib/submission-schema';
+import { SlideIdeas } from '@/components/submit/slide-ideas';
 import {
   DEADLINE_LABEL_TEXT,
   EDUCATION_LEVEL_LABEL,
@@ -51,6 +54,7 @@ const FIELD_LABEL: Record<string, string> = {
   guidebookUrl: 'Buku panduan',
   videoUrl: 'Video',
   poster: 'Poster',
+  slides: 'Slide penjelas',
 };
 
 const REMEMBERED_FIELDS = [
@@ -287,13 +291,23 @@ export default async function CreateInternalEventPage({ searchParams }: { search
           </FormStep>
         </div>
 
-        <FormStep number={5} title="Poster & lampiran" hint="Opsional, tapi acara bergambar jauh lebih cepat dipahami.">
+        <FormStep number={5} title="Poster, slide & lampiran" hint="Opsional, tapi acara bergambar jauh lebih cepat dipahami.">
           <ImageUploadField
             id="poster"
             name={SUBMISSION_POSTER_FIELD}
             label="Poster (opsional)"
             hint="Satu gambar tegak (±4:5). Maks. 5 MB. Tampil sebagai slide pertama, gambar kartu, dan saat tautan dibagikan."
           />
+          <ImageUploadField
+            id="slides"
+            name={SLIDE_FILE_FIELD}
+            label={`Slide penjelas (opsional, maks. ${SUBMISSION_SLIDE_LIMIT})`}
+            hint="Tampil sesudah poster, persis dalam urutan ini. Beri keterangan tiap gambar; slide berikutnya bisa ditambah dari studio."
+            multiple
+            maxFiles={SUBMISSION_SLIDE_LIMIT}
+            captionName={SLIDE_CAPTION_FIELD}
+          />
+          <SlideIdeas />
           <div className="grid gap-5 sm:grid-cols-2">
             <Field id="videoUrl" label="Video (opsional)" hint="Tautan YouTube atau Vimeo.">
               <TextInput id="videoUrl" name="videoUrl" inputMode="url" maxLength={500} autoComplete="off" spellCheck={false} placeholder="https://youtu.be/…" />

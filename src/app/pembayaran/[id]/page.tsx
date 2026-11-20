@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ArrowRight, Ban, ChevronDown, CircleX, ExternalLink, MessageSquareText, ShieldAlert } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
+import { NudgeCards } from '@/components/event/nudge-cards';
 import { RegistrationStatusBadge } from '@/components/organizer/registration-row';
 import { CopyCodeButton } from '@/components/registration/copy-code-button';
 import { registrationHref } from '@/components/registration/registration-cta';
@@ -19,12 +20,14 @@ import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { requireUser, toEventActor } from '@/lib/auth';
 import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
-import { formatDateTimeId } from '@/lib/deadline';
-import { formatAnswer, registrationTransition } from '@/lib/registration-form';
+import { daysUntil, formatDateTimeId } from '@/lib/deadline';
+import { withFallback } from '@/lib/fallback';
+import { nudgesAfterRegistration } from '@/lib/nudges';
+import { formatAnswer, isActiveRegistration, registrationTransition, teamStatusFromAnswers } from '@/lib/registration-form';
 import { parseActionErrorCode, parseActionNoticeCode } from '@/lib/action-feedback';
 import type { RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
-import type { EventRegistration, FormField, RegistrationForm, RegistrationStatus } from '@/types/domain';
+import { remainingSlots, type EventRegistration, type FormField, type RegistrationForm, type RegistrationStatus } from '@/types/domain';
 import { cancelRegistrationAction, submitPaymentProofAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -91,6 +94,24 @@ export default async function RegistrationDetailPage({
   const eventPath = `/events/${registration.event.slug}`;
   const showPayment = fee > 0 && registration.status !== 'CANCELLED' && registration.status !== 'REJECTED';
 
+  // Langkah berikutnya (ADR-094): dari jawaban "Status tim" — belum punya tim → cari partner, dst.
+  const teamStatus = teamStatusFromAnswers(form?.fields ?? [], registration.answers);
+  const deadline = registration.event.primaryDeadlineAt;
+  const eventOpen = registration.event.status !== 'EXPIRED' && (deadline === null || (daysUntil(deadline, new Date()) ?? 0) >= 0);
+  const isCompetition = registration.event.eventType === 'LOMBA';
+  const openTeams =
+    isCompetition && eventOpen && teamStatus === 'seeking'
+      ? await withFallback('tim terbuka', async () => (await repository.listTeams(registration.event.id)).filter((team) => remainingSlots(team) > 0).length, null)
+      : null;
+  const nudges = nudgesAfterRegistration({
+    eventSlug: registration.event.slug,
+    eventType: registration.event.eventType,
+    active: isActiveRegistration(registration.status),
+    eventOpen,
+    teamStatus,
+    openTeams,
+  });
+
   return (
     <div className="container-page pb-24 pt-6 sm:pt-8">
       <div className="mx-auto flex max-w-[980px] flex-col gap-6">
@@ -133,6 +154,9 @@ export default async function RegistrationDetailPage({
                 <ReviewNote tone={registration.status === 'CONFIRMED' ? 'neutral' : 'caution'}>{registration.reviewNote}</ReviewNote>
               )}
             </section>
+
+            {/* Belum lunas = pembayaran lebih dulu; tawaran tampil sesudahnya. */}
+            {(!showPayment || registration.status === 'CONFIRMED') && <NudgeCards nudges={nudges} heading="Langkah berikutnya" />}
 
             {showPayment && (
               <section aria-labelledby="pembayaran" className={card}>
@@ -186,6 +210,7 @@ export default async function RegistrationDetailPage({
                   ))}
               </section>
             )}
+            {showPayment && registration.status !== 'CONFIRMED' && <NudgeCards nudges={nudges} heading="Sambil menunggu" />}
           </div>
 
           <div className="flex min-w-0 flex-col gap-6">

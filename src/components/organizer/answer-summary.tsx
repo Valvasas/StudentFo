@@ -48,6 +48,12 @@ function Body({ summary }: { summary: QuestionSummary }) {
           <Bars rows={summary.options} />
           {summary.multiple && <Note>Boleh lebih dari satu pilihan — persentase terhadap yang menjawab, totalnya bisa lebih dari 100%.</Note>}
           {summary.other > 0 && <Note>{number(summary.other)} jawaban memakai pilihan yang sudah diubah atau dihapus dari formulir.</Note>}
+          {summary.field.type === 'team_status' && (
+            <Note>
+              Pendaftar yang belum punya tim atau masih kurang anggota otomatis ditawari pencocokan partner, daftar tim terbuka, dan lobi lomba
+              sesudah mendaftar.
+            </Note>
+          )}
         </>
       );
     case 'consent':

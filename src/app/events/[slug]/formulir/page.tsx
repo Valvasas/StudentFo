@@ -7,11 +7,14 @@ import { ArrowLeft, ArrowUpRight, Ban, CalendarClock, CircleSlash, Eye, Lock, Pe
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { loadManagedEvent, workspacePath } from '@/components/organizer/event-workspace';
 import { registrationHref } from '@/components/registration/registration-cta';
-import { RegistrationFieldInput } from '@/components/registration/registration-field-input';
+import { FormProgress } from '@/components/registration/form-progress';
+import { ProfileFill } from '@/components/registration/profile-fill';
+import { RegistrationFieldInput, type TeamAssist } from '@/components/registration/registration-field-input';
 import { ScrollToTop } from '@/components/registration/scroll-to-top';
 import { CONSENT_FIELD, invalidFieldFrom, registrationEventClosed } from '@/components/registration/registration-view';
 import { buttonVariants } from '@/components/ui/button';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { FieldMemory } from '@/components/ui/field-memory';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { parseActionErrorCode } from '@/lib/action-feedback';
@@ -19,10 +22,14 @@ import { requireUser } from '@/lib/auth';
 import { formatRupiah } from '@/lib/currency';
 import { getEventRepository } from '@/lib/data';
 import { formatDateTimeId } from '@/lib/deadline';
+import { withFallback } from '@/lib/fallback';
+import { profileFillFor } from '@/lib/profile-fill';
+import { regionLabel } from '@/lib/wilayah';
 import { sectionTitle } from '@/lib/page-title';
-import { registrationAvailability, type RegistrationAvailability } from '@/lib/registration-form';
+import { answerFields, answerInputName, otherInputName, registrationAvailability, type RegistrationAvailability } from '@/lib/registration-form';
 import { firstParam, type RawSearchParams } from '@/lib/search-params';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
+import { remainingSlots, type FormField } from '@/types/domain';
 import { registerForEventAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -88,6 +95,29 @@ export default async function RegistrationFormPage({
   const invalidField = error === 'invalid_registration' ? invalidFieldFrom(firstParam(query.kolom), form.fields) : null;
   const fee = form.feeAmount;
 
+  // Pembantu pengisian (ADR-094) — pelengkap: gagal dimuat = formulir tetap tampil tanpanya.
+  const hasTeamQuestion = form.fields.some((field) => field.type === 'team_status');
+  const [study, openTeams] = await Promise.all([
+    withFallback('profil studi untuk isi otomatis', () => repository.getStudyProfile(user.id), null),
+    hasTeamQuestion
+      ? withFallback('tim terbuka', async () => (await repository.listTeams(event.id)).filter((team) => remainingSlots(team) > 0).length, null)
+      : Promise.resolve(null),
+  ]);
+  const teamAssist: TeamAssist = { eventSlug: event.slug, openTeams };
+  const fillItems = preview
+    ? []
+    : profileFillFor(form.fields, {
+        fullName: user.fullName,
+        email: user.email,
+        institutionName: study?.institutionName ?? null,
+        educationLevel: user.educationLevel,
+        domicile: regionLabel(study?.domicileCode),
+      });
+  const memory = rememberedInputs(form.fields);
+  const required = answerFields(form.fields)
+    .filter((field) => field.required)
+    .map((field) => ({ name: answerInputName(field), label: field.label }));
+
   return (
     <div className="container-page pb-24 pt-6 sm:pt-8">
       <div className="mx-auto flex max-w-[680px] flex-col gap-6">
@@ -122,6 +152,8 @@ export default async function RegistrationFormPage({
 
         <form action={registerForEventAction} className="flex flex-col gap-6">
           <UnsavedChangesGuard />
+          {/* Draf per tab (ADR-094): galat server atau mampir ke Cari tim di tab yang sama tidak menghapus jawaban. */}
+          {!preview && <FieldMemory storageKey={`daftar-${event.id}`} fields={memory.fields} choices={memory.choices} restore live />}
           <input type="hidden" name="slug" value={event.slug} />
           <input type="hidden" name="eventId" value={event.id} />
 
@@ -148,13 +180,20 @@ export default async function RegistrationFormPage({
               <h2 id="pertanyaan" className="text-[18px] font-bold tracking-[-0.02em]">
                 Pertanyaan dari penyelenggara
               </h2>
+              <ProfileFill items={fillItems} />
               {form.fields.map((field) => (
-                <RegistrationFieldInput key={field.id} field={field} invalid={invalidField === field.id} />
+                <RegistrationFieldInput
+                  key={field.id}
+                  field={field}
+                  invalid={invalidField === field.id}
+                  teamAssist={field.type === 'team_status' && !preview ? teamAssist : null}
+                />
               ))}
             </section>
           )}
 
           <div className="flex flex-col gap-4">
+            <FormProgress questions={required} />
             <div className="flex flex-col gap-1.5">
               <label
                 className={cn(
@@ -207,6 +246,25 @@ export default async function RegistrationFormPage({
       </div>
     </div>
   );
+}
+
+/**
+ * Isian yang diingat `FieldMemory`. Kotak persetujuan (pertanyaan panitia
+ * maupun berbagi data) TIDAK PERNAH diisi ulang otomatis — persetujuan
+ * selalu dicentang sendiri (ADR-084 #7). Pilihan tunggal yang tampil sebagai
+ * radio masuk `choices`; yang tampil sebagai daftar turun cukup nilai teks.
+ */
+function rememberedInputs(fields: readonly FormField[]): { fields: string[]; choices: string[] } {
+  const text: string[] = [];
+  const choices: string[] = [];
+  for (const field of answerFields(fields)) {
+    if (field.type === 'checkbox') continue;
+    const asChoices =
+      field.type === 'multi_select' || field.type === 'team_status' || field.type === 'scale' || (field.type === 'select' && (field.options.length <= 6 || field.allowOther));
+    (asChoices ? choices : text).push(answerInputName(field));
+    if (field.allowOther) text.push(otherInputName(field));
+  }
+  return { fields: text, choices };
 }
 
 function Fact({ icon, children }: { icon: ReactNode; children: ReactNode }) {

@@ -1,10 +1,18 @@
 import type { ReactNode } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, Handshake, UserPlus, Users } from 'lucide-react';
 import { DateInput } from '@/components/ui/date-input';
 import { SelectInput, TextArea, TextInput } from '@/components/ui/field';
-import { ANSWER_INPUT_PATTERN, answerInputName, DEFAULT_SCALE, REGISTRATION_FORM_LIMITS } from '@/lib/registration-form';
+import {
+  ANSWER_INPUT_PATTERN,
+  answerInputName,
+  DEFAULT_SCALE,
+  otherInputName,
+  REGISTRATION_FORM_LIMITS,
+  TEAM_STATUSES,
+} from '@/lib/registration-form';
 import { cn } from '@/lib/utils';
 import type { FormField, FormFieldType } from '@/types/domain';
+import { OtherChoice } from './other-choice';
 import { RequiredChoiceGroup } from './required-choice-group';
 
 const PHONE_MAX = 21;
@@ -30,7 +38,18 @@ const INVALID_MESSAGE: Record<FormFieldType, string> = {
   time: 'Pilih jam yang valid, mis. 13:30.',
   scale: 'Pilih salah satu angka.',
   section: '',
+  team_status: 'Pilih status timmu.',
 };
+
+/**
+ * Konteks acara untuk tawaran di pertanyaan "Status tim" (ADR-094). Tanpa ini
+ * (pratinjau penyusun) pertanyaannya tetap tampil, hanya tanpa tautan.
+ */
+export interface TeamAssist {
+  readonly eventSlug: string;
+  /** Tim terbuka untuk acara ini; null = tidak dihitung. */
+  readonly openTeams: number | null;
+}
 
 export function fieldInputId(field: Pick<FormField, 'id'>): string {
   return `q-${field.id}`;
@@ -61,12 +80,14 @@ export function RegistrationFieldInput({
   invalid = false,
   disabled = false,
   radioMax = RADIO_MAX,
+  teamAssist = null,
 }: {
   field: FormField;
   invalid?: boolean;
   disabled?: boolean;
   /** Pendataan kinerja (ADR-073) menaikkan ini: satu ketukan lebih cepat daripada membuka daftar turun. */
   radioMax?: number;
+  teamAssist?: TeamAssist | null;
 }) {
   const id = fieldInputId(field);
   const name = answerInputName(field);
@@ -142,6 +163,44 @@ export function RegistrationFieldInput({
     );
   }
 
+  if (field.type === 'team_status') {
+    return (
+      // `:has()` membuka tawaran yang cocok dengan pilihan — tanpa JavaScript, dan tanpa mengubah isian lain.
+      <fieldset
+        role="radiogroup"
+        aria-required={field.required || undefined}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
+        className="flex min-w-0 flex-col gap-2 [&:has(input[data-team=recruiting]:checked)_[data-assist=recruiting]]:flex [&:has(input[data-team=seeking]:checked)_[data-assist=seeking]]:flex"
+      >
+        <legend className="mb-1 text-[15px] font-semibold leading-snug">
+          {field.label}
+          {!field.required && <Optional />}
+        </legend>
+        {help}
+        <div className="flex flex-col gap-2">
+          {TEAM_STATUSES.map((status, index) => (
+            <label key={status.key} className={cn('choice w-full', invalid && 'border-danger')}>
+              <input
+                type="radio"
+                name={name}
+                value={status.label}
+                data-team={status.key}
+                required={field.required}
+                disabled={disabled}
+                autoFocus={invalid && index === 0}
+                className="check"
+              />
+              {status.label}
+            </label>
+          ))}
+        </div>
+        {teamAssist && <TeamAssistPanels assist={teamAssist} />}
+        {error}
+      </fieldset>
+    );
+  }
+
   if (field.type === 'checkbox') {
     return (
       <div className="flex flex-col gap-1.5">
@@ -173,7 +232,8 @@ export function RegistrationFieldInput({
     );
   }
 
-  if (field.type === 'multi_select' || (field.type === 'select' && field.options.length <= radioMax)) {
+  // "Lainnya" butuh kotak isian di samping pilihannya — selalu sebagai radio/kotak centang.
+  if (field.type === 'multi_select' || (field.type === 'select' && (field.options.length <= radioMax || field.allowOther))) {
     const single = field.type === 'select';
     return (
       <fieldset
@@ -205,6 +265,18 @@ export function RegistrationFieldInput({
               {option}
             </label>
           ))}
+          {field.allowOther && (
+            <OtherChoice
+              id={`${id}-lainnya`}
+              name={name}
+              textName={otherInputName(field)}
+              single={single}
+              required={field.required}
+              disabled={disabled}
+              invalid={invalid}
+              maxLength={REGISTRATION_FORM_LIMITS.otherMax}
+            />
+          )}
         </div>
         {!single && field.required && <RequiredChoiceGroup name={name} message={INVALID_MESSAGE.multi_select} />}
         {!single && field.required && !invalid && <p className="text-[13px] text-ink-muted">Pilih minimal satu.</p>}
@@ -301,6 +373,86 @@ export function RegistrationFieldInput({
       {help}
       {control}
       {error}
+    </div>
+  );
+}
+
+/**
+ * Tawaran saat pendaftar memilih "masih cari anggota" / "belum punya tim"
+ * (ADR-094). Tautan membuka TAB BARU: isian formulir ini tidak boleh hilang
+ * hanya karena orang ingin melihat siapa yang sedang mencari tim.
+ */
+function TeamAssistPanels({ assist }: { assist: TeamAssist }) {
+  const slug = encodeURIComponent(assist.eventSlug);
+  const teams =
+    assist.openTeams && assist.openTeams > 0
+      ? `${assist.openTeams.toLocaleString('id-ID')} tim sedang mencari anggota untuk lomba ini`
+      : 'Lihat tim yang sedang mencari anggota';
+  return (
+    <>
+      <AssistPanel
+        kind="seeking"
+        icon={<Handshake aria-hidden className="size-4" />}
+        title="Tenang, StudentFo bantu carikan partner"
+        body="Kirim pendaftaranmu dulu — lalu temukan rekan lewat pencocokan keahlian, gabung tim yang kurang orang, atau masuk lobi lomba sebagai “Mencari tim”."
+        links={[
+          { href: '/teams/cocok', label: 'Cari partner yang cocok', icon: <Handshake aria-hidden className="size-4" /> },
+          { href: `/teams?kegiatan=${slug}`, label: teams, icon: <Users aria-hidden className="size-4" /> },
+        ]}
+      />
+      <AssistPanel
+        kind="recruiting"
+        icon={<UserPlus aria-hidden className="size-4" />}
+        title="Lengkapi timmu lewat StudentFo"
+        body="Buka lowongan tim untuk lomba ini supaya pelajar yang mencari tim bisa melamar — atau cari kandidat sendiri lewat pencocokan keahlian."
+        links={[
+          { href: `/teams/baru?kegiatan=${slug}`, label: 'Buka lowongan tim', icon: <UserPlus aria-hidden className="size-4" /> },
+          { href: '/teams/cocok', label: 'Cari anggota yang cocok', icon: <Handshake aria-hidden className="size-4" /> },
+        ]}
+      />
+    </>
+  );
+}
+
+function AssistPanel({
+  kind,
+  icon,
+  title,
+  body,
+  links,
+}: {
+  kind: 'seeking' | 'recruiting';
+  icon: ReactNode;
+  title: string;
+  body: string;
+  links: readonly { href: string; label: string; icon: ReactNode }[];
+}) {
+  return (
+    <div data-assist={kind} className="fade-in hidden flex-col gap-3 rounded-card border border-info-line bg-info-soft p-4 text-sm">
+      <p className="flex items-center gap-2 font-semibold text-ink">
+        <span aria-hidden className="flex size-7 items-center justify-center rounded-pill bg-panel text-info">
+          {icon}
+        </span>
+        {title}
+      </p>
+      <p className="leading-snug text-ink-soft">{body}</p>
+      <ul className="flex flex-wrap gap-2">
+        {links.map((link) => (
+          <li key={link.href}>
+            <a
+              href={link.href}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-card border border-line bg-panel px-3 font-semibold text-ink transition-colors duration-150 ease-snap hover:border-brand"
+            >
+              {link.icon}
+              {link.label}
+              <ArrowUpRight aria-hidden className="size-3.5 text-ink-muted" />
+              <span className="sr-only">(tab baru — isian formulirmu tetap aman)</span>
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
