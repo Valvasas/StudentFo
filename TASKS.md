@@ -210,9 +210,11 @@ Selesai (detail & bukti di commit + ADR):
 Belum / butuh akses pemilik:
 - [ ] Apply SEMUA migration 20260926* ke Supabase staging, lalu `npm run db:verify`
       (belum pernah di-apply ke project mana pun — jangan langsung produksi).
-- [ ] Google OAuth end-to-end sungguhan (runbook: README § Autentikasi).
+- [x] Google OAuth end-to-end sungguhan — 19 Nov berhasil di produksi (authorize 302 → callback 302 → token 200).
 - [x] Google OAuth: cek provider aktif sebelum redirect, galat callback non-`access_denied` tidak lagi diam, preview Vercel tidak jatuh ke localhost (ADR-091).
-- [ ] **BUTUH PEMILIK.** Aktifkan provider Google di Supabase produksi (`urmmihzjkkbxcwfzvuao`) + Redirect URL `https://studentfo.vercel.app/auth/callback` + redirect URI Google `https://urmmihzjkkbxcwfzvuao.supabase.co/auth/v1/callback`, lalu uji README § Autentikasi langkah (1)–(5).
+- [ ] Layar persetujuan Google menampilkan `urmmihzjkkbxcwfzvuao.supabase.co`, bukan "StudentFo". Jalan resmi: verifikasi merek di Google Auth Platform → Branding (butuh domain terverifikasi Search Console) ATAU Supabase Custom Domain (berbayar, butuh domain sendiri) — ditunda bersama domain.
+- [x] 19 Nov: akun partner pemilik diangkat ADMIN lewat SQL berpenjaga (tepat 1 baris, bukan akun ditangguhkan); TOTP MFA sudah aktif. Peran "moderator" terbatas belum ada — semua ADMIN berhak penuh.
+- [x] **BUTUH PEMILIK.** Aktifkan provider Google di Supabase produksi (`urmmihzjkkbxcwfzvuao`) + Redirect URL `https://studentfo.vercel.app/auth/callback` + redirect URI Google `https://urmmihzjkkbxcwfzvuao.supabase.co/auth/v1/callback`, lalu uji README § Autentikasi langkah (1)–(5).
 - [ ] Isi `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` + `RATE_LIMIT_SECRET` di hosting;
       uji widget Turnstile asli (egress ke Cloudflare diblokir di lingkungan pengerjaan).
 - [ ] Scan securityheaders.com setelah staging publik (ADR-038 #3).
@@ -424,7 +426,7 @@ dikirim, dan halaman diam saja (sengaja seragam, AGENTS.md #12).
 
 - [x] Pesan `email_not_confirmed` di halaman masuk membawa tautan "Kirim ulang email konfirmasi" → `/verify-email` (sebelumnya buntu bila email pertama hilang/kedaluwarsa)
 - [x] Notis `reset_email_sent` menambah "Belum punya akun? Email tidak akan datang — daftar dulu" untuk SEMUA alamat (tetap tanpa oracle keanggotaan)
-- [ ] **BUTUH PEMILIK.** Masuk dengan Google gagal untuk semua orang: 8 percobaan `/authorize` sejak 16 Nov (5 milik pemilik), 0 kembali ke `/callback`, tiap `flow_state` tak selesai. Google berhenti di halaman galatnya sendiri — cek di Google Cloud: redirect URI `https://urmmihzjkkbxcwfzvuao.supabase.co/auth/v1/callback`, status publikasi consent screen (Testing = hanya penguji), Client ID/Secret di Supabase cocok
+- [x] (Teratasi 19 Nov: redirect URI dibetulkan pemilik.) **BUTUH PEMILIK.** Masuk dengan Google gagal untuk semua orang: 8 percobaan `/authorize` sejak 16 Nov (5 milik pemilik), 0 kembali ke `/callback`, tiap `flow_state` tak selesai. Google berhenti di halaman galatnya sendiri — cek di Google Cloud: redirect URI `https://urmmihzjkkbxcwfzvuao.supabase.co/auth/v1/callback`, status publikasi consent screen (Testing = hanya penguji), Client ID/Secret di Supabase cocok
 - [ ] Kredensial `api.supabase.com` yang disuntik proxy sesi ditolak (`Invalid access token`) → konfigurasi Auth (SMTP, batas laju) tetap tak terbaca dari sesi Claude
 
 ## Audit menyeluruh 2026-11-14 (@claude) — `docs/audit-menyeluruh.md`
