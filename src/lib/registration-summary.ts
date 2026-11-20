@@ -1,4 +1,4 @@
-import { answerFields, DEFAULT_SCALE, isActiveRegistration } from '@/lib/registration-form';
+import { answerFields, DEFAULT_SCALE, isActiveRegistration, OTHER_ANSWER_PREFIX } from '@/lib/registration-form';
 import type { AnswerValue, EventRegistration, FormField } from '@/types/domain';
 
 /**
@@ -74,21 +74,26 @@ export function summarizeAnswers(fields: readonly FormField[], registrations: re
     switch (field.type) {
       case 'select':
       case 'dropdown':
+      case 'team_status':
       case 'multi_select': {
         const counts = new Map(field.options.map((option) => [option, 0]));
         let other = 0;
+        const written: string[] = [];
         for (const value of values) {
           for (const choice of Array.isArray(value) ? value : [String(value)]) {
             if (counts.has(choice)) counts.set(choice, (counts.get(choice) ?? 0) + 1);
+            else if (field.allowOther && choice.startsWith(OTHER_ANSWER_PREFIX)) written.push(choice.slice(OTHER_ANSWER_PREFIX.length));
             else other += 1;
           }
         }
+        // "Lainnya: …" (ADR-094) dikelompokkan seperti jawaban singkat, sesudah pilihan tetap.
+        const writtenGroups = groupTexts(written).map((group) => ({ ...group, label: `Lainnya: ${group.label}`, share: share(group.count, values.length) }));
         return {
           kind: 'choice',
           field,
           answered: values.length,
           multiple: field.type === 'multi_select',
-          options: [...counts].map(([label, count]) => ({ label, count, share: share(count, values.length) })),
+          options: [...[...counts].map(([label, count]) => ({ label, count, share: share(count, values.length) })), ...writtenGroups],
           // Pilihan yang sudah dihapus/diganti nama dari formulir: tidak hilang diam-diam dari total.
           other,
         };

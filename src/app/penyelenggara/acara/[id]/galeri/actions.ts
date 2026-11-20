@@ -12,7 +12,8 @@ import { formText, formTrimmed } from '@/lib/form-data';
 import { formFiles, readImageUpload, type UploadedImage } from '@/lib/image-file';
 import { adminMediaPath } from '@/lib/media-paths';
 import { safeNextPath } from '@/lib/safe-redirect';
-import { stripMarkup } from '@/lib/submission-schema';
+import { movePhotoOrder } from '@/lib/data/listing';
+import { cleanCaption, readSlideCaptions } from '@/lib/slides';
 import { normalizeVideoUrl } from '@/lib/video';
 
 /**
@@ -53,14 +54,6 @@ async function done(user: AuthUser, { eventId, returnTo }: MediaTarget, notice: 
   redirect(withQuery(returnTo, { error: undefined, notice }));
 }
 
-/** Satu keterangan untuk semua foto di unggahan itu; kosong = tanpa keterangan. */
-function readCaption(formData: FormData): string | null {
-  const caption = Array.from(stripMarkup(formText(formData, 'caption')).replace(/\s+/g, ' ').trim())
-    .slice(0, GALLERY_LIMITS.captionMax)
-    .join('')
-    .trim();
-  return caption || null;
-}
 
 export async function uploadPhotosAction(formData: FormData): Promise<void> {
   const target = readTarget(formData);
@@ -78,8 +71,13 @@ export async function uploadPhotosAction(formData: FormData): Promise<void> {
   }
 
   const asPoster = formText(formData, 'asPoster') === 'on';
+  // Keterangan bersama (tanpa JS) jadi cadangan; keterangan per gambar menang bila diisi.
+  const captions = readSlideCaptions(formData, 'photoCaption', images.length);
   try {
-    await (await getEventRepository()).addEventPhotos(toEventActor(user), target.eventId, images, readCaption(formData), { asPoster });
+    await (await getEventRepository()).addEventPhotos(toEventActor(user), target.eventId, images, cleanCaption(formText(formData, 'caption')), {
+      asPoster,
+      captions,
+    });
   } catch (error) {
     failed(target.returnTo, toActionErrorCode(error));
   }
@@ -132,4 +130,44 @@ export async function saveVideoAction(formData: FormData): Promise<void> {
     failed(target.returnTo, toActionErrorCode(error));
   }
   await done(user, target, canonical ? 'video_saved' : 'video_removed');
+}
+
+/**
+ * Geser satu slide selangkah (ADR-094). Form biasa, tanpa JavaScript: urutan
+ * baru dihitung di server dari urutan TERSIMPAN, bukan dari klien — dua tab
+ * yang menggeser bersamaan tidak saling menghapus.
+ */
+export async function movePhotoAction(formData: FormData): Promise<void> {
+  const target = readTarget(formData);
+  const user = await requireUser(target.returnTo);
+
+  const photoId = formTrimmed(formData, 'photoId');
+  const direction = formText(formData, 'direction') === 'earlier' ? 'earlier' : 'later';
+  const repository = await getEventRepository();
+  const photos = await repository.listEventPhotos(target.eventId);
+  const poster = photos.find((photo) => photo.isPoster);
+  const slides = photos.filter((photo) => !photo.isPoster).map((photo) => photo.id);
+  const next = movePhotoOrder(slides, photoId, direction);
+  if (!next) failed(target.returnTo, 'photo_not_found');
+
+  try {
+    await repository.reorderEventPhotos(toEventActor(user), target.eventId, poster ? [poster.id, ...next] : next);
+  } catch (error) {
+    failed(target.returnTo, toActionErrorCode(error));
+  }
+  await done(user, target, 'photos_reordered');
+}
+
+export async function saveCaptionAction(formData: FormData): Promise<void> {
+  const target = readTarget(formData);
+  const user = await requireUser(target.returnTo);
+
+  const photoId = formTrimmed(formData, 'photoId');
+  if (!photoId) failed(target.returnTo, 'photo_not_found');
+  try {
+    await (await getEventRepository()).setEventPhotoCaption(toEventActor(user), photoId, cleanCaption(formText(formData, 'caption')));
+  } catch (error) {
+    failed(target.returnTo, toActionErrorCode(error));
+  }
+  await done(user, target, 'caption_saved');
 }

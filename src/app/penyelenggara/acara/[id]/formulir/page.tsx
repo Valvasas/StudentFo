@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, ArrowUpRight, CalendarX2, Lock } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarX2, CircleCheck, CircleDashed, Lock } from 'lucide-react';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import {
   EventWorkspaceHeader,
@@ -17,10 +17,14 @@ import { registrationEventClosed } from '@/components/registration/registration-
 import { Badge } from '@/components/ui/badge';
 import { Field, TextArea, TextInput } from '@/components/ui/field';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
-import { requireUser } from '@/lib/auth';
+import { requireUser, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { formatRupiah } from '@/lib/currency';
 import { formatShortDateId } from '@/lib/deadline';
-import { REGISTRATION_FORM_LIMITS, starterFields } from '@/lib/registration-form';
+import { withFallback } from '@/lib/fallback';
+import { templateFromEvent, type FormTemplate } from '@/lib/form-templates';
+import { answerFields, REGISTRATION_FORM_LIMITS, starterFields } from '@/lib/registration-form';
+import type { RegistrationForm } from '@/types/domain';
 import type { RawSearchParams } from '@/lib/search-params';
 import { saveRegistrationFormAction } from './actions';
 
@@ -51,7 +55,13 @@ export default async function RegistrationFormPage({
   if (!context) return <NotManaging />;
   const { event } = context;
 
-  const [form, badges] = await Promise.all([(await getEventRepository()).getRegistrationForm(event.id), workspaceBadges(user, event.id)]);
+  const repository = await getEventRepository();
+  const [form, badges, ownTemplates, photoCount] = await Promise.all([
+    repository.getRegistrationForm(event.id),
+    workspaceBadges(user, event.id),
+    withFallback('templat dari acara lain', () => ownFormTemplates(user, event.id), []),
+    withFallback('jumlah gambar acara', async () => (await repository.listEventPhotos(event.id)).length, null),
+  ]);
   // Formulir baru mewarisi biaya yang sudah tertulis di halaman acara.
   const fee = form ? form.feeAmount : event.isFree === false ? event.priceAmount : null;
   const closed = registrationEventClosed(event);
@@ -102,6 +112,7 @@ export default async function RegistrationFormPage({
                 Tenggat acara sudah lewat — formulir tidak menerima pendaftar baru.
               </p>
             )}
+            <ReadinessList form={form} photoCount={photoCount} galleryHref={workspacePath(event.id, 'galeri')} />
             {form && (
               <div className="flex flex-col divide-y divide-line border-t border-line text-sm">
                 <Link href={workspacePath(event.id, 'pendaftar')} className="group flex min-h-11 items-center justify-between gap-3 py-1">
@@ -141,7 +152,7 @@ export default async function RegistrationFormPage({
                 <strong className="font-semibold text-ink">Nama & email</strong> diambil otomatis dari akun peserta.
               </span>
             </p>
-            <FormBuilder initialFields={form ? form.fields : starterFields()} templates fresh={!form} />
+            <FormBuilder initialFields={form ? form.fields : starterFields()} templates extraTemplates={ownTemplates} quickAdd fresh={!form} />
           </section>
 
           <section aria-labelledby="kuota-biaya" className="flex flex-col gap-5 rounded-panel border border-line bg-panel p-5 lg:col-start-2 lg:row-start-2">
@@ -201,6 +212,93 @@ export default async function RegistrationFormPage({
 
         <RegistrationSaveBar savedLabel={form ? `Disimpan ${formatShortDateId(form.updatedAt)}` : null} wasOpen={form?.isOpen ?? false} />
       </form>
+    </div>
+  );
+}
+
+/**
+ * "Salin formulir" (ADR-094): formulir tersimpan dari acara lain yang dikelola
+ * orang yang sama, sebagai templat. Panitia yang rutin membuat lomba tidak
+ * menyusun ulang pertanyaan yang sama setiap kali.
+ */
+async function ownFormTemplates(user: AuthUser, currentEventId: string): Promise<FormTemplate[]> {
+  const repository = await getEventRepository();
+  const managed = (await repository.listManagedEvents(user.id)).filter((item) => item.event.id !== currentEventId).slice(0, OWN_TEMPLATE_SCAN);
+  const forms = await Promise.all(managed.map((item) => repository.getRegistrationForm(item.event.id)));
+  return managed
+    .flatMap((item, index) => {
+      const fields = forms[index]?.fields ?? [];
+      return answerFields(fields).length > 0 ? [templateFromEvent(item.event.id, item.event.title, fields)] : [];
+    })
+    .slice(0, OWN_TEMPLATE_MAX);
+}
+
+/** Satu baca formulir per acara: jendelanya kecil supaya halaman studio tetap cepat. */
+const OWN_TEMPLATE_SCAN = 12;
+const OWN_TEMPLATE_MAX = 6;
+
+/**
+ * "Siap dibuka?" — keadaan TERSIMPAN yang menentukan apa yang dilihat
+ * pendaftar, dalam urutan yang biasa dikerjakan panitia. Bukan penghalang:
+ * hanya instruksi pembayaran yang wajib (dan sudah ditolak server).
+ */
+function ReadinessList({ form, photoCount, galleryHref }: { form: RegistrationForm | null; photoCount: number | null; galleryHref: string }) {
+  const questions = form ? answerFields(form.fields).length : 0;
+  const paid = Boolean(form?.feeAmount);
+  const items: { done: boolean; label: string; detail: string; href?: string }[] = [
+    {
+      done: form !== null,
+      label: 'Pertanyaan disimpan',
+      detail: form ? (questions > 0 ? `${questions} pertanyaan + nama & email akun` : 'Cukup nama & email akun') : 'Susun lalu tekan Simpan formulir',
+    },
+    {
+      done: form !== null && (!paid || Boolean(form.paymentInstructions)),
+      label: 'Biaya',
+      detail: !form ? 'Belum disimpan' : paid ? `${formatRupiah(form.feeAmount ?? 0)} — instruksi pembayaran terisi` : 'Gratis',
+    },
+    ...(photoCount !== null
+      ? [
+          {
+            done: photoCount > 0,
+            label: 'Poster & slide',
+            detail: photoCount > 0 ? `${photoCount} gambar di halaman acara` : 'Acara bergambar lebih cepat dipahami',
+            href: photoCount > 0 ? undefined : galleryHref,
+          },
+        ]
+      : []),
+    {
+      done: form?.isOpen === true,
+      label: 'Pendaftaran dibuka',
+      detail: form?.isOpen ? 'Tombol Daftar membuka formulir ini' : 'Nyalakan sakelar di atas, lalu simpan',
+    },
+  ];
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-3">
+      <p className="text-[13px] font-semibold text-ink-soft">Siap dibuka?</p>
+      <ol className="flex flex-col gap-1.5">
+        {items.map((item) => (
+          <li key={item.label} className="flex items-start gap-2 text-[13px] leading-snug">
+            {item.done ? (
+              <CircleCheck aria-hidden className="mt-px size-4 shrink-0 text-success" />
+            ) : (
+              <CircleDashed aria-hidden className="mt-px size-4 shrink-0 text-ink-faint" />
+            )}
+            <span className="min-w-0">
+              <span className="font-semibold text-ink">{item.label}</span>
+              <span className="sr-only">{item.done ? ' (sudah)' : ' (belum)'}</span>
+              <span className="text-ink-muted"> — {item.detail}</span>
+              {item.href && (
+                <>
+                  {' '}
+                  <Link href={item.href} className="font-medium text-ink underline underline-offset-[3px] hover:no-underline">
+                    Tambahkan
+                  </Link>
+                </>
+              )}
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

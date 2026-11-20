@@ -68,6 +68,49 @@ function SubmissionPoster({ submissionId, title, poster }: { submissionId: strin
 }
 
 /**
+ * Gambar pendukung kiriman (ADR-094), urut pilihan pengirim. Ikut tayang
+ * sebagai slide begitu disetujui — moderator menilai isinya sama seperti poster.
+ */
+function SubmissionSlides({ submissionId, title, photos }: { submissionId: string; title: string; photos: NonNullable<Submission['photos']> }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <p className="text-[13px] font-semibold text-ink-soft">
+        Slide penjelas ({photos.length}) <span className="font-normal text-ink-muted">— tayang sesudah poster dalam urutan ini</span>
+      </p>
+      <ol className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        {photos.map((photo, index) => {
+          const src = `/media/kiriman/${submissionId}/${photo.id}`;
+          return (
+            <li key={photo.id} className="flex min-w-0 flex-col gap-1">
+              <a
+                href={src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block overflow-hidden rounded-card border border-line bg-panel-nested hover:border-line-strong"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- rute bersesi (/media/kiriman) tidak bisa lewat pengoptimal gambar */}
+                <img
+                  src={src}
+                  alt={`Slide ${index + 1} kiriman ${title}${photo.caption ? `: ${photo.caption}` : ''} — buka ukuran penuh di tab baru`}
+                  width={photo.width}
+                  height={photo.height}
+                  loading="lazy"
+                  decoding="async"
+                  className="aspect-square w-full object-cover"
+                />
+              </a>
+              <span className="line-clamp-2 text-[11.5px] leading-snug text-ink-muted [overflow-wrap:anywhere]">
+                {index + 1}. {photo.caption ?? 'Tanpa keterangan'}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/**
  * Satu kiriman komunitas di antrean moderasi.
  *
  * Tautan dari kiriman adalah input publik yang belum diverifikasi — ditampilkan
@@ -166,6 +209,11 @@ export function SubmissionReviewCard({
             </dl>
             {payload.description && (
               <p className="mt-3 line-clamp-4 whitespace-pre-line text-sm text-ink-soft">{payload.description}</p>
+            )}
+            {submission.photos && submission.photos.length > 0 && (
+              <div className="mt-4">
+                <SubmissionSlides submissionId={submission.id} title={payload.title} photos={submission.photos} />
+              </div>
             )}
             <div className="mt-3 flex flex-wrap gap-4 text-sm">
               {[

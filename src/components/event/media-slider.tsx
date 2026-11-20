@@ -162,6 +162,14 @@ export function MediaSlider({ slides, label }: { slides: readonly MediaSlide[]; 
         )}
       </div>
 
+      {/* Keterangan slide aktif (ADR-094): gambar penjelas — "Alur lomba", "Hadiah" — butuh judulnya terbaca tanpa membuka layar penuh. */}
+      {activeSlide?.kind === 'photo' && activeSlide.caption && (
+        <p className="-mt-1 min-w-0 text-[14px] leading-snug text-ink-soft [overflow-wrap:anywhere]">
+          <span className="sr-only">Keterangan slide {active + 1}: </span>
+          {activeSlide.caption}
+        </p>
+      )}
+
       {hydrated && (
         <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1">
           <div className="flex items-center gap-1">

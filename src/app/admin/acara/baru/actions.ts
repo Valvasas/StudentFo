@@ -9,7 +9,9 @@ import { getEventRepository } from '@/lib/data';
 import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
 import { siteUrl } from '@/lib/env';
 import { formText } from '@/lib/form-data';
-import { readImageUpload, type UploadedImage } from '@/lib/image-file';
+import { SUBMISSION_SLIDE_LIMIT } from '@/lib/data/repository';
+import { formFiles, readImageUpload, type UploadedImage } from '@/lib/image-file';
+import { readSlideCaptions, SLIDE_CAPTION_FIELD, SLIDE_FILE_FIELD } from '@/lib/slides';
 import { parseSubmissionForm, SUBMISSION_POSTER_FIELD } from '@/lib/submission-schema';
 
 const PAGE = '/admin/acara/baru';
@@ -54,6 +56,17 @@ export async function createInternalEventAction(formData: FormData): Promise<voi
     poster = upload.image;
   }
 
+  // Slide penjelas (ADR-094) — batas sama dengan kiriman: poster + 5 = batas body Server Action.
+  const slideFiles = formFiles(formData, SLIDE_FILE_FIELD);
+  if (slideFiles.length > SUBMISSION_SLIDE_LIMIT) redirect(withQuery(PAGE, { error: 'too_many_slides', fields: 'slides' }));
+  const slides: UploadedImage[] = [];
+  for (const file of slideFiles) {
+    const upload = await readImageUpload(file);
+    if (!upload.ok) redirect(withQuery(PAGE, { error: upload.error, fields: 'slides' }));
+    slides.push(upload.image);
+  }
+  const slideCaptions = readSlideCaptions(formData, SLIDE_CAPTION_FIELD, slides.length);
+
   const repository = await getEventRepository();
   let created: { readonly id: string; readonly slug: string } | null = null;
   let failure: ActionErrorCode | null = null;
@@ -71,6 +84,14 @@ export async function createInternalEventAction(formData: FormData): Promise<voi
       await repository.addEventPhotos(actor, created.id, [poster], null, { asPoster: true });
     } catch (error) {
       console.error('[buat-acara] poster gagal dipasang:', created.id, error);
+    }
+  }
+  // Sesudah poster: slide masuk di belakangnya, dalam urutan yang disusun admin.
+  if (slides.length > 0) {
+    try {
+      await repository.addEventPhotos(actor, created.id, slides, null, { captions: slideCaptions });
+    } catch (error) {
+      console.error('[buat-acara] slide gagal dipasang:', created.id, error);
     }
   }
   if (internal && payment?.ok) {

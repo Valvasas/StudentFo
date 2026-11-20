@@ -674,6 +674,8 @@ export const REGISTRATION_COLUMNS =
 export const PHOTO_COLUMNS = 'id, event_id, storage_path, content_type, width, height, caption, created_at';
 /** Dengan tanda poster (migration 20261109100002); `PHOTO_COLUMNS` tetap untuk basis data lama. */
 export const PHOTO_COLUMNS_WITH_POSTER = `${PHOTO_COLUMNS}, is_poster`;
+/** Dengan urutan slide (migration 20261120100001, ADR-094). */
+export const PHOTO_COLUMNS_WITH_ORDER = `${PHOTO_COLUMNS_WITH_POSTER}, sort_order`;
 
 export function toRegistrationForm(row: RegistrationFormRow, activeCount: number): RegistrationForm {
   return {
@@ -752,6 +754,7 @@ export function toEventPhoto(row: EventPhotoRow): EventPhoto {
     caption: row.caption,
     createdAt: row.created_at,
     isPoster: row.is_poster === true,
+    sortOrder: typeof row.sort_order === 'number' ? row.sort_order : null,
   };
 }
 
@@ -848,7 +851,7 @@ export function mediaErrorCode(error: unknown): Exclude<ActionErrorCode, 'unknow
   if (state === '23514') return 'invalid_video_url';
   if (state === '42501') return 'not_event_manager';
   const message = typeof error === 'object' && error !== null ? String((error as { message?: unknown }).message ?? '') : '';
-  for (const code of ['photo_not_found', 'not_event_manager', 'event_unavailable', 'video_rate_limited'] as const) {
+  for (const code of ['photo_not_found', 'not_event_manager', 'event_unavailable', 'video_rate_limited', 'invalid_caption'] as const) {
     if (message.includes(code)) return code;
   }
   return null;

@@ -37,7 +37,7 @@ export function FormStep({
           {number}
         </span>
         <span className="flex flex-col gap-0.5">
-          <h2 id={`langkah-${number}`} className="text-[19px] font-bold tracking-[-0.02em]">
+          <h2 id={`langkah-${number}`} className="scroll-mt-24 text-[19px] font-bold tracking-[-0.02em]">
             <span className="sr-only">Langkah {number}: </span>
             {title}
           </h2>

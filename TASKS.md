@@ -909,3 +909,16 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Migration 20261116100001/20261119100001/20261119100002 → staging → produksi; `RATE_LIMIT_SECRET` di Vercel
 - [ ] **BUTUH PEMILIK.** Gabungkan cabang `claude/practical-ritchie-emo0or` ke `main` (langkah: `docs/langkah-konfigurasi-pemilik.md` §0)
 - [ ] Pertimbangkan peran MODERATOR terbatas (bukan admin penuh) — butuh desain hak per alat & uji ulang RLS (ADR-093 #2)
+
+## Slide penjelas, penyusun formulir, Status tim & tawaran partner 2026-11-20 (@claude) — ADR-094
+
+- [x] Slide berketerangan di `/submit` (maks. 5) & "Buat acara StudentFo"; urutan `sort_order`, geser & keterangan per slide di studio/admin; keterangan slide aktif di halaman acara
+- [x] Penyusun formulir: seret ⠿ (tetikus/sentuh), panah keyboard, "Urutan N dari M", urutkan pilihan, "Lainnya", Tambah cepat, Pratinjau, salin dari acara lain, "Siap dibuka?"
+- [x] Jenis `team_status` + tawaran cari partner (formulir, halaman pendaftaran, halaman acara), lobi `?niat=`, catatan di Ringkasan jawaban
+- [x] Mengisi formulir: progres wajib, draf per tab, isi dari profil, jawaban pulih saat galat server
+- [x] `/submit`: deskripsi di langkah 1, peta langkah, "Kirimanmu" di bawah form
+- [ ] **BUTUH KONFIRMASI PEMILIK.** Terapkan `20261120100001_event_slides` ke staging → produksi (pola ADR-062 #8), lalu catat di `supabase/APPLIED_MIGRATIONS.txt`
+- [ ] **BUTUH PEMILIK.** Gabungkan cabang `claude/studentfo-improvements-features-y22p76` ke `main`
+- [ ] P2 Pencocokan partner (`/teams/cocok`) belum bisa disaring per lomba — tawaran "Cari partner" membuka pencocokan umum
+- [ ] P2 Logika bersyarat antar-pertanyaan (lompat bagian bila jawaban X) belum ada; Status tim cukup untuk kasus tim
+- [ ] P3 Tombol naik/turun PILIHAN jawaban hanya di ≥ 640px (ponsel: Alt+↑/↓ atau A–Z) — ruang baris pilihan terlalu sempit

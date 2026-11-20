@@ -41,6 +41,8 @@ export const REGISTRATION_FORM_LIMITS = {
   scaleMin: 2,
   scaleMax: 10,
   scaleLabelMax: 40,
+  /** Isian "Lainnya: …" (ADR-094). */
+  otherMax: 120,
 } as const;
 
 /** Pendaftaran per pengguna per jam — cermin `consume_rate_limit` di `register_for_event()`. */
@@ -65,6 +67,43 @@ const scaleLabel = z
   .pipe(z.string().max(REGISTRATION_FORM_LIMITS.scaleLabelMax))
   .transform((value) => value || null);
 
+/**
+ * Status tim (ADR-094). Pilihan tetap supaya sistem memahami jawabannya:
+ * `seeking`/`recruiting` memunculkan tawaran Cari tim & pencocokan partner,
+ * dan ketiganya sepadan dengan niat lobi (`CARI_TIM`/`CARI_ANGGOTA`/`SIAP`).
+ * Label = nilai yang tersimpan; mengubahnya memutus jawaban lama — tambahkan
+ * label baru, jangan mengganti yang ada.
+ */
+export const TEAM_STATUSES = [
+  { key: 'complete', label: 'Sudah punya tim lengkap' },
+  { key: 'recruiting', label: 'Sudah punya tim, masih cari anggota' },
+  { key: 'seeking', label: 'Belum punya tim — bantu carikan partner' },
+] as const;
+export type TeamStatusKey = (typeof TEAM_STATUSES)[number]['key'];
+const TEAM_STATUS_LABELS: readonly string[] = TEAM_STATUSES.map((status) => status.label);
+
+export function teamStatusOf(value: AnswerValue | undefined): TeamStatusKey | null {
+  return TEAM_STATUSES.find((status) => status.label === value)?.key ?? null;
+}
+
+/** Status tim pendaftar dari jawabannya — pertanyaan `team_status` pertama yang terisi. */
+export function teamStatusFromAnswers(fields: readonly FormField[], answers: Readonly<Record<string, AnswerValue>>): TeamStatusKey | null {
+  for (const field of fields) {
+    if (field.type !== 'team_status') continue;
+    const status = teamStatusOf(answers[field.id]);
+    if (status) return status;
+  }
+  return null;
+}
+
+/** Nilai radio/kotak "Lainnya" dan awalan jawaban tersimpannya (ADR-094). */
+export const OTHER_CHOICE_VALUE = '__lainnya__';
+export const OTHER_ANSWER_PREFIX = 'Lainnya: ';
+
+export function supportsOther(type: FormFieldType): boolean {
+  return type === 'select' || type === 'multi_select';
+}
+
 const fieldSchema = z
   .object({
     id: z.string().regex(FIELD_ID),
@@ -88,16 +127,19 @@ const fieldSchema = z
         highLabel: scaleLabel,
       })
       .optional(),
+    allowOther: z.boolean().optional(),
   })
   .transform((field): FormField => {
-    const { scale, ...rest } = field;
+    const { scale, allowOther, ...rest } = field;
     return {
       ...rest,
       // Pilihan hanya bermakna untuk jenis berpilihan; jenis lain tidak membawa sisa pilihan dari jenis sebelumnya.
-      options: hasOptions(field.type) ? [...new Set(field.options)] : [],
+      // Status tim selalu pilihan tetap — isi kiriman klien diabaikan.
+      options: field.type === 'team_status' ? [...TEAM_STATUS_LABELS] : hasOptions(field.type) ? [...new Set(field.options)] : [],
       // Judul bagian bukan pertanyaan: tidak pernah "wajib".
       required: field.type === 'section' ? false : field.required,
       ...(field.type === 'scale' ? { scale: scale ?? DEFAULT_SCALE } : {}),
+      ...(allowOther && supportsOther(field.type) ? { allowOther: true } : {}),
     };
   })
   .refine((field) => !hasOptions(field.type) || field.options.length >= REGISTRATION_FORM_LIMITS.optionsMin, {
@@ -202,6 +244,17 @@ export function answerInputName(field: Pick<FormField, 'id'>): string {
   return `q_${field.id}`;
 }
 
+/** Isian teks pilihan "Lainnya" (ADR-094). */
+export function otherInputName(field: Pick<FormField, 'id'>): string {
+  return `${answerInputName(field)}_lainnya`;
+}
+
+/** Teks "Lainnya" → jawaban tersimpan; kosong / terlalu panjang = null (ditolak). */
+function otherAnswer(field: FormField, formData: FormData): string | null {
+  const text = cleanText(formText(formData, otherInputName(field))).replace(/\s+/g, ' ');
+  return text && text.length <= REGISTRATION_FORM_LIMITS.otherMax ? `${OTHER_ANSWER_PREFIX}${text}` : null;
+}
+
 const emailAnswer = z.string().email().max(254);
 const PHONE = /^\+?[0-9][0-9\s-]{6,18}[0-9]$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -272,12 +325,18 @@ export function readAnswers(fields: readonly FormField[], formData: FormData): A
 
     if (field.type === 'multi_select') {
       const chosen = [...new Set(formList(formData, name))];
-      if (chosen.some((value) => !field.options.includes(value))) return fail;
-      if (chosen.length === 0) {
+      const wantsOther = field.allowOther === true && chosen.includes(OTHER_CHOICE_VALUE);
+      const listed = chosen.filter((value) => value !== OTHER_CHOICE_VALUE);
+      if (listed.some((value) => !field.options.includes(value))) return fail;
+      if (chosen.includes(OTHER_CHOICE_VALUE) && !wantsOther) return fail;
+      const other = wantsOther ? otherAnswer(field, formData) : null;
+      if (wantsOther && other === null) return fail;
+      const values = other ? [...listed, other] : listed;
+      if (values.length === 0) {
         if (field.required) return fail;
         continue;
       }
-      answers[field.id] = chosen;
+      answers[field.id] = values;
       continue;
     }
 
@@ -327,7 +386,17 @@ export function readAnswers(fields: readonly FormField[], formData: FormData): A
         break;
       case 'select':
       case 'dropdown':
+        if (raw === OTHER_CHOICE_VALUE && field.type === 'select' && field.allowOther) {
+          const other = otherAnswer(field, formData);
+          if (other === null) return fail;
+          answers[field.id] = other;
+          break;
+        }
         if (!field.options.includes(raw)) return fail;
+        answers[field.id] = raw;
+        break;
+      case 'team_status':
+        if (!TEAM_STATUS_LABELS.includes(raw)) return fail;
         answers[field.id] = raw;
         break;
       case 'time':

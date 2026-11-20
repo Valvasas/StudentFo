@@ -505,6 +505,8 @@ export interface SubmissionRepository {
    * memutuskan dari sesi di cookie lewat `submission_poster_file()`.
    */
   getSubmissionPosterFile(viewer: MediaViewer | null, submissionId: string): Promise<StoredFile | null>;
+  /** Gambar pendukung kiriman yang belum tayang (ADR-094) — aturan baca sama dengan poster. */
+  getSubmissionPhotoFile(viewer: MediaViewer | null, submissionId: string, photoId: string): Promise<StoredFile | null>;
   listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]>;
   /**
    * Kiriman milik satu akun, terbaru dulu — supaya pengirim tahu nasib
@@ -800,9 +802,21 @@ export interface GalleryRepository {
     eventId: string,
     images: readonly UploadedImage[],
     caption: string | null,
-    options?: { readonly asPoster?: boolean },
+    options?: {
+      readonly asPoster?: boolean;
+      /** Keterangan per gambar (ADR-094), sejajar `images`; kosong/null = pakai `caption`. */
+      readonly captions?: readonly (string | null)[];
+    },
   ): Promise<number>;
   deleteEventPhoto(actor: EventActor, photoId: string): Promise<void>;
+  /**
+   * Susun ulang slide (ADR-094). `photoIds` = urutan yang diinginkan; foto acara
+   * yang tidak disebut tetap di belakang. Tanpa hak → `not_event_manager`;
+   * basis data lama → `media_unavailable`.
+   */
+  reorderEventPhotos(actor: EventActor, eventId: string, photoIds: readonly string[]): Promise<void>;
+  /** Keterangan satu gambar (≤ 140, kosong = tanpa). Tidak ada/tanpa hak → `photo_not_found`. */
+  setEventPhotoCaption(actor: EventActor, photoId: string, caption: string | null): Promise<void>;
   /** Tandai/lepas poster (ADR-079) — maks. satu per acara; foto asing/tanpa hak → `photo_not_found`. */
   setEventPoster(actor: EventActor, photoId: string, isPoster: boolean): Promise<void>;
   /** Video YouTube/Vimeo kanonis (`normalizeVideoUrl`), `null` = lepas. Tanpa hak → `not_event_manager`. */
@@ -960,6 +974,11 @@ export interface CreateSubmissionInput {
    */
   readonly poster?: UploadedImage | null;
   /**
+   * Gambar pendukung / slide (ADR-094), urut pilihan pengirim, maks.
+   * `SUBMISSION_SLIDE_LIMIT`. Aturan sama dengan poster: hanya pengirim yang masuk.
+   */
+  readonly slides?: readonly SubmissionSlide[];
+  /**
    * Hanya mode seed (tanpa tabel users): pengirim admin boleh lomba mandiri
    * (ADR-092). Produksi membaca `users.role` di `approve_submission`.
    */
@@ -969,7 +988,20 @@ export interface CreateSubmissionInput {
 export interface CreateSubmissionResult {
   /** false walau poster dikirim = penyimpanannya belum siap (kode tayang sebelum migration); kirimannya tetap masuk. */
   readonly posterAttached: boolean;
+  /** Jumlah gambar pendukung yang tersimpan; 0 walau dikirim = tabelnya belum ada (sebelum migration 20261120100001). */
+  readonly slidesAttached: number;
 }
+
+export interface SubmissionSlide {
+  readonly image: UploadedImage;
+  readonly caption: string | null;
+}
+
+/**
+ * Gambar pendukung per kiriman — cermin CHECK `ugc_submission_photos.sort_order`
+ * 0..4. Poster + 5 = 6 berkas × 5 MB, pas batas body Server Action 32 MB.
+ */
+export const SUBMISSION_SLIDE_LIMIT = 5;
 
 export interface ReviewSubmissionInput {
   readonly submissionId: string;

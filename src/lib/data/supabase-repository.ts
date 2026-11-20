@@ -136,6 +136,7 @@ import type {
   EventListingRow,
   EventManagerRow,
   EventPhotoRow,
+  SubmissionPhotoRow,
   EventRegistrationRow,
   EventRevisionRow,
   ModerationLogRow,
@@ -185,7 +186,15 @@ import {
   totalPagesFor,
 } from './listing';
 import { type CacheLayer, nextDataCache } from './cache';
-import { DISPATCH_LEASE_SECONDS, DISPATCH_MAX_BATCH, GALLERY_LIMITS, MANAGED_EVENTS_LIMIT, OUTBOUND_READ_LIMIT, TEAM_LIST_LIMIT } from './repository';
+import {
+  DISPATCH_LEASE_SECONDS,
+  DISPATCH_MAX_BATCH,
+  GALLERY_LIMITS,
+  MANAGED_EVENTS_LIMIT,
+  OUTBOUND_READ_LIMIT,
+  SUBMISSION_SLIDE_LIMIT,
+  TEAM_LIST_LIMIT,
+} from './repository';
 import type {
   EventQuestionContext,
   MyEventQuestion,
@@ -195,6 +204,7 @@ import type {
   UserSuspensionInput,
   CreateSubmissionInput,
   CreateSubmissionResult,
+  SubmissionSlide,
   CalibrationData,
   CreateTeamRepositoryInput,
   RecommendationSignalInput,
@@ -226,6 +236,7 @@ import {
   ORGANIZER_COLUMNS,
   organizerErrorCode,
   PHOTO_COLUMNS,
+  PHOTO_COLUMNS_WITH_ORDER,
   PHOTO_COLUMNS_WITH_POSTER,
   mediaErrorCode,
   REGISTRATION_COLUMNS,
@@ -814,9 +825,11 @@ export class SupabaseEventRepository implements EventRepository {
   // Kiriman komunitas (Phase 3)
   // ------------------------------------------------------------------
 
-  async createSubmission({ submittedByEmail, submittedBy, payload, poster }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
-    if (poster && submittedBy && (await this.createSubmissionWithPoster(submittedByEmail, submittedBy, payload, poster))) {
-      return { posterAttached: true };
+  async createSubmission({ submittedByEmail, submittedBy, payload, poster, slides = [] }: CreateSubmissionInput): Promise<CreateSubmissionResult> {
+    const attached = slides.slice(0, SUBMISSION_SLIDE_LIMIT);
+    if (submittedBy && (poster || attached.length > 0)) {
+      const result = await this.createSubmissionWithMedia(submittedByEmail, submittedBy, payload, poster ?? null, attached);
+      if (result) return result;
     }
     // Klien pengguna/anon, bukan admin: policy `ugc_public_insert` yang
     // menegakkan status PENDING. Tanpa `.select()` — anon memang tidak boleh
@@ -832,46 +845,91 @@ export class SupabaseEventRepository implements EventRepository {
       });
 
     if (error) throw submissionInsertFailure(error);
-    return { posterAttached: false };
+    return { posterAttached: false, slidesAttached: 0 };
   }
 
   /**
-   * Kiriman berposter (ADR-084). Klien admin karena kolom `poster_*` sengaja
-   * TIDAK bisa ditulis pengguna (tidak ada hak INSERT kolomnya) dan id baris
-   * harus diketahui sebelum berkas diunggah. `submittedBy` datang dari sesi
-   * server, status memakai bawaan PENDING, dan pemicu batas laju tetap
-   * berjalan — yang dilewati hanya RLS yang isinya sudah dipenuhi di sini.
+   * Kiriman bermedia (poster ADR-084, gambar pendukung ADR-094). Klien admin
+   * karena kolom `poster_*` & tabel `ugc_submission_photos` sengaja TIDAK bisa
+   * ditulis pengguna, dan id baris harus diketahui sebelum berkas diunggah.
+   * `submittedBy` datang dari sesi server, status memakai bawaan PENDING, dan
+   * pemicu batas laju tetap berjalan — yang dilewati hanya RLS yang isinya
+   * sudah dipenuhi di sini.
    *
-   * Berkas diunggah DULU: baris kiriman tidak pernah menunjuk berkas yang
-   * tidak ada. `false` = kolomnya belum ada (kode tayang sebelum migration)
-   * → pemanggil menyimpan kirimannya tanpa poster.
+   * Berkas diunggah DULU: baris tidak pernah menunjuk berkas yang tidak ada.
+   * `null` = kolom poster belum ada (kode tayang sebelum migration) →
+   * pemanggil menyimpan kirimannya tanpa media. Tabel gambar pendukung belum
+   * ada = kiriman & poster tetap tersimpan, gambarnya dibuang dan dilaporkan.
    */
-  private async createSubmissionWithPoster(submittedByEmail: string, submittedBy: string, payload: SubmissionPayload, poster: UploadedImage): Promise<boolean> {
+  private async createSubmissionWithMedia(
+    submittedByEmail: string,
+    submittedBy: string,
+    payload: SubmissionPayload,
+    poster: UploadedImage | null,
+    slides: readonly SubmissionSlide[],
+  ): Promise<CreateSubmissionResult | null> {
     const admin = createSupabaseAdminClient();
     const storage = admin.storage.from(PHOTO_BUCKET);
     const submissionId = crypto.randomUUID();
-    const posterId = crypto.randomUUID();
-    const path = `${submissionId}/${posterId}.${IMAGE_EXTENSION[poster.type]}`;
+    const posterId = poster ? crypto.randomUUID() : null;
+    const files = [
+      ...(poster && posterId ? [{ id: posterId, image: poster }] : []),
+      ...slides.map((slide) => ({ id: crypto.randomUUID(), image: slide.image })),
+    ].map((file) => ({ ...file, path: `${submissionId}/${file.id}.${IMAGE_EXTENSION[file.image.type]}` }));
+    const slideFiles = poster ? files.slice(1) : files;
 
-    const uploaded = await storage.upload(path, poster.bytes, { contentType: poster.type, upsert: false });
-    if (uploaded.error) throw upstreamFailure('Gagal mengunggah poster kiriman.', uploaded.error, 500);
+    const remove = async (paths: readonly string[]) => {
+      if (paths.length === 0) return;
+      const removed = await storage.remove([...paths]);
+      if (removed.error) console.error('[kiriman] berkas yatim gagal dihapus:', paths, removed.error);
+    };
+
+    const uploaded: string[] = [];
+    try {
+      for (const file of files) {
+        const result = await storage.upload(file.path, file.image.bytes, { contentType: file.image.type, upsert: false });
+        if (result.error) throw upstreamFailure('Gagal mengunggah gambar kiriman.', result.error, 500);
+        uploaded.push(file.path);
+      }
+    } catch (error) {
+      await remove(uploaded);
+      throw error;
+    }
 
     const { error } = await admin.from('ugc_submissions').insert({
       id: submissionId,
       submitted_by_email: submittedByEmail,
       submitted_by: submittedBy,
       payload: toStoredPayload(payload),
-      poster_id: posterId,
-      poster_type: poster.type,
-      poster_width: poster.width,
-      poster_height: poster.height,
+      ...(poster && posterId
+        ? { poster_id: posterId, poster_type: poster.type, poster_width: poster.width, poster_height: poster.height }
+        : {}),
     });
-    if (!error) return true;
+    if (error) {
+      await remove(uploaded);
+      if (isMissingColumnError(error)) return null;
+      throw submissionInsertFailure(error);
+    }
 
-    const removed = await storage.remove([path]);
-    if (removed.error) console.error('[kiriman] poster yatim gagal dihapus:', path, removed.error);
-    if (isMissingColumnError(error)) return false;
-    throw submissionInsertFailure(error);
+    if (slideFiles.length === 0) return { posterAttached: poster !== null, slidesAttached: 0 };
+    const inserted = await admin.from('ugc_submission_photos').insert(
+      slideFiles.map((file, index) => ({
+        id: file.id,
+        submission_id: submissionId,
+        content_type: file.image.type,
+        width: file.image.width,
+        height: file.image.height,
+        caption: slides[index]?.caption ?? null,
+        sort_order: index,
+      })),
+    );
+    if (inserted.error) {
+      // Kiriman & poster sudah tersimpan: gambar pendukung dilepas, bukan menggagalkan kirimannya.
+      if (!isMissingRelationError(inserted.error)) console.error('[kiriman] gambar pendukung gagal disimpan:', submissionId, inserted.error);
+      await remove(slideFiles.map((file) => file.path));
+      return { posterAttached: poster !== null, slidesAttached: 0 };
+    }
+    return { posterAttached: poster !== null, slidesAttached: slideFiles.length };
   }
 
   async getSubmissionPosterFile(_viewer: MediaViewer | null, submissionId: string): Promise<StoredFile | null> {
@@ -885,12 +943,23 @@ export class SupabaseEventRepository implements EventRepository {
     return row ? downloadPrivateFile(PHOTO_BUCKET, row.path) : null;
   }
 
+  async getSubmissionPhotoFile(_viewer: MediaViewer | null, submissionId: string, photoId: string): Promise<StoredFile | null> {
+    if (!isUuid(submissionId) || !isUuid(photoId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc('submission_photo_file', { p_submission: submissionId, p_photo: photoId });
+    if (error && isMissingRelationError(error)) return null;
+    if (error) throw upstreamFailure('Gagal memuat gambar kiriman.', error);
+    const row = rpcRows<{ path: string; content_type: string }>(data)[0];
+    return row ? downloadPrivateFile(PHOTO_BUCKET, row.path) : null;
+  }
+
   async listSubmissions(status: EventStatus, limit: number): Promise<readonly Submission[]> {
     const { data, error } = await selectSubmissions((columns) =>
       createSupabaseAdminClient().from('ugc_submissions').select(columns).eq('status', status).order('created_at', { ascending: true }).limit(limit).returns<SubmissionRow[]>(),
     );
     if (error) throw upstreamFailure('Gagal memuat kiriman komunitas.', error);
-    return (data ?? []).map(toSubmission);
+    const submissions = (data ?? []).map(toSubmission);
+    return status === 'PENDING' ? withSubmissionPhotos(submissions) : submissions;
   }
 
   // ------------------------------------------------------------------
@@ -1123,6 +1192,7 @@ export class SupabaseEventRepository implements EventRepository {
       if (error) throw upstreamFailure('Gagal menolak kiriman.', error, 500);
       if (!data?.length) throw actionError('submission_not_found');
       await this.discardSubmissionPoster(submissionId);
+      await discardSubmissionPhotos(submissionId);
       return;
     }
 
@@ -2729,8 +2799,9 @@ export class SupabaseEventRepository implements EventRepository {
         .order('created_at', { ascending: false })
         .limit(GALLERY_LIMITS.perEvent)
         .returns<EventPhotoRow[]>();
-    let result = await select(PHOTO_COLUMNS_WITH_POSTER);
-    // Sebelum migration 20261109100002: galeri tetap tampil, hanya tanpa poster.
+    let result = await select(PHOTO_COLUMNS_WITH_ORDER);
+    // Basis data lama: tanpa urutan slide (20261120100001), lalu tanpa poster (20261109100002).
+    if (result.error && isMissingColumnError(result.error)) result = await select(PHOTO_COLUMNS_WITH_POSTER);
     if (result.error && isMissingColumnError(result.error)) result = await select(PHOTO_COLUMNS);
     if (result.error) throw upstreamFailure('Gagal memuat galeri.', result.error);
     return sortPhotosPosterFirst(result.data.map(toEventPhoto));
@@ -2741,11 +2812,11 @@ export class SupabaseEventRepository implements EventRepository {
     eventId: string,
     images: readonly UploadedImage[],
     caption: string | null,
-    options?: { readonly asPoster?: boolean },
+    options?: { readonly asPoster?: boolean; readonly captions?: readonly (string | null)[] },
   ): Promise<number> {
     if (!isUuid(eventId) || !(await this.callerManages(eventId))) throw actionError('not_event_manager');
     const storage = createSupabaseAdminClient().storage.from(PHOTO_BUCKET);
-    const rows = images.map((image) => {
+    const rows = images.map((image, index) => {
       const id = crypto.randomUUID();
       return {
         image,
@@ -2756,7 +2827,7 @@ export class SupabaseEventRepository implements EventRepository {
           content_type: image.type,
           width: image.width,
           height: image.height,
-          caption,
+          caption: options?.captions?.[index] || caption,
         },
       };
     });
@@ -2809,6 +2880,28 @@ export class SupabaseEventRepository implements EventRepository {
     if (!path) throw actionError('photo_not_found');
     const removed = await createSupabaseAdminClient().storage.from(PHOTO_BUCKET).remove([path]);
     if (removed.error) console.error('[galeri] berkas foto gagal dihapus:', removed.error);
+  }
+
+  async reorderEventPhotos(_actor: EventActor, eventId: string, photoIds: readonly string[]): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('reorder_event_photos', { p_event: eventId, p_photos: photoIds.filter(isUuid) });
+    if (error) {
+      const code = mediaErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menyusun urutan slide.', error, 500);
+    }
+  }
+
+  async setEventPhotoCaption(_actor: EventActor, photoId: string, caption: string | null): Promise<void> {
+    if (!isUuid(photoId)) throw actionError('photo_not_found');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('set_event_photo_caption', { p_photo: photoId, p_caption: caption ?? '' });
+    if (error) {
+      const code = mediaErrorCode(error);
+      if (code) throw actionError(code);
+      throw upstreamFailure('Gagal menyimpan keterangan gambar.', error, 500);
+    }
   }
 
   async setEventPoster(_actor: EventActor, photoId: string, isPoster: boolean): Promise<void> {
@@ -3772,6 +3865,44 @@ const SUBMISSION_COLUMNS = 'id, submitted_by_email, submitted_by, payload, statu
 async function selectSubmissions<T extends { error: unknown }>(run: (columns: string) => PromiseLike<T>): Promise<T> {
   const result = await run(`${SUBMISSION_COLUMNS}, poster_id, poster_width, poster_height`);
   return result.error && isMissingColumnError(result.error) ? run(SUBMISSION_COLUMNS) : result;
+}
+
+/** Gambar pendukung kiriman yang menunggu (ADR-094); tabel belum ada = kartu tanpa gambar pendukung. */
+async function withSubmissionPhotos(submissions: readonly Submission[]): Promise<Submission[]> {
+  const ids = submissions.map((submission) => submission.id);
+  if (ids.length === 0) return [];
+  const { data, error } = await createSupabaseAdminClient()
+    .from('ugc_submission_photos')
+    .select('id, submission_id, width, height, caption, sort_order')
+    .in('submission_id', ids)
+    .order('sort_order', { ascending: true })
+    .returns<SubmissionPhotoRow[]>();
+  if (error) {
+    if (!isMissingRelationError(error)) console.error('[kiriman] gambar pendukung gagal dimuat:', error);
+    return [...submissions];
+  }
+  const byId = new Map<string, SubmissionPhotoRow[]>();
+  for (const row of data) byId.set(row.submission_id, [...(byId.get(row.submission_id) ?? []), row]);
+  return submissions.map((submission) => {
+    const rows = byId.get(submission.id);
+    return rows ? { ...submission, photos: rows.map(({ id, width, height, caption }) => ({ id, width, height, caption })) } : submission;
+  });
+}
+
+/** Kiriman ditolak tidak menyimpan gambar pendukungnya (pola poster, ADR-084). Gagal = dicatat. */
+async function discardSubmissionPhotos(submissionId: string): Promise<void> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc('take_submission_photos', { p_submission: submissionId });
+  if (error) {
+    if (!isMissingRelationError(error)) console.error('[kiriman] gambar kiriman ditolak gagal dilepas:', submissionId, error);
+    return;
+  }
+  const paths = rpcRows<string | { take_submission_photos: string }>(data)
+    .map((row) => (typeof row === 'string' ? row : row.take_submission_photos))
+    .filter((path): path is string => typeof path === 'string' && path.length > 0);
+  if (paths.length === 0) return;
+  const removed = await admin.storage.from(PHOTO_BUCKET).remove(paths);
+  if (removed.error) console.error('[kiriman] berkas gambar kiriman ditolak gagal dihapus:', paths, removed.error);
 }
 
 /** Trigger enforce_submission_rate_limit() (migration 0009) → kode batas laju; selebihnya galat hulu. */

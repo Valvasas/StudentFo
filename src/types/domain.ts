@@ -518,6 +518,18 @@ export interface Submission {
    * poster, sudah pindah ke acara (disetujui), atau dihapus (ditolak).
    */
   readonly poster: { readonly width: number; readonly height: number } | null;
+  /**
+   * Gambar pendukung / slide (ADR-094) selama masih milik kiriman, urut
+   * pilihan pengirim — `/media/kiriman/[id]/[gambar]`. Tidak ada = tanpa.
+   */
+  readonly photos?: readonly SubmissionPhoto[];
+}
+
+export interface SubmissionPhoto {
+  readonly id: string;
+  readonly width: number;
+  readonly height: number;
+  readonly caption: string | null;
 }
 
 /** Status yang bisa muncul di log moderasi — status acara + status penyelenggara (ADR-042). */
@@ -1107,6 +1119,12 @@ export const FORM_FIELD_TYPES = [
   'scale',
   /** Bukan pertanyaan: judul + keterangan pemisah bagian. Tidak punya jawaban. */
   'section',
+  /**
+   * Status tim (ADR-094): pilihan TETAP dari `TEAM_STATUSES` — jawabannya
+   * dipahami sistem (tawaran cari partner/tim, lobi), jadi panitia tidak
+   * menulis pilihannya sendiri.
+   */
+  'team_status',
 ] as const;
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 
@@ -1125,6 +1143,7 @@ export const FORM_FIELD_TYPE_LABEL: Record<FormFieldType, string> = {
   time: 'Jam',
   scale: 'Skala linear',
   section: 'Judul bagian',
+  team_status: 'Status tim (+ cari partner)',
 };
 
 /** Skala linear (ADR-092): selalu mulai dari 1; label ujung opsional. */
@@ -1141,10 +1160,15 @@ export interface FormField {
   readonly label: string;
   readonly help: string | null;
   readonly required: boolean;
-  /** Hanya untuk `select`, `multi_select` & `dropdown`. */
+  /** Hanya untuk `select`, `multi_select` & `dropdown` (dan `team_status`: selalu `TEAM_STATUSES`). */
   readonly options: readonly string[];
   /** Hanya untuk `scale`. */
   readonly scale?: FormScale;
+  /**
+   * Pilihan "Lainnya: …" dengan isian bebas (ADR-094) — hanya `select` &
+   * `multi_select`, seperti Google Form. Jawabannya disimpan `Lainnya: <teks>`.
+   */
+  readonly allowOther?: boolean;
 }
 
 export interface RegistrationForm {
@@ -1224,6 +1248,11 @@ export interface EventPhoto {
   readonly createdAt: string;
   /** Poster acara (maks. satu per acara, ADR-079); diurutkan pertama di galeri & slide. */
   readonly isPoster: boolean;
+  /**
+   * Urutan slide pilihan pengelola (ADR-094), 0 = paling depan setelah poster.
+   * Tidak ada / null = basis data lama — urutan "terbaru dulu".
+   */
+  readonly sortOrder?: number | null;
 }
 
 /** Isi berkas yang disajikan rute `/media/*`. */
