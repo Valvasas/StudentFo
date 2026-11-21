@@ -61,7 +61,7 @@ const pendingEvent = {
 function fakeDeps(jobs: MediaImportJob[], options: { event?: EventDetail | null; fetchResult?: RemoteImageResult; completeError?: unknown } = {}) {
   const repository = {
     claimMediaImports: vi.fn(async () => jobs),
-    completeMediaImport: vi.fn(async () => {
+    completeMediaImport: vi.fn(async (_job: MediaImportJob, _image: UploadedImage, _caption: string | null) => {
       if (options.completeError) throw options.completeError;
     }),
     failMediaImport: vi.fn(async () => undefined),

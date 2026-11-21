@@ -32,7 +32,7 @@ function deps(routes: Record<string, Route>, dns: Record<string, string[]> = {})
       const headers = new Headers();
       if (route.type) headers.set('content-type', route.type);
       if (route.location) headers.set('location', route.location);
-      return new Response(route.body ?? null, { status: route.status ?? 200, headers });
+      return new Response((route.body ?? null) as BodyInit | null, { status: route.status ?? 200, headers });
     }) as typeof fetch,
   };
 }
