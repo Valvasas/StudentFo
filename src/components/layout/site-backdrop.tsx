@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { HIGHLIGHT, PAPER, Svg } from '@/components/ui/illustrations';
+import { HIGHLIGHT, PAPER, ShineMark, Svg } from '@/components/ui/illustrations';
 
 const motion = (delayMs: number, from = 0, to = 0, travel = -90) =>
   ({ '--d': `${delayMs}ms`, '--r0': `${from}deg`, '--r1': `${to}deg`, '--py': `${travel}px` }) as CSSProperties;
@@ -17,7 +17,7 @@ const motion = (delayMs: number, from = 0, to = 0, travel = -90) =>
  * mana pun. Coretan benda hanya di talang kiri-kanan mulai `xl` dan
  * ukurannya dijaga di bawah lebar talang 1366px (±115px) supaya tidak
  * menyenggol menu samping akun; di bawah `xl` tinggal kertas bertitik dan
- * bintang kecil di pojok — isi tetap yang paling menonjol.
+ * garis kilau kecil di pojok — isi tetap yang paling menonjol.
  *
  * Gerak: `drift`/`twinkle` (waktu) di lapisan dalam, `parallax-y` (posisi
  * gulir, hanya peramban yang mendukung scroll-driven animation) di lapisan
@@ -39,8 +39,8 @@ export function SiteBackdrop() {
 
       <span className="parallax-y absolute right-[1.5%] top-[11%]" style={motion(0, 0, 0, -60)}>
         <Svg viewBox="0 0 64 64" className="size-9 sm:size-12">
-          <path className="twinkle" style={motion(0)} d="M22 6 Q23.5 18 36 20 Q23.5 22 22 34 Q20.5 22 8 20 Q20.5 18 22 6 Z" fill={HIGHLIGHT} strokeWidth="1.8" />
-          <path className="twinkle" style={motion(900)} d="M48 34 Q49 42 57 43 Q49 44 48 52 Q47 44 39 43 Q47 42 48 34 Z" fill={PAPER} strokeWidth="1.6" />
+          <ShineMark x={24} y={24} scale={1.15} rotate={-12} className="twinkle" style={motion(0)} />
+          <ShineMark x={48} y={50} scale={0.7} rotate={30} className="twinkle" style={motion(900)} />
           <circle className="twinkle" style={motion(1600)} cx="12" cy="50" r="3" strokeWidth="1.6" />
         </Svg>
       </span>

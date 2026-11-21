@@ -922,3 +922,12 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] P2 Pencocokan partner (`/teams/cocok`) belum bisa disaring per lomba — tawaran "Cari partner" membuka pencocokan umum
 - [ ] P2 Logika bersyarat antar-pertanyaan (lompat bagian bila jawaban X) belum ada; Status tim cukup untuk kasus tim
 - [ ] P3 Tombol naik/turun PILIHAN jawaban hanya di ≥ 640px (ponsel: Alt+↑/↓ atau A–Z) — ruang baris pilihan terlalu sempit
+
+## Polesan identitas visual 2026-11-21 (@claude) — ADR-095
+
+- [x] Wordmark tunggal (navbar, footer, OG) + stabilo coretan tangan untuk semua `.marker`
+- [x] Garis kilau `ShineMark` menggantikan bintang ✦ (latar, hero, ilustrasi fitur, tim, medali, kartu pemuat)
+- [x] Selotip kertas di sketsa hero; tracking judul hero; tagline footer
+- [x] Sumbu opsz/wdth Bricolage diukur & ditolak (biaya font vs perbedaan visual)
+- [ ] P3 Template email Auth (`auth-email-templates.ts`) masih wordmark teks polos — samakan bila disentuh (`npm run email:templates`)
+- [ ] P3 Ubin statistik ber-ikon kotak (/teams, studio) masih pola dasbor umum — kandidat polesan berikutnya

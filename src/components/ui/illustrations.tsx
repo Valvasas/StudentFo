@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -139,10 +140,45 @@ export function PaperPlaneDoodle({ className }: IllustrationProps) {
   );
 }
 
-export function SparkleDoodle({ className }: IllustrationProps) {
+/**
+ * "Garis kilau" (ADR-095) — kosakata kilau dari logo gambar tangan pemilik:
+ * tiga goresan pendek memancar + titik stabilo, seperti tanda "penting!" di
+ * buku catatan. Menggantikan bintang empat sudut, penanda paling umum
+ * estetika hasil generate. Berupa `<g>` untuk SVG mana pun (ikut `stroke`
+ * induknya); `className`/`style` di lapis dalam supaya animasi skala
+ * (`twinkle`) tidak bertabrakan dengan `transform` posisi.
+ */
+export function ShineMark({
+  x,
+  y,
+  scale = 1,
+  rotate = 0,
+  className,
+  style,
+}: {
+  x: number;
+  y: number;
+  scale?: number;
+  rotate?: number;
+  className?: string;
+  style?: CSSProperties;
+}) {
   return (
-    <Svg viewBox="0 0 24 24" className={cn('size-6', className)}>
-      <path d="M12 3 Q13 11 21 12 Q13 13 12 21 Q11 13 3 12 Q11 11 12 3 Z" fill={HIGHLIGHT} strokeWidth="1.6" />
+    <g transform={`translate(${x} ${y}) rotate(${rotate}) scale(${scale})`}>
+      <g className={className} style={style}>
+        <path d="M-7.6 -1.6 Q-10.6 -4.6 -12.2 -8.6" strokeWidth="2.1" />
+        <path d="M0.6 -4.6 Q0.1 -9.4 1 -14" strokeWidth="2.1" />
+        <path d="M8.4 -1.2 Q11.6 -3.8 13.6 -7.2" strokeWidth="2.1" />
+        <circle cx="0.6" cy="3" r="2.7" fill={HIGHLIGHT} strokeWidth="1.5" />
+      </g>
+    </g>
+  );
+}
+
+export function ShineDoodle({ className }: IllustrationProps) {
+  return (
+    <Svg viewBox="-16 -17 32 25" className={cn('size-6', className)}>
+      <ShineMark x={0} y={0} />
     </Svg>
   );
 }

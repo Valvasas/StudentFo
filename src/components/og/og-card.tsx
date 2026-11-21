@@ -1,4 +1,5 @@
 import { LOGO_BOLD, LOGO_SIZE } from '@/components/ui/logo-paths';
+import { MARKER_SWIPE } from '@/components/ui/marker-swipe';
 
 /**
  * Kartu pratinjau tautan (Open Graph) — digambar Satori lewat `next/og`, jadi
@@ -22,6 +23,17 @@ const LOGO_SRC = `data:image/svg+xml;base64,${Buffer.from(
     `<path d="${LOGO_BOLD.paper}" fill="${PAPER}"/>` +
     `<path d="${LOGO_BOLD.highlight}" fill="${HIGHLIGHT}"/>` +
     `<path d="${LOGO_BOLD.ink}" fill="${INK}" fill-rule="evenodd"/>` +
+    '</svg>',
+).toString('base64')}`;
+
+/**
+ * Stabilo wordmark (ADR-095) untuk kartu gelap: emas redup seperti tema gelap
+ * situs — kuning terang di belakang teks terang tidak terbaca.
+ */
+const SWIPE_SRC = `data:image/svg+xml;base64,${Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${MARKER_SWIPE.viewBox}" preserveAspectRatio="none">` +
+    `<path d="${MARKER_SWIPE.base}" fill="#b8901d" fill-opacity="0.75"/>` +
+    `<path d="${MARKER_SWIPE.pass}" fill="#d9aa35" fill-opacity="0.45"/>` +
     '</svg>',
 ).toString('base64')}`;
 
@@ -60,7 +72,14 @@ export function OgCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- dirender satori menjadi PNG, bukan elemen DOM */}
           <img src={LOGO_SRC} width={60} height={60} alt="" />
-          <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em' }}>StudentFo</div>
+          <div style={{ display: 'flex', fontSize: 34, fontWeight: 800, letterSpacing: '-0.04em' }}>
+            <span>Student</span>
+            <div style={{ display: 'flex', position: 'relative', padding: '0 4px', margin: '0 -4px' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- dirender satori menjadi PNG, bukan elemen DOM */}
+              <img src={SWIPE_SRC} width={52} height={20} alt="" style={{ position: 'absolute', left: 0, bottom: 2 }} />
+              <span style={{ position: 'relative' }}>Fo</span>
+            </div>
+          </div>
         </div>
         <div
           style={{

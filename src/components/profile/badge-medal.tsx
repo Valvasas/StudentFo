@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { HIGHLIGHT, PAPER, PAPER_SHADE, PENCIL, Svg } from '@/components/ui/illustrations';
+import { HIGHLIGHT, PAPER, PAPER_SHADE, PENCIL, ShineMark, Svg } from '@/components/ui/illustrations';
 import type { BadgeKey, BadgeTier } from '@/lib/achievements';
 import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
@@ -223,18 +223,9 @@ function Pips({ tier }: { tier: BadgeTier }) {
   );
 }
 
+/** Kilau medali = garis kilau logo (ADR-095), bukan bintang empat sudut. */
 function Sparkle({ x, y, scale, wait }: { x: number; y: number; scale: number; wait: number }) {
-  return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`}>
-      <path
-        d="M0 -10 Q1.4 -1.4 10 0 Q1.4 1.4 0 10 Q-1.4 1.4 -10 0 Q-1.4 -1.4 0 -10 Z"
-        fill={HIGHLIGHT}
-        strokeWidth={1.8}
-        className="twinkle"
-        style={{ '--d': `${wait}ms` } as CSSProperties}
-      />
-    </g>
-  );
+  return <ShineMark x={x} y={y} scale={scale} rotate={x < 60 ? -28 : 24} className="twinkle" style={{ '--d': `${wait}ms` } as CSSProperties} />;
 }
 
 export function BadgeMedal({

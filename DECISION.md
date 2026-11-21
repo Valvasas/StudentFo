@@ -12,6 +12,46 @@ terdokumentasi.
 
 ---
 
+## ADR-095 — Identitas diturunkan dari logo gambar tangan: stabilo coretan, wordmark tunggal, garis kilau (21 Nov 2026)
+
+**Konteks.** Pemilik: teks judul "StudentFo" masih kaku dan "kelihatan buatan AI", ilustrasi
+lain perlu dipoles supaya situs punya identitas — tanpa menghapus fitur atau elemen.
+Audit screenshot (1366px & Pixel 7, terang & gelap, mode seed):
+- Stabilo di "Fo" (navbar) dan "masih buka" (hero) = **persegi panjang datar CSS**
+  (`linear-gradient`) — kontras dengan logo toga-map yang digambar tangan pemilik.
+- Wordmark tampil **dua rupa**: navbar dengan stabilo, footer tanpa.
+- **Bintang kilau empat sudut** (✦) di ±25 tempat — latar situs, hero, ilustrasi fitur,
+  `IllustrationStage`, halaman tim, medali lencana, kartu pemuat — penanda paling umum
+  estetika hasil generate. Logo pemilik sendiri menggambar kilau sebagai **goresan pendek
+  memancar**, bukan bintang.
+- Judul hero `-0.042em` terasa padat di ponsel.
+
+**Keputusan.**
+1. **Sumber identitas = logo pemilik (ADR-080)**: tinta `currentColor` + stabilo + goresan
+   tangan. Tidak ada warna atau font baru.
+2. **Stabilo = coretan gambar tangan** (`--marker-swipe`, SVG per tema; bentuknya di
+   `components/ui/marker-swipe.ts` untuk kartu OG): ujung pahat, naik sedikit ke kanan,
+   tarikan kedua lebih pekat di bawah. Tetap PEJAL sampai ujung — ujung transparan pernah
+   membuat pita di kata pendek seperti noda. Tetap latar (`box-decoration-break: clone`),
+   jadi kata yang terbungkus ditandai per baris. Berlaku otomatis di semua `.marker`.
+3. **Satu wordmark** (`Wordmark`/`BrandLockup`): navbar, footer (+ satu baris tagline), dan
+   kartu OG. Saat disentuh, stabilo "ditarik ulang" dan toga terangkat sedikit — sekali
+   jalan, mati di reduced-motion. Nama aksesibel tetap "StudentFo" (teks HTML).
+4. **`ShineMark`** (tiga goresan memancar + titik stabilo) menggantikan bintang di semua
+   tempat di atas; animasi `twinkle` dipertahankan. `SparkleDoodle` → `ShineDoodle`.
+5. Selotip kertas di sketsa hero; tracking judul hero `-0.03em`.
+
+**Ditolak.** (a) **Sumbu `opsz`/`wdth` Bricolage** — diukur: font 41 KB → 77 KB (opsz) /
+131 KB (opsz+wdth), dipramuat di setiap halaman; opsz otomatis membuat ±60 kelas tracking
+judul saling menempel, dan opsz terkendali (34) nyaris tak terbedakan dari bawaan 14.
+(b) Font tulisan tangan untuk wordmark (font keempat; terkesan main-main untuk produk yang
+menampung data pendaftaran). (c) Menggambar ulang logo — gambar pemilik adalah sumbernya.
+
+**Konsekuensi.** Mengubah bentuk coretan = ubah `--marker-swipe` (dua tema) DAN
+`MARKER_SWIPE` bersamaan. Ilustrasi baru memakai `ShineMark`, bukan bintang.
+
+---
+
 ## ADR-094 — Slide penjelas di kiriman & buat acara, penyusun formulir yang ramah, dan tawaran cari partner dari jawaban "Status tim" (20 Nov 2026)
 
 **Konteks.** Pemilik (20 Nov): (1) saat mengirim atau membuat acara hanya POSTER yang

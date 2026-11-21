@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { HIGHLIGHT, PAPER, PAPER_SHADE, PENCIL, Svg } from '@/components/ui/illustrations';
+import { HIGHLIGHT, PAPER, PAPER_SHADE, PENCIL, ShineMark, Svg } from '@/components/ui/illustrations';
 import { cn } from '@/lib/utils';
 import type { Tint } from '@/lib/tint';
 
@@ -9,7 +9,7 @@ import type { Tint } from '@/lib/tint';
  * token (ikut tema gelap), tanpa teks di SVG, `aria-hidden` lewat `Svg`.
  *
  * Yang baru: garis utama "tergambar" sekali saat tampil (`ink-draw`), dan
- * hiasan kecil (bintang, titik mengetik, kursi kosong) bergerak pelan. Semua
+ * hiasan kecil (garis kilau, titik mengetik, kursi kosong) bergerak pelan. Semua
  * gerak itu jatuh ke gambar diam di `prefers-reduced-motion`.
  */
 
@@ -20,12 +20,9 @@ function Ink({ d, fill = 'none', wait = 0, width }: { d: string; fill?: string; 
   return <path d={d} pathLength={1} fill={fill} strokeWidth={width} className="ink-draw" style={delay(wait)} />;
 }
 
+/** Garis kilau (ADR-095), dimiringkan berbeda per letak supaya tidak berbaris seragam. */
 function Sparkle({ x, y, scale = 1, wait = 0 }: { x: number; y: number; scale?: number; wait?: number }) {
-  return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`}>
-      <path d="M0 -10 Q1.4 -1.4 10 0 Q1.4 1.4 0 10 Q-1.4 1.4 -10 0 Q-1.4 -1.4 0 -10 Z" fill={HIGHLIGHT} strokeWidth="1.6" className="twinkle" style={delay(wait)} />
-    </g>
-  );
+  return <ShineMark x={x} y={y} scale={scale * 0.9} rotate={((x * 37 + y * 11) % 50) - 25} className="twinkle" style={delay(wait)} />;
 }
 
 function Face({ x, y, size = 1 }: { x: number; y: number; size?: number }) {

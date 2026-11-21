@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LogoMark } from '@/components/ui/logo';
+import { BrandLockup } from '@/components/ui/wordmark';
 
 const FOOTER_LINKS = [
   { href: '/about', label: 'Tentang' },
@@ -23,10 +23,12 @@ export function Footer() {
   return (
     <footer className="container-page mt-24 pb-10">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-t border-line pt-8">
-        <Link href="/" className="inline-flex min-h-11 items-center gap-2 font-display text-base font-bold tracking-[-0.03em]">
-          <LogoMark className="size-[26px]" />
-          StudentFo
-        </Link>
+        <div className="flex flex-col gap-0.5">
+          <Link href="/" className="group inline-flex min-h-11 w-fit items-center gap-2 text-[18px]">
+            <BrandLockup markClassName="size-7" />
+          </Link>
+          <p className="max-w-[30ch] text-[13px] leading-snug text-ink-muted">Info lomba, beasiswa, dan magang yang masih buka — dicek sebelum tayang.</p>
+        </div>
         {/* min-h-11: tautan footer berdiri sendiri, bukan tautan di dalam paragraf,
             jadi pengecualian "inline link" WCAG 2.5.5 tidak berlaku di sini. */}
         <nav aria-label="Tautan footer" className="flex flex-wrap gap-x-7 text-sm">

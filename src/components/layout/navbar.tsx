@@ -8,7 +8,7 @@ import { AccountMenu } from '@/components/layout/account-menu';
 import { NavLinkList, NavLinks } from '@/components/layout/nav-links';
 import { NotificationMenu } from '@/components/layout/notification-menu';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
-import { LogoMark } from '@/components/ui/logo';
+import { BrandLockup } from '@/components/ui/wordmark';
 import { getSessionUser } from '@/lib/auth';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { withFallback } from '@/lib/fallback';
@@ -54,14 +54,8 @@ export async function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-canvas/95 backdrop-blur-sm">
       <div className="container-page flex flex-wrap items-center gap-x-2 md:h-16 md:flex-nowrap md:gap-x-6 lg:gap-x-9">
-        <Link
-          href="/"
-          className="order-1 flex h-14 shrink-0 items-center gap-2 font-display text-[19px] font-bold tracking-[-0.035em] md:h-auto"
-        >
-          <LogoMark className="size-8" />
-          <span>
-            Student<span className="marker">Fo</span>
-          </span>
+        <Link href="/" className="group order-1 flex h-14 shrink-0 items-center gap-2 text-[20px] md:h-auto">
+          <BrandLockup markClassName="size-8" />
         </Link>
 
         {/* Di ponsel tab terakhir ("Seminar") terpotong tanpa tanda bisa digeser;

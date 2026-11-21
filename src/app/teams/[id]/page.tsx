@@ -14,7 +14,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { BackLink } from '@/components/ui/back-link';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
 import { CelebrateSketch, Confetti } from '@/components/ui/feature-illustrations';
-import { SparkleDoodle } from '@/components/ui/illustrations';
+import { ShineDoodle } from '@/components/ui/illustrations';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { parseActionNoticeCode } from '@/lib/action-feedback';
 import { getSessionUser } from '@/lib/auth';
@@ -99,7 +99,7 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
         <article className="flex min-w-0 flex-col gap-8">
           <header className="enter overflow-hidden rounded-[28px] border border-line bg-panel [animation-duration:900ms]">
             <div className="dot-grid relative bg-panel-nested px-6 pb-14 pt-6 sm:px-9 sm:pt-8">
-              <SparkleDoodle className="drift absolute right-[8%] top-[22%] hidden size-7 sm:block" />
+              <ShineDoodle className="drift absolute right-[8%] top-[22%] hidden size-7 sm:block" />
               <div className="flex flex-wrap items-center gap-2">
                 <TeamSlotsBadge team={team} />
                 {isLeader && (

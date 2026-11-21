@@ -87,6 +87,11 @@
      tidak pernah warna teks; teks di atasnya tetap tinta (#1d1b17, 13:1). ===== */
   --color-highlight: #ffd95a;
   --color-highlight-soft: #fff1b8;
+  /* Coretan stabilo gambar tangan (ADR-095): ujung pahat, naik sedikit ke
+     kanan, lapis kedua yang lebih pekat di bawah — seperti stabilo yang
+     ditarik dua kali. Data URI per tema karena SVG di latar tidak bisa
+     membaca variabel CSS; warnanya = `--color-highlight` di atas. */
+  --marker-swipe: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 24' preserveAspectRatio='none'%3E%3Cpath fill='%23ffd95a' fill-opacity='1' d='M4.2 8.6C20 7.4 41 7.6 62 6.2C82 5 99 5.4 115.6 3.8C117.8 3.6 119.2 4.8 118.8 7L117.6 16.4C117.2 18.4 115.8 19.2 113.4 19.2C94 19.4 74 20.2 54 21C36 21.6 20 21.8 5.8 22.6C3.2 22.8 1.6 21.6 2 19.4L2.8 11C3 9.6 3.4 8.7 4.2 8.6Z'/%3E%3Cpath fill='%23f0bf2c' fill-opacity='0.6' d='M7 17.6C30 16.8 58 17.2 86 15.6C96 15 104 15 110 14.4L110.6 17.4C90 18.4 60 19.6 30 20.2C20 20.4 12 20.8 7.4 21Z'/%3E%3C/svg%3E");
   /* Tinta DI ATAS stabilo pekat (badge hitungan): tetap gelap di kedua tema.
      Teks terang di atas stabilo gelap #b8901d hanya 2,5:1; tinta ini 5,8:1. */
   --color-highlight-ink: #1d1b17;
@@ -229,7 +234,7 @@
      kontras, jadi coretan dipakai sebagai GARIS (bukan latar teks) di sini. */
   --color-highlight: #b8901d;
   --color-highlight-soft: rgb(184 144 29 / 0.28);
-  --marker-color: rgb(184 144 29 / 0.55);
+  --marker-swipe: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 24' preserveAspectRatio='none'%3E%3Cpath fill='%23b8901d' fill-opacity='0.6' d='M4.2 8.6C20 7.4 41 7.6 62 6.2C82 5 99 5.4 115.6 3.8C117.8 3.6 119.2 4.8 118.8 7L117.6 16.4C117.2 18.4 115.8 19.2 113.4 19.2C94 19.4 74 20.2 54 21C36 21.6 20 21.8 5.8 22.6C3.2 22.8 1.6 21.6 2 19.4L2.8 11C3 9.6 3.4 8.7 4.2 8.6Z'/%3E%3Cpath fill='%23d9aa35' fill-opacity='0.4' d='M7 17.6C30 16.8 58 17.2 86 15.6C96 15 104 15 110 14.4L110.6 17.4C90 18.4 60 19.6 30 20.2C20 20.4 12 20.8 7.4 21Z'/%3E%3C/svg%3E");
 
   /* Tint gelap: nada yang sama diredupkan jauh, teks terang di atasnya. */
   --color-tint-sun: #4b3f17;
@@ -518,20 +523,45 @@
    "buku catatan yang rapi" jadi "tugas prakarya".
    ===================================================================== */
 
-/* Stabilo di belakang kata: bukan blok penuh, hanya pita di 1/3 bawah —
-   seperti ditandai pulpen stabilo di buku catatan. Pita rata (bukan gradien
-   berujung transparan): di kata pendek seperti logo, ujung transparan membuat
-   pita terlihat seperti noda. `clone` = kata yang terbungkus tetap ditandai
-   di kedua baris. */
+/* Stabilo di belakang kata: bukan blok penuh, hanya coretan di bagian bawah —
+   seperti ditandai stabilo di buku catatan. Sejak ADR-095 coretannya GAMBAR
+   TANGAN (`--marker-swipe`): tepi bertekstur & ujung pahat, tetapi tetap
+   pejal sampai ujung — ujung transparan (gradien) membuat pita di kata pendek
+   seperti logo terlihat seperti noda. `clone` = kata yang terbungkus tetap
+   ditandai di kedua baris, tiap baris dengan coretannya sendiri. */
 @utility marker {
-  background-image: linear-gradient(var(--marker-color, var(--color-highlight)), var(--marker-color, var(--color-highlight)));
+  --marker-h: 0.5em;
+  background-image: var(--marker-swipe);
   background-repeat: no-repeat;
-  background-size: 100% 0.36em;
-  background-position: 0 86%;
+  background-size: 100% var(--marker-h);
+  background-position: 0 92%;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
-  padding-inline: 0.08em;
-  margin-inline: -0.08em;
+  padding-inline: 0.12em;
+  margin-inline: -0.12em;
+}
+
+/* Wordmark "StudentFo" (ADR-095): Bricolage paling tebal & rapat — logotipe,
+   bukan judul biasa. Satu definisi untuk navbar & footer supaya merek tidak
+   tampil dalam dua rupa. */
+@utility wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+/* Stabilo "ditarik ulang" saat logo disentuh: satu gerakan, lalu diam. */
+@keyframes sf-marker-draw {
+  from { background-size: 0% var(--marker-h); }
+  to { background-size: 100% var(--marker-h); }
+}
+
+@utility marker-draw {
+  .group:hover &,
+  .group:focus-visible & {
+    animation: sf-marker-draw 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
 }
 
 /* Kotak bergaris tangan: radius tidak simetris = tepi yang "digambar",

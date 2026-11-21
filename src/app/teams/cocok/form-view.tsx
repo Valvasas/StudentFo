@@ -6,7 +6,7 @@ import { SeekerForm } from '@/components/match/seeker-form';
 import { ScrollToTop } from '@/components/registration/scroll-to-top';
 import { IllustrationStage } from '@/components/ui/feature-hero';
 import { DeckDealSketch } from '@/components/ui/feature-illustrations';
-import { SparkleDoodle } from '@/components/ui/illustrations';
+import { ShineDoodle } from '@/components/ui/illustrations';
 import { parseActionErrorCode, parseActionNoticeCode } from '@/lib/action-feedback';
 import { parseSeekerFields } from '@/lib/matchmaking-schema';
 import type { MatchViewProps } from './shared';
@@ -29,7 +29,7 @@ export function FormView({ user, params, profile }: MatchViewProps) {
         <div className="enter flex min-w-0 flex-col gap-4 [animation-duration:900ms] sm:gap-5">
           <p className="-mb-1 flex items-center gap-2 text-[13.5px] font-medium text-ink-muted">
             Pencocokan tim
-            <SparkleDoodle className="size-6 lg:hidden" />
+            <ShineDoodle className="size-6 lg:hidden" />
           </p>
           <h1 className="text-[clamp(32px,6vw,54px)] leading-[1.02] tracking-[-0.035em]">
             Cocokkan tim <span className="marker">otomatis</span>

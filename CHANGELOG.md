@@ -82,7 +82,8 @@ yang tidak memuat migration yang sudah ada di produksi
 | Status tim | Jenis `team_status` (pilihan tetap `TEAM_STATUSES`) di templat Lomba tim + Tambah cepat; "belum punya tim" → tawaran partner di formulir, halaman pendaftaran, halaman acara; lobi `?niat=` (ADR-094) | "Nama tim" wajib; pendaftar tanpa tim tidak diarahkan ke mana pun | `form-assist.test.ts`, `form-assist.spec.ts` |
 | Mengisi formulir StudentFo | Progres pertanyaan wajib, draf per tab (`FieldMemory live`), "Isi dari profilku", jawaban pulih saat server menolak (ADR-094) | Galat server mengosongkan semua jawaban | `form-assist.test.ts`, `form-assist.spec.ts` |
 | Kirim kegiatan | Deskripsi di langkah 1 (bukan lipatan), peta langkah bertaut, "Kirimanmu" di bawah form (ADR-094) | Deskripsi di "Detail tambahan"; daftar kiriman di atas form | `submission-poster.spec.ts`, `submission-notification.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–094 | Nomor ganda 061/062 | — |
+| Identitas visual | `Wordmark`/`BrandLockup` (navbar, footer, OG), stabilo coretan tangan `--marker-swipe`, `ShineMark` (garis kilau dari logo) di semua ilustrasi (ADR-095) | Stabilo persegi CSS; footer tanpa stabilo; bintang kilau ✦ | `landing-tour.spec.ts`, a11y, `check:contrast` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–095 | Nomor ganda 061/062 | — |
 
 ## Migration
 
@@ -118,6 +119,10 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-21 — cabang `claude/studentfo-improvements-features-y22p76` (dari `main` `1fbfd96`)
+- Polesan identitas (ADR-095): wordmark tunggal + stabilo coretan tangan, garis kilau dari logo menggantikan bintang,
+  selotip di sketsa hero, footer bertagline. Tanpa migration; tidak ada fitur/elemen yang dihapus.
 
 ### 2026-11-20 — cabang `claude/studentfo-improvements-features-y22p76` (dari `main` `3821965`)
 - Slide penjelas saat kirim & buat acara, urutan + keterangan per slide (ADR-094 #1–2).

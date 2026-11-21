@@ -29,7 +29,7 @@ export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; 
       className="container-page grid max-w-[1120px] items-center gap-x-10 pt-8 sm:pt-[clamp(40px,7vw,92px)] lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]"
     >
       <div className="enter flex max-w-[860px] flex-col [animation-duration:700ms]">
-        <h1 id="hero-title" className="max-w-[19ch] text-[clamp(36px,5.8vw,62px)] leading-[1.04] tracking-[-0.042em]">
+        <h1 id="hero-title" className="max-w-[19ch] text-[clamp(36px,5.8vw,62px)] leading-[1.04] tracking-[-0.03em]">
           Cari lomba, beasiswa, dan magang yang <span className="marker">masih buka</span>.
         </h1>
         <p className="mt-4 max-w-[56ch] text-[clamp(16px,1.9vw,18.5px)] sm:mt-5 leading-relaxed text-ink-muted">

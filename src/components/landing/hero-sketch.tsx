@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { HIGHLIGHT, PAPER, PAPER_SHADE, PENCIL } from '@/components/ui/illustrations';
+import { HIGHLIGHT, PAPER, PAPER_SHADE, PENCIL, ShineMark } from '@/components/ui/illustrations';
 import { cn } from '@/lib/utils';
 
 const at = (ms: number, from = 0, to = 0) => ({ '--d': `${ms}ms`, '--r0': `${from}deg`, '--r1': `${to}deg` }) as CSSProperties;
@@ -55,6 +55,16 @@ export function HeroSketch({ className }: { className?: string }) {
         <path pathLength={1} className="ink-draw" style={at(1100)} d="M286 150 L306 150 L306 186 L296 178 L286 186 Z" fill={HIGHLIGHT} />
       </g>
 
+      {/* Selotip kertas menahan lembar depan — benda buku catatan, bukan dekorasi generik (ADR-095). */}
+      <path
+        d="M186 134 l4 -4 l-3 -4 l58 -6 l2 4 l4 3 l-2 4 l2 5 l-58 6 l-3 -4 Z"
+        fill="var(--color-highlight-soft)"
+        fillOpacity="0.92"
+        stroke={PENCIL}
+        strokeWidth="1.4"
+        transform="rotate(-6 216 132)"
+      />
+
       <g className="drift" style={at(1500, 8, 2)}>
         <circle pathLength={1} className="ink-draw" style={at(1150)} cx="320" cy="214" r="40" fill={HIGHLIGHT} fillOpacity="0.42" />
         <path d="M296 196 Q306 184 322 186" />
@@ -67,8 +77,9 @@ export function HeroSketch({ className }: { className?: string }) {
         <path pathLength={1} className="ink-draw" style={at(1500)} d="M150 88 L184 46" />
       </g>
 
-      <path className="twinkle" style={at(0)} d="M382 64 Q384 80 400 82 Q384 84 382 100 Q380 84 364 82 Q380 80 382 64 Z" fill={HIGHLIGHT} strokeWidth="1.8" />
-      <path className="twinkle" style={at(1200)} d="M60 236 Q61 246 71 247 Q61 248 60 258 Q59 248 49 247 Q59 246 60 236 Z" fill={PAPER} strokeWidth="1.6" />
+      {/* Garis kilau dari logo (ADR-095) — bukan bintang empat sudut. */}
+      <ShineMark x={384} y={86} scale={1.7} rotate={18} className="twinkle" style={at(0)} />
+      <ShineMark x={62} y={252} scale={1.1} rotate={-30} className="twinkle" style={at(1200)} />
       <circle className="twinkle" style={at(2000)} cx="398" cy="170" r="4" strokeWidth="1.8" />
       <path d="M40 40 l0 10 M35 45 l10 0" stroke={PENCIL} />
     </svg>

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { HIGHLIGHT, PAPER, PAPER_SHADE, PENCIL, Svg } from '@/components/ui/illustrations';
+import { HIGHLIGHT, PAPER, PAPER_SHADE, PENCIL, ShineMark, Svg } from '@/components/ui/illustrations';
 import type { RouteSceneKey } from '@/lib/route-scene';
 
 /**
@@ -29,7 +29,7 @@ function Scene({ scene }: { scene: RouteSceneKey }) {
         <>
           <path d="M14 22 L32 9 L50 22 V40 H14 Z" fill={PAPER} />
           <rect x="27" y="28" width="10" height="12" rx="2" fill={HIGHLIGHT} />
-          <path d="M44 6 Q47 9 44 12 Q41 9 44 6 Z" fill={HIGHLIGHT} strokeWidth="1.4" className="twinkle" />
+          <ShineMark x={47} y={11} scale={0.42} rotate={20} className="twinkle" />
         </>
       );
     case 'catalog':
@@ -112,7 +112,7 @@ function Scene({ scene }: { scene: RouteSceneKey }) {
           <circle cx="22" cy="23" r="6" fill={HIGHLIGHT} />
           <path d="M14 35 Q22 28 30 35" />
           <path d="M36 20 H50 M36 27 H46" stroke={PENCIL} />
-          <path d="M52 4 Q53 8 57 9 Q53 10 52 14 Q51 10 47 9 Q51 8 52 4 Z" fill={HIGHLIGHT} strokeWidth="1.4" className="twinkle" />
+          <ShineMark x={53} y={11} scale={0.42} rotate={22} className="twinkle" />
         </>
       );
     case 'settings':

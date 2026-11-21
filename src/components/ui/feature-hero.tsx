@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { TINT_BG } from '@/components/ui/avatar';
-import { SparkleDoodle } from '@/components/ui/illustrations';
+import { ShineDoodle } from '@/components/ui/illustrations';
 import type { Tint } from '@/lib/tint';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +50,7 @@ export function FeatureHero({
   );
 }
 
-/** Kartu bertint + kisi titik tempat ilustrasi "diletakkan", dengan dua bintang melayang. */
+/** Kartu bertint + kisi titik tempat ilustrasi "diletakkan", dengan garis kilau & lingkaran melayang. */
 export function IllustrationStage({ tint, children, className }: { tint: Tint; children: ReactNode; className?: string }) {
   return (
     <div
@@ -60,7 +60,7 @@ export function IllustrationStage({ tint, children, className }: { tint: Tint; c
         className,
       )}
     >
-      <SparkleDoodle className="drift absolute left-[8%] top-[12%] size-5 opacity-80" />
+      <ShineDoodle className="drift absolute left-[8%] top-[12%] size-6 opacity-80" />
       <span
         aria-hidden
         className="drift absolute bottom-[14%] right-[7%] size-3 rounded-pill border-2 border-current opacity-50"
