@@ -12,6 +12,12 @@ export interface LightboxItem {
   readonly caption: string | null;
   readonly width: number;
   readonly height: number;
+  /**
+   * Pratinjau kegiatan yang BELUM tayang (ADR-095): berkasnya hanya terbaca
+   * dengan cookie admin/pengelola, sedangkan optimizer `/_next/image`
+   * mengambilnya tanpa cookie — jadi dilewati.
+   */
+  readonly unoptimized?: boolean;
 }
 
 const SWIPE_MIN_PX = 48;
@@ -135,6 +141,7 @@ export function PhotoLightbox({
               <Image
                 key={current.id}
                 src={current.src}
+                unoptimized={current.unoptimized}
                 alt={current.alt}
                 width={current.width}
                 height={current.height}
@@ -151,7 +158,7 @@ export function PhotoLightbox({
               </>
             )}
             {neighbours.map((item) =>
-              item ? <Image key={`pre-${item.id}`} src={item.src} alt="" width={item.width} height={item.height} sizes="100vw" loading="eager" className="hidden" /> : null,
+              item ? <Image key={`pre-${item.id}`} src={item.src} unoptimized={item.unoptimized} alt="" width={item.width} height={item.height} sizes="100vw" loading="eager" className="hidden" /> : null,
             )}
           </div>
 

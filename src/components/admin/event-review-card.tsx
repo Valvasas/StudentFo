@@ -1,6 +1,13 @@
-import { AlertTriangle, Check, ExternalLink, GraduationCap, MapPin, Tag } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { AlertTriangle, Check, ExternalLink, GraduationCap, ImageIcon, Loader, MapPin, Tag } from 'lucide-react';
 import { BulkPick } from '@/components/admin/bulk-approve-bar';
-import { reviewEventAction } from '@/app/admin/actions';
+import { queueMediaImportsAction, reviewEventAction } from '@/app/admin/actions';
+import { photoAlt, photoSrc } from '@/components/event/event-photo';
+import { SubmitButton } from '@/components/ui/submit-button';
+import type { ModerationMedia } from '@/lib/data/repository';
+import { mediaImportErrorText } from '@/lib/media-import/jobs';
+import { adminMediaPath } from '@/lib/media-paths';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -33,10 +40,13 @@ function hostOf(url: string): string {
 export function EventReviewCard({
   event,
   categoryNames,
+  media,
   bulkFormId,
 }: {
   event: EventDetail;
   categoryNames: Readonly<Record<string, string>>;
+  /** Poster & slide yang sudah/akan disiapkan otomatis (ADR-095). */
+  media: ModerationMedia;
   /** Form "Setujui yang dipilih" (ADR-093); tanpa ini kartu tanpa kotak Pilih. */
   bulkFormId?: string;
 }) {
@@ -120,6 +130,7 @@ export function EventReviewCard({
             </a>
           )}
         </div>
+        <MediaStrip event={event} media={media} />
       </div>
 
       {/* Dua <form> terpisah, masing-masing satu aksi. Menaruh dua
@@ -179,5 +190,78 @@ function Fact({
         <dd>{children}</dd>
       )}
     </div>
+  );
+}
+
+const STRIP_LIMIT = 6;
+
+/**
+ * Poster & slide kegiatan yang belum tayang (ADR-095): moderator memeriksa
+ * gambarnya bersama datanya, karena keduanya tayang bersamaan begitu
+ * disetujui. Gambar diambil langsung (tanpa optimizer) — rutenya hanya
+ * menjawab admin/pengelola untuk kegiatan yang belum tayang.
+ */
+function MediaStrip({ event, media }: { event: EventDetail; media: ModerationMedia }) {
+  const { photos, imports } = media;
+  const untouched = photos.length === 0 && imports.pending + imports.done + imports.failed === 0;
+  const failure = mediaImportErrorText(imports.lastError);
+  return (
+    <section aria-label={`Poster & slide ${event.title}`} className="mt-4 flex flex-col gap-2 border-t border-line pt-4">
+      {photos.length > 0 && (
+        <ul className="flex gap-2 overflow-x-auto pb-1">
+          {photos.slice(0, STRIP_LIMIT).map((photo, index) => (
+            <li key={photo.id} className="relative shrink-0">
+              <Image
+                src={photoSrc(photo.id)}
+                unoptimized
+                alt={photoAlt(photo, index + 1, event.title)}
+                width={photo.width}
+                height={photo.height}
+                className="h-28 w-auto rounded-md border border-line bg-panel-nested object-contain"
+              />
+              {photo.isPoster && (
+                <Badge variant="neutral" className="absolute left-1 top-1 bg-panel/90 text-[11px] text-ink">
+                  Poster
+                </Badge>
+              )}
+            </li>
+          ))}
+          {photos.length > STRIP_LIMIT && (
+            <li className="flex h-28 shrink-0 items-center px-2 text-sm text-ink-muted">+{photos.length - STRIP_LIMIT} lagi</li>
+          )}
+        </ul>
+      )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        {photos.length === 0 && !untouched && imports.pending === 0 && (
+          <span className="flex items-center gap-1 text-caution">
+            <AlertTriangle aria-hidden className="size-3.5" /> Belum ada poster atau slide
+          </span>
+        )}
+        {imports.pending > 0 && (
+          <span className="flex items-center gap-1 text-ink-muted">
+            <Loader aria-hidden className="size-3.5" /> {imports.pending} gambar sedang disiapkan otomatis
+          </span>
+        )}
+        {imports.failed > 0 && (
+          <span className="flex items-center gap-1 text-caution">
+            <AlertTriangle aria-hidden className="size-3.5" /> {imports.failed} gagal{failure ? `: ${failure}` : ''}
+          </span>
+        )}
+        <Link
+          href={adminMediaPath(event.slug, event.id)}
+          className="inline-flex min-h-11 items-center gap-1 font-medium text-brand-text hover:underline"
+        >
+          <ImageIcon aria-hidden className="size-4" /> {photos.length > 0 ? 'Kelola poster & slide' : 'Unggah poster & slide'}
+        </Link>
+        {untouched && (
+          <form action={queueMediaImportsAction}>
+            <input type="hidden" name="eventId" value={event.id} />
+            <SubmitButton className={buttonVariants({ variant: 'secondary', size: 'sm' })} pendingLabel="Mengantrekan…">
+              Siapkan gambar otomatis
+            </SubmitButton>
+          </form>
+        )}
+      </div>
+    </section>
   );
 }

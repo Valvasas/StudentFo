@@ -125,6 +125,7 @@ export function MediaSlider({ slides, label }: { slides: readonly MediaSlide[]; 
                   {/* Latar buram dari foto yang sama (URL & ukuran sama = satu unduhan) mengisi sisi poster tegak. */}
                   <Image
                     src={slide.src}
+                    unoptimized={slide.unoptimized}
                     alt=""
                     aria-hidden
                     width={slide.width}
@@ -135,6 +136,7 @@ export function MediaSlider({ slides, label }: { slides: readonly MediaSlide[]; 
                   />
                   <Image
                     src={slide.src}
+                    unoptimized={slide.unoptimized}
                     alt={slide.alt}
                     width={slide.width}
                     height={slide.height}
