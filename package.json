@@ -26,6 +26,7 @@
     "email:templates": "node --experimental-strip-types --no-warnings scripts/build-auth-email-templates.mjs"
   },
   "dependencies": {
+    "@fontsource/plus-jakarta-sans": "5.3.0",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
     "@radix-ui/react-slot": "^1.1.2",

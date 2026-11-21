@@ -9,6 +9,9 @@ export default defineConfig({
       'server-only': fileURLToPath(new URL('./node_modules/next/dist/compiled/server-only/empty.js', import.meta.url)),
     },
   },
+  // tsconfig memakai `jsx: preserve` (Next yang mengompilasi); tes yang menggambar
+  // poster Satori (ADR-095) mengimpor .tsx, jadi Vitest perlu transform JSX sendiri.
+  oxc: { jsx: { runtime: 'automatic' } },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
