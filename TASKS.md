@@ -922,3 +922,16 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] P2 Pencocokan partner (`/teams/cocok`) belum bisa disaring per lomba — tawaran "Cari partner" membuka pencocokan umum
 - [ ] P2 Logika bersyarat antar-pertanyaan (lompat bagian bila jawaban X) belum ada; Status tim cukup untuk kasus tim
 - [ ] P3 Tombol naik/turun PILIHAN jawaban hanya di ≥ 640px (ponsel: Alt+↑/↓ atau A–Z) — ruang baris pilihan terlalu sempit
+
+## Kurasi kegiatan & impor media otomatis antrean moderasi 2026-11-21 (@claude) — ADR-095
+
+- [x] Kurasi 26 kegiatan (17 lomba, 4 magang, 4 workshop, 1 konferensi) dari laman resmi → `stage_scraped_event` di produksi (PENDING, belum ada gambar)
+- [x] Tabel `event_media_imports` + `stage_event_media()` + `claim_event_media_imports()`; `stage_scraped_event` mengantrekan daftar bawaan
+- [x] Pengerja: unduh gambar resmi (og:image, anti-SSRF) + poster & 3 slide penjelas digambar server (Satori, Plus Jakarta Sans)
+- [x] Cron `/api/cron/import-event-media` + workflow tiap jam; tombol "Siapkan gambar sekarang" & "Siapkan gambar otomatis" di `/admin`
+- [x] Strip poster/slide + status impor di kartu antrean; `/admin/media/[slug]?acara=` & `/media/foto/[id]` untuk kegiatan belum tayang (staf saja, no-store)
+- [x] Pipeline: `ValidatedEvent.media` opsional (tanpa = daftar bawaan SQL)
+- [ ] **BUTUH KONFIRMASI PEMILIK.** Terapkan `20261120100001_event_slides` lalu `20261121100001_event_media_imports` ke produksi, catat di `supabase/APPLIED_MIGRATIONS.txt`
+- [ ] **BUTUH PEMILIK.** Gabungkan cabang `ccr-e5c48abe-22c436` ke `main` (kode pengerja harus ter-deploy sebelum gambar diproses); secret workflow `SITE_URL` & `CRON_SECRET` sudah dipakai workflow lain
+- [ ] Setelah keduanya: antrekan gambar untuk 26 kegiatan kurasi (`stage_event_media(id, NULL)` atau tombol per kartu) lalu "Siapkan gambar sekarang"
+- [ ] P2 Pengerja belum memaku koneksi ke IP hasil DNS (sisa risiko DNS rebinding, ADR-095 #4)

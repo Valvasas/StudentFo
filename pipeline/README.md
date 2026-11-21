@@ -9,7 +9,7 @@ Scrape → validasi → publikasi sebagai `PENDING`. Implementasi Blueprint v3 �
 4. VALIDATE  Pydantic + dedup hash; entri cacat ditolak utuh, bukan disimpan separuh
 5. STAGE     insert ke `events` dengan status PENDING (service_role, bypass RLS)
 6. ALERT     crash atau >30% sumber gagal -> Telegram
-7. REVIEW    manusia menyetujui di /admin
+7. REVIEW    manusia menyetujui di /admin — poster & slide sudah disiapkan otomatis (ADR-095)
 ```
 
 ## Menjalankan

@@ -12,6 +12,57 @@ terdokumentasi.
 
 ---
 
+## ADR-095 — Impor media otomatis ke antrean moderasi: gambar resmi dari laman sumber + poster & slide penjelas buatan server (21 Nov 2026)
+
+**Konteks.** Pemilik (21 Nov): kegiatan yang masuk antrean moderasi — dari pipeline maupun
+kurasi — harus langsung membawa poster & gambar penjelas "agar tak perlu input manual".
+Sebelumnya admin baru bisa memberi poster SETELAH menyetujui (`/admin/media/[slug]` hanya
+menemukan kegiatan tayang, `/media/foto/[id]` hanya menyajikan foto kegiatan tayang), satu
+kegiatan satu per satu. Sesi kurasi 21 Nov memasukkan 26 kegiatan tanpa satu gambar pun karena
+kontainer sesi tidak bisa menulis ke Storage produksi.
+
+**Keputusan.**
+1. **Tabel `event_media_imports`** (service_role saja, RLS tanpa policy, `REVOKE` dari anon &
+   authenticated): daftar gambar yang harus disiapkan per kegiatan, maks. 8 (`position` 0..7).
+   Dua jenis: `URL` (unduh gambar; bila tautannya halaman HTML, ambil `og:image`/`twitter:image`
+   halaman itu) dan `GENERATED` (poster ringkas, "Siapa yang bisa ikut", "Tanggal penting",
+   "Cara daftar" — digambar server dari data kegiatan; `spec` kurator boleh mengisi teksnya).
+2. **`stage_event_media(event, media)`** — `NULL` = daftar bawaan: gambar laman sumber (calon
+   poster), poster ringkas (calon poster cadangan), lalu tiga slide. Entri cacat dilewati diam-
+   diam (pola kategori). `stage_scraped_event()` memanggilnya, jadi SETIAP kegiatan pipeline
+   otomatis membawa daftar gambar; `media: []` = sengaja tanpa gambar.
+3. **Pengerja** `processMediaImports()` (klaim bersewa 10 menit lewat
+   `claim_event_media_imports()`, `SKIP LOCKED`) dipanggil cron `/api/cron/import-event-media`
+   (workflow tiap jam, `CRON_SECRET`) dan tombol admin "Siapkan gambar sekarang". Hasilnya masuk
+   `event_photos` (bucket & aturan yang sama), jadi tayang bersama kegiatan saat disetujui.
+   `is_poster` pada impor = "jadikan poster bila BELUM ada poster" — poster pilihan manusia tidak
+   pernah ditimpa; urutan posisi membuat gambar resmi didahulukan dari poster buatan.
+4. **Unduhan anti-SSRF**: hanya https port 443 tanpa kredensial, SEMUA alamat DNS harus publik
+   (loopback, privat, link-local/metadata cloud, CGNAT, ULA, NAT64 ditolak), setiap redirect
+   (maks. 3) dan og:image diperiksa ulang, batas 1 MB HTML / 5 MB gambar, 10 detik, byte harus
+   JPEG/PNG/WebP sah (`inspectImage`) lalu metadata dibuang. Gambar < 300 px di sisi pendek
+   ditolak (`too_small`): og:image sekecil itu hampir selalu logo situs. Sisa risiko yang
+   diterima: DNS rebinding antara pemeriksaan & koneksi (fetch bawaan tidak bisa dipaku ke IP);
+   dibatasi sumber tepercaya (pipeline/admin) dan validasi byte.
+5. **Poster & slide buatan** digambar Satori (`next/og`) 1080×1350 (4:5) dengan Plus Jakarta Sans
+   (font isi situs) dari `@fontsource/plus-jakarta-sans` — dependensi baru, berisi berkas font
+   OFL saja; font bawaan `next/og` hanya satu ketebalan sehingga judul poster tidak bisa tebal.
+   Berkasnya ikut ke fungsi lewat `outputFileTracingIncludes`. Setiap gambar menyebut dirinya
+   "Ringkasan dari StudentFo, bukan poster resmi penyelenggara".
+6. **Pratinjau kegiatan belum tayang**: `/media/foto/[id]` menjawab admin & pengelola (RLS
+   `event_photos_select_manager`) dengan `private, no-store` bila foto belum publik; komponen
+   media diberi `unoptimized` untuk konteks itu karena optimizer `/_next/image` mengambil gambar
+   tanpa cookie. `/admin/media/[slug]?acara=<id>` membuka kegiatan PENDING (slug harus cocok).
+7. Kartu antrean menampilkan strip poster/slide, jumlah yang masih disiapkan, dan alasan gagal
+   (`MEDIA_IMPORT_ERROR_TEXT`); kegiatan lama tanpa gambar punya tombol "Siapkan gambar otomatis".
+
+**Konsekuensi.** Migration `20261121100001_event_media_imports` (hanya CREATE / CREATE OR REPLACE)
+perlu diterapkan pemilik; tanpa itu antrean tampil tanpa status impor dan tombol menjawab
+`media_unavailable`. Gambar resmi diambil seperti pratinjau tautan WhatsApp (satu permintaan per
+laman, User-Agent jujur) — bukan scraping, jadi tidak melewati robots.txt pipeline. Tes:
+`123_event_media_imports.test.sql`, `src/lib/media-import/*.test.ts` (render keempat templat
+sungguhan, SSRF, paritas daftar templat & bawaan dengan SQL).
+
 ## ADR-094 — Slide penjelas di kiriman & buat acara, penyusun formulir yang ramah, dan tawaran cari partner dari jawaban "Status tim" (20 Nov 2026)
 
 **Konteks.** Pemilik (20 Nov): (1) saat mengirim atau membuat acara hanya POSTER yang

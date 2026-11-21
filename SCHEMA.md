@@ -64,6 +64,7 @@ Urutan migration (harus dijalankan berurutan):
 53. `20261119100001_trend_visitor_cap_and_mutual_privacy.sql` — `refresh_event_trends()` menjepit pengunjung 20/hari/acara; `mutual_connection_counts()` disaring `can_view_profile()` (ADR-093)
 54. `20261119100002_admin_create_event.sql` — RPC `admin_create_event(uuid, jsonb)` (service_role saja, pelaku diperiksa ulang; kolom = `approve_submission`) untuk "Buat acara StudentFo" (ADR-093)
 55. `20261120100001_event_slides.sql` — `event_photos.sort_order` (diisi ulang menurut urutan tampil; pemicu sisip menaruh unggahan baru di belakang), RPC `reorder_event_photos(uuid, uuid[])` & `set_event_photo_caption(uuid, text)` (DEFINER, pengelola/admin); tabel `ugc_submission_photos` (RLS tanpa policy, maks. 5 per kiriman), `submission_photo_file`, `take_submission_photos`; `approve_submission` memindahkan gambar pendukung jadi slide (ADR-094) — **belum diterapkan**
+56. `20261121100001_event_media_imports.sql` — tabel `event_media_imports` (service_role saja, maks. 8 per kegiatan), `stage_event_media(uuid, jsonb)` (NULL = daftar bawaan: og:image laman sumber + poster & 3 slide buatan), `claim_event_media_imports(int)` (sewa 10 menit, SKIP LOCKED); `stage_scraped_event` ikut mengantrekan media (ADR-095) — **belum diterapkan**
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–54 per 2026-11-19, semua migration di repo).
 
@@ -413,6 +414,17 @@ di atas. Disajikan `/media/foto/[id]` (publik, cache immutable) dan
 `/media/bukti/[id]` (privat, no-store). Insert bucket dijaga `to_regclass`
 supaya migration tetap jalan di Postgres polos (db:test).
 
+### `event_media_imports` (Impor media otomatis — ADR-095)
+Daftar gambar yang harus disiapkan untuk satu kegiatan antrean. `kind` `URL`
+(`source_url` https ≤ 2000; halaman HTML → og:image-nya) atau `GENERATED`
+(`spec` JSONB objek ≤ 8 KB, `template` ∈ poster/syarat/jadwal/cara-daftar —
+sama dengan `MEDIA_TEMPLATES`, dikunci tes). `position` 0..7 unik per kegiatan
+(maks. 8), `is_poster` = "jadikan poster bila belum ada poster", `status`
+PENDING/DONE/FAILED, `attempts`, `claimed_at` (sewa), `error_code` (kode dari
+`MEDIA_IMPORT_ERROR_TEXT`), `photo_id` → `event_photos` (SET NULL). RLS tanpa
+policy + `REVOKE` dari anon/authenticated: hanya service_role (cron & aksi
+admin setelah `checkAdminAccess()`). Hasil impor = baris `event_photos` biasa.
+
 ### `ugc_submissions` (Phase 3 — UI di `/submit` + antrean di `/admin`)
 Publik boleh INSERT, tidak boleh SELECT (mengandung email — lihat
 DEVIATIONS §RLS UGC). Sejak 0008: publik hanya boleh mengisi kolom
@@ -527,6 +539,8 @@ terlihat yang induknya juga terlihat (bukan ±1). Uji: `supabase/tests/119_event
 |---|---|
 | `public.slugify(text)` | Normalisasi judul → slug URL |
 | `public.compute_dedup_hash(title, organizer)` | Harus identik dengan `models.compute_dedup_hash` di Python |
+| `public.stage_event_media(event, media)` | Antrekan gambar kegiatan (ADR-095); NULL = daftar bawaan; entri cacat dilewati; service_role |
+| `public.claim_event_media_imports(limit)` | Klaim ≤ 50 impor PENDING dengan sewa 10 menit (SKIP LOCKED); service_role |
 | `public.events_fill_derived()` (trigger, BEFORE INSERT) | Isi `slug`/`dedup_hash` otomatis kalau kosong |
 | `public.touch_updated_at()` (trigger) | Set `updated_at = NOW()` |
 | `public.handle_new_user()` (trigger di `auth.users`) | Sinkron profil publik. Sejak 0005: fallback klaim `name` (OAuth), `ON CONFLICT (id) DO UPDATE`, dan `EXCEPTION WHEN unique_violation` supaya kegagalan membuat profil tidak ikut membatalkan pendaftaran |
