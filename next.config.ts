@@ -31,6 +31,8 @@ function serverActionOrigins(): string[] {
   }
 }
 
+const MEDIA_FONT_FILES = './node_modules/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-{500,700,800}-normal.woff';
+
 const nextConfig: NextConfig = {
   // Build mandiri (`.next/standalone/server.js` + node_modules minimal) untuk
   // image container — lihat Dockerfile. Tidak mengubah `next start` dan
@@ -47,6 +49,12 @@ const nextConfig: NextConfig = {
     localPatterns: [{ pathname: '/media/foto/**', search: '' }],
   },
   poweredByHeader: false,
+  // Font poster & slide buatan server (ADR-095) dibaca dari node_modules saat
+  // runtime; tanpa ini berkasnya tidak ikut ke fungsi serverless/standalone.
+  outputFileTracingIncludes: {
+    '/api/cron/import-event-media': [MEDIA_FONT_FILES],
+    '/admin': [MEDIA_FONT_FILES],
+  },
   // typedRoutes sengaja tidak diaktifkan: href dinamis di produk ini dibangun
   // dari slug (`/events/${slug}`), dan typedRoutes menolak template string
   // semacam itu — biayanya lebih besar daripada manfaatnya di sini.

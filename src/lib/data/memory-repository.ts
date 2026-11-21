@@ -150,6 +150,7 @@ import { REGISTRATION_MODES, REPORT_REASONS } from '@/types/domain';
 import { buildCommentThreads, countComments, EVENT_COMMENT_LIMITS, EVENT_LIKE_LIMIT_PER_DAY, EVENT_SHARE_LIMITS, sortShareRecipients } from '@/lib/event-comments';
 import { jakartaNoonOf, latestPerPerson, trendScore, type TrendSignal } from '@/lib/popularity';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortPhotosPosterFirst, sortSummaries } from './listing';
+import { normalizeMediaImports, summarizeMediaImports } from '@/lib/media-import/jobs';
 import type { EventPresentationInput } from '@/lib/event-presentation';
 import { DEFAULT_OUTBOUND_CONFIG, SKIPPED_ANSWERS, type OutboundConfigInput } from '@/lib/outbound-survey';
 import { normalizeUsername, type ProfileIdentityInput } from '@/lib/profile-identity';
@@ -187,7 +188,10 @@ import type {
   RestoreRejectedInput,
   ReviewTrustInput,
   ClearProfileMediaInput,
+  MediaImportInput,
+  MediaImportJob,
   MediaViewer,
+  ModerationMedia,
   CommunityQuery,
   CommunityReportInput,
   CommunityTarget,
@@ -500,6 +504,22 @@ interface PhotoEntry extends EventPhoto {
   key: string;
 }
 
+/** Cermin baris event_media_imports (ADR-095); `seq` = urutan created_at. */
+interface MediaImportEntry extends MediaImportJob {
+  readonly status: 'PENDING' | 'DONE' | 'FAILED';
+  readonly errorCode: string | null;
+  readonly claimedAt: number | null;
+  readonly photoId: string | null;
+  readonly seq: number;
+}
+
+/** Sewa klaim — cermin `INTERVAL '10 minutes'` di claim_event_media_imports(). */
+const MEDIA_IMPORT_LEASE_MS = 10 * 60_000;
+
+function toMediaJob({ status: _s, errorCode: _e, claimedAt: _c, photoId: _p, seq: _q, ...job }: MediaImportEntry): MediaImportJob {
+  return job;
+}
+
 interface SubmissionPhotoEntry extends SubmissionPhoto {
   readonly key: string;
 }
@@ -580,6 +600,8 @@ export class MemoryEventRepository implements EventRepository {
   private readonly registrationForms = new Map<string, RegistrationFormEntry>();
   private readonly registrations = new Map<string, RegistrationEntry>();
   private readonly photos = new Map<string, PhotoEntry>();
+  private readonly mediaImports = new Map<string, MediaImportEntry>();
+  private mediaImportSeq = 0;
   private readonly media = new Map<string, StoredFile>();
   private mediaBytes = 0;
   /** Identitas demo yang sudah menerima data awal (jaringan/portofolio/penyelenggara). */
@@ -3306,6 +3328,102 @@ export class MemoryEventRepository implements EventRepository {
     const photo = this.photos.get(photoId);
     const event = photo ? this.findEvent(photo.eventId) : undefined;
     if (!photo || !event || !isPubliclyVisible(event)) return null;
+    return this.media.get(photo.key) ?? null;
+  }
+
+  // ------------------------------------------------------------------
+  // Impor media otomatis (ADR-095) — cermin event_media_imports +
+  // stage_event_media() + claim_event_media_imports().
+  // ------------------------------------------------------------------
+
+  async claimMediaImports(limit: number): Promise<readonly MediaImportJob[]> {
+    const now = Date.now();
+    const take = Math.min(Math.max(Math.trunc(limit) || 1, 1), 50);
+    const ready = [...this.mediaImports.values()]
+      .filter((entry) => entry.status === 'PENDING' && entry.attempts < 20 && (entry.claimedAt === null || now - entry.claimedAt > MEDIA_IMPORT_LEASE_MS))
+      .sort((a, b) => a.seq - b.seq)
+      .slice(0, take);
+    return ready.map((entry) => {
+      const claimed = { ...entry, claimedAt: now, attempts: entry.attempts + 1 };
+      this.mediaImports.set(entry.id, claimed);
+      return toMediaJob(claimed);
+    });
+  }
+
+  async completeMediaImport(job: MediaImportJob, image: UploadedImage, caption: string | null): Promise<void> {
+    if (!this.findEvent(job.eventId)) throw actionError('event_not_found');
+    const existing = [...this.photos.values()].filter((photo) => photo.eventId === job.eventId);
+    if (existing.length >= GALLERY_LIMITS.perEvent || !this.hasMediaRoom(image.bytes.length)) throw actionError('gallery_full');
+    const id = this.nextId();
+    const key = `photo/${job.eventId}/${id}.${IMAGE_EXTENSION[image.type]}`;
+    this.storeMedia(key, { bytes: image.bytes, contentType: image.type });
+    this.photos.set(id, {
+      id,
+      key,
+      eventId: job.eventId,
+      width: image.width,
+      height: image.height,
+      caption,
+      createdAt: new Date().toISOString(),
+      isPoster: false,
+      sortOrder: this.nextPhotoOrder(job.eventId),
+    });
+    // Poster pilihan manusia tidak ditimpa.
+    if (job.isPoster && !existing.some((photo) => photo.isPoster)) this.markPoster(job.eventId, id, true);
+    const entry = this.mediaImports.get(job.id);
+    if (entry) this.mediaImports.set(job.id, { ...entry, status: 'DONE', errorCode: null, photoId: id });
+  }
+
+  async failMediaImport(jobId: string, errorCode: string, final: boolean): Promise<void> {
+    const entry = this.mediaImports.get(jobId);
+    if (entry) this.mediaImports.set(jobId, { ...entry, status: final ? 'FAILED' : 'PENDING', errorCode: errorCode.slice(0, 40) });
+  }
+
+  async queueMediaImports(eventId: string, media: readonly MediaImportInput[] | null): Promise<number> {
+    const event = this.findEvent(eventId);
+    if (!event) throw actionError('event_not_found');
+    const used = [...this.mediaImports.values()].filter((entry) => entry.eventId === eventId).map((entry) => entry.position);
+    const next = used.length > 0 ? Math.max(...used) + 1 : 0;
+    const items = normalizeMediaImports(media, event.sourceUrl, next);
+    items.forEach((item, index) => {
+      const id = this.nextId();
+      this.mediaImports.set(id, {
+        id,
+        eventId,
+        position: next + index,
+        kind: item.kind,
+        sourceUrl: item.sourceUrl,
+        spec: item.spec,
+        caption: item.caption,
+        isPoster: item.isPoster,
+        attempts: 0,
+        status: 'PENDING',
+        errorCode: null,
+        claimedAt: null,
+        photoId: null,
+        seq: this.mediaImportSeq++,
+      });
+    });
+    return items.length;
+  }
+
+  async listModerationMedia(eventIds: readonly string[]): Promise<ReadonlyMap<string, ModerationMedia>> {
+    const result = new Map<string, ModerationMedia>();
+    for (const eventId of eventIds) {
+      const rows = [...this.mediaImports.values()].filter((entry) => entry.eventId === eventId);
+      result.set(eventId, {
+        photos: (await this.listEventPhotos(eventId)),
+        imports: summarizeMediaImports(rows.map((entry) => ({ event_id: entry.eventId, status: entry.status, error_code: entry.errorCode, position: entry.position }))),
+      });
+    }
+    return result;
+  }
+
+  async getStaffEventPhotoFile(viewer: MediaViewer | null, photoId: string): Promise<StoredFile | null> {
+    const photo = this.photos.get(photoId);
+    if (!photo || !viewer) return null;
+    const actor: EventActor = { id: viewer.id, fullName: '', email: '', isAdmin: viewer.isAdmin };
+    if (!viewer.isAdmin && !this.canManageEvent(actor, photo.eventId)) return null;
     return this.media.get(photo.key) ?? null;
   }
 

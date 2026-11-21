@@ -32,6 +32,7 @@ import type { EventPresentationInput } from '@/lib/event-presentation';
 import { toStoredPayload } from '@/lib/submission-schema';
 import { normalizeUserSearch, questionExcerpt } from '@/lib/trust-safety';
 import { IMAGE_EXTENSION, type UploadedImage } from '@/lib/image-file';
+import { summarizeMediaImports, toMediaImportJob, type MediaImportRow, type MediaImportStatusRow } from '@/lib/media-import/jobs';
 import type { RegistrationFormInput, ReviewDecision } from '@/lib/registration-form';
 import {
   createSupabaseAdminClient,
@@ -219,7 +220,10 @@ import type {
   RestoreRejectedInput,
   ReviewTrustInput,
   ClearProfileMediaInput,
+  MediaImportInput,
+  MediaImportJob,
   MediaViewer,
+  ModerationMedia,
   CommunityQuery,
   CommunityReportInput,
   CommunityTarget,
@@ -2934,6 +2938,114 @@ export class SupabaseEventRepository implements EventRepository {
       .select('storage_path')
       .eq('id', photoId)
       .maybeSingle<Pick<EventPhotoRow, 'storage_path'>>();
+    if (error) throw upstreamFailure('Gagal memuat foto.', error);
+    return data ? downloadPrivateFile(PHOTO_BUCKET, data.storage_path) : null;
+  }
+
+  // ------------------------------------------------------------------
+  // Impor media otomatis (ADR-095) — service_role; pemanggilnya cron
+  // (CRON_SECRET) atau Server Action admin SETELAH checkAdminAccess().
+  // ------------------------------------------------------------------
+
+  async claimMediaImports(limit: number): Promise<readonly MediaImportJob[]> {
+    const { data, error } = await createSupabaseAdminClient().rpc('claim_event_media_imports', { p_limit: limit });
+    if (error && isMissingRelationError(error)) return [];
+    if (error) throw upstreamFailure('Gagal mengambil antrean gambar.', error, 500);
+    return rpcRows<MediaImportRow>(data).map(toMediaImportJob);
+  }
+
+  async completeMediaImport(job: MediaImportJob, image: UploadedImage, caption: string | null): Promise<void> {
+    const admin = createSupabaseAdminClient();
+    const poster = await admin.from('event_photos').select('id').eq('event_id', job.eventId).eq('is_poster', true).limit(1);
+    if (poster.error) throw upstreamFailure('Gagal memeriksa poster kegiatan.', poster.error, 500);
+
+    const id = crypto.randomUUID();
+    const path = `${job.eventId}/${id}.${IMAGE_EXTENSION[image.type]}`;
+    const storage = admin.storage.from(PHOTO_BUCKET);
+    const uploaded = await storage.upload(path, image.bytes, { contentType: image.type, upsert: false });
+    if (uploaded.error) throw upstreamFailure('Gagal mengunggah gambar impor.', uploaded.error, 500);
+
+    const inserted = await admin.from('event_photos').insert({
+      id,
+      event_id: job.eventId,
+      storage_path: path,
+      content_type: image.type,
+      width: image.width,
+      height: image.height,
+      caption,
+    });
+    if (inserted.error) {
+      const removed = await storage.remove([path]);
+      if (removed.error) console.error('[impor media] berkas yatim gagal dihapus:', path, removed.error);
+      if (registrationErrorCode(inserted.error) === 'gallery_full') throw actionError('gallery_full');
+      throw upstreamFailure('Gagal menyimpan gambar impor.', inserted.error, 500);
+    }
+
+    // Poster pilihan manusia tidak ditimpa; indeks unik menjaga balapan dua pemroses.
+    if (job.isPoster && poster.data.length === 0) {
+      const marked = await admin.from('event_photos').update({ is_poster: true }).eq('id', id);
+      if (marked.error) console.error('[impor media] poster tidak dipasang:', marked.error);
+    }
+
+    const done = await admin
+      .from('event_media_imports')
+      .update({ status: 'DONE', photo_id: id, error_code: null, processed_at: new Date().toISOString() })
+      .eq('id', job.id);
+    if (done.error) throw upstreamFailure('Gagal menandai gambar selesai.', done.error, 500);
+  }
+
+  async failMediaImport(jobId: string, errorCode: string, final: boolean): Promise<void> {
+    if (!isUuid(jobId)) return;
+    const { error } = await createSupabaseAdminClient()
+      .from('event_media_imports')
+      .update({ status: final ? 'FAILED' : 'PENDING', error_code: errorCode.slice(0, 40), processed_at: final ? new Date().toISOString() : null })
+      .eq('id', jobId);
+    if (error) throw upstreamFailure('Gagal mencatat kegagalan gambar.', error, 500);
+  }
+
+  async queueMediaImports(eventId: string, media: readonly MediaImportInput[] | null): Promise<number> {
+    if (!isUuid(eventId)) throw actionError('event_not_found');
+    const { data, error } = await createSupabaseAdminClient().rpc('stage_event_media', { p_event: eventId, p_media: media });
+    if (error) {
+      if (isMissingRelationError(error)) throw actionError('media_unavailable');
+      if (error.message?.includes('event_not_found')) throw actionError('event_not_found');
+      throw upstreamFailure('Gagal mengantrekan gambar otomatis.', error, 500);
+    }
+    return typeof data === 'number' ? data : 0;
+  }
+
+  async listModerationMedia(eventIds: readonly string[]): Promise<ReadonlyMap<string, ModerationMedia>> {
+    const ids = eventIds.filter(isUuid);
+    const result = new Map<string, ModerationMedia>();
+    if (ids.length === 0) return result;
+    const admin = createSupabaseAdminClient();
+    const selectPhotos = (columns: string) => admin.from('event_photos').select(columns).in('event_id', ids).returns<EventPhotoRow[]>();
+    const [photosResult, importsResult] = await Promise.all([
+      selectPhotos(PHOTO_COLUMNS_WITH_ORDER).then(async (first) =>
+        first.error && isMissingColumnError(first.error) ? selectPhotos(PHOTO_COLUMNS_WITH_POSTER) : first,
+      ),
+      admin.from('event_media_imports').select('event_id, status, error_code, position').in('event_id', ids).returns<MediaImportStatusRow[]>(),
+    ]);
+    if (photosResult.error) throw upstreamFailure('Gagal memuat gambar antrean.', photosResult.error);
+    if (importsResult.error && !isMissingRelationError(importsResult.error)) {
+      throw upstreamFailure('Gagal memuat status gambar otomatis.', importsResult.error);
+    }
+    const photos = photosResult.data.map(toEventPhoto);
+    const imports = importsResult.error ? [] : importsResult.data;
+    for (const id of ids) {
+      result.set(id, {
+        photos: sortPhotosPosterFirst(photos.filter((photo) => photo.eventId === id)),
+        imports: summarizeMediaImports(imports.filter((row) => row.event_id === id)),
+      });
+    }
+    return result;
+  }
+
+  async getStaffEventPhotoFile(_viewer: MediaViewer | null, photoId: string): Promise<StoredFile | null> {
+    if (!isUuid(photoId)) return null;
+    // Klien bersesi: RLS (`event_photos_select_manager`) yang memutuskan — admin atau pengelola kegiatannya.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from('event_photos').select('storage_path').eq('id', photoId).maybeSingle<Pick<EventPhotoRow, 'storage_path'>>();
     if (error) throw upstreamFailure('Gagal memuat foto.', error);
     return data ? downloadPrivateFile(PHOTO_BUCKET, data.storage_path) : null;
   }
