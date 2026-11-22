@@ -16,6 +16,7 @@ import { parsePresentationForm } from '@/lib/event-presentation';
 import { isEventDeleteConfirmed, takedownReasonText } from '@/lib/event-removal';
 import { formList, formText, formTrimmed } from '@/lib/form-data';
 import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
+import { runMediaImports } from '@/lib/media-import/run';
 import { EVENT_STATUSES } from '@/types/domain';
 
 /**
@@ -639,4 +640,40 @@ export async function resolveEventCommentReportAction(formData: FormData): Promi
   revalidatePath('/events', 'layout');
   revalidatePath(REPORTS_PAGE);
   redirect(withQuery(REPORTS_PAGE, { notice: outcome === 'RESOLVED' ? 'report_resolved' : 'report_dismissed' }));
+}
+
+/**
+ * Impor media otomatis (ADR-095): kerjakan antrean gambar sekarang, tanpa
+ * menunggu jadwal. Satu batch per klik — sisanya diambil klik/jadwal
+ * berikutnya; klaim bersewa membuat klik ganda tidak mengerjakan baris sama.
+ */
+export async function processMediaImportsAction(): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+  let notice: ActionNoticeCode = 'media_imports_idle';
+  let error: ActionErrorCode | undefined;
+  try {
+    const run = await runMediaImports(8);
+    if (run.claimed > 0) notice = 'media_imports_processed';
+  } catch (caught) {
+    error = toActionErrorCode(caught);
+  }
+  revalidatePath('/admin');
+  redirect(withQuery('/admin', error ? { error } : { notice }));
+}
+
+/** Antrekan daftar gambar bawaan untuk satu kegiatan (mis. yang masuk sebelum fitur ini ada). */
+export async function queueMediaImportsAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+  const eventId = formTrimmed(formData, 'eventId');
+  let target: string;
+  try {
+    const added = await (await getEventRepository()).queueMediaImports(eventId, null);
+    target = withQuery('/admin', added > 0 ? { notice: 'media_imports_queued' } : { error: 'media_imports_full' });
+  } catch (caught) {
+    target = withQuery('/admin', { error: toActionErrorCode(caught) });
+  }
+  revalidatePath('/admin');
+  redirect(target);
 }

@@ -45,7 +45,7 @@ def to_rpc_payload(event: ValidatedEvent) -> dict[str, Any]:
     menulis PENDING dan menghitung hash-nya sendiri, jadi keduanya tidak
     bisa dipalsukan atau berbeda versi dari sisi Python.
     """
-    return {
+    payload: dict[str, Any] = {
         "title": event.title,
         "organizer": event.organizer,
         "description": event.description,
@@ -65,6 +65,10 @@ def to_rpc_payload(event: ValidatedEvent) -> dict[str, Any]:
             for deadline in event.deadlines
         ],
     }
+    # Tanpa kunci `media` = daftar bawaan di stage_event_media() (ADR-095).
+    if event.media is not None:
+        payload["media"] = event.media
+    return payload
 
 
 def publish(client: Client, events: list[ValidatedEvent]) -> PublishResult:

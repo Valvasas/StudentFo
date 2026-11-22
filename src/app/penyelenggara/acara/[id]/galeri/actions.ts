@@ -33,7 +33,7 @@ function readTarget(formData: FormData): MediaTarget {
   const eventId = formTrimmed(formData, 'eventId');
   if (formText(formData, 'context') === 'admin') {
     const slug = formTrimmed(formData, 'slug');
-    return { eventId, returnTo: slug ? safeNextPath(adminMediaPath(slug), '/admin/promosi') : '/admin/promosi' };
+    return { eventId, returnTo: slug ? safeNextPath(adminMediaPath(slug, eventId || undefined), '/admin/promosi') : '/admin/promosi' };
   }
   return { eventId, returnTo: eventId ? safeNextPath(workspacePath(eventId, 'galeri'), '/penyelenggara') : '/penyelenggara' };
 }

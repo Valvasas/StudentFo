@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { AlertTriangle, Check, CheckCircle2, Plus, RotateCcw, Users } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, ImageIcon, Plus, RotateCcw, Users } from 'lucide-react';
 import { BulkApproveBar } from '@/components/admin/bulk-approve-bar';
 import { EventReviewCard } from '@/components/admin/event-review-card';
 import { SubmissionReviewCard } from '@/components/admin/submission-review-card';
@@ -9,13 +9,18 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { ConfirmSubmit } from '@/components/ui/confirm-submit';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { formatWait, REVIEW_SLA_HOURS, summarizeDecisions, summarizeQueue, type QueueHealth } from '@/lib/admin-health';
 import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { DEMO_DATA_TTL_MS, demoDataCreatedAt, getEventRepository } from '@/lib/data';
 import { formatDateTimeId, formatTimeId } from '@/lib/deadline';
-import { bulkApproveAction, resetDemoDataAction } from './actions';
+import { EMPTY_MEDIA_IMPORTS } from '@/lib/media-import/jobs';
+import type { ModerationMedia } from '@/lib/data/repository';
+import { bulkApproveAction, processMediaImportsAction, resetDemoDataAction } from './actions';
 
 export const dynamic = 'force-dynamic';
+// "Siapkan gambar sekarang" (ADR-095) mengunduh & menggambar beberapa gambar dalam satu aksi.
+export const maxDuration = 60;
 
 export const generateMetadata = (): Promise<Metadata> => adminMetadata('Antrean moderasi');
 
@@ -53,6 +58,15 @@ export default async function AdminPage({
     repository.countOpenReports(),
   ]);
   const categoryNames = Object.fromEntries(categories.map((category) => [category.slug, category.name]));
+  // Gambar antrean (ADR-095) pelengkap, bukan syarat: gagal dimuat = kartu tanpa pratinjau, antrean tetap tampil.
+  const moderationMedia: ReadonlyMap<string, ModerationMedia> = await repository
+    .listModerationMedia(pending.map((event) => event.id))
+    .catch((error: unknown) => {
+      console.error('[admin] gambar antrean gagal dimuat:', error);
+      return new Map<string, ModerationMedia>();
+    });
+  const mediaWaiting = [...moderationMedia.values()].reduce((sum, media) => sum + media.imports.pending, 0);
+  const mediaFailed = [...moderationMedia.values()].reduce((sum, media) => sum + media.imports.failed, 0);
   const submitterStatuses = await repository.listOrganizerStatuses(
     submissions.flatMap((submission) => (submission.submittedBy ? [submission.submittedBy] : [])),
   );
@@ -169,10 +183,35 @@ export default async function AdminPage({
         </div>
       ) : (
         <>
+          {(mediaWaiting > 0 || mediaFailed > 0) && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-panel p-4 text-sm">
+              <p className="flex min-w-0 items-start gap-2 text-ink-soft">
+                <ImageIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-ink-muted" />
+                <span>
+                  <strong className="font-semibold text-ink">Gambar otomatis:</strong> {mediaWaiting} menunggu disiapkan
+                  {mediaFailed > 0 ? ` · ${mediaFailed} gagal (alasannya di kartu)` : ''}. Diproses tiap jam; tekan tombol untuk sekarang.
+                </span>
+              </p>
+              {mediaWaiting > 0 && (
+                <form action={processMediaImportsAction}>
+                  <SubmitButton className={buttonVariants({ variant: 'secondary', size: 'sm' })} pendingLabel="Menyiapkan gambar…">
+                    <ImageIcon aria-hidden />
+                    Siapkan gambar sekarang
+                  </SubmitButton>
+                </form>
+              )}
+            </div>
+          )}
           <BulkApproveBar formId="massal-acara" kind="events" count={pending.length} action={bulkApproveAction} noun="kegiatan" />
           <ul className="flex flex-col gap-4">
             {pending.map((event) => (
-              <EventReviewCard key={event.id} event={event} categoryNames={categoryNames} bulkFormId={pending.length > 1 ? 'massal-acara' : undefined} />
+              <EventReviewCard
+                key={event.id}
+                event={event}
+                categoryNames={categoryNames}
+                media={moderationMedia.get(event.id) ?? { photos: [], imports: EMPTY_MEDIA_IMPORTS }}
+                bulkFormId={pending.length > 1 ? 'massal-acara' : undefined}
+              />
             ))}
           </ul>
         </>

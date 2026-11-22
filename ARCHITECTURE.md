@@ -78,6 +78,7 @@ src/
 │   ├── notifications/          actions.ts (tandai dibaca)
 │   ├── api/events/[slug]/calendar/   GET berkas .ics semua tenggat (RFC 5545, ADR-049)
 │   ├── api/cron/dispatch-deadline-notifications/   POST klaim + /ack — antrean pengingat untuk bot, Bearer CRON_SECRET (ADR-051)
+│   ├── api/cron/import-event-media/   POST pengerja impor media antrean moderasi (gambar resmi + poster/slide buatan), Bearer CRON_SECRET (ADR-095)
 │   ├── api/health/             GET untuk monitor uptime: 200 bila database terjangkau (tanpa Data Cache), 503 bila tidak (ADR-059)
 │   ├── icon.tsx / apple-icon.tsx / manifest.ts   Ikon 32/192/512 + 180 dari geometri LogoMark (og/brand-icon.tsx); /favicon.ico = rewrite ke /icon/32 (ADR-059)
 │   └── admin/                  Antrean moderasi event + kiriman komunitas; promosi/ (lencana & promosi, ADR-049); media/[slug] (poster & video acara tanpa pengelola, ADR-079); laporan/ & pengguna/ (ADR-061); kinerja/ (pendataan kinerja, ADR-070); acara/ (Kelola postingan: turunkan, urungkan, hapus permanen — ADR-092);
@@ -211,6 +212,7 @@ src/
 │   ├── initials.ts             initialsOf() (orang), monogramOf() (grup/kegiatan) [teruji]
 │   ├── registration-form.ts    Formulir internal: skema kolom, validasi jawaban, mesin status bayar, CSV aman (ADR-056) [teruji]
 │   ├── image-file.ts           Unggahan gambar: jenis dari byte, batas piksel, buang EXIF/GPS (ADR-056) [teruji]
+│   ├── media-import/           Impor media antrean (ADR-095): spec (isi slide), remote-image (unduh anti-SSRF + og:image), render (Satori 1080×1350), process (klaim → siapkan → simpan), jobs (ringkasan & paritas SQL) [teruji]
 │   ├── account-sidebar.ts      Peran tampilan (accountRoleOf) + satu daftar menu akun untuk dropdown & menu samping [teruji]
 │   ├── security-headers.ts     CSP halaman + CSP ketat untuk /media/* (isMediaPath) [teruji]
 │   ├── video.ts                normalizeVideoUrl/parseVideo: YouTube/Vimeo → bentuk kanonis (= CHECK SQL), origin pemutar untuk CSP (ADR-079) [teruji]

@@ -14,7 +14,7 @@ import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
@@ -135,6 +135,11 @@ class ValidatedEvent(BaseModel):
     is_online: bool
     categories: list[str]
     deadlines: list[ExtractedDeadline]
+    # Gambar yang harus disiapkan untuk antrean moderasi (ADR-095). None =
+    # daftar bawaan SQL: og:image laman sumber + poster & slide buatan server.
+    # Sengaja TIDAK diminta dari LLM — URL gambar karangan model lebih buruk
+    # daripada gambar yang dibaca langsung dari laman resminya.
+    media: list[dict[str, Any]] | None = None
 
 
 def compute_dedup_hash(title: str, organizer: str) -> str:

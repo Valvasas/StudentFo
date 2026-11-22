@@ -8,6 +8,7 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { BackLink } from '@/components/ui/back-link';
 import { adminMetadata, requireAdmin } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { isPubliclyVisible } from '@/lib/data/listing';
 import type { RawSearchParams } from '@/lib/search-params';
 
 export const dynamic = 'force-dynamic';
@@ -31,28 +32,41 @@ export default async function AdminEventMediaPage({
   await requireAdmin();
 
   const repository = await getEventRepository();
-  const event = await repository.getEventBySlug(slug);
+  // Kegiatan di antrean moderasi (belum tayang) tidak terbaca lewat slug publik;
+  // kartu antrean menautkan id-nya, dan slug harus tetap cocok (ADR-095).
+  const pendingId = typeof query.acara === 'string' ? query.acara : null;
+  const event =
+    (await repository.getEventBySlug(slug)) ??
+    (pendingId ? await repository.getEventForAdmin(pendingId).then((found) => (found?.slug === slug ? found : null)) : null);
   if (!event) notFound();
   const photos = await repository.listEventPhotos(event.id);
+  const unpublished = !isPubliclyVisible(event);
 
   return (
     <div className="container-page flex flex-col gap-6 py-8">
-      <AdminNav active="promosi" />
-      <BackLink href="/admin/promosi" label="Lencana & promosi" className="-mb-2" />
+      <AdminNav active={unpublished ? 'antrean' : 'promosi'} />
+      <BackLink href={unpublished ? '/admin#antrean-acara' : '/admin/promosi'} label={unpublished ? 'Antrean moderasi' : 'Lencana & promosi'} className="-mb-2" />
       <header className="flex flex-col gap-2">
         <h1 className="flex items-center gap-2 text-3xl">
           <ImageIcon aria-hidden className="size-7 text-ink-muted" />
           Poster & video
         </h1>
         <p className="max-w-2xl text-ink-soft">
-          <Link href={`/events/${event.slug}`} className="font-semibold text-ink underline-offset-[3px] hover:underline">
-            {event.title}
-          </Link>{' '}
-          · {event.organizer}. Pastikan poster & video berasal dari kanal resmi penyelenggara — keduanya tampil publik.
+          {unpublished ? (
+            <span className="font-semibold text-ink">{event.title}</span>
+          ) : (
+            <Link href={`/events/${event.slug}`} className="font-semibold text-ink underline-offset-[3px] hover:underline">
+              {event.title}
+            </Link>
+          )}{' '}
+          · {event.organizer}.{' '}
+          {unpublished
+            ? 'Belum tayang — gambar di sini ikut tampil begitu kegiatan disetujui. Gambar ringkasan buatan StudentFo boleh diganti poster resmi kapan saja.'
+            : 'Pastikan poster & video berasal dari kanal resmi penyelenggara — keduanya tampil publik.'}
         </p>
       </header>
       <ActionFeedback params={query} className="max-w-2xl" />
-      <MediaManager context="admin" event={event} photos={photos} />
+      <MediaManager context="admin" event={event} photos={photos} privatePreview={unpublished} />
     </div>
   );
 }

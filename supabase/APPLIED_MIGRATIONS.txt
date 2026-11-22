@@ -65,3 +65,5 @@
 20261116100001 event_engagement
 20261119100001 trend_visitor_cap_and_mutual_privacy
 20261119100002 admin_create_event
+20261120100001 event_slides
+20261121100001 event_media_imports

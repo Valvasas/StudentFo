@@ -56,6 +56,13 @@ def test_payload_serializes_enums_and_dates():
     assert payload["deadlines"][0]["is_primary"] is True
 
 
+def test_payload_media_defaults_to_sql_list():
+    payload = to_rpc_payload(make_event())
+    assert "media" not in payload, "tanpa media = daftar bawaan SQL (og:image + poster/slide buatan)"
+    curated = make_event().model_copy(update={"media": [{"spec": {"template": "jadwal"}}]})
+    assert to_rpc_payload(curated)["media"] == [{"spec": {"template": "jadwal"}}]
+
+
 class FakeRpc:
     """Meniru `client.rpc(...).execute()`: event pertama per judul masuk, sisanya duplikat."""
 

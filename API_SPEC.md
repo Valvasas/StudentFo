@@ -648,6 +648,13 @@ pengingat milik yang menyetujui.
 - `POST /api/cron/send-deadline-emails` (Bearer CRON_SECRET) → `{ sent, skipped, failed }`;
   200, atau 502 bila ada batch gagal (tidak di-ack), 503 `EMAIL_NOT_CONFIGURED`
   tanpa mengklaim. GET → 405.
+- `POST /api/cron/import-event-media` (Bearer CRON_SECRET, ADR-095) → `{ done, failed,
+  retrying, remaining }`; ≤ 40 detik kerja per panggilan, `remaining: true` = panggil
+  lagi. GET → 405. Aksi admin `processMediaImportsAction` (satu batch) &
+  `queueMediaImportsAction` (`eventId`, daftar bawaan) → `/admin?notice=media_imports_*`
+  atau `?error=media_imports_full|media_unavailable`.
+- `GET /media/foto/[id]`: foto kegiatan tayang = publik (cache sehari); foto kegiatan
+  BELUM tayang hanya untuk admin & pengelolanya, `private, no-store` (ADR-095).
 - `POST /api/email/berhenti?token=<userId>.<hmac>` (RFC 8058) → 200 / 400. GET →
   303 ke `/berhenti-email` (halaman konfirmasi; menghentikan hanya lewat tombol).
 
@@ -921,6 +928,16 @@ sekadar bentuk JSON — kewarasan isinya):
 identik** dengan `public.compute_dedup_hash()` SQL (lihat `SCHEMA.md`).
 Duplikat (hash sudah ada di tabel, atau muncul dua kali dalam satu batch)
 dilewati, dihitung terpisah dari kegagalan.
+
+**Media (ADR-095).** `ValidatedEvent.media` opsional dan TIDAK diminta dari
+LLM. Tanpa kunci `media` di payload, `stage_event_media()` mengantrekan daftar
+bawaan: gambar `og:image` laman `source_url` (calon poster), poster ringkas
+buatan server, lalu slide "Siapa yang bisa ikut", "Tanggal penting", "Cara
+daftar". `media: []` = sengaja tanpa gambar. Bentuk entri:
+`{ "url": "https://…", "caption"?, "is_poster"? }` atau
+`{ "spec": { "template": "poster|syarat|jadwal|cara-daftar", "highlight"?,
+"items"?, "rows"?, "steps"? }, "caption"?, "is_poster"? }` — maks. 8 per
+kegiatan; entri cacat dilewati.
 
 Satu event gagal ditulis (exception di tengah insert deadlines/categories)
 **tidak menghentikan batch** — dicatat sebagai `failed`, baris event yang

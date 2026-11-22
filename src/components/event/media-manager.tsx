@@ -47,10 +47,13 @@ export function MediaManager({
   context,
   event,
   photos,
+  privatePreview = false,
 }: {
   context: MediaContext;
   event: { readonly id: string; readonly slug: string; readonly title: string; readonly videoUrl?: string | null };
   photos: readonly EventPhoto[];
+  /** Kegiatan belum tayang (antrean moderasi, ADR-095): pratinjau tanpa optimizer gambar. */
+  privatePreview?: boolean;
 }) {
   const target: Target = { context, eventId: event.id, slug: event.slug };
   const remaining = Math.max(0, GALLERY_LIMITS.perEvent - photos.length);
@@ -96,6 +99,7 @@ export function MediaManager({
                   target={target}
                   slideIndex={photo.isPoster ? null : slides.indexOf(photo)}
                   slideCount={slides.length}
+                  privatePreview={privatePreview}
                 />
               ))}
             </ul>
@@ -108,7 +112,7 @@ export function MediaManager({
               Tampilan di halaman acara
             </h2>
             <div className="rounded-panel border border-line bg-canvas p-4 sm:p-5">
-              <EventMedia photos={photos} videoUrl={event.videoUrl} eventTitle={event.title} />
+              <EventMedia photos={photos} videoUrl={event.videoUrl} eventTitle={event.title} privatePreview={privatePreview} />
             </div>
           </section>
         )}
@@ -214,6 +218,7 @@ function PhotoCard({
   target,
   slideIndex,
   slideCount,
+  privatePreview,
 }: {
   photo: EventPhoto;
   position: number;
@@ -222,6 +227,7 @@ function PhotoCard({
   /** Posisi di antara slide non-poster; null = poster (selalu pertama). */
   slideIndex: number | null;
   slideCount: number;
+  privatePreview: boolean;
 }) {
   const name = photo.isPoster ? 'poster' : `slide ke-${position}`;
   return (
@@ -229,6 +235,7 @@ function PhotoCard({
       <div className="relative aspect-[4/5] bg-panel-nested">
         <Image
           src={photoSrc(photo.id)}
+          unoptimized={privatePreview}
           alt={photoAlt(photo, position, eventTitle)}
           width={photo.width}
           height={photo.height}

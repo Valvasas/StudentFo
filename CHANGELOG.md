@@ -82,13 +82,12 @@ yang tidak memuat migration yang sudah ada di produksi
 | Status tim | Jenis `team_status` (pilihan tetap `TEAM_STATUSES`) di templat Lomba tim + Tambah cepat; "belum punya tim" → tawaran partner di formulir, halaman pendaftaran, halaman acara; lobi `?niat=` (ADR-094) | "Nama tim" wajib; pendaftar tanpa tim tidak diarahkan ke mana pun | `form-assist.test.ts`, `form-assist.spec.ts` |
 | Mengisi formulir StudentFo | Progres pertanyaan wajib, draf per tab (`FieldMemory live`), "Isi dari profilku", jawaban pulih saat server menolak (ADR-094) | Galat server mengosongkan semua jawaban | `form-assist.test.ts`, `form-assist.spec.ts` |
 | Kirim kegiatan | Deskripsi di langkah 1 (bukan lipatan), peta langkah bertaut, "Kirimanmu" di bawah form (ADR-094) | Deskripsi di "Detail tambahan"; daftar kiriman di atas form | `submission-poster.spec.ts`, `submission-notification.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–094 | Nomor ganda 061/062 | — |
+| Media antrean moderasi | `event_media_imports` → pengerja (cron tiap jam + tombol admin) menyiapkan gambar resmi (og:image laman sumber) + poster & slide ringkasan buatan server ke `event_photos` SEBELUM disetujui; strip poster/slide & alasan gagal di kartu antrean; `/admin/media/[slug]?acara=` untuk kegiatan PENDING (ADR-095) | Poster hanya bisa dipasang manual setelah tayang, satu per satu | `123_event_media_imports.test.sql`, `src/lib/media-import/*.test.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–095 | Nomor ganda 061/062 | — |
 
 ## Migration
 
-- **MENUNGGU persetujuan pemilik:** `20261120100001_event_slides` (ADR-094; ADD/CREATE OR REPLACE saja, diuji `122_event_slides.test.sql`).
-  Kode aman urutan deploy — tanpa migration ini slide di kiriman dilewati (pengirim diberi tahu) dan geser/keterangan slide menjawab
-  `media_unavailable`. Produksi: **54** migration; repo: 55.
+- 2026-11-22 (persetujuan pemilik di sesi): `20261120100001_event_slides` dan `20261121100001_event_media_imports` diterapkan ke staging, diuji asap (di-rollback: kegiatan baru membawa 5 impor media, klaim jalan, anon/authenticated tertutup, RPC & kolom slide ada), lalu produksi. Postgres mengunduh tiap berkas dari commit `7b387cc` dan menolak bila SHA-256 tidak cocok (pola ADR-062 #8); versi = nama berkas. Produksi: **56** migration = repo.
 - 2026-11-19 (perintah pemilik "konfigurasi yang bisa dikerjakan, kerjakan"): `20261116100001_event_engagement`,
   `20261119100001_trend_visitor_cap_and_mutual_privacy`, `20261119100002_admin_create_event` diterapkan ke staging,
   diuji asap (buat acara admin di transaksi yang di-rollback: APPROVED, mode studentfo, 1 log berpelaku, tampil di
@@ -118,6 +117,11 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-21 — cabang `ccr-e5c48abe-22c436` (dari `main` `1fbfd96`)
+- 26 kegiatan kurasi (lomba/magang/workshop dari laman resmi) masuk antrean produksi lewat `stage_scraped_event` — data saja.
+- Impor media otomatis ke antrean moderasi (ADR-095): gambar resmi + poster & slide ringkasan, cron + tombol admin, pratinjau staf.
+- Dependensi baru `@fontsource/plus-jakarta-sans` (font OFL untuk poster). Migration `20261120100001` & `20261121100001` **sudah di produksi** (22 Nov). Cabang **belum digabung ke `main`** — PR dibuka.
 
 ### 2026-11-20 — cabang `claude/studentfo-improvements-features-y22p76` (dari `main` `3821965`)
 - Slide penjelas saat kirim & buat acara, urutan + keterangan per slide (ADR-094 #1–2).

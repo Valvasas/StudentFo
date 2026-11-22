@@ -132,7 +132,66 @@ export interface EventRepository
     ProfileMediaRepository,
     CommunityRepository,
     EngagementRepository,
-    EventMaintenanceRepository {}
+    EventMaintenanceRepository,
+    MediaImportRepository {}
+
+/** Satu gambar yang harus disiapkan untuk sebuah kegiatan (ADR-095) — cermin baris `event_media_imports`. */
+export interface MediaImportJob {
+  readonly id: string;
+  readonly eventId: string;
+  readonly position: number;
+  readonly kind: 'URL' | 'GENERATED';
+  readonly sourceUrl: string | null;
+  /** Belum divalidasi — pemroses memeriksanya dengan `mediaSpecSchema`. */
+  readonly spec: unknown;
+  readonly caption: string | null;
+  /** "Jadikan poster bila kegiatan belum punya poster" — poster pilihan manusia tidak ditimpa. */
+  readonly isPoster: boolean;
+  readonly attempts: number;
+}
+
+/** Masukan `stage_event_media()`: tautan resmi ATAU templat buatan server. */
+export type MediaImportInput =
+  | { readonly url: string; readonly caption?: string | null; readonly is_poster?: boolean }
+  | { readonly spec: { readonly template: string } & Record<string, unknown>; readonly caption?: string | null; readonly is_poster?: boolean };
+
+export interface MediaImportSummary {
+  readonly pending: number;
+  readonly done: number;
+  readonly failed: number;
+  /** Kode galat terakhir dari baris FAILED (lihat `MEDIA_IMPORT_ERROR_TEXT`). */
+  readonly lastError: string | null;
+}
+
+export interface ModerationMedia {
+  readonly photos: readonly EventPhoto[];
+  readonly imports: MediaImportSummary;
+}
+
+/**
+ * Impor media otomatis ke antrean moderasi (ADR-095). Semua method dipanggil
+ * cron (CRON_SECRET) atau Server Action admin SETELAH `checkAdminAccess()`;
+ * produksi menulis dengan service_role. Tabel belum ada (urutan deploy) →
+ * baca kosong, tulis `media_unavailable`.
+ */
+export interface MediaImportRepository {
+  /** Klaim ≤ `limit` baris PENDING dengan sewa 10 menit (dua pemanggil tidak berebut baris). */
+  claimMediaImports(limit: number): Promise<readonly MediaImportJob[]>;
+  /** Simpan gambar ke galeri kegiatan & tandai DONE. Galeri penuh → `gallery_full`. */
+  completeMediaImport(job: MediaImportJob, image: UploadedImage, caption: string | null): Promise<void>;
+  /** `final` = FAILED permanen; selain itu kembali PENDING dan dicoba lagi setelah sewa habis. */
+  failMediaImport(jobId: string, errorCode: string, final: boolean): Promise<void>;
+  /** `null` = daftar bawaan (gambar laman sumber + poster & 3 slide buatan). Jumlah yang masuk (maks. 8 per kegiatan). */
+  queueMediaImports(eventId: string, media: readonly MediaImportInput[] | null): Promise<number>;
+  /** Foto + status impor kegiatan-kegiatan di antrean moderasi. */
+  listModerationMedia(eventIds: readonly string[]): Promise<ReadonlyMap<string, ModerationMedia>>;
+  /**
+   * Foto kegiatan yang BELUM tayang untuk admin & pengelolanya (pratinjau
+   * `/media/foto/[id]`, tanpa cache). Produksi memutuskan dari sesi di cookie
+   * (RLS); `viewer` hanya dipakai mode seed.
+   */
+  getStaffEventPhotoFile(viewer: MediaViewer | null, photoId: string): Promise<StoredFile | null>;
+}
 
 /**
  * Suka, komentar, dan bagikan ke koneksi di halaman kegiatan (ADR-092).

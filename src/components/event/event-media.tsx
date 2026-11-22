@@ -12,10 +12,13 @@ export function EventMedia({
   photos,
   videoUrl,
   eventTitle,
+  privatePreview = false,
 }: {
   photos: readonly EventPhoto[];
   videoUrl: string | null | undefined;
   eventTitle: string;
+  /** Kegiatan belum tayang (ADR-095): gambar diambil langsung dengan cookie staf, tanpa optimizer. */
+  privatePreview?: boolean;
 }) {
   const video = parseVideo(videoUrl);
   const photoSlides: MediaSlide[] = photos.map((photo, index) => ({
@@ -27,6 +30,7 @@ export function EventMedia({
     width: photo.width,
     height: photo.height,
     isPoster: photo.isPoster,
+    unoptimized: privatePreview,
   }));
   const videoSlides: MediaSlide[] = video ? [{ kind: 'video', id: `video-${video.id}`, video }] : [];
   // Gambar dulu (poster bila ada): kotak hitam pemutar bukan wajah pertama yang baik untuk sebuah acara.

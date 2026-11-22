@@ -1,0 +1,41 @@
+# Impor media otomatis untuk antrean moderasi (ADR-095).
+#
+# Kegiatan PENDING membawa daftar gambar yang harus disiapkan (gambar resmi
+# dari laman sumber + poster & slide penjelas buatan server). Workflow ini
+# memanggil pengerjanya di aplikasi tiap jam, sesudah scraper 02:00 WIB pun
+# tertangani. Admin juga bisa menekan "Siapkan gambar sekarang" di /admin.
+#
+# Secret: SITE_URL (mis. https://studentfo.id), CRON_SECRET.
+name: Import event media
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Proses antrean gambar
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SITE_URL}" || -z "${CRON_SECRET}" ]]; then
+            echo "Secret SITE_URL / CRON_SECRET belum diisi — dilewati."
+            exit 0
+          fi
+          # Satu panggilan ≤ 40 detik kerja; ulangi selama masih ada sisa.
+          for _ in $(seq 1 8); do
+            status=$(curl --silent --show-error -o body.json -w '%{http_code}' \
+              -X POST "${SITE_URL%/}/api/cron/import-event-media" \
+              -H "Authorization: Bearer $CRON_SECRET")
+            cat body.json; echo
+            [[ "$status" == "200" ]] || exit 1
+            [[ "$(jq -r '.remaining' body.json)" == "true" ]] || break
+          done
