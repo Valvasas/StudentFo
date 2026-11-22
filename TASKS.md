@@ -917,7 +917,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Jenis `team_status` + tawaran cari partner (formulir, halaman pendaftaran, halaman acara), lobi `?niat=`, catatan di Ringkasan jawaban
 - [x] Mengisi formulir: progres wajib, draf per tab, isi dari profil, jawaban pulih saat galat server
 - [x] `/submit`: deskripsi di langkah 1, peta langkah, "Kirimanmu" di bawah form
-- [ ] **BUTUH KONFIRMASI PEMILIK.** Terapkan `20261120100001_event_slides` ke staging → produksi (pola ADR-062 #8), lalu catat di `supabase/APPLIED_MIGRATIONS.txt`
+- [x] Terapkan `20261120100001_event_slides` ke staging → produksi (22 Nov, bersama ADR-095)
 - [ ] **BUTUH PEMILIK.** Gabungkan cabang `claude/studentfo-improvements-features-y22p76` ke `main`
 - [ ] P2 Pencocokan partner (`/teams/cocok`) belum bisa disaring per lomba — tawaran "Cari partner" membuka pencocokan umum
 - [ ] P2 Logika bersyarat antar-pertanyaan (lompat bagian bila jawaban X) belum ada; Status tim cukup untuk kasus tim
@@ -931,7 +931,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Cron `/api/cron/import-event-media` + workflow tiap jam; tombol "Siapkan gambar sekarang" & "Siapkan gambar otomatis" di `/admin`
 - [x] Strip poster/slide + status impor di kartu antrean; `/admin/media/[slug]?acara=` & `/media/foto/[id]` untuk kegiatan belum tayang (staf saja, no-store)
 - [x] Pipeline: `ValidatedEvent.media` opsional (tanpa = daftar bawaan SQL)
-- [ ] **BUTUH KONFIRMASI PEMILIK.** Terapkan `20261120100001_event_slides` lalu `20261121100001_event_media_imports` ke produksi, catat di `supabase/APPLIED_MIGRATIONS.txt`
+- [x] `20261120100001_event_slides` & `20261121100001_event_media_imports` → staging → produksi (22 Nov, persetujuan pemilik), dicatat di `supabase/APPLIED_MIGRATIONS.txt`
 - [ ] **BUTUH PEMILIK.** Gabungkan cabang `ccr-e5c48abe-22c436` ke `main` (kode pengerja harus ter-deploy sebelum gambar diproses); secret workflow `SITE_URL` & `CRON_SECRET` sudah dipakai workflow lain
 - [ ] Setelah keduanya: antrekan gambar untuk 26 kegiatan kurasi (`stage_event_media(id, NULL)` atau tombol per kartu) lalu "Siapkan gambar sekarang"
 - [ ] P2 Pengerja belum memaku koneksi ke IP hasil DNS (sisa risiko DNS rebinding, ADR-095 #4)

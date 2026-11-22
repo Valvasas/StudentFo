@@ -63,10 +63,10 @@ Urutan migration (harus dijalankan berurutan):
 52. `20261116100001_event_engagement.sql` — suka, komentar, laporan komentar, `event_engagement` + `refresh_event_trends()` (pg_cron 15 menit), `events.registration_mode`, `events_listing.trend_score`, hapus permanen (ADR-092)
 53. `20261119100001_trend_visitor_cap_and_mutual_privacy.sql` — `refresh_event_trends()` menjepit pengunjung 20/hari/acara; `mutual_connection_counts()` disaring `can_view_profile()` (ADR-093)
 54. `20261119100002_admin_create_event.sql` — RPC `admin_create_event(uuid, jsonb)` (service_role saja, pelaku diperiksa ulang; kolom = `approve_submission`) untuk "Buat acara StudentFo" (ADR-093)
-55. `20261120100001_event_slides.sql` — `event_photos.sort_order` (diisi ulang menurut urutan tampil; pemicu sisip menaruh unggahan baru di belakang), RPC `reorder_event_photos(uuid, uuid[])` & `set_event_photo_caption(uuid, text)` (DEFINER, pengelola/admin); tabel `ugc_submission_photos` (RLS tanpa policy, maks. 5 per kiriman), `submission_photo_file`, `take_submission_photos`; `approve_submission` memindahkan gambar pendukung jadi slide (ADR-094) — **belum diterapkan**
-56. `20261121100001_event_media_imports.sql` — tabel `event_media_imports` (service_role saja, maks. 8 per kegiatan), `stage_event_media(uuid, jsonb)` (NULL = daftar bawaan: og:image laman sumber + poster & 3 slide buatan), `claim_event_media_imports(int)` (sewa 10 menit, SKIP LOCKED); `stage_scraped_event` ikut mengantrekan media (ADR-095) — **belum diterapkan**
+55. `20261120100001_event_slides.sql` — `event_photos.sort_order` (diisi ulang menurut urutan tampil; pemicu sisip menaruh unggahan baru di belakang), RPC `reorder_event_photos(uuid, uuid[])` & `set_event_photo_caption(uuid, text)` (DEFINER, pengelola/admin); tabel `ugc_submission_photos` (RLS tanpa policy, maks. 5 per kiriman), `submission_photo_file`, `take_submission_photos`; `approve_submission` memindahkan gambar pendukung jadi slide (ADR-094)
+56. `20261121100001_event_media_imports.sql` — tabel `event_media_imports` (service_role saja, maks. 8 per kegiatan), `stage_event_media(uuid, jsonb)` (NULL = daftar bawaan: og:image laman sumber + poster & 3 slide buatan), `claim_event_media_imports(int)` (sewa 10 menit, SKIP LOCKED); `stage_scraped_event` ikut mengantrekan media (ADR-095)
 
-> Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–54 per 2026-11-19, semua migration di repo).
+> Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–56 per 2026-11-22, semua migration di repo).
 
 > ⚠️ **Policy baru: selalu `(select auth.uid())`, bukan `auth.uid()`.** Tanpa
 > pembungkus, fungsi dievaluasi per baris yang dipindai (8× lebih lambat di
