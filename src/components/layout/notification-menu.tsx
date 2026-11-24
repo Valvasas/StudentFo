@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {
   BadgeCheck,
   Bell,
+  Trophy,
   CalendarClock,
   CheckCheck,
   DoorOpen,
@@ -76,6 +77,8 @@ const TYPE_ICON: Record<NotificationType, typeof Bell> = {
   COMMUNITY_REPLY: MessagesSquare,
   EVENT_COMMENT_REPLY: MessageCircleReply,
   EVENT_SHARED: Share2,
+  ACHIEVEMENT_VERIFIED: Trophy,
+  ACHIEVEMENT_REJECTED: Trophy,
 };
 
 const shortDate = new Intl.DateTimeFormat('id-ID', {
@@ -183,6 +186,8 @@ export async function NotificationMenu() {
                 ? `/komunitas/${notification.communityPostId}`
                 : /^(ORGANIZER|CLAIM|REVISION)_/.test(notification.type)
                 ? '/penyelenggara'
+                : notification.type.startsWith('ACHIEVEMENT_') && notification.event
+                ? `/tracker/${notification.event.slug}#verifikasi-prestasi`
                 : notification.type === 'PAYMENT_SUBMITTED' && notification.event
                   ? `${workspacePath(notification.event.id, 'pendaftar')}?status=diperiksa`
                   : /^(REGISTRATION|PAYMENT)_/.test(notification.type)

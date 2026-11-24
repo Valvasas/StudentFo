@@ -67,6 +67,7 @@ Urutan migration (harus dijalankan berurutan):
 56. `20261121100001_event_media_imports.sql` — tabel `event_media_imports` (service_role saja, maks. 8 per kegiatan), `stage_event_media(uuid, jsonb)` (NULL = daftar bawaan: og:image laman sumber + poster & 3 slide buatan), `claim_event_media_imports(int)` (sewa 10 menit, SKIP LOCKED); `stage_scraped_event` ikut mengantrekan media (ADR-095)
 57. `20261124100001_event_trust_levels.sql` — `events.verification_level` (`MODERATOR_VERIFIED`/`PUBLIC_SOURCE`, CHECK, backfill konservatif) & `events.is_demo`; `ALTER POLICY events_public_read … AND NOT is_demo`; `get_distinct_organizer_count()` tanpa data uji (ADR-096)
 58. `20261124100002_event_content_updated_at.sql` — `touch_event_updated_at()` + `CREATE OR REPLACE TRIGGER trg_events_touch`: `events.updated_at` hanya maju saat ISI berubah (bukan `saved_count`/`search_vector`) — dipakai `<lastmod>` sitemap (ADR-097)
+59. `20261125100001_achievement_leaderboard.sql` — `users.portfolio_public` (bawaan FALSE, GRANT UPDATE per kolom); tabel `achievement_verifications` (FK ke `application_tracker`, tanpa hak tulis klien, pemilik membaca barisnya); trigger `reset_achievement_verification`; RPC `request_/cancel_achievement_verification` (authenticated), `review_achievement_verification` (service_role), `campus_leaderboard`/`people_leaderboard` & `public_portfolio_page` (anon+authenticated), `leaderboard_weight` (ADR-098)
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–56 per 2026-11-22, semua migration di repo).
 
@@ -520,6 +521,21 @@ dipotong ke kab/kota. Uji: `supabase/tests/113_study_profile.test.sql`.
 
 Kategori (tabel `categories`) sejak migration 47: 19 — tambahan `teknik`,
 `ekonomi`, `pertanian`, `bahasa`, `media`, `agama`, `pariwisata`.
+
+### `achievement_verifications` + `users.portfolio_public` (Prestasi & peringkat — ADR-098)
+PK `(user_id, event_id)` ber-FK ke `application_tracker` (CASCADE). Kolom:
+`result` (CHECK = `LEADERBOARD_RESULTS`: JUARA_1/2/3/HARAPAN/FINALIS),
+`proof_url` (https ≤ 500), `institution_id`/`institution_name` (SALINAN saat
+mengajukan), `status` PENDING|VERIFIED|REJECTED, `requested_at` (milidetik —
+token versi review), `reviewed_by/at`, `review_note` (wajib bila REJECTED).
+Klien: SELECT baris sendiri saja; tulis hanya lewat RPC. Trigger
+`trg_tracker_reset_achievement_verification` menghapus baris bila `achievement`,
+`proof_url`, atau status tracker keluar dari APPLIED/INTERVIEW/ACCEPTED.
+Peringkat (`verified_achievements` → `campus_leaderboard`/`people_leaderboard`)
+hanya VERIFIED, kegiatan tayang & bukan data uji, pemilik tidak ditangguhkan;
+nama hanya untuk `users.portfolio_public`. `public_portfolio_page(username)`
+→ JSONB tanpa email/domisili, hanya bila opt-in. Uji:
+`supabase/tests/126_achievement_leaderboard.test.sql`.
 
 ### `event_engagement`, `event_likes`, `event_comments`, `event_comment_reports` (Interaksi postingan — ADR-092)
 Migration `20261116100001_event_engagement` (diterapkan ke staging & produksi 19 Nov 2026).

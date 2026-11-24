@@ -12,6 +12,71 @@ terdokumentasi.
 
 ---
 
+## ADR-098 — Prestasi terverifikasi moderator, peringkat kampus transparan, portofolio publik opt-in, "Cari rekan tim" di halaman lomba (25 Nov 2026)
+
+**Konteks:** Fase 3 permintaan pemilik (24 Nov): leaderboard kampus &
+mahasiswa dengan status Finalis/Juara terverifikasi bukti, portofolio publik
+`/u/[username]` (opt-in, default privat), koneksi antar kampus yang konkret
+di halaman lomba, dan matching tim di beranda. Benturan dengan keputusan lama
+yang harus dibuka terang:
+- ADR-082 **menolak** "papan peringkat antar pengguna (mengubah pencarian
+  peluang jadi perlombaan angka)"; ADR-068 melarang lencana dari klaim
+  sendiri; ADR-046 menyebut hasil portofolio "dilaporkan sendiri".
+- Skema usulan `campus(id, nama, kota)` + `user.campus_id` menduplikasi
+  direktori resmi ADR-076 (±5.800 PT + ±49 rb sekolah, kode NPSN/PDDikti,
+  kota) yang sudah dipakai `users.institution_id`.
+- ADR-077: profil "tidak pernah" untuk tamu & mesin pencari.
+
+**Keputusan:**
+1. **Peringkat hanya dari prestasi TERVERIFIKASI** — menjawab alasan
+   penolakan ADR-082: yang dihitung bukan klaim atau keikutsertaan yang bisa
+   diternakkan, melainkan Finalis/Juara lomba yang buktinya (sertifikat /
+   pengumuman resmi) diperiksa moderator. Port desain cabang usang
+   `ccr-a2058300` (tidak di-merge): tabel `achievement_verifications` ber-FK
+   ke baris Papan lamaran, isi yang diperiksa (hasil + bukti + kampus)
+   DISALIN saat mengajukan, dan trigger menggugurkan verifikasi bila hasil/
+   bukti berubah atau entri keluar dari portofolio. Moderator memutuskan dari
+   `/admin/prestasi` (RPC service_role, pelaku diperiksa ulang, bukan diri
+   sendiri, token versi `requested_at`, penolakan wajib beralasan); pemilik
+   dikabari lewat lonceng.
+2. **Kampus = direktori ADR-076**, bukan tabel baru: `institution_id`
+   (salinan saat mengajukan — prestasi milik kampus tempat ia diraih) +
+   nama/kota/jenis dari `institutionById()`. Tab Kampus vs Sekolah dipisah
+   dengan jenis direktori.
+3. **Rumus terbuka:** `10×Juara 1 + 8×Juara 2 + 6×Juara 3 + 4×Harapan +
+   2×Finalis`, satu salinan SQL (`leaderboard_weight`) + satu salinan TS yang
+   dikunci tes terhadap berkas migration. Ditampilkan di halaman beserta
+   aturannya. Saringan periode (tanggal = tahap terakhir lomba) & bidang
+   lewat form GET.
+4. **Privasi:** skor kampus = agregat tanpa nama (disebut di form
+   pengajuan). Nama pelajar di peringkat hanya bila ia menyalakan
+   `users.portfolio_public` (bawaan MATI) — satu persetujuan untuk portofolio
+   publik + peringkat. Portofolio publik terbuka bagi siapa saja dengan
+   tautan (melonggarkan ADR-077 hanya untuk yang opt-in), tetap `noindex`
+   (pengguna 13–17 tahun; nama + sekolah di indeks sulit ditarik), tanpa
+   email/domisili/koneksi. Yang tidak opt-in: tamu tetap dialihkan ke Masuk
+   (URL bukan alat menebak akun).
+5. **"Cari rekan tim"** di ringkasan lomba tim yang masih buka: kandidat
+   nyata dari `rankCandidates` (ADR-057, timbal-balik), minat sesuai bidang
+   lomba didahulukan, saringan "Kampus lain" (`?rekan=lintas`), "Ajak setim"
+   = permintaan terhubung berisi nama lomba; yang sudah terhubung dikirimi
+   lombanya (ADR-092). WhatsApp = tautan BAGIKAN (`wa.me/?text=`) — StudentFo
+   tidak memegang nomor HP pengguna. Menggantikan kotak tautan generik ADR-094.
+6. **Beranda tamu:** bagian "Satu tim, lintas kampus" tepat di bawah hero,
+   split-layout bernomor 01/04–04/04 dengan kolom kiri `sticky` (CSS saja).
+
+**Konsekuensi:** Moderator kini juga memeriksa bukti prestasi (beban kerja
+baru; antrean terpisah). Verifikasi oleh penyelenggara terverifikasi
+(desain asli cabang usang) belum dibangun — kandidat berikutnya. Unggah foto
+sertifikat sengaja belum ada: bukti berupa tautan https (sertifikat di Drive,
+pengumuman resmi) menghindari bucket privat baru berisi dokumen ber-NIK;
+dicatat di TASKS. Kebijakan privasi diperbarui — pemilik perlu meninjau dan
+mengisi `PRIVACY_POLICY_EFFECTIVE_DATE` baru. Migration `20261125100001`
+BELUM diterapkan ke produksi; sebelum itu peringkat kosong, panel ajukan
+menampilkan `verification_unavailable`, dan saklar portofolio publik dikunci.
+
+---
+
 ## ADR-097 — SEO: canonical ke halaman bersih, JSON-LD yang jujur, sitemap kegiatan aktif dengan `lastmod` isi (24 Nov 2026)
 
 **Konteks:** Audit SEO 23 Nov (atas permintaan pemilik) + Fase 2 permintaan

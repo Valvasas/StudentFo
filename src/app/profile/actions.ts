@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ACCOUNT_SIDEBAR_COOKIE, ACCOUNT_SIDEBAR_MAX_AGE, isSidebarCollapsed } from '@/lib/account-sidebar';
@@ -8,6 +8,7 @@ import { type ActionErrorCode, toActionErrorCode, withQuery } from '@/lib/action
 import { getSessionUser, requireUser } from '@/lib/auth';
 import { type AuthErrorCode } from '@/lib/auth-messages';
 import { getEventRepository } from '@/lib/data';
+import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
 import { PROFILE_LIMITS, profileSchema } from '@/lib/auth-schema';
 import { cleanStudyFields, withParentCategories } from '@/lib/study-fields';
 import { readImageUpload } from '@/lib/image-file';
@@ -127,6 +128,26 @@ export async function updateProfileIdentityAction(formData: FormData): Promise<v
   if (failure) redirect(withQuery(returnTo, { ubah: 'publik', error: failure }));
   revalidatePath('/profile', 'layout');
   redirect(`${withQuery(returnTo, { notice: 'profile_identity_saved' })}#publik`);
+}
+
+/** Portofolio publik (ADR-098): satu tombol, nilai tujuan di field tersembunyi — bisa dibalik seketika. */
+export async function setPortfolioPublicAction(formData: FormData): Promise<void> {
+  const returnTo = '/profile/details';
+  const user = await requireUser(returnTo);
+  const value = text(formData, 'value');
+  if (value !== '0' && value !== '1') redirect(withQuery(returnTo, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).setPortfolioPublic(user, value === '1');
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(`${withQuery(returnTo, { error: failure })}#portofolio-publik`);
+  revalidatePath('/profile', 'layout');
+  // Peringkat pelajar di-cache dengan tag katalog: nama muncul/hilang tanpa menunggu TTL.
+  revalidateTag(EVENTS_CACHE_TAG);
+  redirect(`${withQuery(returnTo, { notice: 'portfolio_public_saved' })}#portofolio-publik`);
 }
 
 const PROFILE_MEDIA_RETURN = '/profile/details';

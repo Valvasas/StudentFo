@@ -54,6 +54,11 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               sendiri, catatan, tautan bukti, dan pilihan tampil-tidaknya), serta tim yang kamu buat atau ikuti.
             </li>
             <li>
+              <strong>Verifikasi prestasi (bila kamu mengajukannya):</strong> hasil lomba, tautan bukti, dan nama kampus/sekolahmu saat
+              mengajukan, beserta keputusan dan alasan moderator. Prestasi yang terverifikasi dihitung sebagai jumlah per kampus/sekolah di
+              Peringkat tanpa namamu.
+            </li>
+            <li>
               <strong>Koneksi (bila kamu memakainya):</strong> pilihan terlihat di direktori, headline, ajakan terhubung beserta pesannya, daftar
               koneksi, dan orang yang kamu blokir.
             </li>
@@ -170,7 +175,8 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               lamaran, tim, pendaftaran ke acara, notifikasi, dan menampilkan kegiatan yang cocok dengan jenjang dan minatmu.
             </li>
             <li>
-              <strong>Persetujuanmu:</strong> fitur yang membuat dirimu terlihat orang lain (direktori Koneksi, kartu pemain, portofolio publik),
+              <strong>Persetujuanmu:</strong> fitur yang membuat dirimu terlihat orang lain (direktori Koneksi, kartu pemain, portofolio publik
+              yang bisa dibuka siapa saja dengan tautan, nama di peringkat pelajar),
               masuk dengan Google, pengingat tenggat lewat email (mati sampai kamu menyalakannya di Pengaturan; setiap email memuat tautan
               berhenti), dan pemrosesan data pengguna berusia di bawah 18 tahun. Persetujuan bisa kamu tarik kapan saja tanpa
               memengaruhi pemrosesan sebelumnya.
@@ -224,6 +230,12 @@ function sections(status: LegalDocumentStatus): readonly LegalSection[] {
               pemain, mereka bisa melihat profil publikmu (nama, headline, jurusan, jenjang, minat, portofolio publik) dan mengajakmu terhubung.
               Pengguna yang kartunya juga terbuka melihat isi kartu pemainmu di hasil pencocokan. Email tidak pernah ditampilkan. Orang yang kamu
               blokir tidak bisa melihat atau menghubungimu.
+            </li>
+            <li>
+              <strong>Siapa saja dengan tautan, hanya bila kamu menyalakan portofolio publik:</strong> nama, username, bio, kampus/sekolah,
+              jurusan, jenjang, bidang & keahlian kartu pemain yang terbuka, serta kegiatan yang kamu pilih tampil beserta status
+              verifikasinya. Namamu juga tampil di peringkat pelajar bila punya prestasi terverifikasi. Halaman itu tidak diindeks mesin
+              pencari, tidak memuat email, domisili, atau koneksimu, dan berhenti terbuka begitu kamu mematikannya.
             </li>
             <li>
               <strong>Koneksi dan orang yang kamu ajak:</strong> nama, headline, dan pesan ajakanmu. Koneksi yang kamu ajak dari lobi lomba

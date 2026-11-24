@@ -635,6 +635,47 @@ export async function setEventTrustAction(formData: FormData): Promise<void> {
   redirect(eventsPage(formData, { notice: 'event_trust_updated' }));
 }
 
+const ACHIEVEMENTS_PAGE = '/admin/prestasi';
+
+/**
+ * Keputusan atas pengajuan prestasi (ADR-098). `requestedAt` = token versi:
+ * bila pemilik mengubah hasil/bukti lalu mengajukan ulang sejak kartu ini
+ * dibuka, keputusan ditolak (`verification_changed`) alih-alih memverifikasi
+ * isi yang tidak pernah dilihat moderator.
+ */
+export async function reviewAchievementAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const userId = formTrimmed(formData, 'userId');
+  const eventId = formTrimmed(formData, 'eventId');
+  const requestedAt = formTrimmed(formData, 'requestedAt');
+  const decision = formText(formData, 'decision');
+  if (!userId || !eventId || !requestedAt || (decision !== 'VERIFIED' && decision !== 'REJECTED')) {
+    redirect(withQuery(ACHIEVEMENTS_PAGE, { error: 'invalid_request' }));
+  }
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).reviewAchievementVerification({
+      actorId: gate.userId,
+      userId,
+      eventId,
+      decision,
+      note: formText(formData, 'note').trim().slice(0, 300) || null,
+      requestedAt,
+    });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(ACHIEVEMENTS_PAGE, { error: failure }));
+  // Peringkat di-cache dengan tag katalog (ADR-034).
+  revalidateTag(EVENTS_CACHE_TAG);
+  revalidatePath(ACHIEVEMENTS_PAGE);
+  revalidatePath('/leaderboard');
+  redirect(withQuery(ACHIEVEMENTS_PAGE, { notice: 'verification_reviewed' }));
+}
+
 export async function deleteEventPermanentlyAction(formData: FormData): Promise<void> {
   const gate = await checkAdminAccess();
   if (!gate.allowed) redirect('/admin?status=forbidden');

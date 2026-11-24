@@ -120,6 +120,13 @@ import type {
   MyEventLike,
   RegistrationMode,
   ShareRecipient,
+  AchievementReviewItem,
+  AchievementVerification,
+  CampusStanding,
+  LeaderboardRange,
+  PersonStanding,
+  PortfolioPublicSetting,
+  PublicPortfolioPage,
 } from '@/types/domain';
 import { toVerificationLevel, VERIFICATION_LEVELS } from '@/types/domain';
 import { LOBBY_INTENTS, REPORT_REASONS, toNotificationType } from '@/types/domain';
@@ -177,6 +184,9 @@ import type {
   EventCommentRow,
   EventEngagementCountRow,
   EventEngagementStateRow,
+  AchievementVerificationRow,
+  CampusLeaderboardRow,
+  PeopleLeaderboardRow,
 } from '@/types/database';
 import {
   chooseCountMode,
@@ -220,6 +230,7 @@ import type {
   ReviewEventInput,
   EventTrustInput,
   SitemapEvent,
+  AchievementReviewInput,
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
@@ -259,6 +270,9 @@ import {
   sanitizeSearchQuery,
   sqlState,
   isMissingColumnError,
+  toAchievementVerification,
+  toLeaderboardCounts,
+  toPublicPortfolioPage,
   toDetail,
   toRegistrationMode,
   toEventClaim,
@@ -450,6 +464,8 @@ export class SupabaseEventRepository implements EventRepository {
   private readonly fetchCounts: (eventIds: readonly string[]) => Promise<EventEngagementCountRow[]>;
   private readonly fetchTrust: (eventIds: readonly string[]) => Promise<TrustRow[]>;
   private readonly fetchSitemap: (limit: number) => Promise<SitemapEvent[]>;
+  private readonly fetchCampusStandings: (range: LeaderboardRange, limit: number) => Promise<CampusStanding[]>;
+  private readonly fetchPeopleStandings: (range: LeaderboardRange, limit: number) => Promise<PersonStanding[]>;
 
   constructor(
     cacheLayer: CacheLayer = nextDataCache,
@@ -467,6 +483,9 @@ export class SupabaseEventRepository implements EventRepository {
     this.fetchCounts = cacheLayer(queryEngagementCounts, ['event-counts-v1']);
     this.fetchTrust = cacheLayer(queryTrustLevels, ['event-trust-v1']);
     this.fetchSitemap = cacheLayer(querySitemapEvents, ['events-sitemap-v1']);
+    // Tag katalog yang sama: keputusan moderator memanggil revalidateTag(EVENTS_CACHE_TAG).
+    this.fetchCampusStandings = cacheLayer(queryCampusStandings, ['leaderboard-campus-v1']);
+    this.fetchPeopleStandings = cacheLayer(queryPeopleStandings, ['leaderboard-people-v1']);
   }
 
   /**
@@ -3856,6 +3875,113 @@ export class SupabaseEventRepository implements EventRepository {
     }
     if (data.length === 0) throw actionError('event_not_found');
   }
+
+  // ------------------------------------------------------------------
+  // Prestasi terverifikasi, peringkat, portofolio publik (ADR-098)
+  // ------------------------------------------------------------------
+
+  async getAchievementVerification(userId: string, eventId: string): Promise<AchievementVerification | null> {
+    if (!isUuid(eventId)) return null;
+    // Klien sesi: policy `achievement_verifications_own_read` hanya membuka baris pemiliknya.
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('achievement_verifications')
+      .select(VERIFICATION_COLUMNS)
+      .eq('user_id', userId)
+      .eq('event_id', eventId)
+      .maybeSingle<AchievementVerificationRow>();
+    if (error && isMissingRelationError(error)) return null;
+    if (error) throw upstreamFailure('Gagal memuat pengajuan verifikasi.', error);
+    return data ? toAchievementVerification(data) : null;
+  }
+
+  async requestAchievementVerification(_actor: NetworkViewer, eventId: string): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('verification_not_eligible');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('request_achievement_verification', { p_event: eventId });
+    if (error) throw verificationFailure(error, 'Gagal mengajukan verifikasi.');
+  }
+
+  async cancelAchievementVerification(_userId: string, eventId: string): Promise<void> {
+    if (!isUuid(eventId)) return;
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('cancel_achievement_verification', { p_event: eventId });
+    if (error) throw verificationFailure(error, 'Gagal membatalkan pengajuan.');
+  }
+
+  async listPendingAchievementVerifications(limit: number): Promise<readonly AchievementReviewItem[]> {
+    // Klien admin: dipanggil rute yang sudah melewati checkAdminAccess(); tabel tanpa akses klien.
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin
+      .from('achievement_verifications')
+      .select(`user_id, ${VERIFICATION_COLUMNS}`)
+      .eq('status', 'PENDING')
+      .order('requested_at', { ascending: true })
+      .limit(Math.min(Math.max(limit, 1), 100))
+      .returns<(AchievementVerificationRow & { user_id: string })[]>();
+    if (error && isMissingRelationError(error)) return [];
+    if (error) throw upstreamFailure('Gagal memuat antrean prestasi.', error);
+    if (data.length === 0) return [];
+    const [people, events] = await Promise.all([
+      admin.from('users').select('id, full_name').in('id', [...new Set(data.map((row) => row.user_id))]).returns<{ id: string; full_name: string }[]>(),
+      admin.from('events').select('id, slug, title, organizer').in('id', [...new Set(data.map((row) => row.event_id))]).returns<{ id: string; slug: string; title: string; organizer: string }[]>(),
+    ]);
+    if (people.error) throw upstreamFailure('Gagal memuat nama pengaju.', people.error);
+    if (events.error) throw upstreamFailure('Gagal memuat lomba pengajuan.', events.error);
+    const nameOf = new Map(people.data.map((row) => [row.id, row.full_name]));
+    const eventOf = new Map(events.data.map((row) => [row.id, row]));
+    return data.flatMap((row) => {
+      const event = eventOf.get(row.event_id);
+      return event ? [{ ...toAchievementVerification(row), userId: row.user_id, fullName: nameOf.get(row.user_id) ?? 'Pengguna StudentFo', event }] : [];
+    });
+  }
+
+  async reviewAchievementVerification({ actorId, userId, eventId, decision, note, requestedAt }: AchievementReviewInput): Promise<void> {
+    if (!isUuid(userId) || !isUuid(eventId)) throw actionError('verification_not_found');
+    const { error } = await createSupabaseAdminClient().rpc('review_achievement_verification', {
+      p_actor: actorId,
+      p_user: userId,
+      p_event: eventId,
+      p_decision: decision,
+      p_note: note,
+      p_requested_at: requestedAt,
+    });
+    if (error) throw verificationFailure(error, 'Gagal menyimpan keputusan prestasi.');
+  }
+
+  async listCampusStandings(range: LeaderboardRange, limit: number): Promise<readonly CampusStanding[]> {
+    return this.fetchCampusStandings(range, limit);
+  }
+
+  async listPeopleStandings(range: LeaderboardRange, limit: number): Promise<readonly PersonStanding[]> {
+    return this.fetchPeopleStandings(range, limit);
+  }
+
+  async getPublicPortfolioPage(username: string): Promise<PublicPortfolioPage | null> {
+    const wanted = normalizeUsername(username);
+    if (!wanted) return null;
+    // Klien anon (tanpa cookie): halaman ini boleh dibuka tamu, dan fungsi menegakkan opt-in sendiri.
+    const { data, error } = await createSupabasePublicClient().rpc('public_portfolio_page', { p_username: wanted });
+    if (error && isMissingRelationError(error)) return null;
+    if (error) throw upstreamFailure('Gagal memuat portofolio publik.', error);
+    return toPublicPortfolioPage(data);
+  }
+
+  async getPortfolioPublic(userId: string): Promise<PortfolioPublicSetting> {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from('users').select('portfolio_public').eq('id', userId).maybeSingle<{ portfolio_public: boolean | null }>();
+    if (error && isMissingColumnError(error)) return { value: false, available: false };
+    if (error) throw upstreamFailure('Gagal memuat pengaturan portofolio.', error);
+    return { value: data?.portfolio_public === true, available: true };
+  }
+
+  async setPortfolioPublic(actor: NetworkViewer, value: boolean): Promise<void> {
+    // Klien sesi + hak UPDATE per kolom (pola saveProfileIdentity).
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('users').update({ portfolio_public: value }).eq('id', actor.id);
+    if (error && isMissingColumnError(error)) throw actionError('portfolio_public_unavailable');
+    if (error) throw upstreamFailure('Gagal menyimpan pengaturan portofolio.', error, 500);
+  }
 }
 
 /**
@@ -4222,6 +4348,69 @@ async function queryPosters(eventIds: readonly string[]): Promise<PosterRow[]> {
     rows.push(...data);
   }
   return rows;
+}
+
+const VERIFICATION_COLUMNS = 'event_id, result, proof_url, institution_name, status, requested_at, reviewed_at, review_note';
+
+/** Pesan RAISE `request_/review_achievement_verification()` → kode tertutup (dicocokkan persis). */
+const VERIFICATION_ERROR_CODES = [
+  'verification_not_eligible',
+  'verification_needs_proof',
+  'verification_too_early',
+  'verification_exists',
+  'verification_rate_limited',
+  'verification_not_found',
+  'verification_changed',
+  'verification_note_required',
+  'verification_self',
+] as const satisfies readonly ActionErrorCode[];
+
+function verificationFailure(error: { code?: string; message?: string }, fallback: string): Error {
+  // Kode tayang sebelum migration 20261125100001: fiturnya belum aktif, bukan galat.
+  if (isMissingRelationError(error)) return actionError('verification_unavailable');
+  const message = (error.message ?? '').trim();
+  const code = VERIFICATION_ERROR_CODES.find((candidate) => candidate === message);
+  if (code) return actionError(code);
+  // Sesi kedaluwarsa / akun ditangguhkan / pelaku bukan admin.
+  if (sqlState(error) === '42501') return actionError('verification_not_eligible');
+  return upstreamFailure(fallback, error, 500);
+}
+
+/** Klien anon (aman di cache). Fungsi belum ada = peringkat kosong, bukan halaman galat. */
+async function queryCampusStandings(range: LeaderboardRange, limit: number): Promise<CampusStanding[]> {
+  const { data, error } = await createSupabasePublicClient().rpc('campus_leaderboard', {
+    p_since: range.since,
+    p_until: range.until,
+    p_category: range.category,
+    p_limit: limit,
+  });
+  if (error && isMissingRelationError(error)) return [];
+  if (error) throw upstreamFailure('Gagal memuat peringkat kampus.', error);
+  return rpcRows<CampusLeaderboardRow>(data).map((row) => ({
+    institutionId: row.institution_id,
+    institutionName: row.institution_name ?? row.institution_id,
+    score: row.score,
+    counts: toLeaderboardCounts(row),
+    people: row.people,
+  }));
+}
+
+async function queryPeopleStandings(range: LeaderboardRange, limit: number): Promise<PersonStanding[]> {
+  const { data, error } = await createSupabasePublicClient().rpc('people_leaderboard', {
+    p_since: range.since,
+    p_until: range.until,
+    p_category: range.category,
+    p_limit: limit,
+  });
+  if (error && isMissingRelationError(error)) return [];
+  if (error) throw upstreamFailure('Gagal memuat peringkat mahasiswa.', error);
+  return rpcRows<PeopleLeaderboardRow>(data).map((row) => ({
+    username: row.username,
+    fullName: row.full_name,
+    institutionName: row.institution_name,
+    score: row.score,
+    counts: toLeaderboardCounts(row),
+  }));
 }
 
 /**

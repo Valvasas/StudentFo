@@ -144,10 +144,21 @@ import type {
   MyEventLike,
   RegistrationMode,
   VerificationLevel,
+  AchievementReviewItem,
+  AchievementVerification,
+  AchievementVerificationStatus,
+  CampusStanding,
+  LeaderboardCounts,
+  LeaderboardRange,
+  LeaderboardResult,
+  PersonStanding,
+  PortfolioPublicSetting,
+  PublicPortfolioPage,
   ShareRecipient,
 } from '@/types/domain';
 import type { SubmissionPayload, SubmissionPhoto } from '@/types/domain';
-import { REGISTRATION_MODES, REPORT_REASONS, VERIFICATION_LEVELS } from '@/types/domain';
+import { isLeaderboardResult, REGISTRATION_MODES, REPORT_REASONS, VERIFICATION_LEVELS } from '@/types/domain';
+import { addResult, compareStandings, EMPTY_COUNTS, scoreOf } from '@/lib/leaderboard';
 import { buildCommentThreads, countComments, EVENT_COMMENT_LIMITS, EVENT_LIKE_LIMIT_PER_DAY, EVENT_SHARE_LIMITS, sortShareRecipients } from '@/lib/event-comments';
 import { jakartaNoonOf, latestPerPerson, trendScore, type TrendSignal } from '@/lib/popularity';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortPhotosPosterFirst, sortSummaries } from './listing';
@@ -190,6 +201,7 @@ import type {
   ReviewTrustInput,
   EventTrustInput,
   SitemapEvent,
+  AchievementReviewInput,
   ClearProfileMediaInput,
   MediaImportInput,
   MediaImportJob,
@@ -210,6 +222,8 @@ import {
   SEED_EVENTS,
   SEED_PEOPLE,
   SEED_PORTFOLIO,
+  SEED_ACHIEVEMENT_VERIFICATIONS,
+  SEED_PORTFOLIO_PUBLIC,
   SEED_SEEKERS,
   type SeedPortfolioEntry,
   SEED_PERSON_CONNECTIONS,
@@ -368,6 +382,45 @@ function buildDetail(seed: SeedEvent, base: Date): EventDetail {
     isDemo: false,
     guidebookUrl: seed.guidebookUrl ?? null,
   };
+}
+
+/** Baris `achievement_verifications` di mode seed (ADR-098). */
+interface StoredVerification {
+  readonly userId: string;
+  readonly eventId: string;
+  readonly result: LeaderboardResult;
+  readonly proofUrl: string;
+  readonly institutionId: string | null;
+  readonly institutionName: string | null;
+  readonly status: AchievementVerificationStatus;
+  readonly requestedAt: string;
+  readonly reviewedAt: string | null;
+  readonly reviewedBy: string | null;
+  readonly reviewNote: string | null;
+}
+
+function verificationKey(userId: string, eventId: string): string {
+  return `${userId}|${eventId}`;
+}
+
+function toVerification(row: StoredVerification): AchievementVerification {
+  return {
+    eventId: row.eventId,
+    result: row.result,
+    proofUrl: row.proofUrl,
+    institutionName: row.institutionName,
+    status: row.status,
+    requestedAt: row.requestedAt,
+    reviewedAt: row.reviewedAt,
+    reviewNote: row.reviewNote,
+  };
+}
+
+/** Cermin `mode()` SQL: ejaan nama kampus yang paling sering disalin; seri → urutan abjad. */
+function mostCommon(values: readonly string[]): string {
+  const tally = new Map<string, number>();
+  for (const value of values) tally.set(value, (tally.get(value) ?? 0) + 1);
+  return [...tally.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? '';
 }
 
 /** Cocok kalau SEMUA kata kunci muncul di judul/penyelenggara/deskripsi. */
@@ -624,6 +677,9 @@ export class MemoryEventRepository implements EventRepository {
   private readonly studyProfiles = new Map<string, Omit<StudyProfile, 'available'>>(SEED_STUDY_PROFILES);
   /** Username, bio, keterlihatan (ADR-077) — kolom `users` di produksi. */
   private readonly identities = new Map<string, Omit<ProfileIdentity, 'available'>>(SEED_IDENTITIES);
+  /** Pengajuan verifikasi prestasi (ADR-098), kunci `userId|eventId` — cermin tabel `achievement_verifications`. */
+  private readonly verifications = new Map<string, StoredVerification>();
+  private readonly portfolioPublic = new Set<string>(SEED_PORTFOLIO_PUBLIC);
   /** Cermin `users.show_badges` (ADR-072): bawaan privat. */
   private readonly badgeVisible = new Set<string>();
   /** Foto profil & banner (ADR-083) — kolom `users.avatar_id/banner_id/banner_preset` di produksi. */
@@ -809,6 +865,26 @@ export class MemoryEventRepository implements EventRepository {
       this.people.set(person.userId, { person, discoverable, updatedAt: base.toISOString() });
     }
     for (const { userId, ...entry } of SEED_PORTFOLIO) this.seedPortfolioEntry(userId, entry, base);
+    SEED_ACHIEVEMENT_VERIFICATIONS.forEach(({ userId, eventSlug, status }, index) => {
+      const event = this.events.find((candidate) => candidate.slug === eventSlug);
+      const entry = event ? this.trackerEntries.get(userId)?.get(event.id) : undefined;
+      if (!event || !entry || !isLeaderboardResult(entry.achievement) || !entry.proofUrl) return;
+      const study = this.studyProfiles.get(userId);
+      const requestedAt = isoOffsetDays(-(index + 2), base);
+      this.verifications.set(verificationKey(userId, event.id), {
+        userId,
+        eventId: event.id,
+        result: entry.achievement,
+        proofUrl: entry.proofUrl,
+        institutionId: study?.institutionId ?? null,
+        institutionName: study?.institutionName ?? null,
+        status,
+        requestedAt,
+        reviewedAt: status === 'PENDING' ? null : isoOffsetDays(-(index + 1), base),
+        reviewedBy: status === 'PENDING' ? null : 'seed-admin',
+        reviewNote: null,
+      });
+    });
     SEED_SEEKERS.forEach(({ userId, ...card }, index) => {
       this.seekers.set(userId, { open: true, ...card, updatedAt: isoOffsetDays(-(index % 6), base) });
     });
@@ -1680,6 +1756,8 @@ export class MemoryEventRepository implements EventRepository {
         ? { ...existing, status, notes: notes !== undefined ? notes : existing.notes, updatedAt: now }
         : { id: `tracker-${userId}-${eventId}`, status, notes: notes ?? null, createdAt: now, updatedAt: now, ...EMPTY_PORTFOLIO },
     );
+    // Cermin trigger reset_achievement_verification: keluar dari portofolio = verifikasi gugur.
+    if (!isPortfolioStatus(status)) this.verifications.delete(verificationKey(userId, eventId));
   }
 
   async addTrackerItemIfAbsent(userId: string, eventId: string): Promise<void> {
@@ -1689,6 +1767,8 @@ export class MemoryEventRepository implements EventRepository {
 
   async removeTrackerItem(userId: string, eventId: string): Promise<void> {
     this.trackerEntries.get(userId)?.delete(eventId);
+    // Cermin FK ON DELETE CASCADE ke application_tracker.
+    this.verifications.delete(verificationKey(userId, eventId));
   }
 
   // ------------------------------------------------------------------
@@ -1709,6 +1789,8 @@ export class MemoryEventRepository implements EventRepository {
       portfolioVisible: input.visible,
       updatedAt: new Date().toISOString(),
     });
+    // Cermin trigger reset_achievement_verification: yang diperiksa (hasil + bukti) berubah = verifikasi gugur.
+    if (input.achievement !== entry.achievement || input.proofUrl !== entry.proofUrl) this.verifications.delete(verificationKey(userId, eventId));
   }
 
   /** Cermin `can_view_profile()` (migration 20260929100001). */
@@ -1738,10 +1820,201 @@ export class MemoryEventRepository implements EventRepository {
       const event = this.findEvent(eventId);
       if (!event || (event.status !== 'APPROVED' && event.status !== 'EXPIRED')) continue;
       if (!isPubliclyListed({ ...entry, event })) continue;
-      portfolio.push(toPortfolioEntry({ ...entry, eventId, event }));
+      portfolio.push({ ...toPortfolioEntry({ ...entry, eventId, event }), verification: this.verifications.get(verificationKey(userId, eventId))?.status ?? null });
     }
     portfolio.sort((a, b) => (b.deadlineAt ?? '').localeCompare(a.deadlineAt ?? ''));
     return { person: member.person, relation, portfolio: portfolio.slice(0, 100) };
+  }
+
+  // ------------------------------------------------------------------
+  // Prestasi terverifikasi, peringkat, portofolio publik (ADR-098)
+  // ------------------------------------------------------------------
+
+  async getAchievementVerification(userId: string, eventId: string): Promise<AchievementVerification | null> {
+    const stored = this.verifications.get(verificationKey(userId, eventId));
+    return stored ? toVerification(stored) : null;
+  }
+
+  /** Cermin request_achievement_verification() (migration 20261125100001). */
+  async requestAchievementVerification(actor: NetworkViewer, eventId: string): Promise<void> {
+    const userId = actor.id;
+    const entry = this.trackerEntries.get(userId)?.get(eventId);
+    const event = this.findEvent(eventId);
+    if (
+      this.isSuspended(userId) ||
+      !entry ||
+      !event ||
+      event.eventType !== 'LOMBA' ||
+      !isPubliclyVisible(event) ||
+      !isPortfolioStatus(entry.status) ||
+      !isLeaderboardResult(entry.achievement)
+    ) {
+      throw actionError('verification_not_eligible');
+    }
+    if (!entry.proofUrl) throw actionError('verification_needs_proof');
+    const now = Date.now();
+    if (event.status === 'APPROVED' && event.primaryDeadlineAt && new Date(event.primaryDeadlineAt).getTime() > now) throw actionError('verification_too_early');
+    const key = verificationKey(userId, eventId);
+    if (this.verifications.has(key)) throw actionError('verification_exists');
+    const today = [...this.verifications.values()].filter((row) => row.userId === userId && now - new Date(row.requestedAt).getTime() < 86_400_000);
+    if (today.length >= 10) throw actionError('verification_rate_limited');
+    const study = this.studyProfiles.get(userId);
+    this.rememberActor(actor);
+    this.verifications.set(key, {
+      userId,
+      eventId,
+      result: entry.achievement,
+      proofUrl: entry.proofUrl,
+      institutionId: study?.institutionId ?? null,
+      institutionName: study?.institutionName ?? null,
+      status: 'PENDING',
+      requestedAt: new Date(now).toISOString(),
+      reviewedAt: null,
+      reviewedBy: null,
+      reviewNote: null,
+    });
+  }
+
+  async cancelAchievementVerification(userId: string, eventId: string): Promise<void> {
+    const key = verificationKey(userId, eventId);
+    if (this.verifications.get(key)?.status === 'PENDING') this.verifications.delete(key);
+  }
+
+  async listPendingAchievementVerifications(limit: number): Promise<readonly AchievementReviewItem[]> {
+    return [...this.verifications.values()]
+      .filter((row) => row.status === 'PENDING')
+      .sort((a, b) => a.requestedAt.localeCompare(b.requestedAt))
+      .slice(0, Math.max(limit, 0))
+      .flatMap((row) => {
+        const event = this.findEvent(row.eventId);
+        if (!event) return [];
+        return [
+          {
+            ...toVerification(row),
+            userId: row.userId,
+            fullName: this.people.get(row.userId)?.person.fullName ?? 'Pengguna StudentFo',
+            event: { id: event.id, slug: event.slug, title: event.title, organizer: event.organizer },
+          },
+        ];
+      });
+  }
+
+  /** Cermin review_achievement_verification(); peran admin sudah diperiksa Server Action (mode seed tanpa tabel peran). */
+  async reviewAchievementVerification({ actorId, userId, eventId, decision, note, requestedAt }: AchievementReviewInput): Promise<void> {
+    if (actorId === userId) throw actionError('verification_self');
+    const trimmed = note?.trim() ?? '';
+    if (decision === 'REJECTED' && trimmed.length < 5) throw actionError('verification_note_required');
+    const key = verificationKey(userId, eventId);
+    const row = this.verifications.get(key);
+    if (!row || row.status !== 'PENDING') throw actionError('verification_not_found');
+    if (new Date(requestedAt).getTime() !== new Date(row.requestedAt).getTime()) throw actionError('verification_changed');
+    this.verifications.set(key, { ...row, status: decision, reviewedAt: new Date().toISOString(), reviewedBy: actorId, reviewNote: trimmed ? trimmed.slice(0, 300) : null });
+    const title = this.findEvent(eventId)?.title.slice(0, 120) ?? 'lomba itu';
+    this.notifyAbout(
+      userId,
+      eventId,
+      decision === 'VERIFIED' ? 'ACHIEVEMENT_VERIFIED' : 'ACHIEVEMENT_REJECTED',
+      decision === 'VERIFIED'
+        ? `Prestasimu di ${title} terverifikasi moderator dan kini dihitung di Peringkat.`
+        : `Prestasimu di ${title} belum bisa diverifikasi: ${trimmed.slice(0, 200)}`,
+    );
+  }
+
+  /** Cermin verified_achievements(): terverifikasi, kegiatan tayang & bukan data uji, pemilik tidak ditangguhkan, dalam rentang. */
+  private verifiedRows(range: LeaderboardRange): (StoredVerification & { readonly achievedAt: number })[] {
+    const since = range.since ? new Date(range.since).getTime() : null;
+    const until = range.until ? new Date(range.until).getTime() : null;
+    return [...this.verifications.values()].flatMap((row) => {
+      if (row.status !== 'VERIFIED' || this.isSuspended(row.userId)) return [];
+      const event = this.findEvent(row.eventId);
+      if (!event || !isPubliclyVisible(event)) return [];
+      if (range.category && !event.categorySlugs.includes(range.category)) return [];
+      // Tahap terakhir (biasanya pengumuman pemenang); tanpa tahap = waktu tayang.
+      const achievedAt = event.deadlines.length > 0 ? Math.max(...event.deadlines.map((deadline) => new Date(deadline.deadlineAt).getTime())) : new Date(event.createdAt).getTime();
+      return (since === null || achievedAt >= since) && (until === null || achievedAt < until) ? [{ ...row, achievedAt }] : [];
+    });
+  }
+
+  async listCampusStandings(range: LeaderboardRange, limit: number): Promise<readonly CampusStanding[]> {
+    const groups = new Map<string, { names: string[]; counts: LeaderboardCounts; people: Set<string> }>();
+    for (const row of this.verifiedRows(range)) {
+      if (!row.institutionId) continue;
+      const group = getOrCreate(groups, row.institutionId, () => ({ names: [], counts: EMPTY_COUNTS, people: new Set<string>() }));
+      group.names.push(row.institutionName ?? row.institutionId);
+      group.counts = addResult(group.counts, row.result);
+      group.people.add(row.userId);
+    }
+    return [...groups.entries()]
+      .map(([institutionId, group]) => ({
+        institutionId,
+        institutionName: mostCommon(group.names),
+        score: scoreOf(group.counts),
+        counts: group.counts,
+        people: group.people.size,
+      }))
+      .sort((a, b) => compareStandings({ ...a, name: a.institutionId }, { ...b, name: b.institutionId }))
+      .slice(0, Math.min(Math.max(limit, 1), 500));
+  }
+
+  async listPeopleStandings(range: LeaderboardRange, limit: number): Promise<readonly PersonStanding[]> {
+    const groups = new Map<string, { latest: { at: number; name: string } | null; counts: LeaderboardCounts }>();
+    for (const row of this.verifiedRows(range)) {
+      if (!this.portfolioPublic.has(row.userId)) continue;
+      const group = getOrCreate(groups, row.userId, () => ({ latest: null as { at: number; name: string } | null, counts: EMPTY_COUNTS }));
+      // Kampus pada prestasi TERBARU — prestasi milik kampus tempat ia diraih.
+      if (row.institutionName && (!group.latest || row.achievedAt > group.latest.at)) group.latest = { at: row.achievedAt, name: row.institutionName };
+      group.counts = addResult(group.counts, row.result);
+    }
+    return [...groups.entries()]
+      .map(([userId, group]) => ({
+        username: this.identities.get(userId)?.username ?? null,
+        fullName: this.people.get(userId)?.person.fullName ?? 'Pengguna StudentFo',
+        institutionName: group.latest?.name ?? null,
+        score: scoreOf(group.counts),
+        counts: group.counts,
+      }))
+      .sort((a, b) => compareStandings({ ...a, name: a.fullName }, { ...b, name: b.fullName }))
+      .slice(0, Math.min(Math.max(limit, 1), 200));
+  }
+
+  /** Cermin public_portfolio_page(): hanya opt-in & tidak ditangguhkan; tanpa email/domisili/kontak. */
+  async getPublicPortfolioPage(username: string): Promise<PublicPortfolioPage | null> {
+    const wanted = username.trim().toLowerCase();
+    const userId = [...this.identities.entries()].find(([, identity]) => identity.username === wanted)?.[0];
+    if (!userId || !this.portfolioPublic.has(userId) || this.isSuspended(userId)) return null;
+    const member = this.people.get(userId);
+    if (!member) return null;
+    const study = this.studyProfiles.get(userId);
+    const seeker = this.seekers.get(userId);
+    const entries: PortfolioEntry[] = [];
+    for (const [eventId, entry] of this.trackerEntries.get(userId) ?? []) {
+      const event = this.findEvent(eventId);
+      if (!event || !isPubliclyVisible(event) || !isPubliclyListed({ ...entry, event })) continue;
+      entries.push({ ...toPortfolioEntry({ ...entry, eventId, event }), verification: this.verifications.get(verificationKey(userId, eventId))?.status ?? null });
+    }
+    entries.sort((a, b) => (b.deadlineAt ?? '').localeCompare(a.deadlineAt ?? ''));
+    return {
+      fullName: member.person.fullName,
+      username: wanted,
+      bio: this.identities.get(userId)?.bio ?? null,
+      educationLevel: member.person.educationLevel,
+      major: member.person.major,
+      institutionId: study?.institutionId ?? null,
+      institutionName: study?.institutionName ?? null,
+      studyFields: study?.studyFields ?? [],
+      skills: seeker?.open ? seeker.skills : [],
+      entries: entries.slice(0, 100),
+    };
+  }
+
+  async getPortfolioPublic(userId: string): Promise<PortfolioPublicSetting> {
+    return { value: this.portfolioPublic.has(userId), available: true };
+  }
+
+  async setPortfolioPublic(actor: NetworkViewer, value: boolean): Promise<void> {
+    this.rememberActor(actor);
+    if (value) this.portfolioPublic.add(actor.id);
+    else this.portfolioPublic.delete(actor.id);
   }
 
   // ------------------------------------------------------------------

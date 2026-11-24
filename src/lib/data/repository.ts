@@ -74,6 +74,13 @@ import type {
   RegistrationMode,
   ShareRecipient,
   VerificationLevel,
+  AchievementReviewItem,
+  AchievementVerification,
+  CampusStanding,
+  LeaderboardRange,
+  PersonStanding,
+  PortfolioPublicSetting,
+  PublicPortfolioPage,
 } from '@/types/domain';
 import type { CommunityCursor, CommunityPostInput, CommunityTopic } from '@/lib/community';
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
@@ -134,7 +141,62 @@ export interface EventRepository
     CommunityRepository,
     EngagementRepository,
     EventMaintenanceRepository,
-    MediaImportRepository {}
+    MediaImportRepository,
+    AchievementRepository {}
+
+/**
+ * Prestasi terverifikasi, peringkat, portofolio publik (ADR-098).
+ *
+ * Hasil tetap dilaporkan sendiri di portofolio; yang baru adalah PENGAJUAN
+ * agar moderator memeriksa buktinya. Hanya pengajuan VERIFIED yang dihitung
+ * peringkat, dan pengajuan gugur begitu hasil/bukti diubah (trigger di
+ * produksi, `updatePortfolio` di mode seed). Method moderator dipanggil
+ * Server Action SETELAH `checkAdminAccess()`; implementasi memeriksa ulang
+ * pelakunya (bukan diri sendiri).
+ */
+export interface AchievementRepository {
+  /** Pengajuan milik sendiri untuk satu kegiatan; null = belum pernah mengajukan. */
+  getAchievementVerification(userId: string, eventId: string): Promise<AchievementVerification | null>;
+  /**
+   * Ajukan pemeriksaan hasil yang tercatat di portofolio. Kode galat:
+   * `verification_not_eligible` (bukan lomba/hasil kompetitif/entri portofolio),
+   * `verification_needs_proof`, `verification_too_early` (pendaftaran belum
+   * ditutup), `verification_exists`, `verification_rate_limited` (10/hari),
+   * `verification_unavailable` (migration belum ada).
+   */
+  requestAchievementVerification(actor: NetworkViewer, eventId: string): Promise<void>;
+  /** Hanya yang masih menunggu; selain itu diam (idempoten). */
+  cancelAchievementVerification(userId: string, eventId: string): Promise<void>;
+  /** Antrean moderator, tertua dulu. */
+  listPendingAchievementVerifications(limit: number): Promise<readonly AchievementReviewItem[]>;
+  /**
+   * `verification_not_found` (sudah diputuskan/dibatalkan), `verification_changed`
+   * (`requestedAt` basi — pemilik mengajukan ulang), `verification_note_required`
+   * (penolakan tanpa alasan ≥ 5 karakter), `verification_self`.
+   */
+  reviewAchievementVerification(input: AchievementReviewInput): Promise<void>;
+  /** Agregat per tempat studi (tanpa nama orang), semua jenis tempat studi; urutan `compareStandings`. */
+  listCampusStandings(range: LeaderboardRange, limit: number): Promise<readonly CampusStanding[]>;
+  /** Hanya yang menyalakan portofolio publik. */
+  listPeopleStandings(range: LeaderboardRange, limit: number): Promise<readonly PersonStanding[]>;
+  /** null = tidak ada, tidak opt-in, atau ditangguhkan (404 yang sama). Boleh dipanggil tamu. */
+  getPublicPortfolioPage(username: string): Promise<PublicPortfolioPage | null>;
+  getPortfolioPublic(userId: string): Promise<PortfolioPublicSetting>;
+  /** `portfolio_public_unavailable` bila kolom belum ada. Pelaku utuh: mode seed mencatat namanya (tanpa tabel `users`). */
+  setPortfolioPublic(actor: NetworkViewer, value: boolean): Promise<void>;
+}
+
+export interface AchievementReviewInput {
+  readonly actorId: string;
+  readonly userId: string;
+  readonly eventId: string;
+  readonly decision: 'VERIFIED' | 'REJECTED';
+  readonly note: string | null;
+  readonly requestedAt: string;
+}
+
+/** Batas tampilan peringkat; SQL menjepit ke 500/200. */
+export const LEADERBOARD_LIMITS = { campus: 50, people: 50, pending: 50 } as const;
 
 /** Satu gambar yang harus disiapkan untuk sebuah kegiatan (ADR-095) — cermin baris `event_media_imports`. */
 export interface MediaImportJob {

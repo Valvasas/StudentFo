@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowUpRight, Award, EyeOff, Globe, Pencil } from 'lucide-react';
+import { ArrowUpRight, Award, EyeOff, Globe, Pencil, ShieldCheck } from 'lucide-react';
 import { jakartaDateParts } from '@/lib/deadline';
 import { achievementRank, portfolioOutcomeLabel } from '@/lib/portfolio';
 import { cn, sanitizeExternalUrl } from '@/lib/utils';
@@ -44,6 +44,11 @@ export function PortfolioList({ rows, now, emptyText }: { rows: readonly Portfol
                   {portfolioOutcomeLabel(entry)}
                 </span>
                 <span className="text-[12.5px] text-ink-muted">{EVENT_TYPE_LABEL[entry.eventType]}</span>
+                {entry.verification === 'VERIFIED' && (
+                  <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-success">
+                    <ShieldCheck aria-hidden className="size-3.5" /> Terverifikasi moderator
+                  </span>
+                )}
                 {visibility && <VisibilityChip visibility={visibility} />}
               </span>
               {/* ::after memperluas area sentuh ke ≥ 44px tanpa menggeser baris (pola listing-ui). */}

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { ArrowRight, ArrowUpRight, Bookmark, Hourglass, ListChecks, type LucideIcon, ReceiptText, UsersRound } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Bookmark, Hourglass, ListChecks, type LucideIcon, ReceiptText, Trophy, UsersRound } from 'lucide-react';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { DeadlineTag } from '@/components/event/deadline-tag';
 import { DeadlineWeek } from '@/components/event/deadline-week';
@@ -124,6 +124,7 @@ export async function PersonalHome({ user, params }: { user: AuthUser; params: R
     { href: '/pembayaran', label: 'Pendaftaran & pembayaran', icon: ReceiptText, count: allUnpaid.length, countLabel: 'belum dibayar' },
     { href: '/profile?tab=tersimpan', label: 'Tersimpan', icon: Bookmark, count: saved.length, countLabel: 'tersimpan' },
     { href: '/teams', label: 'Cari tim', icon: UsersRound },
+    { href: '/leaderboard', label: 'Peringkat prestasi', icon: Trophy },
   ];
 
   return (

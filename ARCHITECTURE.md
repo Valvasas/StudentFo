@@ -329,6 +329,9 @@ Tidak ada satu baris kode pun di `pipeline/` yang menulis status selain
   panjang di `src/app/events/page.tsx`: `loading.tsx` membuat Next.js
   men-stream shell dengan status 200 sebelum `notFound()` sempat mengubah
   status jadi 404 → soft-404 yang ikut terindeks).
+- `/leaderboard` (publik, terindeks) membaca agregat `campus_/people_leaderboard`
+  ber-cache tag `events`; `/u/[username]` melayani profil anggota ATAU
+  portofolio publik opt-in (tamu), selalu `noindex` (ADR-098).
 - `sitemap.ts` dan `robots.ts` dibangun dari repository yang sama dengan UI,
   bukan daftar statis terpisah. Sitemap = kegiatan yang masih buka
   (`listSitemapEvents`) + halaman kategori; `<lastmod>` = perubahan isi (ADR-097).

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AtSign, Award, FileText, GraduationCap, IdCard, Images, MapPin, Pencil, Phone } from 'lucide-react';
-import { updateProfileAction, updateProfileIdentityAction, updateStudyPlaceAction } from '@/app/profile/actions';
+import { AtSign, Award, FileText, Globe, GraduationCap, IdCard, Images, MapPin, Pencil, Phone } from 'lucide-react';
+import { setPortfolioPublicAction, updateProfileAction, updateProfileIdentityAction, updateStudyPlaceAction } from '@/app/profile/actions';
 import { AuthFeedback } from '@/components/auth/auth-feedback';
 import { AccountShell } from '@/components/layout/account-shell';
 import { DemoDetailCards } from '@/components/profile/demo-detail-cards';
@@ -20,10 +20,12 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { InstitutionPicker } from '@/components/ui/institution-picker';
 import { RegionPicker } from '@/components/ui/region-picker';
 import { BackLink } from '@/components/ui/back-link';
+import { SubmitButton } from '@/components/ui/submit-button';
 import { UnsavedChangesGuard } from '@/components/ui/unsaved-changes-guard';
 import { PROFILE_EDIT_ORIGINS } from '@/lib/account-sidebar';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { withFallback } from '@/lib/fallback';
 import { BIO_MAX, suggestUsername, USERNAME_LIMITS } from '@/lib/profile-identity';
 import { presentStudyProfile, STUDY_PLACE_LIMITS } from '@/lib/study-profile';
 import { districtName } from '@/lib/wilayah-districts';
@@ -41,6 +43,7 @@ export const metadata: Metadata = {
 const EDITABLE = ['identitas', 'publik', 'pendidikan', 'asal'] as const;
 /** Kode milik kartu Profil publik & Tempat studi — kode bersama (`unknown`) sudah ditangani AuthFeedback. */
 const STUDY_ERRORS = new Set([
+  'portfolio_public_unavailable',
   'invalid_study_place',
   'study_profile_unavailable',
   'username_taken',
@@ -54,7 +57,16 @@ const STUDY_ERRORS = new Set([
   'profile_media_unavailable',
   'invalid_banner_preset',
 ]);
-const STUDY_NOTICES = new Set(['study_place_saved', 'profile_identity_saved', 'avatar_saved', 'avatar_removed', 'banner_saved', 'banner_removed', 'banner_preset_saved']);
+const STUDY_NOTICES = new Set([
+  'study_place_saved',
+  'profile_identity_saved',
+  'avatar_saved',
+  'avatar_removed',
+  'banner_saved',
+  'banner_removed',
+  'banner_preset_saved',
+  'portfolio_public_saved',
+]);
 type Editable = (typeof EDITABLE)[number];
 
 /**
@@ -72,7 +84,11 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
   const requested = firstParam(params.ubah);
   const editing: Editable | null = EDITABLE.find((key) => key === requested) ?? null;
   const repository = await getEventRepository();
-  const [studyProfile, identity] = await Promise.all([repository.getStudyProfile(user.id), repository.getProfileIdentity(user.id)]);
+  const [studyProfile, identity, portfolioPublic] = await Promise.all([
+    repository.getStudyProfile(user.id),
+    repository.getProfileIdentity(user.id),
+    withFallback('portofolio publik', () => repository.getPortfolioPublic(user.id), { value: false, available: false }),
+  ]);
   const suggestedUsername = suggestUsername(user.fullName);
   const studyView = presentStudyProfile({ ...studyProfile, regionCode: studyProfile.domicileCode });
   const district = studyProfile.domicileCode?.length === 8 ? districtName(studyProfile.domicileCode) : null;
@@ -209,7 +225,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
             id="publik"
             icon={<AtSign className="size-[18px]" />}
             title="Profil publik"
-            description="Username, bio, dan siapa yang boleh membuka profilmu. Tamu & mesin pencari tidak pernah bisa."
+            description="Username, bio, dan siapa yang boleh membuka profilmu. Tamu hanya melihat portofolio publik bila kamu menyalakannya; mesin pencari tidak pernah."
             editing={editing === 'publik'}
             actions={actions('publik')}
             delay={90}
@@ -298,6 +314,50 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
                 ]}
               />
             )}
+          </DetailCard>
+        )}
+
+        {identity.available && portfolioPublic.available && (
+          <DetailCard
+            id="portofolio-publik"
+            icon={<Globe className="size-[18px]" />}
+            title="Portofolio publik"
+            description="Bagikan riwayat lomba & prestasimu lewat tautan — misalnya di CV atau pendaftaran beasiswa. Bawaan: mati."
+            delay={105}
+          >
+            <form action={setPortfolioPublicAction} className="flex flex-col gap-3.5 px-5 pb-5 sm:px-6">
+              <input type="hidden" name="value" value={portfolioPublic.value ? '0' : '1'} />
+              <p className="text-[14px] leading-relaxed text-ink-soft">
+                {portfolioPublic.value ? (
+                  <>
+                    <strong className="font-semibold text-ink">Menyala.</strong> Siapa pun dengan tautan{' '}
+                    {identity.username && (
+                      <Link href={`/u/${identity.username}`} className="font-medium text-ink underline underline-offset-[3px]">
+                        studentfo/u/{identity.username}
+                      </Link>
+                    )}{' '}
+                    bisa melihat nama, kampus/sekolah, jurusan, bio, keahlian, dan kegiatan yang kamu pilih tampil di portofolio. Namamu juga
+                    muncul di peringkat pelajar bila punya prestasi terverifikasi.
+                  </>
+                ) : (
+                  <>
+                    <strong className="font-semibold text-ink">Mati.</strong> Hanya anggota yang masuk (sesuai pilihan di atas) yang bisa
+                    membuka profilmu. Prestasi terverifikasimu tetap dihitung tanpa nama di skor kampus.
+                  </>
+                )}
+              </p>
+              <p className="text-[12.5px] leading-relaxed text-ink-muted">
+                Email, domisili, dan koneksimu tidak pernah ikut tampil, dan halaman ini tidak diindeks mesin pencari. Di bawah 18 tahun?
+                Minta izin orang tua/wali dulu sebelum menyalakannya.
+              </p>
+              {identity.username ? (
+                <SubmitButton className={portfolioPublic.value ? detailGhostButton : detailPrimaryButton} pendingLabel="Menyimpan…">
+                  {portfolioPublic.value ? 'Matikan portofolio publik' : 'Nyalakan portofolio publik'}
+                </SubmitButton>
+              ) : (
+                <p className="text-[13px] font-medium text-ink-soft">Pasang username dulu di Profil publik — alamat portofoliomu memakai username.</p>
+              )}
+            </form>
           </DetailCard>
         )}
 

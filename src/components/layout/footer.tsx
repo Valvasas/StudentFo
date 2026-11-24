@@ -3,8 +3,9 @@ import { LogoMark } from '@/components/ui/logo';
 
 const FOOTER_LINKS = [
   { href: '/about', label: 'Tentang' },
-  { href: '/#verifikasi', label: 'Cara verifikasi' },
+  { href: '/sumber-data#tingkat-verifikasi', label: 'Cara verifikasi' },
   { href: '/events', label: 'Semua kegiatan' },
+  { href: '/leaderboard', label: 'Peringkat prestasi' },
   { href: '/connections', label: 'Koneksi' },
   { href: '/komunitas', label: 'Komunitas' },
   { href: '/penyelenggara', label: 'Untuk penyelenggara' },

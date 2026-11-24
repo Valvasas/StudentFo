@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
 import { LandingHero, type HeroLink } from './hero';
 import { LandingTour, type TourSample } from './landing-tour';
+import { TeamMatchingSection } from './team-matching-section';
 import { RevealObserver } from './reveal-observer';
 import { JsonLd } from '@/components/seo/json-ld';
 import { faqJsonLd } from '@/lib/structured-data';
@@ -129,6 +130,8 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
       {/* Satu-satunya notice yang mendarat di sini: akun baru saja dihapus (ADR-061). */}
       <ActionFeedback params={params} className="container-page max-w-[1120px] pt-6" />
       <LandingHero types={types} shortcuts={SHORTCUTS} />
+
+      <TeamMatchingSection className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')} />
 
       <TrendingStrip
         events={trendingItems(popular, 6)}

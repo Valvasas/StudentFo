@@ -15,12 +15,10 @@ import {
   Flag,
   FileText,
   GraduationCap,
-  Handshake,
   KeyRound,
   MapPin,
   MessagesSquare,
   Ticket,
-  Users,
 } from 'lucide-react';
 import { claimEventAction } from '@/app/penyelenggara/actions';
 import { withNext } from '@/components/auth/auth-field';
@@ -28,6 +26,8 @@ import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
 import { EventMedia } from '@/components/event/event-media';
 import { NudgeCards } from '@/components/event/nudge-cards';
+import { TeamFinder } from '@/components/event/team-finder';
+import { parseCrossCampus } from '@/lib/team-finder';
 import { photoSrc, posterAlt } from '@/components/event/event-photo';
 import { AdminEventTools } from '@/components/admin/admin-event-tools';
 import { EngagementBar } from '@/components/event/engagement-bar';
@@ -579,31 +579,18 @@ export default async function EventDetailPage({
                 </div>
 
 
-                {registeredNudges.length > 0 ? (
-                  <NudgeCards nudges={registeredNudges} heading="Langkah berikutnya untukmu" />
-                ) : (
-                  teamInvite && (
-                    <div className="flex flex-wrap items-center gap-3.5 rounded-[14px] bg-panel-nested p-[18px]">
-                      <span aria-hidden className="flex size-8 items-center justify-center rounded-pill bg-brand text-on-brand">
-                        <Users className="size-4" />
-                      </span>
-                      <p className="min-w-[200px] flex-1 text-sm leading-normal text-ink-soft">{teamInvite.text}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {[teamInvite.primary, teamInvite.secondary].map((action) =>
-                          action ? (
-                            <Link
-                              key={action.key}
-                              href={action.href}
-                              className="flex h-11 items-center gap-1.5 rounded-card border border-line-strong/70 bg-panel px-3.5 text-sm font-semibold transition-colors duration-150 ease-snap hover:border-brand"
-                            >
-                              {action.icon === 'handshake' ? <Handshake aria-hidden className="size-4" /> : <Users aria-hidden className="size-4" />}
-                              {action.cta}
-                            </Link>
-                          ) : null,
-                        )}
-                      </div>
-                    </div>
-                  )
+                {registeredNudges.length > 0 && <NudgeCards nudges={registeredNudges} heading="Langkah berikutnya untukmu" />}
+
+                {/* Cari rekan tim (ADR-098): kandidat nyata dari pencocokan keahlian, langsung di halaman lomba. */}
+                {showTeamHelp && (
+                  <TeamFinder
+                    user={user}
+                    event={event}
+                    crossCampus={parseCrossCampus(query)}
+                    eventUrl={`${siteUrl}${detailPath}`}
+                    intro={teamInvite?.text ?? null}
+                    openTeams={openTeams}
+                  />
                 )}
 
                 {/* Komunitas (ADR-087) khusus anggota, seperti isi halaman ini sendiri. */}

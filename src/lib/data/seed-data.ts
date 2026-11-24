@@ -598,6 +598,8 @@ export const SEED_IDENTITIES: readonly (readonly [string, { username: string | n
   ['seed-user-4', { username: 'salsabila.putri', bio: 'Riset pengguna, desain layanan, dan sedikit ilustrasi.', visibility: 'MEMBERS' }],
   ['seed-user-9', { username: 'arif.setiawan', bio: 'Flutter developer. Juara 2 lomba aplikasi tingkat provinsi.', visibility: 'MEMBERS' }],
   ['seed-user-14', { username: 'putri.ayu', bio: null, visibility: 'NETWORK' }],
+  // Juara terverifikasi dengan portofolio publik (ADR-098): baris peringkat mahasiswa menaut ke /u/rizky.hidayat.
+  ['seed-user-13', { username: 'rizky.hidayat', bio: 'Product manager magang. Juara 1 lomba desain produk digital bareng tim lintas kampus.', visibility: 'MEMBERS' }],
 ];
 
 /**
@@ -700,16 +702,31 @@ export interface SeedPortfolioEntry {
  * privat secara bawaan, jadi TIDAK tampil ke orang lain — contoh aturannya.
  */
 export const SEED_PORTFOLIO: readonly SeedPortfolioEntry[] = [
-  { userId: 'seed-user-1', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'JUARA_2', achievementNote: 'Kategori aksesibilitas' },
+  { userId: 'seed-user-1', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'JUARA_2', achievementNote: 'Kategori aksesibilitas', proofUrl: 'https://example.org/sertifikat/rani-juara-2' },
   { userId: 'seed-user-1', eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'APPLIED', achievement: 'BERSERTIFIKAT' },
   { userId: 'seed-user-1', eventSlug: 'kompetisi-inovasi-perangkat-lunak-nusantara-2026', status: 'APPLIED', achievement: null },
   { userId: 'seed-user-4', eventSlug: 'workshop-riset-pengguna-angkatan-3', status: 'APPLIED', achievement: 'PESERTA' },
-  { userId: 'seed-user-10', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'FINALIS' },
+  { userId: 'seed-user-10', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'FINALIS', proofUrl: 'https://example.org/pengumuman/finalis-desain' },
   // Satu juara yang BELUM terhubung dengan persona demo (Rani, juara 2, sudah terhubung dan tak dicalonkan lagi),
   // supaya saringan "Pernah juara" di pencocokan tidak terlihat rusak (hasil kosong) saat dicoba pengunjung demo.
-  { userId: 'seed-user-13', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'JUARA_1', achievementNote: 'Ketua tim, kategori produk digital' },
+  { userId: 'seed-user-13', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'ACCEPTED', achievement: 'JUARA_1', achievementNote: 'Ketua tim, kategori produk digital', proofUrl: 'https://example.org/sertifikat/juara-1-desain' },
   { userId: 'seed-user-10', eventSlug: 'beasiswa-talenta-digital-gelombang-1', status: 'ACCEPTED', achievement: 'PENERIMA' },
 ];
+
+/**
+ * Pengajuan verifikasi prestasi contoh (ADR-098) atas entri SEED_PORTFOLIO
+ * yang sudah ada: dua sudah diputuskan (peringkat demo tidak kosong), satu
+ * menunggu (antrean persona Admin punya isi). Persona Mahasiswa bisa
+ * mengajukan Juara 3-nya sendiri — alur lengkap bisa dicoba di demo.
+ */
+export const SEED_ACHIEVEMENT_VERIFICATIONS: readonly { readonly userId: string; readonly eventSlug: string; readonly status: 'PENDING' | 'VERIFIED' }[] = [
+  { userId: 'seed-user-13', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'VERIFIED' },
+  { userId: 'seed-user-10', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'VERIFIED' },
+  { userId: 'seed-user-1', eventSlug: 'lomba-desain-ui-ux-nasional-edisi-lalu', status: 'PENDING' },
+];
+
+/** Orang contoh yang menyalakan portofolio publik (ADR-098) — tampil di peringkat mahasiswa & /u/[username]. */
+export const SEED_PORTFOLIO_PUBLIC: readonly string[] = ['seed-user-13'];
 
 /**
  * Riwayat awal persona demo "Mahasiswa". Beasiswa yang belum lolos hanya

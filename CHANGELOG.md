@@ -89,7 +89,10 @@ yang tidak memuat migration yang sudah ada di produksi
 | Teks pembaca layar | `sr-only` hanya melengkapi (satuan/konteks), tidak menyalin angka/label terlihat (ADR-096) | Kalimat lengkap `sr-only` + salinan `aria-hidden` ("2 suka2", "D4/S1D4/S1") | `event-engagement.spec.ts` (Peringkat) |
 | SEO halaman | Canonical per halaman (`/events` → halaman kategori bersih via `canonicalEventsPath`), JSON-LD `Event`/`EducationalOccupationalProgram`/`BreadcrumbList`/`WebSite`/`FAQPage` (`lib/structured-data.ts`), OG kegiatan = poster atau kartu OG, tanpa meta keywords (ADR-097) | Tanpa canonical di `/events`; kegiatan tanpa poster dibagikan tanpa gambar; `slice(0,155)` | `seo.test.ts`, `structured-data.test.ts` |
 | Sitemap | Kegiatan masih buka (`listSitemapEvents`) + 5 kategori; `<lastmod>` = perubahan isi (`touch_event_updated_at`) (ADR-097) | Semua kegiatan termasuk tutup, `<lastmod>` = `created_at` | `sitemap-events.test.ts`, `125_event_content_updated_at.test.sql`, `legal.spec.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–097 | Nomor ganda 061/062 | — |
+| Prestasi & peringkat | `achievement_verifications` (ajukan dari `/tracker/[slug]`, putuskan di `/admin/prestasi`), `/leaderboard` kampus/sekolah/pelajar dengan rumus terbuka (`lib/leaderboard.ts` = `leaderboard_weight` SQL), hanya VERIFIED dihitung (ADR-098) | "Ditolak: papan peringkat antar pengguna" (ADR-082); hasil portofolio hanya dilaporkan sendiri | `leaderboard.test.ts`, `achievement-verifications.test.ts`, `126_achievement_leaderboard.test.sql`, `achievements.spec.ts` |
+| Portofolio publik | `users.portfolio_public` (bawaan mati) → `/u/[username]` terbuka untuk tamu, `noindex`; saklar di Data diri (ADR-098) | Profil tidak pernah untuk tamu (ADR-077) — tetap berlaku bagi yang tidak opt-in | `achievement-verifications.test.ts`, `126_achievement_leaderboard.test.sql`, `achievements.spec.ts` |
+| Ajakan tim di halaman lomba | `TeamFinder` (`#cari-rekan`): kandidat `rankCandidates`, saringan kampus lain, Ajak setim / kirim lomba / WhatsApp bagikan (ADR-098) | Kotak dua tautan `teamEventInvite` (ADR-094) | `team-finder.test.ts`, `achievements.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–098 | Nomor ganda 061/062 | — |
 
 ## Migration
 
@@ -127,7 +130,8 @@ yang tidak memuat migration yang sudah ada di produksi
 ### 2026-11-24 — cabang `claude/admiring-lovelace-75z4mp` (dari `main` `23e6aa9`)
 - Fase 1 (ADR-096): teks ganda pembaca layar dibereskan, tur beranda memakai kegiatan sungguhan, alt poster bermakna, dua tingkat kepercayaan + data uji.
 - Fase 2 (ADR-097): canonical, JSON-LD, OG kegiatan, sitemap kegiatan aktif + kategori, `lastmod` isi.
-- Migration `20261124100001_event_trust_levels` & `20261124100002_event_content_updated_at` **BELUM diterapkan** (perlu persetujuan pemilik). Cabang **belum digabung ke `main`.**
+- Fase 3 (ADR-098): prestasi terverifikasi + `/leaderboard`, portofolio publik opt-in, "Cari rekan tim" di halaman lomba, bagian tim di beranda.
+- Migration `20261124100001_event_trust_levels`, `20261124100002_event_content_updated_at`, `20261125100001_achievement_leaderboard` **BELUM diterapkan** (perlu persetujuan pemilik). Cabang **belum digabung ke `main`.**
 
 ### 2026-11-21 — cabang `ccr-e5c48abe-22c436` (dari `main` `1fbfd96`)
 - 26 kegiatan kurasi (lomba/magang/workshop dari laman resmi) masuk antrean produksi lewat `stage_scraped_event` — data saja.

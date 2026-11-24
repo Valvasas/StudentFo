@@ -11,6 +11,7 @@ import { registrationHref } from '@/components/registration/registration-cta';
 import { registrationCta, registrationEventClosed } from '@/components/registration/registration-view';
 import { DemoDocumentsSummary } from '@/components/profile/demo-detail-cards';
 import { PortfolioPanel } from '@/components/tracker/portfolio-form';
+import { VerificationPanel } from '@/components/tracker/verification-panel';
 import { TrackerRemoveForm, TrackerStatusForm, TrackerSteps } from '@/components/tracker/tracker-card';
 import { BackLink } from '@/components/ui/back-link';
 import { requireUser } from '@/lib/auth';
@@ -86,10 +87,11 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
   const item = event ? await repository.getTrackerItem(user.id, event.id) : null;
   if (!item || !event) notFound();
 
-  const [teams, form, mine] = await Promise.all([
+  const [teams, form, mine, verification] = await Promise.all([
     event.eventType === 'LOMBA' ? repository.listTeams(event.id) : Promise.resolve([]),
     withFallback('formulir pendaftaran', () => repository.getRegistrationForm(event.id), null),
     withFallback('pendaftaran sendiri', () => repository.getMyRegistration(user.id, event.id), null),
+    event.eventType === 'LOMBA' ? withFallback('verifikasi prestasi', () => repository.getAchievementVerification(user.id, event.id), null) : Promise.resolve(null),
   ]);
   const myTeam = teams.find((team) => team.members.some((member) => member.userId === user.id));
   const openTeams = teams.filter((team) => team !== myTeam && remainingSlots(team) > 0).length;
@@ -291,6 +293,9 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
 
             <Panel id="portofolio-title" icon={<Award className="size-4" />} title="Portofolio">
               <PortfolioPanel item={item} returnTo={returnTo} />
+              <div id="verifikasi-prestasi" className="scroll-mt-24">
+                <VerificationPanel item={item} verification={verification} closed={isClosed} returnTo={returnTo} />
+              </div>
             </Panel>
 
             <Panel id="riwayat-title" icon={<History className="size-4" />} title="Riwayat">

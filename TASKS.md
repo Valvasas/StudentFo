@@ -958,3 +958,16 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] **BUTUH PEMILIK.** Setelah domain final: daftarkan di Google Search Console & Bing Webmaster, kirim `sitemap.xml`, jalankan Rich Results Test pada satu lomba bertahap
 - [ ] P2 Label tahap "Pelaksanaan" (enum `deadline_label` tiga tempat + pipeline) supaya workshop/seminar bisa mendapat rich result `Event`
 
+## Fase 3 — prestasi, peringkat, portofolio publik, cari rekan tim 2026-11-25 (@claude) — ADR-098
+
+- [x] `achievement_verifications` + trigger gugur + RPC ajukan/batal/putuskan; antrean `/admin/prestasi`; panel "Ajukan verifikasi" di `/tracker/[slug]`; notifikasi ke pemilik
+- [x] `/leaderboard` (Kampus · Sekolah · Pelajar), rumus terbuka, saringan periode & bidang tanpa JS, hanya VERIFIED
+- [x] `users.portfolio_public` + `/u/[username]` untuk tamu bila opt-in (`noindex`), saklar di Data diri; ekspor data & kebijakan privasi diperbarui
+- [x] "Cari rekan tim" di halaman lomba: kandidat nyata, saringan kampus lain, Ajak setim / kirim lomba / bagikan WhatsApp
+- [x] Bagian "Satu tim, lintas kampus" di beranda tamu (01/04–04/04, sticky CSS); pintasan Peringkat di beranda anggota
+- [ ] **BUTUH PEMILIK.** Terapkan `20261125100001_achievement_leaderboard` (setelah 20261124100001/2) lalu catat di `APPLIED_MIGRATIONS.txt`
+- [ ] **BUTUH PEMILIK.** Tinjau perubahan Kebijakan privasi (verifikasi prestasi, portofolio publik, peringkat) lalu isi `PRIVACY_POLICY_EFFECTIVE_DATE` baru di Vercel
+- [ ] P2 Verifikasi hasil oleh penyelenggara terverifikasi acara itu (desain asli cabang `ccr-a2058300`), di samping moderator
+- [ ] P2 Bukti berupa foto sertifikat (bucket privat, hanya pemilik & moderator) — sengaja belum: sertifikat sering memuat NIK
+- [ ] P3 Pemilihan kandidat "Cari rekan tim" belum memakai saringan jenjang/jarak `/teams/cocok`; pakai bawaan "seimbang"
+

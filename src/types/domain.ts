@@ -207,6 +207,92 @@ export interface PortfolioEntry {
   readonly achievementNote: string | null;
   readonly proofUrl: string | null;
   readonly deadlineAt: string | null;
+  /** Status pemeriksaan moderator (ADR-098); tidak ada / null = dilaporkan sendiri. */
+  readonly verification?: AchievementVerificationStatus | null;
+}
+
+/**
+ * Hasil yang bisa diverifikasi & dihitung peringkat (ADR-098) — hanya hasil
+ * KOMPETITIF lomba. VARCHAR + CHECK `achievement_verifications_result_known`
+ * (migration 20261125100001), bukan enum.
+ */
+export const LEADERBOARD_RESULTS = ['JUARA_1', 'JUARA_2', 'JUARA_3', 'JUARA_HARAPAN', 'FINALIS'] as const satisfies readonly Achievement[];
+export type LeaderboardResult = (typeof LEADERBOARD_RESULTS)[number];
+
+export function isLeaderboardResult(value: Achievement | null | undefined): value is LeaderboardResult {
+  return (LEADERBOARD_RESULTS as readonly string[]).includes(value ?? '');
+}
+
+export const ACHIEVEMENT_VERIFICATION_STATUSES = ['PENDING', 'VERIFIED', 'REJECTED'] as const;
+export type AchievementVerificationStatus = (typeof ACHIEVEMENT_VERIFICATION_STATUSES)[number];
+
+/** Pengajuan verifikasi milik sendiri — isi yang DISALIN saat mengajukan. */
+export interface AchievementVerification {
+  readonly eventId: string;
+  readonly result: LeaderboardResult;
+  readonly proofUrl: string;
+  readonly institutionName: string | null;
+  readonly status: AchievementVerificationStatus;
+  /** Token versi untuk keputusan moderator (presisi milidetik). */
+  readonly requestedAt: string;
+  readonly reviewedAt: string | null;
+  readonly reviewNote: string | null;
+}
+
+/** Kartu antrean moderator. */
+export interface AchievementReviewItem extends AchievementVerification {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly event: { readonly id: string; readonly slug: string; readonly title: string; readonly organizer: string };
+}
+
+export type LeaderboardCounts = Readonly<Record<LeaderboardResult, number>>;
+
+/** Satu baris peringkat kampus/sekolah — agregat tanpa nama orang. */
+export interface CampusStanding {
+  readonly institutionId: string;
+  readonly institutionName: string;
+  readonly score: number;
+  readonly counts: LeaderboardCounts;
+  /** Orang berbeda yang menyumbang skor. */
+  readonly people: number;
+}
+
+/** Satu baris peringkat mahasiswa — hanya yang menyalakan portofolio publik. */
+export interface PersonStanding {
+  readonly username: string | null;
+  readonly fullName: string;
+  readonly institutionName: string | null;
+  readonly score: number;
+  readonly counts: LeaderboardCounts;
+}
+
+/** Rentang & bidang peringkat; null = tanpa batas. ISO 8601. */
+export interface LeaderboardRange {
+  readonly since: string | null;
+  readonly until: string | null;
+  readonly category: string | null;
+}
+
+/** Portofolio publik `/u/[username]` untuk siapa saja (ADR-098) — hanya bila pemiliknya opt-in. */
+export interface PublicPortfolioPage {
+  readonly fullName: string;
+  readonly username: string;
+  readonly bio: string | null;
+  readonly educationLevel: EducationLevel | null;
+  readonly major: string | null;
+  readonly institutionId: string | null;
+  readonly institutionName: string | null;
+  readonly studyFields: readonly string[];
+  /** Keahlian kartu pemain yang TERBUKA (ADR-057); kosong bila kartunya tertutup. */
+  readonly skills: readonly TeamSkillSlug[];
+  readonly entries: readonly PortfolioEntry[];
+}
+
+/** Saklar portofolio publik milik sendiri. `available` = false: kolom belum ada (urutan deploy). */
+export interface PortfolioPublicSetting {
+  readonly value: boolean;
+  readonly available: boolean;
 }
 
 /** Hubungan pembaca dengan pemilik profil (`public_profile().relation`). */
@@ -281,6 +367,9 @@ export const NOTIFICATION_TYPES = [
   'EVENT_COMMENT_REPLY',
   /** Koneksi membagikan kegiatan kepadamu (RPC share_event_with_connections, ADR-092). Satu per kegiatan, diperbarui. */
   'EVENT_SHARED',
+  /** Keputusan moderator atas pengajuan verifikasi prestasi (RPC review_achievement_verification, ADR-098). */
+  'ACHIEVEMENT_VERIFIED',
+  'ACHIEVEMENT_REJECTED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

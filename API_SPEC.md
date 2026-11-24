@@ -304,6 +304,10 @@ walau tidak "bisa ditemukan" (cermin policy `connections_insert_requester`).
 | `searchEventsForAdmin({ search, status, limit })` / `getEventForAdmin(id)` | Semua status, untuk `/admin/acara` & studio mode admin |
 | `deleteEventPermanently({ eventId, actorId, actorName?, reason })` | Hanya `REJECTED`: `event_not_found`, `event_not_taken_down`, `event_has_registrations`; berkas storage dihapus dulu |
 | `setEventRegistrationMode(actor, eventId, mode)` | Pengelola atau admin; `not_event_manager`, `invalid_request`, `event_unavailable` |
+| `requestAchievementVerification(actor, eventId)` / `cancelAchievementVerification(userId, eventId)` / `getAchievementVerification(userId, eventId)` | Pemilik (ADR-098); `verification_not_eligible`, `verification_needs_proof`, `verification_too_early`, `verification_exists`, `verification_rate_limited`, `verification_unavailable` |
+| `listPendingAchievementVerifications(limit)` / `reviewAchievementVerification(input)` | Admin SETELAH `checkAdminAccess()`; `verification_not_found`, `verification_changed`, `verification_note_required`, `verification_self` |
+| `listCampusStandings(range, limit)` / `listPeopleStandings(range, limit)` | Publik, ber-cache tag `events`; hanya VERIFIED; nama hanya yang opt-in |
+| `getPublicPortfolioPage(username)` / `getPortfolioPublic(userId)` / `setPortfolioPublic(actor, value)` | Portofolio publik opt-in; `portfolio_public_unavailable` bila kolom belum ada |
 | `setEventTrust({ eventId, verificationLevel?, isDemo? })` | Admin saja (ADR-096); `event_not_found`, `invalid_request`, `trust_unavailable` (kolom belum ada). `reviewEvent`/`reviewSubmission` menerima `verificationLevel` opsional saat APPROVED |
 
 `CreateSubmissionInput.submitterIsAdmin` — hanya ditulis server; bersama status

@@ -2,6 +2,7 @@ import { buildAccountExport } from '@/lib/account-export';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
+import { isLeaderboardResult, type AchievementVerification } from '@/types/domain';
 import { jakartaDateKey } from '@/lib/deadline';
 import { CONNECTION_PAGE } from '@/lib/network';
 
@@ -39,6 +40,16 @@ export async function GET(): Promise<Response> {
     repository.listMyEventLikes(user.id),
   ]);
 
+  // Pengajuan verifikasi (ADR-098) dibaca per lomba berhasil kompetitif — jumlahnya kecil dan terbatas Papan lamaran.
+  const [achievementVerifications, portfolioPublic] = await Promise.all([
+    Promise.all(
+      tracker
+        .filter((item) => item.event.eventType === 'LOMBA' && isLeaderboardResult(item.achievement))
+        .map((item) => repository.getAchievementVerification(user.id, item.eventId)),
+    ).then((rows) => rows.filter((row): row is AchievementVerification => row !== null)),
+    repository.getPortfolioPublic(user.id),
+  ]);
+
   const body = buildAccountExport({
     user,
     saved,
@@ -63,6 +74,8 @@ export async function GET(): Promise<Response> {
     community,
     eventComments,
     eventLikes,
+    achievementVerifications,
+    portfolioPublic: portfolioPublic.value,
   });
 
   return new Response(JSON.stringify(body, null, 2), {
