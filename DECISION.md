@@ -44,7 +44,8 @@ terdokumentasi.
    `SearchAction` + `Organization` di beranda; `FAQPage` hanya di beranda
    tamu tempat jawabannya tampil; `BreadcrumbList` mencerminkan remah roti
    yang terlihat. `<` di-escape (judul kiriman pengguna tidak bisa menutup
-   `</script>`); nonce CSP dipasang.
+   `</script>`). Tanpa nonce: blok data tidak dieksekusi sehingga CSP tidak
+   berlaku, dan nonce yang disembunyikan peramban merusak hidrasi React.
 3. **OG kegiatan:** poster bila ada, selain itu kartu OG buatan server;
    `summary_large_image` selalu. `OPEN_GRAPH_BASE` disebar di setiap
    `openGraph` halaman karena Next menimpa (bukan menggabung) milik layout.

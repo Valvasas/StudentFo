@@ -337,7 +337,7 @@ Tidak ada satu baris kode pun di `pipeline/` yang menulis status selain
   menyetel `openGraph` sendiri menyebar `OPEN_GRAPH_BASE` — Next menimpa,
   bukan menggabung, objek milik layout.
 - JSON-LD: `lib/structured-data.ts` (murni, teruji) → `<JsonLd>`
-  (`components/seo/json-ld.tsx`, ber-nonce). Markup hanya untuk isi yang
+  (`components/seo/json-ld.tsx`, tanpa nonce — blok data tidak dieksekusi). Markup hanya untuk isi yang
   terlihat dan data yang benar-benar ada (ADR-097).
 
 ## Sistem desain
