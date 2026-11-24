@@ -94,7 +94,7 @@ export function OgCard({
         }}
       >
         <div style={{ display: 'flex' }}>{footnote}</div>
-        <div style={{ display: 'flex', color: MUTED }}>Diverifikasi manual sebelum tayang</div>
+        <div style={{ display: 'flex', color: MUTED }}>Ditinjau moderator sebelum tayang</div>
       </div>
     </div>
   );

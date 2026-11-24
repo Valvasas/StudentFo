@@ -1,13 +1,37 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Database, MapPin, School } from 'lucide-react';
+import { Database, ListChecks, MapPin, Newspaper, School, ShieldCheck } from 'lucide-react';
 import { institutionCount, INSTITUTION_SOURCE } from '@/lib/institutions';
 import { PROVINCE_OPTIONS, REGENCY_PICKER_OPTIONS, WILAYAH_SOURCE } from '@/lib/wilayah';
+import { VERIFICATION_LEVEL_DESCRIPTION, VERIFICATION_LEVEL_LABEL } from '@/types/domain';
 
 export const metadata: Metadata = {
-  title: 'Sumber data',
-  description: 'Asal data wilayah administratif dan direktori sekolah & perguruan tinggi yang dipakai StudentFo, beserta lisensinya.',
+  title: 'Sumber data & tingkat verifikasi',
+  description: 'Beda label Terverifikasi moderator dan Dari sumber publik, serta asal data wilayah dan direktori sekolah & kampus di StudentFo.',
+  alternates: { canonical: '/sumber-data' },
 };
+
+/** Apa yang benar-benar diperiksa di tiap tingkat (ADR-096) — satu sumber dengan label di kartu & halaman kegiatan. */
+const TRUST_LEVELS = [
+  {
+    level: 'MODERATOR_VERIFIED',
+    icon: ShieldCheck,
+    checks: [
+      'Tanggal penting dan tautan pendaftaran dicocokkan dengan kanal resmi penyelenggara (situs, akun media sosial, atau surat edaran resminya).',
+      'Identitas penyelenggara diperiksa: lembaga, kampus, instansi, atau komunitas yang benar-benar ada.',
+      'Otomatis untuk acara buatan StudentFo dan acara yang dikelola penyelenggara terverifikasi.',
+    ],
+  },
+  {
+    level: 'PUBLIC_SOURCE',
+    icon: Newspaper,
+    checks: [
+      'Disalin dari pengumuman publik (situs penyelenggara, portal berita, atau kiriman komunitas) beserta tautan sumbernya.',
+      'Moderator memastikan isinya masuk akal dan bukan penipuan yang kasatmata sebelum tayang.',
+      'Belum dicocokkan langsung dengan penyelenggaranya — buka pengumuman resminya sebelum mendaftar atau membayar.',
+    ],
+  },
+] as const;
 
 const number = (value: number) => value.toLocaleString('id-ID');
 
@@ -26,14 +50,45 @@ export default function DataSourcesPage() {
           Sumber data
         </h1>
         <p className="text-[15.5px] leading-relaxed text-ink-soft">
-          Daftar wilayah dan sekolah/kampus di StudentFo diambil dari sumber publik resmi, dibekukan per tanggal unduh, dan diperbarui
-          berkala. Menemukan yang keliru atau belum ada? Kamu tetap bisa mengetik namanya sendiri — dan kabari kami lewat{' '}
+          Seberapa dalam sebuah kegiatan sudah diperiksa, dan dari mana daftar wilayah serta sekolah/kampus di StudentFo berasal. Data
+          referensi diambil dari sumber publik resmi, dibekukan per tanggal unduh, dan diperbarui berkala. Menemukan yang keliru atau belum ada? Kamu tetap bisa mengetik namanya sendiri — dan kabari kami lewat{' '}
           <Link href="/about" className="font-medium text-ink underline underline-offset-[3px]">
             halaman Tentang
           </Link>
           .
         </p>
       </header>
+
+      <section aria-labelledby="tingkat-verifikasi" className="flex scroll-mt-24 flex-col gap-4 rounded-[18px] border border-line p-5 sm:p-6">
+        <h2 id="tingkat-verifikasi" className="flex items-center gap-2 text-lg font-semibold">
+          <ListChecks aria-hidden className="size-5 text-ink-muted" /> Tingkat verifikasi kegiatan
+        </h2>
+        <p className="text-[14.5px] leading-relaxed text-ink-soft">
+          Setiap kegiatan ditinjau moderator sebelum tayang — tidak ada jalur otomatis yang bisa menayangkan apa pun. Tapi kedalaman
+          pemeriksaannya tidak selalu sama, jadi setiap kegiatan diberi salah satu dari dua label berikut, di kartu maupun halaman detailnya.
+        </p>
+        <dl className="flex flex-col gap-4">
+          {TRUST_LEVELS.map(({ level, icon: Icon, checks }) => (
+            <div key={level} className="flex flex-col gap-2 rounded-card bg-panel-nested p-4">
+              <dt className={`flex items-center gap-2 text-[15px] font-semibold ${level === 'MODERATOR_VERIFIED' ? 'text-success' : 'text-ink'}`}>
+                <Icon aria-hidden className="size-[18px] shrink-0" /> {VERIFICATION_LEVEL_LABEL[level]}
+              </dt>
+              <dd className="flex flex-col gap-2 text-[14px] leading-relaxed text-ink-soft">
+                <span>{VERIFICATION_LEVEL_DESCRIPTION[level]}</span>
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-[13.5px] text-ink-muted">
+                  {checks.map((check) => (
+                    <li key={check}>{check}</li>
+                  ))}
+                </ul>
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-[13.5px] leading-relaxed text-ink-muted">
+          Label bisa berubah: moderator menaikkannya begitu detailnya dicocokkan, atau menurunkannya bila sumber resminya berubah. Melihat
+          kegiatan yang janggal? Laporkan dari halaman kegiatannya.
+        </p>
+      </section>
 
       <section aria-labelledby="wilayah" className="flex flex-col gap-3 rounded-[18px] border border-line p-5 sm:p-6">
         <h2 id="wilayah" className="flex items-center gap-2 text-lg font-semibold">

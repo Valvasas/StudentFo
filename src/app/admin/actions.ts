@@ -11,13 +11,14 @@ import { dataMode, siteUrl } from '@/lib/env';
 import { RATE_LIMITS } from '@/lib/rate-limit';
 import { isAccountRateLimited } from '@/lib/rate-limit-server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { toApiError } from '@/lib/errors';
+import { AppError, toApiError } from '@/lib/errors';
 import { parsePresentationForm } from '@/lib/event-presentation';
 import { isEventDeleteConfirmed, takedownReasonText } from '@/lib/event-removal';
 import { formList, formText, formTrimmed } from '@/lib/form-data';
 import { isDeleteConfirmed, MODERATION_NOTE_MAX, normalizeUserSearch, SUSPENSION_REASON_MIN } from '@/lib/trust-safety';
 import { runMediaImports } from '@/lib/media-import/run';
-import { EVENT_STATUSES } from '@/types/domain';
+import { VERIFIED_FIELD } from '@/components/admin/verification-check';
+import { EVENT_STATUSES, toVerificationLevel, type VerificationLevel } from '@/types/domain';
 
 /**
  * Aksi moderasi.
@@ -49,8 +50,14 @@ function refreshPublicViews(): void {
   revalidatePath('/');
 }
 
+/** Centang `VerificationCheck` (ADR-096): tanpa centang, tingkat tidak diubah (bawaan Dari sumber publik). */
+function verifiedLevel(formData: FormData, decision: Decision): { verificationLevel?: VerificationLevel } {
+  return decision === 'APPROVED' && formText(formData, VERIFIED_FIELD) === '1' ? { verificationLevel: 'MODERATOR_VERIFIED' } : {};
+}
+
 export async function reviewEventAction(formData: FormData): Promise<void> {
   let outcome: 'ok' | 'forbidden' | 'invalid' | 'failed' = 'ok';
+  let trustPending = false;
 
   try {
     const gate = await checkAdminAccess();
@@ -70,12 +77,18 @@ export async function reviewEventAction(formData: FormData): Promise<void> {
         reviewerId: gate.userId,
         reviewerName: gate.userName,
         ...(reason ? { reason } : {}),
+        ...verifiedLevel(formData, decision),
       });
     }
   } catch (error) {
-    // Detail teknis hanya ke log server; user cuma perlu tahu aksinya gagal.
-    toApiError(error);
-    outcome = 'failed';
+    // Keputusannya SUDAH tersimpan; hanya labelnya menunggu migration.
+    if (error instanceof AppError && error.reason === 'trust_unavailable') {
+      trustPending = true;
+    } else {
+      // Detail teknis hanya ke log server; user cuma perlu tahu aksinya gagal.
+      toApiError(error);
+      outcome = 'failed';
+    }
   }
 
   if (outcome !== 'ok') {
@@ -85,6 +98,7 @@ export async function reviewEventAction(formData: FormData): Promise<void> {
   }
 
   refreshPublicViews();
+  if (trustPending) redirect('/admin?error=trust_unavailable');
 }
 
 export async function reviewSubmissionAction(formData: FormData): Promise<void> {
@@ -105,11 +119,14 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
       reviewerId: gate.userId,
       reviewerName: gate.userName,
       ...(decision === 'REJECTED' && reason ? { reason } : {}),
+      ...verifiedLevel(formData, decision),
     });
   } catch (error) {
     failure = toActionErrorCode(error);
   }
 
+  // `trust_unavailable` = kiriman SUDAH tayang; katalog tetap perlu disegarkan.
+  if (failure === 'trust_unavailable') refreshPublicViews();
   if (failure) redirect(`/admin?error=${failure}`);
 
   refreshPublicViews();
@@ -588,6 +605,34 @@ export async function restoreEventAction(formData: FormData): Promise<void> {
   refreshPublicViews();
   revalidatePath(EVENTS_PAGE);
   redirect(eventsPage(formData, { notice: 'event_restored' }));
+}
+
+/**
+ * Label kepercayaan & tanda data uji (ADR-096) dari Kelola postingan. Dua
+ * field opsional; yang tidak dikirim tidak diubah. Bisa dibalik seketika,
+ * jadi tanpa dialog konfirmasi (CONVENTIONS § konfirmasi).
+ */
+export async function setEventTrustAction(formData: FormData): Promise<void> {
+  const gate = await checkAdminAccess();
+  if (!gate.allowed) redirect('/admin?status=forbidden');
+
+  const eventId = formTrimmed(formData, 'eventId');
+  const level = toVerificationLevel(formText(formData, 'verificationLevel'));
+  const demo = formText(formData, 'isDemo');
+  const isDemo = demo === '1' ? true : demo === '0' ? false : undefined;
+  if (!eventId || (!level && isDemo === undefined)) redirect(eventsPage(formData, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    const repository = await getEventRepository();
+    await repository.setEventTrust({ eventId, ...(level ? { verificationLevel: level } : {}), ...(isDemo !== undefined ? { isDemo } : {}) });
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(eventsPage(formData, { error: failure }));
+  refreshPublicViews();
+  revalidatePath(EVENTS_PAGE);
+  redirect(eventsPage(formData, { notice: 'event_trust_updated' }));
 }
 
 export async function deleteEventPermanentlyAction(formData: FormData): Promise<void> {

@@ -188,7 +188,7 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                         </span>
                         <PriceBadge event={event} className="self-start" />
                       </div>
-                      <PosterThumb poster={event.poster} />
+                      <PosterThumb poster={event.poster} event={event} />
                     </div>
                     <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">
                       <li className="flex h-6 items-center rounded-[6px] bg-panel-nested px-[9px] text-[12.5px] font-medium text-ink-soft">

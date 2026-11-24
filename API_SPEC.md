@@ -304,6 +304,7 @@ walau tidak "bisa ditemukan" (cermin policy `connections_insert_requester`).
 | `searchEventsForAdmin({ search, status, limit })` / `getEventForAdmin(id)` | Semua status, untuk `/admin/acara` & studio mode admin |
 | `deleteEventPermanently({ eventId, actorId, actorName?, reason })` | Hanya `REJECTED`: `event_not_found`, `event_not_taken_down`, `event_has_registrations`; berkas storage dihapus dulu |
 | `setEventRegistrationMode(actor, eventId, mode)` | Pengelola atau admin; `not_event_manager`, `invalid_request`, `event_unavailable` |
+| `setEventTrust({ eventId, verificationLevel?, isDemo? })` | Admin saja (ADR-096); `event_not_found`, `invalid_request`, `trust_unavailable` (kolom belum ada). `reviewEvent`/`reviewSubmission` menerima `verificationLevel` opsional saat APPROVED |
 
 `CreateSubmissionInput.submitterIsAdmin` — hanya ditulis server; bersama status
 penyelenggara terverifikasi menentukan apakah `registrationMode: 'studentfo'`

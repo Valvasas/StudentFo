@@ -143,10 +143,11 @@ import type {
   MyEventComment,
   MyEventLike,
   RegistrationMode,
+  VerificationLevel,
   ShareRecipient,
 } from '@/types/domain';
 import type { SubmissionPayload, SubmissionPhoto } from '@/types/domain';
-import { REGISTRATION_MODES, REPORT_REASONS } from '@/types/domain';
+import { REGISTRATION_MODES, REPORT_REASONS, VERIFICATION_LEVELS } from '@/types/domain';
 import { buildCommentThreads, countComments, EVENT_COMMENT_LIMITS, EVENT_LIKE_LIMIT_PER_DAY, EVENT_SHARE_LIMITS, sortShareRecipients } from '@/lib/event-comments';
 import { jakartaNoonOf, latestPerPerson, trendScore, type TrendSignal } from '@/lib/popularity';
 import { isPubliclyVisible, matchesCost, paginate, resolvePaging, sortPhotosPosterFirst, sortSummaries } from './listing';
@@ -187,6 +188,7 @@ import type {
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
+  EventTrustInput,
   ClearProfileMediaInput,
   MediaImportInput,
   MediaImportJob,
@@ -360,6 +362,9 @@ function buildDetail(seed: SeedEvent, base: Date): EventDetail {
     priceAmount: seed.isFree === false ? (seed.priceAmount ?? null) : null,
     featuredUntil: seed.featuredForDays !== undefined ? isoOffsetDays(seed.featuredForDays, base) : null,
     verificationBadge: seed.verificationBadge ?? null,
+    // Cermin backfill migration 20261124100001: hanya yang punya jejak pemeriksaan langsung.
+    verificationLevel: seed.verificationBadge ? 'MODERATOR_VERIFIED' : 'PUBLIC_SOURCE',
+    isDemo: false,
     guidebookUrl: seed.guidebookUrl ?? null,
   };
 }
@@ -931,10 +936,14 @@ export class MemoryEventRepository implements EventRepository {
     return this.events.filter((event) => event.status === status).slice(0, limit);
   }
 
-  async reviewEvent({ eventId, decision, reviewerId, reviewerName, reason }: ReviewEventInput): Promise<void> {
+  async reviewEvent({ eventId, decision, reviewerId, reviewerName, reason, verificationLevel }: ReviewEventInput): Promise<void> {
     const event = this.findEvent(eventId);
     if (!event || event.status === decision) return;
-    this.updateEvent(eventId, (current) => ({ ...current, status: decision }));
+    this.updateEvent(eventId, (current) => ({
+      ...current,
+      status: decision,
+      ...(decision === 'APPROVED' && verificationLevel ? { verificationLevel } : {}),
+    }));
     this.logModeration({
       subjectType: 'event',
       subjectId: eventId,
@@ -1088,6 +1097,7 @@ export class MemoryEventRepository implements EventRepository {
     payload: SubmissionPayload,
     registrationMode: RegistrationMode,
     actor: { readonly reviewerId: string | null; readonly reviewerName?: string },
+    verificationLevel: VerificationLevel = 'PUBLIC_SOURCE',
   ): string {
     // Cermin `events.dedup_hash` UNIQUE: judul + penyelenggara ternormalisasi.
     const key = normalize(`${payload.title}|${payload.organizer}`);
@@ -1138,6 +1148,8 @@ export class MemoryEventRepository implements EventRepository {
       registrationMode,
       featuredUntil: null,
       verificationBadge: null,
+      verificationLevel,
+      isDemo: false,
     });
     this.logModeration({
       subjectType: 'event',
@@ -1153,14 +1165,17 @@ export class MemoryEventRepository implements EventRepository {
 
   async createEventAsAdmin(actor: EventActor, payload: SubmissionPayload): Promise<{ readonly id: string; readonly slug: string }> {
     if (!actor.isAdmin) throw actionError('not_event_manager');
-    const id = this.insertApprovedEvent(payload, payload.registrationMode === 'studentfo' ? 'studentfo' : 'external', {
-      reviewerId: actor.id,
-      reviewerName: actor.fullName,
-    });
+    // Acara buatan admin = dibuat moderator sendiri dari sumber resminya (ADR-096).
+    const id = this.insertApprovedEvent(
+      payload,
+      payload.registrationMode === 'studentfo' ? 'studentfo' : 'external',
+      { reviewerId: actor.id, reviewerName: actor.fullName },
+      'MODERATOR_VERIFIED',
+    );
     return { id, slug: this.findEvent(id)!.slug };
   }
 
-  async reviewSubmission({ submissionId, decision, reviewerId, reviewerName, reason }: ReviewSubmissionInput): Promise<void> {
+  async reviewSubmission({ submissionId, decision, reviewerId, reviewerName, reason, verificationLevel }: ReviewSubmissionInput): Promise<void> {
     const submission = this.submissions.get(submissionId);
     if (!submission || submission.status !== 'PENDING') throw actionError('submission_not_found');
 
@@ -1172,6 +1187,7 @@ export class MemoryEventRepository implements EventRepository {
         payload,
         payload.registrationMode === 'studentfo' && this.mayHostForms(submissionId) ? 'studentfo' : 'external',
         { reviewerId, reviewerName },
+        verificationLevel ?? 'PUBLIC_SOURCE',
       );
       // Cermin approve_submission() (migration 20260928110001): kiriman
       // penyelenggara TERVERIFIKASI → acara masuk dasbornya.
@@ -4718,6 +4734,8 @@ export class MemoryEventRepository implements EventRepository {
           event.status === 'REJECTED'
             ? ([...this.moderationLog].reverse().find((entry) => entry.subjectId === event.id && entry.toStatus === 'REJECTED')?.reason ?? null)
             : null,
+        verificationLevel: event.verificationLevel ?? 'PUBLIC_SOURCE',
+        isDemo: event.isDemo ?? false,
       }));
   }
 
@@ -4787,6 +4805,16 @@ export class MemoryEventRepository implements EventRepository {
     if (!this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
     if (!this.findEvent(eventId)) throw actionError('event_unavailable');
     this.updateEvent(eventId, (event) => ({ ...event, registrationMode: mode }));
+  }
+
+  async setEventTrust({ eventId, verificationLevel, isDemo }: EventTrustInput): Promise<void> {
+    if (verificationLevel !== undefined && !VERIFICATION_LEVELS.includes(verificationLevel)) throw actionError('invalid_request');
+    if (!this.findEvent(eventId)) throw actionError('event_not_found');
+    this.updateEvent(eventId, (event) => ({
+      ...event,
+      ...(verificationLevel !== undefined ? { verificationLevel } : {}),
+      ...(isDemo !== undefined ? { isDemo } : {}),
+    }));
   }
 
   /**

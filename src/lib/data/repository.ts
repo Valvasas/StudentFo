@@ -73,6 +73,7 @@ import type {
   MyEventLike,
   RegistrationMode,
   ShareRecipient,
+  VerificationLevel,
 } from '@/types/domain';
 import type { CommunityCursor, CommunityPostInput, CommunityTopic } from '@/lib/community';
 import type { ConnectionPageRequest, NetworkProfileInput, NetworkViewer } from '@/lib/network';
@@ -246,6 +247,18 @@ export interface EventMaintenanceRepository {
   deleteEventPermanently(input: { readonly eventId: string; readonly actorId: string; readonly actorName?: string; readonly reason: string }): Promise<void>;
   /** Pengelola terverifikasi acara itu atau admin (`not_event_manager`). */
   setEventRegistrationMode(actor: EventActor, eventId: string, mode: RegistrationMode): Promise<void>;
+  /**
+   * Tingkat kepercayaan & tanda data uji (ADR-096). Admin saja, dipanggil
+   * SETELAH `checkAdminAccess()`. Kolom belum ada = `trust_unavailable`;
+   * kegiatan tidak ada = `event_not_found`.
+   */
+  setEventTrust(input: EventTrustInput): Promise<void>;
+}
+
+export interface EventTrustInput {
+  readonly eventId: string;
+  readonly verificationLevel?: VerificationLevel;
+  readonly isDemo?: boolean;
 }
 
 /**
@@ -1070,6 +1083,8 @@ export interface ReviewSubmissionInput {
   readonly reason?: string;
   /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
   readonly reviewerName?: string;
+  /** Hanya untuk APPROVED (ADR-096); tidak diisi = Dari sumber publik. */
+  readonly verificationLevel?: VerificationLevel;
 }
 
 export interface RepositoryStats {
@@ -1096,6 +1111,11 @@ export interface ReviewEventInput {
   /** Hanya dipakai mode seed (log moderasi); produksi membaca nama dari `users`. */
   readonly reviewerName?: string;
   readonly reason?: string;
+  /**
+   * Hanya saat menyetujui (ADR-096): moderator memilih seberapa dalam ia
+   * memeriksa. Tidak diisi = tingkat yang sudah ada tidak diubah.
+   */
+  readonly verificationLevel?: VerificationLevel;
 }
 
 export const DEFAULT_PAGE_SIZE = 12;

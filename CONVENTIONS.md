@@ -116,6 +116,14 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
 ## Desain / aksesibilitas (ringkas — detail di `README.md` § Sistem desain)
 
 - Warna tidak pernah satu-satunya pembawa makna — selalu sertai ikon+teks.
+- **Teks terlihat = teks yang dibaca** (ADR-096). `sr-only` hanya melengkapi
+  kata yang tidak terlihat (satuan, konteks: `{n}<span class="sr-only"> suka</span>`),
+  tidak pernah menyalin angka/label yang sudah tampil di elemen `aria-hidden`
+  — teks DOM-nya terbaca dobel ("2 suka2") oleh mesin pencari, mode baca, dan
+  salin-tempel. Ringkasan visual yang lebih pendek dari aslinya → `title`.
+- Klaim kepercayaan kegiatan selalu lewat `TrustBadge`/`TrustNote`
+  (Terverifikasi moderator / Dari sumber publik, ADR-096) — jangan menulis
+  "diverifikasi manual" untuk semua kegiatan.
 - Ilustrasi (`components/ui/illustrations.tsx`) hanya di titik berhenti
   (404, error, kosong) — satu per layar, `aria-hidden`, tanpa teks di SVG,
   warna lewat `currentColor`/token supaya ikut tema gelap (ADR-053). Kepala

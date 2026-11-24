@@ -12,6 +12,70 @@ terdokumentasi.
 
 ---
 
+## ADR-096 — Dua tingkat kepercayaan kegiatan, data uji tertutup di satu policy, teks terlihat = teks yang dibaca (24 Nov 2026)
+
+**Konteks:** Pemilik melaporkan (Fase 1 permintaan 24 Nov) teks ganda "1 suka1"
+dan "D4/S1D4/S1", label "Contoh penyelenggara" yang terbaca sebagai data dummy
+di produksi, alt gambar kartu yang kosong, dan meminta klaim kepercayaan
+dipecah. Temuan sebelum menulis kode:
+- Teks ganda bukan bug render: `CardCounts`, baris jenjang `EventCard`,
+  `DeadlineTag` ("3 hari lagi — Tersisa 3 hari lagi"), dan `TrendingStrip`
+  menaruh kalimat lengkap di `sr-only` lalu MENGULANG angka/label di elemen
+  `aria-hidden`. Keduanya tetap ada di teks DOM, jadi apa pun yang membaca teks
+  tanpa CSS (cuplikan mesin pencari, mode baca, salin-tempel, alat audit AI)
+  membaca dobel — `DeadlineTag` bahkan dobel untuk pembaca layar.
+- "Contoh penyelenggara" BUKAN baris database: kueri baca-saja ke produksi
+  (24 Nov) tidak menemukan kegiatan dummy yang tayang (satu-satunya data uji,
+  "Lomba testimoni Studentfo 2026", berstatus REJECTED). Teksnya hard-coded di
+  `LandingTour` (ADR-065 sengaja menulis "Contoh …").
+- UI, meta description, manifest, OG, dan footer menyebut SEMUA kegiatan
+  "diverifikasi/tervalidasi manual", padahal hasil scraping hanya lolos
+  moderasi — tidak dicocokkan langsung dengan penyelenggaranya.
+
+**Keputusan:**
+1. **Teks terlihat = teks yang dibaca.** `sr-only` hanya MELENGKAPI kata yang
+   tidak terlihat (satuan "suka", konteks "Tenggat:", "Peringkat"), tidak pernah
+   menyalin angka/label yang sudah terlihat. Ringkasan jenjang (rentang/"+N")
+   diperjelas lewat `title`, bukan salinan. Antar-chip di dalam flex diberi
+   `{' '}` (spasi tidak dirender flex, tapi teks yang diekstrak terbaca).
+2. **Tur beranda memperagakan kegiatan SUNGGUHAN** (`TourSample`, dihitung di
+   server dari "Segera ditutup" + "Lagi ramai"); tanpa data = garis kerangka,
+   tidak pernah nama karangan. Menggantikan butir "nama di dalamnya tertulis
+   Contoh …" ADR-065.
+3. **`events.is_demo`** (bawaan false): ditutup di SATU titik, policy
+   `events_public_read` (`ALTER POLICY`, tanpa DROP). View `events_listing` &
+   `list_personalized_events` adalah INVOKER dan policy tabel anak memeriksa
+   induknya lewat subquery, jadi katalog, detail, sitemap, tenggat, kategori,
+   foto, dan tim ikut tertutup tanpa disentuh satu per satu. Admin ber-MFA
+   tetap melihatnya (`events_admin_all`). `get_distinct_organizer_count()`
+   (DEFINER) ikut dikecualikan. Saklar "Tandai data uji" di Kelola postingan.
+4. **`events.verification_level`**: `MODERATOR_VERIFIED` ("Terverifikasi
+   moderator" — dicocokkan langsung dengan kanal resmi penyelenggara) vs
+   `PUBLIC_SOURCE` ("Dari sumber publik", bawaan). Moderator memilih secara
+   sadar lewat centang di form Setujui (antrean & kiriman); acara buatan admin
+   otomatis terverifikasi; bisa dinaikkan/diturunkan di Kelola postingan.
+   **Backfill konservatif**: hanya yang punya jejak pemeriksaan langsung
+   (lencana otoritas, lomba mandiri StudentFo, dikelola penyelenggara
+   terverifikasi). Label tampil di kartu, detail, dan dijelaskan di
+   `/sumber-data#tingkat-verifikasi`; semua copy "diverifikasi manual" diganti
+   "ditinjau moderator".
+5. **Deploy-order aman:** tingkat ditempel di lapisan aplikasi lewat kueri
+   ber-cache terpisah (pola poster ADR-079), bukan menambah kolom ke
+   `LISTING_COLUMNS`/RPC. Kolom belum ada = tanpa label (bukan label tebakan),
+   kendali admin dikunci, keputusan moderasi tetap tersimpan
+   (`trust_unavailable`).
+6. **Alt poster** = `Poster {judul} — {penyelenggara}` (`posterAlt`).
+
+**Konsekuensi:** Satu kueri tambahan ber-cache per daftar. Pembaca layar
+mendengar judul dua kali di kartu berposter (tautan judul + alt) — diterima
+demi Google Gambar dan permintaan pemilik; ADR-079 sebelumnya memilih alt
+kosong. Kegiatan uji juga tertutup bagi admin di halaman publik (cache katalog
+memakai klien anon); pratinjau lewat Kelola postingan. Migration
+`20261124100001` BELUM diterapkan ke produksi — sampai diterapkan, label
+tidak tampil dan saklar admin terkunci.
+
+---
+
 ## ADR-095 — Impor media otomatis ke antrean moderasi: gambar resmi dari laman sumber + poster & slide penjelas buatan server (21 Nov 2026)
 
 **Konteks.** Pemilik (21 Nov): kegiatan yang masuk antrean moderasi — dari pipeline maupun

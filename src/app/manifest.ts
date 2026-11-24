@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'StudentFo — Info lomba, beasiswa, dan magang',
     short_name: 'StudentFo',
-    description: 'Info lomba, beasiswa, magang, dan workshop untuk pelajar & mahasiswa Indonesia, tervalidasi manual.',
+    description: 'Info lomba, beasiswa, magang, dan workshop untuk pelajar & mahasiswa Indonesia, ditinjau moderator.',
     lang: 'id',
     start_url: '/',
     display: 'browser',

@@ -45,6 +45,7 @@ export function DeadlineTag({ deadlineAt, now, className }: DeadlineTagProps) {
   return (
     <span
       style={state.urgency === 'warning' ? ({ '--ramp': ramp } as CSSProperties) : undefined}
+      title={state.longLabel}
       className={cn(
         'inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[6px] px-2 text-xs font-medium tabular-nums',
         URGENCY_CLASS[state.urgency],
@@ -56,9 +57,10 @@ export function DeadlineTag({ deadlineAt, now, className }: DeadlineTagProps) {
       ) : (
         showIcon && <Icon aria-hidden className="size-3" />
       )}
+      {/* Pembaca layar mendapat konteks "Tenggat", bukan salinan label:
+          "3 hari lagi — Tersisa 3 hari lagi" dulu dibacakan dua kali. */}
+      <span className="sr-only">Tenggat: </span>
       {daysLeftLabel(state.daysLeft)}
-      {/* Teks lengkap untuk pembaca layar; badge visual terlalu ringkas. */}
-      <span className="sr-only">— {state.longLabel}</span>
     </span>
   );
 }

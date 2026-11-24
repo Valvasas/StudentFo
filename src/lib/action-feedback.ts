@@ -145,6 +145,7 @@ export const ACTION_ERROR_CODES = [
   'event_delete_confirm',
   'event_delete_failed',
   'registration_mode_unavailable',
+  'trust_unavailable',
   'admin_event_unavailable',
   'payment_instructions_required',
   'bulk_empty',
@@ -305,6 +306,8 @@ export const ACTION_ERROR_MESSAGE: Record<ActionErrorCode, string> = {
   event_delete_confirm: 'Ketik HAPUS untuk mengonfirmasi penghapusan permanen.',
   event_delete_failed: 'Berkas postingan gagal dihapus dari penyimpanan, jadi postingan belum dihapus. Coba lagi sebentar lagi.',
   registration_mode_unavailable: 'Pengaturan cara mendaftar aktif setelah pembaruan database terpasang. Formulir lainnya sudah tersimpan.',
+  trust_unavailable:
+    'Keputusan tersimpan, tetapi tingkat verifikasi & tanda data uji baru aktif setelah pembaruan database (migration 20261124100001) terpasang.',
   admin_event_unavailable:
     'Buat acara StudentFo aktif setelah pembaruan database (migration 20261116100001 & 20261119100002) terpasang. Sementara itu, pakai halaman Kirim kegiatan.',
   payment_instructions_required:
@@ -414,6 +417,7 @@ export const ACTION_NOTICE_CODES = [
   'event_shared',
   'event_taken_down',
   'event_restored',
+  'event_trust_updated',
   'event_deleted',
   'registration_mode_saved',
   'internal_event_created',
@@ -466,6 +470,7 @@ export const ACTION_NOTICE_MESSAGE: Record<ActionNoticeCode, string> = {
   event_shared: 'Terkirim. Koneksimu dikabari lewat lonceng notifikasi.',
   event_taken_down: 'Postingan diturunkan dari katalog dan tercatat di Riwayat moderasi. Salah tekan? Urungkan di bawah.',
   event_restored: 'Postingan tayang lagi seperti semula dan tercatat di Riwayat moderasi.',
+  event_trust_updated: 'Label kepercayaan postingan diperbarui. Katalog publik ikut berubah dalam beberapa detik.',
   event_deleted: 'Postingan dihapus permanen beserta foto, komentar, dan datanya. Riwayat moderasi tetap menyimpan jejaknya.',
   registration_mode_saved: 'Cara mendaftar disimpan.',
   internal_event_created:

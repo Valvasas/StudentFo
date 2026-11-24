@@ -220,7 +220,7 @@ export function LombaBoard({
                           <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
                         </span>
                       </div>
-                      <PosterThumb poster={event.poster} />
+                      <PosterThumb poster={event.poster} event={event} />
                     </div>
                     <span className="flex flex-wrap items-center justify-between gap-2">
                       <PriceBadge event={event} />

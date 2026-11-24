@@ -52,8 +52,8 @@ export const metadata: Metadata = {
     default: 'StudentFo — Info lomba, beasiswa, dan magang dalam satu tempat',
     template: '%s · StudentFo',
   },
-  description:
-    'Kumpulan informasi lomba, beasiswa, magang, workshop, dan kegiatan pengembangan untuk pelajar dan mahasiswa Indonesia. Tervalidasi manual, bisa difilter, dan selalu menampilkan sisa waktu pendaftaran.',
+  // ≤ 155 karakter: lebih panjang dipotong di hasil pencarian, tepat di klaim pentingnya.
+  description: 'Info lomba, beasiswa, magang & workshop untuk pelajar SMA/SMK dan mahasiswa Indonesia. Ditinjau moderator, bisa disaring, lengkap sisa waktu daftar.',
   keywords: ['lomba mahasiswa', 'beasiswa', 'magang', 'workshop', 'kompetisi pelajar'],
   // Nama di bawah ikon layar utama iOS; tanpa ini iOS memakai judul halaman yang terpotong.
   // `capable: false` eksplisit: bawaan Next `true` membuka pintasan tanpa bilah

@@ -357,6 +357,34 @@ export function toVerificationBadge(value: string | null | undefined): Verificat
   return (VERIFICATION_BADGES as readonly string[]).includes(value ?? '') ? (value as VerificationBadge) : null;
 }
 
+/**
+ * Tingkat kepercayaan SETIAP kegiatan (ADR-096) — dua klaim yang bisa
+ * dibedakan pembaca, menggantikan satu klaim "diverifikasi manual" untuk
+ * semuanya. Beda dari lencana otoritas di atas: lencana menjawab "siapa
+ * penyelenggaranya", tingkat ini menjawab "seberapa dalam StudentFo sudah
+ * memeriksa pengumuman ini". VARCHAR + CHECK (migration 20261124100001),
+ * bukan enum; pipeline tidak menulisnya (bawaan PUBLIC_SOURCE).
+ */
+export const VERIFICATION_LEVELS = ['MODERATOR_VERIFIED', 'PUBLIC_SOURCE'] as const;
+export type VerificationLevel = (typeof VERIFICATION_LEVELS)[number];
+
+export const VERIFICATION_LEVEL_LABEL: Record<VerificationLevel, string> = {
+  MODERATOR_VERIFIED: 'Terverifikasi moderator',
+  PUBLIC_SOURCE: 'Dari sumber publik',
+};
+
+/** Apa yang SUDAH diperiksa — dipakai tooltip, halaman detail, dan /sumber-data. */
+export const VERIFICATION_LEVEL_DESCRIPTION: Record<VerificationLevel, string> = {
+  MODERATOR_VERIFIED:
+    'Moderator StudentFo mencocokkan tanggal, tautan pendaftaran, dan identitas penyelenggara langsung dengan kanal resminya.',
+  PUBLIC_SOURCE:
+    'Disalin dari pengumuman publik dan lolos moderasi, tetapi belum dicocokkan langsung dengan penyelenggaranya. Buka pengumuman resminya sebelum mendaftar atau membayar.',
+};
+
+export function toVerificationLevel(value: string | null | undefined): VerificationLevel | null {
+  return (VERIFICATION_LEVELS as readonly string[]).includes(value ?? '') ? (value as VerificationLevel) : null;
+}
+
 /** Saringan biaya di /events. `null` di data (biaya belum diketahui) tidak masuk keduanya. */
 export const COST_FILTERS = ['free', 'paid'] as const;
 export type CostFilter = (typeof COST_FILTERS)[number];
@@ -397,6 +425,16 @@ export interface EventSummary {
   /** Akhir masa promosi berbayar; `null` = tidak berpromosi. Lihat `isPromoted()`. */
   readonly featuredUntil: string | null;
   readonly verificationBadge: VerificationBadge | null;
+  /**
+   * Tingkat kepercayaan (ADR-096), ditempel di lapisan aplikasi seperti poster.
+   * Tidak ada / `null` = belum diketahui (kolom belum ada) — UI tidak menebak klaim apa pun.
+   */
+  readonly verificationLevel?: VerificationLevel | null;
+  /**
+   * Data uji (ADR-096). Tidak pernah terbaca publik (RLS `events_public_read`,
+   * `isPubliclyVisible`); hanya bermakna di alat admin.
+   */
+  readonly isDemo?: boolean;
   /**
    * Poster acara (ADR-079) — satu foto galeri yang ditandai panitia/admin.
    * Tidak ada / `null` = tanpa poster; kartu & slide tidak menebak gambar lain.
@@ -1504,4 +1542,7 @@ export interface AdminEventRow {
   readonly registrationMode: RegistrationMode;
   /** Alasan penurunan terakhir (status REJECTED). */
   readonly rejectionReason: string | null;
+  /** null = kolom belum ada (migration 20261124100001 belum diterapkan) — kendalinya dikunci. */
+  readonly verificationLevel: VerificationLevel | null;
+  readonly isDemo: boolean | null;
 }

@@ -43,7 +43,10 @@ test('cuplikan beranda tanpa JavaScript: adegan pertama tampil, tanpa tombol mat
   const page = await context.newPage();
   await page.goto('/');
   const clip = page.locator('#cara-kerja');
-  await expect(clip.getByText('lomba desain', { exact: true })).toBeAttached();
+  // Kata yang diketik = jenis kegiatan SUNGGUHAN pertama yang diperagakan, bukan teks karangan.
+  await expect(clip.locator('.tour-type')).toHaveText(/\S/);
   await expect(clip.getByRole('button')).toHaveCount(0);
+  // Data dummy tidak pernah tampil (dulu "Contoh penyelenggara" terbaca sebagai data uji yang bocor).
+  await expect(clip).not.toContainText('Contoh');
   await context.close();
 });

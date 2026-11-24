@@ -6,6 +6,7 @@ import { DeadlineTag } from '@/components/event/deadline-tag';
 import { PosterThumb } from '@/components/event/poster-thumb';
 import { PriceBadge, PromotedBadge } from '@/components/event/price-badge';
 import { SaveButton } from '@/components/event/save-button';
+import { TrustBadge } from '@/components/event/trust-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import { isPromoted } from '@/lib/data/listing';
 import { levelSummary } from '@/lib/eligibility';
@@ -70,6 +71,7 @@ export function EventCard({
       <div className="flex items-start justify-between gap-3">
         <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 pt-1.5 text-[13px] font-medium text-ink-muted">
           <span>{EVENT_TYPE_LABEL[event.eventType]}</span>
+          <TrustBadge level={event.verificationLevel} />
           {promoted && <PromotedBadge />}
           <CardCounts counts={event.counts} />
         </p>
@@ -101,14 +103,16 @@ export function EventCard({
 
           <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-ink-muted">
             {event.isOnline ? <Globe aria-hidden className="size-3.5 shrink-0" /> : <MapPin aria-hidden className="size-3.5 shrink-0" />}
-            <span className="line-clamp-1">
-              {place} · <span aria-hidden>{levels.short}</span>
-              <span className="sr-only">{levels.full}</span>
+            {/* Satu teks untuk mata & pembaca layar. Ringkasan rentang/"+N" diperjelas
+                lewat `title`, bukan salinan `sr-only` — salinan terbaca "D4/S1D4/S1"
+                oleh apa pun yang membaca teks tanpa CSS. */}
+            <span className="line-clamp-1" title={levels.full === levels.short ? undefined : `Jenjang: ${levels.full}`}>
+              {place} · {levels.short}
             </span>
           </p>
         </div>
 
-        <PosterThumb poster={event.poster} />
+        <PosterThumb poster={event.poster} event={event} />
       </div>
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-6">

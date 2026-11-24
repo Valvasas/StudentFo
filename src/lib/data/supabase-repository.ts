@@ -121,6 +121,7 @@ import type {
   RegistrationMode,
   ShareRecipient,
 } from '@/types/domain';
+import { toVerificationLevel, VERIFICATION_LEVELS } from '@/types/domain';
 import { LOBBY_INTENTS, REPORT_REASONS, toNotificationType } from '@/types/domain';
 import { COMMUNITY_LIMITS, toCommunityTopic, type CommunityPostInput } from '@/lib/community';
 import { buildCommentThreads, countComments, EVENT_COMMENT_LIMITS, EVENT_SHARE_LIMITS, sortShareRecipients } from '@/lib/event-comments';
@@ -216,6 +217,7 @@ import type {
   PeopleFilter,
   RepositoryStats,
   ReviewEventInput,
+  EventTrustInput,
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
@@ -444,6 +446,7 @@ export class SupabaseEventRepository implements EventRepository {
   private readonly fetchPosters: (eventIds: readonly string[]) => Promise<PosterRow[]>;
   private readonly fetchExtras: (eventId: string) => Promise<EventExtras>;
   private readonly fetchCounts: (eventIds: readonly string[]) => Promise<EventEngagementCountRow[]>;
+  private readonly fetchTrust: (eventIds: readonly string[]) => Promise<TrustRow[]>;
 
   constructor(
     cacheLayer: CacheLayer = nextDataCache,
@@ -459,6 +462,7 @@ export class SupabaseEventRepository implements EventRepository {
     this.fetchPosters = cacheLayer(queryPosters, ['event-posters-v1']);
     this.fetchExtras = cacheLayer(queryEventExtras, ['event-extras-v1']);
     this.fetchCounts = cacheLayer(queryEngagementCounts, ['event-counts-v1']);
+    this.fetchTrust = cacheLayer(queryTrustLevels, ['event-trust-v1']);
   }
 
   /**
@@ -469,14 +473,21 @@ export class SupabaseEventRepository implements EventRepository {
    */
   private async withPosters<T extends EventSummary>(items: readonly T[]): Promise<T[]> {
     if (items.length === 0) return [];
-    try {
-      const rows = await this.fetchPosters([...new Set(items.map((item) => item.id))].sort());
-      const byEvent = new Map(rows.map((row) => [row.event_id, { id: row.id, width: row.width, height: row.height }]));
-      return items.map((item) => ({ ...item, poster: byEvent.get(item.id) ?? null }));
-    } catch (error) {
-      console.error('[poster] gagal dimuat:', error);
-      return items.map((item) => ({ ...item, poster: null }));
-    }
+    const ids = [...new Set(items.map((item) => item.id))].sort();
+    const [posters, trust] = await Promise.all([
+      this.fetchPosters(ids).catch((error: unknown) => {
+        console.error('[poster] gagal dimuat:', error);
+        return [] as PosterRow[];
+      }),
+      // Tingkat kepercayaan (ADR-096) ikut jalur yang sama: gagal/kolom belum ada = tanpa label, bukan label tebakan.
+      this.fetchTrust(ids).catch((error: unknown) => {
+        console.error('[tingkat verifikasi] gagal dimuat:', error);
+        return [] as TrustRow[];
+      }),
+    ]);
+    const posterByEvent = new Map(posters.map((row) => [row.event_id, { id: row.id, width: row.width, height: row.height }]));
+    const levelByEvent = new Map(trust.map((row) => [row.id, toVerificationLevel(row.verification_level)]));
+    return items.map((item) => ({ ...item, poster: posterByEvent.get(item.id) ?? null, verificationLevel: levelByEvent.get(item.id) ?? null }));
   }
 
   /**
@@ -790,7 +801,7 @@ export class SupabaseEventRepository implements EventRepository {
     );
   }
 
-  async reviewEvent({ eventId, decision, reviewerId, reason }: ReviewEventInput): Promise<void> {
+  async reviewEvent({ eventId, decision, reviewerId, reason, verificationLevel }: ReviewEventInput): Promise<void> {
     if (!isUuid(eventId)) return;
     const supabase = createSupabaseAdminClient();
     const { error } = await supabase
@@ -804,6 +815,9 @@ export class SupabaseEventRepository implements EventRepository {
       .eq('id', eventId);
 
     if (error) throw upstreamFailure('Gagal menyimpan keputusan moderasi.', error);
+    // UPDATE terpisah: sebelum migration 20261124100001 keputusan moderasinya
+    // tetap tersimpan, dan moderator diberi tahu tingkatnya belum tersimpan.
+    if (decision === 'APPROVED' && verificationLevel) await this.setEventTrust({ eventId, verificationLevel });
   }
 
   async restoreRejected({ subjectType, subjectId, reviewerId }: RestoreRejectedInput): Promise<void> {
@@ -1177,10 +1191,15 @@ export class SupabaseEventRepository implements EventRepository {
     }
     const [row] = rpcRows<{ created_id: string; created_slug: string }>(data);
     if (!row) throw upstreamFailure('Gagal membuat acara.', new Error('admin_create_event tanpa baris'), 500);
+    // Acara buatan admin = dibuat moderator dari sumber resminya (ADR-096).
+    // Sebelum migration 20261124100001 acaranya tetap jadi; tingkatnya menyusul.
+    await this.setEventTrust({ eventId: row.created_id, verificationLevel: 'MODERATOR_VERIFIED' }).catch((trustError: unknown) => {
+      console.error('[tingkat verifikasi] acara admin belum ditandai:', row.created_id, trustError);
+    });
     return { id: row.created_id, slug: row.created_slug };
   }
 
-  async reviewSubmission({ submissionId, decision, reviewerId, reason }: ReviewSubmissionInput): Promise<void> {
+  async reviewSubmission({ submissionId, decision, reviewerId, reason, verificationLevel }: ReviewSubmissionInput): Promise<void> {
     if (!isUuid(submissionId)) throw actionError('submission_not_found');
     const supabase = createSupabaseAdminClient();
 
@@ -1205,7 +1224,7 @@ export class SupabaseEventRepository implements EventRepository {
     // beberapa request terpisah, kegagalan di tengah jalan meninggalkan event
     // tayang tanpa tenggat, atau kiriman yang tetap PENDING padahal eventnya
     // sudah ada.
-    const { error } = await supabase.rpc('approve_submission', {
+    const { data: createdId, error } = await supabase.rpc('approve_submission', {
       p_submission_id: submissionId,
       p_reviewer_id: reviewerId,
     });
@@ -1224,6 +1243,9 @@ export class SupabaseEventRepository implements EventRepository {
         default:
           throw upstreamFailure('Gagal menyetujui kiriman.', error, 500);
       }
+    }
+    if (verificationLevel === 'MODERATOR_VERIFIED' && typeof createdId === 'string') {
+      await this.setEventTrust({ eventId: createdId, verificationLevel });
     }
   }
 
@@ -3745,8 +3767,10 @@ export class SupabaseEventRepository implements EventRepository {
       return request.returns<AdminEventDbRow[]>();
     };
     const base = 'id, slug, title, organizer, event_type, status, created_at, rejection_reason, event_deadlines(deadline_at, is_primary)';
-    let result = await query(`${base}, registration_mode`);
-    // Sebelum migration 20261116100001: daftar tetap tampil, cara daftar dianggap tautan luar.
+    let result = await query(`${base}, registration_mode, verification_level, is_demo`);
+    // Sebelum migration 20261124100001 (tingkat kepercayaan) / 20261116100001 (cara daftar):
+    // daftar tetap tampil, kendali yang butuh kolom itu dikunci.
+    if (result.error && isMissingColumnError(result.error)) result = await query(`${base}, registration_mode`);
     if (result.error && isMissingColumnError(result.error)) result = await query(base);
     if (result.error) throw upstreamFailure('Gagal mencari postingan.', result.error);
     return result.data.map(toAdminEventRow);
@@ -3807,6 +3831,22 @@ export class SupabaseEventRepository implements EventRepository {
     const { error } = await supabase.rpc('set_event_registration_mode', { p_event: eventId, p_mode: mode });
     if (error && isMissingRelationError(error)) throw actionError('registration_mode_unavailable');
     if (error) throw engagementFailure(error, 'Gagal menyimpan cara mendaftar.');
+  }
+
+  async setEventTrust({ eventId, verificationLevel, isDemo }: EventTrustInput): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('event_not_found');
+    if (verificationLevel !== undefined && !VERIFICATION_LEVELS.includes(verificationLevel)) throw actionError('invalid_request');
+    const patch = {
+      ...(verificationLevel !== undefined ? { verification_level: verificationLevel } : {}),
+      ...(isDemo !== undefined ? { is_demo: isDemo } : {}),
+    };
+    if (Object.keys(patch).length === 0) return;
+    const { data, error } = await createSupabaseAdminClient().from('events').update(patch).eq('id', eventId).select('id').returns<{ id: string }[]>();
+    if (error) {
+      if (isMissingColumnError(error)) throw actionError('trust_unavailable');
+      throw upstreamFailure('Gagal menyimpan tingkat verifikasi.', error);
+    }
+    if (data.length === 0) throw actionError('event_not_found');
   }
 }
 
@@ -3870,6 +3910,8 @@ function toAdminEventRow(row: AdminEventDbRow): AdminEventRow {
     createdAt: row.created_at,
     registrationMode: toRegistrationMode(row.registration_mode),
     rejectionReason: row.status === 'REJECTED' ? row.rejection_reason : null,
+    verificationLevel: row.verification_level === undefined ? null : (toVerificationLevel(row.verification_level) ?? 'PUBLIC_SOURCE'),
+    isDemo: row.is_demo === undefined ? null : row.is_demo === true,
   };
 }
 
@@ -4168,6 +4210,27 @@ async function queryPosters(eventIds: readonly string[]): Promise<PosterRow[]> {
       // Sebelum migration 20261109100002: belum ada poster, bukan galat.
       if (isMissingColumnError(error)) return [];
       throw upstreamFailure('Gagal memuat poster.', error);
+    }
+    rows.push(...data);
+  }
+  return rows;
+}
+
+interface TrustRow {
+  readonly id: string;
+  readonly verification_level: string | null;
+}
+
+/** Klien anon (aman di dalam cache): data uji memang tidak terbaca, jadi tidak pernah diberi label. */
+async function queryTrustLevels(eventIds: readonly string[]): Promise<TrustRow[]> {
+  const supabase = createSupabasePublicClient();
+  const rows: TrustRow[] = [];
+  for (const part of chunks(eventIds.filter(isUuid), IN_CHUNK)) {
+    const { data, error } = await supabase.from('events').select('id, verification_level').in('id', part).returns<TrustRow[]>();
+    if (error) {
+      // Sebelum migration 20261124100001: belum ada tingkat, bukan galat.
+      if (isMissingColumnError(error)) return [];
+      throw upstreamFailure('Gagal memuat tingkat verifikasi.', error);
     }
     rows.push(...data);
   }

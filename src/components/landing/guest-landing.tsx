@@ -5,12 +5,14 @@ import { TrendingStrip, trendingItems } from '@/components/event/trending-strip'
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { STUDENT_LEVEL_OPTIONS } from '@/components/listing/listing-ui';
 import { getEventRepository } from '@/lib/data';
+import { daysUntil } from '@/lib/deadline';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { withFallback } from '@/lib/fallback';
 import { buildEventHref, type RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
+import { EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
 import { LandingHero, type HeroLink } from './hero';
-import { LandingTour } from './landing-tour';
+import { LandingTour, type TourSample } from './landing-tour';
 import { RevealObserver } from './reveal-observer';
 
 /**
@@ -28,8 +30,8 @@ const CHECKS = [
     body: 'Setiap kegiatan menautkan pengumuman aslinya, jadi kamu bisa memastikan langsung ke penyelenggara.',
   },
   {
-    title: 'Ditinjau moderator',
-    body: 'Setiap kegiatan dicocokkan dengan sumbernya. Tidak ada yang tayang tanpa persetujuan.',
+    title: 'Ditinjau moderator, labelnya jujur',
+    body: 'Tidak ada yang tayang tanpa persetujuan moderator. "Terverifikasi moderator" berarti sudah dicocokkan langsung dengan penyelenggaranya; "Dari sumber publik" berarti belum.',
   },
   {
     title: 'Sisa waktu selalu terkini',
@@ -48,7 +50,7 @@ const FAQS = [
   },
   {
     q: 'Bagaimana kalau ada kegiatan palsu?',
-    a: 'Setiap kegiatan ditinjau manual dan menautkan sumber aslinya. Kalau menemukan yang janggal, periksa tautan sumber di halaman detail sebelum membayar atau mengirim data apa pun.',
+    a: 'Setiap kegiatan ditinjau moderator dan menautkan sumber aslinya. Yang berlabel "Dari sumber publik" belum dicocokkan langsung dengan penyelenggaranya — buka tautan sumbernya sebelum membayar atau mengirim data apa pun, dan laporkan kalau janggal.',
   },
   {
     q: 'Seakurat apa tanggal tenggatnya?',
@@ -61,6 +63,25 @@ const FAQS = [
 ] as const;
 
 const PREVIEW_LIMIT = 6;
+const TOUR_SAMPLES = 3;
+
+/** Kegiatan sungguhan untuk cuplikan: yang segera ditutup dulu, ditambah yang lagi ramai bila kurang. */
+function tourSamples(primary: readonly EventSummary[], extra: readonly EventSummary[], now: Date): TourSample[] {
+  const seen = new Set<string>();
+  const picked: TourSample[] = [];
+  for (const event of [...primary, ...extra]) {
+    if (picked.length >= TOUR_SAMPLES || seen.has(event.id)) continue;
+    seen.add(event.id);
+    picked.push({
+      title: event.title,
+      organizer: event.organizer,
+      place: event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul'),
+      typeLabel: EVENT_TYPE_LABEL[event.eventType],
+      daysLeft: event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null,
+    });
+  }
+  return picked;
+}
 
 const sectionClass = 'container-page max-w-[1120px] pt-[clamp(72px,9vw,112px)]';
 const h2Class = 'text-[clamp(28px,4.4vw,40px)] font-bold leading-[1.1] tracking-[-0.03em]';
@@ -92,6 +113,8 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
     // "Lagi ramai" (ADR-092): gagal dimuat = bagiannya tidak tampil.
     withFallback('kegiatan lagi ramai', async () => (await (await getEventRepository()).listEvents({ sort: 'popular', pageSize: 8 })).items, []),
   ]);
+  const now = new Date();
+  const samples = tourSamples(closingSoon, popular, now);
   const types: HeroLink[] = EVENT_TYPE_NAV.map((item, index) => ({
     label: item.label,
     href: eventTypeHref(item),
@@ -107,7 +130,7 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
 
       <TrendingStrip
         events={trendingItems(popular, 6)}
-        now={new Date()}
+        now={now}
         moreHref={buildEventHref({ sort: 'popular' })}
         className={cn(sectionClass, 'pt-8 sm:pt-[clamp(56px,7vw,88px)]')}
       />
@@ -138,7 +161,7 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
         </section>
       )}
 
-      <LandingTour />
+      <LandingTour samples={samples} />
 
       <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>
         <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">

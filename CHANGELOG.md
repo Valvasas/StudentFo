@@ -83,7 +83,11 @@ yang tidak memuat migration yang sudah ada di produksi
 | Mengisi formulir StudentFo | Progres pertanyaan wajib, draf per tab (`FieldMemory live`), "Isi dari profilku", jawaban pulih saat server menolak (ADR-094) | Galat server mengosongkan semua jawaban | `form-assist.test.ts`, `form-assist.spec.ts` |
 | Kirim kegiatan | Deskripsi di langkah 1 (bukan lipatan), peta langkah bertaut, "Kirimanmu" di bawah form (ADR-094) | Deskripsi di "Detail tambahan"; daftar kiriman di atas form | `submission-poster.spec.ts`, `submission-notification.spec.ts` |
 | Media antrean moderasi | `event_media_imports` → pengerja (cron tiap jam + tombol admin) menyiapkan gambar resmi (og:image laman sumber) + poster & slide ringkasan buatan server ke `event_photos` SEBELUM disetujui; strip poster/slide & alasan gagal di kartu antrean; `/admin/media/[slug]?acara=` untuk kegiatan PENDING (ADR-095) | Poster hanya bisa dipasang manual setelah tayang, satu per satu | `123_event_media_imports.test.sql`, `src/lib/media-import/*.test.ts` |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–095 | Nomor ganda 061/062 | — |
+| Klaim kepercayaan kegiatan | Dua tingkat `events.verification_level`: **Terverifikasi moderator** / **Dari sumber publik** (`TrustBadge` di kartu, `TrustNote` di detail, penjelasan `/sumber-data#tingkat-verifikasi`); centang di form Setujui; saklar di Kelola postingan (ADR-096) | Satu klaim "diverifikasi/tervalidasi manual" untuk semua kegiatan | `trust-levels.test.ts`, `124_event_trust_levels.test.sql` |
+| Data uji | `events.is_demo` ditutup di policy `events_public_read`; saklar "Tandai data uji" (ADR-096) | — (jangan menyaring data uji per halaman/kueri — policy yang menutup) | `trust-levels.test.ts`, `124_event_trust_levels.test.sql`, `listing.test.ts` |
+| Tur beranda (isi) | Kegiatan SUNGGUHAN (`TourSample`) atau garis kerangka (ADR-096) | Nama karangan "Contoh penyelenggara" / "lomba desain" (ADR-065) | `landing-tour.spec.ts` |
+| Teks pembaca layar | `sr-only` hanya melengkapi (satuan/konteks), tidak menyalin angka/label terlihat (ADR-096) | Kalimat lengkap `sr-only` + salinan `aria-hidden` ("2 suka2", "D4/S1D4/S1") | `event-engagement.spec.ts` (Peringkat) |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–096 | Nomor ganda 061/062 | — |
 
 ## Migration
 
@@ -117,6 +121,10 @@ yang tidak memuat migration yang sudah ada di produksi
 ---
 
 ## Riwayat (terbaru di atas)
+
+### 2026-11-24 — cabang `claude/admiring-lovelace-75z4mp` (dari `main` `23e6aa9`)
+- Fase 1 (ADR-096): teks ganda pembaca layar dibereskan, tur beranda memakai kegiatan sungguhan, alt poster bermakna, dua tingkat kepercayaan + data uji.
+- Migration `20261124100001_event_trust_levels` **BELUM diterapkan** (perlu persetujuan pemilik). Cabang **belum digabung ke `main`.**
 
 ### 2026-11-21 — cabang `ccr-e5c48abe-22c436` (dari `main` `1fbfd96`)
 - 26 kegiatan kurasi (lomba/magang/workshop dari laman resmi) masuk antrean produksi lewat `stage_scraped_event` — data saja.

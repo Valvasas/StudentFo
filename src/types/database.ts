@@ -634,5 +634,8 @@ export interface AdminEventDbRow {
   created_at: string;
   rejection_reason: string | null;
   registration_mode?: string | null;
+  /** Tidak ada = migration 20261124100001 belum diterapkan (ADR-096). */
+  verification_level?: string | null;
+  is_demo?: boolean | null;
   event_deadlines: { deadline_at: string; is_primary: boolean }[] | null;
 }

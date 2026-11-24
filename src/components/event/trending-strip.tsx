@@ -58,12 +58,12 @@ export function TrendingStrip({
           const days = event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null;
           return (
             <li key={event.id} className="relative flex min-w-0 gap-3 rounded-[14px] border border-line bg-panel p-4 transition-colors duration-150 ease-snap hover:border-line-strong">
-              <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-like-soft text-[13px] font-bold tabular-nums text-like">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-like-soft text-[13px] font-bold tabular-nums text-like">
+                <span className="sr-only">Peringkat </span>
                 {index + 1}
               </span>
               <span className="flex min-w-0 flex-col gap-1">
                 <span className="text-[12.5px] font-medium text-ink-muted">
-                  <span className="sr-only">Peringkat {index + 1} · </span>
                   {EVENT_TYPE_LABEL[event.eventType]} · {daysLeftLabel(days)}
                 </span>
                 <Link

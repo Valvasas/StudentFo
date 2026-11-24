@@ -1,6 +1,7 @@
 import { AlertTriangle, BadgeCheck, Check, ExternalLink } from 'lucide-react';
 import { BulkPick } from '@/components/admin/bulk-approve-bar';
 import { reviewSubmissionAction } from '@/app/admin/actions';
+import { VerificationCheck } from '@/components/admin/verification-check';
 import { RejectConfirm } from '@/components/admin/reject-confirm';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { DEADLINE_LABEL_TEXT, EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, type Subm
 
 function ApproveForm({ submissionId, title }: { submissionId: string; title: string }) {
   return (
-    <form action={reviewSubmissionAction}>
+    <form action={reviewSubmissionAction} className="flex flex-col items-start gap-2">
       <input type="hidden" name="submissionId" value={submissionId} />
       <input type="hidden" name="decision" value="APPROVED" />
       <ConfirmSubmit
@@ -32,6 +33,7 @@ function ApproveForm({ submissionId, title }: { submissionId: string; title: str
       >
         <Check aria-hidden /> Setujui & tayangkan
       </ConfirmSubmit>
+      <VerificationCheck />
     </form>
   );
 }

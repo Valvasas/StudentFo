@@ -19,7 +19,6 @@ import {
   KeyRound,
   MapPin,
   MessagesSquare,
-  ShieldCheck,
   Ticket,
   Users,
 } from 'lucide-react';
@@ -39,6 +38,7 @@ import { MemberGate } from '@/components/event/member-gate';
 import { PromotedBadge } from '@/components/event/price-badge';
 import { RequirementsChecklist } from '@/components/event/requirements-checklist';
 import { SaveButton } from '@/components/event/save-button';
+import { TrustBadge, TrustNote } from '@/components/event/trust-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { CategoryIcon, shortCategoryName } from '@/components/listing/category-icon';
@@ -449,15 +449,15 @@ export default async function EventDetailPage({
               <span className="flex min-w-0 flex-col gap-px">
                 <span className="flex items-center gap-1.5 text-[15px] font-semibold">
                   <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
-                  {verifiedOrg ? (
-                    <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 shrink-0 text-success" />
-                  ) : (
-                    <ShieldCheck aria-hidden className="size-4 shrink-0 text-ink-muted" />
-                  )}
+                  {verifiedOrg && <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 shrink-0 text-success" />}
                 </span>
-                <span className="text-[12.5px] text-ink-muted">
-                  {verifiedOrg ? `Dikelola ${verifiedOrg} · penyelenggara terverifikasi` : 'Ditinjau manual sebelum tayang'}
-                </span>
+                {verifiedOrg && <span className="text-[12.5px] text-ink-muted">Dikelola {verifiedOrg} · penyelenggara terverifikasi</span>}
+                {/* Tingkat belum diketahui (kolom belum ada) = klaim lama yang memang berlaku untuk semua kegiatan tayang. */}
+                {event.verificationLevel ? (
+                  <TrustBadge level={event.verificationLevel} className="mt-0.5 text-[12.5px]" />
+                ) : (
+                  !verifiedOrg && <span className="text-[12.5px] text-ink-muted">Ditinjau moderator sebelum tayang</span>
+                )}
                 {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} showLabel className="mt-1.5 self-start" />}
               </span>
             </div>
@@ -711,16 +711,13 @@ export default async function EventDetailPage({
                   <div className="flex min-w-[200px] flex-1 flex-col gap-1">
                     <span className="flex items-center gap-1.5 text-base font-semibold">
                       <span className="min-w-0 [overflow-wrap:anywhere]">{event.organizer}</span>
-                      {verifiedOrg ? (
-                        <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 shrink-0 text-success" />
-                      ) : (
-                        <ShieldCheck aria-hidden className="size-4 shrink-0 text-ink-muted" />
-                      )}
+                      {verifiedOrg && <BadgeCheck aria-label="Penyelenggara terverifikasi" role="img" className="size-4 shrink-0 text-success" />}
                     </span>
+                    <TrustNote level={event.verificationLevel} className="mt-1" />
                     <span className="text-[13.5px] text-ink-muted">
                       {sourceHost ? (
                         <>
-                          Informasinya dicocokkan moderator dengan sumber <strong className="font-medium text-ink-soft">{sourceHost}</strong> sebelum tayang.
+                          Sumber pengumuman: <strong className="font-medium text-ink-soft">{sourceHost}</strong>. Ditinjau moderator StudentFo sebelum tayang.
                         </>
                       ) : (
                         'Ditinjau moderator StudentFo sebelum tayang.'

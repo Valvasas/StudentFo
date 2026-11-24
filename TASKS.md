@@ -935,3 +935,14 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] **BUTUH PEMILIK.** Gabungkan cabang `ccr-e5c48abe-22c436` ke `main` (kode pengerja harus ter-deploy sebelum gambar diproses); secret workflow `SITE_URL` & `CRON_SECRET` sudah dipakai workflow lain
 - [ ] Setelah keduanya: antrekan gambar untuk 26 kegiatan kurasi (`stage_event_media(id, NULL)` atau tombol per kartu) lalu "Siapkan gambar sekarang"
 - [ ] P2 Pengerja belum memaku koneksi ke IP hasil DNS (sisa risiko DNS rebinding, ADR-095 #4)
+
+## Fase 1 — bug & konten 2026-11-24 (@claude) — ADR-096
+
+- [x] Teks ganda "2 suka2", "D4/S1D4/S1", "Semua jenjangTerbuka…", tenggat & peringkat ganda di pembaca layar (`CardCounts`, `EventCard`, `DeadlineTag`, `TrendingStrip`)
+- [x] Tur beranda memperagakan kegiatan sungguhan; tanpa data = garis kerangka, tidak ada "Contoh …"
+- [x] `events.is_demo` + policy `events_public_read`; saklar "Tandai data uji" di Kelola postingan
+- [x] Alt poster kartu & papan = judul + penyelenggara (`posterAlt`)
+- [x] `events.verification_level` dua tingkat + centang di form Setujui + saklar admin + label kartu/detail + `/sumber-data#tingkat-verifikasi`; copy "diverifikasi manual" diselaraskan
+- [ ] **BUTUH PEMILIK.** Terapkan `20261124100001_event_trust_levels` (staging → produksi) lalu catat di `supabase/APPLIED_MIGRATIONS.txt`. Sebelum itu label tidak tampil & saklar admin terkunci
+- [ ] Setelah migration: tinjau kegiatan tayang yang masih "Dari sumber publik" dan naikkan yang memang sudah dicocokkan langsung
+

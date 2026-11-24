@@ -121,7 +121,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
                               </Link>
                             </h2>
                           </div>
-                          <PosterThumb poster={event.poster} />
+                          <PosterThumb poster={event.poster} event={event} />
                         </div>
                         <span className="flex min-w-0 items-center gap-1 text-sm text-ink-soft">
                           {event.verificationBadge && <VerifiedBadge badge={event.verificationBadge} className="-ml-1" />}

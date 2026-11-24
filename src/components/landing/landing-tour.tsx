@@ -17,7 +17,10 @@ import { cn } from '@/lib/utils';
  *   simpan + pengingat H-3/H-1, papan lamaran, pencocokan tim). Pesan dan
  *   ruang diskusi hanya ada di mode demo → tidak diperagakan.
  * - Dibangun dari token & kosakata komponen produk, jadi ikut tema gelap.
- * - Bukan mockup peramban palsu; nama di dalamnya tertulis "Contoh …".
+ * - Bukan mockup peramban palsu. Judul, penyelenggara, dan sisa hari diambil
+ *   dari kegiatan SUNGGUHAN yang sedang buka (`samples`); tanpa data, baris
+ *   tampil sebagai garis kerangka — tidak pernah nama karangan ("Contoh
+ *   penyelenggara" dulu terbaca sebagai data uji yang bocor ke produksi).
  *
  * Aksesibilitas: panggung `aria-hidden` dengan SATU deskripsi statis untuk
  * pembaca layar (bukan `aria-live` — pengumuman tiap 5 detik lebih
@@ -39,7 +42,22 @@ const SCENES = [
 const SCENE_MS = 5600;
 const t = (ms: number, extra?: Record<string, string | number>) => ({ '--t': `${ms}ms`, ...extra }) as CSSProperties;
 
-export function LandingTour() {
+/** Kegiatan sungguhan yang diperagakan; dihitung di server supaya sisa harinya cocok dengan kartu di halaman yang sama. */
+export interface TourSample {
+  readonly title: string;
+  readonly organizer: string;
+  readonly place: string;
+  readonly typeLabel: string;
+  /** null = tenggat belum diumumkan. */
+  readonly daysLeft: number | null;
+}
+
+/** Garis kerangka pengganti teks saat tidak ada kegiatan sungguhan untuk diperagakan. */
+function Placeholder({ className }: { className?: string }) {
+  return <span className={cn('block h-3 rounded-pill bg-line', className)} />;
+}
+
+export function LandingTour({ samples = [] }: { samples?: readonly TourSample[] }) {
   const [scene, setScene] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [inView, setInView] = useState(false);
@@ -88,10 +106,10 @@ export function LandingTour() {
       <div data-reveal="" className="dot-grid mx-auto max-w-[760px] overflow-hidden rounded-[24px] border border-line bg-panel-nested shadow-card">
         <p className="sr-only">Cuplikan beranimasi tanpa suara, lima adegan: {SCENES.join('; ')}.</p>
         <div aria-hidden key={scene} className="flex min-h-[348px] flex-col justify-center px-4 py-6 sm:min-h-[372px] sm:px-10 sm:py-8">
-          {scene === 0 && <SearchStage />}
-          {scene === 1 && <SourceStage />}
-          {scene === 2 && <RemindStage />}
-          {scene === 3 && <TrackStage />}
+          {scene === 0 && <SearchStage samples={samples} />}
+          {scene === 1 && <SourceStage sample={samples[0]} />}
+          {scene === 2 && <RemindStage sample={samples[0]} />}
+          {scene === 3 && <TrackStage sample={samples[0]} />}
           {scene === 4 && <TeamStage />}
         </div>
 
@@ -142,7 +160,14 @@ export function LandingTour() {
   );
 }
 
-function MiniTag({ days, delay }: { days: number; delay: number }) {
+function MiniTag({ days, delay }: { days: number | null; delay: number }) {
+  if (days === null) {
+    return (
+      <span className="tour-in inline-flex h-6 shrink-0 items-center text-xs font-medium text-ink-muted" style={t(delay)}>
+        Tanggal TBA
+      </span>
+    );
+  }
   const ramp = days > 7 ? 0 : (7 - days) / 7;
   const tier = days > 7 ? 'safe' : days > 2 ? 'warning' : 'urgent';
   return (
@@ -156,70 +181,88 @@ function MiniTag({ days, delay }: { days: number; delay: number }) {
       style={t(delay, { '--ramp': ramp })}
     >
       {tier !== 'safe' && <Clock className="size-3" />}
-      {days} hari lagi
+      {days === 0 ? 'Tutup hari ini' : days === 1 ? 'Tutup besok' : `${days} hari lagi`}
     </span>
   );
 }
 
-function SearchStage() {
-  const rows = [
-    { title: 'Lomba Desain Poster Pangan', org: 'Contoh penyelenggara · Daring', days: 2 },
-    { title: 'Kompetisi Ilustrasi Pelajar', org: 'Contoh penyelenggara · Bandung', days: 5 },
-    { title: 'Lomba Desain Maskot Kota', org: 'Contoh penyelenggara · Surabaya', days: 12 },
-  ];
+const SEARCH_ROWS = 3;
+
+function SearchStage({ samples }: { samples: readonly TourSample[] }) {
+  const rows = samples.slice(0, SEARCH_ROWS);
+  // Kata yang diketik = jenis kegiatan pertama yang diperagakan, supaya hasilnya masuk akal.
+  const query = (rows[0]?.typeLabel ?? 'Lomba').toLowerCase();
   return (
     <div className="flex flex-col gap-3">
       <div className="tour-in flex h-12 items-center gap-2.5 rounded-card border border-line-strong/70 bg-panel px-4 text-[15px] shadow-card">
         <Search className="size-4 text-ink-muted" />
-        <span className="tour-type" style={t(250, { '--w': '13ch', '--steps': 12 })}>
-          lomba desain
+        <span className="tour-type" style={t(250, { '--w': `${query.length + 1}ch`, '--steps': query.length })}>
+          {query}
         </span>
         <span className="tour-caret -ml-1.5 h-5 w-px bg-ink" />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="tour-in inline-flex h-8 items-center gap-1.5 rounded-pill border border-brand bg-brand px-3 text-[13px] font-medium text-on-brand" style={t(1500)}>
           <Check className="chip-tick size-3.5" strokeWidth={2.6} style={{ animationDelay: '1650ms' }} /> SMA/SMK
-        </span>
+        </span>{' '}
         <span className="tour-in inline-flex h-8 items-center rounded-pill border border-line bg-panel px-3 text-[13px] text-ink-soft" style={t(1580)}>
           D3
-        </span>
+        </span>{' '}
         <span className="tour-in inline-flex h-8 items-center rounded-pill border border-line bg-panel px-3 text-[13px] text-ink-soft" style={t(1660)}>
           D4/S1
-        </span>
+        </span>{' '}
         <span aria-hidden className="mx-1 h-5 w-px bg-line" />
         <span className="tour-in inline-flex h-8 items-center gap-1.5 rounded-pill border border-brand bg-brand px-3 text-[13px] font-medium text-on-brand" style={t(1900)}>
           <Check className="chip-tick size-3.5" strokeWidth={2.6} style={{ animationDelay: '2050ms' }} /> Gratis
         </span>
       </div>
       <ul className="mt-1 flex flex-col gap-2">
-        {rows.map((row, index) => (
-          <li
-            key={row.title}
-            className="tour-in flex items-center justify-between gap-3 rounded-card border border-line bg-panel px-4 py-3"
-            style={t(2400 + index * 180)}
-          >
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate text-[14.5px] font-semibold">{row.title}</span>
-              <span className="truncate text-[12.5px] text-ink-muted">{row.org}</span>
-            </span>
-            <MiniTag days={row.days} delay={2600 + index * 180} />
-          </li>
-        ))}
+        {Array.from({ length: SEARCH_ROWS }, (_, index) => {
+          const row = rows[index];
+          return (
+            <li
+              key={row ? `${row.title}-${index}` : `kosong-${index}`}
+              className="tour-in flex items-center justify-between gap-3 rounded-card border border-line bg-panel px-4 py-3"
+              style={t(2400 + index * 180)}
+            >
+              {row ? (
+                <>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-[14.5px] font-semibold">{row.title}</span>
+                    <span className="truncate text-[12.5px] text-ink-muted">
+                      {row.organizer} · {row.place}
+                    </span>
+                  </span>
+                  <MiniTag days={row.daysLeft} delay={2600 + index * 180} />
+                </>
+              ) : (
+                <span className="flex w-full flex-col gap-2 py-1">
+                  <Placeholder className="w-3/5" />
+                  <Placeholder className="w-2/5 opacity-70" />
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
 }
 
-function SourceStage() {
+function SampleTitle({ sample, className }: { sample: TourSample | undefined; className?: string }) {
+  return sample ? <span className={className}>{sample.title}</span> : <Placeholder className="h-4 w-4/5" />;
+}
+
+function SourceStage({ sample }: { sample: TourSample | undefined }) {
   return (
     <div className="tour-in flex flex-col gap-4 rounded-[18px] border border-line bg-panel p-5 shadow-card sm:p-6">
       <span className="flex items-center gap-2">
-        <span className="flex h-[24px] items-center rounded-[6px] bg-brand px-2 text-[12px] font-semibold text-on-brand">Lomba</span>
-        <span className="text-[12.5px] text-ink-muted">Desain</span>
+        <span className="flex h-[24px] items-center rounded-[6px] bg-brand px-2 text-[12px] font-semibold text-on-brand">{sample?.typeLabel ?? 'Lomba'}</span>
+        {sample && <span className="text-[12.5px] text-ink-muted">{sample.place}</span>}
       </span>
-      <span className="font-display text-[22px] font-bold leading-tight tracking-[-0.03em]">Lomba Desain Poster Pangan 2026</span>
+      <SampleTitle sample={sample} className="line-clamp-2 font-display text-[22px] font-bold leading-tight tracking-[-0.03em]" />
       <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-[14px] font-semibold">Contoh penyelenggara</span>
+        {sample ? <span className="text-[14px] font-semibold">{sample.organizer}</span> : <Placeholder className="w-32" />}
         <span className="stamp inline-flex h-7 items-center gap-1.5 rounded-pill border border-success-line bg-success-soft px-2.5 text-[12.5px] font-semibold text-success" style={{ '--d': '700ms' } as CSSProperties}>
           <ShieldCheck className="size-3.5" /> Ditinjau moderator
         </span>
@@ -229,23 +272,29 @@ function SourceStage() {
         <span className="grow-x absolute -bottom-1 left-0 h-[3px] w-full rounded-pill bg-highlight" style={{ animationDelay: '1800ms' }} />
       </span>
       <span className="tour-in flex items-end justify-between gap-4 border-t border-line pt-4" style={t(2300)}>
-        <span className="flex items-baseline gap-2">
-          <span className="font-display text-[40px] font-bold leading-none tracking-[-0.045em] tabular-nums">5</span>
-          <span className="text-[15px] font-medium text-ink-soft">hari lagi</span>
-        </span>
-        <span className="text-[12.5px] text-ink-muted">Tutup pukul 23.59 WIB</span>
+        {sample && sample.daysLeft !== null && sample.daysLeft > 1 ? (
+          <span className="flex items-baseline gap-2">
+            <span className="font-display text-[40px] font-bold leading-none tracking-[-0.045em] tabular-nums">{sample.daysLeft}</span>
+            <span className="text-[15px] font-medium text-ink-soft">hari lagi</span>
+          </span>
+        ) : (
+          <span className="font-display text-[28px] font-bold leading-none tracking-[-0.04em]">
+            {sample?.daysLeft === 0 ? 'Tutup hari ini' : sample?.daysLeft === 1 ? 'Tutup besok' : 'Sisa hari terkini'}
+          </span>
+        )}
+        <span className="text-[12.5px] text-ink-muted">Dihitung ulang dalam WIB</span>
       </span>
     </div>
   );
 }
 
-function RemindStage() {
+function RemindStage({ sample }: { sample: TourSample | undefined }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="tour-in flex items-center justify-between gap-3 rounded-card border border-line bg-panel px-4 py-3.5 shadow-card">
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-[15px] font-semibold">Lomba Desain Poster Pangan 2026</span>
-          <span className="text-[12.5px] text-ink-muted">Contoh penyelenggara</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <SampleTitle sample={sample} className="truncate text-[15px] font-semibold" />
+          {sample ? <span className="truncate text-[12.5px] text-ink-muted">{sample.organizer}</span> : <Placeholder className="w-28 opacity-70" />}
         </span>
         <span className="relative flex size-10 shrink-0 items-center justify-center rounded-pill border border-line bg-panel">
           <Bookmark className="tour-out size-4 text-ink-muted" style={t(900)} />
@@ -265,8 +314,8 @@ function RemindStage() {
           <span className={cn('flex h-7 shrink-0 items-center rounded-[6px] px-2 text-xs font-bold tabular-nums', note.tone)} style={{ '--ramp': 0.571 } as CSSProperties}>
             {note.when}
           </span>
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-[14px] font-semibold">Lomba Desain Poster Pangan 2026</span>
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <SampleTitle sample={sample} className="truncate text-[14px] font-semibold" />
             <span className="truncate text-[12.5px] text-ink-muted">{note.text}</span>
           </span>
         </div>
@@ -275,13 +324,13 @@ function RemindStage() {
   );
 }
 
-function TrackStage() {
+function TrackStage({ sample }: { sample: TourSample | undefined }) {
   const labels = ['Disimpan', 'Sudah daftar', 'Seleksi', 'Diterima'];
   return (
     <div className="tour-in flex flex-col gap-5 rounded-[18px] border border-line bg-panel p-5 shadow-card sm:p-6">
       <span className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex min-w-0 flex-col">
-          <span className="text-[15.5px] font-semibold">Lomba Desain Poster Pangan 2026</span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <SampleTitle sample={sample} className="line-clamp-1 text-[15.5px] font-semibold" />
           <span className="text-[12.5px] text-ink-muted">Papan lamaran</span>
         </span>
         <span className="relative h-8">
@@ -361,7 +410,7 @@ function TeamStage() {
           </svg>
           <span className="flex flex-col">
             <span className="font-display text-[22px] font-bold leading-none tabular-nums">86% cocok</span>
-            <span className="text-[12.5px] text-ink-muted">Contoh rekan · D4/S1</span>
+            <span className="text-[12.5px] text-ink-muted">Calon rekan dari kampus lain</span>
           </span>
         </span>
         <span className="flex flex-wrap gap-1.5">

@@ -42,7 +42,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Kirim kegiatan',
   description:
-    'Punya info lomba, beasiswa, magang, atau workshop? Kirim ke StudentFo — setiap kiriman diverifikasi manual sebelum tayang.',
+    'Punya info lomba, beasiswa, magang, atau workshop? Kirim ke StudentFo — setiap kiriman ditinjau moderator sebelum tayang.',
 };
 
 /** Nama field skema → label yang dibaca manusia. Juga daftar putih untuk `?fields=`. */

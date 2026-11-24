@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { photoAlt, photoSrc } from './event-photo';
+import { photoAlt, photoSrc, posterAlt } from './event-photo';
+
+describe('posterAlt', () => {
+  it('memuat judul dan penyelenggara, tanpa spasi tepi', () => {
+    expect(posterAlt('  Lomba Esai Nasional ', ' BEM UI ')).toBe('Poster Lomba Esai Nasional — BEM UI');
+  });
+});
 
 describe('photoAlt', () => {
   it('keterangan bersama satu unggahan tetap dibedakan nomor fotonya', () => {

@@ -33,8 +33,8 @@ export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; 
           Cari lomba, beasiswa, dan magang yang <span className="marker">masih buka</span>.
         </h1>
         <p className="mt-4 max-w-[56ch] text-[clamp(16px,1.9vw,18.5px)] sm:mt-5 leading-relaxed text-ink-muted">
-          Satu katalog untuk siswa SMA/SMK dan mahasiswa. Setiap kegiatan dicek ke sumber resminya sebelum tayang, lengkap
-          dengan sisa waktu pendaftarannya.
+          Satu katalog untuk siswa SMA/SMK dan mahasiswa. Setiap kegiatan ditinjau moderator sebelum tayang, diberi label seberapa
+          dalam pemeriksaannya, dan lengkap dengan sisa waktu pendaftarannya.
         </p>
 
         {/* Sebaris mulai 360px: tombol di baris sendiri memakan ±66px layar pertama ponsel, sehingga
