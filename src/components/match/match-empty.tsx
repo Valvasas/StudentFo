@@ -14,7 +14,7 @@ export function MatchEmpty({ candidateCount, removals }: { candidateCount: numbe
   const firstPlayer = candidateCount === 0;
   return (
     <div className="mx-auto flex w-full max-w-[640px] flex-col items-center gap-6 rounded-[24px] border border-line bg-panel p-6 text-center sm:flex-row sm:p-8 sm:text-left">
-      <div className="dot-grid flex w-full max-w-[220px] shrink-0 items-center justify-center rounded-[18px] bg-panel-nested px-4 py-4 text-ink sm:max-w-[260px]">
+      <div className="dot-grid flex w-full max-w-[220px] shrink-0 items-center justify-center rounded-2xl bg-panel-nested px-4 py-4 text-ink sm:max-w-[260px]">
         <LonePieceSketch className="w-full" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col items-center gap-3 sm:items-start">

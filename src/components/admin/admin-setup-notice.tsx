@@ -8,7 +8,7 @@ import { KeyRound } from 'lucide-react';
 export function AdminSetupNotice() {
   return (
     <div className="container-page py-10">
-      <section aria-labelledby="admin-setup" className="mx-auto flex max-w-2xl flex-col gap-4 rounded-[20px] border border-line bg-panel p-6 sm:p-8">
+      <section aria-labelledby="admin-setup" className="mx-auto flex max-w-2xl flex-col gap-4 rounded-2xl border border-line bg-panel p-6 sm:p-8">
         <KeyRound aria-hidden className="size-7 text-ink-muted" />
         <h1 id="admin-setup" className="text-2xl">
           Panel moderasi belum tersambung ke database

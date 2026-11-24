@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const card = 'flex min-w-0 flex-col gap-5 rounded-[20px] border border-line bg-panel p-5 sm:p-6';
+const card = 'flex min-w-0 flex-col gap-5 rounded-2xl border border-line bg-panel p-5 sm:p-6';
 const sectionTitle = 'text-[18px] font-bold tracking-[-0.02em]';
 
 function statusLine(registration: EventRegistration): string {
@@ -326,7 +326,7 @@ function Answers({ registration, fields }: { registration: EventRegistration; fi
 
 function CancelRegistration({ registrationId, returnTo, paid }: { registrationId: string; returnTo: string; paid: boolean }) {
   return (
-    <details className="group rounded-[20px] border border-line">
+    <details className="group rounded-2xl border border-line">
       <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 text-[15px] font-semibold [&::-webkit-details-marker]:hidden">
         Batalkan pendaftaran
         <ChevronDown aria-hidden className="size-4 transition-transform duration-200 ease-snap group-open:rotate-180" />

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Plus } from 'lucide-react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
 import { EventCard } from '@/components/event/event-card';
 import { TrendingStrip, trendingItems } from '@/components/event/trending-strip';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
@@ -21,8 +21,9 @@ import { faqJsonLd } from '@/lib/structured-data';
 /**
  * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. "Segera ditutup"
  * memakai kegiatan sungguhan dari repository; cuplikan `#cara-kerja`
- * (`LandingTour`) hanya memperagakan perilaku yang ada di produksi
- * (ADR-065) dan tampil sebagai video saja, tanpa teks panduan (ADR-081).
+ * (`LandingTour`, kolom kanan hero sejak ADR-099) hanya memperagakan
+ * perilaku yang ada di produksi (ADR-065) dan tampil sebagai video saja,
+ * tanpa teks panduan (ADR-081).
  * Setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem — klaim
  * pemasaran yang tidak bisa dipertanggungjawabkan adalah kerugian nyata bagi
  * yang mempercayainya (ADR-039 #4).
@@ -129,7 +130,7 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
       <RevealObserver />
       {/* Satu-satunya notice yang mendarat di sini: akun baru saja dihapus (ADR-061). */}
       <ActionFeedback params={params} className="container-page max-w-[1120px] pt-6" />
-      <LandingHero types={types} shortcuts={SHORTCUTS} />
+      <LandingHero types={types} shortcuts={SHORTCUTS} tour={<LandingTour samples={samples} />} />
 
       <TeamMatchingSection className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')} />
 
@@ -165,8 +166,6 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
           </ul>
         </section>
       )}
-
-      <LandingTour samples={samples} />
 
       <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>
         <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -214,10 +213,11 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
             {FAQS.map((faq, index) => (
               <details key={faq.q} name="faq" open={index === 0} className="group border-b border-line">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-5 text-[16.5px] font-semibold tracking-[-0.015em] [&::-webkit-details-marker]:hidden">
-                  <span>{faq.q}</span>
-                  <Plus aria-hidden className="size-[18px] shrink-0 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-45" />
+                  <span className="underline decoration-transparent underline-offset-4 transition-colors duration-150 ease-snap group-hover:decoration-line-strong">{faq.q}</span>
+                  {/* Chevron berputar 180° (ADR-099): arah = keadaan — bawah tertutup, atas terbuka. */}
+                  <ChevronDown aria-hidden className="size-[18px] shrink-0 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-180" />
                 </summary>
-                <p className="enter pb-6 pr-10 text-[15px] leading-relaxed text-ink-muted [animation-duration:450ms]">{faq.a}</p>
+                <p className="enter pb-6 pr-10 text-[15px] leading-relaxed text-ink-muted">{faq.a}</p>
               </details>
             ))}
           </div>

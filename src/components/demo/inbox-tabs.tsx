@@ -11,7 +11,7 @@ export function InboxTabs({ active, description }: { active: 'pesan' | 'diskusi'
     { key: 'diskusi', label: 'Ruang diskusi', href: '/discussions', icon: Hash },
   ] as const;
   return (
-    <div className="enter flex flex-col gap-4 [animation-duration:800ms] sm:flex-row sm:items-end sm:justify-between">
+    <div className="enter flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex items-end gap-6">
         <div className="flex flex-col gap-2">
           <p className="font-display text-[clamp(28px,4vw,36px)] font-bold leading-none tracking-[-0.03em]">

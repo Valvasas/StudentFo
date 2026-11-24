@@ -155,6 +155,14 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   Lebar ≥ sm/lg tidak berarti ada mouse — iPad 820–1194px dipakai dengan jari
   (ADR-059, `touch-targets.spec.ts` § tablet sentuh). Alternatifnya: perluas
   area sentuh lewat `::after` seperti `Button size="sm"`.
+- Token gerak/warna/radius HANYA di `globals.css` §1 (ADR-099): satu gerakan
+  150–400ms lewat `--duration-*`, jeda berurutan `--stagger`, hanya
+  `transform`/`opacity` (bilah progres = `scaleX`, bukan `width`). Kartu baru =
+  `rounded-2xl`; amber (`highlight`) = penekanan, tidak pernah warna teks atau
+  warna aksi. Angkat kartu = `card-lift` (pengecualian bernama: hover-capable
+  saja, area sorot diperpanjang). View Transitions HANYA lewat
+  `TransitionLink` (daftar → detail); daftar yang diurutkan ulang server =
+  `FlipList`; angka yang menghitung = `CountUp`.
 - Transisi 150–200ms, tanpa `translate`/`scale` pada TARGET klik. Pengecualiannya
   **animasi** (bukan transisi) yang berjalan sendiri dan tidak pernah
   menggeser target klik: `ticker-track` (pita tenggat), `reveal`, bilah
@@ -174,8 +182,8 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   global reduced-motion hanya menolkan durasi CSS, BUKAN gerak yang digerakkan
   JS: setiap gerak JS (seret, balik, terbang) wajib membaca `isMotionReduced()`
   (`lib/motion-pref.ts`) dan melompat ke keadaan akhir. Jangan memakai WAAPI
-  `element.animate()`, View Transitions, atau pegas rAF untuk gerak antarmuka
-  (ADR-058). Elemen hanya-JS (tombol Lewati/Balik) tidak dirender sebelum
+  `element.animate()` atau pegas rAF untuk gerak antarmuka (ADR-058); View
+  Transitions hanya lewat `TransitionLink` (ADR-099). Elemen hanya-JS (tombol Lewati/Balik) tidak dirender sebelum
   hidrasi — tidak ada tombol mati di HTML server. Anak dekoratif DI DALAM target (ikon panah) boleh
   bergeser saat hover — kotak sentuhnya sendiri tetap diam.
 - Tombol "ditekan" = bayangan inset + isi turun 1px (`active:pt-0.5` hanya pada

@@ -110,7 +110,7 @@ export default async function BeforeRegisterPage({
 
         <ActionFeedback params={query} />
 
-        <form action={submitOutboundSurveyAction} className="flex flex-col gap-6 rounded-[20px] border border-line bg-panel p-5 sm:p-7">
+        <form action={submitOutboundSurveyAction} className="flex flex-col gap-6 rounded-2xl border border-line bg-panel p-5 sm:p-7">
           <input type="hidden" name="slug" value={event.slug} />
           {/* Honeypot — tersembunyi dari manusia dan pembaca layar, pola /submit. */}
           <div aria-hidden className="absolute -left-[9999px] size-px overflow-hidden">

@@ -97,7 +97,7 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-10">
         <article className="flex min-w-0 flex-col gap-8">
-          <header className="enter overflow-hidden rounded-[28px] border border-line bg-panel [animation-duration:900ms]">
+          <header className="enter overflow-hidden rounded-[28px] border border-line bg-panel">
             <div className="dot-grid relative bg-panel-nested px-6 pb-14 pt-6 sm:px-9 sm:pt-8">
               <SparkleDoodle className="drift absolute right-[8%] top-[22%] hidden size-7 sm:block" />
               <div className="flex flex-wrap items-center gap-2">
@@ -128,7 +128,7 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
             </div>
           </header>
 
-          <section aria-labelledby="anggota" className="enter flex flex-col gap-4 [animation-delay:100ms] [animation-duration:800ms]">
+          <section aria-labelledby="anggota" className="enter flex flex-col gap-4 [animation-delay:100ms]">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 id="anggota" className="text-[22px] font-bold tracking-[-0.025em]">
                 Anggota
@@ -138,14 +138,14 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
               </p>
             </div>
             {team.members.length === 0 && team.memberCount > 0 && (
-              <p className="rounded-[18px] border border-dashed border-line-strong p-4 text-sm text-ink-muted">Nama anggota hanya terlihat oleh pengguna yang sudah masuk.</p>
+              <p className="rounded-2xl border border-dashed border-line-strong p-4 text-sm text-ink-muted">Nama anggota hanya terlihat oleh pengguna yang sudah masuk.</p>
             )}
 
             <ul className="grid gap-3 sm:grid-cols-2">
               {team.members.map((member, index) => {
                 const isSelf = user !== null && member.userId === user.id;
                 return (
-                  <li key={member.userId} className="rise flex flex-col gap-3 rounded-[20px] border border-line bg-panel p-4" style={{ '--i': index } as CSSProperties}>
+                  <li key={member.userId} className="rise flex flex-col gap-3 rounded-2xl border border-line bg-panel p-4" style={{ '--i': index } as CSSProperties}>
                     <div className="flex items-center gap-3">
                       <Avatar name={member.fullName} seed={member.userId} photo={photos[member.userId]} size="lg" />
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -195,7 +195,7 @@ export default async function TeamDetailPage({ params, searchParams }: { params:
                 );
               })}
               {Array.from({ length: Math.min(left, 6) }, (_, index) => (
-                <li key={`kosong-${index}`} className="flex items-center gap-3 rounded-[20px] border-2 border-dashed border-line-strong/80 p-4">
+                <li key={`kosong-${index}`} className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-line-strong/80 p-4">
                   <span aria-hidden className="breathe flex size-14 shrink-0 items-center justify-center rounded-pill border-2 border-dashed border-line-strong font-mono text-lg text-ink-muted">
                     +
                   </span>

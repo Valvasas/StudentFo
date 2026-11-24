@@ -186,7 +186,7 @@ export function IncomingRequestCard({
       </div>
       {connection.message ? (
         // Gelembung berekor ke arah avatar: pesan ini kalimat orangnya, bukan teks sistem.
-        <blockquote className="relative ml-2 rounded-[18px] rounded-tl-[4px] bg-panel-nested px-4 py-3 text-[14px] leading-relaxed">
+        <blockquote className="relative ml-2 rounded-2xl rounded-tl-[4px] bg-panel-nested px-4 py-3 text-[14px] leading-relaxed">
           <span aria-hidden className="absolute -top-2 left-0 size-3 bg-panel-nested [clip-path:polygon(0_0,100%_100%,0_100%)]" />“{connection.message}”
         </blockquote>
       ) : (
@@ -250,7 +250,7 @@ export function ConnectionRow({ connection, returnTo, now, photo = null }: { con
         >
           <Ellipsis aria-hidden className="size-4" />
         </summary>
-        <div className="pop mb-1 mt-3 flex flex-col gap-2 rounded-[16px] border border-line bg-panel p-4">
+        <div className="pop mb-1 mt-3 flex flex-col gap-2 rounded-2xl border border-line bg-panel p-4">
           <p className="text-[13px] leading-snug">Putuskan koneksi dengan {person.fullName}? Dia tidak diberi tahu.</p>
           <form action={removeConnectionAction}>
             <input type="hidden" name="returnTo" value={returnTo} />

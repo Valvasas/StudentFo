@@ -49,8 +49,8 @@ function ThemeThumb({ value }: { value: ThemePreference }) {
       </span>
     </span>
   );
-  const light = page('#faf8f3', '#ffffff', '#1d1b17', '#d6d0c4');
-  const dark = page('#15140f', '#24221c', '#efebe1', '#575245');
+  const light = page('#faf9f5', '#ffffff', '#1d1b17', '#d6d0c4');
+  const dark = page('#141311', '#24221c', '#efebe1', '#575245');
 
   return (
     <span aria-hidden className="relative block h-[84px] overflow-hidden rounded-[10px] border border-line">
@@ -81,7 +81,7 @@ function OptionCard({
   return (
     <label
       className={cn(
-        'relative flex cursor-pointer flex-col gap-2.5 rounded-[16px] border bg-panel p-2.5 pb-3 transition-[border-color,background-color,box-shadow] duration-150 ease-snap',
+        'relative flex cursor-pointer flex-col gap-2.5 rounded-2xl border bg-panel p-2.5 pb-3 transition-[border-color,background-color,box-shadow] duration-150 ease-snap',
         'hover:border-line-strong has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus',
         checked ? 'border-ink bg-panel-nested shadow-[inset_0_0_0_1px_var(--color-text-primary)]' : 'border-line',
       )}

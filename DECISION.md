@@ -12,6 +12,79 @@ terdokumentasi.
 
 ---
 
+## ADR-099 — Fase 4: token satu tempat, gerak untuk fungsi, View Transitions terbatas, metadata di `<head>` (24 Nov 2026)
+
+**Konteks:** Pemilik meminta motion yang menunjukkan status, urgensi, dan
+perubahan — bukan dekorasi — dengan batas keras: hanya `transform`/`opacity`,
+150–400ms, hormati reduced-motion, 60fps di ponsel menengah ke bawah, CLS <
+0,1, token di satu tempat, aksen amber #FACC15 di atas kertas #FAF9F5 / arang
+#141311, kartu `rounded-2xl`. Beberapa permintaan bertabrakan dengan keputusan
+lama: "tanpa translate pada target klik" (CONVENTIONS), larangan View
+Transitions (ADR-058, ditolak di ADR-053), dan urgensi tanpa hue (ADR-064).
+
+**Keputusan:**
+1. **Token.** `globals.css` §1 tetap satu-satunya sumber: palet baru, skala
+   radius (kartu 16px `rounded-2xl` — 108 radius lepas 16/18/20px
+   dinormalkan), durasi (`--duration-micro/transition/layout/reveal/enter`),
+   `--stagger`, `--reveal-distance`, `--lift`, `--easing-exit`. Amber =
+   penekanan (stabilo, lencana, tenggat dekat, cahaya hero), BUKAN warna aksi
+   dan tidak pernah warna teks (1,5:1 di kertas); tinta di atasnya 11,2:1.
+2. **Durasi & properti.** Semua animasi masuk dipindah ke token (≤ 400ms;
+   55 `[animation-duration:…]` lepas dihapus). Yang dulu menganimasikan tata
+   letak/cat diganti: bilah progres navigasi/formulir/profil → `scaleX`,
+   kilau kerangka → lapisan yang digeser, ketikan tur → penutup yang digeser,
+   centang → skala. Pengecualian yang disengaja: `--count-up` (angka memang
+   berubah; lebarnya dipesan per digit), garis SVG `stroke-dashoffset`
+   (ilustrasi `aria-hidden`, sekali jalan), dan RANGKAIAN panjang yang
+   tersusun dari gerakan pendek (tur 5,6 dtk/adegan, pemindaian ADR-057,
+   konfeti) — semuanya mati di reduced-motion.
+3. **Angkat kartu** (`card-lift`): pengecualian dari "tanpa translate pada
+   target klik" — hanya `(hover: hover) and (pointer: fine)` + tanpa
+   reduced-motion, pita `::after` setinggi angkatan mencegah kartu naik-turun
+   di tepi bawah, cahaya = opasitas lapisan `::before`.
+4. **Urgensi** menambah satu anak tangga berwarna: H-3..H-1 pil amber + titik
+   berdenyut (`due-soon`, `isDueSoon`); hari-H pil tinta + hitung mundur jam
+   yang berdetak 30 dtk (`DeadlineTag live`). Tidak ada hitung mundur detik
+   untuk tenggat berhari-hari: banyak tenggat hanya bertanggal (ADR-064 tetap).
+5. **View Transitions** dibuka SEBAGIAN (mengubah ADR-058/053): hanya daftar →
+   detail lewat `TransitionLink` (`document.startViewTransition` + `router.push`,
+   selesai saat `ViewTransitionBridge` melihat pathname baru atau setelah
+   1,5 dtk). Hanya bila didukung, gerak tidak dikurangi, dan koneksi tidak
+   `2g/3g`/hemat data — transisi MEMBEKUKAN layar lama sampai halaman baru
+   siap. Nama `vt-event-title` dipasang di kartu yang diklik saja; pasangan di
+   detail (`.vt-title`) hanya bernama saat `html[data-vt='morph']`. Poster
+   tidak ikut terbang (di ponsel galeri ada di bawah lipatan). Prefetch
+   halaman detail saat kursor berhenti 120ms di kartu. `<ViewTransition>`
+   React tidak dipakai: hanya ada di kanal eksperimental.
+6. **Papan lamaran:** isian tahap = `scaleX` bertransisi (ruas terisi
+   berurutan); `FlipList` meluncurkan kartu ke posisi barunya bila daftar
+   berubah (hapus, urungkan, saringan tahap).
+7. **Hero:** cuplikan lima alur pindah ke kolom kanan hero (satu-satunya gerak
+   besar di layar pertama), tinggi panggung dipesan per lebar wadah (diukur:
+   460/388/400px) → berganti adegan tidak menggeser halaman. Cahaya amber
+   radial 8% statis, khusus tema gelap.
+8. **Kerangka:** `loading.tsx` tetap ditolak (soft-404 & tanpa-JS). Satu
+   Suspense + kerangka hanya untuk "Cari rekan tim" milik ANGGOTA di detail
+   (bukan isi inti; status 404 sudah diputuskan sebelum batasnya) + `<noscript>`.
+9. **Metadata di `<head>`:** `htmlLimitedBots: /.*/`. Streaming metadata Next
+   15.2+ menaruh canonical/description/robots di `<body>` untuk peramban &
+   Googlebot dan React tidak memindahkannya; Google hanya menerima canonical
+   di `<head>`. Tanpa Suspense di sekitar halaman, streaming itu tidak
+   mempercepat apa pun.
+
+**Ditolak:** pustaka `motion`/Framer (puluhan KB JS untuk yang bisa CSS),
+hitung mundur detik di semua kartu, `backdrop-filter` lebih tebal di navbar
+(sudah 95% pekat; blur lebih besar mahal saat gulir di ponsel lemah), skeleton
+per halaman.
+
+**Konsekuensi:** CONVENTIONS diperbarui (angkat kartu & View Transitions
+sebagai pengecualian bernama). Lighthouse mobile lokal: Performa 91–95,
+Aksesibilitas 100, SEO 100, CLS 0. Sisa: font tidak dipreload di HTML awal
+(TASKS P2). Anggota tanpa JS melihat kerangka + tautan pencocokan tim alih-alih
+kandidat.
+
+---
+
 ## ADR-098 — Prestasi terverifikasi moderator, peringkat kampus transparan, portofolio publik opt-in, "Cari rekan tim" di halaman lomba (25 Nov 2026)
 
 **Konteks:** Fase 3 permintaan pemilik (24 Nov): leaderboard kampus &

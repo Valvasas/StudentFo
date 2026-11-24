@@ -60,7 +60,7 @@ export function OrganizerLanding({ host }: { host: string }) {
     <div className="overflow-x-clip pb-4">
       <RevealObserver />
       <section className="container-page flex flex-col items-center pt-[clamp(48px,9vw,96px)] text-center">
-        <div className="enter flex flex-col items-center [animation-duration:700ms]">
+        <div className="enter flex flex-col items-center">
           <p className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
             <BadgeCheck aria-hidden className="size-4" />
             Studio Penyelenggara
@@ -159,7 +159,7 @@ export function OrganizerLanding({ host }: { host: string }) {
                   <span>{faq.q}</span>
                   <Plus aria-hidden className="size-[18px] shrink-0 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-45" />
                 </summary>
-                <p className="enter pb-6 pr-10 text-[15px] leading-relaxed text-ink-muted [animation-duration:450ms]">{faq.a}</p>
+                <p className="enter pb-6 pr-10 text-[15px] leading-relaxed text-ink-muted">{faq.a}</p>
               </details>
             ))}
           </div>
@@ -167,7 +167,7 @@ export function OrganizerLanding({ host }: { host: string }) {
       </section>
 
       <section aria-labelledby="cta-penyelenggara-title" className={sectionClass}>
-        <div data-reveal="" className="flex flex-col items-start gap-4 rounded-[20px] bg-inverse px-[clamp(24px,5vw,48px)] py-[clamp(32px,5vw,48px)] text-on-inverse">
+        <div data-reveal="" className="flex flex-col items-start gap-4 rounded-2xl bg-inverse px-[clamp(24px,5vw,48px)] py-[clamp(32px,5vw,48px)] text-on-inverse">
           <h2 id="cta-penyelenggara-title" className="max-w-[22ch] text-[clamp(26px,3.6vw,36px)] font-bold leading-[1.1] tracking-[-0.03em] text-on-inverse">
             Acara berikutnya, pendaftarnya langsung rapi.
           </h2>

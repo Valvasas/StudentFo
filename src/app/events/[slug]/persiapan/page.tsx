@@ -92,7 +92,7 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
 
       <div className="container-page grid items-start gap-8 pt-8 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-[92px]">
-          <div className="flex flex-col gap-2 rounded-[18px] bg-inverse p-5 text-on-inverse">
+          <div className="flex flex-col gap-2 rounded-2xl bg-inverse p-5 text-on-inverse">
             <span className="text-[12.5px] text-on-inverse-muted">{EVENT_TYPE_LABEL[event.eventType]}</span>
             <h1 className="text-[19px] font-semibold leading-snug tracking-[-0.02em] text-on-inverse">{event.title}</h1>
             <span className="text-[13px] text-on-inverse-muted">{event.organizer}</span>
@@ -136,7 +136,7 @@ export default async function PreparePage({ params, searchParams }: { params: Pr
           </nav>
         </aside>
 
-        <section aria-labelledby="langkah-title" className="enter flex min-w-0 flex-col gap-5 rounded-[18px] border border-line bg-panel p-5 [animation-duration:450ms] sm:p-7">
+        <section aria-labelledby="langkah-title" className="enter flex min-w-0 flex-col gap-5 rounded-2xl border border-line bg-panel p-5 sm:p-7">
           <div className="flex flex-col gap-1.5">
             <span className="font-mono text-xs text-ink-muted">
               Langkah {index + 1} dari {steps.length}

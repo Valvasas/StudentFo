@@ -142,6 +142,8 @@ export function MediaSlider({ slides, label }: { slides: readonly MediaSlide[]; 
                     height={slide.height}
                     sizes={SLIDE_SIZES}
                     loading={index === 0 ? 'eager' : 'lazy'}
+                    // Gambar pertama = kandidat LCP halaman detail di layar lebar.
+                    fetchPriority={index === 0 ? 'high' : undefined}
                     className="relative size-full object-contain"
                   />
                   {slide.isPoster && (
@@ -189,7 +191,7 @@ export function MediaSlider({ slides, label }: { slides: readonly MediaSlide[]; 
                     <span
                       aria-hidden
                       className={cn(
-                        'block h-2 rounded-pill transition-[width,background-color] duration-150 ease-snap',
+                        'block h-2 rounded-pill transition-colors duration-150 ease-snap',
                         index === active ? 'w-6 bg-ink' : 'w-2 bg-line-strong group-hover:bg-ink-muted',
                       )}
                     />

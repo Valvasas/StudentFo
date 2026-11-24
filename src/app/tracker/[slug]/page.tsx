@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 function Panel({ id, icon, title, children, className }: { id: string; icon: ReactNode; title: string; children: ReactNode; className?: string }) {
   return (
-    <section aria-labelledby={id} className={cn('flex flex-col gap-3 rounded-[18px] border border-line p-5 sm:p-6', className)}>
+    <section aria-labelledby={id} className={cn('flex flex-col gap-3 rounded-2xl border border-line p-5 sm:p-6', className)}>
       <h2 id={id} className="flex items-center gap-2.5 text-base font-semibold">
         <span aria-hidden className="flex size-8 items-center justify-center rounded-[9px] bg-panel-nested">
           {icon}
@@ -221,7 +221,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
       <div className="flex flex-col gap-6">
         <BackLink href="/tracker" label="Papan lamaran" className="-mb-2" />
 
-        <header className="enter flex flex-col gap-3 [animation-duration:800ms]">
+        <header className="enter flex flex-col gap-3">
           <span className="font-mono text-xs tracking-[.08em] text-ink-muted">PROSES PENDAFTARAN · {EVENT_TYPE_LABEL[event.eventType].toUpperCase()}</span>
           <h1 className="max-w-[24ch] text-[clamp(28px,4vw,40px)] leading-[1.08] tracking-[-0.04em]">{event.title}</h1>
           <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13.5px] text-ink-muted">
@@ -239,7 +239,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
         <ActionFeedback params={query} className="max-w-2xl" />
         <UndoBar params={query} returnTo={returnTo} titles={new Map([[event.id, event.title]])} className="max-w-2xl" />
 
-        <div className="enter rounded-[18px] border border-line p-5 [animation-delay:80ms] [animation-duration:800ms] sm:p-6">
+        <div className="enter rounded-2xl border border-line p-5 [animation-delay:80ms] sm:p-6">
           <TrackerSteps item={item} />
         </div>
 
@@ -370,7 +370,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
               </Panel>
             )}
 
-            <section aria-labelledby="ubah-title" className="flex flex-col gap-3 rounded-[18px] bg-panel-nested p-5">
+            <section aria-labelledby="ubah-title" className="flex flex-col gap-3 rounded-2xl bg-panel-nested p-5">
               <h2 id="ubah-title" className="text-sm font-semibold">
                 Ubah tahap manual
               </h2>

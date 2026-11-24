@@ -971,3 +971,19 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] P2 Bukti berupa foto sertifikat (bucket privat, hanya pemilik & moderator) — sengaja belum: sertifikat sering memuat NIK
 - [ ] P3 Pemilihan kandidat "Cari rekan tim" belum memakai saringan jenjang/jarak `/teams/cocok`; pakai bawaan "seimbang"
 
+
+## Fase 4 — UI & motion 2026-11-24 (@claude) — ADR-099
+
+- [x] Token satu tempat (`globals.css` §1): kertas #FAF9F5 / arang #141311, aksen amber #FACC15 (penekanan, bukan aksi), skala radius (kartu = `rounded-2xl`), durasi/easing/stagger/jarak reveal/angkat
+- [x] Hero: cuplikan lima alur di kolom kanan (container query, tinggi panggung dipesan → CLS 0), cahaya amber statis khusus tema gelap; `hero-sketch.tsx` dihapus
+- [x] Angka kategori hero menghitung naik sekali (`CountUp`, CSS `@property` + RevealObserver, teks asli tetap untuk pembaca layar/tanpa JS)
+- [x] Kartu: angkat 3px + garis cahaya (hover-capable saja, area sorot diperpanjang); tenggat H-3..H-1 = pil amber + titik berdenyut; hari-H = hitung mundur jam yang hidup
+- [x] Reveal 360ms/14px + stagger 50ms (`--reveal-i`); semua animasi masuk ≤ 400ms; `width`/`background-position`/`max-width` → `transform`
+- [x] Papan lamaran: isian tahap ber-transisi + `FlipList` (kartu meluncur saat daftar berubah)
+- [x] Daftar → detail: View Transitions (`TransitionLink`, judul "terbang"), hanya bila didukung, gerak tidak dikurangi, koneksi tidak lambat; batas beku 1,5 dtk
+- [x] Kerangka "Cari rekan tim" (anggota, Suspense) + `<noscript>`; simpan optimistis tetap (`BookmarkSubmit`)
+- [x] FAQ: chevron berputar 180°, garis bawah bertransisi; LCP poster detail `fetchPriority="high"`
+- [x] Metadata selalu di `<head>` (`htmlLimitedBots: /.*/`) — canonical/`noindex` sebelumnya ter-stream ke `<body>`
+- [x] Lighthouse mobile lokal (mode seed): `/` 95·100·100, `/events` median 91·100·100, detail 95·100·100, `/leaderboard` 93·100·100 (Performa·A11y·SEO), CLS 0
+- [ ] P2 Font tidak dipreload di HTML awal (hint hanya di payload RSC) → di 4G lambat font tiba ±3 dtk dan LCP teks ikut mundur; selidiki interaksi nonce CSP/`headers()` di root layout, atau `display: 'optional'`
+- [ ] P3 Bawa `TransitionLink` ke daftar lain (`TrendingStrip`, papan lomba) bila diinginkan

@@ -40,7 +40,7 @@ export function GraphDetail({
   const others = neighbors.filter((item) => !item.person && item.kind !== 'me');
 
   return (
-    <section aria-label={`Detail: ${node.label}`} className="pop flex flex-col gap-3.5 rounded-[16px] border border-line bg-panel p-4 shadow-overlay md:shadow-raised">
+    <section aria-label={`Detail: ${node.label}`} className="pop flex flex-col gap-3.5 rounded-2xl border border-line bg-panel p-4 shadow-overlay md:shadow-raised">
       <div className="flex items-start gap-3">
         {person || node.kind === 'me' ? (
           <span

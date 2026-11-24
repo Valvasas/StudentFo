@@ -11,7 +11,16 @@ import { timeLeftToday } from '@/lib/deadline';
  * cemas tanpa mengubah keputusan apa pun. Bukan `aria-live`: pengumuman tiap
  * 30 detik akan memotong apa pun yang sedang dibacakan.
  */
-export function TimeLeftToday({ deadlineAt, renderedAt }: { deadlineAt: string; renderedAt: number }) {
+export function TimeLeftToday({
+  deadlineAt,
+  renderedAt,
+  variant = 'line',
+}: {
+  deadlineAt: string;
+  renderedAt: number;
+  /** `inline` = teks saja, di dalam pil tenggat yang sudah punya titiknya sendiri. */
+  variant?: 'line' | 'inline';
+}) {
   const [now, setNow] = useState(renderedAt);
 
   useEffect(() => {
@@ -21,6 +30,7 @@ export function TimeLeftToday({ deadlineAt, renderedAt }: { deadlineAt: string; 
   }, []);
 
   const left = timeLeftToday(deadlineAt, new Date(now));
+  if (variant === 'inline') return <>{left ? `Tutup dalam ${left}` : 'Baru saja ditutup'}</>;
   return (
     <span className="inline-flex items-center gap-2 text-sm font-semibold tabular-nums">
       <span aria-hidden className="urgency-dot size-2 shrink-0 rounded-pill bg-due-urgent" />

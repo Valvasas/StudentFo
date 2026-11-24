@@ -36,7 +36,7 @@ export function FeatureHero({
 }) {
   return (
     <header className={cn('grid items-center gap-8', stage && 'lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14', className)}>
-      <div className="enter flex min-w-0 flex-col gap-5 [animation-duration:900ms]">
+      <div className="enter flex min-w-0 flex-col gap-5">
         {note && <p className="-mb-2 text-[13.5px] font-medium text-ink-muted">{note}</p>}
         <h1 className="text-[clamp(32px,6vw,54px)] leading-[1.02] tracking-[-0.035em]">{title}</h1>
         <p className="max-w-[50ch] text-[16.5px] leading-relaxed text-ink-muted">{description}</p>
@@ -44,7 +44,7 @@ export function FeatureHero({
         {children}
       </div>
       {stage && (
-        <div className={cn('enter min-w-0 [animation-delay:140ms] [animation-duration:1000ms]', stageFrom === 'lg' && 'hidden lg:block')}>{stage}</div>
+        <div className={cn('enter min-w-0 [animation-delay:140ms]', stageFrom === 'lg' && 'hidden lg:block')}>{stage}</div>
       )}
     </header>
   );
@@ -79,7 +79,7 @@ export function IllustrationStage({ tint, children, className }: { tint: Tint; c
 export function StatTile({ icon: Icon, value, label, index = 0 }: { icon: LucideIcon; value: number | string; label: string; index?: number }) {
   return (
     <div
-      className="rise flex min-w-0 flex-col gap-1 rounded-[18px] border border-line bg-panel px-2.5 py-3 min-[360px]:px-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4"
+      className="rise flex min-w-0 flex-col gap-1 rounded-2xl border border-line bg-panel px-2.5 py-3 min-[360px]:px-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4"
       style={{ '--i': index + 3 } as CSSProperties}
     >
       <span aria-hidden className="hidden size-10 shrink-0 items-center justify-center rounded-[12px] bg-panel-nested sm:flex">

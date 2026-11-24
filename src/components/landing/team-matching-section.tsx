@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { ArrowRight, Handshake, Trophy } from 'lucide-react';
 
 /**
@@ -63,7 +64,12 @@ export function TeamMatchingSection({ className }: { className?: string }) {
 
         <ol className="flex flex-col border-t border-line">
           {STEPS.map((step, index) => (
-            <li key={step.title} data-reveal="" className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 border-b border-line py-6">
+            <li
+              key={step.title}
+              data-reveal=""
+              style={{ '--reveal-i': index } as CSSProperties}
+              className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 border-b border-line py-6"
+            >
               <span className="font-mono text-[13px] font-medium tabular-nums text-ink-muted">
                 <span className="text-ink">{String(index + 1).padStart(2, '0')}</span>/{total}
               </span>

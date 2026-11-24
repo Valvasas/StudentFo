@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { Check, ChevronRight, Eye, Trash2, X } from 'lucide-react';
 import { removeTrackerAction, updateTrackerStatusAction } from '@/app/tracker/actions';
 import { DeadlineTag } from '@/components/event/deadline-tag';
@@ -105,7 +106,13 @@ export function TrackerSteps({ item, className }: { item: TrackerItem; className
         const done = index <= progress.reached;
         return (
           <li key={step} className="flex flex-1 flex-col gap-1.5">
-            <span aria-hidden className={cn('h-1 rounded-[2px]', done ? (progress.rejected && index === progress.reached ? 'bg-ink-muted' : 'bg-brand') : 'bg-line')} />
+            {/* Isian = `scaleX` bertransisi (ADR-099): saat tahap berubah, ruas yang baru tercapai terisi berurutan dari kiri. */}
+            <span aria-hidden className="h-1 overflow-hidden rounded-[2px] bg-line">
+              <span
+                className={cn('step-fill block h-full', progress.rejected && index === progress.reached ? 'bg-ink-muted' : 'bg-brand')}
+                style={{ '--i': index, transform: done ? 'none' : 'scaleX(0)' } as CSSProperties}
+              />
+            </span>
             <span className={cn('hidden text-[11.5px] sm:block', index === progress.reached ? 'font-semibold text-ink' : 'text-ink-muted')}>
               {TRACKER_STEP_LABEL[step]}
             </span>
@@ -126,7 +133,10 @@ export function TrackerCard({ item, returnTo = '/tracker' }: { item: TrackerItem
   const progress = trackerProgress(item.status);
 
   return (
-    <article className="grid gap-x-5 gap-y-3 border-t border-line/70 py-5 first:border-t-0 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+    <article
+      data-flip-key={event.id}
+      className="grid gap-x-5 gap-y-3 border-t border-line/70 py-5 first:border-t-0 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+    >
       <div className="flex min-w-0 items-start gap-3.5">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">

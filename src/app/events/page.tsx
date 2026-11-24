@@ -214,6 +214,8 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           <div className="mt-8">
             {result.items.length > 0 ? (
               <>
+                {/* Judul kartu = h3; tanpa h2 di antaranya urutan judul melompat (Lighthouse/axe `heading-order`). */}
+                <h2 className="sr-only">Daftar kegiatan</h2>
                 <EventGrid events={result.items} savedEventIds={savedEventIds} returnTo={currentHref} />
                 <div className="mt-8">
                   <Pagination query={query} totalPages={result.totalPages} />

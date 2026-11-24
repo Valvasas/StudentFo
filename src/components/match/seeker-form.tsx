@@ -195,7 +195,7 @@ export function SeekerForm({
         </div>
 
         <FormStep number={3} title="Siap dicocokkan?" hint="Kamu yang menentukan kartu ini terlihat atau tidak, kapan saja." className="p-4 sm:p-7 lg:col-start-1">
-          <ul className="flex flex-col gap-2.5 rounded-[16px] bg-panel-nested p-4 text-[13.5px] leading-relaxed text-ink-soft">
+          <ul className="flex flex-col gap-2.5 rounded-2xl bg-panel-nested p-4 text-[13.5px] leading-relaxed text-ink-soft">
             <li className="flex gap-2.5">
               <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
               <span>

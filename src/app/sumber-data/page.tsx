@@ -59,7 +59,7 @@ export default function DataSourcesPage() {
         </p>
       </header>
 
-      <section aria-labelledby="tingkat-verifikasi" className="flex scroll-mt-24 flex-col gap-4 rounded-[18px] border border-line p-5 sm:p-6">
+      <section aria-labelledby="tingkat-verifikasi" className="flex scroll-mt-24 flex-col gap-4 rounded-2xl border border-line p-5 sm:p-6">
         <h2 id="tingkat-verifikasi" className="flex items-center gap-2 text-lg font-semibold">
           <ListChecks aria-hidden className="size-5 text-ink-muted" /> Tingkat verifikasi kegiatan
         </h2>
@@ -90,7 +90,7 @@ export default function DataSourcesPage() {
         </p>
       </section>
 
-      <section aria-labelledby="wilayah" className="flex flex-col gap-3 rounded-[18px] border border-line p-5 sm:p-6">
+      <section aria-labelledby="wilayah" className="flex flex-col gap-3 rounded-2xl border border-line p-5 sm:p-6">
         <h2 id="wilayah" className="flex items-center gap-2 text-lg font-semibold">
           <MapPin aria-hidden className="size-5 text-ink-muted" /> Wilayah administratif
         </h2>
@@ -107,7 +107,7 @@ export default function DataSourcesPage() {
         </p>
       </section>
 
-      <section aria-labelledby="sekolah" className="flex flex-col gap-3 rounded-[18px] border border-line p-5 sm:p-6">
+      <section aria-labelledby="sekolah" className="flex flex-col gap-3 rounded-2xl border border-line p-5 sm:p-6">
         <h2 id="sekolah" className="flex items-center gap-2 text-lg font-semibold">
           <School aria-hidden className="size-5 text-ink-muted" /> Sekolah & perguruan tinggi
         </h2>

@@ -48,7 +48,7 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
         className={cn(
           // Lebih tinggi dari layar laptop 768–900px bila semua grup tampil; tanpa
           // batas + gulir sendiri, "Keluar" tertahan di luar layar selama menempel.
-          'sticky top-[92px] -mx-1 hidden max-h-[calc(100dvh-108px)] flex-none flex-col gap-4 overflow-y-auto overscroll-contain px-1 pb-2 transition-[width] duration-200 ease-snap [scrollbar-width:thin] min-[960px]:flex',
+          'sticky top-[92px] -mx-1 hidden max-h-[calc(100dvh-108px)] flex-none flex-col gap-4 overflow-y-auto overscroll-contain px-1 pb-2 [scrollbar-width:thin] min-[960px]:flex',
           collapsed ? 'w-14 items-center' : 'w-[212px]',
         )}
       >
@@ -58,7 +58,7 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
           className={cn(
             // Layar pendek (laptop 768–900px): kartu ini disembunyikan supaya "Keluar"
             // tidak terdorong keluar layar. Tujuannya tetap ada sebagai item "Profil".
-            'flex flex-col gap-3 rounded-[16px] bg-panel-nested transition-colors duration-200 ease-snap hover:bg-brand-soft [@media(max-height:940px)]:hidden',
+            'flex flex-col gap-3 rounded-2xl bg-panel-nested transition-colors duration-200 ease-snap hover:bg-brand-soft [@media(max-height:940px)]:hidden',
             collapsed ? 'p-1.5' : 'p-3.5',
           )}
         >
@@ -78,7 +78,7 @@ export async function AccountShell({ user, active, children }: { user: AuthUser;
                 <span className="font-semibold">{percent}%</span>
               </span>
               <span aria-hidden className="h-1 overflow-hidden rounded-[2px] bg-line">
-                <span className="block h-full rounded-[2px] bg-brand transition-[width] duration-700 ease-enter" style={{ width: `${percent}%` }} />
+                <span className="block h-full origin-left rounded-[2px] bg-brand transition-transform duration-300 ease-enter" style={{ transform: `scaleX(${percent / 100})` }} />
               </span>
             </span>
           )}

@@ -51,7 +51,7 @@ function BadgeCard({ item, now, index }: { item: BadgeProgress; now: Date; index
   return (
     <article
       aria-labelledby={titleId}
-      className={cn('group rise flex min-w-0 flex-col gap-4 rounded-[20px] border bg-panel p-5', item.tier > 0 ? 'border-line' : 'border-dashed border-line-strong/70')}
+      className={cn('group rise flex min-w-0 flex-col gap-4 rounded-2xl border bg-panel p-5', item.tier > 0 ? 'border-line' : 'border-dashed border-line-strong/70')}
       style={{ '--i': index } as CSSProperties}
     >
       <div className="flex items-start gap-4">
@@ -167,7 +167,7 @@ function BadgeCard({ item, now, index }: { item: BadgeProgress; now: Date; index
 export function BadgeBoard({ progress, now }: { progress: readonly BadgeProgress[] | null; now: Date }) {
   if (!progress) {
     return (
-      <p role="status" className="rounded-[18px] border border-dashed border-line-strong px-5 py-8 text-center text-sm text-ink-muted">
+      <p role="status" className="rounded-2xl border border-dashed border-line-strong px-5 py-8 text-center text-sm text-ink-muted">
         Lencana belum bisa dihitung sekarang. Muat ulang halaman sebentar lagi — tidak ada lencana yang hilang.
       </p>
     );
@@ -181,7 +181,7 @@ export function BadgeBoard({ progress, now }: { progress: readonly BadgeProgress
 
   return (
     <div className="flex flex-col gap-5">
-      <section aria-labelledby="lencana-title" className="flex flex-wrap items-center gap-x-6 gap-y-4 rounded-[20px] border border-line bg-panel-nested p-5 sm:p-6">
+      <section aria-labelledby="lencana-title" className="flex flex-wrap items-center gap-x-6 gap-y-4 rounded-2xl border border-line bg-panel-nested p-5 sm:p-6">
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-1.5">
           <h2 id="lencana-title" className="text-[19px] font-bold tracking-[-0.02em]">
             Lencana

@@ -68,7 +68,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
         <Link
           href="/profile"
-          className="enter group flex items-center gap-4 rounded-[18px] border border-line bg-panel p-4 transition-colors duration-150 ease-snap [animation-duration:600ms] hover:bg-panel-nested sm:p-5"
+          className="enter group flex items-center gap-4 rounded-2xl border border-line bg-panel p-4 transition-colors duration-150 ease-snap hover:bg-panel-nested sm:p-5"
         >
           <SelfAvatar name={user.fullName} photo={user.profileMedia.avatarId} className="size-14 text-[17px]" />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -135,7 +135,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
         <SignOutForm
           className="flex"
-          buttonClassName="press flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[18px] border border-line bg-panel px-5 text-[15px] font-semibold text-danger transition-colors duration-150 ease-snap hover:border-danger-line hover:bg-danger-soft"
+          buttonClassName="press flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl border border-line bg-panel px-5 text-[15px] font-semibold text-danger transition-colors duration-150 ease-snap hover:border-danger-line hover:bg-danger-soft"
         >
           <LogOut aria-hidden className="size-[18px]" />
           Keluar

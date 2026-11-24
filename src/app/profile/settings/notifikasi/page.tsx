@@ -87,7 +87,7 @@ export default async function NotificationSettingsPage({ searchParams }: { searc
           delay={60}
         >
           <form action={updateNotificationPreferencesAction} className="flex flex-wrap items-center gap-3 border-t border-line/70 px-5 py-4 sm:mx-6 sm:px-0">
-            <label className="flex min-h-11 min-w-[240px] flex-1 cursor-pointer items-center justify-between gap-3 rounded-[16px] bg-panel-nested px-4 py-3 transition-colors duration-200 ease-snap has-[:checked]:bg-tint-mint has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
+            <label className="flex min-h-11 min-w-[240px] flex-1 cursor-pointer items-center justify-between gap-3 rounded-2xl bg-panel-nested px-4 py-3 transition-colors duration-200 ease-snap has-[:checked]:bg-tint-mint has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
               <span className="flex flex-col">
                 <span className="text-[14px] font-semibold">Ingatkan aku sebelum tenggat</span>
                 <span className="text-[12.5px] text-ink-muted">

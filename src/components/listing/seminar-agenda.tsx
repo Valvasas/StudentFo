@@ -36,7 +36,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
   return (
     <>
       <div className="container-page flex flex-col gap-8 pb-6 pt-8 sm:pt-12">
-        <div className="enter flex flex-wrap items-end justify-between gap-6 [animation-duration:900ms]">
+        <div className="enter flex flex-wrap items-end justify-between gap-6">
           <div className="flex max-w-[640px] flex-col gap-3">
             <Breadcrumb current="Seminar" />
             <PageTitle>Agenda seminar</PageTitle>
@@ -51,7 +51,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
         </div>
         <section
           aria-label="Filter kegiatan"
-          className="enter border-y border-line py-4 [animation-delay:120ms] [animation-duration:900ms]"
+          className="enter border-y border-line py-4 [animation-delay:120ms]"
         >
           <CollapsibleFilters
             breakpoint="md"
@@ -86,7 +86,7 @@ export function SeminarAgenda({ query, result, categories, savedIds, currentHref
             <section
               key={key}
               aria-label={parts ? `Tutup ${parts.weekday}, ${parts.day} ${parts.month}` : 'Tanggal belum diumumkan'}
-              className="enter grid grid-cols-[minmax(0,1fr)] gap-4 border-b border-line py-8 [animation-duration:800ms] md:grid-cols-[180px_minmax(0,1fr)] md:gap-8"
+              className="enter grid grid-cols-[minmax(0,1fr)] gap-4 border-b border-line py-8 md:grid-cols-[180px_minmax(0,1fr)] md:gap-8"
               style={{ animationDelay: `${groupIndex * 90}ms` }}
             >
               <div className="flex flex-row items-baseline gap-3 self-start md:sticky md:top-[84px] md:flex-col md:items-start md:gap-1">

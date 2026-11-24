@@ -30,7 +30,8 @@ for (const route of ROUTES) {
     expect(csp).toContain("frame-ancestors 'none'");
     expect(nonce, 'CSP tanpa nonce').toBeTruthy();
     // Skrip inline tema harus membawa nonce request ini, bukan nonce basi.
-    const inlineNonces = await page.locator('script:not([src])').evaluateAll((nodes) =>
+    // Blok data JSON-LD tidak dieksekusi, jadi sengaja tanpa nonce (ADR-097, `json-ld.tsx`).
+    const inlineNonces = await page.locator('script:not([src]):not([type="application/ld+json"])').evaluateAll((nodes) =>
       nodes.map((node) => (node as HTMLScriptElement).nonce),
     );
     expect(inlineNonces.length).toBeGreaterThan(0);

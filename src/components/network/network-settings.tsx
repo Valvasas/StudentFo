@@ -63,7 +63,7 @@ export function NetworkSettings({
 
 export function HiddenProfileBanner() {
   return (
-    <div className="enter flex flex-wrap items-center gap-4 rounded-[22px] border border-line bg-highlight-soft px-5 py-4 [animation-duration:500ms]">
+    <div className="enter flex flex-wrap items-center gap-4 rounded-[22px] border border-line bg-highlight-soft px-5 py-4">
       <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-panel">
         <EyeOff className="size-5" />
       </span>

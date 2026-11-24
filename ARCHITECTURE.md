@@ -97,9 +97,11 @@ src/
 │   │                           kotak masuk, buka tim, perayaan + Confetti — ADR-054),
 │   │                           search-shortcut.tsx (pintasan "/" ke kotak cari + petunjuk kbd, ADR-064),
 │   │                           back-link.tsx (BackLink/HistoryLink — kembali hierarkis yang ingat asal), confirm-submit.tsx (`<dialog>` konfirmasi,
-│   │                           `when` bersyarat, ConfirmDialog), unsaved-changes-guard.tsx (penjaga isian belum disimpan, ADR-067)
+│   │                           `when` bersyarat, ConfirmDialog), unsaved-changes-guard.tsx (penjaga isian belum disimpan, ADR-067),
+│   │                           transition-link.tsx (TransitionLink + ViewTransitionBridge, ADR-099), flip-list.tsx (animasi tata letak FLIP),
+│   │                           count-up.tsx (angka menghitung naik, CSS murni)
 │   ├── landing/                GuestLanding + Hero (berpusat pencarian: kotak cari, tab jenis + jumlah buka, ADR-064) — beranda tamu;
-│   │                           hero-sketch.tsx (kolase sketsa beranimasi), landing-tour.tsx (tur pelajar 5 langkah, klien, ADR-065);
+│   │                           landing-tour.tsx (cuplikan 5 alur di kolom kanan hero, klien, ADR-065/099);
 │   │                           product-tour.tsx = mesin tur berpemandu + organizer-tour.tsx = bab penyelenggara di /penyelenggara (ADR-063, ADR-066)
 │   ├── listing/                Lima papan per jenis (Lomba, Beasiswa, Magang, Workshop, Seminar) + listing-ui (primitif tautan),
 │   │                           countdown.tsx (DaysLeft — sisa hari kalender) + time-left-today.tsx (jam di H-0, klien), category-icon.tsx
@@ -163,6 +165,7 @@ src/
 │   ├── deck-state.ts           Riwayat lewati/urungkan + `parseSkipStore` (sessionStorage yang tak dipercaya) [teruji, murni] (ADR-058)
 │   ├── match-filter-release.ts Saringan aktif → kelompok & "lepas satu saringan" untuk chip dan keadaan kosong [teruji, murni] (ADR-058)
 │   ├── motion-pref.ts          `isMotionReduced()` — satu-satunya pintu gerak JS ke preferensi gerak (ADR-058)
+│   ├── view-transition.ts      Kapan daftar → detail memakai View Transitions (dukungan, gerak, koneksi, jenis klik) [teruji, murni] (ADR-099)
 │   ├── geo.ts                  Titik pusat kota Indonesia + jarak haversine dibulatkan 5 km; koordinat rumah tidak pernah disimpan [teruji]
 │   ├── network.ts              Peringkat saran koneksi, alasan, validasi form jaringan, kursor paginasi koneksi [teruji]
 │   ├── network-graph.ts        Data peta koneksi (simpul/sisi, batas) dibangun di server [teruji]

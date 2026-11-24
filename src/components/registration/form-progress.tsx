@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ArrowDown, CircleCheck } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export interface RequiredQuestion {
   /** Nama input jawaban. */
@@ -94,9 +95,10 @@ export function FormProgress({ questions }: { questions: readonly RequiredQuesti
         aria-valuenow={done}
         className="h-1.5 overflow-hidden rounded-pill bg-panel-nested"
       >
+        {/* `scaleX`, bukan `width` (ADR-099): isian bergeser tanpa menata ulang baris. */}
         <div
-          className={complete ? 'h-full rounded-pill bg-success transition-[width] duration-300 ease-snap' : 'h-full rounded-pill bg-brand transition-[width] duration-300 ease-snap'}
-          style={{ width: `${Math.round((done / total) * 100)}%` }}
+          className={cn('h-full origin-left rounded-pill transition-transform duration-300 ease-snap', complete ? 'bg-success' : 'bg-brand')}
+          style={{ transform: `scaleX(${total > 0 ? done / total : 0})` }}
         />
       </div>
     </div>

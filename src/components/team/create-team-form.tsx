@@ -113,7 +113,7 @@ export function CreateTeamForm({
             </SelectInput>
           </div>
           {event ? (
-            <div className="fade-in flex items-center gap-3.5 rounded-[16px] bg-panel-nested p-3.5" key={event.id}>
+            <div className="fade-in flex items-center gap-3.5 rounded-2xl bg-panel-nested p-3.5" key={event.id}>
               <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-panel">
                 <EventTypeIcon type={event.eventType} className="size-[18px]" />
               </span>
@@ -284,7 +284,7 @@ export function CreateTeamForm({
         <div inert className="pointer-events-none select-none">
           <TeamCard team={preview} currentUserId={leader.id} showEvent missingEventLabel="Kegiatan belum dipilih" />
         </div>
-        <div className="flex flex-col gap-3 rounded-[20px] bg-panel-nested p-5">
+        <div className="flex flex-col gap-3 rounded-2xl bg-panel-nested p-5">
           <span className="flex items-center gap-2 text-[14px] font-semibold">
             <Lightbulb aria-hidden className="size-4" /> Biar cepat terisi
           </span>

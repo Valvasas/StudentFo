@@ -155,7 +155,7 @@ export default async function ProfileDetailsPage({ searchParams }: { searchParam
     <AccountShell user={user} active="data">
       <div className="flex max-w-[820px] flex-col gap-5">
         <BackLink href="/profile" label="Profil" via={PROFILE_EDIT_ORIGINS} className="-mb-3" />
-        <div className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
+        <div className="enter flex flex-col gap-2.5">
           <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Data diri</h1>
           <p className="max-w-[60ch] text-[15.5px] leading-relaxed text-ink-muted">
             Isi sekali, dipakai berulang. Jenjang dan program studimu menentukan lomba dan beasiswa yang kami tandai cocok.

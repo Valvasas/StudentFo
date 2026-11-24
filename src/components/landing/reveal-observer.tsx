@@ -3,9 +3,10 @@
 import { useEffect } from 'react';
 
 /**
- * Menjalankan animasi `[data-reveal]` saat elemen masuk layar. Lihat
- * globals.css §5: CSS baru menyembunyikan elemen setelah komponen ini
- * menandai <html>, jadi tanpa JS semuanya tetap tampil.
+ * Menjalankan animasi `[data-reveal]` (globals.css §5) dan penghitung
+ * `[data-count-up]` (§14, `CountUp`) saat elemen masuk layar. CSS baru
+ * menyembunyikan/mengganti apa pun setelah komponen ini menandai <html>,
+ * jadi tanpa JS semuanya tetap tampil apa adanya.
  */
 export function RevealObserver() {
   useEffect(() => {
@@ -24,7 +25,7 @@ export function RevealObserver() {
     // Yang sudah terlihat saat halaman dibuka langsung ditandai terungkap,
     // supaya tidak berkedip hilang lalu muncul lagi.
     const viewportBottom = window.innerHeight;
-    for (const element of document.querySelectorAll('[data-reveal]')) {
+    for (const element of document.querySelectorAll('[data-reveal], [data-count-up]')) {
       if (element.getBoundingClientRect().top < viewportBottom) element.setAttribute('data-revealed', '');
       else observer.observe(element);
     }

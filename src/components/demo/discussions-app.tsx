@@ -260,7 +260,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
               aria-current={active ? 'true' : undefined}
               onClick={() => pickGroup(item.id)}
               className={cn(
-                'flex min-h-16 items-center gap-3 rounded-[18px] border px-2.5 py-2.5 text-left transition-[background-color,border-color] duration-150',
+                'flex min-h-16 items-center gap-3 rounded-2xl border px-2.5 py-2.5 text-left transition-[background-color,border-color] duration-150',
                 active ? 'border-line bg-panel shadow-card' : 'border-transparent hover:bg-panel/70',
               )}
             >
@@ -282,7 +282,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
       {/* Menemukan grup baru adalah tugas sesekali; membacanya di bawah grupmu
           setiap kali membuka halaman hanya menambah daftar yang harus dilewati. */}
       {discover.length > 0 && (
-        <details className="group/temukan flex flex-col gap-1 rounded-[18px] border border-dashed border-line-strong p-1.5">
+        <details className="group/temukan flex flex-col gap-1 rounded-2xl border border-dashed border-line-strong p-1.5">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-2.5 text-[13.5px] font-semibold text-ink-soft hover:text-ink [&::-webkit-details-marker]:hidden">
             Temukan grup lain ({discover.length})
             <ChevronDown aria-hidden className="size-4 transition-transform duration-150 group-open/temukan:rotate-180" />
@@ -326,7 +326,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
             type="button"
             aria-expanded={switcher}
             onClick={() => setSwitcher((value) => !value)}
-            className="flex min-h-14 w-full items-center gap-3 rounded-[18px] border border-line bg-panel px-3 text-left"
+            className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-line bg-panel px-3 text-left"
           >
             <Avatar name={event.title} label={monogramOf(event.title)} seed={group.id} size="sm" shape="square" />
             <span className="flex min-w-0 flex-1 flex-col">
@@ -336,7 +336,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
             <span className="text-[13px] font-medium">Ganti</span>
             <ChevronDown aria-hidden className={cn('size-4 transition-transform', switcher && 'rotate-180')} />
           </button>
-          {switcher && <div className="pop mt-2 rounded-[20px] border border-line bg-canvas p-3 shadow-overlay">{groupList}</div>}
+          {switcher && <div className="pop mt-2 rounded-2xl border border-line bg-canvas p-3 shadow-overlay">{groupList}</div>}
         </div>
 
         <header className="overflow-hidden rounded-[26px] border border-line bg-panel">
@@ -425,7 +425,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
                 {repliesOf(current).map((item, index) => (
                   <li key={`${item.author}-${index}`} className={cn('relative flex gap-3', index >= current.replies.length && 'pop')}>
                     <AuthorAvatar name={item.author} official={item.official} />
-                    <div className={cn('flex min-w-0 flex-1 flex-col gap-2 rounded-[18px] rounded-tl-[6px] p-4', item.official ? 'border-[1.5px] border-brand bg-highlight-soft' : 'bg-panel-nested')}>
+                    <div className={cn('flex min-w-0 flex-1 flex-col gap-2 rounded-2xl rounded-tl-[6px] p-4', item.official ? 'border-[1.5px] border-brand bg-highlight-soft' : 'bg-panel-nested')}>
                       {item.official && (
                         <span className="flex items-center gap-1.5 font-mono text-[11px] font-medium tracking-[.1em]">
                           <BadgeCheck aria-hidden className="size-3.5" /> JAWABAN PANITIA
@@ -438,7 +438,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
                 ))}
               </ol>
             )}
-            <form onSubmit={submitReply} className="flex items-end gap-2.5 rounded-[20px] border border-line bg-panel-nested/50 p-2.5">
+            <form onSubmit={submitReply} className="flex items-end gap-2.5 rounded-2xl border border-line bg-panel-nested/50 p-2.5">
               <Avatar name={userName} size="sm" className="mb-1 hidden sm:flex" />
               <label htmlFor="balasan" className="sr-only">
                 Tulis balasan
@@ -486,7 +486,7 @@ export function DiscussionsApp({ events, userName }: { events: Readonly<Record<s
                     return (
                       <label
                         key={item.key}
-                        className="flex min-h-16 cursor-pointer items-center gap-3 rounded-[16px] border border-line px-3.5 py-3 transition-colors duration-150 hover:border-line-strong has-[:checked]:border-brand has-[:checked]:bg-panel-nested has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus"
+                        className="flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border border-line px-3.5 py-3 transition-colors duration-150 hover:border-line-strong has-[:checked]:border-brand has-[:checked]:bg-panel-nested has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus"
                       >
                         <input type="radio" name="kanal" value={item.key} checked={draft.channel === item.key} onChange={() => setDraft({ ...draft, channel: item.key })} className="sr-only" />
                         <span aria-hidden className={cn('flex size-10 shrink-0 items-center justify-center rounded-[12px]', draft.channel === item.key ? 'bg-brand text-on-brand' : 'bg-panel-nested')}>

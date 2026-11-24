@@ -64,7 +64,7 @@ export default async function AboutPage() {
       <RevealObserver />
 
       <section className="container-page max-w-[1120px] pt-[clamp(48px,8vw,96px)]">
-        <div className="enter flex max-w-[820px] flex-col gap-5 [animation-duration:900ms]">
+        <div className="enter flex max-w-[820px] flex-col gap-5">
           <span className={eyebrowClass}>Tentang StudentFo</span>
           <h1 className="text-[clamp(38px,6.4vw,68px)] leading-[1.02]">
             Peluang untuk pelajar tidak seharusnya tersebar di lima grup WhatsApp.
@@ -81,7 +81,7 @@ export default async function AboutPage() {
             begitu satu kegiatan tayang (ADR-059). */}
         {stats.totalActive > 0 && (
           <>
-            <dl className="enter mt-12 grid overflow-hidden rounded-[20px] border border-line [animation-delay:150ms] [animation-duration:900ms] [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
+            <dl className="enter mt-12 grid overflow-hidden rounded-2xl border border-line [animation-delay:150ms] [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
               {numbers.map((item) => (
                 <div key={item.label} className="flex flex-col-reverse gap-1.5 border-b border-r border-line p-6 last:border-r-0">
                   <dt className="text-sm text-ink-muted">{item.label}</dt>
@@ -124,7 +124,7 @@ export default async function AboutPage() {
         </div>
         <ul className="mt-12 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr))]">
           {PRINCIPLES.map((item, index) => (
-            <li key={item.title} data-reveal="" style={delay(index * 120)} className="flex flex-col gap-3 rounded-[18px] border border-line p-6">
+            <li key={item.title} data-reveal="" style={delay(index * 120)} className="flex flex-col gap-3 rounded-2xl border border-line p-6">
               <span className="flex size-10 items-center justify-center rounded-card bg-panel-nested">
                 <item.icon aria-hidden className="size-[18px]" />
               </span>

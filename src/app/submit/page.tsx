@@ -478,7 +478,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
 
             {/* Bahan verifikasi — tidak pernah disalin ke halaman publik
                 (approve_submission tidak menyalinnya). */}
-            <fieldset className="flex flex-col gap-4 rounded-[18px] bg-panel-nested p-4 sm:p-5">
+            <fieldset className="flex flex-col gap-4 rounded-2xl bg-panel-nested p-4 sm:p-5">
               <legend className="sr-only">Untuk panitia (hanya dilihat moderator)</legend>
               <p aria-hidden className="flex items-center gap-2 text-[13px] font-semibold text-ink-soft">
                 <Lock className="size-3.5" /> Untuk panitia — hanya dilihat moderator

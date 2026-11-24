@@ -29,6 +29,12 @@ import { cn } from '@/lib/utils';
  * 2.2.2, ruas bilah = lompat ke adegan (memilih sendiri = jeda). Kendali
  * baru dirender setelah hidrasi — tanpa JavaScript adegan pertama tampil
  * utuh tanpa tombol mati.
+ *
+ * ADR-099: tinggal di kolom kanan hero (bukan bagian sendiri di bawah
+ * lipatan). Tata letak adegan memakai container query (`@container`), bukan
+ * lebar layar — panggungnya selebar kolom, bukan selebar viewport. Tinggi
+ * panggung DIPESAN untuk adegan tertinggi di tiap lebar, jadi berganti
+ * adegan tidak pernah mendorong isi di bawahnya (CLS).
  */
 
 const SCENES = [
@@ -97,15 +103,10 @@ export function LandingTour({ samples = [] }: { samples?: readonly TourSample[] 
   };
 
   return (
-    <section
-      ref={rootRef}
-      id="cara-kerja"
-      aria-label="Cuplikan cara kerja StudentFo"
-      className="container-page max-w-[1120px] scroll-mt-20 pt-[clamp(56px,7vw,88px)]"
-    >
-      <div data-reveal="" className="dot-grid mx-auto max-w-[760px] overflow-hidden rounded-[24px] border border-line bg-panel-nested shadow-card">
+    <section ref={rootRef} id="cara-kerja" aria-label="Cuplikan cara kerja StudentFo" className="@container scroll-mt-24">
+      <div className="dot-grid overflow-hidden rounded-panel border border-line bg-panel-nested shadow-card">
         <p className="sr-only">Cuplikan beranimasi tanpa suara, lima adegan: {SCENES.join('; ')}.</p>
-        <div aria-hidden key={scene} className="flex min-h-[348px] flex-col justify-center px-4 py-6 sm:min-h-[372px] sm:px-10 sm:py-8">
+        <div aria-hidden key={scene} className="flex min-h-[460px] flex-col justify-center px-4 py-6 @sm:min-h-[388px] @sm:px-7 @lg:min-h-[400px] @lg:px-10 @lg:py-8">
           {scene === 0 && <SearchStage samples={samples} />}
           {scene === 1 && <SourceStage sample={samples[0]} />}
           {scene === 2 && <RemindStage sample={samples[0]} />}
@@ -121,7 +122,7 @@ export function LandingTour({ samples = [] }: { samples?: readonly TourSample[] 
                 type="button"
                 onClick={togglePlay}
                 aria-label={playing ? 'Jeda cuplikan' : 'Putar cuplikan'}
-                className="flex size-11 shrink-0 items-center justify-center rounded-bl-[23px] text-ink-soft transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
+                className="flex size-11 shrink-0 items-center justify-center rounded-bl-[21px] text-ink-soft transition-colors duration-150 ease-snap hover:bg-panel-nested hover:text-ink"
               >
                 {playing ? <Pause aria-hidden className="size-4" /> : <Play aria-hidden className="size-4" />}
               </button>
@@ -196,10 +197,10 @@ function SearchStage({ samples }: { samples: readonly TourSample[] }) {
     <div className="flex flex-col gap-3">
       <div className="tour-in flex h-12 items-center gap-2.5 rounded-card border border-line-strong/70 bg-panel px-4 text-[15px] shadow-card">
         <Search className="size-4 text-ink-muted" />
-        <span className="tour-type" style={t(250, { '--w': `${query.length + 1}ch`, '--steps': query.length })}>
+        <span className="tour-type">
           {query}
+          <span className="tour-type-cover" style={t(250, { '--steps': query.length })} />
         </span>
-        <span className="tour-caret -ml-1.5 h-5 w-px bg-ink" />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="tour-in inline-flex h-8 items-center gap-1.5 rounded-pill border border-brand bg-brand px-3 text-[13px] font-medium text-on-brand" style={t(1500)}>
@@ -255,7 +256,7 @@ function SampleTitle({ sample, className }: { sample: TourSample | undefined; cl
 
 function SourceStage({ sample }: { sample: TourSample | undefined }) {
   return (
-    <div className="tour-in flex flex-col gap-4 rounded-[18px] border border-line bg-panel p-5 shadow-card sm:p-6">
+    <div className="tour-in flex flex-col gap-4 rounded-2xl border border-line bg-panel p-5 shadow-card @lg:p-6">
       <span className="flex items-center gap-2">
         <span className="flex h-[24px] items-center rounded-[6px] bg-brand px-2 text-[12px] font-semibold text-on-brand">{sample?.typeLabel ?? 'Lomba'}</span>
         {sample && <span className="text-[12.5px] text-ink-muted">{sample.place}</span>}
@@ -327,7 +328,7 @@ function RemindStage({ sample }: { sample: TourSample | undefined }) {
 function TrackStage({ sample }: { sample: TourSample | undefined }) {
   const labels = ['Disimpan', 'Sudah daftar', 'Seleksi', 'Diterima'];
   return (
-    <div className="tour-in flex flex-col gap-5 rounded-[18px] border border-line bg-panel p-5 shadow-card sm:p-6">
+    <div className="tour-in flex flex-col gap-5 rounded-2xl border border-line bg-panel p-5 shadow-card @lg:p-6">
       <span className="flex flex-wrap items-center justify-between gap-3">
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <SampleTitle sample={sample} className="line-clamp-1 text-[15.5px] font-semibold" />
@@ -351,7 +352,7 @@ function TrackStage({ sample }: { sample: TourSample | undefined }) {
             <span className="h-1.5 overflow-hidden rounded-pill bg-line">
               <span className="grow-x block h-full bg-brand" style={{ animationDelay: `${300 + index * 700}ms` }} />
             </span>
-            <span className="tour-in text-[11.5px] font-medium text-ink-muted sm:text-[12.5px]" style={t(300 + index * 700)}>
+            <span className="tour-in text-[11.5px] font-medium text-ink-muted @sm:text-[12.5px]" style={t(300 + index * 700)}>
               {label}
             </span>
           </li>
@@ -372,8 +373,8 @@ function TeamStage() {
     { x: '30%', y: '72%' },
   ];
   return (
-    <div className="grid items-center gap-5 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <div className="relative mx-auto aspect-square w-full max-w-[220px]">
+    <div className="grid items-center gap-5 @sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @sm:gap-4 @lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] @lg:gap-5">
+      <div className="relative mx-auto aspect-square w-full max-w-[168px] @sm:max-w-[220px]">
         <span className="absolute inset-0 rounded-pill border border-line-strong/70 bg-panel" />
         <span className="absolute inset-[18%] rounded-pill border border-dashed border-line-strong/70" />
         <span className="radar-ping absolute inset-0 rounded-pill border-2 border-ink/30" />
@@ -390,7 +391,7 @@ function TeamStage() {
           />
         ))}
       </div>
-      <div className="tour-in flex flex-col gap-3 rounded-[18px] border border-line bg-panel p-5 shadow-card" style={t(2200)}>
+      <div className="tour-in flex flex-col gap-3 rounded-2xl border border-line bg-panel p-4 shadow-card @lg:p-5" style={t(2200)}>
         <span className="flex items-center gap-3">
           <svg viewBox="0 0 44 44" className="size-12 shrink-0 -rotate-90">
             <circle cx="22" cy="22" r="18" fill="none" stroke="var(--color-border)" strokeWidth="4" />

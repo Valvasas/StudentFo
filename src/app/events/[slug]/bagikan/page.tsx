@@ -64,7 +64,7 @@ export default async function ShareToConnectionsPage({
         {!open ? (
           <p className="rounded-card bg-panel-nested px-4 py-3 text-[14.5px] text-ink-muted">Kegiatan ini sudah ditutup, jadi tidak bisa dibagikan ke koneksi lagi.</p>
         ) : recipients.length === 0 ? (
-          <div className="flex flex-col items-start gap-3 rounded-[20px] border border-dashed border-line p-6">
+          <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line p-6">
             <UserRoundPlus aria-hidden className="size-6 text-ink-muted" />
             <p className="text-[14.5px] text-ink-soft">Kamu belum punya koneksi yang menerima ajakanmu. Ajak teman terhubung dulu, lalu bagikan dari sini.</p>
             <Link href="/connections" className={buttonVariants({ variant: 'secondary' })}>
@@ -72,7 +72,7 @@ export default async function ShareToConnectionsPage({
             </Link>
           </div>
         ) : (
-          <form action={shareEventAction} className="flex flex-col gap-5 rounded-[20px] border border-line bg-panel p-5 sm:p-7">
+          <form action={shareEventAction} className="flex flex-col gap-5 rounded-2xl border border-line bg-panel p-5 sm:p-7">
             <input type="hidden" name="slug" value={event.slug} />
             <fieldset className="flex min-w-0 flex-col gap-2">
               <legend className="mb-2 text-[15px] font-semibold">

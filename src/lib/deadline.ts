@@ -79,6 +79,14 @@ export function urgencyRamp(daysLeft: number | null): number {
   return Math.round(((7 - daysLeft) / 7) * 1000) / 1000;
 }
 
+/**
+ * Anak tangga "segera" (ADR-099): H-3..H-1 — pil amber + titik berdenyut.
+ * Hari-H punya tampilannya sendiri (pil tinta + jam), jadi tidak termasuk.
+ */
+export function isDueSoon(daysLeft: number | null): boolean {
+  return daysLeft !== null && daysLeft >= 1 && daysLeft <= 3;
+}
+
 export interface DeadlineState {
   readonly daysLeft: number | null;
   readonly urgency: DeadlineUrgency;

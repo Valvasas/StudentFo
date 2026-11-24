@@ -59,7 +59,7 @@ function Rank({ position }: { position: number }) {
     <span
       className={cn(
         'flex size-9 shrink-0 items-center justify-center rounded-pill text-sm font-bold tabular-nums',
-        position === 1 ? 'bg-highlight text-highlight-ink' : 'bg-panel-nested text-ink-soft',
+        position === 1 ? 'bg-highlight text-on-highlight' : 'bg-panel-nested text-ink-soft',
       )}
     >
       <span className="sr-only">Peringkat </span>
@@ -155,7 +155,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
       <ActionFeedback params={params} />
 
       {/* Rumus selalu terlihat (transparansi); aturan lengkap dilipat supaya peringkat tetap di layar pertama ponsel. */}
-      <section aria-labelledby="rumus-title" className="flex flex-col gap-3 rounded-[18px] border border-line bg-panel-nested p-5 sm:p-6">
+      <section aria-labelledby="rumus-title" className="flex flex-col gap-3 rounded-2xl border border-line bg-panel-nested p-5 sm:p-6">
         <h2 id="rumus-title" className="flex items-center gap-2 text-base font-semibold">
           <Calculator aria-hidden className="size-[18px] text-ink-muted" /> Cara menghitung skor
         </h2>

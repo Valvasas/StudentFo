@@ -39,7 +39,7 @@
 }
 
 @utility deal-in {
-  animation: sf-deal 560ms var(--ease-pop) backwards;
+  animation: sf-deal var(--duration-enter) var(--ease-pop) backwards;
   animation-delay: calc(var(--base, 0ms) + var(--i, 0) * 90ms);
 }
 
@@ -135,5 +135,5 @@
 }
 
 @utility undo-return {
-  animation: sf-undo-return 420ms var(--ease-pop) backwards;
+  animation: sf-undo-return var(--duration-reveal) var(--ease-pop) backwards;
 }

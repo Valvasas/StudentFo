@@ -26,7 +26,7 @@ export function FormView({ user, params, profile }: MatchViewProps) {
       </Link>
 
       <header className="grid grid-cols-1 items-center gap-x-14 gap-y-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="enter flex min-w-0 flex-col gap-4 [animation-duration:900ms] sm:gap-5">
+        <div className="enter flex min-w-0 flex-col gap-4 sm:gap-5">
           <p className="-mb-1 flex items-center gap-2 text-[13.5px] font-medium text-ink-muted">
             Pencocokan tim
             <SparkleDoodle className="size-6 lg:hidden" />
@@ -51,7 +51,7 @@ export function FormView({ user, params, profile }: MatchViewProps) {
             ))}
           </ol>
         </div>
-        <div className="enter hidden min-w-0 [animation-delay:140ms] [animation-duration:1000ms] lg:block">
+        <div className="enter hidden min-w-0 [animation-delay:140ms] lg:block">
           <IllustrationStage tint="sun" className="pb-3 pt-7">
             <DeckDealSketch className="max-w-[300px]" />
           </IllustrationStage>

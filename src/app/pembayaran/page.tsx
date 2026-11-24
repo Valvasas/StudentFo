@@ -54,7 +54,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         {(parseActionNoticeCode(query.notice) || parseActionErrorCode(query.error)) && <ScrollToTop key={randomUUID()} />}
 
         {registrations.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-[20px] border border-dashed border-line bg-panel px-6 py-14 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line bg-panel px-6 py-14 text-center">
             <EmptyNotebookSketch className="mb-1 text-ink-soft" />
             <h2 className="text-lg font-semibold">Belum ada pendaftaran</h2>
             <p className="max-w-sm text-sm text-ink-muted">Acara yang kamu daftari lewat StudentFo akan muncul di sini beserta tagihannya.</p>
@@ -64,7 +64,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           </div>
         ) : (
           <>
-            <section aria-label="Ringkasan tagihan" className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-line bg-panel p-5 sm:p-6">
+            <section aria-label="Ringkasan tagihan" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-panel p-5 sm:p-6">
               <div className="flex flex-col gap-1">
                 <span className="text-[13.5px] text-ink-muted">Tagihan aktif</span>
                 <span className="text-[28px] font-bold tabular-nums tracking-[-0.03em]">{formatRupiah(groups.amountDue)}</span>
@@ -82,7 +82,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
             <Group title="Terkonfirmasi" items={groups.confirmed} />
 
             {groups.history.length > 0 && (
-              <details className="group/history rounded-[20px] border border-line">
+              <details className="group/history rounded-2xl border border-line">
                 <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-5 text-[15px] font-semibold [&::-webkit-details-marker]:hidden">
                   <span>
                     Riwayat <span className="font-normal text-ink-muted">({groups.history.length})</span>
@@ -133,13 +133,13 @@ function RegistrationCard({ registration }: { registration: EventRegistration })
   const payable = registration.status === 'AWAITING_PAYMENT';
   const deadline = registration.event.primaryDeadlineAt;
   return (
-    <article className="relative flex flex-col gap-3 rounded-[16px] border border-line bg-panel p-4 transition-colors duration-150 ease-snap hover:border-line-strong sm:flex-row sm:items-center sm:gap-5 sm:p-5">
+    <article className="relative flex flex-col gap-3 rounded-2xl border border-line bg-panel p-4 transition-colors duration-150 ease-snap hover:border-line-strong sm:flex-row sm:items-center sm:gap-5 sm:p-5">
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <RegistrationStatusBadge status={registration.status} className="self-start" />
         <h3 className="text-[16px] font-semibold leading-snug">
           <Link
             href={registrationHref(registration.id)}
-            className="after:absolute after:inset-0 after:rounded-[16px] after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-focus"
+            className="after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-focus"
           >
             {registration.event.title}
           </Link>

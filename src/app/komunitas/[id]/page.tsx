@@ -97,7 +97,7 @@ export default async function CommunityThreadPage({ params, searchParams }: { pa
         )}
       </section>
 
-      <form id="balas" action={replyCommunityPostAction} className="mt-8 flex scroll-mt-24 flex-col gap-3 rounded-[20px] border border-line bg-panel p-5 sm:p-6">
+      <form id="balas" action={replyCommunityPostAction} className="mt-8 flex scroll-mt-24 flex-col gap-3 rounded-2xl border border-line bg-panel p-5 sm:p-6">
         <FieldMemory storageKey={`komunitas-balas-${post.id}`} fields={REMEMBERED_REPLY} restore={restore} />
         <input type="hidden" name="postId" value={post.id} />
         <Field id="body" label="Tulis balasan" hint={`Maks. ${COMMUNITY_LIMITS.replyMax.toLocaleString('id-ID')} karakter. Tanpa nomor HP, email, atau tautan WhatsApp/Telegram.`}>

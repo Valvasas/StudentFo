@@ -262,3 +262,52 @@ export async function TeamFinder({
     </section>
   );
 }
+
+/**
+ * Kerangka "Cari rekan tim" selama kandidatnya dihitung (ADR-099). Bagian ini
+ * satu-satunya di halaman detail yang mengalir belakangan (Suspense) — hanya
+ * untuk anggota yang sudah masuk, karena isi tamu tidak butuh data. Status
+ * HTTP & `notFound()` sudah diputuskan sebelum batas ini, jadi tidak ada
+ * soft-404 (lihat `src/app/events/page.tsx`). Tingginya mendekati hasil akhir
+ * supaya isi di bawahnya tidak melompat saat kandidat tiba.
+ */
+export function TeamFinderSkeleton() {
+  return (
+    <section id="cari-rekan" aria-labelledby="cari-rekan-title" aria-busy="true" className="flex scroll-mt-24 flex-col gap-4 rounded-[14px] border border-line p-[18px]">
+      <h2 id="cari-rekan-title" className="flex items-center gap-2 text-base font-semibold">
+        <Users aria-hidden className="size-[18px]" /> Cari rekan tim
+      </h2>
+      <p className="sr-only" role="status">
+        Memuat calon rekan tim…
+      </p>
+      {/* Isi yang mengalir belakangan baru ditampilkan oleh JavaScript; tanpa JS kerangka ini tidak pernah terganti. */}
+      <noscript>
+        <p className="text-sm leading-normal text-ink-soft">
+          Calon rekan dimuat dengan JavaScript.{' '}
+          <Link href="/teams/cocok" className="font-semibold text-ink underline underline-offset-[3px]">
+            Buka pencocokan tim
+          </Link>
+        </p>
+      </noscript>
+      <span aria-hidden className="shimmer block h-11 w-56 max-w-full rounded-pill" />
+      <ul aria-hidden className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr))]">
+        {[0, 1, 2].map((index) => (
+          <li key={index} className="flex min-w-0 flex-col gap-3 rounded-[14px] border border-line bg-panel p-4">
+            <span className="flex items-center gap-3">
+              <span className="shimmer block size-10 shrink-0 rounded-pill" />
+              <span className="flex min-w-0 flex-1 flex-col gap-2">
+                <span className="shimmer block h-3.5 w-3/4 rounded-pill" />
+                <span className="shimmer block h-3 w-1/2 rounded-pill" />
+              </span>
+            </span>
+            <span className="flex gap-1.5">
+              <span className="shimmer block h-7 w-24 rounded-pill" />
+              <span className="shimmer block h-7 w-20 rounded-pill" />
+            </span>
+            <span className="shimmer block h-11 w-full rounded-card" />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

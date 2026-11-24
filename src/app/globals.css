@@ -32,8 +32,10 @@
 :root {
   color-scheme: light;
 
-  /* ===== Base — Light (default) ===== */
-  --color-bg: #faf8f3;
+  /* ===== Base — Light (default) =====
+     Kertas hangat #FAF9F5 + kisi titik (`dot-grid`); pasangannya arang hangat
+     #141311 di tema gelap (ADR-099). */
+  --color-bg: #faf9f5;
   --color-surface: #ffffff;         /* kartu = kertas putih di atas meja krem: beda nada, bukan bayangan */
   --color-surface-nested: #f3f0e8;  /* panel bersarang (kartu kelengkapan profil, menu terbuka) */
   --color-border: #e6e1d6;
@@ -82,14 +84,16 @@
   --color-deadline-warning-soft: #efebe1;
   --color-deadline-urgent-soft: #e6e1d6;
 
-  /* ===== Stabilo (ADR-052) — HANYA dekorasi penekanan: coretan di bawah
-     kata kunci, latar "ditandai". Tidak pernah satu-satunya pembawa makna dan
-     tidak pernah warna teks; teks di atasnya tetap tinta (#1d1b17, 13:1). ===== */
-  --color-highlight: #ffd95a;
-  --color-highlight-soft: #fff1b8;
-  /* Tinta DI ATAS stabilo pekat (badge hitungan): tetap gelap di kedua tema.
-     Teks terang di atas stabilo gelap #b8901d hanya 2,5:1; tinta ini 5,8:1. */
+  /* ===== Aksen amber #FACC15 (ADR-052, nilai ADR-099) — penekanan: coretan
+     stabilo di bawah kata kunci, lencana hitungan/peringkat, cahaya latar hero.
+     BUKAN warna aksi (tombol primer tetap tinta) dan TIDAK PERNAH warna teks:
+     amber di atas kertas hanya 1,5:1. Teks di atasnya selalu tinta
+     (`text-on-highlight`, 11,2:1 di kedua tema). ===== */
+  --color-highlight: #facc15;
+  --color-highlight-soft: #fdf0c0;
   --color-highlight-ink: #1d1b17;
+  /* Cahaya radial di belakang panggung hero — HANYA tema gelap (§14). */
+  --glow-amber: rgb(250 204 21 / 0);
 
   /* ===== Tint catatan tempel (ADR-054) — identitas, BUKAN makna. Avatar
      orang/grup dan sampul kartu diberi satu tint yang diturunkan dari id-nya
@@ -118,6 +122,8 @@
   --shadow-card: 0 1px 0 rgb(29 27 23 / 0.04), 0 1px 3px rgb(29 27 23 / 0.04);
   --shadow-raised: 0 8px 24px rgb(29 27 23 / 0.07);
   --shadow-overlay: 0 22px 50px rgb(0 0 0 / 0.12), 0 2px 6px rgb(0 0 0 / 0.05);
+  /* Garis cahaya tipis kartu yang disorot (`card-lift`, ADR-099). */
+  --card-glow: 0 0 0 1px rgb(29 27 23 / 0.12), 0 12px 28px -16px rgb(29 27 23 / 0.34);
 
   --tracking-heading: -0.025em;
   --leading-heading: 1.08;
@@ -133,23 +139,36 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  /* ===== Radius — tombol/isian 10, menu 14, kartu besar 18–20 (kanvas). ===== */
+  /* ===== Radius (ADR-099) — satu skala, tanpa sudut tajam:
+     8 `rounded-sm` kontrol kecil · 12 `rounded-card` tombol/isian/baris
+     (namanya warisan) · 16 `rounded-2xl` KARTU · 22 `rounded-panel` panel
+     besar/bingkai · pill lencana & saringan. Kartu baru = `rounded-2xl`,
+     bukan `rounded-[18px]`. ===== */
   --radius-sm: 8px;
   --radius-card: 12px;
   --radius-modal: 14px;
+  --radius-tile: 16px;
   --radius-panel: 22px;
   --radius-pill: 999px;
 
-  /* ===== Motion =====
-     Transisi interaksi tetap cepat (150–200ms, tanpa geser) supaya target
-     klik tidak berpindah. Animasi MASUK (sekali, saat konten tampil) boleh
-     lebih lambat dan bergeser sedikit — itu karakter kanvas desain dan
-     tidak pernah menggeser elemen yang sedang ditunjuk. ADR-039. */
-  --duration-micro: 150ms;
-  --duration-transition: 200ms;
-  --duration-enter: 600ms;
+  /* ===== Motion (ADR-039, dirapikan ADR-099) =====
+     Gerak = fungsi (status, urgensi, perubahan), bukan hiasan. Hanya
+     `transform` & `opacity`; satu gerakan 150–400ms. Transisi interaksi
+     tetap cepat dan tidak menggeser target klik; pengecualian yang
+     terdokumentasi hanya angkat kartu (`card-lift`, area sentuhnya ikut
+     diperpanjang). Rangkaian berdurasi panjang (tur hero, pemindaian
+     pencocokan) tersusun dari gerakan ≤ 400ms. */
+  --duration-micro: 150ms;      /* warna hover, chevron, ikon */
+  --duration-transition: 200ms; /* keadaan kontrol, menu */
+  --duration-layout: 320ms;     /* perpindahan tahap/posisi, transisi halaman */
+  --duration-reveal: 360ms;     /* muncul saat digulir */
+  --duration-enter: 400ms;      /* blok halaman masuk (dulu 600ms) */
+  --stagger: 50ms;              /* jeda antar-anak berurutan */
+  --reveal-distance: 14px;
+  --lift: 3px;                  /* angkat kartu saat hover (2–4px) */
   --easing: cubic-bezier(0.4, 0, 0.2, 1);
   --easing-enter: cubic-bezier(0.2, 0.65, 0.2, 1);
+  --easing-exit: cubic-bezier(0.4, 0, 1, 1);
   /* Lenting kecil untuk balikan tekan & cap — melewati target 4% lalu kembali. */
   --easing-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
@@ -165,7 +184,7 @@
   /* ===== Permukaan gelap-selalu (footer, panel CTA, banner tampilan publik) ===== */
   --color-inverse-surface: #1d1b17;
   --color-inverse-nested: #34312a;
-  --color-inverse-text: #faf8f3;
+  --color-inverse-text: #faf9f5;
   --color-inverse-text-muted: #b3ad9f;
 
   /* ===== Layout ===== */
@@ -179,7 +198,7 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-bg: #15140f;
+  --color-bg: #141311;
   --color-surface: #1b1a15;
   --color-surface-nested: #24221c;
   --color-border: #35322a;
@@ -194,7 +213,7 @@
   --color-accent-pressed: #ffffff;
   --color-accent-soft: #2b2922;
   --color-accent-text: #efebe1;
-  --color-accent-foreground: #15140f;
+  --color-accent-foreground: #141311;
 
   --color-success: #6bc9a4;
   --color-success-container: rgb(46 158 119 / 0.18);
@@ -225,11 +244,14 @@
   --color-like-soft: rgb(243 155 191 / 0.16);
   --color-like-line: rgb(243 155 191 / 0.36);
 
-  /* Stabilo di gelap: kuning redup dengan teks terang di atasnya akan gagal
-     kontras, jadi coretan dipakai sebagai GARIS (bukan latar teks) di sini. */
-  --color-highlight: #b8901d;
-  --color-highlight-soft: rgb(184 144 29 / 0.28);
-  --marker-color: rgb(184 144 29 / 0.55);
+  /* Amber di gelap tetap #FACC15: sebagai ISIAN ia membawa tinta gelap
+     (`text-on-highlight`, 11,2:1); latar lembutnya tipis supaya teks terang
+     di atasnya tetap ≥ 9:1, dan coretan stabilo cukup jadi pita redup di
+     bawah kata (bukan latar teks). */
+  --color-highlight: #facc15;
+  --color-highlight-soft: rgb(250 204 21 / 0.16);
+  --marker-color: rgb(250 204 21 / 0.36);
+  --glow-amber: rgb(250 204 21 / 0.08);
 
   /* Tint gelap: nada yang sama diredupkan jauh, teks terang di atasnya. */
   --color-tint-sun: #4b3f17;
@@ -241,6 +263,7 @@
   --shadow-card: none;
   --shadow-raised: none;
   --shadow-overlay: 0 16px 40px rgb(0 0 0 / 0.55);
+  --card-glow: 0 0 0 1px rgb(250 204 21 / 0.28), 0 12px 32px -18px rgb(250 204 21 / 0.3);
 
   /* Tombol primer gelap = kertas terang: bibirnya cukup bayangan tipis. */
   --press-lip: rgb(0 0 0 / 0.22);
@@ -313,6 +336,7 @@
   --radius-card: var(--radius-card);
   --radius-panel: var(--radius-panel);
   --radius-modal: var(--radius-modal);
+  --radius-2xl: var(--radius-tile);
   --radius-pill: var(--radius-pill);
 
   --shadow-card: var(--shadow-card);
@@ -337,6 +361,7 @@
   --color-like-soft: var(--color-like-soft);
   --color-like-line: var(--color-like-line);
   --ease-enter: var(--easing-enter);
+  --ease-exit: var(--easing-exit);
 
   --container-page: var(--layout-max);
 
@@ -644,20 +669,26 @@
   animation: sf-ticker 42s linear infinite;
 }
 
+/* Kerangka pemuatan: kilau = lapisan yang DIGESER (`transform`), bukan
+   `background-position` yang dilukis ulang tiap bingkai (ADR-099). Di
+   reduced-motion kilaunya berhenti di luar kotak → kerangka diam. */
 @utility shimmer {
-  background-image: linear-gradient(
-    90deg,
-    var(--color-surface-nested) 0%,
-    color-mix(in oklab, var(--color-surface-nested) 60%, var(--color-border-strong)) 50%,
-    var(--color-surface-nested) 100%
-  );
-  background-size: 200% 100%;
-  animation: sf-shimmer 1.4s linear infinite;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-surface-nested);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-border-strong) 30%, transparent), transparent);
+    animation: sf-shimmer 1.4s linear infinite;
+  }
 }
 
 @keyframes sf-shimmer {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
+  to { transform: translateX(100%); }
 }
 
 /* =====================================================================
@@ -668,22 +699,26 @@
    biasa. Menyembunyikan konten di CSS sebelum JS terbukti jalan berarti
    halaman kosong bagi pengunjung yang skripnya diblokir.
    ===================================================================== */
+/* ADR-099: 360ms & 14px (dulu 1100ms & 28px — terlalu lambat untuk katalog
+   yang dipindai). Anak berurutan diberi `--reveal-i` (0, 1, 2 …) → jeda
+   `--stagger` (50ms) per anak, dibatasi 8 supaya daftar panjang tidak
+   menunggu. */
 [data-reveal] {
   transition:
-    opacity 1100ms var(--easing-enter),
-    transform 1100ms var(--easing-enter);
-  transition-delay: var(--reveal-delay, 0ms);
+    opacity var(--duration-reveal) var(--easing-enter),
+    transform var(--duration-reveal) var(--easing-enter);
+  transition-delay: calc(var(--reveal-delay, 0ms) + min(var(--reveal-i, 0), 8) * var(--stagger));
 }
 
 html[data-reveal-ready] [data-reveal]:not([data-revealed]) {
   opacity: 0;
-  transform: translateY(28px);
+  transform: translateY(var(--reveal-distance));
 }
 html[data-reveal-ready] [data-reveal='scale']:not([data-revealed]) {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 html[data-reveal-ready] [data-reveal='left']:not([data-revealed]) {
-  transform: translateX(-24px);
+  transform: translateX(calc(var(--reveal-distance) * -1));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -715,7 +750,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 /* Garis yang "tergambar": path WAJIB ber-`pathLength="1"`. */
 @utility chart-draw {
   stroke-dasharray: 1;
-  animation: sf-draw 900ms var(--easing-enter) both;
+  animation: sf-draw var(--duration-enter) var(--easing-enter) both;
 }
 
 @keyframes sf-grow-x {
@@ -726,7 +761,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 /* Batang horizontal (corong, audiens) tumbuh dari kiri. */
 @utility grow-x {
   transform-origin: left center;
-  animation: sf-grow-x 700ms var(--easing-enter) both;
+  animation: sf-grow-x var(--duration-enter) var(--easing-enter) both;
 }
 
 @keyframes sf-fade {
@@ -735,7 +770,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 }
 
 @utility chart-fade {
-  animation: sf-fade 900ms var(--easing-enter) both;
+  animation: sf-fade var(--duration-reveal) var(--easing-enter) both;
 }
 
 /* =====================================================================
@@ -745,15 +780,17 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
    benar-benar tiba. Reduced-motion (§3) melompat ke keadaan akhirnya —
    bilah diam 85%, tetap jadi penanda "sedang memuat".
    ===================================================================== */
+/* Lebar bilah = `scaleX`, bukan `width` (ADR-099): hanya komposit, tanpa
+   tata letak ulang per bingkai. Bilahnya ber-`origin-left`. */
 @keyframes sf-progress {
-  0% { width: 0; }
-  12% { width: 34%; }
-  100% { width: 85%; }
+  0% { transform: scaleX(0); }
+  12% { transform: scaleX(0.34); }
+  100% { transform: scaleX(0.85); }
 }
 
 @keyframes sf-progress-done {
-  0% { width: 100%; opacity: 1; }
-  100% { width: 100%; opacity: 0; }
+  0% { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
 }
 
 /* =====================================================================
@@ -768,8 +805,8 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 /* Kartu daftar muncul bertahap: `style={{ '--i': index }}`. Dibatasi 10
    langkah supaya kartu ke-40 tidak menunggu 2 detik untuk terlihat. */
 @utility rise {
-  animation: sf-rise 640ms var(--easing-enter) both;
-  animation-delay: calc(min(var(--i, 0), 10) * 55ms);
+  animation: sf-rise var(--duration-enter) var(--easing-enter) both;
+  animation-delay: calc(min(var(--i, 0), 10) * var(--stagger));
 }
 
 /* Tinta yang "tergambar" di ilustrasi: path WAJIB ber-`pathLength="1"`.
@@ -777,7 +814,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
    ditebalkan pulpen. Jeda per garis lewat `--d`. */
 @utility ink-draw {
   stroke-dasharray: 1;
-  animation: sf-draw 1300ms var(--easing-enter) both;
+  animation: sf-draw var(--duration-enter) var(--easing-enter) both;
   animation-delay: var(--d, 0ms);
 }
 
@@ -850,7 +887,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 
 /* Cap "berhasil" (tim dibuka): sekali, lalu diam miring seperti stempel. */
 @utility stamp {
-  animation: sf-stamp 720ms var(--easing-enter) both;
+  animation: sf-stamp var(--duration-enter) var(--easing-enter) both;
   animation-delay: var(--d, 0ms);
 }
 
@@ -916,9 +953,10 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
    JS); hanya rupanya yang diganti supaya tidak bergaya OS 2010 dan ikut tema.
    Tanda centang "tumbuh" lewat background-size — gambar di DALAM kotak yang
    membesar, bukan kotaknya. */
+/* Centang "meletup" lewat skala kotak (ADR-099: dulu `background-size`). */
 @keyframes sf-check-in {
-  from { background-size: 0 0; }
-  to { background-size: 100% 100%; }
+  from { transform: scale(0.8); }
+  to { transform: none; }
 }
 
 @utility check {
@@ -936,8 +974,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   cursor: pointer;
   transition:
     background-color var(--duration-micro) var(--easing),
-    border-color var(--duration-micro) var(--easing),
-    border-width var(--duration-transition) var(--easing-spring);
+    border-color var(--duration-micro) var(--easing);
 
   &:hover {
     border-color: var(--color-text-muted);
@@ -951,7 +988,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   }
 
   :root[data-theme='dark'] &:checked {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2315140f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3.6 8.4 2.9 2.9 5.9-6.3'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23141311' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3.6 8.4 2.9 2.9 5.9-6.3'/%3E%3C/svg%3E");
   }
 
   &[type='radio'] {
@@ -1129,7 +1166,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 }
 
 @utility celebrate-in {
-  animation: sf-celebrate-in 520ms var(--easing-enter) both;
+  animation: sf-celebrate-in var(--duration-enter) var(--easing-enter) both;
 }
 
 @utility celebrate-out {
@@ -1146,7 +1183,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 @utility launch {
   transform-box: fill-box;
   transform-origin: center;
-  animation: sf-launch 900ms var(--easing-enter) both;
+  animation: sf-launch var(--duration-enter) var(--easing-enter) both;
   animation-delay: var(--d, 0ms);
 }
 
@@ -1189,7 +1226,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 
 /* Hasil menunggu pemindaian selesai (2,5 dtk), lalu memudar masuk. */
 @utility scan-results {
-  animation: sf-scan-results 420ms var(--easing-enter) 2500ms both;
+  animation: sf-scan-results var(--duration-reveal) var(--easing-enter) 2500ms both;
 }
 
 @keyframes sf-scan-line {
@@ -1232,7 +1269,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 
 /* Titik pemain yang "terdeteksi" satu per satu di layar radar. */
 @utility blip {
-  animation: sf-blip 520ms var(--easing-spring) both;
+  animation: sf-blip var(--duration-reveal) var(--easing-spring) both;
   animation-delay: calc(500ms + var(--i, 0) * 380ms);
 }
 
@@ -1242,7 +1279,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 
 /* Cincin kecocokan terisi dari nol ke skornya (`pathLength="100"`). */
 @utility ring-fill {
-  animation: sf-ring-fill 1100ms var(--easing-enter) both;
+  animation: sf-ring-fill var(--duration-enter) var(--easing-enter) both;
   animation-delay: var(--d, 0ms);
 }
 
@@ -1323,7 +1360,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 }
 
 @utility tour-in {
-  animation: sf-tour-in 460ms var(--easing-enter) both;
+  animation: sf-tour-in var(--duration-reveal) var(--easing-enter) both;
   animation-delay: var(--t, 0ms);
 }
 
@@ -1336,28 +1373,45 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
   animation-delay: var(--t, 0ms);
 }
 
-/* Teks yang "diketik": lebar dibuka bertahap (steps), bukan JS per huruf. */
+/* Teks yang "diketik": teksnya utuh sejak awal, PENUTUP selebar teks
+   digeser ke kanan per huruf (`steps`) — `transform` saja, bukan `max-width`
+   yang menata ulang baris tiap langkah (ADR-099). Kursor = tepi kiri
+   penutup, jadi ia ikut maju dan berhenti di ujung kata. */
 @keyframes sf-tour-type {
-  from { max-width: 0; }
-  to { max-width: var(--w, 14ch); }
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(100% - 2px)); }
 }
 
 @utility tour-type {
+  position: relative;
   display: inline-block;
   overflow: hidden;
+  padding-right: 2px;
   white-space: nowrap;
   vertical-align: bottom;
+}
+
+@utility tour-type-cover {
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface);
   animation: sf-tour-type 1100ms steps(var(--steps, 12)) both;
   animation-delay: var(--t, 0ms);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: 2px;
+    left: 0;
+    width: 1px;
+    background: var(--color-text-primary);
+    animation: sf-tour-caret 900ms steps(1) infinite;
+  }
 }
 
 @keyframes sf-tour-caret {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
-}
-
-@utility tour-caret {
-  animation: sf-tour-caret 900ms steps(1) infinite;
 }
 
 /* Bilah waktu langkah aktif. `animationend`-nya yang memajukan tur, jadi
@@ -1387,7 +1441,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 }
 
 @utility medal-in {
-  animation: sf-medal-in 560ms var(--easing-spring) both;
+  animation: sf-medal-in var(--duration-enter) var(--easing-spring) both;
   animation-delay: calc(var(--i, 0) * 70ms + 140ms);
 }
 
@@ -1424,7 +1478,7 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 }
 
 @utility medal-wiggle {
-  animation: sf-medal-wiggle 620ms var(--easing) both;
+  animation: sf-medal-wiggle var(--duration-enter) var(--easing) both;
 }
 
 /* Cincin sorot di belakang medali yang baru diraih: dua denyut, lalu hilang. */
@@ -1436,4 +1490,193 @@ html[data-motion='reduce'][data-reveal-ready] [data-reveal]:not([data-revealed])
 @utility medal-halo {
   animation: sf-medal-halo 1.5s var(--easing-enter) 2 both;
   animation-delay: calc(var(--i, 0) * 70ms + 520ms);
+}
+
+/* =====================================================================
+   14. GERAK FUNGSIONAL (ADR-099) — status, urgensi, perubahan.
+   Hanya `transform` & `opacity`, satu gerakan ≤ 400ms, dan mati di
+   reduced-motion: aturan global §3 menolkan animasi CSS biasa; yang di
+   luar jangkauannya (penghitung, view transition, gerak JS) dijaga
+   eksplisit di sini atau lewat `isMotionReduced()`.
+   ===================================================================== */
+
+/* Angka kategori menghitung naik SEKALI saat masuk layar. Teks aslinya
+   tetap di DOM — dibacakan pembaca layar, dan tampil apa adanya tanpa JS,
+   di reduced-motion, atau sebelum RevealObserver memasang
+   `data-reveal-ready`. Angka yang terlihat saat berhitung = `counter()` dari
+   properti terdaftar; lebarnya dipesan per digit (`--digits` × 1ch, angka
+   tabular) supaya teks sesudahnya tidak bergeser (CLS). Satu-satunya animasi
+   yang mengubah isi teks — memang itu permintaannya. */
+@property --count-up {
+  syntax: '<integer>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes sf-count-up {
+  from { --count-up: 0; }
+  to { --count-up: var(--to, 0); }
+}
+
+.count-up {
+  position: relative;
+  display: inline-block;
+  min-width: calc(var(--digits, 1) * 1ch);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-reveal-ready]:not([data-motion='reduce']) .count-up {
+    counter-reset: count-up var(--count-up);
+  }
+  html[data-reveal-ready]:not([data-motion='reduce']) .count-up[data-revealed] {
+    animation: sf-count-up var(--duration-enter) var(--easing-enter) forwards;
+  }
+  html[data-reveal-ready]:not([data-motion='reduce']) .count-up > .count-up-value {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  html[data-reveal-ready]:not([data-motion='reduce']) .count-up::after {
+    content: counter(count-up);
+    content: counter(count-up) / '';
+  }
+}
+
+/* Angkat kartu: naik `--lift` (3px) + garis cahaya tipis. Pengecualian
+   terdokumentasi dari "tanpa translate pada target klik" (CONVENTIONS):
+   - hanya untuk pointer yang benar-benar bisa hover — di layar sentuh
+     `:hover` menempel setelah diketuk dan kartu akan tertinggal terangkat;
+   - pita `::after` setinggi `--lift` di bawah kartu memperpanjang area
+     sorot, jadi kursor di tepi bawah tidak membuat kartu naik-turun;
+   - cahaya = lapisan `::before` yang dinaikkan OPASITASNYA, bukan
+     `box-shadow` yang dianimasikan (melukis ulang tiap bingkai).
+   Kartu wajib `relative` dan tidak memakai `::before`/`::after` sendiri. */
+@utility card-lift {
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    box-shadow: var(--card-glow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-transition) var(--easing);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card-lift:hover::before {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduce']) .card-lift {
+      transition:
+        transform var(--duration-transition) var(--easing),
+        border-color var(--duration-micro) var(--easing),
+        background-color var(--duration-micro) var(--easing);
+    }
+    :root:not([data-motion='reduce']) .card-lift:hover {
+      transform: translateY(calc(var(--lift) * -1));
+    }
+    :root:not([data-motion='reduce']) .card-lift::after {
+      content: '';
+      position: absolute;
+      inset-inline: 0;
+      top: 100%;
+      height: var(--lift);
+    }
+  }
+}
+
+/* Tenggat ≤ H-3 (ADR-099): pil amber bertinta gelap + titik berdenyut
+   pelan. Hari-H tetap pil tinta + hitung mundur jam yang hidup. Denyutnya
+   `urgency-dot` (opasitas, 2,4 dtk) — aturan global §3 mematikannya. */
+@utility due-soon {
+  background-color: var(--color-highlight);
+  color: var(--color-highlight-ink);
+}
+
+/* Bilah tahap Papan lamaran: isiannya `scaleX` 0 → 1 dengan transisi,
+   jadi saat tahap berubah (navigasi lunak, simpul DOM yang sama) ruas yang
+   baru tercapai terisi berurutan dari kiri — `--i` = urutan ruas. */
+@utility step-fill {
+  transform-origin: left center;
+  transition: transform var(--duration-layout) var(--easing-enter);
+  transition-delay: calc(var(--i, 0) * var(--stagger));
+}
+
+/* Kartu yang berpindah posisi setelah tahapnya diubah (FLIP, `FlipList`).
+   Latar pekat hanya SELAMA meluncur — kartu yang saling melintas tidak
+   boleh tembus pandang; diam = tampilan biasa. */
+@utility flip-move {
+  position: relative;
+  background-color: var(--color-bg);
+  transition: transform var(--duration-layout) var(--easing-enter);
+}
+
+/* View Transitions daftar → detail (ADR-099). Dipicu HANYA oleh
+   `TransitionLink` (peramban yang mendukung, gerak tidak dikurangi, koneksi
+   tidak lambat); semua navigasi lain tetap biasa. Halaman lama/baru
+   crossfade singkat; judul kartu "terbang" ke posisi judul halaman detail
+   (poster tidak: di ponsel galerinya di bawah lipatan, jadi ia akan terbang
+   keluar layar).
+   Selama transisi, animasi masuk `page-enter` dimatikan supaya tidak ada
+   dua kali pudar. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--duration-layout);
+  animation-timing-function: var(--easing);
+}
+
+::view-transition-group(vt-event-title) {
+  animation-duration: var(--duration-layout);
+  animation-timing-function: var(--easing-enter);
+}
+
+html[data-vt] .page-enter {
+  animation: none;
+}
+
+html[data-vt='morph'] .vt-title {
+  view-transition-name: vt-event-title;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+:root[data-motion='reduce']::view-transition-group(*),
+:root[data-motion='reduce']::view-transition-old(*),
+:root[data-motion='reduce']::view-transition-new(*) {
+  animation: none !important;
+}
+
+/* Cahaya amber STATIS di belakang panggung hero — hanya tema gelap,
+   opasitas 8%, tidak dianimasikan, di bawah isi (`isolation` + z −1). Di
+   tema terang tidak dilukis sama sekali. */
+@utility hero-glow {
+  position: relative;
+  isolation: isolate;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -16% -12%;
+    z-index: -1;
+    background: radial-gradient(closest-side, var(--glow-amber), transparent);
+    pointer-events: none;
+  }
+
+  :root:not([data-theme='dark']) &::before {
+    display: none;
+  }
 }

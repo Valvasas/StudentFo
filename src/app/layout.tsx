@@ -7,6 +7,7 @@ import { LegalUpdateBanner } from '@/components/legal/legal-update-banner';
 import { Footer } from '@/components/layout/footer';
 import { Navbar } from '@/components/layout/navbar';
 import { NavigationProgress } from '@/components/layout/navigation-progress';
+import { ViewTransitionBridge } from '@/components/ui/transition-link';
 import { SiteBackdrop } from '@/components/layout/site-backdrop';
 import { ThemeScript } from '@/components/layout/theme-script';
 import { LogoSprite } from '@/components/ui/logo';
@@ -66,8 +67,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#faf8f3' },
-    { media: '(prefers-color-scheme: dark)', color: '#15140f' },
+    { media: '(prefers-color-scheme: light)', color: '#faf9f5' },
+    { media: '(prefers-color-scheme: dark)', color: '#141311' },
   ],
 };
 
@@ -92,6 +93,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}>
           <NavigationProgress />
         </Suspense>
+        <ViewTransitionBridge />
         <SiteBackdrop />
         <DemoBanner />
         <LegalUpdateBanner />

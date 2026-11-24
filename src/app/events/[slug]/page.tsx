@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -26,7 +27,7 @@ import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
 import { EventMedia } from '@/components/event/event-media';
 import { NudgeCards } from '@/components/event/nudge-cards';
-import { TeamFinder } from '@/components/event/team-finder';
+import { TeamFinder, TeamFinderSkeleton } from '@/components/event/team-finder';
 import { parseCrossCampus } from '@/lib/team-finder';
 import { photoSrc, posterAlt } from '@/components/event/event-photo';
 import { AdminEventTools } from '@/components/admin/admin-event-tools';
@@ -466,7 +467,7 @@ export default async function EventDetailPage({
               )}
               {isPromoted(event, now) && <PromotedBadge />}
             </div>
-            <h1 className="text-[clamp(30px,4.6vw,42px)] leading-[1.08] tracking-[-0.04em] [text-wrap:balance]">{event.title}</h1>
+            <h1 className="vt-title text-[clamp(30px,4.6vw,42px)] leading-[1.08] tracking-[-0.04em] [text-wrap:balance]">{event.title}</h1>
             <div className="flex items-center gap-2.5">
               <span className="flex min-w-0 flex-col gap-px">
                 <span className="flex items-center gap-1.5 text-[15px] font-semibold">
@@ -582,16 +583,30 @@ export default async function EventDetailPage({
                 {registeredNudges.length > 0 && <NudgeCards nudges={registeredNudges} heading="Langkah berikutnya untukmu" />}
 
                 {/* Cari rekan tim (ADR-098): kandidat nyata dari pencocokan keahlian, langsung di halaman lomba. */}
-                {showTeamHelp && (
-                  <TeamFinder
-                    user={user}
-                    event={event}
-                    crossCampus={parseCrossCampus(query)}
-                    eventUrl={`${siteUrl}${detailPath}`}
-                    intro={teamInvite?.text ?? null}
-                    openTeams={openTeams}
-                  />
-                )}
+                {/* Anggota: kandidat dihitung belakangan di balik Suspense + kerangka (ADR-099) supaya
+                    isi halaman tidak menunggu pencocokan. Tamu tidak butuh data → dirender langsung. */}
+                {showTeamHelp &&
+                  (user ? (
+                    <Suspense fallback={<TeamFinderSkeleton />}>
+                      <TeamFinder
+                        user={user}
+                        event={event}
+                        crossCampus={parseCrossCampus(query)}
+                        eventUrl={`${siteUrl}${detailPath}`}
+                        intro={teamInvite?.text ?? null}
+                        openTeams={openTeams}
+                      />
+                    </Suspense>
+                  ) : (
+                    <TeamFinder
+                      user={null}
+                      event={event}
+                      crossCampus={parseCrossCampus(query)}
+                      eventUrl={`${siteUrl}${detailPath}`}
+                      intro={teamInvite?.text ?? null}
+                      openTeams={openTeams}
+                    />
+                  ))}
 
                 {/* Komunitas (ADR-087) khusus anggota, seperti isi halaman ini sendiri. */}
                 {!gated && (

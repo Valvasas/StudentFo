@@ -82,7 +82,7 @@ export function LombaBoard({
   return (
     <div className="container-page">
       <div className="grid items-stretch gap-8 pt-12 [grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr))]">
-        <div className="enter flex flex-col justify-end gap-3 [animation-duration:900ms]">
+        <div className="enter flex flex-col justify-end gap-3">
           <Breadcrumb current="Lomba" />
           <PageTitle>Papan tenggat lomba</PageTitle>
           <p className="max-w-[52ch] text-base leading-relaxed text-ink-muted">
@@ -93,7 +93,7 @@ export function LombaBoard({
         {top?.primaryDeadlineAt && (
           <Link
             href={`/events/${top.slug}`}
-            className="enter group flex flex-col gap-5 rounded-2xl border border-line bg-panel px-7 py-6 shadow-card transition-colors duration-200 ease-snap [animation-delay:120ms] [animation-duration:900ms] hover:border-line-strong"
+            className="enter group flex flex-col gap-5 rounded-2xl border border-line bg-panel px-7 py-6 shadow-card transition-colors duration-200 ease-snap [animation-delay:120ms] hover:border-line-strong"
           >
             <span className="flex items-center justify-between gap-3 text-[13px]">
               <span className="font-semibold text-ink-muted">Tenggat terdekat</span>
@@ -186,7 +186,7 @@ export function LombaBoard({
                 return (
                   <li
                     key={event.id}
-                    className="enter group relative flex flex-col gap-[18px] rounded-[14px] border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap [animation-duration:700ms] focus-within:border-brand hover:border-line-strong hover:shadow-[0_14px_34px_rgba(0,0,0,.07)]"
+                    className="enter group relative flex flex-col gap-[18px] rounded-[14px] border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap focus-within:border-brand hover:border-line-strong hover:shadow-[0_14px_34px_rgba(0,0,0,.07)]"
                     style={{ animationDelay: cardDelay }}
                   >
                     <div className="flex items-center justify-between gap-3">
