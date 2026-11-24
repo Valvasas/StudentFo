@@ -13,6 +13,7 @@ import { LogoSprite } from '@/components/ui/logo';
 import { PopoverDismiss } from '@/components/ui/popover-dismiss';
 import { SearchShortcut } from '@/components/ui/search-shortcut';
 import { siteUrl } from '@/lib/env';
+import { OPEN_GRAPH_BASE } from '@/lib/seo';
 import { NONCE_HEADER } from '@/lib/security-headers';
 import './globals.css';
 
@@ -49,21 +50,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'StudentFo — Info lomba, beasiswa, dan magang dalam satu tempat',
+    // ≤ 60 karakter: judul lebih panjang dipotong di hasil pencarian.
+    default: 'StudentFo — Info lomba, beasiswa & magang dalam satu tempat',
     template: '%s · StudentFo',
   },
   // ≤ 155 karakter: lebih panjang dipotong di hasil pencarian, tepat di klaim pentingnya.
   description: 'Info lomba, beasiswa, magang & workshop untuk pelajar SMA/SMK dan mahasiswa Indonesia. Ditinjau moderator, bisa disaring, lengkap sisa waktu daftar.',
-  keywords: ['lomba mahasiswa', 'beasiswa', 'magang', 'workshop', 'kompetisi pelajar'],
   // Nama di bawah ikon layar utama iOS; tanpa ini iOS memakai judul halaman yang terpotong.
   // `capable: false` eksplisit: bawaan Next `true` membuka pintasan tanpa bilah
   // browser = tanpa tombol kembali (alasan yang sama dengan `display` di manifest.ts).
   appleWebApp: { title: 'StudentFo', capable: false },
-  openGraph: {
-    type: 'website',
-    locale: 'id_ID',
-    siteName: 'StudentFo',
-  },
+  openGraph: { ...OPEN_GRAPH_BASE, type: 'website' },
   robots: { index: true, follow: true },
 };
 

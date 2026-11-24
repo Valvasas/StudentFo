@@ -194,6 +194,7 @@ import {
   GALLERY_LIMITS,
   MANAGED_EVENTS_LIMIT,
   OUTBOUND_READ_LIMIT,
+  SITEMAP_EVENT_LIMIT,
   SUBMISSION_SLIDE_LIMIT,
   TEAM_LIST_LIMIT,
 } from './repository';
@@ -218,6 +219,7 @@ import type {
   RepositoryStats,
   ReviewEventInput,
   EventTrustInput,
+  SitemapEvent,
   ReviewSubmissionInput,
   RestoreRejectedInput,
   ReviewTrustInput,
@@ -447,6 +449,7 @@ export class SupabaseEventRepository implements EventRepository {
   private readonly fetchExtras: (eventId: string) => Promise<EventExtras>;
   private readonly fetchCounts: (eventIds: readonly string[]) => Promise<EventEngagementCountRow[]>;
   private readonly fetchTrust: (eventIds: readonly string[]) => Promise<TrustRow[]>;
+  private readonly fetchSitemap: (limit: number) => Promise<SitemapEvent[]>;
 
   constructor(
     cacheLayer: CacheLayer = nextDataCache,
@@ -463,6 +466,7 @@ export class SupabaseEventRepository implements EventRepository {
     this.fetchExtras = cacheLayer(queryEventExtras, ['event-extras-v1']);
     this.fetchCounts = cacheLayer(queryEngagementCounts, ['event-counts-v1']);
     this.fetchTrust = cacheLayer(queryTrustLevels, ['event-trust-v1']);
+    this.fetchSitemap = cacheLayer(querySitemapEvents, ['events-sitemap-v1']);
   }
 
   /**
@@ -586,6 +590,10 @@ export class SupabaseEventRepository implements EventRepository {
 
   async listClosingSoon(limit: number): Promise<readonly EventSummary[]> {
     return this.withCardExtras(await this.fetchClosingSoon(limit));
+  }
+
+  async listSitemapEvents(limit: number): Promise<readonly SitemapEvent[]> {
+    return this.fetchSitemap(Math.min(Math.max(limit, 0), SITEMAP_EVENT_LIMIT));
   }
 
   async listCategories(): Promise<readonly Category[]> {
@@ -4214,6 +4222,30 @@ async function queryPosters(eventIds: readonly string[]): Promise<PosterRow[]> {
     rows.push(...data);
   }
   return rows;
+}
+
+/**
+ * Tabel `events` (anon, RLS: tayang & bukan data uji), bukan view katalog:
+ * hanya tabel ini yang membawa `updated_at`. Tenggat utama disaring di sini
+ * karena `primary_deadline_at` hanya ada di view.
+ */
+async function querySitemapEvents(limit: number): Promise<SitemapEvent[]> {
+  const { data, error } = await createSupabasePublicClient()
+    .from('events')
+    .select('slug, updated_at, event_deadlines(deadline_at, is_primary)')
+    .eq('status', 'APPROVED')
+    .order('updated_at', { ascending: false })
+    .order('slug')
+    .limit(limit)
+    .returns<{ slug: string; updated_at: string; event_deadlines: { deadline_at: string; is_primary: boolean }[] | null }[]>();
+  if (error) throw upstreamFailure('Gagal memuat sitemap.', error);
+  const now = Date.now();
+  return data
+    .filter((row) => {
+      const primary = (row.event_deadlines ?? []).find((deadline) => deadline.is_primary);
+      return !primary || new Date(primary.deadline_at).getTime() >= now;
+    })
+    .map((row) => ({ slug: row.slug, updatedAt: row.updated_at }));
 }
 
 interface TrustRow {

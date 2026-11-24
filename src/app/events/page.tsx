@@ -18,6 +18,7 @@ import { getEventRepository } from '@/lib/data';
 import { withFallback } from '@/lib/fallback';
 import { getDeadlineState } from '@/lib/deadline';
 import { eventTypeNavFor } from '@/lib/event-type-nav';
+import { canonicalEventsPath } from '@/lib/seo';
 import {
   buildEventHref,
   hasActiveFilters,
@@ -28,23 +29,36 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/** Judul memakai kata yang benar-benar dicari pelajar ("info lomba", "lowongan magang"), ≤ 60 karakter dengan akhiran situs. */
 const TITLES: Record<string, { title: string; description: string }> = {
-  LOMBA: { title: 'Info lomba', description: 'Lomba yang masih buka untuk pelajar dan mahasiswa, urut dari tenggat terdekat.' },
-  BEASISWA: { title: 'Beasiswa', description: 'Beasiswa yang masih membuka pendaftaran, lengkap dengan jenjang yang bisa mengajukan.' },
-  MAGANG: { title: 'Magang', description: 'Lowongan magang dan praktik kerja dari penyelenggara yang sudah ditinjau.' },
-  WORKSHOP: { title: 'Workshop & pelatihan', description: 'Kelas praktik dan pelatihan, disusun seperti kalender.' },
-  KONFERENSI: { title: 'Seminar & konferensi', description: 'Agenda seminar dan konferensi per tanggal.' },
+  LOMBA: {
+    title: 'Info lomba pelajar & mahasiswa',
+    description: 'Lomba yang masih buka untuk siswa SMA/SMK dan mahasiswa, urut dari tenggat terdekat dan ditinjau moderator.',
+  },
+  BEASISWA: {
+    title: 'Info beasiswa pelajar & mahasiswa',
+    description: 'Beasiswa yang masih membuka pendaftaran, lengkap dengan jenjang yang bisa mengajukan dan sisa waktunya.',
+  },
+  MAGANG: {
+    title: 'Lowongan magang mahasiswa',
+    description: 'Lowongan magang dan praktik kerja dari penyelenggara yang sudah ditinjau moderator, lengkap dengan tenggat lamaran.',
+  },
+  WORKSHOP: { title: 'Workshop & pelatihan', description: 'Kelas praktik dan pelatihan untuk pelajar dan mahasiswa, disusun seperti kalender.' },
+  KONFERENSI: { title: 'Seminar & konferensi', description: 'Agenda seminar dan konferensi untuk pelajar dan mahasiswa, per tanggal.' },
 };
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<RawSearchParams> }): Promise<Metadata> {
-  const nav = eventTypeNavFor(parseEventQuery(await searchParams).types);
+  const { types } = parseEventQuery(await searchParams);
+  const nav = eventTypeNavFor(types);
   const page = nav ? TITLES[nav.key] : undefined;
-  return {
-    title: page?.title ?? 'Jelajahi kegiatan',
-    description:
-      page?.description ??
-      'Cari dan saring lomba, beasiswa, magang, workshop, dan kegiatan pengembangan lain berdasarkan jenis, jenjang pendidikan, dan bidang.',
-  };
+  const title = page?.title ?? 'Jelajahi kegiatan';
+  const description =
+    page?.description ??
+    'Cari dan saring lomba, beasiswa, magang, workshop, dan kegiatan pengembangan lain berdasarkan jenis, jenjang pendidikan, dan bidang.';
+  // Saringan, urutan, halaman, dan kata kunci tetap URL yang bisa dibagikan, tapi canonical-nya halaman bersih (ADR-097).
+  const canonical = canonicalEventsPath(types);
+  // Tanpa `openGraph` sendiri: objek itu MENIMPA milik layout beserta kartu OG akar (lihat OPEN_GRAPH_BASE).
+  return { title, description, alternates: { canonical } };
 }
 
 /**

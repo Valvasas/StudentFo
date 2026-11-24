@@ -87,7 +87,9 @@ yang tidak memuat migration yang sudah ada di produksi
 | Data uji | `events.is_demo` ditutup di policy `events_public_read`; saklar "Tandai data uji" (ADR-096) | — (jangan menyaring data uji per halaman/kueri — policy yang menutup) | `trust-levels.test.ts`, `124_event_trust_levels.test.sql`, `listing.test.ts` |
 | Tur beranda (isi) | Kegiatan SUNGGUHAN (`TourSample`) atau garis kerangka (ADR-096) | Nama karangan "Contoh penyelenggara" / "lomba desain" (ADR-065) | `landing-tour.spec.ts` |
 | Teks pembaca layar | `sr-only` hanya melengkapi (satuan/konteks), tidak menyalin angka/label terlihat (ADR-096) | Kalimat lengkap `sr-only` + salinan `aria-hidden` ("2 suka2", "D4/S1D4/S1") | `event-engagement.spec.ts` (Peringkat) |
-| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–096 | Nomor ganda 061/062 | — |
+| SEO halaman | Canonical per halaman (`/events` → halaman kategori bersih via `canonicalEventsPath`), JSON-LD `Event`/`EducationalOccupationalProgram`/`BreadcrumbList`/`WebSite`/`FAQPage` (`lib/structured-data.ts`), OG kegiatan = poster atau kartu OG, tanpa meta keywords (ADR-097) | Tanpa canonical di `/events`; kegiatan tanpa poster dibagikan tanpa gambar; `slice(0,155)` | `seo.test.ts`, `structured-data.test.ts` |
+| Sitemap | Kegiatan masih buka (`listSitemapEvents`) + 5 kategori; `<lastmod>` = perubahan isi (`touch_event_updated_at`) (ADR-097) | Semua kegiatan termasuk tutup, `<lastmod>` = `created_at` | `sitemap-events.test.ts`, `125_event_content_updated_at.test.sql`, `legal.spec.ts` |
+| Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–097 | Nomor ganda 061/062 | — |
 
 ## Migration
 
@@ -124,7 +126,8 @@ yang tidak memuat migration yang sudah ada di produksi
 
 ### 2026-11-24 — cabang `claude/admiring-lovelace-75z4mp` (dari `main` `23e6aa9`)
 - Fase 1 (ADR-096): teks ganda pembaca layar dibereskan, tur beranda memakai kegiatan sungguhan, alt poster bermakna, dua tingkat kepercayaan + data uji.
-- Migration `20261124100001_event_trust_levels` **BELUM diterapkan** (perlu persetujuan pemilik). Cabang **belum digabung ke `main`.**
+- Fase 2 (ADR-097): canonical, JSON-LD, OG kegiatan, sitemap kegiatan aktif + kategori, `lastmod` isi.
+- Migration `20261124100001_event_trust_levels` & `20261124100002_event_content_updated_at` **BELUM diterapkan** (perlu persetujuan pemilik). Cabang **belum digabung ke `main`.**
 
 ### 2026-11-21 — cabang `ccr-e5c48abe-22c436` (dari `main` `1fbfd96`)
 - 26 kegiatan kurasi (lomba/magang/workshop dari laman resmi) masuk antrean produksi lewat `stage_scraped_event` — data saja.

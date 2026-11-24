@@ -66,6 +66,7 @@ Urutan migration (harus dijalankan berurutan):
 55. `20261120100001_event_slides.sql` — `event_photos.sort_order` (diisi ulang menurut urutan tampil; pemicu sisip menaruh unggahan baru di belakang), RPC `reorder_event_photos(uuid, uuid[])` & `set_event_photo_caption(uuid, text)` (DEFINER, pengelola/admin); tabel `ugc_submission_photos` (RLS tanpa policy, maks. 5 per kiriman), `submission_photo_file`, `take_submission_photos`; `approve_submission` memindahkan gambar pendukung jadi slide (ADR-094)
 56. `20261121100001_event_media_imports.sql` — tabel `event_media_imports` (service_role saja, maks. 8 per kegiatan), `stage_event_media(uuid, jsonb)` (NULL = daftar bawaan: og:image laman sumber + poster & 3 slide buatan), `claim_event_media_imports(int)` (sewa 10 menit, SKIP LOCKED); `stage_scraped_event` ikut mengantrekan media (ADR-095)
 57. `20261124100001_event_trust_levels.sql` — `events.verification_level` (`MODERATOR_VERIFIED`/`PUBLIC_SOURCE`, CHECK, backfill konservatif) & `events.is_demo`; `ALTER POLICY events_public_read … AND NOT is_demo`; `get_distinct_organizer_count()` tanpa data uji (ADR-096)
+58. `20261124100002_event_content_updated_at.sql` — `touch_event_updated_at()` + `CREATE OR REPLACE TRIGGER trg_events_touch`: `events.updated_at` hanya maju saat ISI berubah (bukan `saved_count`/`search_vector`) — dipakai `<lastmod>` sitemap (ADR-097)
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–56 per 2026-11-22, semua migration di repo).
 
@@ -161,7 +162,7 @@ olahraga, kesehatan, sosial, pendidikan, hukum).
 | reviewed_at | TIMESTAMPTZ? | wajib terisi kalau status APPROVED/REJECTED (`CHECK events_review_trail`) |
 | rejection_reason | TEXT? | |
 | saved_count | INT | denormalisasi, disinkron trigger `sync_saved_count` dari `saved_events` |
-| created_at / updated_at | TIMESTAMPTZ | |
+| created_at / updated_at | TIMESTAMPTZ | `updated_at` = perubahan isi saja sejak migration 58 (ADR-097) |
 | search_vector | tsvector GENERATED | lihat § Full-text search di bawah |
 | is_free | BOOLEAN? | **NULL = belum diketahui** (bukan gratis). Tanpa default — hasil scraping tidak pernah tahu biaya (ADR-049) |
 | price_amount | NUMERIC(12,0)? | rupiah; `CHECK events_price_consistent`: hanya bila `is_free = false`, 1..10⁹ |

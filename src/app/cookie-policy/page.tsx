@@ -11,6 +11,7 @@ import { ORGANIZER_DRAFT_COOKIE } from '@/lib/organizer-draft-cookie';
 import { OUTBOUND_SURVEY_COOKIE } from '@/lib/outbound-survey-cookie';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/cookie-policy' },
   title: 'Kebijakan cookie',
   description: 'Cookie dan penyimpanan peramban yang dipakai StudentFo: nama, tujuan, masa berlaku, dan cara mengaturnya. Tanpa iklan dan pelacak.',
 };

@@ -19,9 +19,10 @@ import { getEventRepository } from '@/lib/data';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/about' },
   title: 'Tentang',
   description:
-    'StudentFo mengumpulkan lomba, beasiswa, magang, dan workshop untuk pelajar & mahasiswa Indonesia, lalu memeriksanya manual sebelum tayang. Gratis, tanpa menjual data.',
+    'Lomba, beasiswa, magang, dan workshop untuk pelajar & mahasiswa Indonesia, ditinjau moderator sebelum tayang. Gratis, tanpa menjual data.',
 };
 
 const FLOW = [

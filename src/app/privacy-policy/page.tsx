@@ -3,6 +3,7 @@ import { Callout, ContactNote, InlineLink, LegalDocument, OperatorRef, privacySt
 import type { LegalDocumentStatus } from '@/lib/legal';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/privacy-policy' },
   title: 'Kebijakan privasi',
   description:
     'Data apa yang diproses StudentFo, dasar dan tujuannya, siapa yang bisa melihatnya, berapa lama disimpan, dan hakmu menurut UU Pelindungan Data Pribadi.',

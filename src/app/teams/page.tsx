@@ -34,6 +34,7 @@ import { EDUCATION_LEVEL_LABEL, EVENT_TYPE_LABEL, remainingSlots, type Team, typ
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/teams' },
   title: 'Cari tim',
   description: 'Temukan rekan satu tim untuk lomba, hackathon, dan karya tulis — atau buka timmu sendiri dan tunggu yang tertarik bergabung.',
 };

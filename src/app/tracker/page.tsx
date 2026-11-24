@@ -17,6 +17,7 @@ import { TRACKER_STATUS_LABEL, TRACKER_STATUSES, type TrackerStatus } from '@/ty
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/tracker' },
   title: 'Papan lamaran',
   description: 'Lacak status lamaran lomba, beasiswa, dan magangmu dalam satu papan: disimpan, sudah daftar, wawancara, diterima.',
 };

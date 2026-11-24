@@ -40,6 +40,7 @@ import { submitEventAction } from './actions';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/submit' },
   title: 'Kirim kegiatan',
   description:
     'Punya info lomba, beasiswa, magang, atau workshop? Kirim ke StudentFo — setiap kiriman ditinjau moderator sebelum tayang.',

@@ -1,63 +1,59 @@
 import type { MetadataRoute } from 'next';
 import { getEventRepository } from '@/lib/data';
-import { MAX_PAGE_SIZE } from '@/lib/data/repository';
+import { SITEMAP_EVENT_LIMIT } from '@/lib/data/repository';
 import { siteUrl } from '@/lib/env';
-import type { EventSummary } from '@/types/domain';
+import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 
 /**
- * Batas atas halaman listing yang ditelusuri (× MAX_PAGE_SIZE = 4.800 URL
- * event). Jauh di bawah batas 50.000 URL per sitemap, dan cukup untuk
- * katalog bertahun-tahun. Melewati angka ini = saatnya memecah sitemap
- * lewat `generateSitemaps()`, bukan menaikkan angka ini.
- */
-const MAX_SITEMAP_PAGES = 100;
-
-/**
- * Sitemap dinamis.
+ * Sitemap dinamis (ADR-097).
+ *
+ * - Kegiatan: hanya yang MASIH BISA DIDAFTARI. Yang sudah tutup tetap bisa
+ *   dibuka (200 + "Pendaftaran ditutup", bukan 404 — DEVIATIONS #12) dan
+ *   tetap terindeks lewat tautan, tetapi tidak lagi disodorkan untuk
+ *   dirayapi ulang. `<lastmod>` = perubahan ISI (`touch_event_updated_at`),
+ *   bukan setiap simpanan — nilai yang terbukti tidak akurat membuat Google
+ *   mengabaikan `<lastmod>` seluruh situs.
+ * - Lima halaman kategori ikut disetor: itu halaman tujuan kata kunci
+ *   "info lomba", "beasiswa", "lowongan magang", dengan canonical sendiri.
  *
  * Kegagalan di sini TIDAK boleh menjatuhkan build atau mengembalikan 500 —
  * crawler yang menerima error berulang akan menurunkan frekuensi kunjungan.
- * Kalau database sedang bermasalah, lebih baik menyajikan rute statis saja
- * daripada tidak menyajikan apa pun.
+ * Kalau database sedang bermasalah, lebih baik menyajikan rute statis saja.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: siteUrl, changeFrequency: 'daily', priority: 1 },
     { url: `${siteUrl}/events`, changeFrequency: 'daily', priority: 0.9 },
+    ...EVENT_TYPE_NAV.map((item) => ({
+      url: `${siteUrl}${eventTypeHref(item)}`,
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    })),
     { url: `${siteUrl}/teams`, changeFrequency: 'daily', priority: 0.5 },
-    { url: `${siteUrl}/connections`, changeFrequency: 'weekly', priority: 0.5 },
+    { url: `${siteUrl}/connections`, changeFrequency: 'weekly', priority: 0.4 },
     { url: `${siteUrl}/about`, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${siteUrl}/penyelenggara`, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${siteUrl}/submit`, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${siteUrl}/tracker`, changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${siteUrl}/sumber-data`, changeFrequency: 'monthly', priority: 0.3 },
     { url: `${siteUrl}/terms`, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${siteUrl}/privacy-policy`, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${siteUrl}/cookie-policy`, changeFrequency: 'yearly', priority: 0.2 },
   ];
 
   try {
-    const repository = await getEventRepository();
-    // Urutan `newest` (bukan bawaan `relevance`) supaya paging stabil dan
-    // setiap event muncul tepat sekali di seluruh halaman.
-    const query = { pageSize: MAX_PAGE_SIZE, includeClosed: true, sort: 'newest' as const };
-    const first = await repository.listEvents({ ...query, page: 1 });
-    const pageCount = Math.min(first.totalPages, MAX_SITEMAP_PAGES);
-
-    const rest = await Promise.all(
-      Array.from({ length: pageCount - 1 }, (_, index) => repository.listEvents({ ...query, page: index + 2 })),
-    );
-    const events: EventSummary[] = [first, ...rest].flatMap((page) => [...page.items]);
-
+    const events = await (await getEventRepository()).listSitemapEvents(SITEMAP_EVENT_LIMIT);
     return [
       ...staticRoutes,
       ...events.map((event) => ({
         url: `${siteUrl}/events/${event.slug}`,
-        lastModified: new Date(event.createdAt),
+        lastModified: new Date(event.updatedAt),
         changeFrequency: 'weekly' as const,
         priority: 0.7,
       })),
     ];
-  } catch {
+  } catch (error) {
+    console.error('[sitemap] kegiatan gagal dimuat, hanya rute statis:', error);
     return staticRoutes;
   }
 }

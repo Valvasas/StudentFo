@@ -189,6 +189,7 @@ import type {
   RestoreRejectedInput,
   ReviewTrustInput,
   EventTrustInput,
+  SitemapEvent,
   ClearProfileMediaInput,
   MediaImportInput,
   MediaImportJob,
@@ -865,6 +866,14 @@ export class MemoryEventRepository implements EventRepository {
     const event = this.events.find((candidate) => candidate.slug === slug);
     // Entri PENDING/REJECTED tidak boleh bocor lewat tebakan slug.
     return event && isPubliclyVisible(event) ? event : null;
+  }
+
+  async listSitemapEvents(limit: number): Promise<readonly SitemapEvent[]> {
+    return this.publicEvents(false, new Date())
+      // Mode seed tidak mencatat waktu ubah: waktu tayang cukup untuk meninjau sitemap.
+      .map((event) => ({ slug: event.slug, updatedAt: event.createdAt }))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.slug.localeCompare(b.slug))
+      .slice(0, Math.max(limit, 0));
   }
 
   async listClosingSoon(limit: number): Promise<readonly EventSummary[]> {

@@ -330,7 +330,15 @@ Tidak ada satu baris kode pun di `pipeline/` yang menulis status selain
   men-stream shell dengan status 200 sebelum `notFound()` sempat mengubah
   status jadi 404 → soft-404 yang ikut terindeks).
 - `sitemap.ts` dan `robots.ts` dibangun dari repository yang sama dengan UI,
-  bukan daftar statis terpisah.
+  bukan daftar statis terpisah. Sitemap = kegiatan yang masih buka
+  (`listSitemapEvents`) + halaman kategori; `<lastmod>` = perubahan isi (ADR-097).
+- Canonical ditulis per halaman (`alternates.canonical`), tidak di layout.
+  `/events` memakai `canonicalEventsPath()` (`lib/seo.ts`). Halaman yang
+  menyetel `openGraph` sendiri menyebar `OPEN_GRAPH_BASE` — Next menimpa,
+  bukan menggabung, objek milik layout.
+- JSON-LD: `lib/structured-data.ts` (murni, teruji) → `<JsonLd>`
+  (`components/seo/json-ld.tsx`, ber-nonce). Markup hanya untuk isi yang
+  terlihat dan data yang benar-benar ada (ADR-097).
 
 ## Sistem desain
 

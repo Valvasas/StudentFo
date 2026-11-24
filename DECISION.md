@@ -12,6 +12,65 @@ terdokumentasi.
 
 ---
 
+## ADR-097 — SEO: canonical ke halaman bersih, JSON-LD yang jujur, sitemap kegiatan aktif dengan `lastmod` isi (24 Nov 2026)
+
+**Konteks:** Audit SEO 23 Nov (atas permintaan pemilik) + Fase 2 permintaan
+24 Nov. Temuan yang diverifikasi di build produksi lokal:
+- Halaman kegiatan tanpa poster dibagikan TANPA `og:image` dan dengan kartu
+  Twitter `summary`: `openGraph` di `generateMetadata` menimpa kartu
+  `opengraph-image.tsx` yang sebenarnya sudah ada. Padahal WhatsApp adalah
+  jalur penyebaran utama info lomba.
+- Nol data terstruktur; `/events` tanpa canonical sehingga setiap kombinasi
+  saringan/halaman/kata kunci (termasuk pencarian tanpa hasil) terindeks
+  dengan judul identik; halaman kategori tidak ada di sitemap; `<lastmod>`
+  sitemap = `created_at`; meta keywords (diabaikan Google); deskripsi
+  dipotong di tengah kata; deskripsi beranda ±205 karakter.
+- Data produksi: workshop/seminar/beasiswa/magang hanya punya tenggat
+  PENDAFTARAN — tidak ada tanggal pelaksanaan. `updated_at` kegiatan ikut
+  maju setiap kali seseorang menekan Simpan (`sync_saved_count`).
+
+**Keputusan:**
+1. **Canonical per halaman** (di halaman, bukan layout — canonical layout
+   diwarisi semua halaman). `/events`: `canonicalEventsPath()` = tab kategori
+   bila jenisnya cocok satu tab, selain itu `/events`. Saringan tetap URL
+   yang bisa dibagikan (CONVENTIONS § filter); hanya canonical-nya yang
+   menunjuk ke halaman bersih. Sengaja TANPA `noindex` tambahan: canonical +
+   noindex adalah sinyal campuran.
+2. **JSON-LD jujur** (`lib/structured-data.ts`, teruji): `Event` hanya bila
+   tanggal kegiatan diketahui (tahap setelah pendaftaran); tenggat
+   pendaftaran = `offers.validThrough`, tidak pernah `startDate`. Beasiswa,
+   magang, pelatihan = `EducationalOccupationalProgram` + `applicationDeadline`.
+   `description` = cuplikan yang terlihat tamu (ADR-085). `WebSite` +
+   `SearchAction` + `Organization` di beranda; `FAQPage` hanya di beranda
+   tamu tempat jawabannya tampil; `BreadcrumbList` mencerminkan remah roti
+   yang terlihat. `<` di-escape (judul kiriman pengguna tidak bisa menutup
+   `</script>`); nonce CSP dipasang.
+3. **OG kegiatan:** poster bila ada, selain itu kartu OG buatan server;
+   `summary_large_image` selalu. `OPEN_GRAPH_BASE` disebar di setiap
+   `openGraph` halaman karena Next menimpa (bukan menggabung) milik layout.
+4. **Sitemap:** kegiatan yang MASIH BISA DIDAFTARI (`listSitemapEvents`,
+   kedua repository) + lima halaman kategori + `/sumber-data`. Yang tutup
+   tetap 200 "Pendaftaran ditutup" (DEVIATIONS #12), hanya tidak disetor.
+5. **`updated_at` = perubahan isi** (migration `20261124100002`,
+   `touch_event_updated_at`, `CREATE OR REPLACE TRIGGER` tanpa DROP):
+   `saved_count` & `search_vector` tidak dihitung, jadi `<lastmod>` bisa
+   dipercaya.
+6. Meta keywords dihapus; deskripsi ≤ 155 karakter dipotong di batas kata
+   (`metaDescription` memakai ulang `teaserOf`); judul beranda ≤ 60.
+
+**Konsekuensi:** Workshop/seminar belum mendapat rich result `Event` sampai
+tanggal pelaksanaannya tercatat — label tahap "Pelaksanaan" butuh perubahan
+enum tiga tempat (AGENTS.md #2), dicatat di TASKS. Google membatasi rich
+result FAQ ke situs pemerintah/kesehatan sejak 2023 dan menghentikan kotak
+pencarian sitelinks 2024: `FAQPage` & `SearchAction` tetap sah dan dibaca
+mesin lain, tetapi jangan berharap tampilan khusus di Google. Rich Results
+Test tidak bisa dijalankan dari sandbox; syarat wajib Google (name,
+startDate, location beralamat) dikunci `structured-data.test.ts`. Migration
+`20261124100002` BELUM diterapkan ke produksi — sampai itu, `<lastmod>`
+masih ikut maju saat orang menyimpan.
+
+---
+
 ## ADR-096 — Dua tingkat kepercayaan kegiatan, data uji tertutup di satu policy, teks terlihat = teks yang dibaca (24 Nov 2026)
 
 **Konteks:** Pemilik melaporkan (Fase 1 permintaan 24 Nov) teks ganda "1 suka1"

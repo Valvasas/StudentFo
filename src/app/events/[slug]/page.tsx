@@ -28,7 +28,7 @@ import { toggleSaveEventAction } from '@/app/tracker/actions';
 import { AddToCalendarButton } from '@/components/event/add-to-calendar-button';
 import { EventMedia } from '@/components/event/event-media';
 import { NudgeCards } from '@/components/event/nudge-cards';
-import { photoSrc } from '@/components/event/event-photo';
+import { photoSrc, posterAlt } from '@/components/event/event-photo';
 import { AdminEventTools } from '@/components/admin/admin-event-tools';
 import { EngagementBar } from '@/components/event/engagement-bar';
 import { EventComments } from '@/components/event/event-comments';
@@ -70,6 +70,10 @@ import {
 } from '@/lib/deadline';
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { siteUrl } from '@/lib/env';
+import { metaDescription, OPEN_GRAPH_BASE } from '@/lib/seo';
+import { breadcrumbJsonLd, eventJsonLd } from '@/lib/structured-data';
+import { OG_SIZE } from '@/components/og/og-card';
+import { JsonLd } from '@/components/seo/json-ld';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { sectionTitle } from '@/lib/page-title';
 import { loginHref } from '@/lib/safe-redirect';
@@ -115,21 +119,30 @@ export async function generateMetadata({
   const tab = TABS.find((item) => item.key === rawTab);
   const title = tab && tab.key !== 'ringkasan' ? sectionTitle(tab.label, event.title) : event.title;
 
-  const description = event.description?.slice(0, 155) ?? `${EVENT_TYPE_LABEL[event.eventType]} oleh ${event.organizer}.`;
-
-  // Poster = gambar pratinjau saat tautan dibagikan (WhatsApp, IG, X) — ADR-079.
-  // Rute /media/foto publik hanya melayani foto acara tayang, sama dengan halaman ini.
-  const images = event.poster
-    ? [{ url: photoSrc(event.poster.id), width: event.poster.width, height: event.poster.height, alt: `Poster ${event.title}` }]
-    : undefined;
+  const description = metaDescription(event.description) ?? `${EVENT_TYPE_LABEL[event.eventType]} oleh ${event.organizer}.`;
+  const image = previewImage(event);
+  const path = `/events/${event.slug}`;
 
   return {
     title,
     description,
-    alternates: { canonical: `/events/${event.slug}` },
-    openGraph: { title: event.title, description, type: 'article', images },
-    twitter: images ? { card: 'summary_large_image', images } : undefined,
+    alternates: { canonical: path },
+    openGraph: { ...OPEN_GRAPH_BASE, title: event.title, description, type: 'article', url: path, images: [image] },
+    twitter: { card: 'summary_large_image', title: event.title, description, images: [image.url] },
   };
+}
+
+/**
+ * Gambar pratinjau tautan (WhatsApp, Telegram, X) — jalur penyebaran utama
+ * info lomba. Poster bila ada (ADR-079), selain itu kartu OG buatan server
+ * (`opengraph-image.tsx`). Dulu kartu OG tidak pernah dipasang: `openGraph`
+ * di sini menimpa gambar berbasis berkas, sehingga kegiatan tanpa poster
+ * dibagikan TANPA gambar dan dengan kartu Twitter "summary" (ADR-097).
+ */
+function previewImage(event: EventDetail): { url: string; width: number; height: number; alt: string } {
+  return event.poster
+    ? { url: photoSrc(event.poster.id), width: event.poster.width, height: event.poster.height, alt: posterAlt(event.title, event.organizer) }
+    : { url: `/events/${event.slug}/opengraph-image`, width: OG_SIZE.width, height: OG_SIZE.height, alt: `${EVENT_TYPE_LABEL[event.eventType]}: ${event.title}` };
 }
 
 const TABS = [
@@ -382,8 +395,17 @@ export default async function EventDetailPage({
     </p>
   );
 
+  // Deskripsi markup = cuplikan yang terlihat tamu (dan mesin pencari), bukan isi tergerbang (ADR-085/097).
+  const structured = eventJsonLd(event, { siteUrl, imagePath: previewImage(event).url, description: teaserOf(event.description)?.text ?? null }, now);
+  const breadcrumb = breadcrumbJsonLd(siteUrl, [
+    { name: 'Beranda', path: '/' },
+    { name: typeLabel, path: listHref },
+    { name: event.title, path: detailPath },
+  ]);
+
   return (
     <div className="pb-28 min-[960px]:pb-0">
+      <JsonLd data={structured ? [structured, breadcrumb] : [breadcrumb]} />
       <div className="container-page pt-6">
         <ActionFeedback params={query} className="mb-4 max-w-2xl" />
         <nav aria-label="Remah roti" className="flex min-w-0 items-center gap-2 text-[13px] text-ink-muted">

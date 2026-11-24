@@ -14,6 +14,8 @@ import { EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
 import { LandingHero, type HeroLink } from './hero';
 import { LandingTour, type TourSample } from './landing-tour';
 import { RevealObserver } from './reveal-observer';
+import { JsonLd } from '@/components/seo/json-ld';
+import { faqJsonLd } from '@/lib/structured-data';
 
 /**
  * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. "Segera ditutup"
@@ -187,6 +189,8 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
         </div>
       </section>
 
+      {/* FAQPage hanya di halaman tempat jawabannya TERLIHAT (syarat Google untuk markup). */}
+      <JsonLd data={faqJsonLd(FAQS)} />
       <section id="faq" aria-labelledby="faq-title" className={`${sectionClass} scroll-mt-20`}>
         <div className="grid items-start gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div data-reveal="" className="flex flex-col gap-3.5">

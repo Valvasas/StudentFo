@@ -3,6 +3,7 @@ import { Callout, ContactNote, InlineLink, LegalDocument, OperatorRef, termsStat
 import type { LegalDocumentStatus } from '@/lib/legal';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/terms' },
   title: 'Syarat & Ketentuan',
   description:
     'Aturan memakai StudentFo: akun dan batas usia, peran StudentFo dan penyelenggara, pendaftaran dan pembayaran, konten pengguna, serta penyelesaian sengketa.',

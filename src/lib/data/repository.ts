@@ -255,6 +255,14 @@ export interface EventMaintenanceRepository {
   setEventTrust(input: EventTrustInput): Promise<void>;
 }
 
+export interface SitemapEvent {
+  readonly slug: string;
+  readonly updatedAt: string;
+}
+
+/** Batas aman sitemap tunggal (Google: 50.000 URL); lewat ini = saatnya `generateSitemaps()`. */
+export const SITEMAP_EVENT_LIMIT = 5000;
+
 export interface EventTrustInput {
   readonly eventId: string;
   readonly verificationLevel?: VerificationLevel;
@@ -445,6 +453,12 @@ export interface EventCatalogRepository {
   getEventBySlug(slug: string): Promise<EventDetail | null>;
   /** Kartu "Sorotan Minggu Ini": tenggat terdekat yang masih terbuka. */
   listClosingSoon(limit: number): Promise<readonly EventSummary[]>;
+  /**
+   * Kegiatan yang masih bisa didaftari untuk sitemap (ADR-097): tayang,
+   * tenggat utama belum lewat atau belum diumumkan, terbaru diubah dulu.
+   * `updatedAt` = perubahan ISI (trigger `touch_event_updated_at`), bukan simpanan.
+   */
+  listSitemapEvents(limit: number): Promise<readonly SitemapEvent[]>;
   listCategories(): Promise<readonly Category[]>;
   getStats(): Promise<RepositoryStats>;
   /** Pita "Minggu ini": 7 hari kalender WIB mulai hari ini, jumlah tenggat event tayang per hari. */

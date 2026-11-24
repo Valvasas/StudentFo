@@ -49,6 +49,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   return {
     title: tab && tab.key !== 'untukmu' ? sectionTitle(tab.label, 'Koneksi') : 'Koneksi',
     description: 'Temukan pelajar & mahasiswa dengan minat yang sama, lihat peta jaringanmu, dan bangun tim untuk lomba berikutnya.',
+    alternates: { canonical: '/connections' },
   };
 }
 
