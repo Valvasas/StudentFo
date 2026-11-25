@@ -577,6 +577,9 @@ export interface EventDetail extends EventSummary {
    */
   readonly startsAt?: string | null;
   readonly endsAt?: string | null;
+  /** Yang didapat peserta & syarat mengikuti (ADR-101); tidak ada = belum diisi / migration 20261125100003 belum diterapkan. */
+  readonly benefits?: string | null;
+  readonly requirements?: string | null;
 }
 
 export interface EventScheduleInput {

@@ -12,6 +12,18 @@ terdokumentasi.
 
 ---
 
+## ADR-101 — Benefit & persyaratan masuk lewat pipeline, bukan insert langsung ke `events` (25 Nov 2026)
+
+**Konteks:** Otomasi info lomba milik pemilik gagal dengan `Could not find the 'benefits' column of 'events'`; usulnya menambah kolom lewat Table Editor. `COLUMN_MAPPING` itu tidak ada di repo — otomasi menulis langsung ke tabel.
+
+**Keputusan:** Kolom `benefits` & `requirements` ditambah lewat MIGRATION (bukan dashboard: skema staging/produksi/repo tidak boleh berbeda, `check:sync`), dan otomasi memakai jalur resmi `stage_scraped_event` — selalu `PENDING`, dedup hash & kategori satu transaksi. Insert langsung ke `events` melewati moderasi dan dedup, jadi tidak didukung. Pipeline (`extractor` skema LLM, `ExtractedEvent`, `to_rpc_payload`) membawa kedua teks; > 2000 karakter dipotong di batas kata (bukan menolak seluruh kegiatan), kosong → NULL. Tampil di detail ("Yang kamu dapat", "Persyaratan") hanya untuk anggota, seperti deskripsi lengkap.
+
+**Ditolak:** kolom tak terbatas panjangnya; menerima insert mentah dari otomasi eksternal.
+
+**Konsekuensi:** Otomasi eksternal harus memanggil RPC `stage_scraped_event` dengan kunci `benefits`/`requirements` (selain kunci yang sudah ada); kolom lain di mapping-nya yang tidak ada di payload RPC akan diabaikan. Migration `20261125100003` menunggu persetujuan terapkan ke produksi; sebelum itu detail memakai fallback kolom (tanpa galat).
+
+---
+
 ## ADR-100 — Waktu pelaksanaan terpisah dari tenggat; muatan pertama tanpa pudar halaman (25 Nov 2026)
 
 **Konteks:** Setelah ADR-097, data terstruktur `Event` hanya terbit bila ada

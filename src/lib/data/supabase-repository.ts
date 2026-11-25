@@ -480,7 +480,7 @@ export class SupabaseEventRepository implements EventRepository {
     this.fetchStats = cacheLayer(queryStats, ['events-stats-v1']);
     this.fetchDeadlineWeek = cacheLayer(queryDeadlineWeek, ['events-deadline-week-v1']);
     this.fetchPosters = cacheLayer(queryPosters, ['event-posters-v1']);
-    this.fetchExtras = cacheLayer(queryEventExtras, ['event-extras-v2']);
+    this.fetchExtras = cacheLayer(queryEventExtras, ['event-extras-v3']);
     this.fetchCounts = cacheLayer(queryEngagementCounts, ['event-counts-v1']);
     this.fetchTrust = cacheLayer(queryTrustLevels, ['event-trust-v1']);
     this.fetchSitemap = cacheLayer(querySitemapEvents, ['events-sitemap-v1']);
@@ -602,7 +602,7 @@ export class SupabaseEventRepository implements EventRepository {
       this.withPosters([detail]),
       this.fetchExtras(detail.id).catch((error: unknown): EventExtras => {
         console.error('[video/cara daftar] gagal dimuat:', error);
-        return { videoUrl: null, registrationMode: 'external', startsAt: null, endsAt: null };
+        return { videoUrl: null, registrationMode: 'external', startsAt: null, endsAt: null, benefits: null, requirements: null };
       }),
     ]);
     return { ...(withPoster ?? detail), ...extras };
@@ -4482,14 +4482,34 @@ interface EventExtras {
   readonly registrationMode: RegistrationMode;
   readonly startsAt: string | null;
   readonly endsAt: string | null;
+  readonly benefits: string | null;
+  readonly requirements: string | null;
 }
 
 const NO_SCHEDULE = { startsAt: null, endsAt: null } as const;
+const NO_PIPELINE_TEXT = { benefits: null, requirements: null } as const;
 
 /** Kolom di luar `LISTING_COLUMNS`; masing-masing boleh belum ada (urutan deploy) tanpa menjatuhkan halaman. */
 async function queryEventExtras(eventId: string): Promise<EventExtras> {
-  if (!isUuid(eventId)) return { videoUrl: null, registrationMode: 'external', ...NO_SCHEDULE };
+  if (!isUuid(eventId)) return { videoUrl: null, registrationMode: 'external', ...NO_SCHEDULE, ...NO_PIPELINE_TEXT };
   const supabase = createSupabasePublicClient();
+  const texted = await supabase
+    .from('events')
+    .select('video_url, registration_mode, starts_at, ends_at, benefits, requirements')
+    .eq('id', eventId)
+    .maybeSingle<{ video_url: string | null; registration_mode: string | null; starts_at: string | null; ends_at: string | null; benefits: string | null; requirements: string | null }>();
+  if (!texted.error) {
+    return {
+      videoUrl: texted.data?.video_url ?? null,
+      registrationMode: toRegistrationMode(texted.data?.registration_mode),
+      startsAt: texted.data?.starts_at ?? null,
+      endsAt: texted.data?.ends_at ?? null,
+      benefits: texted.data?.benefits ?? null,
+      requirements: texted.data?.requirements ?? null,
+    };
+  }
+  if (!isMissingColumnError(texted.error)) throw upstreamFailure('Gagal memuat detail kegiatan.', texted.error);
+  // Sebelum migration 20261125100003 (benefit & persyaratan pipeline).
   const scheduled = await supabase
     .from('events')
     .select('video_url, registration_mode, starts_at, ends_at')
@@ -4501,6 +4521,7 @@ async function queryEventExtras(eventId: string): Promise<EventExtras> {
       registrationMode: toRegistrationMode(scheduled.data?.registration_mode),
       startsAt: scheduled.data?.starts_at ?? null,
       endsAt: scheduled.data?.ends_at ?? null,
+      ...NO_PIPELINE_TEXT,
     };
   }
   if (!isMissingColumnError(scheduled.error)) throw upstreamFailure('Gagal memuat video & jadwal.', scheduled.error);
@@ -4510,12 +4531,12 @@ async function queryEventExtras(eventId: string): Promise<EventExtras> {
     .select('video_url, registration_mode')
     .eq('id', eventId)
     .maybeSingle<{ video_url: string | null; registration_mode: string | null }>();
-  if (!full.error) return { videoUrl: full.data?.video_url ?? null, registrationMode: toRegistrationMode(full.data?.registration_mode), ...NO_SCHEDULE };
+  if (!full.error) return { videoUrl: full.data?.video_url ?? null, registrationMode: toRegistrationMode(full.data?.registration_mode), ...NO_SCHEDULE, ...NO_PIPELINE_TEXT };
   if (!isMissingColumnError(full.error)) throw upstreamFailure('Gagal memuat video.', full.error);
   // Sebelum migration 20261116100001 (cara daftar) — atau 20261109100002 (video).
   const video = await supabase.from('events').select('video_url').eq('id', eventId).maybeSingle<{ video_url: string | null }>();
   if (video.error && !isMissingColumnError(video.error)) throw upstreamFailure('Gagal memuat video.', video.error);
-  return { videoUrl: video.data?.video_url ?? null, registrationMode: 'external', ...NO_SCHEDULE };
+  return { videoUrl: video.data?.video_url ?? null, registrationMode: 'external', ...NO_SCHEDULE, ...NO_PIPELINE_TEXT };
 }
 
 /** Angka kartu dari `event_engagement` (policy publik = hanya kegiatan tayang). Tabel belum ada = []. */

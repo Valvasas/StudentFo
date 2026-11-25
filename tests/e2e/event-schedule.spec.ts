@@ -50,3 +50,14 @@ test('admin memasang lalu menghapus waktu pelaksanaan; urutan terbalik ditolak d
   await page.goto(`/events/${ONLINE_WORKSHOP}`);
   await expect(page.getByText('Sabtu, 9 Januari 2027')).toHaveCount(0);
 });
+
+test('benefit & persyaratan (ADR-101): tamu tidak melihat, anggota melihat sebagai bagian halaman', async ({ page }) => {
+  await page.goto(SCHEDULED);
+  await expect(page.getByRole('heading', { name: 'Yang kamu dapat' })).toHaveCount(0);
+
+  await signInAsDemo(page, 'Mahasiswa', SCHEDULED);
+  await expect(page.getByRole('heading', { name: 'Yang kamu dapat' })).toBeVisible();
+  await expect(page.getByText(/Sertifikat kehadiran, modul penelitian/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Persyaratan' })).toBeVisible();
+});
+

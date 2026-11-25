@@ -169,3 +169,25 @@ if __name__ == "__main__":
             print(f"  FAIL {test.__name__}: {exc}")
     print(f"\n{len(tests) - failures}/{len(tests)} lolos")
     raise SystemExit(1 if failures else 0)
+
+
+def test_benefits_and_requirements_are_optional_trimmed_and_capped():
+    from studentfo_pipeline.models import LONG_TEXT_MAX, ExtractedEvent
+
+    base = {
+        "title": "Lomba Uji Teks Panjang",
+        "organizer": "Penyelenggara Uji",
+        "event_type": "LOMBA",
+        "registration_link": "https://daftar.example",
+        "deadlines": [{"label": "registration", "deadline_at": "2999-01-01T00:00:00+07:00"}],
+    }
+    # Dulu tanpa kolom ini: tetap valid, kosong.
+    plain = ExtractedEvent.model_validate({**base, "deadlines": [{"label": "registration", "deadline_at": "2027-01-01T00:00:00+07:00"}]})
+    assert plain.benefits == "" and plain.requirements == ""
+
+    due = {"deadlines": [{"label": "registration", "deadline_at": "2027-01-01T00:00:00+07:00"}]}
+    spaced = ExtractedEvent.model_validate({**base, **due, "benefits": "  Hadiah 5 juta  ", "requirements": None})
+    assert spaced.benefits == "Hadiah 5 juta" and spaced.requirements == ""
+
+    long = ExtractedEvent.model_validate({**base, **due, "benefits": "kata " * 1000})
+    assert len(long.benefits) <= LONG_TEXT_MAX + 1 and long.benefits.endswith("…")

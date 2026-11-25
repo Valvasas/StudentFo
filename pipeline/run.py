@@ -53,6 +53,8 @@ async def extract_page(
             title=event.title,
             organizer=event.organizer,
             description=event.description,
+            benefits=event.benefits,
+            requirements=event.requirements,
             event_type=event.event_type,
             registration_link=str(event.registration_link),
             source_url=page_url,

@@ -997,4 +997,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] **BUTUH PEMILIK/ADMIN.** Isi waktu pelaksanaan lima workshop/konferensi yang tayang (DevFest ×4, .NET Conf) di `/admin/media/<slug>` — dari pengumuman resmi, bukan tebakan
 - [x] Strip poster & slide antrean moderasi dibungkus, bukan digulir (axe `scrollable-region-focusable` di ponsel)
 - [ ] P3 Formulir `/submit` & buat acara admin belum menanyakan waktu pelaksanaan — diisi setelah tayang lewat halaman media; pipeline scraping belum mengekstraknya
+- [x] Benefit & persyaratan lewat pipeline (ADR-101): migration `20261125100003`, skema LLM/model/payload, tampil di detail anggota
+- [x] Terapkan `20261125100003_event_benefits_requirements` (staging → produksi, 25 Nov 2026)
+- [ ] **BUTUH PEMILIK.** Arahkan otomasi eksternal ke RPC `stage_scraped_event` dan kirim daftar `COLUMN_MAPPING` bila ada kolom lain
 

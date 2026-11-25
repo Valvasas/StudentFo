@@ -49,6 +49,9 @@ def to_rpc_payload(event: ValidatedEvent) -> dict[str, Any]:
         "title": event.title,
         "organizer": event.organizer,
         "description": event.description,
+        # Teks kosong = NULL di SQL (NULLIF), jadi aman dikirim apa adanya.
+        "benefits": event.benefits,
+        "requirements": event.requirements,
         "event_type": event.event_type.value,
         "registration_link": event.registration_link,
         "source_url": event.source_url,

@@ -30,6 +30,9 @@ Aturan:
 - Ambil HANYA kegiatan yang pendaftarannya masih dibuka atau akan dibuka.
 - Jangan mengarang. Kalau sebuah field tidak disebutkan di halaman, kosongkan
   (atau untuk deskripsi, ringkas hanya dari kalimat yang benar-benar ada).
+- `benefits` = yang DIDAPAT peserta (hadiah, uang pembinaan, beasiswa,
+  sertifikat), `requirements` = syarat mengikuti. Salin ringkas dari halaman,
+  maksimal beberapa kalimat atau poin; kosongkan bila tidak disebutkan.
 - `registration_link` harus URL yang benar-benar tercantum di halaman.
 - Tanggal ditulis dalam format ISO 8601. Kalau jam tidak disebutkan, pakai 23:59
   waktu Indonesia Barat.
@@ -109,6 +112,8 @@ def build_response_schema(category_slugs: list[str]) -> dict[str, Any]:
                 "title": {"type": "string"},
                 "organizer": {"type": "string"},
                 "description": {"type": "string"},
+                "benefits": {"type": "string"},
+                "requirements": {"type": "string"},
                 "event_type": {"type": "string", "enum": [t.value for t in EventType]},
                 "registration_link": {"type": "string"},
                 "location": {"type": "string"},

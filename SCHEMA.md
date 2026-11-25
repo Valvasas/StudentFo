@@ -69,6 +69,7 @@ Urutan migration (harus dijalankan berurutan):
 58. `20261124100002_event_content_updated_at.sql` — `touch_event_updated_at()` + `CREATE OR REPLACE TRIGGER trg_events_touch`: `events.updated_at` hanya maju saat ISI berubah (bukan `saved_count`/`search_vector`) — dipakai `<lastmod>` sitemap (ADR-097)
 59. `20261125100001_achievement_leaderboard.sql` — `users.portfolio_public` (bawaan FALSE, GRANT UPDATE per kolom); tabel `achievement_verifications` (FK ke `application_tracker`, tanpa hak tulis klien, pemilik membaca barisnya); trigger `reset_achievement_verification`; RPC `request_/cancel_achievement_verification` (authenticated), `review_achievement_verification` (service_role), `campus_leaderboard`/`people_leaderboard` & `public_portfolio_page` (anon+authenticated), `leaderboard_weight` (ADR-098)
 60. `20261125100002_event_schedule.sql` — `events.starts_at` / `events.ends_at` (waktu PELAKSANAAN, bukan tenggat; CHECK `events_schedule_order`); RPC `set_event_schedule(uuid, timestamptz, timestamptz)` (DEFINER, `manages_event()`/admin, 30/hari, kode `invalid_schedule`/`schedule_rate_limited`/`not_event_manager`/`event_unavailable`) (ADR-100)
+61. `20261125100003_event_benefits_requirements.sql` — `events.benefits` / `events.requirements` (TEXT?, CHECK ≤ 2000); `stage_scraped_event` menulis keduanya (pipeline tetap selalu PENDING) (ADR-101)
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–56 per 2026-11-22, semua migration di repo).
 
@@ -175,6 +176,7 @@ olahraga, kesehatan, sosial, pendidikan, hukum).
 | verification_level | VARCHAR(20) | `MODERATOR_VERIFIED` (dicocokkan langsung dengan kanal resmi penyelenggara) / `PUBLIC_SOURCE` (bawaan: dari pengumuman publik, lolos moderasi). CHECK = `VERIFICATION_LEVELS`; ditulis admin saja (ADR-096) |
 | is_demo | BOOLEAN | bawaan false; TRUE = data uji, tidak pernah terbaca anon/anggota (`events_public_read`) — admin tetap melihat (ADR-096) |
 | starts_at / ends_at | TIMESTAMPTZ? | Waktu pelaksanaan acara (ADR-100) — terpisah dari `event_deadlines` supaya pengingat/urgensi tidak berbunyi untuk hari acara. `CHECK events_schedule_order` (selesai butuh mulai, tidak sebelum mulai). Ditulis lewat `set_event_schedule()` saja; dibaca tamu lewat `events_public_read`. Menjadi `startDate`/`endDate` JSON-LD |
+| benefits / requirements | TEXT? | Yang didapat peserta & syarat mengikuti, hasil ekstraksi pipeline (ADR-101); ≤ 2000 (`events_benefits_length`/`events_requirements_length`). Hanya ditulis `stage_scraped_event`; tampil di detail untuk anggota |
 
 Index: `status`, `event_type`, GIN `search_vector`, GIN `education_levels`,
 partial `(created_at DESC) WHERE status='APPROVED'`, partial
