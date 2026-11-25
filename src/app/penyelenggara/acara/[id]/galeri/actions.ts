@@ -6,6 +6,7 @@ import { workspacePath } from '@/components/organizer/event-workspace';
 import { type ActionErrorCode, type ActionNoticeCode, toActionErrorCode, withQuery } from '@/lib/action-feedback';
 import { requireUser, toEventActor, type AuthUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { parseSchedule } from '@/lib/event-schedule';
 import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
 import { GALLERY_LIMITS } from '@/lib/data/repository';
 import { formText, formTrimmed } from '@/lib/form-data';
@@ -130,6 +131,26 @@ export async function saveVideoAction(formData: FormData): Promise<void> {
     failed(target.returnTo, toActionErrorCode(error));
   }
   await done(user, target, canonical ? 'video_saved' : 'video_removed');
+}
+
+/**
+ * Waktu pelaksanaan (ADR-100). Isian `datetime-local` ditafsirkan WIB di
+ * server (`parseSchedule`); hak & urutan diperiksa lagi oleh repository/RPC.
+ */
+export async function saveScheduleAction(formData: FormData): Promise<void> {
+  const target = readTarget(formData);
+  const user = await requireUser(target.returnTo);
+
+  const clear = formData.get('clear') === 'on';
+  const parsed = clear ? { ok: true as const, startsAt: null, endsAt: null } : parseSchedule(formText(formData, 'startsAt'), formText(formData, 'endsAt'));
+  if (!parsed.ok) failed(target.returnTo, 'invalid_schedule');
+
+  try {
+    await (await getEventRepository()).setEventSchedule(toEventActor(user), target.eventId, { startsAt: parsed.startsAt, endsAt: parsed.endsAt });
+  } catch (error) {
+    failed(target.returnTo, toActionErrorCode(error));
+  }
+  await done(user, target, parsed.startsAt ? 'schedule_saved' : 'schedule_cleared');
 }
 
 /**

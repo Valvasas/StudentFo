@@ -166,6 +166,7 @@ src/
 │   ├── match-filter-release.ts Saringan aktif → kelompok & "lepas satu saringan" untuk chip dan keadaan kosong [teruji, murni] (ADR-058)
 │   ├── motion-pref.ts          `isMotionReduced()` — satu-satunya pintu gerak JS ke preferensi gerak (ADR-058)
 │   ├── view-transition.ts      Kapan daftar → detail memakai View Transitions (dukungan, gerak, koneksi, jenis klik) [teruji, murni] (ADR-099)
+│   ├── event-schedule.ts       Waktu pelaksanaan: isian WIB → ISO, validasi urutan, format "Sabtu, 12 Desember 2026 · 09.00–16.00 WIB" [teruji, murni] (ADR-100)
 │   ├── geo.ts                  Titik pusat kota Indonesia + jarak haversine dibulatkan 5 km; koordinat rumah tidak pernah disimpan [teruji]
 │   ├── network.ts              Peringkat saran koneksi, alasan, validasi form jaringan, kursor paginasi koneksi [teruji]
 │   ├── network-graph.ts        Data peta koneksi (simpul/sisi, batas) dibangun di server [teruji]

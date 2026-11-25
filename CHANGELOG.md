@@ -95,6 +95,8 @@ yang tidak memuat migration yang sudah ada di produksi
 | Token & gerak | Token satu tempat (`globals.css` §1, palet #FAF9F5/#141311/amber #FACC15, radius kartu 16px, durasi ≤ 400ms); hanya `transform`/`opacity`; angkat kartu `card-lift`, tenggat ≤ H-3 amber (`due-soon`), `CountUp`, `FlipList`, View Transitions via `TransitionLink` saja (ADR-099) | "Tanpa translate pada kartu", reveal 1100ms/28px, View Transitions dilarang (ADR-058/053), stabilo #ffd95a | `view-transition.test.ts`, `deadline.test.ts`, `landing-tour.spec.ts`, `check:contrast` |
 | Hero beranda tamu | Cuplikan lima alur (`LandingTour`) di kolom kanan hero; tinggi panggung dipesan per lebar wadah (ADR-099) | `HeroSketch` + bagian `#cara-kerja` terpisah di bawah lipatan | `landing-tour.spec.ts` |
 | Metadata | Selalu di `<head>` (`htmlLimitedBots: /.*/` di `next.config.ts`, ADR-099) | Streaming metadata Next 15.2+ ke `<body>` | Lighthouse SEO 100 |
+| Waktu pelaksanaan | `events.starts_at/ends_at` via `set_event_schedule`, kartu "Waktu pelaksanaan" di `MediaManager`, fakta di detail, `startDate` JSON-LD (ADR-100) | Hanya tanggal tahap lomba; rencana label `Pelaksanaan` di `deadline_label` (ditolak) | `event-schedule.test.ts` (lib & data), `127_event_schedule.test.sql`, `event-schedule.spec.ts` |
+| Pudar halaman | `page-enter` hanya pada navigasi klien; muatan pertama dilukis langsung (ADR-100) | Pudar di setiap muatan termasuk yang pertama | `template.tsx` |
 | Penomoran ADR | 061–062 keamanan & MVP ops · 063 tur & pintu penyelenggara · 064/065 kesan AI & tur beranda (dulu 061/062 di `main`) · 066 penggabungan · 067/068 · 069–098 | Nomor ganda 061/062 | — |
 
 ## Migration

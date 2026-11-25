@@ -1,9 +1,10 @@
 import Image from 'next/image';
-import { ArrowLeft, ArrowRight, Film, Images, PencilLine, ShieldAlert, Star, StarOff, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarClock, Film, Images, PencilLine, ShieldAlert, Star, StarOff, Trash2 } from 'lucide-react';
 import {
   deletePhotoAction,
   movePhotoAction,
   saveCaptionAction,
+  saveScheduleAction,
   saveVideoAction,
   setPosterAction,
   uploadPhotosAction,
@@ -16,6 +17,7 @@ import { Field, TextInput } from '@/components/ui/field';
 import { ImageUploadField } from '@/components/ui/image-upload-field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { GALLERY_LIMITS } from '@/lib/data/repository';
+import { formatSchedule, toWibDateTimeInput } from '@/lib/event-schedule';
 import type { MediaContext } from '@/lib/media-paths';
 import { cn } from '@/lib/utils';
 import { parseVideo } from '@/lib/video';
@@ -50,7 +52,14 @@ export function MediaManager({
   privatePreview = false,
 }: {
   context: MediaContext;
-  event: { readonly id: string; readonly slug: string; readonly title: string; readonly videoUrl?: string | null };
+  event: {
+    readonly id: string;
+    readonly slug: string;
+    readonly title: string;
+    readonly videoUrl?: string | null;
+    readonly startsAt?: string | null;
+    readonly endsAt?: string | null;
+  };
   photos: readonly EventPhoto[];
   /** Kegiatan belum tayang (antrean moderasi, ADR-095): pratinjau tanpa optimizer gambar. */
   privatePreview?: boolean;
@@ -66,6 +75,7 @@ export function MediaManager({
       <div className="flex flex-col gap-6 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1">
         <UploadCard target={target} used={photos.length} remaining={remaining} hasPoster={hasPoster} />
         <VideoCard target={target} videoUrl={event.videoUrl ?? null} />
+        <ScheduleCard target={target} startsAt={event.startsAt ?? null} endsAt={event.endsAt ?? null} />
       </div>
 
       <div className="flex min-w-0 flex-col gap-10 lg:col-start-1 lg:row-start-1">
@@ -203,6 +213,49 @@ function VideoCard({ target, videoUrl }: { target: Target; videoUrl: string | nu
           {video && (
             <SubmitButton name="remove" value="on" formNoValidate className={buttonVariants({ variant: 'secondary' })} pendingLabel="Melepas…">
               Lepas video
+            </SubmitButton>
+          )}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+/**
+ * Waktu pelaksanaan (ADR-100) — di sini karena halaman ini satu-satunya
+ * tempat admin mengurus kegiatan tanpa pengelola, dan studio memakai
+ * komponen yang sama. Isian WIB; dua-duanya kosong = hapus.
+ */
+function ScheduleCard({ target, startsAt, endsAt }: { target: Target; startsAt: string | null; endsAt: string | null }) {
+  return (
+    <section aria-labelledby="waktu-pelaksanaan" className="flex flex-col gap-4 rounded-panel border border-line bg-panel p-5 sm:p-6">
+      <h2 id="waktu-pelaksanaan" className="flex items-center gap-2 text-lg font-semibold">
+        <CalendarClock aria-hidden className="size-5 text-ink-muted" /> Waktu pelaksanaan
+      </h2>
+      <p className="text-sm leading-normal text-ink-soft">
+        {startsAt ? (
+          <>
+            Tampil sekarang: <strong className="font-semibold text-ink">{formatSchedule(startsAt, endsAt)}</strong>
+          </>
+        ) : (
+          'Kapan acaranya berlangsung — bukan tenggat daftar. Tanpa ini, mesin pencari tidak bisa menampilkan kegiatan sebagai acara.'
+        )}
+      </p>
+      <form action={saveScheduleAction} className="flex flex-col gap-4">
+        <TargetFields {...target} />
+        <Field id="startsAt" label="Mulai (WIB)">
+          <TextInput id="startsAt" name="startsAt" type="datetime-local" defaultValue={toWibDateTimeInput(startsAt)} />
+        </Field>
+        <Field id="endsAt" label="Selesai (WIB)" hint="Boleh kosong untuk acara tanpa jam selesai.">
+          <TextInput id="endsAt" name="endsAt" type="datetime-local" defaultValue={toWibDateTimeInput(endsAt)} />
+        </Field>
+        <div className="flex flex-wrap gap-2">
+          <SubmitButton className={buttonVariants()} pendingLabel="Menyimpan…">
+            Simpan waktu
+          </SubmitButton>
+          {startsAt && (
+            <SubmitButton name="clear" value="on" formNoValidate className={buttonVariants({ variant: 'secondary' })} pendingLabel="Menghapus…">
+              Hapus waktu
             </SubmitButton>
           )}
         </div>

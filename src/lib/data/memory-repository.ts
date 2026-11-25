@@ -71,6 +71,7 @@ import type {
   EventDetail,
   EventPhoto,
   EventQuery,
+  EventScheduleInput,
   EventRegistration,
   EventRevision,
   EventRevisionChanges,
@@ -535,6 +536,8 @@ interface QuestionEntry {
 const QUESTION_RATE_LIMIT_PER_DAY = 5;
 /** Sama dengan consume_rate_limit('event-video:…', 30, 86400) di set_event_video(). */
 const VIDEO_CHANGES_PER_DAY = 30;
+/** Cermin `set_event_schedule()` (migration 20261125100002). */
+const SCHEDULE_CHANGES_PER_DAY = 30;
 
 /** Cermin batas `report_content()`: 10 laporan per pelapor per hari. */
 const REPORT_RATE_LIMIT_PER_DAY = 10;
@@ -739,6 +742,22 @@ export class MemoryEventRepository implements EventRepository {
     const open = this.events.filter((event) => event.status === 'APPROVED');
     this.seedDemoRegistrations({ free: open[0]?.id, paid: open.slice(3).find((event) => event.isFree === false)?.id }, base);
     this.seedDemoMedia(base);
+    this.seedDemoSchedule(base);
+  }
+
+  /**
+   * Satu workshop contoh berjadwal (ADR-100): "Lokakarya dua hari", hari ke-9
+   * & ke-10 dari sekarang, 09.00–16.00 WIB — halaman detailnya memperagakan
+   * fakta "Waktu" dan data terstruktur `Event`.
+   */
+  private seedDemoSchedule(base: Date): void {
+    const event = this.events.find((candidate) => candidate.slug === 'workshop-riset-kualitatif-untuk-mahasiswa-tingkat-akhir');
+    if (!event) return;
+    const wibDay = (offsetDays: number, hour: number) => {
+      const wib = new Date(base.getTime() + 7 * 3_600_000 + offsetDays * 86_400_000);
+      return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate(), hour - 7)).toISOString();
+    };
+    this.updateEvent(event.id, (current) => ({ ...current, startsAt: wibDay(9, 9), endsAt: wibDay(10, 16) }));
   }
 
   /**
@@ -3601,6 +3620,14 @@ export class MemoryEventRepository implements EventRepository {
     // Cermin CHECK events_video_url_shape: hanya bentuk kanonis yang disimpan.
     if (next !== null && !CANONICAL_VIDEO_PATTERN.test(next)) throw actionError('invalid_video_url');
     this.updateEvent(eventId, (event) => ({ ...event, videoUrl: next }));
+  }
+
+  async setEventSchedule(actor: EventActor, eventId: string, { startsAt, endsAt }: EventScheduleInput): Promise<void> {
+    if (!this.findEvent(eventId) || !this.canManageEvent(actor, eventId)) throw actionError('not_event_manager');
+    if (!this.rateLimiter.consume(`event-schedule:${actor.id}`, SCHEDULE_CHANGES_PER_DAY, 86_400)) throw actionError('schedule_rate_limited');
+    // Cermin CHECK events_schedule_order.
+    if (endsAt !== null && (startsAt === null || new Date(endsAt).getTime() < new Date(startsAt).getTime())) throw actionError('invalid_schedule');
+    this.updateEvent(eventId, (event) => ({ ...event, startsAt, endsAt }));
   }
 
   /** Maks. satu poster per acara (indeks unik idx_event_photos_one_poster). */

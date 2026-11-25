@@ -204,6 +204,7 @@ fullName, email, isAdmin }` dari `toEventActor(user)` (`src/lib/auth.ts`);
 | `setEventPhotoCaption(actor, photoId, caption \| null)` | pengelola / admin (ADR-094) | `photo_not_found`, `invalid_caption` (> 140), `media_unavailable` |
 | `addEventPhotos(…, { captions })` | — | keterangan per gambar sejajar `images`; kosong = `caption` bersama |
 | `createSubmission({ …, slides })` → `{ posterAttached, slidesAttached }` / `getSubmissionPhotoFile(viewer, submissionId, photoId)` | pengirim yang masuk (maks. 5 slide) / moderator & pengirim | `slidesAttached` 0 = tabel belum ada (kiriman tetap masuk) · `null` = tidak ada/tidak berhak |
+| `setEventSchedule(actor, eventId, { startsAt, endsAt })` | pengelola / admin; nilai SUDAH lewat `parseSchedule()` (isian WIB → ISO); dua `null` = hapus | `not_event_manager`, `invalid_schedule`, `schedule_rate_limited` (30/hari), `schedule_unavailable` |
 | `setEventVideo(actor, eventId, url \| null)` | pengelola / admin; `url` SUDAH lewat `normalizeVideoUrl()` | `not_event_manager`, `invalid_video_url`, `video_rate_limited` (30/hari), `media_unavailable` |
 
 Transisi status (satu definisi: `registrationTransition()` di

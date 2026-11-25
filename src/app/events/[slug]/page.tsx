@@ -20,6 +20,7 @@ import {
   MapPin,
   MessagesSquare,
   Ticket,
+  CalendarClock,
 } from 'lucide-react';
 import { claimEventAction } from '@/app/penyelenggara/actions';
 import { withNext } from '@/components/auth/auth-field';
@@ -72,6 +73,7 @@ import {
 import { demoFeaturesEnabled } from '@/lib/demo-features';
 import { siteUrl } from '@/lib/env';
 import { metaDescription, OPEN_GRAPH_BASE } from '@/lib/seo';
+import { formatSchedule } from '@/lib/event-schedule';
 import { breadcrumbJsonLd, eventJsonLd } from '@/lib/structured-data';
 import { OG_SIZE } from '@/components/og/og-card';
 import { JsonLd } from '@/components/seo/json-ld';
@@ -338,6 +340,8 @@ export default async function EventDetailPage({
   const facts = [
     { icon: GraduationCap, label: 'Jenjang', value: levels.join(', ') || 'Semua jenjang' },
     { icon: MapPin, label: 'Pelaksanaan', value: place },
+    // Jadwal acara (ADR-100) — bukan tenggat; hanya bila pengelola/admin mengisinya.
+    ...(event.startsAt ? [{ icon: CalendarClock, label: 'Waktu pelaksanaan', value: formatSchedule(event.startsAt, event.endsAt) }] : []),
     // Biaya yang belum diketahui tidak ditampilkan sama sekali — "Gratis"
     // tebakan lebih merugikan daripada diam (ADR-049).
     ...(price.kind === 'unknown' ? [] : [{ icon: Ticket, label: 'Biaya pendaftaran', value: price.text }]),

@@ -206,7 +206,10 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   `lib/celebration.ts` — tambah kodenya di sana, jangan menaruh konfeti
   langsung di halaman. Kabar netral/sensitif tidak pernah dirayakan.
 - Pembungkus halaman (`template.tsx`) hanya boleh menganimasikan opasitas:
-  `transform` di pembungkus merusak `position: fixed` di dalamnya.
+  `transform` di pembungkus merusak `position: fixed` di dalamnya. Dan hanya
+  pada navigasi klien — muatan pertama dilukis langsung (LCP, ADR-100).
+- Tanggal ACARA (kapan berlangsung) = `events.starts_at/ends_at`, bukan baris
+  `event_deadlines`: tenggat menggerakkan pengingat & urgensi (ADR-100).
 - Pemilih/tab/rangkaian chip yang menggulir horizontal: wadah gulirnya harus
   `relative`, kalau tidak teks `sr-only` (absolut) di dalamnya lolos dari
   kliping dan melebarkan halaman di 320px (ADR-054).
