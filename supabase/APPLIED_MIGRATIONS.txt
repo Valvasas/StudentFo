@@ -72,3 +72,4 @@
 20261125100001 achievement_leaderboard
 20261125100002 event_schedule
 20261125100003 event_benefits_requirements
+20261125100004 scraped_upsert_guidebook
