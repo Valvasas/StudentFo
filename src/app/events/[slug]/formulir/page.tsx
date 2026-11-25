@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-const card = 'flex flex-col gap-5 rounded-[20px] border border-line bg-panel p-5 sm:p-7';
+const card = 'flex flex-col gap-5 rounded-2xl border border-line bg-panel p-5 sm:p-7';
 
 /**
  * Formulir pendaftaran internal untuk peserta (ADR-056).

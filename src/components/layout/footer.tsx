@@ -3,8 +3,9 @@ import { LogoMark } from '@/components/ui/logo';
 
 const FOOTER_LINKS = [
   { href: '/about', label: 'Tentang' },
-  { href: '/#verifikasi', label: 'Cara verifikasi' },
+  { href: '/sumber-data#tingkat-verifikasi', label: 'Cara verifikasi' },
   { href: '/events', label: 'Semua kegiatan' },
+  { href: '/leaderboard', label: 'Peringkat prestasi' },
   { href: '/connections', label: 'Koneksi' },
   { href: '/komunitas', label: 'Komunitas' },
   { href: '/penyelenggara', label: 'Untuk penyelenggara' },
@@ -38,8 +39,8 @@ export function Footer() {
         </nav>
       </div>
       <p className="mt-4 max-w-3xl text-xs leading-relaxed text-ink-muted">
-        Informasi dikumpulkan dari sumber publik dan diverifikasi manual sebelum tayang. Selalu periksa ulang ke situs resmi penyelenggara sebelum
-        mendaftar atau membayar.
+        Informasi dikumpulkan dari sumber publik dan ditinjau moderator sebelum tayang; label Terverifikasi moderator menandai yang sudah
+        dicocokkan langsung dengan penyelenggaranya. Selalu periksa ulang ke situs resmi penyelenggara sebelum mendaftar atau membayar.
       </p>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-[13px]">
         <span className="text-ink-muted">© {new Date().getFullYear()} StudentFo</span>

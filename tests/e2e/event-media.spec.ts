@@ -61,7 +61,7 @@ test('video: belum ada permintaan ke YouTube sampai Putar ditekan; pemutar memak
   await expect(carousel.locator('iframe')).toHaveCount(0);
 });
 
-test('poster jadi thumbnail di kartu lomba dan gambar pratinjau tautan; acara tanpa poster tidak diberi pengganti', async ({ page }) => {
+test('poster jadi thumbnail di kartu lomba dan gambar pratinjau tautan; acara tanpa poster: kartu OG buatan server, tanpa galeri pengganti', async ({ page }) => {
   await page.goto('/events?type=LOMBA');
   const card = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Kompetisi Debat Bahasa Indonesia Antar-SMA', exact: true }) });
   await expect(card.locator('[data-poster-thumb] img')).toBeVisible();
@@ -70,8 +70,10 @@ test('poster jadi thumbnail di kartu lomba dan gambar pratinjau tautan; acara ta
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/media\/foto\/[0-9a-f-]{36}$/);
   await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image');
 
+  // Tanpa poster, tautan yang dibagikan tetap bergambar: kartu OG dari judul &
+  // penyelenggara (ADR-097) — bukan foto karangan, dan halamannya tetap tanpa galeri.
   await page.goto('/events/beasiswa-unggulan-bakti-pendidikan-2026');
-  await expect(page.locator('meta[property="og:image"]')).toHaveCount(0);
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/events\/beasiswa-unggulan-bakti-pendidikan-2026\/opengraph-image/);
   await expect(page.getByRole('region', { name: /^(Poster|Foto)/ })).toHaveCount(0);
 });
 

@@ -60,7 +60,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
 
   return (
     <div className="container-page pb-16 pt-8 sm:pt-12">
-      <div className="enter flex max-w-[620px] flex-col gap-3 [animation-duration:900ms]">
+      <div className="enter flex max-w-[620px] flex-col gap-3">
         <Breadcrumb current="Workshop" />
         <PageTitle>Kalender kelas praktik</PageTitle>
         <p className="text-base leading-relaxed text-ink-muted">
@@ -69,13 +69,13 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
       </div>
 
       <section aria-label="Filter kegiatan">
-        <div className="enter mt-9 flex items-center gap-3 [animation-delay:100ms] [animation-duration:900ms]">
+        <div className="enter mt-9 flex items-center gap-3 [animation-delay:100ms]">
           <span className="text-[13px] font-semibold text-ink-soft">Tutup pendaftaran · {monthLabel}</span>
           <span aria-hidden className="h-px flex-1 bg-line" />
         </div>
         <nav
           aria-label="Pilih tanggal"
-          className="enter mt-3.5 flex gap-1.5 overflow-x-auto pb-1.5 [animation-delay:160ms] [animation-duration:900ms] [scrollbar-width:thin]"
+          className="enter mt-3.5 flex gap-1.5 overflow-x-auto pb-1.5 [animation-delay:160ms] [scrollbar-width:thin]"
         >
           <Link
             href={base}
@@ -150,7 +150,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
             return (
               <li
                 key={event.id}
-                className="enter relative flex gap-5 rounded-2xl border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap [animation-duration:700ms] focus-within:border-brand hover:border-line-strong hover:shadow-[0_14px_34px_rgba(0,0,0,.07)]"
+                className="enter relative flex gap-5 rounded-2xl border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap focus-within:border-brand hover:border-line-strong hover:shadow-[0_14px_34px_rgba(0,0,0,.07)]"
                 style={{ animationDelay: `${index * 70}ms` }}
               >
                 <div aria-hidden className="flex w-[72px] shrink-0 flex-col items-center self-start overflow-hidden rounded-[12px] border border-brand">
@@ -186,7 +186,7 @@ export function WorkshopCalendar({ query, result, categories, savedIds, currentH
                     <PriceBadge event={event} className="self-start" />
                   </div>
                   {/* Kotak tanggal sudah 72px di kiri: di ponsel poster akan menjepit judul. */}
-                  <PosterThumb poster={event.poster} className="hidden self-start sm:block" />
+                  <PosterThumb poster={event.poster} event={event} className="hidden self-start sm:block" />
                   <p className="text-[12.5px] text-ink-soft">
                     Untuk {event.educationLevels.map((level) => EDUCATION_LEVEL_LABEL[level]).join(', ') || 'semua jenjang'}
                   </p>

@@ -43,7 +43,7 @@ export function BeasiswaBoard({
 
   return (
     <div className="container-page pb-16 pt-8 sm:pt-12">
-      <div className="enter flex max-w-[640px] flex-col gap-3 [animation-duration:900ms]">
+      <div className="enter flex max-w-[640px] flex-col gap-3">
         <Breadcrumb current="Beasiswa" />
         <PageTitle>Beasiswa yang bisa kamu ajukan</PageTitle>
         <p className="text-base leading-relaxed text-ink-muted">
@@ -53,7 +53,7 @@ export function BeasiswaBoard({
 
       <section
         aria-label="Filter kegiatan"
-        className="enter mt-10 grid gap-px overflow-hidden rounded-2xl border border-line bg-line [animation-delay:120ms] [animation-duration:900ms] [grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))]"
+        className="enter mt-10 grid gap-px overflow-hidden rounded-2xl border border-line bg-line [animation-delay:120ms] [grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))]"
       >
         <div className="flex flex-col gap-3 bg-panel-nested px-6 py-[22px] sm:col-span-2">
           <span className="text-[13px] font-semibold text-ink-soft">Jenjangmu</span>
@@ -132,13 +132,13 @@ export function BeasiswaBoard({
               <li
                 key={event.id}
                 className={cn(
-                  'enter group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-line px-4 py-[18px] transition-[background-color,opacity] duration-200 ease-snap [animation-duration:700ms] hover:bg-panel-nested md:grid-cols-[minmax(0,1fr)_150px_130px_200px]',
+                  'enter group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-line px-4 py-[18px] transition-[background-color,opacity] duration-200 ease-snap hover:bg-panel-nested md:grid-cols-[minmax(0,1fr)_150px_130px_200px]',
                   why && 'opacity-70 hover:opacity-100',
                 )}
                 style={{ animationDelay: `${index * 60}ms` }}
               >
                 <div className="flex min-w-0 items-center gap-3.5">
-                  <PosterThumb poster={event.poster} className="w-12 sm:w-12" />
+                  <PosterThumb poster={event.poster} event={event} className="w-12 sm:w-12" />
                   <div className="flex min-w-0 flex-col gap-[3px]">
                     <h2 className="text-[15.5px] font-semibold tracking-[-0.01em] [overflow-wrap:anywhere]">
                       <Link href={`/events/${event.slug}`} className="after:absolute after:inset-0 after:content-['']">

@@ -61,6 +61,10 @@ const GUEST_ROUTES = [
   '/cookie-policy',
   '/terms',
   '/sumber-data',
+  // Peringkat & portofolio publik (ADR-098).
+  '/leaderboard',
+  '/leaderboard?tab=mahasiswa',
+  '/u/rizky.hidayat',
   '/berhenti-email?token=tidak-valid',
   // Tamu: gerbang anggota (ADR-085).
   '/events/kompetisi-inovasi-perangkat-lunak-nusantara-2026',
@@ -73,6 +77,7 @@ const SIGNED_IN: readonly (readonly [PersonaLabel, string])[] = [
   ['Admin moderator', '/admin/kalibrasi'],
   ['Admin moderator', '/admin/kinerja'],
   ['Admin moderator', '/admin/kinerja/pertanyaan'],
+  ['Admin moderator', '/admin/prestasi'],
   ['Mahasiswa', '/tracker'],
   ['Mahasiswa', '/lobi'],
   ['Mahasiswa', '/lobi/kompetisi-inovasi-perangkat-lunak-nusantara-2026'],

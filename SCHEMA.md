@@ -65,6 +65,9 @@ Urutan migration (harus dijalankan berurutan):
 54. `20261119100002_admin_create_event.sql` — RPC `admin_create_event(uuid, jsonb)` (service_role saja, pelaku diperiksa ulang; kolom = `approve_submission`) untuk "Buat acara StudentFo" (ADR-093)
 55. `20261120100001_event_slides.sql` — `event_photos.sort_order` (diisi ulang menurut urutan tampil; pemicu sisip menaruh unggahan baru di belakang), RPC `reorder_event_photos(uuid, uuid[])` & `set_event_photo_caption(uuid, text)` (DEFINER, pengelola/admin); tabel `ugc_submission_photos` (RLS tanpa policy, maks. 5 per kiriman), `submission_photo_file`, `take_submission_photos`; `approve_submission` memindahkan gambar pendukung jadi slide (ADR-094)
 56. `20261121100001_event_media_imports.sql` — tabel `event_media_imports` (service_role saja, maks. 8 per kegiatan), `stage_event_media(uuid, jsonb)` (NULL = daftar bawaan: og:image laman sumber + poster & 3 slide buatan), `claim_event_media_imports(int)` (sewa 10 menit, SKIP LOCKED); `stage_scraped_event` ikut mengantrekan media (ADR-095)
+57. `20261124100001_event_trust_levels.sql` — `events.verification_level` (`MODERATOR_VERIFIED`/`PUBLIC_SOURCE`, CHECK, backfill konservatif) & `events.is_demo`; `ALTER POLICY events_public_read … AND NOT is_demo`; `get_distinct_organizer_count()` tanpa data uji (ADR-096)
+58. `20261124100002_event_content_updated_at.sql` — `touch_event_updated_at()` + `CREATE OR REPLACE TRIGGER trg_events_touch`: `events.updated_at` hanya maju saat ISI berubah (bukan `saved_count`/`search_vector`) — dipakai `<lastmod>` sitemap (ADR-097)
+59. `20261125100001_achievement_leaderboard.sql` — `users.portfolio_public` (bawaan FALSE, GRANT UPDATE per kolom); tabel `achievement_verifications` (FK ke `application_tracker`, tanpa hak tulis klien, pemilik membaca barisnya); trigger `reset_achievement_verification`; RPC `request_/cancel_achievement_verification` (authenticated), `review_achievement_verification` (service_role), `campus_leaderboard`/`people_leaderboard` & `public_portfolio_page` (anon+authenticated), `leaderboard_weight` (ADR-098)
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–56 per 2026-11-22, semua migration di repo).
 
@@ -160,7 +163,7 @@ olahraga, kesehatan, sosial, pendidikan, hukum).
 | reviewed_at | TIMESTAMPTZ? | wajib terisi kalau status APPROVED/REJECTED (`CHECK events_review_trail`) |
 | rejection_reason | TEXT? | |
 | saved_count | INT | denormalisasi, disinkron trigger `sync_saved_count` dari `saved_events` |
-| created_at / updated_at | TIMESTAMPTZ | |
+| created_at / updated_at | TIMESTAMPTZ | `updated_at` = perubahan isi saja sejak migration 58 (ADR-097) |
 | search_vector | tsvector GENERATED | lihat § Full-text search di bawah |
 | is_free | BOOLEAN? | **NULL = belum diketahui** (bukan gratis). Tanpa default — hasil scraping tidak pernah tahu biaya (ADR-049) |
 | price_amount | NUMERIC(12,0)? | rupiah; `CHECK events_price_consistent`: hanya bila `is_free = false`, 1..10⁹ |
@@ -168,6 +171,8 @@ olahraga, kesehatan, sosial, pendidikan, hukum).
 | verification_badge | VARCHAR(20)? | `OFFICIAL_GOV`/`CAMPUS_VERIFIED`/`COMMUNITY` (CHECK, paritas `VERIFICATION_BADGES`); diatur admin |
 | guidebook_url | TEXT? | `CHECK ~* '^https://'`, ≤ 2000 |
 | video_url | VARCHAR(200)? | HANYA bentuk kanonis `https://www.youtube.com/watch?v=<11>` / `https://vimeo.com/<id>` (`CHECK events_video_url_shape`, regex = `CANONICAL_VIDEO_PATTERN` di `src/lib/video.ts`, dikunci tes). Ditulis lewat `set_event_video()` saja (ADR-079) |
+| verification_level | VARCHAR(20) | `MODERATOR_VERIFIED` (dicocokkan langsung dengan kanal resmi penyelenggara) / `PUBLIC_SOURCE` (bawaan: dari pengumuman publik, lolos moderasi). CHECK = `VERIFICATION_LEVELS`; ditulis admin saja (ADR-096) |
+| is_demo | BOOLEAN | bawaan false; TRUE = data uji, tidak pernah terbaca anon/anggota (`events_public_read`) — admin tetap melihat (ADR-096) |
 
 Index: `status`, `event_type`, GIN `search_vector`, GIN `education_levels`,
 partial `(created_at DESC) WHERE status='APPROVED'`, partial
@@ -517,6 +522,21 @@ dipotong ke kab/kota. Uji: `supabase/tests/113_study_profile.test.sql`.
 Kategori (tabel `categories`) sejak migration 47: 19 — tambahan `teknik`,
 `ekonomi`, `pertanian`, `bahasa`, `media`, `agama`, `pariwisata`.
 
+### `achievement_verifications` + `users.portfolio_public` (Prestasi & peringkat — ADR-098)
+PK `(user_id, event_id)` ber-FK ke `application_tracker` (CASCADE). Kolom:
+`result` (CHECK = `LEADERBOARD_RESULTS`: JUARA_1/2/3/HARAPAN/FINALIS),
+`proof_url` (https ≤ 500), `institution_id`/`institution_name` (SALINAN saat
+mengajukan), `status` PENDING|VERIFIED|REJECTED, `requested_at` (milidetik —
+token versi review), `reviewed_by/at`, `review_note` (wajib bila REJECTED).
+Klien: SELECT baris sendiri saja; tulis hanya lewat RPC. Trigger
+`trg_tracker_reset_achievement_verification` menghapus baris bila `achievement`,
+`proof_url`, atau status tracker keluar dari APPLIED/INTERVIEW/ACCEPTED.
+Peringkat (`verified_achievements` → `campus_leaderboard`/`people_leaderboard`)
+hanya VERIFIED, kegiatan tayang & bukan data uji, pemilik tidak ditangguhkan;
+nama hanya untuk `users.portfolio_public`. `public_portfolio_page(username)`
+→ JSONB tanpa email/domisili, hanya bila opt-in. Uji:
+`supabase/tests/126_achievement_leaderboard.test.sql`.
+
 ### `event_engagement`, `event_likes`, `event_comments`, `event_comment_reports` (Interaksi postingan — ADR-092)
 Migration `20261116100001_event_engagement` (diterapkan ke staging & produksi 19 Nov 2026).
 
@@ -577,7 +597,7 @@ anon key). Ringkasan policy:
 |---|---|---|
 | users | pemilik + admin | UPDATE pemilik saja, dan hanya 4 kolom profil (lihat peringatan di atas) |
 | categories | publik (anon+authenticated) | admin/service_role |
-| events | publik: `status IN ('APPROVED','EXPIRED')` — lihat DEVIATIONS #12 kenapa EXPIRED ikut terbaca | admin `FOR ALL`; INSERT scraper via service_role (bypass) |
+| events | publik: `status IN ('APPROVED','EXPIRED') AND NOT is_demo` — lihat DEVIATIONS #12 kenapa EXPIRED ikut terbaca, ADR-096 untuk data uji | admin `FOR ALL`; INSERT scraper via service_role (bypass) |
 | event_categories, event_deadlines | ikut visibilitas event induk | admin |
 | saved_events, application_tracker | pemilik (`auth.uid()=user_id`) | pemilik, `WITH CHECK` eksplisit |
 | notifications | pemilik | UPDATE pemilik, **hanya kolom `is_read`** (0008); INSERT hanya service_role |

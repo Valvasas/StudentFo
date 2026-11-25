@@ -634,5 +634,43 @@ export interface AdminEventDbRow {
   created_at: string;
   rejection_reason: string | null;
   registration_mode?: string | null;
+  /** Tidak ada = migration 20261124100001 belum diterapkan (ADR-096). */
+  verification_level?: string | null;
+  is_demo?: boolean | null;
   event_deadlines: { deadline_at: string; is_primary: boolean }[] | null;
 }
+
+/** Baris `achievement_verifications` (migration 20261125100001, ADR-098). */
+export interface AchievementVerificationRow {
+  event_id: string;
+  result: string;
+  proof_url: string;
+  institution_name: string | null;
+  status: string;
+  requested_at: string;
+  reviewed_at: string | null;
+  review_note: string | null;
+}
+
+/** Baris `campus_leaderboard()` / `people_leaderboard()`. */
+export interface LeaderboardCountsRow {
+  score: number;
+  juara_1: number;
+  juara_2: number;
+  juara_3: number;
+  juara_harapan: number;
+  finalis: number;
+}
+
+export interface CampusLeaderboardRow extends LeaderboardCountsRow {
+  institution_id: string;
+  institution_name: string | null;
+  people: number;
+}
+
+export interface PeopleLeaderboardRow extends LeaderboardCountsRow {
+  username: string | null;
+  full_name: string;
+  institution_name: string | null;
+}
+

@@ -49,6 +49,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   return {
     title: tab && tab.key !== 'untukmu' ? sectionTitle(tab.label, 'Koneksi') : 'Koneksi',
     description: 'Temukan pelajar & mahasiswa dengan minat yang sama, lihat peta jaringanmu, dan bangun tim untuk lomba berikutnya.',
+    alternates: { canonical: '/connections' },
   };
 }
 
@@ -167,7 +168,7 @@ export default async function ConnectionsPage({ searchParams }: { searchParams: 
 
       {/* Dikunci per tab: isi tab baru dipasang ulang, jadi animasi masuknya
           berjalan setiap pindah tab — bukan hanya saat halaman pertama dibuka. */}
-      <div key={tab} className="enter mt-10 [animation-duration:520ms]">
+      <div key={tab} className="enter mt-10">
         {tab === 'untukmu' && <ForYouTab {...context} />}
         {tab === 'koneksi' && <ConnectionsTab {...context} />}
         {tab === 'ajakan' && <InvitationsTab {...context} />}
@@ -353,7 +354,7 @@ async function ForYouTab({ user, repository, params, categories, categoryName, c
       </section>
 
       {counts.accepted === 0 && counts.incoming === 0 && user.interests.length === 0 && (
-        <p className="flex items-start gap-2 rounded-[18px] bg-panel-nested p-4 text-[13.5px] leading-relaxed text-ink-muted">
+        <p className="flex items-start gap-2 rounded-2xl bg-panel-nested p-4 text-[13.5px] leading-relaxed text-ink-muted">
           <Sparkles aria-hidden className="mt-0.5 size-4 shrink-0" />
           Saran di atas lebih nyambung kalau kamu mengisi peminatan.
           <Link href="/profile/interests" className="shrink-0 font-semibold text-ink underline underline-offset-[3px]">
@@ -679,7 +680,7 @@ function GuestConnections({ categories }: { categories: Parameters<typeof buildP
   return (
     <div className="container-page pb-24 pt-10 sm:pt-14">
       <div className="grid items-center gap-10 [grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr))]">
-        <header className="enter flex flex-col gap-4 [animation-duration:900ms]">
+        <header className="enter flex flex-col gap-4">
           <h1 className="text-[clamp(34px,5vw,54px)] leading-[1.04]">
             Temukan rekan satu minat, lihat semua sambungannya.
           </h1>
@@ -695,7 +696,7 @@ function GuestConnections({ categories }: { categories: Parameters<typeof buildP
             </Link>
           </div>
         </header>
-        <div className="enter [animation-delay:150ms] [animation-duration:900ms]">
+        <div className="enter [animation-delay:150ms]">
           <NetworkGraphView graph={preview} returnTo="/connections" preview summary="kamu di tengah, tersambung ke teman dan minat" />
           <p className="mt-2 text-center text-[12.5px] text-ink-muted">Contoh bentuk peta — tanpa data orang sungguhan.</p>
         </div>
@@ -704,7 +705,7 @@ function GuestConnections({ categories }: { categories: Parameters<typeof buildP
       <ul className="mt-16 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))]">
         {GUEST_POINTS.map((point, index) => (
           <li key={point.title} style={{ '--i': index + 2 } as CSSProperties} className="rise flex flex-col gap-3 rounded-[24px] border border-line bg-panel p-6">
-            <span className="flex size-12 items-center justify-center rounded-[16px] bg-panel-nested">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-panel-nested">
               <point.icon aria-hidden className="size-5" />
             </span>
             <h2 className="text-[17px] font-semibold tracking-[-0.015em]">{point.title}</h2>

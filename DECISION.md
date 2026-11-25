@@ -12,6 +12,268 @@ terdokumentasi.
 
 ---
 
+## ADR-099 — Fase 4: token satu tempat, gerak untuk fungsi, View Transitions terbatas, metadata di `<head>` (24 Nov 2026)
+
+**Konteks:** Pemilik meminta motion yang menunjukkan status, urgensi, dan
+perubahan — bukan dekorasi — dengan batas keras: hanya `transform`/`opacity`,
+150–400ms, hormati reduced-motion, 60fps di ponsel menengah ke bawah, CLS <
+0,1, token di satu tempat, aksen amber #FACC15 di atas kertas #FAF9F5 / arang
+#141311, kartu `rounded-2xl`. Beberapa permintaan bertabrakan dengan keputusan
+lama: "tanpa translate pada target klik" (CONVENTIONS), larangan View
+Transitions (ADR-058, ditolak di ADR-053), dan urgensi tanpa hue (ADR-064).
+
+**Keputusan:**
+1. **Token.** `globals.css` §1 tetap satu-satunya sumber: palet baru, skala
+   radius (kartu 16px `rounded-2xl` — 108 radius lepas 16/18/20px
+   dinormalkan), durasi (`--duration-micro/transition/layout/reveal/enter`),
+   `--stagger`, `--reveal-distance`, `--lift`, `--easing-exit`. Amber =
+   penekanan (stabilo, lencana, tenggat dekat, cahaya hero), BUKAN warna aksi
+   dan tidak pernah warna teks (1,5:1 di kertas); tinta di atasnya 11,2:1.
+2. **Durasi & properti.** Semua animasi masuk dipindah ke token (≤ 400ms;
+   55 `[animation-duration:…]` lepas dihapus). Yang dulu menganimasikan tata
+   letak/cat diganti: bilah progres navigasi/formulir/profil → `scaleX`,
+   kilau kerangka → lapisan yang digeser, ketikan tur → penutup yang digeser,
+   centang → skala. Pengecualian yang disengaja: `--count-up` (angka memang
+   berubah; lebarnya dipesan per digit), garis SVG `stroke-dashoffset`
+   (ilustrasi `aria-hidden`, sekali jalan), dan RANGKAIAN panjang yang
+   tersusun dari gerakan pendek (tur 5,6 dtk/adegan, pemindaian ADR-057,
+   konfeti) — semuanya mati di reduced-motion.
+3. **Angkat kartu** (`card-lift`): pengecualian dari "tanpa translate pada
+   target klik" — hanya `(hover: hover) and (pointer: fine)` + tanpa
+   reduced-motion, pita `::after` setinggi angkatan mencegah kartu naik-turun
+   di tepi bawah, cahaya = opasitas lapisan `::before`.
+4. **Urgensi** menambah satu anak tangga berwarna: H-3..H-1 pil amber + titik
+   berdenyut (`due-soon`, `isDueSoon`); hari-H pil tinta + hitung mundur jam
+   yang berdetak 30 dtk (`DeadlineTag live`). Tidak ada hitung mundur detik
+   untuk tenggat berhari-hari: banyak tenggat hanya bertanggal (ADR-064 tetap).
+5. **View Transitions** dibuka SEBAGIAN (mengubah ADR-058/053): hanya daftar →
+   detail lewat `TransitionLink` (`document.startViewTransition` + `router.push`,
+   selesai saat `ViewTransitionBridge` melihat pathname baru atau setelah
+   1,5 dtk). Hanya bila didukung, gerak tidak dikurangi, dan koneksi tidak
+   `2g/3g`/hemat data — transisi MEMBEKUKAN layar lama sampai halaman baru
+   siap. Nama `vt-event-title` dipasang di kartu yang diklik saja; pasangan di
+   detail (`.vt-title`) hanya bernama saat `html[data-vt='morph']`. Poster
+   tidak ikut terbang (di ponsel galeri ada di bawah lipatan). Prefetch
+   halaman detail saat kursor berhenti 120ms di kartu. `<ViewTransition>`
+   React tidak dipakai: hanya ada di kanal eksperimental.
+6. **Papan lamaran:** isian tahap = `scaleX` bertransisi (ruas terisi
+   berurutan); `FlipList` meluncurkan kartu ke posisi barunya bila daftar
+   berubah (hapus, urungkan, saringan tahap).
+7. **Hero:** cuplikan lima alur pindah ke kolom kanan hero (satu-satunya gerak
+   besar di layar pertama), tinggi panggung dipesan per lebar wadah (diukur:
+   460/388/400px) → berganti adegan tidak menggeser halaman. Cahaya amber
+   radial 8% statis, khusus tema gelap.
+8. **Kerangka:** `loading.tsx` tetap ditolak (soft-404 & tanpa-JS). Satu
+   Suspense + kerangka hanya untuk "Cari rekan tim" milik ANGGOTA di detail
+   (bukan isi inti; status 404 sudah diputuskan sebelum batasnya) + `<noscript>`.
+9. **Metadata di `<head>`:** `htmlLimitedBots: /.*/`. Streaming metadata Next
+   15.2+ menaruh canonical/description/robots di `<body>` untuk peramban &
+   Googlebot dan React tidak memindahkannya; Google hanya menerima canonical
+   di `<head>`. Tanpa Suspense di sekitar halaman, streaming itu tidak
+   mempercepat apa pun.
+
+**Ditolak:** pustaka `motion`/Framer (puluhan KB JS untuk yang bisa CSS),
+hitung mundur detik di semua kartu, `backdrop-filter` lebih tebal di navbar
+(sudah 95% pekat; blur lebih besar mahal saat gulir di ponsel lemah), skeleton
+per halaman.
+
+**Konsekuensi:** CONVENTIONS diperbarui (angkat kartu & View Transitions
+sebagai pengecualian bernama). Lighthouse mobile lokal: Performa 91–95,
+Aksesibilitas 100, SEO 100, CLS 0. Sisa: font tidak dipreload di HTML awal
+(TASKS P2). Anggota tanpa JS melihat kerangka + tautan pencocokan tim alih-alih
+kandidat.
+
+---
+
+## ADR-098 — Prestasi terverifikasi moderator, peringkat kampus transparan, portofolio publik opt-in, "Cari rekan tim" di halaman lomba (25 Nov 2026)
+
+**Konteks:** Fase 3 permintaan pemilik (24 Nov): leaderboard kampus &
+mahasiswa dengan status Finalis/Juara terverifikasi bukti, portofolio publik
+`/u/[username]` (opt-in, default privat), koneksi antar kampus yang konkret
+di halaman lomba, dan matching tim di beranda. Benturan dengan keputusan lama
+yang harus dibuka terang:
+- ADR-082 **menolak** "papan peringkat antar pengguna (mengubah pencarian
+  peluang jadi perlombaan angka)"; ADR-068 melarang lencana dari klaim
+  sendiri; ADR-046 menyebut hasil portofolio "dilaporkan sendiri".
+- Skema usulan `campus(id, nama, kota)` + `user.campus_id` menduplikasi
+  direktori resmi ADR-076 (±5.800 PT + ±49 rb sekolah, kode NPSN/PDDikti,
+  kota) yang sudah dipakai `users.institution_id`.
+- ADR-077: profil "tidak pernah" untuk tamu & mesin pencari.
+
+**Keputusan:**
+1. **Peringkat hanya dari prestasi TERVERIFIKASI** — menjawab alasan
+   penolakan ADR-082: yang dihitung bukan klaim atau keikutsertaan yang bisa
+   diternakkan, melainkan Finalis/Juara lomba yang buktinya (sertifikat /
+   pengumuman resmi) diperiksa moderator. Port desain cabang usang
+   `ccr-a2058300` (tidak di-merge): tabel `achievement_verifications` ber-FK
+   ke baris Papan lamaran, isi yang diperiksa (hasil + bukti + kampus)
+   DISALIN saat mengajukan, dan trigger menggugurkan verifikasi bila hasil/
+   bukti berubah atau entri keluar dari portofolio. Moderator memutuskan dari
+   `/admin/prestasi` (RPC service_role, pelaku diperiksa ulang, bukan diri
+   sendiri, token versi `requested_at`, penolakan wajib beralasan); pemilik
+   dikabari lewat lonceng.
+2. **Kampus = direktori ADR-076**, bukan tabel baru: `institution_id`
+   (salinan saat mengajukan — prestasi milik kampus tempat ia diraih) +
+   nama/kota/jenis dari `institutionById()`. Tab Kampus vs Sekolah dipisah
+   dengan jenis direktori.
+3. **Rumus terbuka:** `10×Juara 1 + 8×Juara 2 + 6×Juara 3 + 4×Harapan +
+   2×Finalis`, satu salinan SQL (`leaderboard_weight`) + satu salinan TS yang
+   dikunci tes terhadap berkas migration. Ditampilkan di halaman beserta
+   aturannya. Saringan periode (tanggal = tahap terakhir lomba) & bidang
+   lewat form GET.
+4. **Privasi:** skor kampus = agregat tanpa nama (disebut di form
+   pengajuan). Nama pelajar di peringkat hanya bila ia menyalakan
+   `users.portfolio_public` (bawaan MATI) — satu persetujuan untuk portofolio
+   publik + peringkat. Portofolio publik terbuka bagi siapa saja dengan
+   tautan (melonggarkan ADR-077 hanya untuk yang opt-in), tetap `noindex`
+   (pengguna 13–17 tahun; nama + sekolah di indeks sulit ditarik), tanpa
+   email/domisili/koneksi. Yang tidak opt-in: tamu tetap dialihkan ke Masuk
+   (URL bukan alat menebak akun).
+5. **"Cari rekan tim"** di ringkasan lomba tim yang masih buka: kandidat
+   nyata dari `rankCandidates` (ADR-057, timbal-balik), minat sesuai bidang
+   lomba didahulukan, saringan "Kampus lain" (`?rekan=lintas`), "Ajak setim"
+   = permintaan terhubung berisi nama lomba; yang sudah terhubung dikirimi
+   lombanya (ADR-092). WhatsApp = tautan BAGIKAN (`wa.me/?text=`) — StudentFo
+   tidak memegang nomor HP pengguna. Menggantikan kotak tautan generik ADR-094.
+6. **Beranda tamu:** bagian "Satu tim, lintas kampus" tepat di bawah hero,
+   split-layout bernomor 01/04–04/04 dengan kolom kiri `sticky` (CSS saja).
+
+**Konsekuensi:** Moderator kini juga memeriksa bukti prestasi (beban kerja
+baru; antrean terpisah). Verifikasi oleh penyelenggara terverifikasi
+(desain asli cabang usang) belum dibangun — kandidat berikutnya. Unggah foto
+sertifikat sengaja belum ada: bukti berupa tautan https (sertifikat di Drive,
+pengumuman resmi) menghindari bucket privat baru berisi dokumen ber-NIK;
+dicatat di TASKS. Kebijakan privasi diperbarui — pemilik perlu meninjau dan
+mengisi `PRIVACY_POLICY_EFFECTIVE_DATE` baru. Migration `20261125100001`
+BELUM diterapkan ke produksi; sebelum itu peringkat kosong, panel ajukan
+menampilkan `verification_unavailable`, dan saklar portofolio publik dikunci.
+
+---
+
+## ADR-097 — SEO: canonical ke halaman bersih, JSON-LD yang jujur, sitemap kegiatan aktif dengan `lastmod` isi (24 Nov 2026)
+
+**Konteks:** Audit SEO 23 Nov (atas permintaan pemilik) + Fase 2 permintaan
+24 Nov. Temuan yang diverifikasi di build produksi lokal:
+- Halaman kegiatan tanpa poster dibagikan TANPA `og:image` dan dengan kartu
+  Twitter `summary`: `openGraph` di `generateMetadata` menimpa kartu
+  `opengraph-image.tsx` yang sebenarnya sudah ada. Padahal WhatsApp adalah
+  jalur penyebaran utama info lomba.
+- Nol data terstruktur; `/events` tanpa canonical sehingga setiap kombinasi
+  saringan/halaman/kata kunci (termasuk pencarian tanpa hasil) terindeks
+  dengan judul identik; halaman kategori tidak ada di sitemap; `<lastmod>`
+  sitemap = `created_at`; meta keywords (diabaikan Google); deskripsi
+  dipotong di tengah kata; deskripsi beranda ±205 karakter.
+- Data produksi: workshop/seminar/beasiswa/magang hanya punya tenggat
+  PENDAFTARAN — tidak ada tanggal pelaksanaan. `updated_at` kegiatan ikut
+  maju setiap kali seseorang menekan Simpan (`sync_saved_count`).
+
+**Keputusan:**
+1. **Canonical per halaman** (di halaman, bukan layout — canonical layout
+   diwarisi semua halaman). `/events`: `canonicalEventsPath()` = tab kategori
+   bila jenisnya cocok satu tab, selain itu `/events`. Saringan tetap URL
+   yang bisa dibagikan (CONVENTIONS § filter); hanya canonical-nya yang
+   menunjuk ke halaman bersih. Sengaja TANPA `noindex` tambahan: canonical +
+   noindex adalah sinyal campuran.
+2. **JSON-LD jujur** (`lib/structured-data.ts`, teruji): `Event` hanya bila
+   tanggal kegiatan diketahui (tahap setelah pendaftaran); tenggat
+   pendaftaran = `offers.validThrough`, tidak pernah `startDate`. Beasiswa,
+   magang, pelatihan = `EducationalOccupationalProgram` + `applicationDeadline`.
+   `description` = cuplikan yang terlihat tamu (ADR-085). `WebSite` +
+   `SearchAction` + `Organization` di beranda; `FAQPage` hanya di beranda
+   tamu tempat jawabannya tampil; `BreadcrumbList` mencerminkan remah roti
+   yang terlihat. `<` di-escape (judul kiriman pengguna tidak bisa menutup
+   `</script>`). Tanpa nonce: blok data tidak dieksekusi sehingga CSP tidak
+   berlaku, dan nonce yang disembunyikan peramban merusak hidrasi React.
+3. **OG kegiatan:** poster bila ada, selain itu kartu OG buatan server;
+   `summary_large_image` selalu. `OPEN_GRAPH_BASE` disebar di setiap
+   `openGraph` halaman karena Next menimpa (bukan menggabung) milik layout.
+4. **Sitemap:** kegiatan yang MASIH BISA DIDAFTARI (`listSitemapEvents`,
+   kedua repository) + lima halaman kategori + `/sumber-data`. Yang tutup
+   tetap 200 "Pendaftaran ditutup" (DEVIATIONS #12), hanya tidak disetor.
+5. **`updated_at` = perubahan isi** (migration `20261124100002`,
+   `touch_event_updated_at`, `CREATE OR REPLACE TRIGGER` tanpa DROP):
+   `saved_count` & `search_vector` tidak dihitung, jadi `<lastmod>` bisa
+   dipercaya.
+6. Meta keywords dihapus; deskripsi ≤ 155 karakter dipotong di batas kata
+   (`metaDescription` memakai ulang `teaserOf`); judul beranda ≤ 60.
+
+**Konsekuensi:** Workshop/seminar belum mendapat rich result `Event` sampai
+tanggal pelaksanaannya tercatat — label tahap "Pelaksanaan" butuh perubahan
+enum tiga tempat (AGENTS.md #2), dicatat di TASKS. Google membatasi rich
+result FAQ ke situs pemerintah/kesehatan sejak 2023 dan menghentikan kotak
+pencarian sitelinks 2024: `FAQPage` & `SearchAction` tetap sah dan dibaca
+mesin lain, tetapi jangan berharap tampilan khusus di Google. Rich Results
+Test tidak bisa dijalankan dari sandbox; syarat wajib Google (name,
+startDate, location beralamat) dikunci `structured-data.test.ts`. Migration
+`20261124100002` BELUM diterapkan ke produksi — sampai itu, `<lastmod>`
+masih ikut maju saat orang menyimpan.
+
+---
+
+## ADR-096 — Dua tingkat kepercayaan kegiatan, data uji tertutup di satu policy, teks terlihat = teks yang dibaca (24 Nov 2026)
+
+**Konteks:** Pemilik melaporkan (Fase 1 permintaan 24 Nov) teks ganda "1 suka1"
+dan "D4/S1D4/S1", label "Contoh penyelenggara" yang terbaca sebagai data dummy
+di produksi, alt gambar kartu yang kosong, dan meminta klaim kepercayaan
+dipecah. Temuan sebelum menulis kode:
+- Teks ganda bukan bug render: `CardCounts`, baris jenjang `EventCard`,
+  `DeadlineTag` ("3 hari lagi — Tersisa 3 hari lagi"), dan `TrendingStrip`
+  menaruh kalimat lengkap di `sr-only` lalu MENGULANG angka/label di elemen
+  `aria-hidden`. Keduanya tetap ada di teks DOM, jadi apa pun yang membaca teks
+  tanpa CSS (cuplikan mesin pencari, mode baca, salin-tempel, alat audit AI)
+  membaca dobel — `DeadlineTag` bahkan dobel untuk pembaca layar.
+- "Contoh penyelenggara" BUKAN baris database: kueri baca-saja ke produksi
+  (24 Nov) tidak menemukan kegiatan dummy yang tayang (satu-satunya data uji,
+  "Lomba testimoni Studentfo 2026", berstatus REJECTED). Teksnya hard-coded di
+  `LandingTour` (ADR-065 sengaja menulis "Contoh …").
+- UI, meta description, manifest, OG, dan footer menyebut SEMUA kegiatan
+  "diverifikasi/tervalidasi manual", padahal hasil scraping hanya lolos
+  moderasi — tidak dicocokkan langsung dengan penyelenggaranya.
+
+**Keputusan:**
+1. **Teks terlihat = teks yang dibaca.** `sr-only` hanya MELENGKAPI kata yang
+   tidak terlihat (satuan "suka", konteks "Tenggat:", "Peringkat"), tidak pernah
+   menyalin angka/label yang sudah terlihat. Ringkasan jenjang (rentang/"+N")
+   diperjelas lewat `title`, bukan salinan. Antar-chip di dalam flex diberi
+   `{' '}` (spasi tidak dirender flex, tapi teks yang diekstrak terbaca).
+2. **Tur beranda memperagakan kegiatan SUNGGUHAN** (`TourSample`, dihitung di
+   server dari "Segera ditutup" + "Lagi ramai"); tanpa data = garis kerangka,
+   tidak pernah nama karangan. Menggantikan butir "nama di dalamnya tertulis
+   Contoh …" ADR-065.
+3. **`events.is_demo`** (bawaan false): ditutup di SATU titik, policy
+   `events_public_read` (`ALTER POLICY`, tanpa DROP). View `events_listing` &
+   `list_personalized_events` adalah INVOKER dan policy tabel anak memeriksa
+   induknya lewat subquery, jadi katalog, detail, sitemap, tenggat, kategori,
+   foto, dan tim ikut tertutup tanpa disentuh satu per satu. Admin ber-MFA
+   tetap melihatnya (`events_admin_all`). `get_distinct_organizer_count()`
+   (DEFINER) ikut dikecualikan. Saklar "Tandai data uji" di Kelola postingan.
+4. **`events.verification_level`**: `MODERATOR_VERIFIED` ("Terverifikasi
+   moderator" — dicocokkan langsung dengan kanal resmi penyelenggara) vs
+   `PUBLIC_SOURCE` ("Dari sumber publik", bawaan). Moderator memilih secara
+   sadar lewat centang di form Setujui (antrean & kiriman); acara buatan admin
+   otomatis terverifikasi; bisa dinaikkan/diturunkan di Kelola postingan.
+   **Backfill konservatif**: hanya yang punya jejak pemeriksaan langsung
+   (lencana otoritas, lomba mandiri StudentFo, dikelola penyelenggara
+   terverifikasi). Label tampil di kartu, detail, dan dijelaskan di
+   `/sumber-data#tingkat-verifikasi`; semua copy "diverifikasi manual" diganti
+   "ditinjau moderator".
+5. **Deploy-order aman:** tingkat ditempel di lapisan aplikasi lewat kueri
+   ber-cache terpisah (pola poster ADR-079), bukan menambah kolom ke
+   `LISTING_COLUMNS`/RPC. Kolom belum ada = tanpa label (bukan label tebakan),
+   kendali admin dikunci, keputusan moderasi tetap tersimpan
+   (`trust_unavailable`).
+6. **Alt poster** = `Poster {judul} — {penyelenggara}` (`posterAlt`).
+
+**Konsekuensi:** Satu kueri tambahan ber-cache per daftar. Pembaca layar
+mendengar judul dua kali di kartu berposter (tautan judul + alt) — diterima
+demi Google Gambar dan permintaan pemilik; ADR-079 sebelumnya memilih alt
+kosong. Kegiatan uji juga tertutup bagi admin di halaman publik (cache katalog
+memakai klien anon); pratinjau lewat Kelola postingan. Migration
+`20261124100001` BELUM diterapkan ke produksi — sampai diterapkan, label
+tidak tampil dan saklar admin terkunci.
+
+---
+
 ## ADR-095 — Impor media otomatis ke antrean moderasi: gambar resmi dari laman sumber + poster & slide penjelas buatan server (21 Nov 2026)
 
 **Konteks.** Pemilik (21 Nov): kegiatan yang masuk antrean moderasi — dari pipeline maupun

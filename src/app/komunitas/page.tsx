@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/komunitas' },
   title: 'Komunitas',
   description: 'Tanya, cari tim, dan berbagi pengalaman lomba, beasiswa, dan magang dengan sesama pelajar di StudentFo.',
 };

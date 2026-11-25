@@ -654,7 +654,7 @@ export function NetworkGraphView({
       data-expanded={expanded ? 'true' : undefined}
       className={cn(
         'relative flex flex-col overflow-hidden border border-line bg-canvas',
-        expanded ? 'fixed inset-0 z-[70] rounded-none' : 'rounded-[20px]',
+        expanded ? 'fixed inset-0 z-[70] rounded-none' : 'rounded-2xl',
       )}
     >
       <div className="relative min-h-0 flex-1 [background-image:radial-gradient(var(--color-border)_1px,transparent_1px)] [background-size:22px_22px]">

@@ -1,23 +1,29 @@
 import Link from 'next/link';
-import { ArrowRight, Plus } from 'lucide-react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
 import { EventCard } from '@/components/event/event-card';
 import { TrendingStrip, trendingItems } from '@/components/event/trending-strip';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { STUDENT_LEVEL_OPTIONS } from '@/components/listing/listing-ui';
 import { getEventRepository } from '@/lib/data';
+import { daysUntil } from '@/lib/deadline';
 import { EVENT_TYPE_NAV, eventTypeHref } from '@/lib/event-type-nav';
 import { withFallback } from '@/lib/fallback';
 import { buildEventHref, type RawSearchParams } from '@/lib/search-params';
 import { cn } from '@/lib/utils';
+import { EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
 import { LandingHero, type HeroLink } from './hero';
-import { LandingTour } from './landing-tour';
+import { LandingTour, type TourSample } from './landing-tour';
+import { TeamMatchingSection } from './team-matching-section';
 import { RevealObserver } from './reveal-observer';
+import { JsonLd } from '@/components/seo/json-ld';
+import { faqJsonLd } from '@/lib/structured-data';
 
 /**
  * Beranda tamu. Satu tujuan: membawa pengunjung ke katalog. "Segera ditutup"
  * memakai kegiatan sungguhan dari repository; cuplikan `#cara-kerja`
- * (`LandingTour`) hanya memperagakan perilaku yang ada di produksi
- * (ADR-065) dan tampil sebagai video saja, tanpa teks panduan (ADR-081).
+ * (`LandingTour`, kolom kanan hero sejak ADR-099) hanya memperagakan
+ * perilaku yang ada di produksi (ADR-065) dan tampil sebagai video saja,
+ * tanpa teks panduan (ADR-081).
  * Setiap klaim di halaman ini harus bisa ditunjuk ke perilaku sistem — klaim
  * pemasaran yang tidak bisa dipertanggungjawabkan adalah kerugian nyata bagi
  * yang mempercayainya (ADR-039 #4).
@@ -28,8 +34,8 @@ const CHECKS = [
     body: 'Setiap kegiatan menautkan pengumuman aslinya, jadi kamu bisa memastikan langsung ke penyelenggara.',
   },
   {
-    title: 'Ditinjau moderator',
-    body: 'Setiap kegiatan dicocokkan dengan sumbernya. Tidak ada yang tayang tanpa persetujuan.',
+    title: 'Ditinjau moderator, labelnya jujur',
+    body: 'Tidak ada yang tayang tanpa persetujuan moderator. "Terverifikasi moderator" berarti sudah dicocokkan langsung dengan penyelenggaranya; "Dari sumber publik" berarti belum.',
   },
   {
     title: 'Sisa waktu selalu terkini',
@@ -48,7 +54,7 @@ const FAQS = [
   },
   {
     q: 'Bagaimana kalau ada kegiatan palsu?',
-    a: 'Setiap kegiatan ditinjau manual dan menautkan sumber aslinya. Kalau menemukan yang janggal, periksa tautan sumber di halaman detail sebelum membayar atau mengirim data apa pun.',
+    a: 'Setiap kegiatan ditinjau moderator dan menautkan sumber aslinya. Yang berlabel "Dari sumber publik" belum dicocokkan langsung dengan penyelenggaranya — buka tautan sumbernya sebelum membayar atau mengirim data apa pun, dan laporkan kalau janggal.',
   },
   {
     q: 'Seakurat apa tanggal tenggatnya?',
@@ -61,6 +67,25 @@ const FAQS = [
 ] as const;
 
 const PREVIEW_LIMIT = 6;
+const TOUR_SAMPLES = 3;
+
+/** Kegiatan sungguhan untuk cuplikan: yang segera ditutup dulu, ditambah yang lagi ramai bila kurang. */
+function tourSamples(primary: readonly EventSummary[], extra: readonly EventSummary[], now: Date): TourSample[] {
+  const seen = new Set<string>();
+  const picked: TourSample[] = [];
+  for (const event of [...primary, ...extra]) {
+    if (picked.length >= TOUR_SAMPLES || seen.has(event.id)) continue;
+    seen.add(event.id);
+    picked.push({
+      title: event.title,
+      organizer: event.organizer,
+      place: event.isOnline ? 'Daring' : (event.location ?? 'Lokasi menyusul'),
+      typeLabel: EVENT_TYPE_LABEL[event.eventType],
+      daysLeft: event.primaryDeadlineAt ? daysUntil(event.primaryDeadlineAt, now) : null,
+    });
+  }
+  return picked;
+}
 
 const sectionClass = 'container-page max-w-[1120px] pt-[clamp(72px,9vw,112px)]';
 const h2Class = 'text-[clamp(28px,4.4vw,40px)] font-bold leading-[1.1] tracking-[-0.03em]';
@@ -92,6 +117,8 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
     // "Lagi ramai" (ADR-092): gagal dimuat = bagiannya tidak tampil.
     withFallback('kegiatan lagi ramai', async () => (await (await getEventRepository()).listEvents({ sort: 'popular', pageSize: 8 })).items, []),
   ]);
+  const now = new Date();
+  const samples = tourSamples(closingSoon, popular, now);
   const types: HeroLink[] = EVENT_TYPE_NAV.map((item, index) => ({
     label: item.label,
     href: eventTypeHref(item),
@@ -103,11 +130,13 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
       <RevealObserver />
       {/* Satu-satunya notice yang mendarat di sini: akun baru saja dihapus (ADR-061). */}
       <ActionFeedback params={params} className="container-page max-w-[1120px] pt-6" />
-      <LandingHero types={types} shortcuts={SHORTCUTS} />
+      <LandingHero types={types} shortcuts={SHORTCUTS} tour={<LandingTour samples={samples} />} />
+
+      <TeamMatchingSection className={cn(sectionClass, 'pt-[clamp(56px,7vw,88px)]')} />
 
       <TrendingStrip
         events={trendingItems(popular, 6)}
-        now={new Date()}
+        now={now}
         moreHref={buildEventHref({ sort: 'popular' })}
         className={cn(sectionClass, 'pt-8 sm:pt-[clamp(56px,7vw,88px)]')}
       />
@@ -138,8 +167,6 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
         </section>
       )}
 
-      <LandingTour />
-
       <section id="verifikasi" aria-labelledby="verifikasi-title" className={`${sectionClass} scroll-mt-20`}>
         <div className="grid gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div data-reveal="" className="flex flex-col gap-3.5">
@@ -164,6 +191,8 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
         </div>
       </section>
 
+      {/* FAQPage hanya di halaman tempat jawabannya TERLIHAT (syarat Google untuk markup). */}
+      <JsonLd data={faqJsonLd(FAQS)} />
       <section id="faq" aria-labelledby="faq-title" className={`${sectionClass} scroll-mt-20`}>
         <div className="grid items-start gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div data-reveal="" className="flex flex-col gap-3.5">
@@ -184,10 +213,11 @@ export async function GuestLanding({ params = {} }: { params?: RawSearchParams }
             {FAQS.map((faq, index) => (
               <details key={faq.q} name="faq" open={index === 0} className="group border-b border-line">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-5 text-[16.5px] font-semibold tracking-[-0.015em] [&::-webkit-details-marker]:hidden">
-                  <span>{faq.q}</span>
-                  <Plus aria-hidden className="size-[18px] shrink-0 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-45" />
+                  <span className="underline decoration-transparent underline-offset-4 transition-colors duration-150 ease-snap group-hover:decoration-line-strong">{faq.q}</span>
+                  {/* Chevron berputar 180° (ADR-099): arah = keadaan — bawah tertutup, atas terbuka. */}
+                  <ChevronDown aria-hidden className="size-[18px] shrink-0 text-ink-muted transition-transform duration-200 ease-snap group-open:rotate-180" />
                 </summary>
-                <p className="enter pb-6 pr-10 text-[15px] leading-relaxed text-ink-muted [animation-duration:450ms]">{faq.a}</p>
+                <p className="enter pb-6 pr-10 text-[15px] leading-relaxed text-ink-muted">{faq.a}</p>
               </details>
             ))}
           </div>

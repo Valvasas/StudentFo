@@ -1,10 +1,11 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { actionError, toActionErrorCode, withQuery, type ActionErrorCode } from '@/lib/action-feedback';
 import { requireUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
+import { EVENTS_CACHE_TAG } from '@/lib/data/cache';
 import { formText, formTrimmed } from '@/lib/form-data';
 import { parsePortfolioInput } from '@/lib/portfolio';
 import { recordSignal } from '@/lib/recommendation-signals';
@@ -180,3 +181,44 @@ export async function updatePortfolioAction(formData: FormData): Promise<void> {
   revalidatePath('/tracker');
   redirect(withQuery(returnTo, { notice: 'portfolio_saved', error: undefined }));
 }
+
+/**
+ * Ajukan / batalkan pemeriksaan prestasi oleh moderator (ADR-098). Hasil &
+ * bukti DISALIN dari baris portofolio saat ini — form ini hanya tombol.
+ */
+export async function requestVerificationAction(formData: FormData): Promise<void> {
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), '/tracker');
+  const user = await requireUser(returnTo);
+  const eventId = formTrimmed(formData, 'eventId');
+  if (!eventId) redirect(withQuery(returnTo, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).requestAchievementVerification(user, eventId);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { error: failure, notice: undefined }));
+  revalidatePath(returnTo);
+  redirect(withQuery(returnTo, { notice: 'verification_requested', error: undefined }));
+}
+
+export async function cancelVerificationAction(formData: FormData): Promise<void> {
+  const returnTo = safeNextPath(formText(formData, 'returnTo'), '/tracker');
+  const user = await requireUser(returnTo);
+  const eventId = formTrimmed(formData, 'eventId');
+  if (!eventId) redirect(withQuery(returnTo, { error: 'invalid_request' }));
+
+  let failure: ActionErrorCode | null = null;
+  try {
+    await (await getEventRepository()).cancelAchievementVerification(user.id, eventId);
+  } catch (error) {
+    failure = toActionErrorCode(error);
+  }
+  if (failure) redirect(withQuery(returnTo, { error: failure, notice: undefined }));
+  revalidatePath(returnTo);
+  // Peringkat di-cache dengan tag katalog; pembatalan tidak mengubahnya, tapi status di profil publik berubah.
+  revalidateTag(EVENTS_CACHE_TAG);
+  redirect(withQuery(returnTo, { notice: 'verification_cancelled', error: undefined }));
+}
+

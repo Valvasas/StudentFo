@@ -57,7 +57,7 @@ export function NetworkSettingsForm({
         <p className="text-[13.5px] leading-relaxed text-ink-muted">
           Mati secara bawaan. Kamu tetap bisa mengajak orang lain, dan yang sudah terhubung tetap melihatmu.
         </p>
-        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-[16px] bg-panel-nested px-4 py-3 transition-colors duration-200 ease-snap has-[:checked]:bg-tint-mint has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-2xl bg-panel-nested px-4 py-3 transition-colors duration-200 ease-snap has-[:checked]:bg-tint-mint has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus">
           <span className="flex flex-col">
             <span className="text-[14px] font-semibold">Tampilkan aku di Cari Koneksi</span>
             <span aria-live="polite" className="text-[12.5px] text-ink-muted">

@@ -15,7 +15,7 @@ export function SettingsGroup({ id, title, children }: { id: string; title: stri
       <h2 id={`${id}-title`} className="px-1 text-[13px] font-semibold text-ink-muted">
         {title}
       </h2>
-      <ul className="flex flex-col divide-y divide-line/80 overflow-hidden rounded-[18px] border border-line bg-panel">{children}</ul>
+      <ul className="flex flex-col divide-y divide-line/80 overflow-hidden rounded-2xl border border-line bg-panel">{children}</ul>
     </section>
   );
 }
@@ -61,7 +61,7 @@ export function SettingsRow({
 /** Kepala halaman anak Pengaturan: judul + kalimat pendek tentang konteksnya. */
 export function SettingsHeader({ title, description, children }: { title: string; description: string; children?: ReactNode }) {
   return (
-    <div className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
+    <div className="enter flex flex-col gap-2.5">
       <h1 className="text-[clamp(28px,5vw,36px)] leading-[1.05] tracking-[-0.04em]">{title}</h1>
       <p className="max-w-[60ch] text-[15.5px] leading-relaxed text-ink-muted">{description}</p>
       {children}

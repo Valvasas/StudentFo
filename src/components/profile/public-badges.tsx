@@ -37,7 +37,7 @@ export function PublicBadges({ progress, limit, compact = false, className }: { 
 /** Saklar "tampilkan lencanaku" di tab Lencana. Bawaan mati; nilai eksplisit, bukan "balik keadaan". */
 export function BadgeVisibilityToggle({ show, adjustable }: { show: boolean; adjustable: boolean }) {
   return (
-    <section aria-labelledby="lencana-publik" className="flex flex-col gap-3 rounded-[18px] border border-line p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+    <section aria-labelledby="lencana-publik" className="flex flex-col gap-3 rounded-2xl border border-line p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
       <div className="flex max-w-[60ch] flex-col gap-1">
         <h2 id="lencana-publik" className="flex items-center gap-2 text-base font-semibold">
           {show ? <Eye aria-hidden className="size-4" /> : <EyeOff aria-hidden className="size-4" />}

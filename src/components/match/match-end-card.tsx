@@ -29,7 +29,7 @@ export function MatchEndCard({
 }) {
   return (
     <section aria-labelledby="akhir-judul" className="mc-end flex h-full flex-col justify-center gap-5 rounded-[24px] border border-line bg-panel p-5 @min-[560px]:flex-row @min-[560px]:items-center @min-[560px]:gap-8 @min-[560px]:p-8">
-      <div className="dot-grid flex shrink-0 items-center justify-center rounded-[18px] bg-panel-nested px-4 py-3 text-ink @min-[560px]:w-[220px]">
+      <div className="dot-grid flex shrink-0 items-center justify-center rounded-2xl bg-panel-nested px-4 py-3 text-ink @min-[560px]:w-[220px]">
         <PocketSketch className="w-40 max-w-full @min-[560px]:w-full" />
       </div>
       <div className="flex min-w-0 flex-col gap-3">

@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ArrowRight, Search } from 'lucide-react';
+import { CountUp } from '@/components/ui/count-up';
 import { SearchShortcutHint } from '@/components/ui/search-shortcut';
-import { HeroSketch } from './hero-sketch';
 
 export interface HeroLink {
   readonly label: string;
@@ -21,20 +21,25 @@ export interface HeroLink {
  *
  * Pintu penyelenggara ("Pasang acaramu", ADR-063) tetap di sini: penyelenggara yang mendarat di beranda pelajar langsung
  * diberi jalannya sendiri.
+ *
+ * Kolom kanan (ADR-099) = cuplikan lima alur (`LandingTour`): SATU-SATUNYA
+ * momen gerak besar di hero, supaya nilai platform terlihat di layar pertama
+ * desktop tanpa membaca. Di ponsel ia turun ke bawah teks — layar pertama
+ * ponsel tetap milik kotak cari (ADR-064).
  */
-export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; shortcuts: readonly HeroLink[] }) {
+export function LandingHero({ types, shortcuts, tour }: { types: readonly HeroLink[]; shortcuts: readonly HeroLink[]; tour?: ReactNode }) {
   return (
     <section
       aria-labelledby="hero-title"
-      className="container-page grid max-w-[1120px] items-center gap-x-10 pt-8 sm:pt-[clamp(40px,7vw,92px)] lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]"
+      className="container-page grid max-w-[1120px] items-center gap-x-12 gap-y-12 pt-8 sm:pt-[clamp(40px,7vw,92px)] lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]"
     >
-      <div className="enter flex max-w-[860px] flex-col [animation-duration:700ms]">
-        <h1 id="hero-title" className="max-w-[19ch] text-[clamp(36px,5.8vw,62px)] leading-[1.04] tracking-[-0.042em]">
+      <div className="enter flex max-w-[860px] flex-col">
+        <h1 id="hero-title" className="max-w-[19ch] text-[clamp(36px,5.8vw,62px)] leading-[1.04] tracking-[-0.042em] lg:text-[clamp(44px,4.3vw,56px)]">
           Cari lomba, beasiswa, dan magang yang <span className="marker">masih buka</span>.
         </h1>
         <p className="mt-4 max-w-[56ch] text-[clamp(16px,1.9vw,18.5px)] sm:mt-5 leading-relaxed text-ink-muted">
-          Satu katalog untuk siswa SMA/SMK dan mahasiswa. Setiap kegiatan dicek ke sumber resminya sebelum tayang, lengkap
-          dengan sisa waktu pendaftarannya.
+          Satu katalog untuk siswa SMA/SMK dan mahasiswa. Setiap kegiatan ditinjau moderator sebelum tayang, diberi label seberapa
+          dalam pemeriksaannya, dan lengkap dengan sisa waktu pendaftarannya.
         </p>
 
         {/* Sebaris mulai 360px: tombol di baris sendiri memakan ±66px layar pertama ponsel, sehingga
@@ -72,8 +77,8 @@ export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; 
             >
               {type.label}
               {type.count ? (
-                <span className="tabular-nums text-ink-muted">
-                  {type.count.toLocaleString('id-ID')}
+                <span className="text-ink-muted">
+                  <CountUp value={type.count} />
                   <span className="sr-only"> masih buka</span>
                 </span>
               ) : null}
@@ -107,8 +112,7 @@ export function LandingHero({ types, shortcuts }: { types: readonly HeroLink[]; 
           </Link>
         </p>
       </div>
-      {/* Hanya di layar lebar: di ponsel layar pertama milik kotak cari. */}
-      <HeroSketch className="hidden max-w-[440px] justify-self-end lg:block" />
+      {tour && <div className="hero-glow w-full max-w-[560px] lg:justify-self-end">{tour}</div>}
     </section>
   );
 }

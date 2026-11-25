@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { AlertTriangle, Check, ExternalLink, GraduationCap, ImageIcon, Loader, MapPin, Tag } from 'lucide-react';
 import { BulkPick } from '@/components/admin/bulk-approve-bar';
 import { queueMediaImportsAction, reviewEventAction } from '@/app/admin/actions';
+import { VerificationCheck } from '@/components/admin/verification-check';
 import { photoAlt, photoSrc } from '@/components/event/event-photo';
 import { SubmitButton } from '@/components/ui/submit-button';
 import type { ModerationMedia } from '@/lib/data/repository';
@@ -137,29 +138,32 @@ export function EventReviewCard({
           tombol submit dengan nilai berbeda di satu form membuat
           tombol Enter di keyboard memilih aksi pertama — di sini itu
           berarti "Setujui" tanpa sengaja. */}
-      <div className="flex shrink-0 gap-2">
-        <form action={reviewEventAction}>
-          <input type="hidden" name="eventId" value={event.id} />
-          <input type="hidden" name="decision" value="APPROVED" />
-          <ConfirmSubmit
-            className={buttonVariants({ variant: 'success', size: 'sm' })}
-            confirm={{
-              title: 'Tayangkan kegiatan ini?',
-              description: (
-                <>
-                  <strong className="font-semibold text-ink">{event.title}</strong> langsung tampil di katalog untuk semua pengunjung dan masuk
-                  pengingat orang yang menyimpannya. Penolakan bisa dibatalkan dari Riwayat — penayangan tidak bisa ditarik dari panel ini.
-                </>
-              ),
-              confirmLabel: 'Ya, tayangkan',
-              tone: 'neutral',
-              icon: <Check />,
-            }}
-          >
-            <Check aria-hidden /> Setujui
-          </ConfirmSubmit>
-        </form>
-        <RejectConfirm action={reviewEventAction} fields={{ eventId: event.id, decision: 'REJECTED' }} subject="kegiatan ini" />
+      <div className="flex shrink-0 flex-col items-start gap-2">
+        <div className="flex gap-2">
+          <form id={`setujui-${event.id}`} action={reviewEventAction}>
+            <input type="hidden" name="eventId" value={event.id} />
+            <input type="hidden" name="decision" value="APPROVED" />
+            <ConfirmSubmit
+              className={buttonVariants({ variant: 'success', size: 'sm' })}
+              confirm={{
+                title: 'Tayangkan kegiatan ini?',
+                description: (
+                  <>
+                    <strong className="font-semibold text-ink">{event.title}</strong> langsung tampil di katalog untuk semua pengunjung dan masuk
+                    pengingat orang yang menyimpannya. Penolakan bisa dibatalkan dari Riwayat — penayangan tidak bisa ditarik dari panel ini.
+                  </>
+                ),
+                confirmLabel: 'Ya, tayangkan',
+                tone: 'neutral',
+                icon: <Check />,
+              }}
+            >
+              <Check aria-hidden /> Setujui
+            </ConfirmSubmit>
+          </form>
+          <RejectConfirm action={reviewEventAction} fields={{ eventId: event.id, decision: 'REJECTED' }} subject="kegiatan ini" />
+        </div>
+        <VerificationCheck form={`setujui-${event.id}`} />
       </div>
     </li>
   );

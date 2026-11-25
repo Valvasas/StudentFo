@@ -2,6 +2,7 @@ import type { AuthUser } from '@/lib/auth';
 import type { MyEventQuestion } from '@/lib/data/repository';
 import { profileMediaSrc } from '@/lib/profile-media';
 import type {
+  AchievementVerification,
   AppNotification,
   ProfileIdentity,
   StudyProfile,
@@ -55,6 +56,10 @@ export interface AccountExportInput {
   readonly eventComments?: readonly MyEventComment[];
   /** Kegiatan yang kamu sukai (ADR-092). */
   readonly eventLikes?: readonly MyEventLike[];
+  /** Pengajuan verifikasi prestasi (ADR-098). Opsional: tes lama tidak mengisinya. */
+  readonly achievementVerifications?: readonly AchievementVerification[];
+  /** Saklar portofolio publik (ADR-098). */
+  readonly portfolioPublic?: boolean;
 }
 
 /**
@@ -153,7 +158,22 @@ export function buildAccountExport(input: AccountExportInput, now: Date = new Da
         : [],
     ),
     badges: { shownToOthers: input.showBadges },
-    publicProfile: { username: input.identity.username, bio: input.identity.bio, visibleTo: input.identity.visibility },
+    publicProfile: {
+      username: input.identity.username,
+      bio: input.identity.bio,
+      visibleTo: input.identity.visibility,
+      publicPortfolio: input.portfolioPublic ?? false,
+    },
+    achievementVerifications: (input.achievementVerifications ?? []).map((row) => ({
+      eventId: row.eventId,
+      result: row.result,
+      proofUrl: row.proofUrl,
+      institutionAtRequest: row.institutionName,
+      status: row.status,
+      requestedAt: row.requestedAt,
+      reviewedAt: row.reviewedAt,
+      reviewNote: row.reviewNote,
+    })),
     // Berkas gambarnya tidak ikut di JSON (sama seperti bukti bayar): tautannya bisa dibuka selama kamu masuk.
     profileLook: {
       photoUrl: user.profileMedia.avatarId ? profileMediaSrc(user.profileMedia.avatarId) : null,

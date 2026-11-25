@@ -36,7 +36,7 @@ export function ProfileLookCard({ media, fullName, subtitle, delay }: { media: O
         <div className="flex flex-col gap-7 px-5 pb-6 sm:px-6">
           <div className="flex flex-col gap-2">
             <span className="text-[12.5px] text-ink-muted">Pratinjau kartu profilmu</span>
-            <div className="w-full max-w-[340px] overflow-hidden rounded-[18px] border border-line bg-panel">
+            <div className="w-full max-w-[340px] overflow-hidden rounded-2xl border border-line bg-panel">
               <ProfileBanner media={media} className="h-[76px]" />
               <div className="flex items-end gap-3 px-4 pb-4">
                 <SelfAvatar name={fullName} photo={media.avatarId} className="-mt-7 size-16 text-[19px] ring-[3px] ring-panel" />

@@ -44,8 +44,18 @@ import type {
   ContentReport,
   ProfileMedia,
   RegistrationMode,
+  AchievementVerification,
+  AchievementVerificationStatus,
+  LeaderboardCounts,
+  LeaderboardResult,
+  PublicPortfolioPage,
+  TrackerStatus,
+  EventType,
 } from '@/types/domain';
 import {
+  ACHIEVEMENT_VERIFICATION_STATUSES,
+  LEADERBOARD_RESULTS,
+  TRACKER_STATUSES,
   ACHIEVEMENTS,
   EDUCATION_LEVELS,
   EVENT_STATUSES,
@@ -60,6 +70,8 @@ import {
   toVerificationBadge,
 } from '@/types/domain';
 import type {
+  AchievementVerificationRow,
+  LeaderboardCountsRow,
   ConnectionPeerRow,
   CronJobHealthRow,
   EventQuestionRow,
@@ -856,3 +868,77 @@ export function mediaErrorCode(error: unknown): Exclude<ActionErrorCode, 'unknow
   }
   return null;
 }
+
+/** Status/hasil di luar daftar = baris dari versi skema lain; diperlakukan menunggu (tidak pernah "terverifikasi" tebakan). */
+export function toAchievementVerification(row: AchievementVerificationRow): AchievementVerification {
+  const status = (ACHIEVEMENT_VERIFICATION_STATUSES as readonly string[]).includes(row.status) ? (row.status as AchievementVerificationStatus) : 'PENDING';
+  const result = (LEADERBOARD_RESULTS as readonly string[]).includes(row.result) ? (row.result as LeaderboardResult) : 'FINALIS';
+  return {
+    eventId: row.event_id,
+    result,
+    proofUrl: row.proof_url,
+    institutionName: row.institution_name,
+    status,
+    requestedAt: row.requested_at,
+    reviewedAt: row.reviewed_at,
+    reviewNote: row.review_note,
+  };
+}
+
+export function toLeaderboardCounts(row: LeaderboardCountsRow): LeaderboardCounts {
+  return { JUARA_1: row.juara_1, JUARA_2: row.juara_2, JUARA_3: row.juara_3, JUARA_HARAPAN: row.juara_harapan, FINALIS: row.finalis };
+}
+
+const asString = (value: unknown): string | null => (typeof value === 'string' && value ? value : null);
+const asStrings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
+
+/**
+ * JSONB `public_portfolio_page()` → domain. Bentuknya kontrak SQL, tetap
+ * diperiksa per kolom: nilai tak dikenal dibuang, bukan di-cast diam-diam.
+ */
+export function toPublicPortfolioPage(data: unknown): PublicPortfolioPage | null {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return null;
+  const page = data as Record<string, unknown>;
+  const fullName = asString(page.full_name);
+  const username = asString(page.username);
+  if (!fullName || !username) return null;
+  const level = asString(page.education_level);
+  const entries = (Array.isArray(page.entries) ? page.entries : []).flatMap((raw): PortfolioEntry[] => {
+    if (typeof raw !== 'object' || raw === null) return [];
+    const entry = raw as Record<string, unknown>;
+    const eventType = asString(entry.event_type);
+    const status = asString(entry.status);
+    const eventId = asString(entry.event_id);
+    const slug = asString(entry.slug);
+    if (!eventId || !slug || !eventType || !(EVENT_TYPES as readonly string[]).includes(eventType) || !status || !(TRACKER_STATUSES as readonly string[]).includes(status)) return [];
+    const verification = asString(entry.verification);
+    return [
+      {
+        eventId,
+        slug,
+        title: asString(entry.title) ?? '',
+        organizer: asString(entry.organizer) ?? '',
+        eventType: eventType as EventType,
+        status: status as TrackerStatus,
+        achievement: toAchievement(asString(entry.achievement)),
+        achievementNote: asString(entry.achievement_note),
+        proofUrl: asString(entry.proof_url),
+        deadlineAt: asString(entry.deadline_at),
+        verification: verification && (ACHIEVEMENT_VERIFICATION_STATUSES as readonly string[]).includes(verification) ? (verification as AchievementVerificationStatus) : null,
+      },
+    ];
+  });
+  return {
+    fullName,
+    username,
+    bio: asString(page.bio),
+    educationLevel: level && (EDUCATION_LEVELS as readonly string[]).includes(level) ? (level as EducationLevel) : null,
+    major: asString(page.major),
+    institutionId: asString(page.institution_id),
+    institutionName: asString(page.institution_name),
+    studyFields: asStrings(page.study_fields),
+    skills: asStrings(page.skills).filter((slug): slug is TeamSkillSlug => (TEAM_SKILL_SLUGS as readonly string[]).includes(slug)),
+    entries,
+  };
+}
+

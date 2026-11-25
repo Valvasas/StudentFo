@@ -54,14 +54,14 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
     <>
       <div className="border-b border-line bg-panel-nested">
         <div className="container-page flex flex-col gap-7 pb-10 pt-12">
-          <div className="enter flex max-w-[640px] flex-col gap-3 [animation-duration:900ms]">
+          <div className="enter flex max-w-[640px] flex-col gap-3">
             <Breadcrumb current="Magang" />
             <PageTitle>Magang pertama, dari penyelenggara yang jelas.</PageTitle>
             <p className="text-base leading-relaxed text-ink-muted">
               Lowongan yang sudah ditinjau, lengkap dengan lokasi dan tanggal tutupnya.
             </p>
           </div>
-          <div className="enter relative z-20 flex flex-wrap gap-2 rounded-[14px] border border-line-strong/70 bg-panel p-2 shadow-[0_10px_30px_rgba(0,0,0,.05)] [animation-delay:120ms] [animation-duration:900ms]">
+          <div className="enter relative z-20 flex flex-wrap gap-2 rounded-[14px] border border-line-strong/70 bg-panel p-2 shadow-[0_10px_30px_rgba(0,0,0,.05)] [animation-delay:120ms]">
             <div className="flex min-w-0 flex-[1_1_320px]">
               <SearchBox query={query} size="lg" placeholder="Posisi, perusahaan, atau keahlian" />
             </div>
@@ -169,7 +169,7 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
               return (
                 <li
                   key={event.id}
-                  className="enter relative flex flex-wrap gap-5 rounded-[14px] border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap [animation-duration:700ms] focus-within:border-brand hover:border-brand hover:shadow-[0_10px_28px_rgba(0,0,0,.06)]"
+                  className="enter relative flex flex-wrap gap-5 rounded-[14px] border border-line bg-panel p-5 transition-[border-color,box-shadow] duration-200 ease-snap focus-within:border-brand hover:border-brand hover:shadow-[0_10px_28px_rgba(0,0,0,.06)]"
                   style={{ animationDelay: `${index * 60}ms` }}
                 >
                   <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-2.5">
@@ -188,7 +188,7 @@ export function MagangBoard({ query, result, categories, savedIds, currentHref, 
                         </span>
                         <PriceBadge event={event} className="self-start" />
                       </div>
-                      <PosterThumb poster={event.poster} />
+                      <PosterThumb poster={event.poster} event={event} />
                     </div>
                     <ul aria-label="Ringkasan" className="flex flex-wrap gap-1.5">
                       <li className="flex h-6 items-center rounded-[6px] bg-panel-nested px-[9px] text-[12.5px] font-medium text-ink-soft">

@@ -58,7 +58,7 @@ export default async function PrivacyPage({ searchParams }: { searchParams: Prom
     <AccountShell user={user} active="pengaturan">
       <div className="flex max-w-[980px] flex-col gap-5">
         <BackLink href="/profile/settings" label="Pengaturan" className="-mb-3" />
-        <div className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
+        <div className="enter flex flex-col gap-2.5">
           <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Privasi &amp; data</h1>
           <p className="max-w-[62ch] text-[15.5px] leading-relaxed text-ink-muted">
             Kamu yang menentukan siapa melihat apa. Di bawah ini apa yang terlihat oleh orang lain, dan salinan data yang kami simpan tentangmu.

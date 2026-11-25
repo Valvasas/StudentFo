@@ -86,7 +86,7 @@ export function LegalDocument({
 }) {
   return (
     <div className="container-page pb-20 pt-12">
-      <header className="enter flex max-w-[720px] flex-col gap-3 [animation-duration:900ms]">
+      <header className="enter flex max-w-[720px] flex-col gap-3">
         <span className="font-mono text-xs tracking-[.08em] text-ink-muted">{status.final ? 'DOKUMEN · BERLAKU' : 'DOKUMEN · DRAF'}</span>
         <h1 className="text-[clamp(34px,6vw,56px)] leading-[1.02]">{title}</h1>
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-[14px] text-ink-muted">
@@ -132,7 +132,7 @@ export function LegalDocument({
         </aside>
 
         <article className="flex max-w-[68ch] flex-col gap-12">
-          <section aria-labelledby="ringkas-title" className="enter rounded-[18px] bg-inverse p-6 text-on-inverse [animation-delay:120ms] [animation-duration:900ms] sm:p-7">
+          <section aria-labelledby="ringkas-title" className="enter rounded-2xl bg-inverse p-6 text-on-inverse [animation-delay:120ms] sm:p-7">
             <h2 id="ringkas-title" className="mb-4 text-lg font-semibold text-on-inverse">
               Versi singkat
             </h2>

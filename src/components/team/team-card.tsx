@@ -211,7 +211,7 @@ export function MyTeamLink({ team, userId }: { team: Team; userId: string }) {
   return (
     <Link
       href={`/teams/${team.id}`}
-      className="group flex min-h-11 items-center gap-4 rounded-[18px] border border-line bg-panel p-3.5 pr-5 transition-[border-color,box-shadow] duration-200 ease-snap hover:border-line-strong hover:shadow-raised"
+      className="group flex min-h-11 items-center gap-4 rounded-2xl border border-line bg-panel p-3.5 pr-5 transition-[border-color,box-shadow] duration-200 ease-snap hover:border-line-strong hover:shadow-raised"
     >
       <span aria-hidden className={cn('dot-grid flex size-12 shrink-0 items-center justify-center rounded-[14px]', TINT_BG[tintOf(team.id)])}>
         <Icon className="size-5" />

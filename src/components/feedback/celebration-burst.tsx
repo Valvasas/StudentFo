@@ -94,7 +94,7 @@ export function CelebrationBurst({ celebration, burstKey }: { celebration: Celeb
         )}
       >
         {celebration.confetti && <Confetti />}
-        <span className="dot-grid flex size-[68px] shrink-0 items-center justify-center rounded-[16px] bg-highlight-soft text-ink">
+        <span className="dot-grid flex size-[68px] shrink-0 items-center justify-center rounded-2xl bg-highlight-soft text-ink">
           <Art art={celebration.art} />
         </span>
         <span className="flex min-w-0 flex-col items-start gap-1.5">

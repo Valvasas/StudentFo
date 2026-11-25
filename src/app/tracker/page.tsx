@@ -5,6 +5,7 @@ import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { UndoBar } from '@/components/feedback/undo-bar';
 import { AccountShell } from '@/components/layout/account-shell';
 import { TrackerCard } from '@/components/tracker/tracker-card';
+import { FlipList } from '@/components/ui/flip-list';
 import { CalendarSketch } from '@/components/ui/illustrations';
 import { getSessionUser } from '@/lib/auth';
 import { getEventRepository } from '@/lib/data';
@@ -17,6 +18,7 @@ import { TRACKER_STATUS_LABEL, TRACKER_STATUSES, type TrackerStatus } from '@/ty
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/tracker' },
   title: 'Papan lamaran',
   description: 'Lacak status lamaran lomba, beasiswa, dan magangmu dalam satu papan: disimpan, sudah daftar, wawancara, diterima.',
 };
@@ -42,7 +44,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
   if (!user) {
     return (
       <div className="container-page py-16">
-        <div className="enter mx-auto flex max-w-2xl flex-col items-center gap-4 text-center [animation-duration:900ms]">
+        <div className="enter mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
           <CalendarSketch className="text-ink" />
           <h1 className="text-[clamp(32px,5vw,44px)] leading-[1.05]">Lacak semua pendaftaranmu di satu papan</h1>
           <p className="max-w-[52ch] text-[15.5px] leading-relaxed text-ink-muted">
@@ -61,9 +63,9 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
             </Link>
           </div>
         </div>
-        <ol className="mx-auto mt-14 grid max-w-4xl gap-px overflow-hidden rounded-[18px] border border-line bg-line [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
+        <ol className="mx-auto mt-14 grid max-w-4xl gap-px overflow-hidden rounded-2xl border border-line bg-line [grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))]">
           {GUEST_STEPS.map((step, index) => (
-            <li key={step.title} className="enter flex flex-col gap-3 bg-panel p-5 [animation-duration:800ms]" style={{ animationDelay: `${120 + index * 80}ms` }}>
+            <li key={step.title} className="enter flex flex-col gap-3 bg-panel p-5" style={{ animationDelay: `${120 + index * 80}ms` }}>
               <span className="flex items-center justify-between">
                 <step.icon aria-hidden className="size-5" />
                 <span className="font-mono text-xs text-ink-muted">0{index + 1}</span>
@@ -93,7 +95,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
   return (
     <AccountShell user={user} active="daftar">
       <div className="flex flex-col gap-7">
-        <div className="enter flex flex-wrap items-end justify-between gap-4 [animation-duration:800ms]">
+        <div className="enter flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col gap-2.5">
             <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Papan lamaran</h1>
             <p className="max-w-[56ch] text-[15.5px] leading-relaxed text-ink-muted">
@@ -115,7 +117,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
         <UndoBar params={params} returnTo={returnTo} titles={new Map(items.map((item) => [item.event.id, item.event.title]))} className="max-w-2xl" />
 
         {items.length > 0 && (
-          <div className="enter grid gap-px overflow-hidden rounded-[18px] border border-line bg-line [animation-delay:80ms] [animation-duration:800ms] [grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))]">
+          <div className="enter grid gap-px overflow-hidden rounded-2xl border border-line bg-line [animation-delay:80ms] [grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))]">
             {(['SAVED', 'APPLIED', 'INTERVIEW', 'ACCEPTED'] as const).map((status, index) => (
               <div key={status} className="flex flex-col gap-1 bg-panel px-5 py-4">
                 <span className="text-[32px] font-bold leading-none tracking-[-0.04em] tabular-nums">{counts[status]}</span>
@@ -137,7 +139,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
             jadi ia mendapat tempat sendiri — bukan satu ubin di antara angka.
             Hanya yang belum didaftar: yang sudah daftar tidak butuh tindakan. */}
         {actionable.length > 0 && (
-          <section aria-labelledby="perlu-tindakan" className="enter flex flex-col gap-3 rounded-[18px] border border-line-strong/70 p-5 [animation-delay:120ms] [animation-duration:800ms] sm:p-6">
+          <section aria-labelledby="perlu-tindakan" className="enter flex flex-col gap-3 rounded-2xl border border-line-strong/70 p-5 [animation-delay:120ms] sm:p-6">
             <h2 id="perlu-tindakan" className="flex items-center gap-2 text-[17px] font-semibold">
               <AlarmClock aria-hidden className="size-[18px]" />
               Tutup dalam {ACTION_WINDOW_DAYS} hari, belum kamu daftar
@@ -196,7 +198,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
         )}
 
         {items.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-[18px] border border-dashed border-line-strong px-6 py-14 text-center">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-line-strong px-6 py-14 text-center">
             <BookmarkCheck aria-hidden className="size-8 text-ink-muted" />
             <h2 className="text-xl font-semibold">Belum ada kegiatan yang kamu lacak</h2>
             <p className="max-w-md text-sm leading-relaxed text-ink-muted">
@@ -207,10 +209,13 @@ export default async function TrackerPage({ searchParams }: { searchParams: Prom
             </Link>
           </div>
         ) : (
-          <section aria-label={filter ? `Tahap ${TRACKER_STATUS_LABEL[filter]}` : 'Semua pendaftaran'} className="rounded-[18px] border border-line px-5 sm:px-6">
-            {shown.map((item) => (
-              <TrackerCard key={item.id} item={item} returnTo={returnTo} />
-            ))}
+          <section aria-label={filter ? `Tahap ${TRACKER_STATUS_LABEL[filter]}` : 'Semua pendaftaran'} className="rounded-2xl border border-line px-5 sm:px-6">
+            {/* Diurutkan menurut perubahan terakhir: kartu yang tahapnya baru diubah meluncur ke atas (ADR-099). */}
+            <FlipList>
+              {shown.map((item) => (
+                <TrackerCard key={item.id} item={item} returnTo={returnTo} />
+              ))}
+            </FlipList>
             {shown.length === 0 && <p className="py-8 text-center text-sm text-ink-muted">Tidak ada kegiatan di tahap ini.</p>}
           </section>
         )}

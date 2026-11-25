@@ -14,7 +14,7 @@ const MUTED = '#a3a29c';
 const CANVAS = '#111110';
 const LINE = '#2e2e2c';
 const PAPER = '#1c1c1a';
-const HIGHLIGHT = '#ffd95a';
+const HIGHLIGHT = '#facc15';
 
 /** Logo (ADR-080) sebagai data URL: Satori menggambar <img> SVG, bukan <use>/token CSS. */
 const LOGO_SRC = `data:image/svg+xml;base64,${Buffer.from(
@@ -94,7 +94,7 @@ export function OgCard({
         }}
       >
         <div style={{ display: 'flex' }}>{footnote}</div>
-        <div style={{ display: 'flex', color: MUTED }}>Diverifikasi manual sebelum tayang</div>
+        <div style={{ display: 'flex', color: MUTED }}>Ditinjau moderator sebelum tayang</div>
       </div>
     </div>
   );

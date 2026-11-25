@@ -149,7 +149,7 @@ export function DemoAboutCard({ isPublic }: { isPublic: boolean }) {
     { key: 'portfolio', value: extras.portfolio, add: 'Tambah portofolio' },
   ];
   return (
-    <section aria-labelledby="tentang-title" className="flex flex-col gap-3.5 rounded-[18px] border border-line p-6">
+    <section aria-labelledby="tentang-title" className="flex flex-col gap-3.5 rounded-2xl border border-line p-6">
       <h2 id="tentang-title" className="text-base font-semibold">
         Tentang
       </h2>
@@ -198,7 +198,7 @@ export function DemoAboutCard({ isPublic }: { isPublic: boolean }) {
 export function DemoTeamCard() {
   const [extras] = useExtras();
   return (
-    <section aria-labelledby="tim-title" className="flex flex-col gap-4 rounded-[18px] border border-line p-6">
+    <section aria-labelledby="tim-title" className="flex flex-col gap-4 rounded-2xl border border-line p-6">
       <h2 id="tim-title" className="text-base font-semibold">
         Di dalam tim
       </h2>
@@ -259,7 +259,7 @@ export function DemoPhone() {
 export function DemoAchievements({ isPublic }: { isPublic: boolean }) {
   const [extras] = useExtras();
   return (
-    <section aria-labelledby="pencapaian-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-6">
+    <section aria-labelledby="pencapaian-title" className="flex flex-col gap-1.5 rounded-2xl border border-line p-6">
       <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
         <h2 id="pencapaian-title" className="text-base font-semibold">
           Pencapaian

@@ -140,7 +140,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       )}
 
       <div className="enter flex flex-wrap items-stretch gap-5">
-        <section aria-labelledby="nama-profil" className="flex min-w-0 flex-[2_1_420px] flex-col gap-5 overflow-hidden rounded-[20px] border border-line pb-5 sm:pb-7">
+        <section aria-labelledby="nama-profil" className="flex min-w-0 flex-[2_1_420px] flex-col gap-5 overflow-hidden rounded-2xl border border-line pb-5 sm:pb-7">
           {/* Banner & foto (ADR-083): sama dengan yang tampil di kartu Koneksi, tim, dan menu akun. */}
           <ProfileBanner media={user.profileMedia} className="h-[104px] sm:h-[132px]" />
           <div className="-mt-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 sm:px-7">
@@ -219,7 +219,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         {/* Setelah 100% kartu ini hanya berisi daftar yang dicoret semua —
             ruang besar untuk kabar yang tidak butuh tindakan apa pun. */}
         {!isPublic && completeness.percent < 100 && (
-          <section aria-labelledby="kelengkapan" className="flex min-w-0 flex-[1_1_260px] flex-col gap-4 rounded-[20px] bg-panel-nested p-5 sm:p-6">
+          <section aria-labelledby="kelengkapan" className="flex min-w-0 flex-[1_1_260px] flex-col gap-4 rounded-2xl bg-panel-nested p-5 sm:p-6">
             <div className="flex items-center gap-4">
               <div
                 role="img"
@@ -319,7 +319,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               </div>
             )}
             <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-5">
-              <section aria-labelledby="minat-title" className="flex flex-col gap-3.5 rounded-[18px] border border-line p-[22px]">
+              <section aria-labelledby="minat-title" className="flex flex-col gap-3.5 rounded-2xl border border-line p-[22px]">
                 <div className="flex items-center justify-between gap-3">
                   <h2 id="minat-title" className="text-base font-semibold">
                     Minat
@@ -344,7 +344,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 )}
               </section>
               {!isPublic && (
-                <section aria-labelledby="kontak-title" className="flex flex-col gap-1 rounded-[18px] border border-line p-[22px]">
+                <section aria-labelledby="kontak-title" className="flex flex-col gap-1 rounded-2xl border border-line p-[22px]">
                   <div className="mb-2 flex items-center justify-between">
                     <h2 id="kontak-title" className="text-base font-semibold">
                       Kontak
@@ -370,7 +370,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
         {tab === 'portofolio' && (
           <>
-            <section aria-labelledby="portofolio-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">
+            <section aria-labelledby="portofolio-title" className="flex flex-col gap-1.5 rounded-2xl border border-line p-5 sm:p-6">
               <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
                 <h2 id="portofolio-title" className="text-base font-semibold">
                   {isPublic ? 'Portofolio' : 'Riwayat & portofolio'}
@@ -401,7 +401,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         )}
 
         {tab === 'pendaftaran' && (
-          <section aria-labelledby="pendaftaran-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">
+          <section aria-labelledby="pendaftaran-title" className="flex flex-col gap-1.5 rounded-2xl border border-line p-5 sm:p-6">
             <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
               <h2 id="pendaftaran-title" className="text-base font-semibold">
                 Lamaran aktif
@@ -457,7 +457,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         )}
 
         {tab === 'tersimpan' && (
-          <section aria-labelledby="tersimpan-title" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">
+          <section aria-labelledby="tersimpan-title" className="flex flex-col gap-1.5 rounded-2xl border border-line p-5 sm:p-6">
             <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
               <h2 id="tersimpan-title" className="text-base font-semibold">
                 Tersimpan

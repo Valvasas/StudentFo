@@ -84,7 +84,7 @@ export function DemoPrivacyControls({ name, major }: { name: string; major: stri
           </div>
         </DetailCard>
 
-        <section aria-labelledby="pratinjau-title" className="enter flex flex-col gap-4 rounded-[18px] bg-inverse p-5 text-on-inverse [animation-delay:180ms] [animation-duration:800ms] sm:p-6 lg:sticky lg:top-[92px]">
+        <section aria-labelledby="pratinjau-title" className="enter flex flex-col gap-4 rounded-2xl bg-inverse p-5 text-on-inverse [animation-delay:180ms] sm:p-6 lg:sticky lg:top-[92px]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 id="pratinjau-title" className="font-mono text-[11.5px] font-normal tracking-[.08em] text-on-inverse-muted">
               PRATINJAU PROFILMU

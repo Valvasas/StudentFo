@@ -162,6 +162,8 @@ const PAIRS = [
   // Badge hitungan di atas stabilo pekat & label di atas stabilo lembut (ADR-054).
   ['Tinta stabilo / stabilo pekat (badge hitungan)', '--color-highlight-ink', '--color-highlight', 4.5],
   ['Teks utama / stabilo lembut', '--color-text-primary', '--color-highlight-soft', 4.5],
+  // Pil tenggat ≤ H-3 (`due-soon`, ADR-099): label & titik berdenyut bertinta gelap di atas amber.
+  ['Tenggat ≤ H-3 / pil amber', '--color-highlight-ink', '--color-highlight', 4.5],
   // Tint catatan tempel (ADR-054): inisial avatar & teks di sampul kartu.
   ['Teks utama / tint matahari', '--color-text-primary', '--color-tint-sun', 4.5],
   ['Teks utama / tint mint', '--color-text-primary', '--color-tint-mint', 4.5],

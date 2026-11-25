@@ -12,8 +12,8 @@ import { LOGO_BOLD, LOGO_SIZE } from '@/components/ui/logo-paths';
  */
 const INK = '#1d1b17';
 const PAPER = '#ffffff';
-const HIGHLIGHT = '#ffd95a';
-const CANVAS = '#faf8f3';
+const HIGHLIGHT = '#facc15';
+const CANVAS = '#faf9f5';
 
 function logoSvg(): string {
   return (

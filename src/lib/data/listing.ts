@@ -14,8 +14,9 @@ import { DEFAULT_PAGE_SIZE, MAX_PAGE, MAX_PAGE_SIZE } from './repository';
 /** Status yang boleh terlihat publik — cermin policy `events_public_read`. */
 export const PUBLIC_STATUSES: readonly EventStatus[] = ['APPROVED', 'EXPIRED'];
 
-export function isPubliclyVisible(event: Pick<EventSummary, 'status'>): boolean {
-  return PUBLIC_STATUSES.includes(event.status);
+/** Cermin `events_public_read`: status tayang DAN bukan data uji (ADR-096). */
+export function isPubliclyVisible(event: Pick<EventSummary, 'status' | 'isDemo'>): boolean {
+  return PUBLIC_STATUSES.includes(event.status) && event.isDemo !== true;
 }
 
 export interface Paging {

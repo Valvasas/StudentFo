@@ -9,6 +9,7 @@ import {
   PenSquare,
   Scale,
   ShieldCheck,
+  Trophy,
   UsersRound,
   type LucideIcon,
 } from 'lucide-react';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 export type AdminSection =
   | 'antrean'
   | 'laporan'
+  | 'prestasi'
   | 'penyelenggara'
   | 'riwayat'
   | 'buat'
@@ -52,10 +54,11 @@ export const ADMIN_GROUPS: readonly AdminGroup[] = [
   {
     key: 'moderasi',
     label: 'Moderasi',
-    hint: 'Kiriman, laporan, dan pengajuan penyelenggara yang menunggu keputusanmu.',
+    hint: 'Kiriman, laporan, prestasi, dan pengajuan penyelenggara yang menunggu keputusanmu.',
     items: [
       { key: 'antrean', label: 'Antrean moderasi', href: '/admin', icon: ShieldCheck },
       { key: 'laporan', label: 'Laporan', href: '/admin/laporan', icon: Flag },
+      { key: 'prestasi', label: 'Prestasi', href: '/admin/prestasi', icon: Trophy },
       { key: 'penyelenggara', label: 'Penyelenggara', href: '/admin/penyelenggara', icon: BadgeCheck },
       { key: 'riwayat', label: 'Riwayat moderasi', href: '/admin/riwayat', icon: History },
     ],

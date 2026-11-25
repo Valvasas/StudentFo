@@ -11,6 +11,7 @@ import { registrationHref } from '@/components/registration/registration-cta';
 import { registrationCta, registrationEventClosed } from '@/components/registration/registration-view';
 import { DemoDocumentsSummary } from '@/components/profile/demo-detail-cards';
 import { PortfolioPanel } from '@/components/tracker/portfolio-form';
+import { VerificationPanel } from '@/components/tracker/verification-panel';
 import { TrackerRemoveForm, TrackerStatusForm, TrackerSteps } from '@/components/tracker/tracker-card';
 import { BackLink } from '@/components/ui/back-link';
 import { requireUser } from '@/lib/auth';
@@ -37,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 function Panel({ id, icon, title, children, className }: { id: string; icon: ReactNode; title: string; children: ReactNode; className?: string }) {
   return (
-    <section aria-labelledby={id} className={cn('flex flex-col gap-3 rounded-[18px] border border-line p-5 sm:p-6', className)}>
+    <section aria-labelledby={id} className={cn('flex flex-col gap-3 rounded-2xl border border-line p-5 sm:p-6', className)}>
       <h2 id={id} className="flex items-center gap-2.5 text-base font-semibold">
         <span aria-hidden className="flex size-8 items-center justify-center rounded-[9px] bg-panel-nested">
           {icon}
@@ -86,10 +87,11 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
   const item = event ? await repository.getTrackerItem(user.id, event.id) : null;
   if (!item || !event) notFound();
 
-  const [teams, form, mine] = await Promise.all([
+  const [teams, form, mine, verification] = await Promise.all([
     event.eventType === 'LOMBA' ? repository.listTeams(event.id) : Promise.resolve([]),
     withFallback('formulir pendaftaran', () => repository.getRegistrationForm(event.id), null),
     withFallback('pendaftaran sendiri', () => repository.getMyRegistration(user.id, event.id), null),
+    event.eventType === 'LOMBA' ? withFallback('verifikasi prestasi', () => repository.getAchievementVerification(user.id, event.id), null) : Promise.resolve(null),
   ]);
   const myTeam = teams.find((team) => team.members.some((member) => member.userId === user.id));
   const openTeams = teams.filter((team) => team !== myTeam && remainingSlots(team) > 0).length;
@@ -219,7 +221,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
       <div className="flex flex-col gap-6">
         <BackLink href="/tracker" label="Papan lamaran" className="-mb-2" />
 
-        <header className="enter flex flex-col gap-3 [animation-duration:800ms]">
+        <header className="enter flex flex-col gap-3">
           <span className="font-mono text-xs tracking-[.08em] text-ink-muted">PROSES PENDAFTARAN · {EVENT_TYPE_LABEL[event.eventType].toUpperCase()}</span>
           <h1 className="max-w-[24ch] text-[clamp(28px,4vw,40px)] leading-[1.08] tracking-[-0.04em]">{event.title}</h1>
           <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13.5px] text-ink-muted">
@@ -237,7 +239,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
         <ActionFeedback params={query} className="max-w-2xl" />
         <UndoBar params={query} returnTo={returnTo} titles={new Map([[event.id, event.title]])} className="max-w-2xl" />
 
-        <div className="enter rounded-[18px] border border-line p-5 [animation-delay:80ms] [animation-duration:800ms] sm:p-6">
+        <div className="enter rounded-2xl border border-line p-5 [animation-delay:80ms] sm:p-6">
           <TrackerSteps item={item} />
         </div>
 
@@ -291,6 +293,9 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
 
             <Panel id="portofolio-title" icon={<Award className="size-4" />} title="Portofolio">
               <PortfolioPanel item={item} returnTo={returnTo} />
+              <div id="verifikasi-prestasi" className="scroll-mt-24">
+                <VerificationPanel item={item} verification={verification} closed={isClosed} returnTo={returnTo} />
+              </div>
             </Panel>
 
             <Panel id="riwayat-title" icon={<History className="size-4" />} title="Riwayat">
@@ -365,7 +370,7 @@ export default async function TrackerStatusPage({ params, searchParams }: { para
               </Panel>
             )}
 
-            <section aria-labelledby="ubah-title" className="flex flex-col gap-3 rounded-[18px] bg-panel-nested p-5">
+            <section aria-labelledby="ubah-title" className="flex flex-col gap-3 rounded-2xl bg-panel-nested p-5">
               <h2 id="ubah-title" className="text-sm font-semibold">
                 Ubah tahap manual
               </h2>

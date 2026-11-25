@@ -264,7 +264,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
           className="dot-grid flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto bg-panel-nested/40 px-4 py-5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus sm:px-6"
         >
           {current.official && (
-            <p className="mx-auto mb-3 flex max-w-[460px] items-start gap-2 rounded-[16px] border border-line bg-panel px-4 py-3 text-[12.5px] leading-snug text-ink-soft">
+            <p className="mx-auto mb-3 flex max-w-[460px] items-start gap-2 rounded-2xl border border-line bg-panel px-4 py-3 text-[12.5px] leading-snug text-ink-soft">
               <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
               Percakapan contoh dari penyelenggara. StudentFo tidak pernah meminta transfer ke rekening pribadi.
             </p>
@@ -281,7 +281,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
               >
                 {!mine && !grouped && current.kind !== 'Pribadi' && <span className="px-1 text-[12px] font-semibold text-ink-muted">{message.from}</span>}
                 {message.file ? (
-                  <span className="flex items-center gap-3 rounded-[18px] border border-line bg-panel px-3.5 py-3 shadow-card">
+                  <span className="flex items-center gap-3 rounded-2xl border border-line bg-panel px-3.5 py-3 shadow-card">
                     <span aria-hidden className="flex size-10 items-center justify-center rounded-[12px] bg-tint-peach">
                       <FileText className="size-5" />
                     </span>
@@ -293,7 +293,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
                 ) : (
                   <p
                     className={cn(
-                      'whitespace-pre-wrap break-words rounded-[20px] px-4 py-2.5 text-[14.5px] leading-snug',
+                      'whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-[14.5px] leading-snug',
                       mine ? 'rounded-br-[6px] bg-brand text-on-brand' : 'rounded-bl-[6px] border border-line bg-panel shadow-card',
                     )}
                   >
@@ -306,7 +306,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
           })}
           {typing && (
             <p className="pop mt-3 flex items-center gap-2 self-start text-[12.5px] text-ink-muted">
-              <span aria-hidden className="flex gap-1 rounded-[18px] rounded-bl-[6px] border border-line bg-panel px-3.5 py-3">
+              <span aria-hidden className="flex gap-1 rounded-2xl rounded-bl-[6px] border border-line bg-panel px-3.5 py-3">
                 {[0, 1, 2].map((dot) => (
                   <span key={dot} className="typing-dot size-1.5 rounded-full bg-ink-muted" style={{ '--d': `${dot * 160}ms` } as React.CSSProperties} />
                 ))}
@@ -349,7 +349,7 @@ export function MessagesApp({ events }: { events: Readonly<Record<string, Relate
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={onKey}
               placeholder="Tulis pesan…"
-              className="max-h-32 min-h-11 flex-1 resize-none rounded-[18px] bg-transparent px-2.5 py-2.5 text-base leading-snug field-sizing-content"
+              className="max-h-32 min-h-11 flex-1 resize-none rounded-2xl bg-transparent px-2.5 py-2.5 text-base leading-snug field-sizing-content"
             />
             <button
               type="submit"
@@ -401,7 +401,7 @@ function InfoSheet({ conversation, event }: { conversation: DemoConversation; ev
         {event && (
           <div className="flex flex-col gap-2">
             <span className="font-mono text-[11px] tracking-[.08em] text-ink-muted">KEGIATAN TERKAIT</span>
-            <div className="flex flex-col gap-1 rounded-[16px] bg-panel-nested p-4">
+            <div className="flex flex-col gap-1 rounded-2xl bg-panel-nested p-4">
               <span className="text-[12px] text-ink-muted">{event.type}</span>
               <span className="text-sm font-semibold leading-snug">{event.title}</span>
               {event.closes && <span className="text-[12.5px] text-ink-muted">Tutup {event.closes}</span>}

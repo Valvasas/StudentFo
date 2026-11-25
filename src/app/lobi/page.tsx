@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 function LobbyRow({ lobby, now }: { lobby: LobbySummary; now: Date }) {
   const open = isLobbyOpen(lobby.event, now);
   return (
-    <li className="flex flex-col gap-3 rounded-[18px] border border-line bg-panel p-5 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 rounded-2xl border border-line bg-panel p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-col gap-1.5">
         <Link
           href={`/lobi/${lobby.event.slug}`}
@@ -72,7 +72,7 @@ export default async function LobbyListPage({ searchParams }: { searchParams: Pr
   return (
     <AccountShell user={user} active="lobi">
       <div className="flex max-w-[860px] flex-col gap-6">
-        <header className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
+        <header className="enter flex flex-col gap-2.5">
           <h1 className="flex items-center gap-2.5 text-[36px] leading-[1.05] tracking-[-0.04em]">
             <DoorOpen aria-hidden className="size-8 text-ink-muted" />
             Lobi lomba
@@ -86,7 +86,7 @@ export default async function LobbyListPage({ searchParams }: { searchParams: Pr
         <ActionFeedback params={params} />
 
         {lobbies.length === 0 ? (
-          <section className="flex flex-col gap-3 rounded-[18px] border border-dashed border-line-strong p-6">
+          <section className="flex flex-col gap-3 rounded-2xl border border-dashed border-line-strong p-6">
             <h2 className="text-lg font-semibold">Belum ada lomba yang kamu daftar</h2>
             <p className="max-w-[60ch] text-[14.5px] leading-relaxed text-ink-soft">
               Lobi terbuka setelah kamu mendaftar sebuah lomba: lewat formulir StudentFo, atau tandai &ldquo;Sudah daftar&rdquo; di Papan lamaran

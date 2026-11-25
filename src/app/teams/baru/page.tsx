@@ -46,7 +46,7 @@ export default async function NewTeamPage({ searchParams }: { searchParams: Prom
         <ArrowLeft aria-hidden className="size-4" /> Cari tim
       </Link>
 
-      <header className="enter flex flex-col gap-3 [animation-duration:900ms]">
+      <header className="enter flex flex-col gap-3">
         <h1 className="text-[clamp(32px,4.6vw,48px)] leading-[1]">
           Buka tim baru
         </h1>

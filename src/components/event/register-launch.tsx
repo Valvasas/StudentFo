@@ -81,7 +81,7 @@ export function RegisterLaunch({
               aria-labelledby={titleId}
               className="celebrate-in pointer-events-auto relative flex w-full max-w-[440px] gap-4 rounded-[22px] border border-line bg-panel p-4 pr-5 shadow-overlay"
             >
-              <span aria-hidden className="dot-grid relative flex size-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-tint-mint text-ink">
+              <span aria-hidden className="dot-grid relative flex size-[72px] shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-tint-mint text-ink">
                 <svg viewBox="0 0 72 72" className="absolute inset-0 size-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M6 62 Q22 64 30 50" strokeDasharray="2 6" pathLength={1} className="ink-draw" style={{ '--d': '200ms' } as CSSProperties} />
                 </svg>

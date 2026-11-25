@@ -59,7 +59,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Untuk penyelenggara',
     description:
-      'Pasang lomba, beasiswa, workshop, atau pelatihan di StudentFo. Verifikasi lembagamu sekali, lalu kelola formulir pendaftaran, bukti bayar, dan analitik acara dari satu studio.',
+      'Pasang lomba, beasiswa, atau workshop di StudentFo. Verifikasi lembaga sekali, lalu kelola pendaftaran, bukti bayar, dan analitik dari satu studio.',
+    alternates: { canonical: '/penyelenggara' },
   };
 }
 

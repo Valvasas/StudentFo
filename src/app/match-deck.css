@@ -191,7 +191,7 @@
 }
 
 .deck[data-mode='stack'] .deck-slot[data-spring] {
-  transition: transform 520ms var(--ease-pop);
+  transition: transform var(--duration-enter) var(--ease-pop);
 }
 
 /* Selama menyeret: kartu depan mengikuti jari tanpa transisi, begitu pula kartu belakang yang terangkat. */
@@ -241,7 +241,7 @@
 
 /* Stempel menghantam setiap kali sebuah kartu menjadi kartu depan; `--base` menunda sampai radar selesai. */
 .deck[data-live] .deck-slot[data-depth='0'] .chem-stamp {
-  animation: sf-chem-stamp 720ms var(--easing-enter) backwards;
+  animation: sf-chem-stamp var(--duration-enter) var(--easing-enter) backwards;
   animation-delay: calc(var(--base, 0ms) + 450ms);
 }
 
@@ -317,7 +317,7 @@
 /* Bawaan poligon tergambar penuh; garisnya digambar ulang hanya saat muka belakang dibuka. */
 .mc[data-face='back'] .hex-poly {
   stroke-dasharray: 1;
-  animation: sf-hex-draw 900ms var(--easing-enter) 120ms backwards;
+  animation: sf-hex-draw var(--duration-enter) var(--easing-enter) 120ms backwards;
 }
 
 /* ---------- stempel seret ---------- */

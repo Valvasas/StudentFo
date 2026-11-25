@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isDueSoon,
   daysLeftLabel,
   formatShortDateId,
   jakartaDateParts,
@@ -191,5 +192,13 @@ describe('urgencyRamp', () => {
     expect(urgencyRamp(8)).toBe(0);
     expect(urgencyRamp(-1)).toBe(0);
     expect(urgencyRamp(null)).toBe(0);
+  });
+});
+
+describe('isDueSoon — anak tangga amber H-3..H-1 (ADR-099)', () => {
+  it('hanya 1–3 hari; hari-H, lewat, aman, dan tanpa tanggal punya tampilan sendiri', () => {
+    expect([1, 2, 3].map(isDueSoon)).toEqual([true, true, true]);
+    expect([0, 4, 7, -1].map(isDueSoon)).toEqual([false, false, false, false]);
+    expect(isDueSoon(null)).toBe(false);
   });
 });

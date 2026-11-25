@@ -42,6 +42,14 @@ const nextConfig: NextConfig = {
   // supaya tidak menimpa build mode seed yang dipakai audit aksesibilitas.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
+  // Metadata SELALU di <head> (ADR-099). Sejak Next 15.2 metadata di-stream ke
+  // <body> untuk peramban & Googlebot, dan React tidak memindahkannya ke
+  // <head> setelah hidrasi — padahal Google hanya menerima `rel=canonical`
+  // di <head>, dan `noindex` portofolio publik (ADR-098) wajib terbaca.
+  // Streaming itu tidak memberi apa-apa di sini: tanpa `loading.tsx`/Suspense
+  // di sekitar halaman (catatan soft-404, `src/app/events/page.tsx`), kepala
+  // dokumen memang baru terkirim setelah data halaman siap.
+  htmlLimitedBots: /.*/,
   // Optimizer gambar hanya untuk foto galeri (ADR-056) — tanpa daftar ini
   // `/_next/image` mau mengubah ukuran rute lokal APA PUN, termasuk rute yang
   // mahal dirender, sehingga jadi pengganda beban bagi siapa saja.

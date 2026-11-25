@@ -207,6 +207,92 @@ export interface PortfolioEntry {
   readonly achievementNote: string | null;
   readonly proofUrl: string | null;
   readonly deadlineAt: string | null;
+  /** Status pemeriksaan moderator (ADR-098); tidak ada / null = dilaporkan sendiri. */
+  readonly verification?: AchievementVerificationStatus | null;
+}
+
+/**
+ * Hasil yang bisa diverifikasi & dihitung peringkat (ADR-098) — hanya hasil
+ * KOMPETITIF lomba. VARCHAR + CHECK `achievement_verifications_result_known`
+ * (migration 20261125100001), bukan enum.
+ */
+export const LEADERBOARD_RESULTS = ['JUARA_1', 'JUARA_2', 'JUARA_3', 'JUARA_HARAPAN', 'FINALIS'] as const satisfies readonly Achievement[];
+export type LeaderboardResult = (typeof LEADERBOARD_RESULTS)[number];
+
+export function isLeaderboardResult(value: Achievement | null | undefined): value is LeaderboardResult {
+  return (LEADERBOARD_RESULTS as readonly string[]).includes(value ?? '');
+}
+
+export const ACHIEVEMENT_VERIFICATION_STATUSES = ['PENDING', 'VERIFIED', 'REJECTED'] as const;
+export type AchievementVerificationStatus = (typeof ACHIEVEMENT_VERIFICATION_STATUSES)[number];
+
+/** Pengajuan verifikasi milik sendiri — isi yang DISALIN saat mengajukan. */
+export interface AchievementVerification {
+  readonly eventId: string;
+  readonly result: LeaderboardResult;
+  readonly proofUrl: string;
+  readonly institutionName: string | null;
+  readonly status: AchievementVerificationStatus;
+  /** Token versi untuk keputusan moderator (presisi milidetik). */
+  readonly requestedAt: string;
+  readonly reviewedAt: string | null;
+  readonly reviewNote: string | null;
+}
+
+/** Kartu antrean moderator. */
+export interface AchievementReviewItem extends AchievementVerification {
+  readonly userId: string;
+  readonly fullName: string;
+  readonly event: { readonly id: string; readonly slug: string; readonly title: string; readonly organizer: string };
+}
+
+export type LeaderboardCounts = Readonly<Record<LeaderboardResult, number>>;
+
+/** Satu baris peringkat kampus/sekolah — agregat tanpa nama orang. */
+export interface CampusStanding {
+  readonly institutionId: string;
+  readonly institutionName: string;
+  readonly score: number;
+  readonly counts: LeaderboardCounts;
+  /** Orang berbeda yang menyumbang skor. */
+  readonly people: number;
+}
+
+/** Satu baris peringkat mahasiswa — hanya yang menyalakan portofolio publik. */
+export interface PersonStanding {
+  readonly username: string | null;
+  readonly fullName: string;
+  readonly institutionName: string | null;
+  readonly score: number;
+  readonly counts: LeaderboardCounts;
+}
+
+/** Rentang & bidang peringkat; null = tanpa batas. ISO 8601. */
+export interface LeaderboardRange {
+  readonly since: string | null;
+  readonly until: string | null;
+  readonly category: string | null;
+}
+
+/** Portofolio publik `/u/[username]` untuk siapa saja (ADR-098) — hanya bila pemiliknya opt-in. */
+export interface PublicPortfolioPage {
+  readonly fullName: string;
+  readonly username: string;
+  readonly bio: string | null;
+  readonly educationLevel: EducationLevel | null;
+  readonly major: string | null;
+  readonly institutionId: string | null;
+  readonly institutionName: string | null;
+  readonly studyFields: readonly string[];
+  /** Keahlian kartu pemain yang TERBUKA (ADR-057); kosong bila kartunya tertutup. */
+  readonly skills: readonly TeamSkillSlug[];
+  readonly entries: readonly PortfolioEntry[];
+}
+
+/** Saklar portofolio publik milik sendiri. `available` = false: kolom belum ada (urutan deploy). */
+export interface PortfolioPublicSetting {
+  readonly value: boolean;
+  readonly available: boolean;
 }
 
 /** Hubungan pembaca dengan pemilik profil (`public_profile().relation`). */
@@ -281,6 +367,9 @@ export const NOTIFICATION_TYPES = [
   'EVENT_COMMENT_REPLY',
   /** Koneksi membagikan kegiatan kepadamu (RPC share_event_with_connections, ADR-092). Satu per kegiatan, diperbarui. */
   'EVENT_SHARED',
+  /** Keputusan moderator atas pengajuan verifikasi prestasi (RPC review_achievement_verification, ADR-098). */
+  'ACHIEVEMENT_VERIFIED',
+  'ACHIEVEMENT_REJECTED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -357,6 +446,34 @@ export function toVerificationBadge(value: string | null | undefined): Verificat
   return (VERIFICATION_BADGES as readonly string[]).includes(value ?? '') ? (value as VerificationBadge) : null;
 }
 
+/**
+ * Tingkat kepercayaan SETIAP kegiatan (ADR-096) — dua klaim yang bisa
+ * dibedakan pembaca, menggantikan satu klaim "diverifikasi manual" untuk
+ * semuanya. Beda dari lencana otoritas di atas: lencana menjawab "siapa
+ * penyelenggaranya", tingkat ini menjawab "seberapa dalam StudentFo sudah
+ * memeriksa pengumuman ini". VARCHAR + CHECK (migration 20261124100001),
+ * bukan enum; pipeline tidak menulisnya (bawaan PUBLIC_SOURCE).
+ */
+export const VERIFICATION_LEVELS = ['MODERATOR_VERIFIED', 'PUBLIC_SOURCE'] as const;
+export type VerificationLevel = (typeof VERIFICATION_LEVELS)[number];
+
+export const VERIFICATION_LEVEL_LABEL: Record<VerificationLevel, string> = {
+  MODERATOR_VERIFIED: 'Terverifikasi moderator',
+  PUBLIC_SOURCE: 'Dari sumber publik',
+};
+
+/** Apa yang SUDAH diperiksa — dipakai tooltip, halaman detail, dan /sumber-data. */
+export const VERIFICATION_LEVEL_DESCRIPTION: Record<VerificationLevel, string> = {
+  MODERATOR_VERIFIED:
+    'Moderator StudentFo mencocokkan tanggal, tautan pendaftaran, dan identitas penyelenggara langsung dengan kanal resminya.',
+  PUBLIC_SOURCE:
+    'Disalin dari pengumuman publik dan lolos moderasi, tetapi belum dicocokkan langsung dengan penyelenggaranya. Buka pengumuman resminya sebelum mendaftar atau membayar.',
+};
+
+export function toVerificationLevel(value: string | null | undefined): VerificationLevel | null {
+  return (VERIFICATION_LEVELS as readonly string[]).includes(value ?? '') ? (value as VerificationLevel) : null;
+}
+
 /** Saringan biaya di /events. `null` di data (biaya belum diketahui) tidak masuk keduanya. */
 export const COST_FILTERS = ['free', 'paid'] as const;
 export type CostFilter = (typeof COST_FILTERS)[number];
@@ -397,6 +514,16 @@ export interface EventSummary {
   /** Akhir masa promosi berbayar; `null` = tidak berpromosi. Lihat `isPromoted()`. */
   readonly featuredUntil: string | null;
   readonly verificationBadge: VerificationBadge | null;
+  /**
+   * Tingkat kepercayaan (ADR-096), ditempel di lapisan aplikasi seperti poster.
+   * Tidak ada / `null` = belum diketahui (kolom belum ada) — UI tidak menebak klaim apa pun.
+   */
+  readonly verificationLevel?: VerificationLevel | null;
+  /**
+   * Data uji (ADR-096). Tidak pernah terbaca publik (RLS `events_public_read`,
+   * `isPubliclyVisible`); hanya bermakna di alat admin.
+   */
+  readonly isDemo?: boolean;
   /**
    * Poster acara (ADR-079) — satu foto galeri yang ditandai panitia/admin.
    * Tidak ada / `null` = tanpa poster; kartu & slide tidak menebak gambar lain.
@@ -1504,4 +1631,7 @@ export interface AdminEventRow {
   readonly registrationMode: RegistrationMode;
   /** Alasan penurunan terakhir (status REJECTED). */
   readonly rejectionReason: string | null;
+  /** null = kolom belum ada (migration 20261124100001 belum diterapkan) — kendalinya dikunci. */
+  readonly verificationLevel: VerificationLevel | null;
+  readonly isDemo: boolean | null;
 }

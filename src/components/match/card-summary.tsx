@@ -23,7 +23,7 @@ export function CardSummary({
   return (
     <section
       aria-labelledby="kartumu"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[20px] border border-line bg-panel p-3.5 lg:flex-col lg:items-stretch lg:p-5"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-line bg-panel p-3.5 lg:flex-col lg:items-stretch lg:p-5"
     >
       <div className="flex min-w-0 flex-1 basis-64 items-center gap-3 lg:flex-none lg:basis-auto lg:flex-col lg:items-start">
         <Avatar name={user.fullName} seed={user.id} size="md" />

@@ -29,7 +29,7 @@ export function MemberGate({
 }) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   return (
-    <section aria-labelledby="gerbang-anggota" className={cn('rounded-[20px] border border-line bg-panel p-5 shadow-card sm:p-6', className)}>
+    <section aria-labelledby="gerbang-anggota" className={cn('rounded-2xl border border-line bg-panel p-5 shadow-card sm:p-6', className)}>
       <div className="flex items-start gap-4">
         <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-tint-sun text-ink">
           <KeyRound className="size-5" />

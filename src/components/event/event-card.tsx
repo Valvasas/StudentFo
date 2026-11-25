@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Building2, Globe, MapPin } from 'lucide-react';
 import { DeadlineRing } from '@/components/event/deadline-ring';
 import { CardCounts } from '@/components/event/card-counts';
@@ -6,7 +5,9 @@ import { DeadlineTag } from '@/components/event/deadline-tag';
 import { PosterThumb } from '@/components/event/poster-thumb';
 import { PriceBadge, PromotedBadge } from '@/components/event/price-badge';
 import { SaveButton } from '@/components/event/save-button';
+import { TrustBadge } from '@/components/event/trust-badge';
 import { VerifiedBadge } from '@/components/event/verified-badge';
+import { TransitionLink } from '@/components/ui/transition-link';
 import { isPromoted } from '@/lib/data/listing';
 import { levelSummary } from '@/lib/eligibility';
 import { cn } from '@/lib/utils';
@@ -27,9 +28,12 @@ import { EVENT_TYPE_LABEL, type EventSummary } from '@/types/domain';
  * - TIDAK ada baris tag bidang. Jenis + judul + penyelenggara + tempat/
  *   jenjang sudah cukup untuk memutuskan "buka atau lewati"; lapis kelima
  *   hanya menambah kepadatan, dan bidang bisa disaring di FilterBar.
- * - Hover hanya mengubah warna border & latar, tanpa translate/scale.
- *   Kartu yang "melompat" saat disentuh kursor membuat daftar panjang
- *   terasa gelisah dan menggeser target klik.
+ * - Hover (ADR-099, menggantikan "tanpa translate"): naik 3px + garis cahaya
+ *   tipis, HANYA untuk pointer yang bisa hover dan bukan reduced-motion
+ *   (`card-lift`, globals.css §14). Area sorotnya diperpanjang setinggi
+ *   angkatannya, jadi kursor di tepi bawah tidak membuat kartu naik-turun.
+ * - Judul & poster "terbang" ke halaman detail lewat View Transitions
+ *   (`TransitionLink`); tanpa dukungan = tautan biasa.
  * - Seluruh kartu bisa diklik lewat teknik stretched link, tapi yang
  *   benar-benar fokusable tetap SATU tautan (judul). Membungkus seluruh
  *   kartu dalam <a> akan membuat pembaca layar melafalkan seluruh isi
@@ -57,8 +61,9 @@ export function EventCard({
 
   return (
     <article
+      data-vt-card=""
       className={cn(
-        'group relative flex flex-col rounded-panel border border-line bg-panel p-5 sm:p-6',
+        'card-lift group relative flex flex-col rounded-2xl border border-line bg-panel p-5 sm:p-6',
         'shadow-card transition-colors duration-150 ease-snap',
         'hover:border-line-strong focus-within:border-brand',
         className,
@@ -70,6 +75,7 @@ export function EventCard({
       <div className="flex items-start justify-between gap-3">
         <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 pt-1.5 text-[13px] font-medium text-ink-muted">
           <span>{EVENT_TYPE_LABEL[event.eventType]}</span>
+          <TrustBadge level={event.verificationLevel} />
           {promoted && <PromotedBadge />}
           <CardCounts counts={event.counts} />
         </p>
@@ -82,12 +88,14 @@ export function EventCard({
       <div className="mt-3 flex items-start gap-4">
         <div className="min-w-0 flex-1">
           <h3 className="font-display text-[19px] font-semibold leading-[1.25] tracking-[-0.02em]">
-            <Link
+            <TransitionLink
               href={`/events/${event.slug}`}
-              className="after:absolute after:inset-0 after:rounded-panel after:content-[''] hover:underline hover:decoration-2 hover:underline-offset-4"
+              className="underline decoration-transparent decoration-2 underline-offset-4 transition-colors duration-150 ease-snap after:absolute after:inset-0 after:rounded-2xl after:content-[''] hover:decoration-current"
             >
-              <span className="line-clamp-3 [overflow-wrap:anywhere]">{event.title}</span>
-            </Link>
+              <span data-vt-name="vt-event-title" className="line-clamp-3 [overflow-wrap:anywhere]">
+                {event.title}
+              </span>
+            </TransitionLink>
           </h3>
 
           <p className="mt-2.5 flex min-w-0 items-center gap-1.5 text-sm text-ink-soft">
@@ -101,18 +109,20 @@ export function EventCard({
 
           <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-ink-muted">
             {event.isOnline ? <Globe aria-hidden className="size-3.5 shrink-0" /> : <MapPin aria-hidden className="size-3.5 shrink-0" />}
-            <span className="line-clamp-1">
-              {place} · <span aria-hidden>{levels.short}</span>
-              <span className="sr-only">{levels.full}</span>
+            {/* Satu teks untuk mata & pembaca layar. Ringkasan rentang/"+N" diperjelas
+                lewat `title`, bukan salinan `sr-only` — salinan terbaca "D4/S1D4/S1"
+                oleh apa pun yang membaca teks tanpa CSS. */}
+            <span className="line-clamp-1" title={levels.full === levels.short ? undefined : `Jenjang: ${levels.full}`}>
+              {place} · {levels.short}
             </span>
           </p>
         </div>
 
-        <PosterThumb poster={event.poster} />
+        <PosterThumb poster={event.poster} event={event} />
       </div>
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-6">
-        <DeadlineTag deadlineAt={event.primaryDeadlineAt} />
+        <DeadlineTag deadlineAt={event.primaryDeadlineAt} live />
         <PriceBadge event={event} />
       </div>
     </article>

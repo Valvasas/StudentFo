@@ -73,7 +73,7 @@ export async function PublicProfileView({
 
       <ActionFeedback params={query} />
 
-      <section aria-labelledby="nama-orang" className="enter flex flex-col gap-4 overflow-hidden rounded-[20px] border border-line px-5 pb-5 sm:px-7 sm:pb-7">
+      <section aria-labelledby="nama-orang" className="enter flex flex-col gap-4 overflow-hidden rounded-2xl border border-line px-5 pb-5 sm:px-7 sm:pb-7">
         <ProfileBanner media={look} className="-mx-5 h-[92px] sm:-mx-7 sm:h-[116px]" />
         <div className="-mt-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <Avatar name={person.fullName} seed={person.userId} photo={look?.avatarId} size="xl" className="-mt-[46px] ring-4 ring-canvas" />
@@ -137,7 +137,7 @@ export async function PublicProfileView({
         )}
       </section>
 
-      <section aria-labelledby="portofolio-orang" className="flex flex-col gap-1.5 rounded-[18px] border border-line p-5 sm:p-6">
+      <section aria-labelledby="portofolio-orang" className="flex flex-col gap-1.5 rounded-2xl border border-line p-5 sm:p-6">
         <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-3">
           <h2 id="portofolio-orang" className="text-base font-semibold">
             Portofolio

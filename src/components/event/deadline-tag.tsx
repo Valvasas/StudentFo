@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { CalendarOff, Clock } from 'lucide-react';
-import { daysLeftLabel, getDeadlineState, urgencyRamp, type DeadlineUrgency } from '@/lib/deadline';
+import { TimeLeftToday } from '@/components/listing/time-left-today';
+import { daysLeftLabel, getDeadlineState, isDueSoon, urgencyRamp, type DeadlineUrgency } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
 
 /**
@@ -21,6 +22,13 @@ import { cn } from '@/lib/utils';
  * "Segera ditutup" berisi enam label hitam yang sama — kalau semuanya
  * mendesak, tidak ada yang terbaca mendesak. Teksnya selalu menyebut sisa
  * hari, jadi tidak ada informasi yang hanya ada di tampilan.
+ *
+ * ADR-099 menambah satu anak tangga berwarna: H-3..H-1 = pil amber bertinta
+ * gelap (`due-soon`) + titik berdenyut pelan; hari-H tetap pil tinta + titik,
+ * dan dengan `live` labelnya menjadi hitung mundur jam & menit yang hidup
+ * (`TimeLeftToday`, berdetak 30 dtk). Jam tidak pernah tampil sebelum hari
+ * terakhir — banyak tenggat hanya bertanggal, jadi hitung mundur detik untuk
+ * tenggat tiga hari lagi adalah presisi palsu (ADR-064).
  */
 const URGENCY_CLASS: Record<DeadlineUrgency, string> = {
   safe: 'px-0 text-due-safe',
@@ -33,32 +41,44 @@ const URGENCY_CLASS: Record<DeadlineUrgency, string> = {
 export interface DeadlineTagProps {
   deadlineAt: string | null;
   now?: Date;
+  /** Hari-H: label = sisa jam & menit yang berdetak (komponen klien kecil). */
+  live?: boolean;
   className?: string;
 }
 
-export function DeadlineTag({ deadlineAt, now, className }: DeadlineTagProps) {
-  const state = getDeadlineState(deadlineAt, now);
+export function DeadlineTag({ deadlineAt, now, live = false, className }: DeadlineTagProps) {
+  const renderedAt = now ?? new Date();
+  const state = getDeadlineState(deadlineAt, renderedAt);
   const Icon = state.urgency === 'closed' ? CalendarOff : Clock;
+  const soon = isDueSoon(state.daysLeft);
   const showIcon = state.urgency !== 'safe';
   const ramp = urgencyRamp(state.daysLeft);
 
   return (
     <span
-      style={state.urgency === 'warning' ? ({ '--ramp': ramp } as CSSProperties) : undefined}
+      style={state.urgency === 'warning' && !soon ? ({ '--ramp': ramp } as CSSProperties) : undefined}
+      title={state.longLabel}
       className={cn(
         'inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[6px] px-2 text-xs font-medium tabular-nums',
-        URGENCY_CLASS[state.urgency],
+        soon ? 'due-soon font-semibold' : URGENCY_CLASS[state.urgency],
         className,
       )}
     >
       {state.daysLeft === 0 ? (
         <span aria-hidden className="urgency-dot size-1.5 shrink-0 rounded-pill bg-on-brand" />
+      ) : soon ? (
+        <span aria-hidden className="urgency-dot size-1.5 shrink-0 rounded-pill bg-on-highlight" />
       ) : (
         showIcon && <Icon aria-hidden className="size-3" />
       )}
-      {daysLeftLabel(state.daysLeft)}
-      {/* Teks lengkap untuk pembaca layar; badge visual terlalu ringkas. */}
-      <span className="sr-only">— {state.longLabel}</span>
+      {/* Pembaca layar mendapat konteks "Tenggat", bukan salinan label:
+          "3 hari lagi — Tersisa 3 hari lagi" dulu dibacakan dua kali. */}
+      <span className="sr-only">Tenggat: </span>
+      {live && deadlineAt && state.daysLeft === 0 ? (
+        <TimeLeftToday deadlineAt={deadlineAt} renderedAt={renderedAt.getTime()} variant="inline" />
+      ) : (
+        daysLeftLabel(state.daysLeft)
+      )}
     </span>
   );
 }

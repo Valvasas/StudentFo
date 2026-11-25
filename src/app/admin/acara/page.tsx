@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, ClipboardList, FileStack, Plus, Search } from 'lucide-react';
 import { AdminNav } from '@/components/admin/admin-nav';
-import { PermanentDeleteForm, RestoreEventForm, TakedownForm } from '@/components/admin/event-removal-forms';
+import { PermanentDeleteForm, RestoreEventForm, TakedownForm, TrustToggleForms } from '@/components/admin/event-removal-forms';
+import { TrustBadge } from '@/components/event/trust-badge';
 import { ActionFeedback } from '@/components/feedback/action-feedback';
 import { workspacePath } from '@/components/organizer/event-workspace';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +66,7 @@ function EventRow({ event, context }: { event: AdminEventRow; context: { q?: str
           )}
         </h3>
         <span className="flex flex-wrap gap-2">
+          {event.isDemo && <Badge variant="warning">Data uji · tersembunyi dari publik</Badge>}
           {event.registrationMode === 'studentfo' && <Badge variant="brand">Formulir StudentFo</Badge>}
           <Badge variant={status.variant}>{status.label}</Badge>
         </span>
@@ -74,6 +76,7 @@ function EventRow({ event, context }: { event: AdminEventRow; context: { q?: str
         <span>{EVENT_TYPE_LABEL[event.eventType]}</span>
         <span>{event.primaryDeadlineAt ? `Tenggat ${formatDateId(event.primaryDeadlineAt)}` : 'Tanpa tenggat'}</span>
         <span>dibuat {formatDateId(event.createdAt)}</span>
+        <TrustBadge level={event.verificationLevel} />
       </p>
       {event.rejectionReason && (
         <p className="rounded-sm bg-danger-soft/50 px-3 py-2 text-[13px] text-ink-soft [overflow-wrap:anywhere]">{event.rejectionReason}</p>
@@ -84,6 +87,7 @@ function EventRow({ event, context }: { event: AdminEventRow; context: { q?: str
             <ClipboardList aria-hidden /> Formulir & pendaftar
           </Link>
         )}
+        <TrustToggleForms eventId={event.id} verificationLevel={event.verificationLevel} isDemo={event.isDemo} context={context} />
         {event.status === 'REJECTED' ? (
           <>
             <RestoreEventForm eventId={event.id} title={event.title} context={context} />

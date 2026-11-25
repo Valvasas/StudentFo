@@ -146,6 +146,12 @@ describe('isPubliclyVisible', () => {
     expect(isPubliclyVisible({ status: 'PENDING' })).toBe(false);
     expect(isPubliclyVisible({ status: 'REJECTED' })).toBe(false);
   });
+
+  it('data uji tidak pernah publik, apa pun statusnya (ADR-096)', () => {
+    expect(isPubliclyVisible({ status: 'APPROVED', isDemo: true })).toBe(false);
+    expect(isPubliclyVisible({ status: 'EXPIRED', isDemo: true })).toBe(false);
+    expect(isPubliclyVisible({ status: 'APPROVED', isDemo: false })).toBe(true);
+  });
 });
 
 describe('chooseCountMode', () => {

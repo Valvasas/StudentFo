@@ -64,7 +64,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
           <input type="hidden" name="fullName" value={user.fullName} />
           <input type="hidden" name="major" value={user.major ?? ''} />
 
-          <div className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
+          <div className="enter flex flex-col gap-2.5">
             <BackLink href="/profile" label="Profil" via={PROFILE_EDIT_ORIGINS} className="-mt-2" />
             <h1 className="text-[36px] leading-[1.05] tracking-[-0.04em]">Peminatan</h1>
             <p className="max-w-[56ch] text-[15.5px] leading-relaxed text-ink-muted">
@@ -75,7 +75,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
 
           <AuthFeedback params={params} />
 
-          <fieldset className="enter flex flex-col gap-4 [animation-delay:80ms] [animation-duration:800ms]">
+          <fieldset className="enter flex flex-col gap-4 [animation-delay:80ms]">
             <div className="flex items-baseline justify-between gap-3">
               <legend className="float-left text-lg font-semibold tracking-[-0.015em]">Bidang</legend>
               <span className="flex items-center gap-1.5 text-[12.5px] text-ink-muted">
@@ -101,7 +101,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
           </fieldset>
 
           {studyProfile.available && (
-            <fieldset className="enter flex flex-col gap-3 [animation-delay:110ms] [animation-duration:800ms]">
+            <fieldset className="enter flex flex-col gap-3 [animation-delay:110ms]">
               <input type="hidden" name="studyFieldsPresent" value="1" />
               <div className="flex flex-col gap-1">
                 <legend className="text-lg font-semibold tracking-[-0.015em]">Bidang spesifik</legend>
@@ -148,7 +148,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
             </fieldset>
           )}
 
-          <div className="enter flex flex-col gap-3.5 [animation-delay:140ms] [animation-duration:800ms]">
+          <div className="enter flex flex-col gap-3.5 [animation-delay:140ms]">
             <label htmlFor="educationLevel" className="text-lg font-semibold tracking-[-0.015em]">
               Jenjang pendidikan
             </label>
@@ -168,7 +168,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
           </div>
 
           {demoFeaturesEnabled && (
-            <div className="enter flex flex-col gap-3 [animation-delay:200ms] [animation-duration:800ms]">
+            <div className="enter flex flex-col gap-3 [animation-delay:200ms]">
               <span className="text-lg font-semibold tracking-[-0.015em]">Preferensi tim</span>
               <DemoRolePicker />
             </div>
@@ -188,7 +188,7 @@ export default async function InterestsPage({ searchParams }: { searchParams: Pr
 
         <aside
           aria-labelledby="rekomendasi-title"
-          className="enter flex min-w-[260px] flex-[1_1_280px] flex-col gap-4 rounded-[18px] bg-inverse p-[22px] text-on-inverse [animation-delay:120ms] [animation-duration:900ms] lg:sticky lg:top-[92px]"
+          className="enter flex min-w-[260px] flex-[1_1_280px] flex-col gap-4 rounded-2xl bg-inverse p-[22px] text-on-inverse [animation-delay:120ms] lg:sticky lg:top-[92px]"
         >
           <h2 id="rekomendasi-title" className="font-mono text-[11.5px] font-normal tracking-[.08em] text-on-inverse-muted">
             REKOMENDASI UNTUKMU

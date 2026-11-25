@@ -50,7 +50,7 @@ const INTENT_HINT: Record<LobbyMember['intent'], string> = {
 
 function Panel({ id, title, icon, hint, children }: { id: string; title: string; icon: ReactNode; hint?: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="flex min-w-0 flex-col gap-4 rounded-[18px] border border-line bg-panel p-5 sm:p-6">
+    <section aria-labelledby={id} className="flex min-w-0 flex-col gap-4 rounded-2xl border border-line bg-panel p-5 sm:p-6">
       <div className="flex flex-col gap-1">
         <h2 id={id} className="flex items-center gap-2.5 text-[17px] font-semibold">
           <span aria-hidden className="flex size-8 items-center justify-center rounded-[9px] bg-panel-nested text-ink-muted">
@@ -201,7 +201,7 @@ export default async function LobbyPage({ params, searchParams }: { params: Prom
     <AccountShell user={user} active="lobi">
       <div className="flex max-w-[860px] flex-col gap-6">
         <BackLink href="/lobi" label="Lobi lomba" className="-mb-3" />
-        <header className="enter flex flex-col gap-2.5 [animation-duration:800ms]">
+        <header className="enter flex flex-col gap-2.5">
           <p className="flex items-center gap-2 text-[13.5px] font-semibold text-ink-muted">
             <DoorOpen aria-hidden className="size-4" /> Lobi lomba
           </p>

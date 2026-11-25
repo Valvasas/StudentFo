@@ -116,6 +116,14 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
 ## Desain / aksesibilitas (ringkas — detail di `README.md` § Sistem desain)
 
 - Warna tidak pernah satu-satunya pembawa makna — selalu sertai ikon+teks.
+- **Teks terlihat = teks yang dibaca** (ADR-096). `sr-only` hanya melengkapi
+  kata yang tidak terlihat (satuan, konteks: `{n}<span class="sr-only"> suka</span>`),
+  tidak pernah menyalin angka/label yang sudah tampil di elemen `aria-hidden`
+  — teks DOM-nya terbaca dobel ("2 suka2") oleh mesin pencari, mode baca, dan
+  salin-tempel. Ringkasan visual yang lebih pendek dari aslinya → `title`.
+- Klaim kepercayaan kegiatan selalu lewat `TrustBadge`/`TrustNote`
+  (Terverifikasi moderator / Dari sumber publik, ADR-096) — jangan menulis
+  "diverifikasi manual" untuk semua kegiatan.
 - Ilustrasi (`components/ui/illustrations.tsx`) hanya di titik berhenti
   (404, error, kosong) — satu per layar, `aria-hidden`, tanpa teks di SVG,
   warna lewat `currentColor`/token supaya ikut tema gelap (ADR-053). Kepala
@@ -147,6 +155,14 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   Lebar ≥ sm/lg tidak berarti ada mouse — iPad 820–1194px dipakai dengan jari
   (ADR-059, `touch-targets.spec.ts` § tablet sentuh). Alternatifnya: perluas
   area sentuh lewat `::after` seperti `Button size="sm"`.
+- Token gerak/warna/radius HANYA di `globals.css` §1 (ADR-099): satu gerakan
+  150–400ms lewat `--duration-*`, jeda berurutan `--stagger`, hanya
+  `transform`/`opacity` (bilah progres = `scaleX`, bukan `width`). Kartu baru =
+  `rounded-2xl`; amber (`highlight`) = penekanan, tidak pernah warna teks atau
+  warna aksi. Angkat kartu = `card-lift` (pengecualian bernama: hover-capable
+  saja, area sorot diperpanjang). View Transitions HANYA lewat
+  `TransitionLink` (daftar → detail); daftar yang diurutkan ulang server =
+  `FlipList`; angka yang menghitung = `CountUp`.
 - Transisi 150–200ms, tanpa `translate`/`scale` pada TARGET klik. Pengecualiannya
   **animasi** (bukan transisi) yang berjalan sendiri dan tidak pernah
   menggeser target klik: `ticker-track` (pita tenggat), `reveal`, bilah
@@ -166,8 +182,8 @@ jangan perkenalkan gaya baru tanpa alasan kuat.
   global reduced-motion hanya menolkan durasi CSS, BUKAN gerak yang digerakkan
   JS: setiap gerak JS (seret, balik, terbang) wajib membaca `isMotionReduced()`
   (`lib/motion-pref.ts`) dan melompat ke keadaan akhir. Jangan memakai WAAPI
-  `element.animate()`, View Transitions, atau pegas rAF untuk gerak antarmuka
-  (ADR-058). Elemen hanya-JS (tombol Lewati/Balik) tidak dirender sebelum
+  `element.animate()` atau pegas rAF untuk gerak antarmuka (ADR-058); View
+  Transitions hanya lewat `TransitionLink` (ADR-099). Elemen hanya-JS (tombol Lewati/Balik) tidak dirender sebelum
   hidrasi — tidak ada tombol mati di HTML server. Anak dekoratif DI DALAM target (ikon panah) boleh
   bergeser saat hover — kotak sentuhnya sendiri tetap diam.
 - Tombol "ditekan" = bayangan inset + isi turun 1px (`active:pt-0.5` hanya pada

@@ -76,7 +76,30 @@ describe('buildAccountExport', () => {
     const result = buildAccountExport({ ...base, submissions: null });
     expect(result.submissions).toEqual({ unavailable: expect.stringContaining('tidak bisa dimuat') });
     expect(result.studyPlace).toMatchObject({ institutionId: '001002', domicileCode: '32.76.03' });
-    expect(result.publicProfile).toEqual({ username: 'ana.uji', bio: 'Halo', visibleTo: 'MEMBERS' });
+    expect(result.publicProfile).toEqual({ username: 'ana.uji', bio: 'Halo', visibleTo: 'MEMBERS', publicPortfolio: false });
+  });
+
+  it('pengajuan verifikasi prestasi & saklar portofolio publik ikut, termasuk alasan moderator (ADR-098)', () => {
+    const result = buildAccountExport({
+      ...base,
+      portfolioPublic: true,
+      achievementVerifications: [
+        {
+          eventId: 'e1',
+          result: 'JUARA_1',
+          proofUrl: 'https://bukti.test/s',
+          institutionName: 'Universitas Indonesia',
+          status: 'REJECTED',
+          requestedAt: '2026-11-20T00:00:00.000Z',
+          reviewedAt: '2026-11-21T00:00:00.000Z',
+          reviewNote: 'Nama di sertifikat berbeda.',
+        },
+      ],
+    });
+    expect(result.publicProfile.publicPortfolio).toBe(true);
+    expect(result.achievementVerifications).toEqual([
+      expect.objectContaining({ result: 'JUARA_1', institutionAtRequest: 'Universitas Indonesia', status: 'REJECTED', reviewNote: 'Nama di sertifikat berbeda.' }),
+    ]);
   });
 
   it('Komunitas: tulisan sendiri termasuk yang disembunyikan moderator, bertautan ke utasnya (ADR-087)', () => {

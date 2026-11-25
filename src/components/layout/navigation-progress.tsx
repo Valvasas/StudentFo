@@ -185,7 +185,7 @@ export function NavigationProgress() {
     <>
       <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-[3px]">
         <div
-          className="relative h-full overflow-hidden rounded-r-pill bg-brand shadow-[0_0_10px_var(--color-highlight)]"
+          className="relative h-full origin-left overflow-hidden rounded-r-pill bg-brand shadow-[0_0_10px_var(--color-highlight)]"
           style={{
             animation: finishing
               ? `sf-progress-done ${FINISH_MS}ms ease-out forwards`
@@ -208,7 +208,7 @@ export function NavigationProgress() {
               gelap berarti "modal, tunggu dulu", padahal halaman lama tetap
               bisa dipakai. Cukup untuk memisahkan kartu dari isi di bawahnya. */}
           <div className="absolute inset-0 bg-canvas/35" />
-          <div className="relative flex w-[min(15rem,100%)] flex-col items-center gap-3 rounded-[20px] border border-line bg-panel px-6 pb-5 pt-6 text-center shadow-overlay">
+          <div className="relative flex w-[min(15rem,100%)] flex-col items-center gap-3 rounded-2xl border border-line bg-panel px-6 pb-5 pt-6 text-center shadow-overlay">
             <span className={cn('dot-grid flex h-[72px] w-24 items-center justify-center rounded-[14px] text-ink', TINT_BG[STAGE_TINT[scene.key]])}>
               <RouteSceneArt scene={scene.key} className="h-12 w-16" />
             </span>

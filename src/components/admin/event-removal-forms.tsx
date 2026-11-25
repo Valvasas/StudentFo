@@ -1,5 +1,5 @@
-import { RotateCcw, Trash2, Undo2 } from 'lucide-react';
-import { deleteEventPermanentlyAction, restoreEventAction, takeDownEventAction } from '@/app/admin/actions';
+import { EyeOff, Eye, Newspaper, RotateCcw, ShieldCheck, Trash2, Undo2 } from 'lucide-react';
+import { deleteEventPermanentlyAction, restoreEventAction, setEventTrustAction, takeDownEventAction } from '@/app/admin/actions';
 import { buttonVariants } from '@/components/ui/button';
 import { TextArea, TextInput } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -110,5 +110,65 @@ export function PermanentDeleteForm({ eventId, title, context = {} }: { eventId:
         </SubmitButton>
       </form>
     </details>
+  );
+}
+
+/**
+ * Label kepercayaan & data uji (ADR-096): satu tombol per saklar, nilai
+ * tujuan di field tersembunyi — bisa dibalik seketika, tanpa dialog.
+ * Kolom belum ada (`null`) = tidak dirender; aksinya akan menolak juga.
+ */
+export function TrustToggleForms({
+  eventId,
+  verificationLevel,
+  isDemo,
+  context = {},
+}: {
+  eventId: string;
+  verificationLevel: 'MODERATOR_VERIFIED' | 'PUBLIC_SOURCE' | null;
+  isDemo: boolean | null;
+  context?: AdminEventsContext;
+}) {
+  const secondary = buttonVariants({ variant: 'secondary', size: 'sm' });
+  return (
+    <>
+      {verificationLevel && (
+        <form action={setEventTrustAction}>
+          <ContextFields eventId={eventId} context={context} />
+          {verificationLevel === 'PUBLIC_SOURCE' ? (
+            <>
+              <input type="hidden" name="verificationLevel" value="MODERATOR_VERIFIED" />
+              <SubmitButton className={secondary} pendingLabel="Menyimpan…">
+                <ShieldCheck aria-hidden /> Tandai terverifikasi moderator
+              </SubmitButton>
+            </>
+          ) : (
+            <>
+              <input type="hidden" name="verificationLevel" value="PUBLIC_SOURCE" />
+              <SubmitButton className={secondary} pendingLabel="Menyimpan…">
+                <Newspaper aria-hidden /> Kembalikan ke dari sumber publik
+              </SubmitButton>
+            </>
+          )}
+        </form>
+      )}
+      {isDemo !== null && (
+        <form action={setEventTrustAction}>
+          <ContextFields eventId={eventId} context={context} />
+          <input type="hidden" name="isDemo" value={isDemo ? '0' : '1'} />
+          <SubmitButton className={secondary} pendingLabel="Menyimpan…">
+            {isDemo ? (
+              <>
+                <Eye aria-hidden /> Tampilkan ke publik
+              </>
+            ) : (
+              <>
+                <EyeOff aria-hidden /> Tandai data uji
+              </>
+            )}
+          </SubmitButton>
+        </form>
+      )}
+    </>
   );
 }

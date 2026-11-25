@@ -151,7 +151,8 @@ test('katalog, detail, tracker, tim & Komunitas tidak meluber di 320px', async (
   await page.goto(eventPath);
   await page.getByRole('button', { name: 'Simpan ke Tracker' }).click();
   await expect(page.getByRole('button', { name: 'Tersimpan di Tracker' })).toBeVisible();
-  for (const route of ['/tracker', `/tracker/${slug}`, `${eventPath}/persiapan`, '/profile']) {
+  // Halaman lomba memuat "Cari rekan tim" (ADR-098) — judul raksasa ikut di pesan ajakannya.
+  for (const route of ['/tracker', `/tracker/${slug}`, `${eventPath}/persiapan`, '/profile', '/leaderboard', '/leaderboard?tab=mahasiswa']) {
     await page.goto(route);
     await expectNoOverflow(page, route);
   }

@@ -7,12 +7,14 @@ import { LegalUpdateBanner } from '@/components/legal/legal-update-banner';
 import { Footer } from '@/components/layout/footer';
 import { Navbar } from '@/components/layout/navbar';
 import { NavigationProgress } from '@/components/layout/navigation-progress';
+import { ViewTransitionBridge } from '@/components/ui/transition-link';
 import { SiteBackdrop } from '@/components/layout/site-backdrop';
 import { ThemeScript } from '@/components/layout/theme-script';
 import { LogoSprite } from '@/components/ui/logo';
 import { PopoverDismiss } from '@/components/ui/popover-dismiss';
 import { SearchShortcut } from '@/components/ui/search-shortcut';
 import { siteUrl } from '@/lib/env';
+import { OPEN_GRAPH_BASE } from '@/lib/seo';
 import { NONCE_HEADER } from '@/lib/security-headers';
 import './globals.css';
 
@@ -49,28 +51,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'StudentFo — Info lomba, beasiswa, dan magang dalam satu tempat',
+    // ≤ 60 karakter: judul lebih panjang dipotong di hasil pencarian.
+    default: 'StudentFo — Info lomba, beasiswa & magang dalam satu tempat',
     template: '%s · StudentFo',
   },
-  description:
-    'Kumpulan informasi lomba, beasiswa, magang, workshop, dan kegiatan pengembangan untuk pelajar dan mahasiswa Indonesia. Tervalidasi manual, bisa difilter, dan selalu menampilkan sisa waktu pendaftaran.',
-  keywords: ['lomba mahasiswa', 'beasiswa', 'magang', 'workshop', 'kompetisi pelajar'],
+  // ≤ 155 karakter: lebih panjang dipotong di hasil pencarian, tepat di klaim pentingnya.
+  description: 'Info lomba, beasiswa, magang & workshop untuk pelajar SMA/SMK dan mahasiswa Indonesia. Ditinjau moderator, bisa disaring, lengkap sisa waktu daftar.',
   // Nama di bawah ikon layar utama iOS; tanpa ini iOS memakai judul halaman yang terpotong.
   // `capable: false` eksplisit: bawaan Next `true` membuka pintasan tanpa bilah
   // browser = tanpa tombol kembali (alasan yang sama dengan `display` di manifest.ts).
   appleWebApp: { title: 'StudentFo', capable: false },
-  openGraph: {
-    type: 'website',
-    locale: 'id_ID',
-    siteName: 'StudentFo',
-  },
+  openGraph: { ...OPEN_GRAPH_BASE, type: 'website' },
   robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#faf8f3' },
-    { media: '(prefers-color-scheme: dark)', color: '#15140f' },
+    { media: '(prefers-color-scheme: light)', color: '#faf9f5' },
+    { media: '(prefers-color-scheme: dark)', color: '#141311' },
   ],
 };
 
@@ -95,6 +93,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={null}>
           <NavigationProgress />
         </Suspense>
+        <ViewTransitionBridge />
         <SiteBackdrop />
         <DemoBanner />
         <LegalUpdateBanner />
