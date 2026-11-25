@@ -70,6 +70,7 @@ Urutan migration (harus dijalankan berurutan):
 59. `20261125100001_achievement_leaderboard.sql` — `users.portfolio_public` (bawaan FALSE, GRANT UPDATE per kolom); tabel `achievement_verifications` (FK ke `application_tracker`, tanpa hak tulis klien, pemilik membaca barisnya); trigger `reset_achievement_verification`; RPC `request_/cancel_achievement_verification` (authenticated), `review_achievement_verification` (service_role), `campus_leaderboard`/`people_leaderboard` & `public_portfolio_page` (anon+authenticated), `leaderboard_weight` (ADR-098)
 60. `20261125100002_event_schedule.sql` — `events.starts_at` / `events.ends_at` (waktu PELAKSANAAN, bukan tenggat; CHECK `events_schedule_order`); RPC `set_event_schedule(uuid, timestamptz, timestamptz)` (DEFINER, `manages_event()`/admin, 30/hari, kode `invalid_schedule`/`schedule_rate_limited`/`not_event_manager`/`event_unavailable`) (ADR-100)
 61. `20261125100003_event_benefits_requirements.sql` — `events.benefits` / `events.requirements` (TEXT?, CHECK ≤ 2000); `stage_scraped_event` menulis keduanya (pipeline tetap selalu PENDING) (ADR-101)
+62. `20261125100004_scraped_upsert_guidebook.sql` — `stage_scraped_event` menerima `guidebook_url` (non-https → NULL, `scraped_https_url()`); `upsert_scraped_event(jsonb)` (service_role): baru → PENDING, sama & PENDING → diperbarui, sudah ditinjau → `locked` tanpa perubahan (ADR-102)
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–56 per 2026-11-22, semua migration di repo).
 

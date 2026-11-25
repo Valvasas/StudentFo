@@ -1001,3 +1001,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Terapkan `20261125100003_event_benefits_requirements` (staging → produksi, 25 Nov 2026)
 - [ ] **BUTUH PEMILIK.** Arahkan otomasi eksternal ke RPC `stage_scraped_event` dan kirim daftar `COLUMN_MAPPING` bila ada kolom lain
 
+- [x] Unggah Colab (ADR-102): migration `20261125100004` (guidebook + `upsert_scraped_event`), `pipeline/colab/studentfo_upload.py`, tes
+- [x] Terapkan `20261125100004_scraped_upsert_guidebook` (staging → produksi, 25 Nov 2026)
+- [ ] **BUTUH PEMILIK.** Uji skrip Colab dengan `DRY_RUN=False` pada 1 rekor sebelum batch penuh
+
