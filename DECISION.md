@@ -12,6 +12,18 @@ terdokumentasi.
 
 ---
 
+## ADR-102 — Unggah dari Colab: upsert yang tidak menimpa moderasi, guidebook, poster dari URL (25 Nov 2026)
+
+**Konteks:** Otomasi pemilik (Google Colab) menulis ke `events` lewat `table.upsert(on_conflict=…)` dan mengunggah poster/guidebook ke bucket sendiri. Pemilik meminta guidebook DAN pembaruan kegiatan yang sudah ada.
+
+**Keputusan:** (1) `stage_scraped_event` menerima `guidebook_url`. (2) RPC baru `upsert_scraped_event`: kegiatan baru → jalur yang sama (PENDING); sama & masih PENDING → diperbarui di tempat (kolom kosong dari scraper tidak menghapus isi lama; tenggat/kategori diganti utuh hanya bila dikirim); APPROVED/REJECTED → `locked`, tidak disentuh — moderator memutuskan atas isi yang ada, dan menimpa diam-diam melewati moderasi. Pembaruan kegiatan tayang tetap lewat admin. (3) Poster: URL https (termasuk dari bucket pemilik) dikirim di `media`; server mengambil, memeriksa (SSRF), dan menyimpan ulang di penyimpanan privat — bukan bucket media kedua yang ditayangkan. (4) Skrip Colab (`pipeline/colab/studentfo_upload.py`) memvalidasi lokal, DRY_RUN bawaan, retry, nama berkas = hash isi, kunci dari Colab Secrets.
+
+**Ditolak:** upsert langsung ke `events`; menimpa kegiatan tayang; `event_revisions` untuk bot (butuh akun pengaju & kunci terbatas).
+
+**Konsekuensi:** Migration `20261125100004` menunggu persetujuan terapkan ke produksi; skrip Colab bergantung padanya (RPC belum ada = galat per rekor, tidak ada data rusak). Guidebook tetap tampil dari URL bucket pemilik — bucket itu harus publik.
+
+---
+
 ## ADR-101 — Benefit & persyaratan masuk lewat pipeline, bukan insert langsung ke `events` (25 Nov 2026)
 
 **Konteks:** Otomasi info lomba milik pemilik gagal dengan `Could not find the 'benefits' column of 'events'`; usulnya menambah kolom lewat Table Editor. `COLUMN_MAPPING` itu tidak ada di repo — otomasi menulis langsung ke tabel.
