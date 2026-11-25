@@ -67,3 +67,7 @@
 20261119100002 admin_create_event
 20261120100001 event_slides
 20261121100001 event_media_imports
+20261124100001 event_trust_levels
+20261124100002 event_content_updated_at
+20261125100001 achievement_leaderboard
+20261125100002 event_schedule

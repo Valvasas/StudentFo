@@ -101,6 +101,7 @@ yang tidak memuat migration yang sudah ada di produksi
 
 ## Migration
 
+- 2026-11-25 (persetujuan pemilik di sesi): `20261124100001_event_trust_levels`, `20261124100002_event_content_updated_at`, `20261125100001_achievement_leaderboard`, `20261125100002_event_schedule` diterapkan ke staging, diuji asap (di-rollback: bawaan `PUBLIC_SOURCE`, kegiatan `is_demo` tak terbaca anon, `updated_at` tetap saat `saved_count` berubah & maju saat judul berubah, CHECK jadwal, RPC peringkat terbuka untuk tamu, `achievement_verifications` & `set_event_schedule` tertutup untuk anon), lalu produksi. Postgres mengunduh tiap berkas dari commit `bf73342` dan menolak bila SHA-256/ukuran tidak cocok (pola ADR-062 #8); versi = nama berkas. Advisor keamanan staging: tanpa temuan baru di luar pola yang disengaja. Produksi: **60** migration = repo; 32 kegiatan tayang tetap publik.
 - 2026-11-22 (persetujuan pemilik di sesi): `20261120100001_event_slides` dan `20261121100001_event_media_imports` diterapkan ke staging, diuji asap (di-rollback: kegiatan baru membawa 5 impor media, klaim jalan, anon/authenticated tertutup, RPC & kolom slide ada), lalu produksi. Postgres mengunduh tiap berkas dari commit `7b387cc` dan menolak bila SHA-256 tidak cocok (pola ADR-062 #8); versi = nama berkas. Produksi: **56** migration = repo.
 - 2026-11-19 (perintah pemilik "konfigurasi yang bisa dikerjakan, kerjakan"): `20261116100001_event_engagement`,
   `20261119100001_trend_visitor_cap_and_mutual_privacy`, `20261119100002_admin_create_event` diterapkan ke staging,
