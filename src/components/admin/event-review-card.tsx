@@ -212,7 +212,8 @@ function MediaStrip({ event, media }: { event: EventDetail; media: ModerationMed
   return (
     <section aria-label={`Poster & slide ${event.title}`} className="mt-4 flex flex-col gap-2 border-t border-line pt-4">
       {photos.length > 0 && (
-        <ul className="flex gap-2 overflow-x-auto pb-1">
+        // Dibungkus, bukan digulir: strip gulir berisi gambar saja tidak bisa dijangkau papan ketik (axe `scrollable-region-focusable`).
+        <ul className="flex flex-wrap gap-2 pb-1">
           {photos.slice(0, STRIP_LIMIT).map((photo, index) => (
             <li key={photo.id} className="relative shrink-0">
               <Image

@@ -56,6 +56,7 @@ import type {
   EventClaim,
   EventDetail,
   EventPhoto,
+  EventScheduleInput,
   EventQuery,
   EventRegistration,
   EventRevision,
@@ -479,7 +480,7 @@ export class SupabaseEventRepository implements EventRepository {
     this.fetchStats = cacheLayer(queryStats, ['events-stats-v1']);
     this.fetchDeadlineWeek = cacheLayer(queryDeadlineWeek, ['events-deadline-week-v1']);
     this.fetchPosters = cacheLayer(queryPosters, ['event-posters-v1']);
-    this.fetchExtras = cacheLayer(queryEventExtras, ['event-extras-v1']);
+    this.fetchExtras = cacheLayer(queryEventExtras, ['event-extras-v2']);
     this.fetchCounts = cacheLayer(queryEngagementCounts, ['event-counts-v1']);
     this.fetchTrust = cacheLayer(queryTrustLevels, ['event-trust-v1']);
     this.fetchSitemap = cacheLayer(querySitemapEvents, ['events-sitemap-v1']);
@@ -601,7 +602,7 @@ export class SupabaseEventRepository implements EventRepository {
       this.withPosters([detail]),
       this.fetchExtras(detail.id).catch((error: unknown): EventExtras => {
         console.error('[video/cara daftar] gagal dimuat:', error);
-        return { videoUrl: null, registrationMode: 'external' };
+        return { videoUrl: null, registrationMode: 'external', startsAt: null, endsAt: null };
       }),
     ]);
     return { ...(withPoster ?? detail), ...extras };
@@ -2979,6 +2980,22 @@ export class SupabaseEventRepository implements EventRepository {
     }
   }
 
+  async setEventSchedule(_actor: EventActor, eventId: string, { startsAt, endsAt }: EventScheduleInput): Promise<void> {
+    if (!isUuid(eventId)) throw actionError('not_event_manager');
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.rpc('set_event_schedule', { p_event: eventId, p_starts: startsAt, p_ends: endsAt });
+    if (!error) return;
+    // Kode tayang sebelum migration 20261125100002: fiturnya belum aktif, bukan galat.
+    if (isMissingRelationError(error)) throw actionError('schedule_unavailable');
+    if (sqlState(error) === '23514') throw actionError('invalid_schedule');
+    if (sqlState(error) === '42501') throw actionError('not_event_manager');
+    const message = error.message ?? '';
+    for (const code of ['invalid_schedule', 'schedule_rate_limited', 'not_event_manager', 'event_unavailable'] as const) {
+      if (message.includes(code)) throw actionError(code);
+    }
+    throw upstreamFailure('Gagal menyimpan waktu pelaksanaan.', error, 500);
+  }
+
   async getEventPhotoFile(photoId: string): Promise<StoredFile | null> {
     if (!isUuid(photoId)) return null;
     // Klien anon: hanya foto acara yang tayang — rute ini publik dan di-cache.
@@ -3809,20 +3826,22 @@ export class SupabaseEventRepository implements EventRepository {
     const { data, error } = await supabase.from('events_listing').select(LISTING_COLUMNS).eq('id', eventId).maybeSingle<EventListingRow>();
     if (error) throw upstreamFailure('Gagal memuat postingan.', error);
     if (!data) return null;
-    const [deadlines, extras] = await Promise.all([
+    type AdminExtrasRow = { video_url: string | null; registration_mode: string | null; starts_at?: string | null; ends_at?: string | null };
+    const readExtras = (columns: string) => supabase.from('events').select(columns).eq('id', eventId).maybeSingle<AdminExtrasRow>();
+    const [deadlines, firstExtras] = await Promise.all([
       supabase.from('event_deadlines').select('id, label, deadline_at, is_primary').eq('event_id', eventId).order('deadline_at', { ascending: true }).returns<EventDeadlineRow[]>(),
-      supabase
-        .from('events')
-        .select('video_url, registration_mode')
-        .eq('id', eventId)
-        .maybeSingle<{ video_url: string | null; registration_mode: string | null }>(),
+      readExtras('video_url, registration_mode, starts_at, ends_at'),
     ]);
     if (deadlines.error) throw upstreamFailure('Gagal memuat tenggat postingan.', deadlines.error);
+    // Sebelum migration 20261125100002 (jadwal) — atau yang lebih tua lagi (cara daftar).
+    const extras = firstExtras.error && isMissingColumnError(firstExtras.error) ? await readExtras('video_url, registration_mode') : firstExtras;
     if (extras.error && !isMissingColumnError(extras.error)) throw upstreamFailure('Gagal memuat postingan.', extras.error);
     return {
       ...toDetail(data, deadlines.data),
       videoUrl: extras.data?.video_url ?? null,
       registrationMode: toRegistrationMode(extras.data?.registration_mode),
+      startsAt: extras.data?.starts_at ?? null,
+      endsAt: extras.data?.ends_at ?? null,
     };
   }
 
@@ -4461,23 +4480,42 @@ async function queryTrustLevels(eventIds: readonly string[]): Promise<TrustRow[]
 interface EventExtras {
   readonly videoUrl: string | null;
   readonly registrationMode: RegistrationMode;
+  readonly startsAt: string | null;
+  readonly endsAt: string | null;
 }
+
+const NO_SCHEDULE = { startsAt: null, endsAt: null } as const;
 
 /** Kolom di luar `LISTING_COLUMNS`; masing-masing boleh belum ada (urutan deploy) tanpa menjatuhkan halaman. */
 async function queryEventExtras(eventId: string): Promise<EventExtras> {
-  if (!isUuid(eventId)) return { videoUrl: null, registrationMode: 'external' };
+  if (!isUuid(eventId)) return { videoUrl: null, registrationMode: 'external', ...NO_SCHEDULE };
   const supabase = createSupabasePublicClient();
+  const scheduled = await supabase
+    .from('events')
+    .select('video_url, registration_mode, starts_at, ends_at')
+    .eq('id', eventId)
+    .maybeSingle<{ video_url: string | null; registration_mode: string | null; starts_at: string | null; ends_at: string | null }>();
+  if (!scheduled.error) {
+    return {
+      videoUrl: scheduled.data?.video_url ?? null,
+      registrationMode: toRegistrationMode(scheduled.data?.registration_mode),
+      startsAt: scheduled.data?.starts_at ?? null,
+      endsAt: scheduled.data?.ends_at ?? null,
+    };
+  }
+  if (!isMissingColumnError(scheduled.error)) throw upstreamFailure('Gagal memuat video & jadwal.', scheduled.error);
+  // Sebelum migration 20261125100002 (jadwal pelaksanaan).
   const full = await supabase
     .from('events')
     .select('video_url, registration_mode')
     .eq('id', eventId)
     .maybeSingle<{ video_url: string | null; registration_mode: string | null }>();
-  if (!full.error) return { videoUrl: full.data?.video_url ?? null, registrationMode: toRegistrationMode(full.data?.registration_mode) };
+  if (!full.error) return { videoUrl: full.data?.video_url ?? null, registrationMode: toRegistrationMode(full.data?.registration_mode), ...NO_SCHEDULE };
   if (!isMissingColumnError(full.error)) throw upstreamFailure('Gagal memuat video.', full.error);
   // Sebelum migration 20261116100001 (cara daftar) — atau 20261109100002 (video).
   const video = await supabase.from('events').select('video_url').eq('id', eventId).maybeSingle<{ video_url: string | null }>();
   if (video.error && !isMissingColumnError(video.error)) throw upstreamFailure('Gagal memuat video.', video.error);
-  return { videoUrl: video.data?.video_url ?? null, registrationMode: 'external' };
+  return { videoUrl: video.data?.video_url ?? null, registrationMode: 'external', ...NO_SCHEDULE };
 }
 
 /** Angka kartu dari `event_engagement` (policy publik = hanya kegiatan tayang). Tabel belum ada = []. */

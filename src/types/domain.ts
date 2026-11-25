@@ -571,6 +571,17 @@ export interface EventDetail extends EventSummary {
   readonly guidebookUrl: string | null;
   /** Tidak ada = `external` (kolom belum ada sebelum migration 20261116100001). */
   readonly registrationMode?: RegistrationMode;
+  /**
+   * Waktu PELAKSANAAN acara (ADR-100), terpisah dari tenggat. null/tidak ada =
+   * belum diketahui (atau migration 20261125100002 belum diterapkan).
+   */
+  readonly startsAt?: string | null;
+  readonly endsAt?: string | null;
+}
+
+export interface EventScheduleInput {
+  readonly startsAt: string | null;
+  readonly endsAt: string | null;
 }
 
 /** Profil yang dipakai algoritma rekomendasi (§6). */

@@ -68,6 +68,7 @@ Urutan migration (harus dijalankan berurutan):
 57. `20261124100001_event_trust_levels.sql` — `events.verification_level` (`MODERATOR_VERIFIED`/`PUBLIC_SOURCE`, CHECK, backfill konservatif) & `events.is_demo`; `ALTER POLICY events_public_read … AND NOT is_demo`; `get_distinct_organizer_count()` tanpa data uji (ADR-096)
 58. `20261124100002_event_content_updated_at.sql` — `touch_event_updated_at()` + `CREATE OR REPLACE TRIGGER trg_events_touch`: `events.updated_at` hanya maju saat ISI berubah (bukan `saved_count`/`search_vector`) — dipakai `<lastmod>` sitemap (ADR-097)
 59. `20261125100001_achievement_leaderboard.sql` — `users.portfolio_public` (bawaan FALSE, GRANT UPDATE per kolom); tabel `achievement_verifications` (FK ke `application_tracker`, tanpa hak tulis klien, pemilik membaca barisnya); trigger `reset_achievement_verification`; RPC `request_/cancel_achievement_verification` (authenticated), `review_achievement_verification` (service_role), `campus_leaderboard`/`people_leaderboard` & `public_portfolio_page` (anon+authenticated), `leaderboard_weight` (ADR-098)
+60. `20261125100002_event_schedule.sql` — `events.starts_at` / `events.ends_at` (waktu PELAKSANAAN, bukan tenggat; CHECK `events_schedule_order`); RPC `set_event_schedule(uuid, timestamptz, timestamptz)` (DEFINER, `manages_event()`/admin, 30/hari, kode `invalid_schedule`/`schedule_rate_limited`/`not_event_manager`/`event_unavailable`) (ADR-100)
 
 > Yang SUDAH diterapkan ke produksi tercatat di `supabase/APPLIED_MIGRATIONS.txt` (#1–56 per 2026-11-22, semua migration di repo).
 
@@ -173,6 +174,7 @@ olahraga, kesehatan, sosial, pendidikan, hukum).
 | video_url | VARCHAR(200)? | HANYA bentuk kanonis `https://www.youtube.com/watch?v=<11>` / `https://vimeo.com/<id>` (`CHECK events_video_url_shape`, regex = `CANONICAL_VIDEO_PATTERN` di `src/lib/video.ts`, dikunci tes). Ditulis lewat `set_event_video()` saja (ADR-079) |
 | verification_level | VARCHAR(20) | `MODERATOR_VERIFIED` (dicocokkan langsung dengan kanal resmi penyelenggara) / `PUBLIC_SOURCE` (bawaan: dari pengumuman publik, lolos moderasi). CHECK = `VERIFICATION_LEVELS`; ditulis admin saja (ADR-096) |
 | is_demo | BOOLEAN | bawaan false; TRUE = data uji, tidak pernah terbaca anon/anggota (`events_public_read`) — admin tetap melihat (ADR-096) |
+| starts_at / ends_at | TIMESTAMPTZ? | Waktu pelaksanaan acara (ADR-100) — terpisah dari `event_deadlines` supaya pengingat/urgensi tidak berbunyi untuk hari acara. `CHECK events_schedule_order` (selesai butuh mulai, tidak sebelum mulai). Ditulis lewat `set_event_schedule()` saja; dibaca tamu lewat `events_public_read`. Menjadi `startDate`/`endDate` JSON-LD |
 
 Index: `status`, `event_type`, GIN `search_vector`, GIN `education_levels`,
 partial `(created_at DESC) WHERE status='APPROVED'`, partial
@@ -573,6 +575,7 @@ terlihat yang induknya juga terlihat (bukan ±1). Uji: `supabase/tests/119_event
 | `public.approve_submission(uuid, uuid)` | Salin kiriman ke `events` (APPROVED) + tenggat + kategori + tandai kiriman, SATU transaksi. **Hanya `service_role`** (0008). Sejak `20261003100001` ikut menyalin `is_free`/`price_amount`/`guidebook_url`; kontak & bukti kepanitiaan TIDAK |
 | `public.list_personalized_events(...)` | INVOKER, `SET jit = off`. Listing urut relevansi; rumus = `rankEvents()` (personal & cold start), filter = `queryListingPage()`, `p_limit` dijepit 1..48, kolom `total_count`. anon/authenticated boleh (RLS tetap berlaku) |
 | `public.register_for_event(uuid, jsonb)` / `submit_payment_proof(uuid, text)` / `review_event_registration(uuid, text, text)` / `cancel_event_registration(uuid)` | DEFINER, `authenticated`. Satu-satunya jalur tulis `event_registrations`; transisi kembar `registrationTransition()` (ADR-056) |
+| `public.set_event_schedule(uuid, timestamptz, timestamptz)` | DEFINER, `authenticated`; hak = `manages_event()` atau admin; 30 perubahan/hari; dua NULL = hapus; urutan terbalik = `invalid_schedule` (ADR-100) |
 | `public.set_event_poster(uuid, bool)` / `set_event_video(uuid, text)` | DEFINER, `authenticated`; hak = `manages_event()` atau admin. Poster: kunci advisory `photos:<event>` yang sama dengan unggah, lepas poster lama dulu; tidak berhak = `photo_not_found` (sama dengan tidak ada). Video: batas laju 30/hari, string kosong = hapus, bentuk dijaga CHECK (ADR-079) |
 | `public.event_registration_count(uuid)` / `registration_stats(uuid[])` | Sisa kuota (publik) / ringkasan studio (INVOKER, hanya acara kelolaan) |
 | `public.team_skill_slugs()` | IMMUTABLE; satu-satunya sumber daftar slug keahlian di SQL (dipakai CHECK `team_seekers`). `authenticated` WAJIB punya EXECUTE — CHECK dievaluasi dengan hak pemanggil INSERT (ADR-057) |

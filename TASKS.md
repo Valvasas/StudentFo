@@ -943,7 +943,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] `events.is_demo` + policy `events_public_read`; saklar "Tandai data uji" di Kelola postingan
 - [x] Alt poster kartu & papan = judul + penyelenggara (`posterAlt`)
 - [x] `events.verification_level` dua tingkat + centang di form Setujui + saklar admin + label kartu/detail + `/sumber-data#tingkat-verifikasi`; copy "diverifikasi manual" diselaraskan
-- [ ] **BUTUH PEMILIK.** Terapkan `20261124100001_event_trust_levels` (staging → produksi) lalu catat di `supabase/APPLIED_MIGRATIONS.txt`. Sebelum itu label tidak tampil & saklar admin terkunci
+- [x] Terapkan `20261124100001_event_trust_levels` (staging → produksi, 25 Nov 2026, atas persetujuan pemilik)
 - [ ] Setelah migration: tinjau kegiatan tayang yang masih "Dari sumber publik" dan naikkan yang memang sudah dicocokkan langsung
 
 ## Fase 2 — SEO 2026-11-24 (@claude) — ADR-097
@@ -954,9 +954,9 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Sitemap: kegiatan masih buka + 5 kategori + `/sumber-data`; kegiatan tutup tetap 200 "Pendaftaran ditutup"
 - [x] `updated_at` kegiatan = perubahan isi (`touch_event_updated_at`) untuk `<lastmod>`
 - [x] Deskripsi meta ≤ 155 karakter di batas kata; judul beranda ≤ 60
-- [ ] **BUTUH PEMILIK.** Terapkan `20261124100002_event_content_updated_at` (bersama 20261124100001) lalu catat di `APPLIED_MIGRATIONS.txt`
+- [x] Terapkan `20261124100002_event_content_updated_at` (staging → produksi, 25 Nov 2026)
 - [ ] **BUTUH PEMILIK.** Setelah domain final: daftarkan di Google Search Console & Bing Webmaster, kirim `sitemap.xml`, jalankan Rich Results Test pada satu lomba bertahap
-- [ ] P2 Label tahap "Pelaksanaan" (enum `deadline_label` tiga tempat + pipeline) supaya workshop/seminar bisa mendapat rich result `Event`
+- [x] ~~P2 Label tahap "Pelaksanaan" di `deadline_label`~~ → diganti kolom jadwal tersendiri `events.starts_at/ends_at` (ADR-100): tanggal acara bukan tenggat
 
 ## Fase 3 — prestasi, peringkat, portofolio publik, cari rekan tim 2026-11-25 (@claude) — ADR-098
 
@@ -965,7 +965,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] `users.portfolio_public` + `/u/[username]` untuk tamu bila opt-in (`noindex`), saklar di Data diri; ekspor data & kebijakan privasi diperbarui
 - [x] "Cari rekan tim" di halaman lomba: kandidat nyata, saringan kampus lain, Ajak setim / kirim lomba / bagikan WhatsApp
 - [x] Bagian "Satu tim, lintas kampus" di beranda tamu (01/04–04/04, sticky CSS); pintasan Peringkat di beranda anggota
-- [ ] **BUTUH PEMILIK.** Terapkan `20261125100001_achievement_leaderboard` (setelah 20261124100001/2) lalu catat di `APPLIED_MIGRATIONS.txt`
+- [x] Terapkan `20261125100001_achievement_leaderboard` (staging → produksi, 25 Nov 2026)
 - [ ] **BUTUH PEMILIK.** Tinjau perubahan Kebijakan privasi (verifikasi prestasi, portofolio publik, peringkat) lalu isi `PRIVACY_POLICY_EFFECTIVE_DATE` baru di Vercel
 - [ ] P2 Verifikasi hasil oleh penyelenggara terverifikasi acara itu (desain asli cabang `ccr-a2058300`), di samping moderator
 - [ ] P2 Bukti berupa foto sertifikat (bucket privat, hanya pemilik & moderator) — sengaja belum: sertifikat sering memuat NIK
@@ -985,5 +985,16 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] FAQ: chevron berputar 180°, garis bawah bertransisi; LCP poster detail `fetchPriority="high"`
 - [x] Metadata selalu di `<head>` (`htmlLimitedBots: /.*/`) — canonical/`noindex` sebelumnya ter-stream ke `<body>`
 - [x] Lighthouse mobile lokal (mode seed): `/` 95·100·100, `/events` median 91·100·100, detail 95·100·100, `/leaderboard` 93·100·100 (Performa·A11y·SEO), CLS 0
-- [ ] P2 Font tidak dipreload di HTML awal (hint hanya di payload RSC) → di 4G lambat font tiba ±3 dtk dan LCP teks ikut mundur; selidiki interaksi nonce CSP/`headers()` di root layout, atau `display: 'optional'`
+- [x] ~~P2 Font tidak dipreload~~ — salah diagnosis: font dipreload lewat header HTTP `Link` (React 19 `onHeaders`), bukan tag `<link>`. Penunda LCP yang sebenarnya = pudar `page-enter` di muatan pertama → dihapus (ADR-100)
 - [ ] P3 Bawa `TransitionLink` ke daftar lain (`TrendingStrip`, papan lomba) bila diinginkan
+
+## Penyelesaian sisa — 2026-11-25 (@claude) — ADR-100
+
+- [x] Cek produksi setelah PR #39: deploy `500a663` READY, tanpa galat runtime baru; fitur yang butuh 3 migration tampil "belum tersedia" (bukan galat) — fallback urutan deploy terverifikasi di kode
+- [x] Muatan pertama tanpa pudar `page-enter` (`template.tsx` klien): LCP `/events` di Chromium ter-throttle 1,75–1,90 dtk → 1,42–1,46 dtk (= FCP)
+- [x] Waktu pelaksanaan: `events.starts_at/ends_at` + RPC `set_event_schedule` + kartu "Waktu pelaksanaan" di halaman media admin & galeri studio; fakta di detail; `startDate`/`endDate` JSON-LD (workshop/seminar kini bisa `Event`)
+- [x] Terapkan `20261125100002_event_schedule` (staging → produksi, 25 Nov 2026)
+- [ ] **BUTUH PEMILIK/ADMIN.** Isi waktu pelaksanaan lima workshop/konferensi yang tayang (DevFest ×4, .NET Conf) di `/admin/media/<slug>` — dari pengumuman resmi, bukan tebakan
+- [x] Strip poster & slide antrean moderasi dibungkus, bukan digulir (axe `scrollable-region-focusable` di ponsel)
+- [ ] P3 Formulir `/submit` & buat acara admin belum menanyakan waktu pelaksanaan — diisi setelah tayang lewat halaman media; pipeline scraping belum mengekstraknya
+

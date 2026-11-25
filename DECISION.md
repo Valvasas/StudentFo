@@ -12,6 +12,48 @@ terdokumentasi.
 
 ---
 
+## ADR-100 — Waktu pelaksanaan terpisah dari tenggat; muatan pertama tanpa pudar halaman (25 Nov 2026)
+
+**Konteks:** Setelah ADR-097, data terstruktur `Event` hanya terbit bila ada
+tanggal tahap selain pendaftaran. Di produksi (25 Nov 2026) empat workshop
+dan satu konferensi tayang — DevFest ×4, .NET Conf, jenis yang paling cocok
+dengan rich result acara — tidak punya satu pun tanggal pelaksanaan. Rencana
+lama (TASKS P2) menambah label `Pelaksanaan` ke `deadline_label`. Terpisah:
+ADR-099 mencatat "font tidak dipreload" sebagai penyebab LCP `/events` yang
+mepet 90.
+
+**Keputusan:**
+1. **Kolom jadwal sendiri**, `events.starts_at` / `events.ends_at`, bukan label
+   tenggat. Tenggat menggerakkan pengingat email H-3/H-1, urgensi kartu,
+   kalender tenggat, dan pita "Minggu ini" — hari acara di sana akan
+   mengirim "tutup 3 hari lagi" untuk acara yang pendaftarannya sudah
+   ditutup. CHECK `events_schedule_order`; tulis hanya lewat RPC
+   `set_event_schedule` (pengelola/admin, 30/hari — pola `set_event_video`).
+2. **Isian WIB eksplisit** (`datetime-local` ditafsirkan +07:00 oleh
+   `parseSchedule`, bukan zona server/peramban). Kartu "Waktu pelaksanaan"
+   ada di `MediaManager`, jadi admin (kegiatan tanpa pengelola, termasuk yang
+   masih di antrean) dan studio memakai komponen yang sama.
+3. `eventDates()` mengutamakan jadwal; tanggal tahap tetap cadangan untuk
+   lomba. Detail menampilkan fakta "Waktu pelaksanaan" hanya bila terisi.
+4. **Koreksi ADR-099:** font SUDAH dipreload — lewat header HTTP `Link`
+   (React 19 `onHeaders`), bukan tag `<link>` di HTML; diagnosis itu salah.
+   Penunda LCP yang terukur adalah `page-enter` (seluruh halaman mulai dari
+   opasitas 0) di muatan PERTAMA. `template.tsx` kini komponen klien yang
+   memudarkan halaman hanya pada navigasi klien. Terukur di Chromium
+   (CPU 6×, 1,6 Mbps): LCP `/events` 1,75–1,90 dtk → 1,42–1,46 dtk.
+
+**Ditolak:** label `Pelaksanaan` di `deadline_label` (alasan di atas);
+menebak jadwal dari teks deskripsi (tanggal karangan lebih buruk daripada
+tanpa rich result); jadwal wajib di `/submit` (kiriman komunitas sering tidak
+tahu jamnya — diisi setelah tayang).
+
+**Konsekuensi:** Migration `20261125100002` menunggu tiga migration
+sebelumnya. Sampai diterapkan, kartu jadwal menampilkan "belum bisa diatur"
+(`schedule_unavailable`) dan detail tanpa fakta waktu. Pipeline scraping &
+formulir kiriman belum menanyakan jadwal (TASKS P3).
+
+---
+
 ## ADR-099 — Fase 4: token satu tempat, gerak untuk fungsi, View Transitions terbatas, metadata di `<head>` (24 Nov 2026)
 
 **Konteks:** Pemilik meminta motion yang menunjukkan status, urgensi, dan

@@ -19,6 +19,7 @@ import type {
   EventClaim,
   EventDetail,
   EventPhoto,
+  EventScheduleInput,
   EventQuery,
   EventRegistration,
   EventRevision,
@@ -969,6 +970,11 @@ export interface GalleryRepository {
   setEventPoster(actor: EventActor, photoId: string, isPoster: boolean): Promise<void>;
   /** Video YouTube/Vimeo kanonis (`normalizeVideoUrl`), `null` = lepas. Tanpa hak → `not_event_manager`. */
   setEventVideo(actor: EventActor, eventId: string, videoUrl: string | null): Promise<void>;
+  /**
+   * Waktu pelaksanaan (ADR-100), dua `null` = hapus. Tanpa hak → `not_event_manager`;
+   * urutan terbalik → `invalid_schedule`; kolom/RPC belum ada → `schedule_unavailable`.
+   */
+  setEventSchedule(actor: EventActor, eventId: string, schedule: EventScheduleInput): Promise<void>;
   /** Berkas untuk rute publik `/media/foto/[id]` — hanya foto acara yang tayang. */
   getEventPhotoFile(photoId: string): Promise<StoredFile | null>;
 }

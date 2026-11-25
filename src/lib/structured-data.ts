@@ -107,7 +107,11 @@ export interface EventJsonLdContext {
 }
 
 /** Tanggal kegiatan = tahap setelah pendaftaran; tenggat pendaftaran tidak pernah dianggap tanggal mulai. */
-export function eventDates(event: Pick<EventDetail, 'deadlines'>): { readonly start: string; readonly end: string | null } | null {
+export function eventDates(
+  event: Pick<EventDetail, 'deadlines' | 'startsAt' | 'endsAt'>,
+): { readonly start: string; readonly end: string | null } | null {
+  // Waktu pelaksanaan yang diisi pengelola/admin (ADR-100) = jawaban paling tepat.
+  if (event.startsAt) return { start: event.startsAt, end: event.endsAt && event.endsAt !== event.startsAt ? event.endsAt : null };
   const stages = event.deadlines
     .filter((deadline) => deadline.label !== 'registration')
     .map((deadline) => deadline.deadlineAt)

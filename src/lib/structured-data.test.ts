@@ -68,6 +68,13 @@ describe('eventJsonLd — Event (syarat Rich Results Google: name, startDate, lo
     expect(eventJsonLd({ ...registrationOnly, eventType: 'WORKSHOP' }, context, NOW)).toBeNull();
   });
 
+  it('waktu pelaksanaan (ADR-100) menjadikan workshop ber-Event, dan menang atas tanggal tahap', () => {
+    const registrationOnly = event({ deadlines: [{ id: 'd1', label: 'registration', deadlineAt: '2026-12-01T16:59:00Z', isPrimary: true }] });
+    const scheduled = { ...registrationOnly, eventType: 'WORKSHOP' as const, startsAt: '2026-12-12T02:00:00.000Z', endsAt: '2026-12-12T09:00:00.000Z' };
+    expect(eventJsonLd(scheduled, context, NOW)).toMatchObject({ '@type': 'Event', startDate: '2026-12-12T02:00:00.000Z', endDate: '2026-12-12T09:00:00.000Z' });
+    expect(eventDates({ ...event(), startsAt: '2027-01-05T03:00:00.000Z', endsAt: null })).toEqual({ start: '2027-01-05T03:00:00.000Z', end: null });
+  });
+
   it('biaya belum diketahui = tanpa offers; ditutup = SoldOut', () => {
     expect(eventJsonLd(event({ isFree: null }), context, NOW)!.offers).toBeUndefined();
     expect(eventJsonLd(event({ isFree: false, priceAmount: 75000 }), context, NOW)!.offers).toMatchObject({ price: 75000 });
