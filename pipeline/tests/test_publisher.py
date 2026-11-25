@@ -116,3 +116,13 @@ if __name__ == "__main__":
             print(f"  FAIL {test.__name__}: {exc}")
     print(f"\n{len(tests) - failures}/{len(tests)} lolos")
     raise SystemExit(1 if failures else 0)
+
+
+def test_payload_carries_benefits_and_requirements():
+    event = make_event()
+    event.benefits = "Uang tunai Rp10 juta + sertifikat"
+    event.requirements = "Mahasiswa aktif D4/S1"
+    payload = to_rpc_payload(event)
+    assert payload["benefits"] == "Uang tunai Rp10 juta + sertifikat"
+    assert payload["requirements"] == "Mahasiswa aktif D4/S1"
+    assert to_rpc_payload(make_event())["benefits"] == "", "tanpa isi = string kosong → NULL di SQL"

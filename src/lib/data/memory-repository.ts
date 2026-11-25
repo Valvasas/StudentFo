@@ -757,7 +757,14 @@ export class MemoryEventRepository implements EventRepository {
       const wib = new Date(base.getTime() + 7 * 3_600_000 + offsetDays * 86_400_000);
       return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate(), hour - 7)).toISOString();
     };
-    this.updateEvent(event.id, (current) => ({ ...current, startsAt: wibDay(9, 9), endsAt: wibDay(10, 16) }));
+    this.updateEvent(event.id, (current) => ({
+      ...current,
+      startsAt: wibDay(9, 9),
+      endsAt: wibDay(10, 16),
+      // Contoh hasil ekstraksi pipeline (ADR-101).
+      benefits: 'Sertifikat kehadiran, modul penelitian, dan umpan balik langsung atas draf proposalmu.',
+      requirements: 'Mahasiswa tingkat akhir (D4/S1/S2) yang sedang menyusun proposal penelitian kualitatif.',
+    }));
   }
 
   /**

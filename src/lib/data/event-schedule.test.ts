@@ -55,6 +55,12 @@ describe('MemoryEventRepository — waktu pelaksanaan', () => {
     expect(await reason(repository.setEventSchedule(admin, seed.id, { startsAt: START, endsAt: null }))).toBe('schedule_rate_limited');
   });
 
+  it('benefit & persyaratan hasil pipeline terbaca di detail (ADR-101)', async () => {
+    const workshop = await repository.getEventBySlug('workshop-riset-kualitatif-untuk-mahasiswa-tingkat-akhir');
+    expect(workshop?.benefits).toMatch(/Sertifikat/);
+    expect(workshop?.requirements).toMatch(/tingkat akhir/);
+  });
+
   it('workshop contoh berjadwal → data terstruktur Event dengan startDate/endDate', async () => {
     const workshop = await repository.getEventBySlug('workshop-riset-kualitatif-untuk-mahasiswa-tingkat-akhir');
     expect(workshop?.startsAt).toBeTruthy();

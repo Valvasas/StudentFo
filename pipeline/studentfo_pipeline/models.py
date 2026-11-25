@@ -19,6 +19,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 WIB = timezone(timedelta(hours=7))
+LONG_TEXT_MAX = 2000
 
 # Harus sama persis dengan enum `event_type` di migration 0001.
 class EventType(str, Enum):
@@ -80,6 +81,10 @@ class ExtractedEvent(BaseModel):
     title: Annotated[str, Field(min_length=5, max_length=255)]
     organizer: Annotated[str, Field(min_length=2, max_length=255)]
     description: Annotated[str, Field(max_length=4000)] = ""
+    # Batas 2000 = CHECK `events_*_length` (migration 20261125100003); teks yang
+    # lebih panjang dipotong di batas kata, bukan membuat satu kegiatan ditolak.
+    benefits: str = ""
+    requirements: str = ""
     event_type: EventType
     registration_link: HttpUrl
     education_levels: list[EducationLevel] = Field(default_factory=list)
@@ -94,6 +99,19 @@ class ExtractedEvent(BaseModel):
     @classmethod
     def normalize_text(cls, value: object) -> object:
         return re.sub(r"\s+", " ", value).strip() if isinstance(value, str) else value
+
+    @field_validator("benefits", "requirements", mode="before")
+    @classmethod
+    def tidy_long_text(cls, value: object) -> object:
+        if value is None:
+            return ""
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if len(text) <= LONG_TEXT_MAX:
+            return text
+        cut = text[:LONG_TEXT_MAX].rsplit(" ", 1)[0].rstrip(" ,;:-")
+        return f"{cut}…"
 
     @model_validator(mode="after")
     def validate_deadlines(self) -> "ExtractedEvent":
@@ -129,6 +147,8 @@ class ValidatedEvent(BaseModel):
     event_type: EventType
     registration_link: str
     source_url: str
+    benefits: str = ""
+    requirements: str = ""
     dedup_hash: str
     education_levels: list[EducationLevel]
     location: str | None

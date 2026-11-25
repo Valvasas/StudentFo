@@ -583,6 +583,23 @@ export default async function EventDetailPage({
                   )}
                 </div>
 
+                {/* Hasil ekstraksi pipeline (ADR-101): teks bebas apa adanya, khusus anggota seperti deskripsi lengkap. */}
+                {!gated &&
+                  (
+                    [
+                      { id: 'benefit-kegiatan', title: 'Yang kamu dapat', text: event.benefits },
+                      { id: 'persyaratan-kegiatan', title: 'Persyaratan', text: event.requirements },
+                    ] as const
+                  ).map(({ id, title, text }) =>
+                    text ? (
+                      <div key={id} className="flex flex-col gap-3">
+                        <h2 id={id} className={headingClass}>
+                          {title}
+                        </h2>
+                        <p className="max-w-[64ch] whitespace-pre-line text-base leading-[1.7] text-ink-soft [overflow-wrap:anywhere]">{text}</p>
+                      </div>
+                    ) : null,
+                  )}
 
                 {registeredNudges.length > 0 && <NudgeCards nudges={registeredNudges} heading="Langkah berikutnya untukmu" />}
 
