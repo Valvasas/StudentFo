@@ -1003,5 +1003,7 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 
 - [x] Unggah Colab (ADR-102): migration `20261125100004` (guidebook + `upsert_scraped_event`), `pipeline/colab/studentfo_upload.py`, tes
 - [x] Terapkan `20261125100004_scraped_upsert_guidebook` (staging → produksi, 25 Nov 2026)
+- [x] Workflow terjadwal tanpa secret kini merah, bukan "dilewati" hijau (ADR-104): Ops watchdog, Import event media, Send deadline emails
+- [ ] **BUTUH PEMILIK.** Isi secret Actions (repo belum punya satu pun per 27 Nov) atau matikan workflow yang tidak dipakai — `docs/langkah-konfigurasi-pemilik.md` Tahap 5
 - [ ] **BUTUH PEMILIK.** Uji skrip Colab dengan `DRY_RUN=False` pada 1 rekor sebelum batch penuh
 

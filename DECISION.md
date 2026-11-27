@@ -12,6 +12,18 @@ terdokumentasi.
 
 ---
 
+## ADR-104 — Workflow terjadwal tanpa secret = gagal, bukan "dilewati" hijau (27 Nov 2026)
+
+**Konteks:** Repo belum punya SATU pun secret Actions (log run 27 Nov: `SUPABASE_URL`, `SITE_URL`, `CRON_SECRET` semua kosong). Scraper merah tiap hari, tetapi Ops watchdog, Send deadline emails, dan Import event media berakhir `exit 0` "dilewati" — hijau setiap hari tanpa memeriksa/mengirim apa pun. Watchdog paling berbahaya: tugasnya justru membunyikan alarm.
+
+**Keputusan:** Secret wajib kosong → `::error::` + `exit 1` di ketiga workflow itu. Workflow yang sengaja tidak dipakai dimatikan lewat tab Actions (*Disable workflow*), bukan dibiarkan hijau palsu. Jawaban 503 "email belum dikonfigurasi di aplikasi" tetap lolos tetapi ditandai `::warning::`.
+
+**Ditolak:** saklar `vars.*_ENABLED` (abstraksi tambahan; *Disable workflow* bawaan GitHub sudah terlihat di daftar Actions); `::warning::` + `exit 0` (centang tetap hijau, peringatan tidak dibaca).
+
+**Konsekuensi:** Sampai secret diisi atau workflow dimatikan, GitHub mengirim email kegagalan untuk tiap run. Daftar secret & langkahnya: `docs/langkah-konfigurasi-pemilik.md` Tahap 5.
+
+---
+
 ## ADR-102 — Unggah dari Colab: upsert yang tidak menimpa moderasi, guidebook, poster dari URL (25 Nov 2026)
 
 **Konteks:** Otomasi pemilik (Google Colab) menulis ke `events` lewat `table.upsert(on_conflict=…)` dan mengunggah poster/guidebook ke bucket sendiri. Pemilik meminta guidebook DAN pembaruan kegiatan yang sudah ada.
