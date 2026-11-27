@@ -26,9 +26,11 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
+          # Secret kosong = merah, bukan "dilewati" hijau (ADR-104). Tidak dipakai?
+          # Matikan workflow-nya di tab Actions.
           if [[ -z "${SITE_URL}" || -z "${CRON_SECRET}" ]]; then
-            echo "Secret SITE_URL / CRON_SECRET belum diisi — dilewati."
-            exit 0
+            echo "::error::Secret SITE_URL / CRON_SECRET belum diisi."
+            exit 1
           fi
           # Satu panggilan ≤ 40 detik kerja; ulangi selama masih ada sisa.
           for _ in $(seq 1 8); do

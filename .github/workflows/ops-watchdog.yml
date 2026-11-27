@@ -30,9 +30,11 @@ jobs:
           ERROR_ALERT_WEBHOOK_URL: ${{ secrets.ERROR_ALERT_WEBHOOK_URL }}
         run: |
           set -euo pipefail
+          # Secret kosong = merah, bukan "dilewati" hijau (ADR-104). Tidak dipakai?
+          # Matikan workflow-nya di tab Actions.
           if [[ -z "${SUPABASE_URL}" || -z "${SUPABASE_SERVICE_ROLE_KEY}" ]]; then
-            echo "Secret SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diisi — watchdog dilewati."
-            exit 0
+            echo "::error::Secret SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diisi — watchdog tidak bisa memeriksa apa pun."
+            exit 1
           fi
           health=$(curl --silent --show-error --fail-with-body \
             -X POST "$SUPABASE_URL/rest/v1/rpc/cron_job_health" \

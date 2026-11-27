@@ -153,11 +153,32 @@ sendiri** — semua masuk antrean `/admin` sebagai PENDING untuk kamu setujui.
    Lebih mudah: kirim daftar alamat situsnya ke Claude — Claude memeriksa robots.txt &
    tata letaknya lalu menyusun YAML-nya. Kamu tinggal menempel.
 3. GitHub → **New repository secret** → `PIPELINE_SOURCES_YAML` = seluruh isi YAML itu.
-4. Pastikan secret `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` sudah ada di daftar yang
-   sama (job lain sudah memakainya; kalau tidak ada, tambahkan).
+4. Per 27 Nov 2026 repo belum punya secret Actions sama sekali, jadi tambahkan juga:
+   - `SUPABASE_URL` = Supabase → project produksi → **Project Settings → Data API** →
+     *Project URL* (`https://<ref>.supabase.co`)
+   - `SUPABASE_SERVICE_ROLE_KEY` = **Project Settings → API Keys** → kunci
+     `service_role` / *secret* (BUKAN `anon`/*publishable*). Kunci ini melewati RLS —
+     hanya di GitHub Secrets & Vercel, jangan di tempat lain.
 
 **Periksa:** GitHub → **Actions** → **Scraper** → **Run workflow** → tunggu hijau ✅ →
 buka `/admin`: hasil baru ada di "Kegiatan dari sumber otomatis".
+
+**5c. Secret untuk workflow lain** (ADR-104: secret kosong kini = run merah, bukan
+"dilewati" hijau seperti sebelumnya)
+
+| Workflow | Secret | Bila tidak dipakai |
+|---|---|---|
+| Ops watchdog (harian) | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (sama dengan 5b); opsional `ERROR_ALERT_WEBHOOK_URL` (Tahap 2) | Jangan dimatikan — ini alarm pg_cron |
+| Import event media (tiap jam) | `SITE_URL` = alamat situs tanpa `/` di akhir (kini `https://studentfo.vercel.app`); `CRON_SECRET` | Actions → workflow → **⋯ → Disable workflow** |
+| Send deadline emails (harian) | `SITE_URL`, `CRON_SECRET` | Ditunda bersama Resend (lihat bawah) → **Disable workflow** |
+
+`CRON_SECRET`: buat sekali (`openssl rand -hex 32`, atau password manager, ≥ 32
+karakter), lalu tempel nilai yang SAMA di dua tempat: GitHub Secrets **dan** env
+Production hosting (Vercel → Settings → Environment Variables, *Sensitive*) → redeploy.
+Beda satu karakter = endpoint menjawab 401 dan run merah.
+
+**Periksa:** Actions → tiap workflow → **Run workflow** → hijau ✅, dan lognya tidak
+berisi `::error::Secret … belum diisi`.
 
 ---
 
