@@ -1,0 +1,2 @@
+# Salin ke .dev.vars untuk `npm run cf:preview` (jangan di-commit).
+NEXTJS_ENV=development

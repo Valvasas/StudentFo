@@ -42,3 +42,8 @@ playwright-report/
 # Binary PostgREST untuk npm run test:integration
 .cache/
 .next-supabase/
+
+# Cloudflare (OpenNext + wrangler)
+.open-next
+.wrangler
+.dev.vars

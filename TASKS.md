@@ -1005,3 +1005,10 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [x] Terapkan `20261125100004_scraped_upsert_guidebook` (staging → produksi, 25 Nov 2026)
 - [ ] **BUTUH PEMILIK.** Uji skrip Colab dengan `DRY_RUN=False` pada 1 rekor sebelum batch penuh
 
+
+## Migrasi hosting ke Cloudflare Workers (ADR-103)
+- [x] Adapter OpenNext + `wrangler.jsonc` + skrip `cf:*`; build & smoke test di workerd lolos.
+- [ ] **BUTUH PEMILIK.** Akun Workers **Paid** (bundle ±4,2 MiB gzip > batas free 3 MiB); token API Cloudflare untuk deploy.
+- [ ] **BUTUH PEMILIK.** Pindahkan rahasia dari Vercel: `wrangler secret put` untuk `SUPABASE_SERVICE_ROLE_KEY`, `RATE_LIMIT_SECRET`, `CRON_SECRET`, `TURNSTILE_SECRET_KEY`, `ERROR_ALERT_WEBHOOK_URL`, Resend, dst.
+- [ ] Ganti URL situs di Supabase Auth (Site URL + Redirect URLs), Google OAuth origins, widget Turnstile, dan secret/URL cron GitHub Actions ke domain Worker/domain sendiri.
+- [ ] Render poster/slide: font dibaca lewat `fs` — ganti jadi impor aset agar jalan di Workers.

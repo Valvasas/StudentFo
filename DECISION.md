@@ -12,6 +12,18 @@ terdokumentasi.
 
 ---
 
+## ADR-103 — Hosting pindah dari Vercel ke Cloudflare Workers lewat OpenNext (27 Nov 2026)
+
+**Konteks:** Batas paket Vercel Hobby (log 1 jam, larangan komersial, kuota) menghambat peluncuran. Aplikasi sudah dirancang tidak terkunci ke Vercel (header keamanan di `next.config.ts`, cron lewat pg_cron + GitHub Actions, bukan Vercel Cron).
+
+**Keputusan:** `@opennextjs/cloudflare` + `wrangler` (devDependency) dengan `wrangler.jsonc`, `open-next.config.ts`, skrip `cf:build|cf:preview|cf:deploy`. `CLIENT_IP_HEADER=cf-connecting-ip` dipasang di `wrangler.jsonc` supaya batas laju per-IP tidak bergantung pada `x-forwarded-for`. Smart Placement agar Worker dekat Supabase. `output: 'standalone'` dan Dockerfile tetap (jalur cadangan self-host). Terbukti di `wrangler dev` (workerd): `/`, `/events`, `/login`, sitemap, robots, OG image 200; CSP bernonce + HSTS terpasang; tanpa kredensial Supabase server menolak jalan (fail closed) seperti di Vercel.
+
+**Ditolak:** `@cloudflare/next-on-pages` (deprecated, edge-only); Pages (fitur baru hanya ke Workers).
+
+**Konsekuensi:** (1) Bundle Worker ±4,2 MiB gzip → **butuh Workers Paid** (batas free 3 MiB). (2) `NEXT_PUBLIC_*` dibekukan saat build — harus ada di lingkungan `cf:build`. (3) Rahasia server lewat `wrangler secret put`, bukan dasbor Vercel. (4) Render poster/slide server (`src/lib/media-import/render.tsx`) membaca font lewat `fs` dari `node_modules` — TIDAK terbukti jalan di Workers (cron `import-event-media` & `/admin`); tindak lanjut: impor font sebagai aset. (5) Cache data in-memory per isolate, bukan lintas-isolate.
+
+---
+
 ## ADR-102 — Unggah dari Colab: upsert yang tidak menimpa moderasi, guidebook, poster dari URL (25 Nov 2026)
 
 **Konteks:** Otomasi pemilik (Google Colab) menulis ke `events` lewat `table.upsert(on_conflict=…)` dan mengunggah poster/guidebook ke bucket sendiri. Pemilik meminta guidebook DAN pembaruan kegiatan yang sudah ada.
