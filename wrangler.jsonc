@@ -9,6 +9,8 @@
     "binding": "ASSETS"
   },
   "observability": { "enabled": true },
+  // Variabel yang diisi pemilik di dasbor tidak boleh terhapus tiap deploy.
+  "keep_vars": true,
   // Smart Placement memindahkan Worker mendekati Supabase, bukan pengunjung:
   // satu halaman = beberapa panggilan PostgREST berurutan, jadi latensi
   // Worker↔database yang dominan.
