@@ -25,7 +25,7 @@ Cloudflare men-build & men-deploy otomatis setiap ada push ke `main`.
 ## Lewat terminal
 
 ### Sekali saja
-1. Akun Cloudflare dengan **Workers Paid** (bundle ±4,2 MiB gzip; free = 3 MiB).
+1. Akun Cloudflare dengan **Workers Paid** (USD 5/bulan). Free tidak cukup: bundle ±4,2 MiB gzip (batas free 3 MiB) dan CPU free hanya 10 ms per permintaan.
 2. `npx wrangler login` (atau `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` di CI).
 3. Rahasia server (jangan ditempel di chat):
    ```bash
@@ -43,7 +43,7 @@ Cloudflare men-build & men-deploy otomatis setiap ada push ke `main`.
 export NEXT_PUBLIC_SUPABASE_URL=... NEXT_PUBLIC_SUPABASE_ANON_KEY=... NEXT_PUBLIC_SITE_URL=https://...
 npm run cf:deploy
 ```
-Pratinjau lokal di workerd: `npm run cf:preview` (isi `.dev.vars`, lihat `.dev.vars.example`).
+Pratinjau lokal di workerd: `cp .dev.vars.example .dev.vars && npm run cf:preview`, lalu buka `http://localhost:8787`. Tanpa `NEXT_PUBLIC_SUPABASE_*` saat build, situs memakai data demo.
 
 ## Setelah pindah
 - Supabase → Auth → URL Configuration (Site URL, Redirect URLs `…/auth/callback`).

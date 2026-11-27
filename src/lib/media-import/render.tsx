@@ -1,8 +1,7 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import { LOGO_BOLD, LOGO_SIZE } from '@/components/ui/logo-paths';
 import type { EventType } from '@/types/domain';
+import { MEDIA_FONT_WOFF_BASE64 } from './fonts.generated';
 import type { SlideContent } from './spec';
 
 /**
@@ -45,24 +44,18 @@ const LOGO_SRC = `data:image/svg+xml;base64,${Buffer.from(
 
 /**
  * Plus Jakarta Sans (font isi situs, OFL) dari @fontsource — WOFF karena
- * Satori tidak membaca WOFF2. Berkasnya ikut ke fungsi serverless lewat
- * `outputFileTracingIncludes` di next.config.ts.
+ * Satori tidak membaca WOFF2. Ditanam sebagai base64 di bundle, bukan dibaca
+ * dari node_modules: Cloudflare Workers tidak punya sistem berkas (ADR-104).
  */
-const FONT_DIR = join(process.cwd(), 'node_modules/@fontsource/plus-jakarta-sans/files');
 const FONT_WEIGHTS = [500, 700, 800] as const;
-let fontsPromise: Promise<{ name: string; data: ArrayBuffer; weight: 500 | 700 | 800; style: 'normal' }[]> | null = null;
+let fonts: { name: string; data: ArrayBuffer; weight: 500 | 700 | 800; style: 'normal' }[] | null = null;
 
 function loadFonts() {
-  fontsPromise ??= Promise.all(
-    FONT_WEIGHTS.map(async (weight) => {
-      const file = await readFile(join(FONT_DIR, `plus-jakarta-sans-latin-${weight}-normal.woff`));
-      return { name: 'Jakarta', data: file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer, weight, style: 'normal' as const };
-    }),
-  ).catch((error: unknown) => {
-    fontsPromise = null;
-    throw error;
+  fonts ??= FONT_WEIGHTS.map((weight) => {
+    const file = Buffer.from(MEDIA_FONT_WOFF_BASE64[weight], 'base64');
+    return { name: 'Jakarta', data: file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength) as ArrayBuffer, weight, style: 'normal' as const };
   });
-  return fontsPromise;
+  return fonts;
 }
 
 function titleSize(title: string): number {
@@ -315,6 +308,6 @@ export async function renderMediaImage(content: SlideContent, eventType: EventTy
     ) : (
       <ListSlide content={content} tint={tint} />
     );
-  const response = new ImageResponse(element, { ...MEDIA_IMAGE_SIZE, fonts: await loadFonts() });
+  const response = new ImageResponse(element, { ...MEDIA_IMAGE_SIZE, fonts: loadFonts() });
   return new Uint8Array(await response.arrayBuffer());
 }
