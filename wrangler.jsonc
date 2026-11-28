@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "studentfo",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": { "enabled": true },
+  // Variabel yang diisi pemilik di dasbor tidak boleh terhapus tiap deploy.
+  "keep_vars": true,
+  // Smart Placement memindahkan Worker mendekati Supabase, bukan pengunjung:
+  // satu halaman = beberapa panggilan PostgREST berurutan, jadi latensi
+  // Worker↔database yang dominan.
+  "placement": { "mode": "smart" },
+  "vars": {
+    // Cloudflare menulis header ini sendiri; klien tidak bisa memalsukannya.
+    // Tanpa ini batas laju per-IP bergantung pada x-forwarded-for.
+    "CLIENT_IP_HEADER": "cf-connecting-ip"
+  }
+}

@@ -12,6 +12,28 @@ terdokumentasi.
 
 ---
 
+## ADR-104 — Font poster/slide ditanam di bundle, bukan dibaca dari node_modules (27 Nov 2026)
+
+**Konteks:** `renderMediaImage()` (ADR-095) membaca tiga WOFF Plus Jakarta Sans dengan `readFile(process.cwd()/node_modules/…)`. Di `wrangler dev` hasilnya `no such file or directory … /bundle/node_modules/@fontsource/…`: Worker tidak punya sistem berkas, jadi cron `import-event-media` dan tombol admin "Siapkan gambar sekarang" pasti gagal setelah pindah (ADR-103).
+
+**Keputusan:** `scripts/build-media-fonts.mjs` (`npm run media:fonts`) menulis `src/lib/media-import/fonts.generated.ts` (base64, ±63 KB mentah, ±47 KB gzip). `render.tsx` mendekodenya sekali per isolate. `outputFileTracingIncludes` untuk font dihapus dari `next.config.ts` karena tidak lagi perlu. `fonts.test.ts` membandingkan isi berkas hasil dengan `@fontsource` terpasang, jadi menaikkan versi font tanpa membangkitkan ulang langsung gagal di CI. Terbukti di workerd: poster 1080×1350 PNG keluar dengan font yang benar.
+
+**Ditolak:** `fetch(new URL('./x.woff', import.meta.url))` (tidak jalan di runtime Node/Docker: `fetch` tidak menerima `file:`); membaca lewat binding `ASSETS` (dua jalur kode berbeda Node vs Workers, dan font jadi bisa diunduh publik tanpa perlu).
+
+---
+
+## ADR-103 — Hosting pindah dari Vercel ke Cloudflare Workers lewat OpenNext (27 Nov 2026)
+
+**Konteks:** Batas paket Vercel Hobby (log 1 jam, larangan komersial, kuota) menghambat peluncuran. Aplikasi sudah dirancang tidak terkunci ke Vercel (header keamanan di `next.config.ts`, cron lewat pg_cron + GitHub Actions, bukan Vercel Cron).
+
+**Keputusan:** `@opennextjs/cloudflare` + `wrangler` (devDependency) dengan `wrangler.jsonc`, `open-next.config.ts`, skrip `cf:build|cf:preview|cf:deploy`. `CLIENT_IP_HEADER=cf-connecting-ip` dipasang di `wrangler.jsonc` supaya batas laju per-IP tidak bergantung pada `x-forwarded-for`. Smart Placement agar Worker dekat Supabase. `output: 'standalone'` dan Dockerfile tetap (jalur cadangan self-host). Terbukti di `wrangler dev` (workerd): `/`, `/events`, `/login`, sitemap, robots, OG image 200; CSP bernonce + HSTS terpasang; tanpa kredensial Supabase server menolak jalan (fail closed) seperti di Vercel.
+
+**Ditolak:** `@cloudflare/next-on-pages` (deprecated, edge-only); Pages (fitur baru hanya ke Workers).
+
+**Konsekuensi:** (1) Bundle Worker ±4,2 MiB gzip → **butuh Workers Paid** (batas free 3 MiB). Paket free juga membatasi CPU 10 ms per permintaan — terlalu sempit untuk SSR Next.js dan render PNG, jadi memangkas bundle saja tidak cukup. (2) `NEXT_PUBLIC_*` dibekukan saat build — harus ada di lingkungan `cf:build`. (3) Rahasia server lewat `wrangler secret put`, bukan dasbor Vercel. (4) Render poster/slide server dulu membaca font lewat `fs` — gagal di Workers; diselesaikan ADR-104. (5) Cache data in-memory per isolate, bukan lintas-isolate.
+
+---
+
 ## ADR-102 — Unggah dari Colab: upsert yang tidak menimpa moderasi, guidebook, poster dari URL (25 Nov 2026)
 
 **Konteks:** Otomasi pemilik (Google Colab) menulis ke `events` lewat `table.upsert(on_conflict=…)` dan mengunggah poster/guidebook ke bucket sendiri. Pemilik meminta guidebook DAN pembaruan kegiatan yang sudah ada.

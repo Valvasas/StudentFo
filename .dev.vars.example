@@ -1,0 +1,7 @@
+# Salin ke .dev.vars untuk `npm run cf:preview` (jangan di-commit).
+NEXTJS_ENV=development
+# Tanpa kredensial Supabase, server sengaja menolak jalan di mode produksi.
+# Untuk pratinjau data demo saja; JANGAN pernah diset di Worker sungguhan.
+ALLOW_DEMO_IN_PRODUCTION=true
+# Untuk menguji data asli, ganti baris di atas dengan rahasia server, mis.:
+# SUPABASE_SERVICE_ROLE_KEY=...
