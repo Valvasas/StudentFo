@@ -1006,9 +1006,26 @@ Dokumen: `docs/audit-fitur-enterprise.md` (keamanan, uji alur demo, kesenjangan 
 - [ ] **BUTUH PEMILIK.** Uji skrip Colab dengan `DRY_RUN=False` pada 1 rekor sebelum batch penuh
 
 
-## Migrasi hosting ke Cloudflare Workers (ADR-103)
+## Migrasi hosting ke Cloudflare Workers (ADR-103) — kini JALUR CADANGAN, target aktif = VM (ADR-105)
 - [x] Adapter OpenNext + `wrangler.jsonc` + skrip `cf:*`; build & smoke test di workerd lolos.
-- [ ] **BUTUH PEMILIK.** Akun Workers **Paid** (bundle ±4,2 MiB gzip > batas free 3 MiB, dan CPU free 10 ms/permintaan terlalu sempit untuk SSR); token API Cloudflare untuk deploy.
+- [ ] (Cadangan, hanya bila VM tidak layak) **BUTUH PEMILIK.** Akun Workers **Paid**: CPU free 10 ms/permintaan terlalu sempit untuk SSR (terukur 14–43 ms). Koreksi: batas bundle 3 MiB sudah dihapus Cloudflare 4 Sep 2026, bukan lagi penghalang; token API Cloudflare untuk deploy.
 - [ ] **BUTUH PEMILIK.** Pindahkan rahasia dari Vercel: `wrangler secret put` untuk `SUPABASE_SERVICE_ROLE_KEY`, `RATE_LIMIT_SECRET`, `CRON_SECRET`, `TURNSTILE_SECRET_KEY`, `ERROR_ALERT_WEBHOOK_URL`, Resend, dst.
 - [ ] Ganti URL situs di Supabase Auth (Site URL + Redirect URLs), Google OAuth origins, widget Turnstile, dan secret/URL cron GitHub Actions ke domain Worker/domain sendiri.
 - [x] Render poster/slide jalan di Workers: font ditanam di bundle (ADR-104), PNG terbukti keluar di workerd.
+
+## Migrasi hosting ke VM — Docker + Caddy (ADR-105)
+Dokumentasi: `docs/deploy-vm.md` · runbook: `deploy/vm/README.md`.
+- [x] `deploy/vm/`: `docker-compose.yml` (app + Caddy, health `dataMode=supabase`, batas RAM, rotasi log), `Caddyfile`, `app.env.example` + `.env.example`, `bootstrap.sh` (idempoten), `deploy.sh` (rollback otomatis, simpan 3 rilis)
+- [x] `.github/workflows/deploy-vm.yml`: CI hijau di `main` → build ghcr.io → SSH → `deploy.sh` → cek health dari internet; manual `image_tag` = rollback; mati sampai `DEPLOY_VM_ENABLED=true`
+- [x] Uji lokal (Docker + Caddy + Supabase tiruan): health, header keamanan, HTTP→HTTPS, halaman publik, 404 demo, CSRF Server Action, XFF palsu dibuang, cron Bearer, rollback otomatis & manual, daemon restart
+- [x] ADR-105; koreksi ADR-103 (batas bundle usang)
+- [ ] **BUTUH PEMILIK.** Akun Azure for Students (⚠ verifikasi email Polindra), baca ketentuan komersial, cek region Southeast Asia diizinkan
+- [ ] **BUTUH PEMILIK.** Buat VM Ubuntu 24.04 x86_64 (⚠ cek RAM SKU, ≥ 2 GB disarankan) + IP publik Standard statis + port 80/443 (`docs/deploy-vm.md` § 3); budget alert 50/80% + pengingat bulan ke-10
+- [ ] **BUTUH PEMILIK.** Putuskan hostname final SEBELUM build pertama (domain sendiri vs `*.cloudapp.azure.com`) + DNS A record
+- [ ] **BUTUH PEMILIK.** Jalankan `bootstrap.sh`, isi `/opt/studentfo/app.env` (chmod 600) — rahasia dikumpulkan ulang, Vercel Sensitive tak terbaca
+- [ ] **BUTUH PEMILIK.** GitHub variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, terakhir `DEPLOY_VM_ENABLED=true`) + secrets (`VM_HOST`, `VM_USER`, `VM_SSH_KEY`, `VM_SSH_KNOWN_HOSTS`), ubah `SITE_URL` & samakan `CRON_SECRET`
+- [ ] **BUTUH PEMILIK.** Supabase Auth Site URL + Redirect URL host baru (pertahankan URL Vercel selama cutover); hostname baru di widget Turnstile
+- [ ] Deploy pertama + akseptansi di VM sungguhan (`docs/deploy-vm.md` § 11 kolom VM): sertifikat Let's Encrypt, login/daftar/Google, `/submit` + Turnstile + foto 5 MB, moderasi, rate limit, reboot, rollback, `docker stats`
+- [ ] **BUTUH PEMILIK.** Isi tabel biaya `docs/deploy-vm.md` § 8 dari portal (VM, disk, IP Standard, data keluar) → sisa bulan kredit realistis
+- [ ] **BUTUH PEMILIK.** Setelah stabil ≥ 48 jam: hapus Redirect URL Vercel lama, monitor uptime eksternal yang menegaskan `"dataMode":"supabase"`
+- [ ] P3 Opsional: Cloudflare (proxy oranye) di depan VM — `CLIENT_IP_HEADER=cf-connecting-ip` + firewall hanya IP Cloudflare

@@ -1,0 +1,214 @@
+# Deploy produksi ke VM (Docker + Caddy, ADR-105).
+#
+# build  : image dibangun DI SINI (runner x64), bukan di VM — `next build`
+#          butuh RAM besar dan internet (Google Fonts). Push ke
+#          ghcr.io/<owner>/studentfo:<sha> + :latest.
+# deploy : SSH ke VM → salin compose/Caddyfile/deploy.sh → deploy.sh <sha>
+#          (tunggu health; gagal = rollback otomatis ke rilis sehat terakhir
+#          dan job MERAH) → periksa https://<host>/api/health dari luar.
+#
+# Pemicu: CI hijau di main, atau manual (Actions → Deploy VM → Run workflow).
+# Isi `image_tag` saat manual = deploy ulang rilis lama (rollback) tanpa build.
+#
+# Mati sampai pemilik menyalakan: repository variable DEPLOY_VM_ENABLED=true.
+# Sengaja `if:` di level job (job tampil "skipped", abu-abu), BUKAN langkah
+# yang exit 0 — centang hijau tanpa deploy pernah menipu (memori ADR-104).
+#
+# Repository VARIABLES (bukan rahasia, ikut dibekukan ke bundle klien):
+#   DEPLOY_VM_ENABLED, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+#   NEXT_PUBLIC_SITE_URL, (opsional) VM_APP_DIR, VM_SSH_PORT
+# SECRETS: VM_HOST, VM_USER, VM_SSH_KEY, VM_SSH_KNOWN_HOSTS
+# Rahasia aplikasi TIDAK lewat sini — tinggal di /opt/studentfo/app.env di VM.
+name: Deploy VM
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Kosong = bangun & deploy main sekarang. Isi SHA rilis lama = rollback ke image itu (tanpa build).'
+        required: false
+        default: ''
+
+permissions: {}
+
+# Satu deploy dalam satu waktu; yang baru menunggu, tidak membatalkan yang
+# sedang jalan (membatalkan di tengah = container setengah diganti).
+concurrency:
+  group: deploy-vm
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Bangun image
+    if: >-
+      vars.DEPLOY_VM_ENABLED == 'true' &&
+      (
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.image_tag == '')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Periksa repository variables
+        env:
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          set -euo pipefail
+          fail=0
+          [[ "$SUPABASE_URL" =~ ^https://[A-Za-z0-9.-]+/?$ ]] || { echo "::error::NEXT_PUBLIC_SUPABASE_URL kosong/bukan https://<host>"; fail=1; }
+          (( ${#ANON_KEY} >= 20 )) || { echo "::error::NEXT_PUBLIC_SUPABASE_ANON_KEY kosong/terlalu pendek"; fail=1; }
+          # Satu image = satu hostname final: URL ini dibekukan ke tautan email,
+          # OAuth, sitemap, OG, dan allowedOrigins Server Action.
+          [[ "$SITE_URL" =~ ^https://[A-Za-z0-9.-]+$ ]] || { echo "::error::NEXT_PUBLIC_SITE_URL harus https://<host> tanpa garis miring/path"; fail=1; }
+          exit $fail
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - id: meta
+        name: Nama image & tag
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/studentfo" >> "$GITHUB_OUTPUT"
+          echo "tag=${SHA}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:latest
+          # Mengaitkan paket ke repo → GITHUB_TOKEN job deploy boleh menariknya
+          # walau paketnya privat.
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.tag }}
+          # HANYA nilai publik. Rahasia server sebagai build-arg tersimpan di
+          # riwayat layer image (peringatan di Dockerfile).
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy ke VM
+    needs: build
+    if: >-
+      always() &&
+      vars.DEPLOY_VM_ENABLED == 'true' &&
+      (
+        needs.build.result == 'success' ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.image_tag != '')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      TAG: ${{ needs.build.outputs.tag || inputs.image_tag }}
+      APP_DIR: ${{ vars.VM_APP_DIR || '/opt/studentfo' }}
+      SSH_PORT: ${{ vars.VM_SSH_PORT || '22' }}
+      SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          sparse-checkout: deploy/vm
+
+      - name: Siapkan SSH
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_SSH_KNOWN_HOSTS: ${{ secrets.VM_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in VM_HOST VM_USER VM_SSH_KEY VM_SSH_KNOWN_HOSTS; do
+            [[ -n "${!name}" ]] || { echo "::error::Secret $name belum diisi (docs/deploy-vm.md § GitHub)"; exit 1; }
+          done
+          [[ "$TAG" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || { echo "::error::image_tag tidak valid"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Kunci host dipatok (ssh-keyscan dari mesin tepercaya), bukan
+          # StrictHostKeyChecking=no — tanpa itu siapa pun yang membajak DNS/IP
+          # menerima koneksi deploy dan token ghcr.
+          printf '%s\n' "$VM_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vm
+            HostName ${VM_HOST}
+            User ${VM_USER}
+            Port ${SSH_PORT}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 20
+            ServerAliveInterval 15
+          EOF
+          echo "SITE_HOST=${SITE_URL#https://}" >> "$GITHUB_ENV"
+
+      - name: Salin berkas stack
+        run: |
+          set -euo pipefail
+          ssh vm "test -d '$APP_DIR' || { echo 'Folder $APP_DIR belum ada — jalankan bootstrap.sh dulu'; exit 1; }"
+          scp -q deploy/vm/docker-compose.yml deploy/vm/Caddyfile deploy/vm/deploy.sh "vm:$APP_DIR/"
+          ssh vm "chmod 755 '$APP_DIR/deploy.sh'"
+
+      - name: Deploy (rollback otomatis bila tidak sehat)
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          # Token job ini (hanya read:packages, mati saat job selesai) dipakai
+          # VM untuk menarik image — tidak perlu PAT permanen di VM.
+          printf '%s' "$GHCR_TOKEN" | ssh vm "docker login ghcr.io -u '$GHCR_USER' --password-stdin" >/dev/null
+          trap 'ssh vm "docker logout ghcr.io" >/dev/null 2>&1 || true' EXIT
+          ssh vm "cd '$APP_DIR' && ./deploy.sh '$TAG' '$SITE_HOST'"
+
+      - name: Periksa dari internet
+        run: |
+          set -euo pipefail
+          # Deploy pertama: Caddy baru meminta sertifikat — beri waktu.
+          for attempt in $(seq 1 18); do
+            if body=$(curl -fsS --max-time 10 "https://${SITE_HOST}/api/health"); then
+              echo "$body"
+              if jq -e '.status == "ok" and .dataMode == "supabase"' <<<"$body" >/dev/null; then
+                exit 0
+              fi
+              echo "::error::Health menjawab tetapi bukan supabase/ok"; exit 1
+            fi
+            echo "percobaan $attempt gagal, ulang 10 dtk"; sleep 10
+          done
+          echo "::error::https://${SITE_HOST}/api/health tidak terjangkau. Container sehat di VM, jadi curigai DNS, port 80/443 (NSG Azure/ufw), atau sertifikat: ssh ke VM → docker compose logs caddy"
+          exit 1

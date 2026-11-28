@@ -1,0 +1,74 @@
+# Stack produksi StudentFo di VM (ADR-105): aplikasi Next.js standalone +
+# Caddy (TLS otomatis Let's Encrypt, HTTP→HTTPS).
+#
+# Di VM folder ini = /opt/studentfo, berisi:
+#   docker-compose.yml, Caddyfile, deploy.sh   ← disalin workflow deploy-vm.yml
+#   .env      ← variabel compose (IMAGE_TAG, SITE_HOST), ditulis deploy.sh
+#   app.env   ← rahasia aplikasi, diisi PEMILIK, chmod 600 (contoh: app.env.example)
+#
+# Rahasia sengaja TIDAK di `.env`: berkas itu ditulis ulang skrip deploy dan
+# dibaca compose untuk interpolasi; app.env tidak pernah disentuh otomatis.
+
+name: studentfo
+
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/valvasas/studentfo}:${IMAGE_TAG:?IMAGE_TAG belum diisi — jalankan lewat deploy.sh}
+    restart: unless-stopped
+    init: true
+    env_file:
+      - path: app.env
+        required: true
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Heap di bawah mem_limit: GC bekerja lebih dulu daripada OOM-killer
+      # membunuh proses di tengah render poster.
+      NODE_OPTIONS: "--max-old-space-size=${APP_HEAP_MB:-512}"
+    # Tidak dipublikasikan ke host: satu-satunya pintu masuk adalah Caddy.
+    expose: ["3000"]
+    mem_limit: ${APP_MEM_LIMIT:-700m}
+    stop_grace_period: 20s
+    healthcheck:
+      # Sehat = DB terjangkau DAN mode Supabase. Deploy yang tak sengaja jatuh
+      # ke data contoh (ALLOW_DEMO_IN_PRODUCTION) menjawab 200 tapi dianggap
+      # gagal di sini → deploy.sh mengembalikan rilis sebelumnya.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health | grep -q '\"dataMode\":\"supabase\"'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 3s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_HOST: ${SITE_HOST:?SITE_HOST belum diisi — jalankan lewat deploy.sh}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Sertifikat & kunci ACME. Hilang = minta ulang ke Let's Encrypt (ada
+      # batas laju per domain), jadi volume ini jangan ikut dihapus.
+      - caddy_data:/data
+      - caddy_config:/config
+    # BUKAN service_healthy: /api/health ikut memeriksa database, dan Supabase
+    # yang sedang gangguan tidak boleh ikut mematikan TLS/halaman galat.
+    depends_on:
+      app:
+        condition: service_started
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

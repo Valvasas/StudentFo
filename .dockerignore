@@ -11,3 +11,6 @@ playwright-report
 coverage
 supabase/.temp
 supabase/.branches
+# Berkas stack VM (ADR-105) bukan bagian image; app.env = rahasia lokal
+deploy
+app.env
