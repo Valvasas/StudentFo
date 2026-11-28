@@ -12,6 +12,27 @@ terdokumentasi.
 
 ---
 
+## ADR-105 — Hosting produksi: VM Linux + Docker + Caddy, bukan Vercel/Workers (28 Nov 2026)
+
+**Konteks:** Vercel Hobby mem-pause project (Fast Origin Transfer 11,63/10 GB, Fluid Active CPU 4j20m/4j, pulih ±27 hari) dan melarang penggunaan komersial. Akar masalahnya struktural: semua halaman dinamis (CSP bernonce, ADR-027), jadi tiap kunjungan = satu eksekusi fungsi penuh (±24 ms CPU, ±18 KB). Cloudflare Workers Free membatasi CPU 10 ms/permintaan, sedangkan terukur `/` ±43 ms, `/events` ±31 ms, `/login` ±14 ms (Node, perkiraan) — Error 1102 hampir di semua halaman. Klaim ADR-103 "bundle 4,2 MiB > batas Free 3 MiB" sudah usang (batas ukuran terkompresi dihapus Cloudflare 4 Sep 2026; kini 64 MiB tak terkompresi): yang memblokir Free adalah CPU. Workers Paid (US$5/bulan) belum terjangkau pemilik.
+
+**Keputusan:**
+1. Satu VM Linux x86_64 (target kredit Azure for Students, region mengikuti Supabase: Singapura bila diizinkan) menjalankan `docker compose`: image `output: 'standalone'` yang sudah ada (Dockerfile, ADR-059) + Caddy 2 untuk TLS Let's Encrypt otomatis. Berkas di `deploy/vm/`, runbook `deploy/vm/README.md`, dokumentasi `docs/deploy-vm.md`.
+2. Image dibangun di GitHub Actions (`deploy-vm.yml`), bukan di VM (`next build` boros RAM, butuh Google Fonts), di-push ke `ghcr.io/<owner>/studentfo:<sha>`; deploy lewat SSH ke `deploy.sh`. Hanya nilai publik `NEXT_PUBLIC_*` (repository variables) jadi build-arg; rahasia server tinggal di `/opt/studentfo/app.env` (chmod 600) di VM dan tidak pernah lewat Actions.
+3. Health compose = `"dataMode":"supabase"` (bukan sekadar 200). Rilis yang tidak healthy dalam 180 dtk → `deploy.sh` kembali ke rilis terakhir yang pernah lolos (`releases.log`), job merah. Tiga rilis terakhir disimpan di disk.
+4. Workflow mati sampai `DEPLOY_VM_ENABLED=true` lewat `if:` level job (tampil "skipped"), bukan langkah yang exit 0 — centang hijau tanpa kerja sudah pernah menipu (catatan ADR-104).
+5. Pemisahan berkas di VM: `.env` = interpolasi compose (`IMAGE_TAG`, `SITE_HOST`, batas RAM) yang ditulis skrip; `app.env` = rahasia yang hanya ditulis pemilik. Menyimpang dari draf panduan (`env_file: .env`) supaya skrip deploy tidak pernah menyunting berkas rahasia.
+6. `SITE_HOST` Caddy diturunkan dari `NEXT_PUBLIC_SITE_URL` yang sama dengan build → host TLS tidak bisa berbeda dari host yang dibekukan di bundle (gejalanya: semua Server Action ditolak).
+7. Caddy tanpa `trusted_proxies` (XFF klien dibuang, `clientIpFrom` membaca entri terakhir); `CLIENT_IP_HEADER` kosong. Port 22 tidak bisa dikunci ke IP pemilik karena runner GitHub berganti IP: kunci saja + `ufw limit` + kunci host dipatok (`VM_SSH_KNOWN_HOSTS`).
+8. Job deploy meminjamkan `GITHUB_TOKEN` (read:packages, mati saat job selesai) ke VM untuk `docker pull`, lalu logout — tidak perlu PAT permanen di VM walau paket ghcr privat.
+9. ADR-103 (Workers lewat OpenNext) tetap sebagai jalur CADANGAN (Workers Paid), bukan target aktif; `wrangler.jsonc`, `open-next.config.ts`, `cf:*`, dan mode seed/demo tidak dihapus.
+
+**Ditolak:** build di VM (RAM, waktu); `StrictHostKeyChecking=no` (pembajak DNS/IP menerima token ghcr); mempublikasikan port 3000 (Docker melewati ufw); >1 replika (cache data 300 dtk & sesi demo per proses); Oracle Always Free (instance idle bisa di-reclaim).
+
+**Konsekuensi:** (1) Tidak ada kuota CPU/transfer per eksekusi; kapasitas = spesifikasi VM. (2) Pemilik mengurus patch (unattended-upgrades + reboot 03:30 WIB otomatis) dan VM; VM stateless, data di Supabase. (3) Kredit ±12 bulan → rencana lanjut sebelum bulan ke-10. (4) Satu image per hostname final; ganti host = build ulang. (5) ⚠ Ketentuan komersial Azure for Students harus diperiksa sebelum monetisasi. (6) Belum terbukti di VM sungguhan: stack, rollback, health, CSRF, dan XFF terbukti lokal (Docker + Caddy + Supabase tiruan); `bootstrap.sh`, sertifikat Let's Encrypt, dan workflow di GitHub belum pernah jalan (`docs/deploy-vm.md` § 11).
+
+---
+
 ## ADR-104 — Font poster/slide ditanam di bundle, bukan dibaca dari node_modules (27 Nov 2026)
 
 **Konteks:** `renderMediaImage()` (ADR-095) membaca tiga WOFF Plus Jakarta Sans dengan `readFile(process.cwd()/node_modules/…)`. Di `wrangler dev` hasilnya `no such file or directory … /bundle/node_modules/@fontsource/…`: Worker tidak punya sistem berkas, jadi cron `import-event-media` dan tombol admin "Siapkan gambar sekarang" pasti gagal setelah pindah (ADR-103).
@@ -29,6 +50,8 @@ terdokumentasi.
 **Keputusan:** `@opennextjs/cloudflare` + `wrangler` (devDependency) dengan `wrangler.jsonc`, `open-next.config.ts`, skrip `cf:build|cf:preview|cf:deploy`. `CLIENT_IP_HEADER=cf-connecting-ip` dipasang di `wrangler.jsonc` supaya batas laju per-IP tidak bergantung pada `x-forwarded-for`. Smart Placement agar Worker dekat Supabase. `output: 'standalone'` dan Dockerfile tetap (jalur cadangan self-host). Terbukti di `wrangler dev` (workerd): `/`, `/events`, `/login`, sitemap, robots, OG image 200; CSP bernonce + HSTS terpasang; tanpa kredensial Supabase server menolak jalan (fail closed) seperti di Vercel.
 
 **Ditolak:** `@cloudflare/next-on-pages` (deprecated, edge-only); Pages (fitur baru hanya ke Workers).
+
+**Koreksi 28 Nov 2026 (ADR-105):** butir (1) usang — Cloudflare menghapus batas ukuran terkompresi pada 4 Sep 2026 (kini 64 MiB tak terkompresi), jadi bundle 4,2 MiB tidak lagi menghalangi paket Free. Penghalang sebenarnya CPU 10 ms/permintaan (terukur 14–43 ms per halaman). Jalur ini kini CADANGAN; target aktif = VM (ADR-105).
 
 **Konsekuensi:** (1) Bundle Worker ±4,2 MiB gzip → **butuh Workers Paid** (batas free 3 MiB). Paket free juga membatasi CPU 10 ms per permintaan — terlalu sempit untuk SSR Next.js dan render PNG, jadi memangkas bundle saja tidak cukup. (2) `NEXT_PUBLIC_*` dibekukan saat build — harus ada di lingkungan `cf:build`. (3) Rahasia server lewat `wrangler secret put`, bukan dasbor Vercel. (4) Render poster/slide server dulu membaca font lewat `fs` — gagal di Workers; diselesaikan ADR-104. (5) Cache data in-memory per isolate, bukan lintas-isolate.
 

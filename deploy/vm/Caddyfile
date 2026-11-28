@@ -1,0 +1,25 @@
+# SITE_HOST = host dari NEXT_PUBLIC_SITE_URL (deploy.sh menulisnya ke .env).
+# Satu nama → satu sertifikat Let's Encrypt; HTTP otomatis dialihkan ke HTTPS.
+#
+# Yang SENGAJA tidak diubah dari bawaan reverse_proxy:
+# - Header Host diteruskan apa adanya. Server Action Next menolak POST yang
+#   Origin-nya tidak cocok dengan Host (CSRF) — me-rewrite Host = semua form
+#   ditolak di produksi.
+# - X-Forwarded-For dari klien DIBUANG lalu diisi IP koneksi asli (tanpa
+#   trusted_proxies). clientIpFrom() memakai entri terakhir header ini, jadi
+#   batas laju per-IP tidak bisa dipalsukan. Kalau nanti Cloudflare dipasang
+#   di depan: CLIENT_IP_HEADER=cf-connecting-ip + firewall hanya IP Cloudflare
+#   (docs/deploy-vm.md § Cloudflare di depan).
+# - Badan permintaan tidak dibatasi di sini; plafon 32 MB dijaga Next
+#   (bodySizeLimit + middlewareClientMaxBodySize, next.config.ts).
+{$SITE_HOST} {
+	encode zstd gzip
+	header -Server
+	reverse_proxy app:3000
+}
+
+# Domain sendiri dengan www → apex: buka komentar, pastikan DNS www menunjuk
+# ke IP VM yang sama, lalu `docker compose restart caddy`.
+# www.{$SITE_HOST} {
+# 	redir https://{$SITE_HOST}{uri} permanent
+# }

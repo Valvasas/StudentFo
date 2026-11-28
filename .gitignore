@@ -47,3 +47,6 @@ playwright-report/
 .open-next
 .wrangler
 .dev.vars
+
+# Rahasia VM (deploy/vm/app.env.example → /opt/studentfo/app.env)
+app.env
